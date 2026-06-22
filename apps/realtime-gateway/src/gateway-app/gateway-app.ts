@@ -198,6 +198,7 @@ const playerSubscriptionSnapshotFromSeedWorld = (
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+    ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
@@ -216,6 +217,7 @@ const jsonSafeTileDeltaBatch = (
     ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
     ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
     ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
+    ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
     ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),

@@ -18,6 +18,11 @@ import {
 import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
+  BREAKTHROUGH_ENABLED,
+  EMPIRE_INTEGRITY_ENABLED,
+  empireIntegrity,
+  integrityEconomyMult,
+  integrityGrowthMult,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
@@ -190,6 +195,7 @@ import {
 } from "../runtime-structure-rules/runtime-structure-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
+  applyBreachToNeighbors as applyBreachToNeighborsImpl,
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
@@ -1047,7 +1053,14 @@ export class SimulationRuntime {
       invalidateEconomyCachesForPlayer: (playerId) => {
         this.economySnapshotCacheByPlayer.delete(playerId);
         this.tileYieldContextCacheByPlayer.delete(playerId);
-      }
+      },
+      integrityGrowthMultForPlayer: EMPIRE_INTEGRITY_ENABLED
+        ? (playerId) => {
+            const summary = this.summaryForPlayer(playerId);
+            const metrics = this.cachedDefensibilityMetrics(playerId, summary);
+            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
+          }
+        : undefined
     });
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
@@ -1260,7 +1273,16 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
-      ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId)
+      ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
+      applyBreachToNeighbors: BREAKTHROUGH_ENABLED
+        ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
+            capturedTile,
+            attackerId,
+            nowMs: this.now(),
+            tiles: this.tiles,
+            invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
+          })
+        : undefined
     };
   }
 
@@ -1484,9 +1506,14 @@ export class SimulationRuntime {
     const cached = this.economySnapshotCacheByPlayer.get(player.id);
     if (cached) return cached;
     const summary = this.summaryForPlayer(player.id);
+    let econMult = 1;
+    if (EMPIRE_INTEGRITY_ENABLED) {
+      const metrics = this.cachedDefensibilityMetrics(player.id, summary);
+      econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+    }
     const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
+    }, econMult);
     this.economySnapshotCacheByPlayer.set(player.id, snapshot);
     return snapshot;
   }
@@ -3765,6 +3792,7 @@ export class SimulationRuntime {
       ownershipState: tile.ownershipState ?? undefined,
       frontierDecayAt: tile.frontierDecayAt ?? undefined,
       frontierDecayKind: tile.frontierDecayKind ?? undefined,
+      breachShockUntil: tile.breachShockUntil ?? undefined,
       ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
