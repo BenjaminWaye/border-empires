@@ -132,6 +132,14 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return out;
   };
 
+  const isDockLinkedToTarget = (dx: number, dy: number, tx: number, ty: number, allowAdjacent: boolean): boolean => {
+    for (const d of dockDestinationsFor(dx, dy)) {
+      if (d.x === tx && d.y === ty) return true;
+      if (allowAdjacent && isAdjacent(d.x, d.y, tx, ty)) return true;
+    }
+    return false;
+  };
+
   const pickDockOriginForTarget = (
     tx: number,
     ty: number,
@@ -139,6 +147,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     allowOptimisticExpandOrigin = true
   ): Tile | undefined => {
     const candidates: Tile[] = [];
+    const targetDockDestinations = dockDestinationsFor(tx, ty);
     for (const t of state.tiles.values()) {
       if (
         t.ownerId !== state.me ||
@@ -148,12 +157,14 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
         isFrontierOriginCutOff(t) ||
         (!allowOptimisticExpandOrigin && t.optimisticPending === "expand")
       ) continue;
-      const linked = dockDestinationsFor(t.x, t.y);
-      for (const d of linked) {
-        if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacent(d.x, d.y, tx, ty))) {
-          candidates.push(t);
-          break;
-        }
+      // Forward: this tile's dock routes reach the target or a tile adjacent to it
+      if (isDockLinkedToTarget(t.x, t.y, tx, ty, allowAdjacentToDock)) {
+        candidates.push(t);
+        continue;
+      }
+      // Reverse (dock-to-dock): the target's own dock routes lead back to this tile
+      if (targetDockDestinations.some(d => d.x === t.x && d.y === t.y)) {
+        candidates.push(t);
       }
     }
     return pickBestOrigin(candidates);
