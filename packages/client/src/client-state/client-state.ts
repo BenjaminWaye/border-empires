@@ -294,6 +294,7 @@ export const createInitialState = () => ({
       previousYield?: { gold: number; strategic: Record<string, number> };
     }
   >(),
+  pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     selfOverall: undefined as LeaderboardOverallEntry | undefined,
