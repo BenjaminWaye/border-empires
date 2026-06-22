@@ -1,4 +1,5 @@
 import { LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -147,7 +148,6 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     allowOptimisticExpandOrigin = true
   ): Tile | undefined => {
     const candidates: Tile[] = [];
-    const targetDockDestinations = dockDestinationsFor(tx, ty);
     for (const t of state.tiles.values()) {
       if (
         t.ownerId !== state.me ||
@@ -157,26 +157,21 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
         isFrontierOriginCutOff(t) ||
         (!allowOptimisticExpandOrigin && t.optimisticPending === "expand")
       ) continue;
-      // Forward: this tile's dock routes reach the target or a tile adjacent to it
       if (isDockLinkedToTarget(t.x, t.y, tx, ty, allowAdjacentToDock)) {
-        candidates.push(t);
-        continue;
-      }
-      // Reverse (dock-to-dock): the target's own dock routes lead back to this tile
-      if (targetDockDestinations.some(d => d.x === t.x && d.y === t.y)) {
         candidates.push(t);
       }
     }
     const result = pickBestOrigin(candidates);
-    if (!result && state.tiles.get(keyFor(tx, ty))?.dockId) {
-      const playerDocks = [...state.tiles.values()].filter(t => t.ownerId === state.me && t.dockId);
-      console.warn("[dock-origin] pickDockOriginForTarget returned undefined for dock target", {
-        target: { x: tx, y: ty },
-        allowAdjacentToDock,
-        allowOptimisticExpandOrigin,
-        dockPairs: state.dockPairs,
-        playerDockTiles: playerDocks.map(t => ({ x: t.x, y: t.y, dockId: t.dockId, ownershipState: t.ownershipState, optimisticPending: t.optimisticPending, cutOff: isFrontierOriginCutOff(t) })),
-        targetDockDestinations,
+    if (!result && tileSyncDebugEnabled() && state.tiles.get(keyFor(tx, ty))?.dockId) {
+      const playerDocks: Array<Record<string, unknown>> = [];
+      for (const t of state.tiles.values()) {
+        if (t.ownerId === state.me && t.dockId) {
+          playerDocks.push({ x: t.x, y: t.y, dockId: t.dockId, ownershipState: t.ownershipState, optimisticPending: t.optimisticPending, cutOff: isFrontierOriginCutOff(t) });
+        }
+      }
+      console.warn("[dock-origin] pickDockOriginForTarget: no origin for dock target", {
+        target: { x: tx, y: ty }, allowAdjacentToDock, allowOptimisticExpandOrigin,
+        dockPairs: state.dockPairs, playerDocks,
       });
     }
     return result;
