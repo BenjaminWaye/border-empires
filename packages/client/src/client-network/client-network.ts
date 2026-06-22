@@ -998,6 +998,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -1034,6 +1035,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -2655,6 +2657,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
+        const pending = state.pendingShardCollect;
+        if (pending && msg.code === "COLLECT_NOT_OWNED") {
+          const tile = state.tiles.get(pending.tileKey);
+          if (tile) state.tiles.set(pending.tileKey, { ...tile, shardSite: pending.shardSite });
+          renderHud();
+        }
+        state.pendingShardCollect = undefined;
       }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
@@ -3099,6 +3108,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "COLLECT_RESULT") {
       state.pendingCollectVisibleKeys.clear();
+      state.pendingShardCollect = undefined;
       if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
       if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
         clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
@@ -3128,6 +3138,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
       }
+      state.pendingShardCollect = undefined;
       state.tiles.clear();
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
