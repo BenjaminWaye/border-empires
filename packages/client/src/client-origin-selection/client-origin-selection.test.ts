@@ -180,4 +180,31 @@ describe("createClientOriginSelection", () => {
     expect(origin).toBeDefined();
     expect(origin!.dockId).toBe("dockB");
   });
+
+  it("picks a dock origin for a dock-to-dock attack (target is the dock destination)", () => {
+    const { state, selector } = createSelector();
+    // Player dock P on island A, enemy dock E on island B.
+    // Dock pair directly connects P → E; the attack target IS the enemy dock tile.
+    addTile(state, { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dockP" });
+    addTile(state, { x: 20, y: 8, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", dockId: "dockE" });
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 20, by: 8 }];
+
+    const origin = selector.pickOriginForTarget(20, 8);
+    expect(origin).toBeDefined();
+    expect(origin!.x).toBe(5);
+    expect(origin!.y).toBe(5);
+  });
+
+  it("picks a dock origin via reverse lookup when target dock routes lead to the player tile", () => {
+    const { state, selector } = createSelector();
+    // Pair stored with enemy dock as the ax/ay endpoint — reverse direction.
+    addTile(state, { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dockP" });
+    addTile(state, { x: 20, y: 8, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", dockId: "dockE" });
+    state.dockPairs = [{ ax: 20, ay: 8, bx: 5, by: 5 }];
+
+    const origin = selector.pickOriginForTarget(20, 8);
+    expect(origin).toBeDefined();
+    expect(origin!.x).toBe(5);
+    expect(origin!.y).toBe(5);
+  });
 });
