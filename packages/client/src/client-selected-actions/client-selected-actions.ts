@@ -160,7 +160,7 @@ export const collectSelectedYield = (
 };
 
 export const collectSelectedShard = (
-  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile">,
+  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect">,
   deps: {
     keyFor: (x: number, y: number) => string;
     renderHud: () => void;
@@ -169,10 +169,12 @@ export const collectSelectedShard = (
 ): void => {
   const selected = state.selected;
   if (!selected) return;
-  const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
+  const tileKey = deps.keyFor(selected.x, selected.y);
+  const tile = state.tiles.get(tileKey);
   const shardSite = visibleShardSiteForTile(tile, state.shardRainPingsByTile);
   if (!tile || !shardSite) return;
-  state.tiles.set(deps.keyFor(selected.x, selected.y), { ...tile, shardSite: null });
+  state.pendingShardCollect = { tileKey, shardSite };
+  state.tiles.set(tileKey, { ...tile, shardSite: null });
   deps.renderHud();
   deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y });
 };
