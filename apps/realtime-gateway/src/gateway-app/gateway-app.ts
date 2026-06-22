@@ -2955,11 +2955,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          const authedSession = {
-            sessionId: session.sessionId,
-            playerId: session.playerId,
-            nextClientSeq: session.nextClientSeq
-          };
+          // Alias — NOT a snapshot. submitDurableCommand increments nextClientSeq
+          // synchronously before its first await; using a copy here caused a race
+          // where two concurrent WS messages both snapshotted the same seq value,
+          // producing a UNIQUE constraint violation on (player_id, client_seq).
+          const authedSession = session as GatewaySocketSession;
           // For ATTACK/EXPAND commands we pre-generate the commandId so the
           // expand tracer can use it as a correlationId from the moment the
           // message arrives — before submitDurableCommand assigns it.
@@ -3628,7 +3628,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             );
             expandTracer?.done();
           }
-          session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {
           recordGatewayEvent("error", "gateway_websocket_message_failed", {
             messageType,
