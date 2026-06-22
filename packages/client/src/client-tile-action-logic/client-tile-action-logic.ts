@@ -30,6 +30,7 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
+import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "../client-map-display.js";
@@ -2116,8 +2117,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const previewPending = deps.attackPreviewPendingForTarget(tile);
     const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, false);
     const reachable = Boolean(barbOrigin) || Boolean(tile.dockId);
-    if (tile.dockId && !barbOrigin) {
-      console.warn("[dock-attack] Launch Attack enabled via tile.dockId shortcut but no dock origin found (barb tile)", {
+    if (tile.dockId && !barbOrigin && tileSyncDebugEnabled()) {
+      console.warn("[dock-attack] Launch Attack enabled via tile.dockId shortcut but no dock origin found (barb)", {
         tile: { x: tile.x, y: tile.y, dockId: tile.dockId },
       });
     }
@@ -2140,7 +2141,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   const originForDock = deps.pickOriginForTarget(tile.x, tile.y, false);
   const reachable = Boolean(originForDock) || Boolean(tile.dockId);
-  if (tile.dockId && !originForDock) {
+  if (tile.dockId && !originForDock && tileSyncDebugEnabled()) {
     console.warn("[dock-attack] Launch Attack enabled via tile.dockId shortcut but no dock origin found", {
       tile: { x: tile.x, y: tile.y, dockId: tile.dockId, ownerId: tile.ownerId },
     });

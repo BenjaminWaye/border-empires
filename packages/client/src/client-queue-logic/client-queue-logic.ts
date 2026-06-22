@@ -1,6 +1,6 @@
 import { FRONTIER_CLAIM_COST, MUSTER_ATTACK_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   clearSkippedAutoSettlementTileKeyForPlayer,
   persistDevelopmentQueueForPlayer,
@@ -1169,11 +1169,13 @@ export const processActionQueue = (
       continue;
     }
     if (!from && to.ownerId && to.dockId) {
-      console.warn("[dock-attack] from=to fallback fired — no origin found for enemy dock target", {
-        target: { x: to.x, y: to.y, dockId: to.dockId, ownerId: to.ownerId },
-        optimisticFrom: optimisticFrom ? { x: optimisticFrom.x, y: optimisticFrom.y, dockId: optimisticFrom.dockId } : null,
-        selectedFrom: selectedFrom ? { x: selectedFrom.x, y: selectedFrom.y, ownerId: selectedFrom.ownerId } : null,
-      });
+      if (tileSyncDebugEnabled()) {
+        console.warn("[dock-attack] from=to fallback fired — no origin found for dock target", {
+          target: { x: to.x, y: to.y, dockId: to.dockId, ownerId: to.ownerId },
+          optimisticFrom: optimisticFrom ? { x: optimisticFrom.x, y: optimisticFrom.y, dockId: optimisticFrom.dockId } : null,
+          selectedFrom: selectedFrom ? { x: selectedFrom.x, y: selectedFrom.y, ownerId: selectedFrom.ownerId } : null,
+        });
+      }
       from = to;
     }
     if (!from) {
