@@ -147,6 +147,7 @@ type StartClientRuntimeLoopDeps = {
 };
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
+  let advanceSrcCache2D: { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
   let lastDrawAt = 0;
   let lastFpsPaintAt = 0;
   let lowFpsRendererHudPinged = false;
@@ -1507,18 +1508,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     // 2D supply line: flag → attack front, only for attacks on owned tiles (not neutral expands).
     // For ADVANCE mode, scan for the adjacent muster tile that fired the attack.
-    const targetOwned = Boolean(state.tiles.get(state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "")?.ownerId);
-    const musterSupplySrc = state.activeMusterSource ?? (targetOwned ? (() => {
-      if (!state.capture) return undefined;
-      let bestTile: { x: number; y: number } | undefined;
-      let bestDist = Infinity;
-      const tgt = state.capture.target;
-      for (const tile of state.tiles.values()) {
-        if (!tile.muster || tile.muster.ownerId !== state.me || tile.muster.mode !== "ADVANCE") continue;
-        const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
-        if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
+    const captureTargetKey2D = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
+    const targetOwned = Boolean(state.tiles.get(captureTargetKey2D)?.ownerId);
+    const musterSupplySrc = state.activeMusterSource ?? (targetOwned && state.capture ? (() => {
+      if (advanceSrcCache2D?.targetKey !== captureTargetKey2D) {
+        let bestTile: { x: number; y: number } | undefined;
+        let bestDist = Infinity;
+        const tgt = state.capture.target;
+        for (const tile of state.tiles.values()) {
+          if (!tile.muster || tile.muster.ownerId !== state.me || tile.muster.mode !== "ADVANCE") continue;
+          const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
+          if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
+        }
+        advanceSrcCache2D = { targetKey: captureTargetKey2D, result: bestTile };
       }
-      return bestTile;
+      return advanceSrcCache2D.result;
     })() : undefined);
     if (!isTrue3DRendererActive() && musterSupplySrc && state.capture) {
       const src = musterSupplySrc;
