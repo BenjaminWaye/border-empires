@@ -1508,8 +1508,16 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     let econMult = 1;
     if (EMPIRE_INTEGRITY_ENABLED) {
-      const metrics = this.cachedDefensibilityMetrics(player.id, summary);
-      econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+      // Read from the defensibility cache without triggering a rebuild here —
+      // emitPlayerStateUpdate always calls cachedDefensibilityMetrics() before
+      // cachedEconomySnapshot(), so the cache is warm on the normal command path.
+      // Callers outside emitPlayerStateUpdate (login snapshot, passive income)
+      // get econMult=1 when the cache is cold, which is acceptable because
+      // emitPlayerStateUpdate will emit the corrected value in the same tick.
+      const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
+      if (metrics) {
+        econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+      }
     }
     const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
@@ -2650,8 +2658,11 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(playerId);
     // Use cached snapshots — O(1) on cache hit (rebuilt at most once per tile
     // mutation via replaceTileState invalidation).
-    const economy = this.cachedEconomySnapshot(player);
+    // Defensibility must be computed before the economy snapshot so that
+    // cachedEconomySnapshot can read the warm defensibility cache and apply
+    // the correct integrity economy multiplier without triggering its own rebuild.
     const metrics = this.cachedDefensibilityMetrics(playerId, summary);
+    const economy = this.cachedEconomySnapshot(player);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
     const storageCap = computeEmpireStorageCap(summary, economy.incomePerMinute, economy.strategicProductionPerMinute);
     const lastCap = this.lastEmittedStorageCapByPlayer.get(playerId);
@@ -3242,7 +3253,7 @@ export class SimulationRuntime {
       commandId: command.commandId,
       playerId: command.playerId,
       mode: "visible",
-      tiles: 0,
+      tiles: this.yieldBearingTilesByOwner.get(command.playerId)?.size ?? 0,
       gold: goldCredited,
       strategic
     });

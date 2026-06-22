@@ -37,19 +37,6 @@ export const connectedTownBonusForPlayer = (
     .reduce((total, baseStep) => total + baseStep + stepBonusAdd, 0);
 };
 
-const settledLandKeysForPlayer = (
-  playerId: string,
-  tiles: Iterable<DomainTileState>
-): Set<string> => {
-  const out = new Set<string>();
-  for (const tile of tiles) {
-    if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.terrain === "LAND") {
-      out.add(keyFor(tile.x, tile.y));
-    }
-  }
-  return out;
-};
-
 export const buildConnectedTownNetworkForPlayer = (
   player: EconomyPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -57,54 +44,105 @@ export const buildConnectedTownNetworkForPlayer = (
   options: ConnectedTownNetworkOptions = {}
 ): Map<string, ConnectedTownNetworkEntry> => {
   const maxConnectedTownNames = Math.max(0, options.maxConnectedTownNames ?? Number.POSITIVE_INFINITY);
-  const settledTiles = [...playerSettledTiles];
-  const settledLand = settledLandKeysForPlayer(player.id, settledTiles);
+
+  // Partition settled land into town tiles and non-town tiles (corridor tiles).
+  // Town tiles act as both barriers and connection endpoints; non-town tiles
+  // form the land corridors connecting towns.
   const ownedTownKeys = new Set<string>();
-  for (const tile of settledTiles) {
-    if (tile.ownerId === player.id && tile.ownershipState === "SETTLED" && tile.town) {
-      ownedTownKeys.add(keyFor(tile.x, tile.y));
+  const nonTownSettledKeys = new Set<string>();
+  for (const tile of playerSettledTiles) {
+    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    const k = keyFor(tile.x, tile.y);
+    if (tile.town) {
+      ownedTownKeys.add(k);
+    } else {
+      nonTownSettledKeys.add(k);
     }
   }
-  const out = new Map<string, ConnectedTownNetworkEntry>();
 
-  for (const startTownKey of ownedTownKeys) {
-    const bfsVisited = new Set<string>([startTownKey]);
-    const queue = [startTownKey];
+  // directConnectionsByTown[A] = Set of towns B such that A and B are directly
+  // connected (reachable from each other without passing through another town).
+  const directConnectionsByTown = new Map<string, Set<string>>();
+  for (const townKey of ownedTownKeys) {
+    directConnectionsByTown.set(townKey, new Set());
+  }
+
+  // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
+  // These are connected regardless of the corridor graph.
+  for (const townKey of ownedTownKeys) {
+    const [rawX, rawY] = townKey.split(",");
+    const cx = Number(rawX), cy = Number(rawY);
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nextKey = keyFor(cx + dx, cy + dy);
+        if (ownedTownKeys.has(nextKey)) {
+          directConnectionsByTown.get(townKey)?.add(nextKey);
+        }
+      }
+    }
+  }
+
+  // Step 2: single BFS pass over connected components of non-town settled tiles.
+  // Replaces K separate per-town BFS runs (O(K×N)) with O(N + K²) total work.
+  // For each component, every town 8-adjacent to any tile in that component can
+  // reach every other such town through the corridor — they are all directly
+  // connected to each other.
+  const visited = new Set<string>();
+  const queue: string[] = [];
+
+  for (const startKey of nonTownSettledKeys) {
+    if (visited.has(startKey)) continue;
+
+    visited.add(startKey);
+    queue.length = 0;
+    queue.push(startKey);
     let readIndex = 0;
-    const directTownKeys: string[] = [];
+    const adjacentTownKeys = new Set<string>();
 
     while (readIndex < queue.length) {
-      const current = queue[readIndex]!;
-      readIndex += 1;
-
-      if (current !== startTownKey && ownedTownKeys.has(current)) {
-        // This is a different town — count it as a direct connection but stop traversal here.
-        directTownKeys.push(current);
-        continue;
-      }
-
+      const current = queue[readIndex++]!;
       const [rawX, rawY] = current.split(",");
-      const cx = Number(rawX);
-      const cy = Number(rawY);
+      const cx = Number(rawX), cy = Number(rawY);
       if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+
       for (let dy = -1; dy <= 1; dy += 1) {
         for (let dx = -1; dx <= 1; dx += 1) {
           if (dx === 0 && dy === 0) continue;
           const nextKey = keyFor(cx + dx, cy + dy);
-          if (!settledLand.has(nextKey) || bfsVisited.has(nextKey)) continue;
-          bfsVisited.add(nextKey);
+          if (ownedTownKeys.has(nextKey)) {
+            adjacentTownKeys.add(nextKey);
+            continue;
+          }
+          if (!nonTownSettledKeys.has(nextKey) || visited.has(nextKey)) continue;
+          visited.add(nextKey);
           queue.push(nextKey);
         }
       }
     }
 
-    directTownKeys.sort((l, r) => l.localeCompare(r));
+    // All towns adjacent to this component are directly connected to each other.
+    const adjacentTownList = [...adjacentTownKeys];
+    for (let i = 0; i < adjacentTownList.length; i++) {
+      for (let j = i + 1; j < adjacentTownList.length; j++) {
+        const a = adjacentTownList[i]!;
+        const b = adjacentTownList[j]!;
+        directConnectionsByTown.get(a)?.add(b);
+        directConnectionsByTown.get(b)?.add(a);
+      }
+    }
+  }
+
+  // Build output entries.
+  const out = new Map<string, ConnectedTownNetworkEntry>();
+  for (const [startTownKey, directTownKeySet] of directConnectionsByTown) {
+    const directTownKeys = [...directTownKeySet].sort((l, r) => l.localeCompare(r));
     const townNameByKey = new Map<string, string>();
     for (const townKey of directTownKeys) {
       const name = tiles.get(townKey)?.town?.name;
       if (typeof name === "string" && name.length > 0) townNameByKey.set(townKey, name);
     }
-
     const connectedTownCount = directTownKeys.length;
     const connectedTownNames =
       maxConnectedTownNames > 0 && connectedTownCount <= maxConnectedTownNames
