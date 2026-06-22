@@ -1,5 +1,6 @@
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
 import { renderClientChangelogOverlay } from "../client-changelog/client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
@@ -977,6 +978,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       settledT: state.settledT,
       settledE: state.settledE,
       showWeakDefensibility: state.showWeakDefensibility,
+      empireIntegrityEnabled: EMPIRE_INTEGRITY_ENABLED,
       keyFor,
       wrapX,
       wrapY,

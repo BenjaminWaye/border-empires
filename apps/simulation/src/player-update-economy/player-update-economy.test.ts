@@ -292,3 +292,55 @@ describe("refreshTownEconomyFields", () => {
     expect(refreshed.isFed).toBe(true);
   });
 });
+
+describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
+  const makeSettledTownTile = (x: number, y: number): DomainTileState => ({
+    x,
+    y,
+    terrain: "LAND",
+    ownerId: "player-1",
+    ownershipState: "SETTLED",
+    town: { type: "FARMING", populationTier: "TOWN", name: `Town${x}` }
+  });
+
+  const player = makePlayer();
+
+  it("default mult=1 produces identical output to explicit mult=1 (parity)", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
+    const explicit = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    expect(base.incomePerMinute).toBe(explicit.incomePerMinute);
+    expect(base.strategicProductionPerMinute).toEqual(explicit.strategicProductionPerMinute);
+  });
+
+  it("high mult scales up incomePerMinute", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
+    expect(boosted.incomePerMinute).toBeGreaterThan(base.incomePerMinute);
+  });
+
+  it("high mult scales up strategicProductionPerMinute values", () => {
+    const ironTile: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON"
+    };
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", makeSettledTownTile(10, 10)],
+      ["11,10", ironTile]
+    ]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
+    expect(boosted.strategicProductionPerMinute.IRON).toBeGreaterThan(base.strategicProductionPerMinute.IRON);
+  });
+
+  it("low mult (< 1) reduces incomePerMinute", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const reduced = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 0.8);
+    expect(reduced.incomePerMinute).toBeLessThan(base.incomePerMinute);
+  });
+});

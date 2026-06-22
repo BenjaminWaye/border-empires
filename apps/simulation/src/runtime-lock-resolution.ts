@@ -41,6 +41,7 @@ export type RuntimeLockResolutionContext = {
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
   respawnIfEliminated: (playerId: string, commandId: string) => void;
   ensureGrossIncomeSettlementForPlayer: (playerId: string, commandId: string) => boolean;
+  applyBreachToNeighbors?: ((capturedTile: DomainTileState, attackerId: string) => DomainTileState[]) | undefined;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -161,6 +162,15 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       }
     }
     context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });
+    const breachedTiles = context.applyBreachToNeighbors?.(resolvedTarget, lock.playerId);
+    if (breachedTiles && breachedTiles.length > 0) {
+      context.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `breach:${lock.targetKey}:${context.now()}`,
+        playerId: "__broadcast__",
+        tileDeltas: breachedTiles.map((t) => context.tileDeltaFromState(t))
+      });
+    }
     if (hadMuster) {
       context.emitEvent({
         eventType: "TILE_DELTA_BATCH",

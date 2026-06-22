@@ -1,4 +1,4 @@
-import { fullDefensibilityExposureForTiles, idealExposureForTiles } from "@border-empires/shared";
+import { fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 
@@ -18,6 +18,7 @@ type DefensibilityArgs = {
   settledT: number;
   settledE: number;
   showWeakDefensibility: boolean;
+  empireIntegrityEnabled: boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -133,5 +134,22 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       <strong>How to make it better</strong>
       ${summary.tips.map((tip) => `<div class="defense-tip">${tip}</div>`).join("")}
     </article>
+    ${args.empireIntegrityEnabled ? (() => {
+      const t = Math.max(0, Math.min(1, args.defensibilityPct / 100));
+      const econMult = integrityEconomyMult(t);
+      const growthMult = integrityGrowthMult(t);
+      const econPct = Math.round((econMult - 1) * 100);
+      const growthPct = Math.round((growthMult - 1) * 100);
+      const sign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
+      const cls = (n: number) => (n >= 0 ? "is-positive" : "is-negative");
+      return `<article class="card defense-breakdown-card">
+        <strong>Empire Integrity bonus</strong>
+        <p class="defense-copy">A compact empire earns an economy and growth bonus proportional to your defensibility score.</p>
+        <div class="defense-stat-grid">
+          <div class="defense-stat"><span>Income bonus</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
+          <div class="defense-stat"><span>Growth bonus</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
+        </div>
+      </article>`;
+    })() : ""}
   </div>`;
 };
