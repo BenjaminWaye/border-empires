@@ -7,6 +7,23 @@ type PlayerStateSnapshot = NonNullable<PlayerSubscriptionSnapshot["player"]>;
 
 const tileKeyFor = (x: number, y: number): string => `${x},${y}`;
 
+// Cache tile key → array-index for each tiles array so applyTileDeltasToSnapshot
+// can look up positions in O(delta) instead of scanning O(N_tiles) every call.
+// WeakMap ensures the index is GC'd alongside the tiles array itself.
+const tileIndexByArray = new WeakMap<
+  ReadonlyArray<TileDelta>,
+  Map<string, number>
+>();
+
+const buildTileIndex = (tiles: ReadonlyArray<TileDelta>): Map<string, number> => {
+  const index = new Map<string, number>();
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i]!;
+    index.set(tileKeyFor(t.x, t.y), i);
+  }
+  return index;
+};
+
 const playerProgressionFieldsFromPayload = (
   payload: Record<string, unknown>
 ): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown" | "chosenTrickleResource">> => {
@@ -28,29 +45,37 @@ export const applyTileDeltasToSnapshot = (
 ): PlayerSubscriptionSnapshot => {
   if (tileDeltas.length === 0) return snapshot;
 
-  // Build the lookup from the small delta list (O(delta)), not the full snapshot
-  // (O(N)). For a 45-tile barbarian tick against a 12k-tile snapshot the old
-  // approach built a 12k-entry Map then sorted 12k entries every time.
-  const deltaByKey = new Map<string, TileDelta>(
-    tileDeltas.map((td) => [tileKeyFor(td.x, td.y), td] as const)
-  );
+  // Get or build the key→index map for this tiles array. O(N) only on first
+  // call per array reference; subsequent calls are O(delta).
+  let index = tileIndexByArray.get(snapshot.tiles);
+  if (!index) {
+    index = buildTileIndex(snapshot.tiles);
+    tileIndexByArray.set(snapshot.tiles, index);
+  }
 
+  // Shallow-copy the array so we can update individual positions without
+  // mutating the existing snapshot (immutable update pattern).
+  const nextTiles = snapshot.tiles.slice() as TileDelta[];
   let hasInsertions = false;
-  const nextTiles = snapshot.tiles.map((tile) => {
-    const key = tileKeyFor(tile.x, tile.y);
-    const delta = deltaByKey.get(key);
-    if (!delta) return tile;
-    deltaByKey.delete(key);
-    return { ...tile, ...delta };
-  });
 
-  for (const delta of deltaByKey.values()) {
-    nextTiles.push({ ...delta });
-    hasInsertions = true;
+  for (const delta of tileDeltas) {
+    const key = tileKeyFor(delta.x, delta.y);
+    const pos = index.get(key);
+    if (pos !== undefined) {
+      nextTiles[pos] = { ...nextTiles[pos]!, ...delta };
+    } else {
+      nextTiles.push({ ...delta });
+      hasInsertions = true;
+    }
   }
 
   if (hasInsertions) {
     nextTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    // Array positions shifted by sort — rebuild the index from scratch.
+    tileIndexByArray.set(nextTiles, buildTileIndex(nextTiles));
+  } else {
+    // No insertions: positions unchanged, reuse the same index for the next call.
+    tileIndexByArray.set(nextTiles, index);
   }
 
   return { ...snapshot, tiles: nextTiles };
