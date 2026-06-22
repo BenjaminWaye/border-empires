@@ -51,6 +51,7 @@ export function tickPopulationGrowth(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
+  integrityGrowthMultForPlayer?: ((playerId: string) => number) | undefined;
 }): {
   growthStalledNoFood: number;
   townsGrown: number;
@@ -109,6 +110,7 @@ export function tickPopulationGrowth(input: {
     const firstThreeKeys = firstThreePopMult !== 1
       ? firstThreeTownKeysForPlayer(player.id, ownedTowns.keys())
       : new Set<string>();
+    const integrityGrowthMult = input.integrityGrowthMultForPlayer?.(player.id) ?? 1;
 
     // Accumulate all tile deltas for this player and emit ONE batch event per
     // player instead of one per town. Reduces ~50 event pipeline calls to ~6.
@@ -191,6 +193,7 @@ export function tickPopulationGrowth(input: {
         granaryGrowthMult *
         firstThreeMult *
         longPeaceMult *
+        integrityGrowthMult *
         logisticFactor;
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;

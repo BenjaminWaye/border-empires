@@ -19,10 +19,31 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.22.1",
+  version: "2026.06.22.2",
   title: "What's New",
-  summary: "Waterworks now correctly boosts nearby Farmstead food production, and shows a green range indicator on the map.",
+  summary: "Breakthrough momentum and Empire Integrity bonuses now available.",
   entries: [
+    {
+      introducedIn: "2026.06.22.2",
+      title: "Breakthrough momentum",
+      why: "Winning a tile felt disconnected from the next attack — there was no incentive to push into a gap once you made one.",
+      changes: [
+        "When you capture a tile, the 4 cardinal enemy-owned neighbours enter a 60-second breach window.",
+        "Breached tiles have their combat defence reduced by 30%, so a quick follow-up attack is easier to win.",
+        "The breach expires naturally — if you don't press the advantage in 60 seconds, the defender's position resets."
+      ]
+    },
+    {
+      introducedIn: "2026.06.22.2",
+      title: "Empire Integrity",
+      why: "Wide, sprawling empires were just as effective as tight blobs — there was no economic reward for building defensible shapes.",
+      changes: [
+        "Compact empires now earn an income and population-growth bonus proportional to their defensibility score.",
+        "At 100% defensibility the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
+        "The bonus is visible in the Empire Integrity panel (renamed from Defensibility).",
+        "AI players also prefer settling tiles that improve the compactness of their empire."
+      ]
+    },
     {
       introducedIn: "2026.06.22.1",
       title: "Waterworks boost working",
