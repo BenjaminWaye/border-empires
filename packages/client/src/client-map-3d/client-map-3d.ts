@@ -45,6 +45,8 @@ import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.
 import { createUnfedBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
+import { createMusterCombatFx } from "../client-map-3d-muster-combat-fx.js";
+import { syncCaptureOverlays } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -138,6 +140,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
+  const musterCombatFx = createMusterCombatFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
@@ -991,7 +994,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
-    if (!capture || !capture.silent) {
+    if (!capture || !capture.silent || capture.fromMusterAdvance) {
       frontierClaimPlate.visible = false;
       return;
     }
@@ -1632,49 +1635,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit();
-    // Supply line from closest muster flag to attack front.
-    // For ADVANCE mode, find the adjacent muster tile that auto-fired.
-    {
-      const capture = deps.state.capture;
-      const advanceSrc = !deps.state.activeMusterSource && capture ? (() => {
-        // Find the ADVANCE muster tile closest to the capture target.
-        let bestTile: { x: number; y: number } | undefined;
-        let bestDist = Infinity;
-        const tgt = capture.target;
-        for (const tile of deps.state.tiles.values()) {
-          if (!tile.muster || tile.muster.ownerId !== deps.state.me || tile.muster.mode !== "ADVANCE") continue;
-          const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
-          if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
-        }
-        return bestTile;
-      })() : undefined;
-      const src = deps.state.activeMusterSource ?? advanceSrc;
-      const transit = deps.state.musterTransit;
-      if (src && capture) {
-        const phase = transit ? "transit" : "locked";
-        const [srcWx, srcWy] = [src.x, src.y];
-        const [tgtWx, tgtWy] = [capture.target.x, capture.target.y];
-        const srcDx = toroidDelta(deps.state.camX, srcWx, WORLD_WIDTH);
-        const srcDy = toroidDelta(deps.state.camY, srcWy, WORLD_HEIGHT);
-        const tgtDx = toroidDelta(deps.state.camX, tgtWx, WORLD_WIDTH);
-        const tgtDy = toroidDelta(deps.state.camY, tgtWy, WORLD_HEIGHT);
-        const srcSurfaceY = Math.max(
-          heightfield.elevationAt(srcWx, srcWy),
-          heightfield.cornerYAt(srcWx, srcWy)
-        );
-        const tgtSurfaceY = Math.max(
-          heightfield.elevationAt(tgtWx, tgtWy),
-          heightfield.cornerYAt(tgtWx, tgtWy)
-        );
-        const ownerColor = deps.effectiveOverlayColor(deps.state.me ?? "");
-        supplyLineOverlay.addLine(
-          srcDx + TILE_CENTER_OFFSET, srcDy + TILE_CENTER_OFFSET, srcSurfaceY,
-          tgtDx + TILE_CENTER_OFFSET, tgtDy + TILE_CENTER_OFFSET, tgtSurfaceY,
-          phase,
-          ownerColor
-        );
-      }
-    }
+    syncCaptureOverlays(
+      deps.state,
+      deps.keyFor,
+      deps.effectiveOverlayColor,
+      heightfield,
+      supplyLineOverlay,
+      musterCombatFx
+    );
     supplyLineOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
@@ -1748,6 +1716,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
+    musterCombatFx.tick(nowMs, deps.state.capture);
     supplyLineOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
@@ -1847,6 +1816,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     musterOverlay.dispose();
+    musterCombatFx.dispose();
     supplyLineOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();

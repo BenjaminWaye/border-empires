@@ -248,7 +248,7 @@ export const createInitialState = () => ({
     screenY: number;
     radius: number;
   }>,
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean } | undefined,
+  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean; fromMusterAdvance?: boolean } | undefined,
   musterTransit: undefined as {
     musterX: number;
     musterY: number;
@@ -507,5 +507,4 @@ export const createInitialState = () => ({
   firstChunkAt: 0,
   chunkFullCount: 0
 });
-
 export type ClientState = ReturnType<typeof createInitialState>;
