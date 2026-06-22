@@ -182,5 +182,9 @@ export const collectSelectedShard = (
   state.pendingShardCollect = { tileKey, shardSite };
   state.tiles.set(tileKey, { ...tile, shardSite: null });
   deps.renderHud();
-  deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y });
+  if (!deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y })) {
+    state.tiles.set(tileKey, { ...tile, shardSite });
+    state.pendingShardCollect = undefined;
+    deps.renderHud();
+  }
 };
