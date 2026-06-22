@@ -83,8 +83,6 @@ export function createMusterCombatFx(scene: Scene) {
   let cache: CachedSetup | undefined;
 
   const setSource = (
-    source: { wx: number; wy: number },
-    target: { wx: number; wy: number },
     srcSurfaceY: number,
     tgtSurfaceY: number,
     srcWorldX: number,

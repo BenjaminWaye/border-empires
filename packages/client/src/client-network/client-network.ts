@@ -1682,7 +1682,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       // when the server confirms acceptance.
       const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
       const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
-      state.capture = { startAt: state.actionStartedAt || Date.now(), resolvesAt: msg.resolvesAt as number, target, ...(wasSilent || isMusterAdvance ? { silent: true, ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}) } : {}) };
+      state.capture = {
+        startAt: state.actionStartedAt || Date.now(),
+        resolvesAt: msg.resolvesAt as number,
+        target,
+        ...(wasSilent || isMusterAdvance ? { silent: true } : {}),
+        ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
+      };
       state.actionTargetKey = targetKey;
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
       frontierQueueDebug("action_accepted_applied", {
@@ -1865,8 +1871,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
       const preservedSilent = Boolean(existingCapture?.silent);
+      const preservedFromMusterAdvance = Boolean(existingCapture?.fromMusterAdvance);
       const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
-      state.capture = { startAt, resolvesAt: resolvesAtForCapture, target, ...(preservedSilent || isMusterAdvance ? { silent: true, ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}) } : {}) };
+      state.capture = {
+        startAt,
+        resolvesAt: resolvesAtForCapture,
+        target,
+        ...(preservedSilent || isMusterAdvance ? { silent: true } : {}),
+        ...(preservedFromMusterAdvance || isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
+      };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
         const predictedAlert = combatResolutionAlert(lockedCombatResult, {

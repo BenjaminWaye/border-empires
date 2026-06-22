@@ -52,8 +52,6 @@ export function syncCaptureOverlays(
     ownerColor
   );
   musterCombatFx.setSource(
-    { wx: srcWx, wy: srcWy },
-    { wx: tgtWx, wy: tgtWy },
     srcSurfaceY, tgtSurfaceY,
     srcDx + TILE_CENTER_OFFSET, srcDy + TILE_CENTER_OFFSET,
     tgtDx + TILE_CENTER_OFFSET, tgtDy + TILE_CENTER_OFFSET,
