@@ -2653,22 +2653,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       populationGrowthTicker = setInterval(() => {
         try {
           const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
-          const { growthStalledNoFood, playersSkippedNoFedTowns, playerDiag } = growthResult;
-          // Warn only on genuine anomalies: food-starved growth or players with zero food upkeep capacity.
-          // War pauses, capture shock, and logistic cap are normal gameplay states.
-          if (growthStalledNoFood > 0 || playersSkippedNoFedTowns > 0 || playerDiag.size > 0) {
-            const stalledPlayers: Record<string, unknown> = {};
-            for (const [pid, d] of playerDiag) stalledPlayers[pid] = d;
-            log.warn({
-              growthStalledNoFood,
-              playersSkippedNoFedTowns,
-              townsGrown: growthResult.townsGrown,
-              townsSkippedWar: growthResult.townsSkippedWar,
-              townsSkippedCaptureShock: growthResult.townsSkippedCaptureShock,
-              townsSkippedUnfed: growthResult.townsSkippedUnfed,
-              townsSkippedLogisticCap: growthResult.townsSkippedLogisticCap,
-              stalledPlayers
-            }, "[pop_growth] growth stalled — eligible towns with zero growth this tick");
+          if (growthResult) {
+            const { townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedCaptureShock, townsSkippedUnfed, townsSkippedLogisticCap, playersSkippedNoFedTowns, playerDiag } = growthResult;
+            const anyStalled = growthStalledNoFood > 0 || townsSkippedUnfed > 0 || playersSkippedNoFedTowns > 0;
+            if (anyStalled || townsGrown === 0) {
+              const diagByPlayer: Record<string, unknown> = {};
+              for (const [pid, d] of playerDiag) {
+                if (d.grown === 0 && d.totalTowns > 0) diagByPlayer[pid] = d;
+              }
+              log.warn({
+                townsGrown,
+                growthStalledNoFood,
+                townsSkippedWar,
+                townsSkippedCaptureShock,
+                townsSkippedUnfed,
+                townsSkippedLogisticCap,
+                playersSkippedNoFedTowns,
+                stalledPlayers: diagByPlayer
+              }, "[pop_growth] growth stalled or zero this tick");
+            } else {
+              log.info({ townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedUnfed }, "[pop_growth] tick ok");
+            }
           }
         } catch (error) {
           log.error({ err: error }, "population growth tick failed");
