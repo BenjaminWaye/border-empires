@@ -137,6 +137,7 @@ const conqueredTileLabel = (
 ): string => {
   if (tile?.town?.name) return tile.town.name;
   if (tile?.town) return "Town";
+  if (tile?.dockId) return "Dock";
   if (tile?.resource) return deps.prettyToken(deps.resourceLabel(tile.resource));
   if (target) return deps.prettyToken(deps.terrainLabel(target.x, target.y, tile?.terrain ?? deps.terrainAt(target.x, target.y)));
   return "Territory";
