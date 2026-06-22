@@ -506,6 +506,11 @@ export class SimulationRuntime {
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
+  // Throttle per-tick respawn attempts for eliminated AI players. Spawn
+  // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
+  // every 200 ms when the map is too full to place.
+  private readonly lastAiRespawnAttemptMsByPlayer = new Map<string, number>();
+  private static readonly AI_RESPAWN_RETRY_INTERVAL_MS = 30_000;
   private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
   // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
   // this.tiles via replaceTileState and the two direct tiles.set paths.
@@ -2040,6 +2045,14 @@ export class SimulationRuntime {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.visionExpansionCache.invalidate(playerId);
+      if (player.isAi) {
+        const nowMs = this.now();
+        const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
+        if (nowMs - lastAttempt >= SimulationRuntime.AI_RESPAWN_RETRY_INTERVAL_MS) {
+          this.lastAiRespawnAttemptMsByPlayer.set(playerId, nowMs);
+          this.respawnIfEliminated(playerId, `ai-zero-tile-check:${playerId}:${nowMs}`);
+        }
+      }
     }
     const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
