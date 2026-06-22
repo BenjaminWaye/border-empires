@@ -137,14 +137,20 @@ export const buildTileYieldView = (
   ) {
     delete converterDaily.FOOD;
   }
-  // Waterworks radius boost: if this is a FARM tile with an active Farmstead,
-  // check the precomputed Waterworks key set for any active Waterworks within
-  // WATERWORKS_RADIUS. Apply the multiplier to the farmstead bonus portion only.
+  // Merge resource and converter output additively so a farmstead on a
+  // FARM tile gives 72 + 36 = 108/day, not 36/day (overwrite).
+  const strategicPerDay = { ...resourceDaily };
+  for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
+    strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
+  }
+  // Waterworks radius boost: a FARM tile with an active Farmstead within
+  // WATERWORKS_RADIUS of an active Waterworks gets +50% on its total FOOD
+  // output (base + farmstead combined).
   if (
     tile.resource === "FARM" &&
     tile.economicStructure?.type === "FARMSTEAD" &&
     tile.economicStructure.status === "active" &&
-    typeof converterDaily.FOOD === "number" &&
+    typeof strategicPerDay.FOOD === "number" &&
     economyContext?.waterworksKeys &&
     economyContext.waterworksKeys.size > 0
   ) {
@@ -154,16 +160,10 @@ export const buildTileYieldView = (
       const cx = Number(candidateKey.slice(0, comma));
       const cy = Number(candidateKey.slice(comma + 1));
       if (Math.max(Math.abs(tile.x - cx), Math.abs(tile.y - cy)) <= WATERWORKS_RADIUS) {
-        converterDaily.FOOD *= WATERWORKS_OUTPUT_MULT;
+        strategicPerDay.FOOD *= WATERWORKS_OUTPUT_MULT;
         break;
       }
     }
-  }
-  // Merge resource and converter output additively so a farmstead on a
-  // FARM tile gives 72 + 36 = 108/day, not 36/day (overwrite).
-  const strategicPerDay = { ...resourceDaily };
-  for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
-    strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
   }
   for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;

@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.21.1",
+  version: "2026.06.22.1",
   title: "What's New",
-  summary: "Muster-advance attacks now show combat dots on the map with a supply line.",
+  summary: "Waterworks now correctly boosts nearby Farmstead food production, and shows a green range indicator on the map.",
   entries: [
+    {
+      introducedIn: "2026.06.22.1",
+      title: "Waterworks boost working",
+      why: "Waterworks was not applying its +50% food bonus to Farmstead tiles in range, and there was no way to see which tiles the Waterworks affected.",
+      changes: [
+        "Waterworks now correctly boosts a Farm+Farmstead tile from 108/day to 162/day when within 10 tiles.",
+        "Selecting an active Waterworks you own shows a green range box (radius 10) on the map.",
+        "Tile detail panel now shows the correct boosted rate when you click on a Farm+Farmstead tile near an active Waterworks."
+      ]
+    },
     {
       introducedIn: "2026.06.21.1",
       title: "Muster-advance combat visuals",

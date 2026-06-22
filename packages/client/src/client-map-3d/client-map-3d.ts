@@ -496,8 +496,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
   const SWEEP_RANGE_RADIUS = 5;
   const MUSTER_REACH_RADIUS = 5; // 4 hops to origin + 1 hop to target
+  const WATERWORKS_RANGE_RADIUS = 10;
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
+  const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RANGE_RADIUS);
+  const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RANGE_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
@@ -567,6 +570,29 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
     musterReachFillMaterial
   );
+  const waterworksRangeMaterial = new LineBasicMaterial({
+    color: "#4caf74",
+    transparent: true,
+    opacity: 0.55,
+    depthTest: false,
+    depthWrite: false
+  });
+  const waterworksRangeFillMaterial = new MeshBasicMaterial({
+    color: "#4caf74",
+    transparent: true,
+    opacity: 0.03,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const waterworksRangeMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(waterworksRangeMaxSegments),
+    waterworksRangeMaterial
+  );
+  const waterworksRangeFill = new Mesh(
+    createObservatoryRangeFillGeometry(waterworksRangeMaxFillVertices),
+    waterworksRangeFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
@@ -575,6 +601,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.visible = false;
   musterReachMarker.visible = false;
   musterReachFill.visible = false;
+  waterworksRangeMarker.visible = false;
+  waterworksRangeFill.visible = false;
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
@@ -583,6 +611,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.renderOrder = 22;
   musterReachMarker.renderOrder = 21;
   musterReachFill.renderOrder = 20;
+  waterworksRangeMarker.renderOrder = 19;
+  waterworksRangeFill.renderOrder = 18;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -620,6 +650,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.frustumCulled = false;
   musterReachMarker.frustumCulled = false;
   musterReachFill.frustumCulled = false;
+  waterworksRangeMarker.frustumCulled = false;
+  waterworksRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -631,6 +663,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(
     selectedMarker,
     hoverMarker,
+    waterworksRangeFill,
+    waterworksRangeMarker,
     musterReachFill,
     musterReachMarker,
     sweepRangeFill,
@@ -1232,6 +1266,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeObservatoryRangeGeometry(musterReachMarker, musterReachFill, selectedTile, MUSTER_REACH_RADIUS);
   };
 
+  const syncWaterworksRangeMarker = (): void => {
+    waterworksRangeMarker.visible = false;
+    waterworksRangeFill.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selectedTile) return;
+    if (selectedTile.economicStructure?.type !== "WATERWORKS") return;
+    if (selectedTile.economicStructure.status !== "active") return;
+    if (selectedTile.ownerId !== deps.state.me) return;
+    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
+    writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RANGE_RADIUS);
+  };
+
   const applyCamera = (): void => {
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
@@ -1693,6 +1741,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
     syncMusterReachMarker();
+    syncWaterworksRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
