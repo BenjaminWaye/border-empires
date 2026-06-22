@@ -359,8 +359,20 @@ export const buildSnapshotTileDetail = (
     ...(town ? { town: town as YieldSourceTile["town"] } : {}),
     ...(structure ? { economicStructure: structure as YieldSourceTile["economicStructure"] } : {})
   };
+  // Collect active Waterworks positions for the owning player so the radius
+  // boost is reflected in the displayed yield rate (not just in accrual).
+  const waterworksKeys = new Set<string>();
+  for (const snapshotTile of (snapshot?.tiles ?? [])) {
+    if (snapshotTile.ownerId !== playerId || snapshotTile.ownershipState !== "SETTLED") continue;
+    const ws = parseStructure<{ type?: string; status?: string }>(snapshotTile.economicStructureJson);
+    if (ws?.type === "WATERWORKS" && ws.status === "active") {
+      waterworksKeys.add(keyFor(snapshotTile.x, snapshotTile.y));
+    }
+  }
   const now = Date.now();
-  const fallbackYieldView = buildTileYieldView(domainTile, now, now);
+  const fallbackYieldView = buildTileYieldView(domainTile, now, now, {
+    waterworksKeys: waterworksKeys.size > 0 ? waterworksKeys : undefined
+  });
   if (fallbackYieldView?.yieldRate) update.yieldRate = fallbackYieldView.yieldRate;
   if (fallbackYieldView?.yieldCap) update.yieldCap = fallbackYieldView.yieldCap;
   if (!("yield" in update) && fallbackYieldView?.yield) {
