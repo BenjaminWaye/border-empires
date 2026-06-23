@@ -197,6 +197,7 @@ export type SimulationRuntimeOptions = {
   shouldPauseBackground?: () => boolean;
   onMusterRemoteAttack?: () => void;
   onMusterRemoteBlocked?: () => void;
+  onMusterRemoteBlockedBarbarian?: () => void;
 };
 
 export type SimulationTileWireDelta = {

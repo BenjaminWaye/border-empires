@@ -9,7 +9,8 @@ const state = {
   gatewayConsecutiveBreaches: 0,
   gatewayAlerted: false,
   simBacklogAlerted: false,
-  simRssAlerted: false
+  simRssAlerted: false,
+  simBarbMusterBlockAlerted: false
 };
 
 const maybeNumber = (line, key) => {
@@ -65,6 +66,13 @@ rl.on("line", (line) => {
     const rss = maybeNumber(line, "sim_checkpoint_rss_mb");
     if (typeof rss === "number" && rss > 400) {
       alertOnce("simRssAlerted", `ALERT sim_checkpoint_rss_mb breached (latest=${rss})`);
+    }
+
+    // Phase 3 pre-cutover alarm: barbarians spamming ATTACK with no muster built up.
+    // >2000 blocks in a session means barbarians are looping without accumulating muster.
+    const barbBlocked = maybeNumber(line, "sim_muster_remote_blocked_barbarian_total");
+    if (typeof barbBlocked === "number" && barbBlocked > 2000) {
+      alertOnce("simBarbMusterBlockAlerted", `ALERT sim_muster_remote_blocked_barbarian_total runaway (total=${barbBlocked})`);
     }
   }
 });
