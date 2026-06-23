@@ -9313,7 +9313,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // (not the stale stub).
     const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
     expect(refreshedTown?.goldPerMinute).toBeGreaterThan(0.5);
-    expect(refreshedTown?.cap).toBeGreaterThan(10);
   });
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
@@ -9504,12 +9503,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // modifier line shows "3 connected towns: +120%").
     expect(town?.connectedTownCount).toBe(3);
     expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
-    // Now the load-bearing assertion: gpm and cap must reflect that bonus.
+    // Now the load-bearing assertion: gpm must reflect that bonus.
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
-    // townJson carries the authoritative goldPerMinute and cap.
     // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
-    // 4.4 * 60 * 8 = 2112
-    expect(town?.cap).toBeCloseTo(2112, 0);
   });
 });

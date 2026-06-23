@@ -181,6 +181,54 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       expect.objectContaining({ label: "Towns", amountPerMinute: 15.4, count: 4 })
     );
   });
+
+  it("goldCapIncomePerMinute equals incomePerMinute when no cap-mult techs are active", () => {
+    const player = makePlayer();
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", dockId: "dock-a" }],
+      ["20,10", { x: 20, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
+    ]);
+    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+    expect(economy.goldCapIncomePerMinute).toBe(economy.incomePerMinute);
+  });
+
+  it("goldCapIncomePerMinute is higher than incomePerMinute when dockGoldCapMult is active", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("port-infrastructure"); // dockGoldCapMult: 1.25
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.25, 4);
+  });
+
+  it("goldCapIncomePerMinute is higher than incomePerMinute when townGoldCapMult is active", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.05, 4);
+  });
+
+  it("townGoldCapMult does not apply to settlement income", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "S" } }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBe(baseEconomy.goldCapIncomePerMinute);
+  });
 });
 
 describe("refreshTownEconomyFields", () => {

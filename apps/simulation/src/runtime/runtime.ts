@@ -995,7 +995,7 @@ export class SimulationRuntime {
     const economy = this.cachedEconomySnapshot(player);
     const goldPerMinute = economy.incomePerMinute;
     const summary = this.summaryForPlayer(player.id);
-    const storageCap = computeEmpireStorageCap(summary, goldPerMinute, economy.strategicProductionPerMinute);
+    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
 
     // Credit gold
     let anyCredited = false;
@@ -2669,7 +2669,7 @@ export class SimulationRuntime {
     if (!player) return undefined;
     const summary = this.summaryForPlayer(playerId);
     const economy = this.cachedEconomySnapshot(player);
-    return computeEmpireStorageCap(summary, economy.incomePerMinute, economy.strategicProductionPerMinute);
+    return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
   }
 
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
@@ -2685,7 +2685,7 @@ export class SimulationRuntime {
     const metrics = this.cachedDefensibilityMetrics(playerId, summary);
     const economy = this.cachedEconomySnapshot(player);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
-    const storageCap = computeEmpireStorageCap(summary, economy.incomePerMinute, economy.strategicProductionPerMinute);
+    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
     const lastCap = this.lastEmittedStorageCapByPlayer.get(playerId);
     const capChanged =
       !lastCap ||
