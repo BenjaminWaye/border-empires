@@ -184,7 +184,9 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_muster_remote_attack_total counter",
     `sim_muster_remote_attack_total ${formatMetricValue(sample.simMusterRemoteAttackTotal)}`,
     "# TYPE sim_muster_remote_blocked_total counter",
-    `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`
+    `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`,
+    "# TYPE sim_muster_remote_blocked_barbarian_total counter",
+    `sim_muster_remote_blocked_barbarian_total ${formatMetricValue(sample.simMusterRemoteBlockedBarbarianTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
