@@ -322,7 +322,7 @@ export const runGoapWaterfall = <TTile extends AutomationPlannerTile>(
     canAttack,
     canExpand,
     actionableFallbackSettlementCandidate,
-    undefined,
+    economicBuild,
     fortBuild,
     siegeOutpostBuild,
     state.attackStalemateTargetTileKeys

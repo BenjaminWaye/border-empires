@@ -110,7 +110,8 @@ const scoreAttack = (inp: DecisionInputs): number =>
     boolVeto(inp.attackReady),
     boolVeto(!inp.musterReady),          // muster system handles it via MUSTER class
     boolVeto(!inp.stalemated),
-    boolVeto(inp.frontPosture === "BREAK"),
+    // Barbarian attacks don't require BREAK posture — only player attacks do.
+    boolVeto(inp.frontPosture === "BREAK" || inp.hasBarbTarget),
     // Scales with how hard the enemy is pressing
     logistic(inp.pressureAttackScore, 150, 0.015)
   ]);

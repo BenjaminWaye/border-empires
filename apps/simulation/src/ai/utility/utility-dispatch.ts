@@ -229,7 +229,7 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
   return {
     diagnostic: {
       ...state.context.diagnostic,
-      noCommandReason: "no_frontier_targets",
+      noCommandReason: "wait_and_recover",
       utilityWinner: "WAIT" as const,
       utilityWinnerScore: policy.scores["WAIT"],
       ...utilityBase

@@ -1,4 +1,4 @@
-import type { DomainDomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
+import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   AI_UTILITY_POLICY_ENABLED,
   ATTACK_MANPOWER_MIN,

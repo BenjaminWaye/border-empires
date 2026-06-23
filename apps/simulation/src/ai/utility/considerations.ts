@@ -9,7 +9,7 @@
  * Reference: Dave Mark / IAUS (Infinite Axis Utility System)
  *   modFactor = 1 - 1/n
  *   makeUp    = (1 - product) * modFactor
- *   adjusted  = product + makeUp * product
+ *   adjusted  = product + makeUp
  */
 
 export const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
@@ -52,7 +52,7 @@ export const compensate = (rawProduct: number, considerationCount: number): numb
   if (considerationCount <= 1) return rawProduct;
   const modFactor = 1 - 1 / considerationCount;
   const makeUp = (1 - rawProduct) * modFactor;
-  return rawProduct + makeUp * rawProduct;
+  return rawProduct + makeUp;
 };
 
 /**
