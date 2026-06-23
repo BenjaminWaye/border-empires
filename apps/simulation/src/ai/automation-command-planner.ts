@@ -33,6 +33,8 @@ import {
   shouldSettleCandidateNow,
   type AutomationPlannerDecisionContext
 } from "./automation-command-planner-helpers.js";
+import { AI_UTILITY_POLICY_ENABLED } from "@border-empires/shared";
+import { runUtilityPolicy } from "./utility/utility-dispatch.js";
 
 // The strategic snapshot classifies five victory paths but GOAP goal trees are
 // still defined for the original three. Map the new paths onto the closest
@@ -675,7 +677,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
     const buildCandidates = restrictToFocus(structureCandidates);
-    economicBuild = hasHigherPriorityAction ? undefined : chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    // Under utility policy the competition is resolved by scoring, not a boolean gate —
+    // always compute so BUILD_ECONOMY can be scored even when frontier action is available.
+    economicBuild = (!AI_UTILITY_POLICY_ENABLED && hasHigherPriorityAction)
+      ? undefined
+      : chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
@@ -705,6 +711,26 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {})
   });
   input.onStrategicSnapshot?.(strategic);
+
+  if (AI_UTILITY_POLICY_ENABLED) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return runUtilityPolicy({
+      context,
+      strategic,
+      canAttack,
+      canExpand,
+      canSettleNow,
+      devSlotAvailable: effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT,
+      actionableFallbackSettlementCandidate,
+      preferredEnemyAttack,
+      economicBuild,
+      fortBuild,
+      siegeOutpostBuild,
+      attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
+      points: input.points,
+      manpower: input.manpower
+    });
+  }
 
   const isStalematedAttackTarget = (selection: typeof preferredEnemyAttack): boolean =>
     Boolean(

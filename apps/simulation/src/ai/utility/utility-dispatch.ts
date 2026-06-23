@@ -1,0 +1,214 @@
+/**
+ * Utility AI Phase 1 — dispatch layer.
+ *
+ * Bridges between the utility policy (which scores DecisionClasses) and the
+ * existing concrete command builders. The planner computes all candidates
+ * (frontier, settlement, builds) exactly as before; this module just chooses
+ * which one to act on using utility scores instead of the GOAP waterfall.
+ *
+ * Entry point: runUtilityPolicy(). Everything else is internal.
+ */
+
+import type { AutomationPlannerResult, AutomationPlannerTile } from "../automation-command-planner.js";
+import type { AutomationPlannerDecisionContext } from "../automation-command-planner-helpers.js";
+import {
+  buildPlannerCommand,
+  buildPlannerFrontierCommand,
+  buildPlannerSettleCommand
+} from "../automation-command-planner-helpers.js";
+import type { AutomationStrategicSnapshot } from "../automation-strategic-snapshot.js";
+import type { FrontierAnalysis } from "../frontier-command-planner.js";
+import type {
+  chooseBestEconomicBuild,
+  chooseBestFortBuild,
+  chooseBestSiegeOutpostBuild
+} from "../structure-command-planner.js";
+import type { DecisionClass, DecisionInputs } from "./decisions.js";
+import { evaluateUtilityPolicy } from "./utility-policy.js";
+
+// ── State type ───────────────────────────────────────────────────────────────
+
+export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
+  // context already carries settlementCandidate, fallbackSettlementCandidate,
+  // frontierAnalysis, needsFood, needsEconomy
+  context: AutomationPlannerDecisionContext<TTile>;
+  strategic: AutomationStrategicSnapshot;
+  canAttack: boolean;
+  canExpand: boolean;
+  canSettleNow: boolean;
+  devSlotAvailable: boolean;
+  actionableFallbackSettlementCandidate: TTile | undefined;
+  preferredEnemyAttack: FrontierAnalysis["attack"] | undefined;
+  economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
+  fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
+  siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
+  points: number;
+  manpower: number;
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const targetStalemated = <TTile extends AutomationPlannerTile>(
+  sel: FrontierAnalysis["attack"] | undefined,
+  state: UtilityDispatchState<TTile>
+): boolean =>
+  Boolean(sel && state.attackStalemateTargetTileKeys?.has(`${sel.target.x},${sel.target.y}`));
+
+// ── Input builder ─────────────────────────────────────────────────────────────
+
+export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
+  state: UtilityDispatchState<TTile>
+): DecisionInputs => {
+  const { context, strategic, canAttack, canExpand } = state;
+  const fa = context.frontierAnalysis;
+
+  return {
+    points: state.points,
+    manpower: state.manpower,
+    canAttack,
+    canExpand,
+    frontierNeutralCount: fa.frontierNeutralTargetCount,
+    frontierEnemyCount: fa.frontierEnemyTargetCount,
+    frontierOpportunityEconomic: fa.frontierOpportunityEconomic,
+    hasWeakEnemyBorder:
+      fa.frontierEnemyPlayerTargetCount > 0 && !targetStalemated(fa.enemyAttack, state),
+    hasBarbTarget:
+      fa.frontierBarbarianTargetCount > 0 && !targetStalemated(fa.barbarianAttack, state),
+    hasSettlementCandidate:
+      state.canSettleNow || Boolean(state.actionableFallbackSettlementCandidate),
+    devSlotAvailable: state.devSlotAvailable,
+    attackReady: strategic.attackReady,
+    musterReady: strategic.musterReady,
+    frontPosture: strategic.frontPosture,
+    pressureAttackScore: strategic.pressureAttackScore,
+    pressureThreatensCore: strategic.pressureThreatensCore,
+    underThreat: strategic.underThreat,
+    needsEconomy: context.needsEconomy,
+    needsFood: context.needsFood,
+    hasEconomicBuild: Boolean(state.economicBuild),
+    hasFortBuild: Boolean(state.fortBuild),
+    hasSiegeOutpost: Boolean(state.siegeOutpostBuild),
+    // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
+    techAffordable: false,
+    // Phase 1: momentum and cooldown are wired in Phase 2+ (intent-latch integration).
+    momentumTicks: {},
+    cooldown: {},
+    stalemated: targetStalemated(state.preferredEnemyAttack, state)
+  };
+};
+
+// ── Class executor ────────────────────────────────────────────────────────────
+
+const executeClass = <TTile extends AutomationPlannerTile>(
+  cls: DecisionClass,
+  state: UtilityDispatchState<TTile>
+): AutomationPlannerResult | undefined => {
+  const { context, strategic, canAttack, canExpand } = state;
+  const fa = context.frontierAnalysis;
+  const notStalemated = (sel: FrontierAnalysis["attack"] | undefined): boolean =>
+    !targetStalemated(sel, state);
+
+  switch (cls) {
+    case "SETTLE":
+      if (state.canSettleNow && context.settlementCandidate) {
+        return buildPlannerSettleCommand(context, context.settlementCandidate);
+      }
+      if (state.actionableFallbackSettlementCandidate) {
+        return buildPlannerSettleCommand(context, state.actionableFallbackSettlementCandidate);
+      }
+      return undefined;
+
+    case "EXPAND":
+      // Priority order mirrors the existing waterfall
+      if (fa.economicExpand && canExpand) return buildPlannerFrontierCommand(context, fa.economicExpand, "EXPAND");
+      if (fa.directedExpand && canExpand) return buildPlannerFrontierCommand(context, fa.directedExpand, "EXPAND");
+      if (fa.townSupportExpand && canExpand && strategic.townSupportExpandAvailable) {
+        return buildPlannerFrontierCommand(context, fa.townSupportExpand, "EXPAND");
+      }
+      if (fa.expand && canExpand) return buildPlannerFrontierCommand(context, fa.expand, "EXPAND");
+      if (fa.scaffoldExpand && canExpand) return buildPlannerFrontierCommand(context, fa.scaffoldExpand, "EXPAND");
+      if (fa.scoutExpand && canExpand) return buildPlannerFrontierCommand(context, fa.scoutExpand, "EXPAND");
+      return undefined;
+
+    case "ATTACK": {
+      const canDirectAttack = canAttack && strategic.attackReady && !strategic.musterReady;
+      if (state.preferredEnemyAttack && notStalemated(state.preferredEnemyAttack) && canDirectAttack) {
+        return buildPlannerFrontierCommand(context, state.preferredEnemyAttack, "ATTACK");
+      }
+      if (fa.barbarianAttack && notStalemated(fa.barbarianAttack) && canDirectAttack) {
+        return buildPlannerFrontierCommand(context, fa.barbarianAttack, "ATTACK");
+      }
+      return undefined;
+    }
+
+    case "MUSTER": {
+      const target = fa.enemyAttack;
+      if (target && strategic.musterReady && notStalemated(target) && fa.frontierEnemyPlayerTargetCount > 0) {
+        return buildPlannerCommand(context, "SET_MUSTER", {
+          x: target.from.x,
+          y: target.from.y,
+          mode: "ADVANCE"
+        });
+      }
+      return undefined;
+    }
+
+    case "BUILD_DEFENSE":
+      if (state.fortBuild && fa.frontierEnemyTargetCount > 0) {
+        return buildPlannerCommand(context, "BUILD_FORT", {
+          x: state.fortBuild.x,
+          y: state.fortBuild.y
+        });
+      }
+      if (state.siegeOutpostBuild && state.preferredEnemyAttack) {
+        return buildPlannerCommand(context, "BUILD_SIEGE_OUTPOST", {
+          x: state.siegeOutpostBuild.x,
+          y: state.siegeOutpostBuild.y
+        });
+      }
+      return undefined;
+
+    case "BUILD_ECONOMY":
+      if (state.economicBuild) {
+        return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+          x: state.economicBuild.tile.x,
+          y: state.economicBuild.tile.y,
+          structureType: state.economicBuild.structureType
+        });
+      }
+      return undefined;
+
+    case "CHOOSE_TECH":
+      return undefined; // handled by preplan
+
+    case "WAIT":
+      return { diagnostic: { ...context.diagnostic, noCommandReason: "wait_and_recover" } };
+  }
+};
+
+// ── Public entry point ────────────────────────────────────────────────────────
+
+/**
+ * Scores all decision classes via the utility policy, then executes them in
+ * descending score order until one produces a command.  WAIT always produces
+ * a command (wait_and_recover diagnostic), so this function always returns.
+ */
+export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
+  state: UtilityDispatchState<TTile>
+): AutomationPlannerResult => {
+  const inputs = buildDecisionInputs(state);
+  const policy = evaluateUtilityPolicy(inputs);
+
+  const sorted = (Object.entries(policy.scores) as Array<[DecisionClass, number]>)
+    .filter(([, s]) => s > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  for (const [cls] of sorted) {
+    const result = executeClass(cls, state);
+    if (result) return result;
+  }
+
+  // Unreachable in practice: WAIT always fires. Safety fallback.
+  return { diagnostic: { ...state.context.diagnostic, noCommandReason: "no_frontier_targets" } };
+};

@@ -94,8 +94,9 @@ const scoreSettle = (inp: DecisionInputs): number =>
 const scoreExpand = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canExpand),
-    // Richness of available expansion opportunities
-    linear(inp.frontierNeutralCount + inp.frontierOpportunityEconomic, 0, 6),
+    // Even a single neutral opportunity is strong evidence to expand.
+    // Range of 2 means 1 neutral → 0.5, ≥2 → 1.0, 0 → 0 (natural veto).
+    linear(inp.frontierNeutralCount + inp.frontierOpportunityEconomic, 0, 2),
     // Expand is still attractive under moderate threat if neutrals exist;
     // heavy pressure (core threatened) only allows it when there's a direct
     // economic opportunity to stabilise
@@ -136,9 +137,10 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     boolVeto(inp.hasEconomicBuild),
     boolVeto(inp.devSlotAvailable),
     // Economy build is unattractive while expansion / attack is available.
-    // Multiplying this consideration in means a rich frontier naturally beats
-    // the econ build without any explicit boolean gate.
-    1 - linear(inp.frontierNeutralCount + inp.frontierEnemyCount, 0, 5),
+    // Sharp suppression: 1 neutral already cuts BUILD_ECONOMY by ~67%;
+    // ≥2 frontier tiles push it to 0, matching the spirit of hasHigherPriorityAction
+    // but via competition rather than a hard gate.
+    1 - linear(inp.frontierNeutralCount + inp.frontierEnemyCount, 0, 1.5),
     // Scales up when income is genuinely weak
     logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.3, 6)
   ]);
