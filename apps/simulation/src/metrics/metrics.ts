@@ -16,9 +16,11 @@ import { renderPrometheus } from "./metrics-prometheus.js";
 import {
   AI_PLANNER_PHASES,
   AI_TICK_THROTTLE_REASONS,
+  DECISION_CLASSES,
   LANES,
   type AiPlannerPhase,
   type AiTickThrottleReason,
+  type DecisionClass,
   type DurableCommandType,
   type PrepareMetricSource,
   type SimulationSnapshotMetricSample,
@@ -118,6 +120,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // Per-player epoch-ms timestamp of last accepted AI command (0 = never).
   const simAiLastCommandAcceptedAtMs = new Map<string, number>();
   const simAiExpansionObjectiveTotalByKind = new Map<string, number>();
+  const simAiUtilityActionClassTotalByClass = new Map<DecisionClass, number>(
+    DECISION_CLASSES.map((cls) => [cls, 0])
+  );
+  const simAiUtilityDecisionRecent: string[] = [];
 
   const quantileSample = (series: number[]) => ({
     p50: quantile(series, 0.5),
@@ -211,7 +217,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simMusterRemoteAttackTotal,
     simMusterRemoteBlockedTotal,
     simMusterRemoteBlockedBarbarianTotal,
-    simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind)
+    simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
+    simAiUtilityActionClassTotalByClass: Object.fromEntries(
+      DECISION_CLASSES.map((cls) => [cls, simAiUtilityActionClassTotalByClass.get(cls) ?? 0])
+    ) as Record<DecisionClass, number>,
+    simAiUtilityDecisionRecent: [...simAiUtilityDecisionRecent]
   });
 
   return {
@@ -305,6 +315,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimAiExpansionObjective(kind: "neutral_value" | "enemy" | "none"): void {
       simAiExpansionObjectiveTotalByKind.set(kind, (simAiExpansionObjectiveTotalByKind.get(kind) ?? 0) + 1);
+    },
+    observeSimAiUtilityDecision(cls: DecisionClass, playerId: string): void {
+      simAiUtilityActionClassTotalByClass.set(cls, (simAiUtilityActionClassTotalByClass.get(cls) ?? 0) + 1);
+      appendRecent(simAiUtilityDecisionRecent, `${playerId}:${cls}`, 24);
     },
     observeSimAiPreplan(reason: AutomationPreplanReason, playerId: string): void {
       simAiPreplanTotalByReason.set(reason, (simAiPreplanTotalByReason.get(reason) ?? 0) + 1);

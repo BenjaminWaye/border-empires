@@ -1782,6 +1782,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.expansionObjectiveKind) {
                 simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
               }
+              if (diagnostic.utilityWinner) {
+                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
+              }
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1873,6 +1876,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
               if (diagnostic.narrowAnalyzeCapped) {
                 simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
+              }
+              if (diagnostic.utilityWinner) {
+                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
             },
             onTick: ({ durationMs }) => {

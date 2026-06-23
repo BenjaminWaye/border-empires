@@ -6,6 +6,7 @@ import {
   AUTOMATION_PREPLAN_PROGRESS_STATES,
   AUTOMATION_PREPLAN_REASONS,
   AUTOMATION_SETTLE_DECISION_REASONS,
+  DECISION_CLASSES,
   DURABLE_COMMAND_TYPES,
   LANES,
   type SimulationMetricsSnapshot
@@ -190,6 +191,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
     lines.push(`sim_ai_expansion_objective_total{kind=\"${kind}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_action_class_total counter");
+  for (const cls of DECISION_CLASSES) {
+    lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);
   }
 
   return lines.join("\n");
