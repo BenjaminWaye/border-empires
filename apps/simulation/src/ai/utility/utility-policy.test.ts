@@ -1,0 +1,357 @@
+import { describe, expect, it } from "vitest";
+
+import { boolVeto, clamp01, compensate, linear, logistic, quadratic, scoreConsiderations } from "./considerations.js";
+import { type DecisionInputs, scoreDecision } from "./decisions.js";
+import { evaluateUtilityPolicy } from "./utility-policy.js";
+
+// ── Base inputs ──────────────────────────────────────────────────────────────
+// A neutral starting state: modest gold, no threats, no opportunities.
+const BASE: DecisionInputs = {
+  points: 80,
+  manpower: 10,
+  canAttack: false,
+  canExpand: false,
+  frontierNeutralCount: 0,
+  frontierEnemyCount: 0,
+  frontierOpportunityEconomic: 0,
+  hasWeakEnemyBorder: false,
+  hasBarbTarget: false,
+  hasSettlementCandidate: false,
+  devSlotAvailable: true,
+  attackReady: false,
+  musterReady: false,
+  frontPosture: "TRUCE",
+  pressureAttackScore: 0,
+  pressureThreatensCore: false,
+  underThreat: false,
+  needsEconomy: false,
+  needsFood: false,
+  hasEconomicBuild: false,
+  hasFortBuild: false,
+  hasSiegeOutpost: false,
+  techAffordable: false,
+  momentumTicks: {},
+  cooldown: {},
+  stalemated: false
+};
+
+// ── Response curve tests ─────────────────────────────────────────────────────
+
+describe("clamp01", () => {
+  it("clamps below 0", () => expect(clamp01(-5)).toBe(0));
+  it("clamps above 1", () => expect(clamp01(2)).toBe(1));
+  it("passes through midpoint", () => expect(clamp01(0.5)).toBe(0.5));
+});
+
+describe("linear", () => {
+  it("returns 0 at min", () => expect(linear(0, 0, 10)).toBe(0));
+  it("returns 1 at max", () => expect(linear(10, 0, 10)).toBe(1));
+  it("returns 0.5 at midpoint", () => expect(linear(5, 0, 10)).toBe(0.5));
+  it("clamps below range", () => expect(linear(-1, 0, 10)).toBe(0));
+  it("clamps above range", () => expect(linear(20, 0, 10)).toBe(1));
+  it("handles equal min/max: x < max → 0", () => expect(linear(4, 5, 5)).toBe(0));
+  it("handles equal min/max: x >= max → 1", () => expect(linear(5, 5, 5)).toBe(1));
+});
+
+describe("logistic", () => {
+  it("returns ~0.5 at midpoint", () => expect(logistic(10, 10, 1)).toBeCloseTo(0.5, 2));
+  it("positive steepness rises left-to-right", () => {
+    expect(logistic(20, 10, 1)).toBeGreaterThan(0.5);
+    expect(logistic(0, 10, 1)).toBeLessThan(0.5);
+  });
+  it("negative steepness falls left-to-right", () => {
+    expect(logistic(20, 10, -1)).toBeLessThan(0.5);
+    expect(logistic(0, 10, -1)).toBeGreaterThan(0.5);
+  });
+  it("stays in [0,1]", () => {
+    expect(logistic(1000, 10, 1)).toBeLessThanOrEqual(1);
+    expect(logistic(-1000, 10, 1)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("quadratic", () => {
+  it("returns 0 at min, 1 at max", () => {
+    expect(quadratic(0, 0, 10)).toBe(0);
+    expect(quadratic(10, 0, 10)).toBe(1);
+  });
+  it("is slower than linear near min", () =>
+    expect(quadratic(2, 0, 10)).toBeLessThan(linear(2, 0, 10)));
+});
+
+describe("boolVeto", () => {
+  it("true → 1", () => expect(boolVeto(true)).toBe(1));
+  it("false → 0", () => expect(boolVeto(false)).toBe(0));
+});
+
+// ── Compensation tests ───────────────────────────────────────────────────────
+
+describe("compensate", () => {
+  it("n=1 is a no-op", () => expect(compensate(0.9, 1)).toBe(0.9));
+  it("raises score above the raw product for n>1", () => {
+    const product = 0.9 * 0.9; // 0.81
+    expect(compensate(product, 2)).toBeGreaterThan(product);
+  });
+  it("does not raise a 0 product (vetoed)", () => expect(compensate(0, 4)).toBe(0));
+  it("does not raise a 1 product", () => expect(compensate(1, 4)).toBe(1));
+  it("n=8 @ 0.9 each: compensated >> raw product", () => {
+    const raw = 0.9 ** 8; // ~0.43
+    expect(compensate(raw, 8)).toBeGreaterThan(0.6);
+  });
+});
+
+describe("scoreConsiderations", () => {
+  it("empty array → 0", () => expect(scoreConsiderations([])).toBe(0));
+  it("single veto → 0", () => expect(scoreConsiderations([0.9, 0, 0.8])).toBe(0));
+  it("all 1s → 1 (compensation of 1 is 1)", () =>
+    expect(scoreConsiderations([1, 1, 1])).toBe(1));
+  it("short-circuits on 0 and skips remaining considerations", () =>
+    expect(scoreConsiderations([1, 0, NaN])).toBe(0));
+});
+
+// ── Decision scoring tests ───────────────────────────────────────────────────
+
+describe("SETTLE decision", () => {
+  it("vetoed when no settlement candidate", () => {
+    const s = scoreDecision("SETTLE", { ...BASE, hasSettlementCandidate: false });
+    expect(s).toBe(0);
+  });
+  it("vetoed when dev slot full", () => {
+    const s = scoreDecision("SETTLE", {
+      ...BASE,
+      hasSettlementCandidate: true,
+      devSlotAvailable: false
+    });
+    expect(s).toBe(0);
+  });
+  it("vetoed when core is threatened", () => {
+    const s = scoreDecision("SETTLE", {
+      ...BASE,
+      hasSettlementCandidate: true,
+      pressureThreatensCore: true
+    });
+    expect(s).toBe(0);
+  });
+  it("scores > 0 with candidate, slot, no threat, enough gold", () => {
+    const s = scoreDecision("SETTLE", {
+      ...BASE,
+      hasSettlementCandidate: true,
+      points: 350
+    });
+    expect(s).toBeGreaterThan(0);
+  });
+  it("cooldown → 0", () => {
+    const s = scoreDecision("SETTLE", {
+      ...BASE,
+      hasSettlementCandidate: true,
+      points: 350,
+      cooldown: { SETTLE: true }
+    });
+    expect(s).toBe(0);
+  });
+});
+
+describe("EXPAND decision", () => {
+  it("vetoed when can't expand (no gold)", () => {
+    const s = scoreDecision("EXPAND", { ...BASE, canExpand: false });
+    expect(s).toBe(0);
+  });
+  it("vetoed when no frontier opportunity", () => {
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 0,
+      frontierOpportunityEconomic: 0
+    });
+    expect(s).toBe(0);
+  });
+  it("scores > 0 with gold and neutral frontier", () => {
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 3
+    });
+    expect(s).toBeGreaterThan(0);
+  });
+  it("core-threatened expand still works when economic opportunity exists", () => {
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      pressureThreatensCore: true,
+      frontierOpportunityEconomic: 2
+    });
+    expect(s).toBeGreaterThan(0);
+  });
+  it("core-threatened expand vetoed when no economic opportunity", () => {
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 3,
+      pressureThreatensCore: true,
+      frontierOpportunityEconomic: 0
+    });
+    expect(s).toBe(0);
+  });
+});
+
+describe("ATTACK decision", () => {
+  it("vetoed when not attackReady", () => {
+    const s = scoreDecision("ATTACK", { ...BASE, canAttack: true, attackReady: false });
+    expect(s).toBe(0);
+  });
+  it("vetoed when musterReady (muster class handles it)", () => {
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      musterReady: true,
+      frontierEnemyCount: 1,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300
+    });
+    expect(s).toBe(0);
+  });
+  it("vetoed when stalemated", () => {
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      frontierEnemyCount: 1,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300,
+      stalemated: true
+    });
+    expect(s).toBe(0);
+  });
+  it("scores > 0 when all conditions met", () => {
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      frontierEnemyCount: 1,
+      frontPosture: "BREAK",
+      pressureAttackScore: 250
+    });
+    expect(s).toBeGreaterThan(0);
+  });
+});
+
+describe("BUILD_ECONOMY decision", () => {
+  it("vetoed when no economic build available", () => {
+    const s = scoreDecision("BUILD_ECONOMY", { ...BASE, hasEconomicBuild: false });
+    expect(s).toBe(0);
+  });
+
+  // Core guarantee from the Phase 0 plan: BUILD_ECONOMY must never beat
+  // EXPAND or ATTACK when a genuine frontier opportunity is present.
+  it("scores less than EXPAND when neutral frontier exists", () => {
+    const inp: DecisionInputs = {
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 3,
+      hasEconomicBuild: true,
+      needsEconomy: true
+    };
+    const expand = scoreDecision("EXPAND", inp);
+    const economy = scoreDecision("BUILD_ECONOMY", inp);
+    expect(expand).toBeGreaterThan(economy);
+  });
+
+  it("scores less than ATTACK when attack is ready with high pressure", () => {
+    const inp: DecisionInputs = {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      frontierEnemyCount: 2,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300,
+      hasEconomicBuild: true,
+      needsEconomy: true
+    };
+    const attack = scoreDecision("ATTACK", inp);
+    const economy = scoreDecision("BUILD_ECONOMY", inp);
+    expect(attack).toBeGreaterThan(economy);
+  });
+
+  it("can win when no frontier opportunity and economy is weak", () => {
+    const s = scoreDecision("BUILD_ECONOMY", {
+      ...BASE,
+      hasEconomicBuild: true,
+      needsEconomy: true,
+      frontierNeutralCount: 0,
+      frontierEnemyCount: 0
+    });
+    expect(s).toBeGreaterThan(0);
+  });
+});
+
+// ── Policy evaluation tests ──────────────────────────────────────────────────
+
+describe("evaluateUtilityPolicy", () => {
+  it("returns WAIT when everything is vetoed", () => {
+    const result = evaluateUtilityPolicy(BASE);
+    expect(result.winner).toBe("WAIT");
+  });
+
+  it("winner has the highest score", () => {
+    const result = evaluateUtilityPolicy({
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 4
+    });
+    const max = Math.max(...Object.values(result.scores));
+    expect(result.winnerScore).toBeCloseTo(max, 6);
+  });
+
+  it("runner-up has the second-highest score", () => {
+    const result = evaluateUtilityPolicy({
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 4
+    });
+    expect(result.runnerUpScore).toBeLessThanOrEqual(result.winnerScore);
+  });
+
+  it("WAIT score ≥ WAIT_FLOOR when no other class fires", () => {
+    const result = evaluateUtilityPolicy(BASE);
+    expect(result.scores["WAIT"]).toBeGreaterThanOrEqual(0.05);
+  });
+
+  it("EXPAND beats BUILD_ECONOMY in policy with neutral frontier + weak economy", () => {
+    const result = evaluateUtilityPolicy({
+      ...BASE,
+      canExpand: true,
+      frontierNeutralCount: 3,
+      hasEconomicBuild: true,
+      needsEconomy: true
+    });
+    expect(result.winner).toBe("EXPAND");
+  });
+
+  it("vetoedClasses lists all zero-scored non-WAIT classes", () => {
+    const result = evaluateUtilityPolicy(BASE);
+    for (const cls of result.vetoedClasses) {
+      expect(result.scores[cls]).toBe(0);
+    }
+  });
+
+  it("momentum ticks boost a class but cannot rescue a vetoed one", () => {
+    const vetoed = evaluateUtilityPolicy({
+      ...BASE,
+      momentumTicks: { SETTLE: 10 } // lots of momentum, but no candidate
+    });
+    expect(vetoed.scores["SETTLE"]).toBe(0);
+
+    // points: 80 keeps linear(80, 4, 254) < 1 so there's headroom for momentum
+    const boosted = evaluateUtilityPolicy({
+      ...BASE,
+      hasSettlementCandidate: true,
+      momentumTicks: { SETTLE: 5 }
+    });
+    const unboosted = evaluateUtilityPolicy({
+      ...BASE,
+      hasSettlementCandidate: true,
+      momentumTicks: {}
+    });
+    expect(boosted.scores["SETTLE"]).toBeGreaterThan(unboosted.scores["SETTLE"]);
+  });
+});
