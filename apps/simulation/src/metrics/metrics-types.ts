@@ -12,15 +12,17 @@ import {
   AUTOMATION_SETTLE_DECISION_REASONS,
   type AutomationSettleDecisionReason
 } from "../ai/automation-command-planner-helpers.js";
+import { DECISION_CLASSES, type DecisionClass } from "../ai/utility/decisions.js";
 import type { QuantileSample } from "./metrics-format.js";
 
-export { DURABLE_COMMAND_TYPES };
+export { DURABLE_COMMAND_TYPES, DECISION_CLASSES };
 export type {
   QueueLane,
   AutomationNoopReason,
   AutomationPreplanProgressState,
   AutomationPreplanReason,
   AutomationSettleDecisionReason,
+  DecisionClass,
   QuantileSample
 };
 export {
@@ -179,4 +181,7 @@ export type SimulationMetricsSnapshot = {
   simMusterRemoteBlockedTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
+  /** Counter per utility DecisionClass acted on (only incremented when AI_UTILITY_POLICY_ENABLED). */
+  simAiUtilityActionClassTotalByClass: Record<DecisionClass, number>;
+  simAiUtilityDecisionRecent: string[];
 };

@@ -3,6 +3,7 @@ declare const process: {
     MUSTER_SYSTEM_ENABLED?: string;
     BREAKTHROUGH_ENABLED?: string;
     EMPIRE_INTEGRITY_ENABLED?: string;
+    AI_UTILITY_POLICY_ENABLED?: string;
   };
 };
 
@@ -161,3 +162,6 @@ export const INTEGRITY_ECON_MIN_MULT = 0.85;
 export const INTEGRITY_ECON_MAX_MULT = 1.15;
 export const INTEGRITY_GROWTH_MIN_MULT = 0.9;
 export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
+
+// --- Utility AI policy ---
+export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";
