@@ -107,6 +107,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiBuildDisabledTotal = 0;
   let simMusterRemoteAttackTotal = 0;
   let simMusterRemoteBlockedTotal = 0;
+  let simMusterRemoteBlockedBarbarianTotal = 0;
   const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -209,6 +210,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiLastCommandAcceptedAtMs: Object.fromEntries(simAiLastCommandAcceptedAtMs),
     simMusterRemoteAttackTotal,
     simMusterRemoteBlockedTotal,
+    simMusterRemoteBlockedBarbarianTotal,
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind)
   });
 
@@ -274,6 +276,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimMusterRemoteBlocked(): void {
       simMusterRemoteBlockedTotal += 1;
+    },
+    incrementSimMusterRemoteBlockedBarbarian(): void {
+      simMusterRemoteBlockedBarbarianTotal += 1;
     },
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);

@@ -474,6 +474,7 @@ export class SimulationRuntime {
   private readonly watchedMusterTileByPlayer = new Map<string, string>();
   private readonly onMusterRemoteAttack: (() => void) | undefined;
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
+  private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -695,6 +696,7 @@ export class SimulationRuntime {
     this.shouldPauseBackground = options.shouldPauseBackground;
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
+    this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -2992,6 +2994,9 @@ export class SimulationRuntime {
     if (!validation.ok) {
       if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
         this.onMusterRemoteBlocked?.();
+        if (actor.id.startsWith("barbarian-") && !to.ownerId?.startsWith("barbarian-")) {
+          this.onMusterRemoteBlockedBarbarian?.();
+        }
       }
       this.commandTrace?.({
         phase: "frontier_reject",
