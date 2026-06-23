@@ -136,6 +136,7 @@ const main = async () => {
     "deploy",
     "--config", "fly.combined.staging.toml",
     "--strategy", "rolling",
+    "--local-only",
     "--env", `BUILD_SHA=${targetSha}`
   ]);
 
