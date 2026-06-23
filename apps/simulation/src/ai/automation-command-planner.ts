@@ -158,6 +158,12 @@ export type AutomationPlannerDiagnostic = {
   narrowAnalyzeCapped?: boolean | undefined;
   /** Set when the planner acts on an expansion objective (directed expand). */
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
+  // Utility AI fields (only populated when AI_UTILITY_POLICY_ENABLED=true).
+  utilityWinner?: import("./utility/decisions.js").DecisionClass;
+  utilityWinnerScore?: number;
+  utilityRunnerUp?: import("./utility/decisions.js").DecisionClass;
+  utilityRunnerUpScore?: number;
+  utilityVetoedClasses?: readonly import("./utility/decisions.js").DecisionClass[];
 };
 
 export type AutomationPlannerPhase =

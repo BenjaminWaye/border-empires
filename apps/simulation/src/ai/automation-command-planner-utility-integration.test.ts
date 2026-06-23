@@ -245,3 +245,107 @@ describe("automation command planner — utility AI path", () => {
     expect(result.diagnostic.noCommandReason).toBe("active_lock");
   });
 });
+
+// ── Phase 2 — diagnostic fields ─────────────────────────────────────────────
+// Every result from the utility path must carry utilityWinner, utilityWinnerScore,
+// utilityRunnerUp so the metrics observer can bucket decisions by class.
+
+describe("automation command planner — utility AI diagnostic fields (Phase 2)", () => {
+  it("populates utilityWinner=EXPAND when an expand fires", () => {
+    const ownedTown = makeTile(5, 5, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
+    });
+    const neutral = makeTile(6, 5);
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 10,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [ownedTown],
+      ownedTiles: [ownedTown],
+      tilesByKey: new Map([["5,5", ownedTown], ["6,5", neutral]]),
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command?.type).toBe("EXPAND");
+    expect(result.diagnostic.utilityWinner).toBe("EXPAND");
+    expect(typeof result.diagnostic.utilityWinnerScore).toBe("number");
+    expect(result.diagnostic.utilityWinnerScore ?? 0).toBeGreaterThan(0);
+    expect(result.diagnostic.utilityRunnerUp).toBeDefined();
+    expect(typeof result.diagnostic.utilityRunnerUpScore).toBe("number");
+  });
+
+  it("populates utilityWinner=WAIT when there are no actionable opportunities", () => {
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 0,
+      manpower: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [],
+      tilesByKey: new Map(),
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.utilityWinner).toBe("WAIT");
+    expect(result.diagnostic.utilityWinnerScore ?? 0).toBeGreaterThan(0);
+  });
+
+  it("populates utilityWinner=BUILD_ECONOMY when economy build fires (no frontier)", () => {
+    const ownedTown = makeTile(5, 5, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 10,
+      techIds: ["trade"],
+      strategicResources: { FOOD: 60 },
+      settledTileCount: 6,
+      townCount: 1,
+      incomePerMinute: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [ownedTown],
+      tilesByKey: new Map([["5,5", ownedTown]]),
+      clientSeq: 3,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command?.type).toBe("BUILD_ECONOMIC_STRUCTURE");
+    expect(result.diagnostic.utilityWinner).toBe("BUILD_ECONOMY");
+  });
+
+  it("populates utilityVetoedClasses when classes are blocked", () => {
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 0,
+      manpower: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [],
+      tilesByKey: new Map(),
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(Array.isArray(result.diagnostic.utilityVetoedClasses)).toBe(true);
+    expect((result.diagnostic.utilityVetoedClasses ?? []).length).toBeGreaterThan(0);
+    expect(result.diagnostic.utilityVetoedClasses).toContain("EXPAND");
+  });
+});

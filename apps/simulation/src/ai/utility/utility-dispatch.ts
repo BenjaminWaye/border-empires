@@ -204,11 +204,35 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
     .filter(([, s]) => s > 0)
     .sort(([, a], [, b]) => b - a);
 
+  const utilityBase = {
+    utilityRunnerUp: policy.runnerUp,
+    utilityRunnerUpScore: policy.runnerUpScore,
+    ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
+  };
+
   for (const [cls] of sorted) {
     const result = executeClass(cls, state);
-    if (result) return result;
+    if (result) {
+      return {
+        ...result,
+        diagnostic: {
+          ...result.diagnostic,
+          utilityWinner: cls,
+          utilityWinnerScore: policy.scores[cls],
+          ...utilityBase
+        }
+      };
+    }
   }
 
   // Unreachable in practice: WAIT always fires. Safety fallback.
-  return { diagnostic: { ...state.context.diagnostic, noCommandReason: "no_frontier_targets" } };
+  return {
+    diagnostic: {
+      ...state.context.diagnostic,
+      noCommandReason: "no_frontier_targets",
+      utilityWinner: "WAIT" as const,
+      utilityWinnerScore: policy.scores["WAIT"],
+      ...utilityBase
+    }
+  };
 };
