@@ -407,6 +407,14 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  // Separate counter that increments ONLY when a tile changes owner. Used as
+  // the cache key for VisionExpansionCache so that same-owner mutations (muster
+  // tick updating muster.amount, population growth updating town.population,
+  // passive income accrual, etc.) do NOT bust the vision expansion. Those
+  // mutations happen hundreds of times per second and don't change which tiles
+  // are visible — invalidating the O(territory×r²) expansion on every one of
+  // them was the primary cause of cold-cache bootstraps even on quiet sessions.
+  private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly eagerVisibilitySetCache = new Map<string, { collectionVersion: number; keys: Set<string> }>();
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
@@ -717,6 +725,7 @@ export class SimulationRuntime {
     for (const playerId of this.players.keys()) {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+      this.territoryVersionByPlayer.set(playerId, 0);
     }
     // First pass: apply tile summaries and shard-site tracking.
     // All tiles are already in this.tiles (createTilesFromInitialState produced a
@@ -1370,6 +1379,7 @@ export class SimulationRuntime {
     const summary = createEmptyPlayerRuntimeSummary();
     this.playerSummaries.set(playerId, summary);
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+    this.territoryVersionByPlayer.set(playerId, 0);
     return summary;
   }
 
@@ -1837,6 +1847,15 @@ export class SimulationRuntime {
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
+      // Ownership changed → bump the territory version so VisionExpansionCache
+      // knows to recompute. Same-owner mutations (muster, pop growth, income)
+      // leave this counter unchanged so the O(territory×r²) expansion stays warm.
+      if (previous?.ownerId) {
+        this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
+      }
+      if (tile.ownerId) {
+        this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
+      }
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
@@ -2370,7 +2389,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       visionExpansionCache: this.visionExpansionCache,
       tileCollectionVersionForPlayer: (visiblePlayerId) =>
-        this.plannerPlayerTileCollectionVersionByPlayer.get(visiblePlayerId) ?? 0
+        this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0
     });
   }
 
@@ -2378,7 +2397,7 @@ export class SimulationRuntime {
     return getBarbActivationVisionSignatureImpl({
       players: this.players,
       tileCollectionVersionForPlayer: (playerId) =>
-        this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0
+        this.territoryVersionByPlayer.get(playerId) ?? 0
     });
   }
 
@@ -2387,7 +2406,7 @@ export class SimulationRuntime {
       players: this.players,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       tileCollectionVersionForPlayer: (playerId) =>
-        this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0,
+        this.territoryVersionByPlayer.get(playerId) ?? 0,
       cache: this.barbActivationVisibilityCache
     });
   }
