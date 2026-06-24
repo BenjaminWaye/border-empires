@@ -65,6 +65,8 @@ export type GatewayMetricsSnapshot = {
   revealCacheEntries: number;
   gatewaySqliteRetryTotal: number;
   colorCollisionRejectedTotal: number;
+  loginQueuedTotal: number;
+  loginQueueRejectedTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -95,6 +97,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let revealCacheEntries = 0;
   let gatewaySqliteRetryTotal = 0;
   let colorCollisionRejectedTotal = 0;
+  let loginQueuedTotal = 0;
+  let loginQueueRejectedTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -127,7 +131,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     revealChunksSent,
     revealCacheEntries,
     gatewaySqliteRetryTotal,
-    colorCollisionRejectedTotal
+    colorCollisionRejectedTotal,
+    loginQueuedTotal,
+    loginQueueRejectedTotal
   });
 
   return {
@@ -193,6 +199,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementColorCollisionRejectedTotal(count = 1): void {
       colorCollisionRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementLoginQueuedTotal(count = 1): void {
+      loginQueuedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementLoginQueueRejectedTotal(count = 1): void {
+      loginQueueRejectedTotal += Math.max(0, Math.floor(count));
     },
     snapshot,
     renderPrometheus(): string {
@@ -265,7 +277,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_sqlite_retry_total counter",
         `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
         "# TYPE gateway_color_collision_rejected_total counter",
-        `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`
+        `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`,
+        "# TYPE gateway_login_queued_total counter",
+        `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
+        "# TYPE gateway_login_queue_rejected_total counter",
+        `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`
       ].join("\n");
     }
   };
