@@ -2438,87 +2438,106 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         inFlightSubscribeBuilds.set(key, promise);
         return promise;
       })();
+      const stringifySnapshot = snapshotStringifier
+        ? (payload: unknown) => snapshotStringifier(payload)
+        : async (payload: unknown) => JSON.stringify(payload);
+
       void buildPromise.then(
-        (snapshotPayload) => {
-          if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-            log.info(
-              JSON.stringify({
-                type: "debug_subscribe_player",
-                playerId: call.request.player_id,
-                runtimeTiles: snapshotPayload.tiles.length,
-                snapshotTiles: snapshotPayload.tiles.length,
-                snapshotLength: JSON.stringify(snapshotPayload).length
-              })
-            );
-          }
-          callback(null, {
-            ok: true,
-            player_id: snapshotPayload.playerId,
-            playerId: snapshotPayload.playerId,
-            ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
-            ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
-            ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
-            ...(snapshotPayload.docks?.length
-              ? {
-                  docks: snapshotPayload.docks.map((dock) => ({
-                    dock_id: dock.dockId,
-                    tile_key: dock.tileKey,
-                    paired_dock_id: dock.pairedDockId,
-                    ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-                  }))
-                }
-              : {}),
-            tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
-          });
-          if (!subscribeOptions.emitBootstrapEvent) return;
-          const bootstrapEvent = toProtoEvent({
-            eventType: "TILE_DELTA_BATCH",
-            commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
-            playerId: call.request.player_id,
-            tileDeltas: snapshotPayload.tiles
-          });
-          // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
-          // any prior PLAYER_UPDATE that fired before this subscriber attached
-          // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
-          // unconditionally superseded by a fresh value on the event stream.
-          // Include storageCap so the economy panel shows real caps immediately
-          // rather than the floor defaults from client-state initialisation.
-          const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
-          const hydrateEvent = snapshotPayload.player
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "PLAYER_UPDATE",
-                payloadJson: JSON.stringify({
-                  type: "PLAYER_UPDATE",
-                  ...snapshotPayload.player,
-                  ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+        async (snapshotPayload) => {
+          try {
+            const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
+              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
+              snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
+            ]);
+
+            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
+              log.info(
+                JSON.stringify({
+                  type: "debug_subscribe_player",
+                  playerId: call.request.player_id,
+                  runtimeTiles: snapshotPayload.tiles.length,
+                  snapshotTiles: snapshotPayload.tiles.length,
+                  snapshotLength: JSON.stringify(snapshotPayload).length
                 })
-              })
-            : undefined;
-          // Emit a WELCOME_BACK message showing how much the player earned
-          // since their last active session (capped at 12h of accrual).
-          const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
-          const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "WELCOME_BACK",
-                payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
-              })
-            : undefined;
-          runtime.updatePlayerLastActive(call.request.player_id, Date.now());
-          queueMicrotask(() => {
-            for (const stream of eventStreams) stream.write(bootstrapEvent);
-            if (hydrateEvent) {
-              for (const stream of eventStreams) stream.write(hydrateEvent);
+              );
             }
-            if (welcomeBackEvent) {
-              for (const stream of eventStreams) stream.write(welcomeBackEvent);
-            }
-          });
+            callback(null, {
+              ok: true,
+              player_id: snapshotPayload.playerId,
+              playerId: snapshotPayload.playerId,
+              ...(playerJson ? { player_json: playerJson } : {}),
+              ...(worldStatusJson ? { world_status_json: worldStatusJson } : {}),
+              ...(seasonJson ? { season_json: seasonJson } : {}),
+              ...(snapshotPayload.docks?.length
+                ? {
+                    docks: snapshotPayload.docks.map((dock) => ({
+                      dock_id: dock.dockId,
+                      tile_key: dock.tileKey,
+                      paired_dock_id: dock.pairedDockId,
+                      ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
+                    }))
+                  }
+                : {}),
+              tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
+            });
+            if (!subscribeOptions.emitBootstrapEvent) return;
+            const bootstrapEvent = toProtoEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
+              playerId: call.request.player_id,
+              tileDeltas: snapshotPayload.tiles
+            });
+            // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
+            // any prior PLAYER_UPDATE that fired before this subscriber attached
+            // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
+            // unconditionally superseded by a fresh value on the event stream.
+            // Include storageCap so the economy panel shows real caps immediately
+            // rather than the floor defaults from client-state initialisation.
+            const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
+            const hydrateEvent = snapshotPayload.player
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "PLAYER_UPDATE",
+                  payloadJson: JSON.stringify({
+                    type: "PLAYER_UPDATE",
+                    ...snapshotPayload.player,
+                    ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+                  })
+                })
+              : undefined;
+            // Emit a WELCOME_BACK message showing how much the player earned
+            // since their last active session (capped at 12h of accrual).
+            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "WELCOME_BACK",
+                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+                })
+              : undefined;
+            runtime.updatePlayerLastActive(call.request.player_id, Date.now());
+            queueMicrotask(() => {
+              for (const stream of eventStreams) stream.write(bootstrapEvent);
+              if (hydrateEvent) {
+                for (const stream of eventStreams) stream.write(hydrateEvent);
+              }
+              if (welcomeBackEvent) {
+                for (const stream of eventStreams) stream.write(welcomeBackEvent);
+              }
+            });
+          } catch (err) {
+            callback(err instanceof Error ? err : new Error(String(err)), {
+              ok: false,
+              player_id: call.request.player_id,
+              playerId: call.request.player_id,
+              tiles: []
+            });
+          }
         },
         (error) => {
           callback(error instanceof Error ? error : new Error(String(error)), {
