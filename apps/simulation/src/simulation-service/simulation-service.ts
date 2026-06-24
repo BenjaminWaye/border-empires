@@ -25,6 +25,7 @@ import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapsho
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
 import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
@@ -32,7 +33,7 @@ import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
-import { buildPlayerSubscriptionSnapshotAsync } from "../player-snapshot/player-snapshot.js";
+import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -747,6 +748,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
+  // Snapshot build pool: moves enrichment + assembly off the simulation event
+  // loop so the sim thread is free to answer gRPC pings while the 1–3 s build
+  // runs in a worker.  Falls back to sync inline build if worker unavailable.
+  let snapshotBuildPool: ReturnType<typeof createSnapshotBuilder> | undefined;
+  if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_BUILD_INLINE !== "1") {
+    try {
+      snapshotBuildPool = createSnapshotBuilder();
+    } catch (err) {
+      log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        "failed to start snapshot-build workers; falling back to inline sync build"
+      );
+    }
+  }
   // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
   // store can compact saves and rehydrate loads without paying the 200k-tile
   // generation cost more than once per seed per process.
@@ -1429,25 +1444,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
+    const buildOpts = {
       includeWorldStatus: needsFullWorldExport,
       fullVisibility: useFullVisibility,
+      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
+      // worldStatusRuntimeState is always === runtimeState for full-vis; the
+      // worker falls back to runtimeState automatically, so omit it here.
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
-      onAsyncPhaseTiming: (phase, durationMs, details) => {
-        recordSnapshotBuildTiming(phase, durationMs, {
-          playerId,
-          trigger: options?.trigger ?? "",
-          fullVisibility: useFullVisibility,
-          includeWorldStatus: options?.includeWorldStatus === true,
-          ...(details ?? {})
-        });
-      }
-    });
-    recordSnapshotBuildTiming("snapshot_materialize_async", Date.now() - snapshotBuildStartedAt, {
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+    };
+    const snapshot = snapshotBuildPool
+      ? await snapshotBuildPool.build(playerId, runtimeState, buildOpts)
+      : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
+    recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
       fullVisibility: useFullVisibility,
@@ -2896,6 +2907,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
                 ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
                 : undefined;
+            const buildWorkerMetrics = snapshotBuildPool?.getMetrics();
             const aiMetrics =
               aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
                 ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
@@ -2918,6 +2930,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                     last_exit_code: snapshotMetrics.lastExitCode
                   }
                 : undefined,
+              build_workers: buildWorkerMetrics?.map((m, i) => ({
+                slot: i,
+                heap_used_mb: toMb(m.heapUsedBytes),
+                respawn_count: m.respawnCount,
+                last_exit_code: m.lastExitCode
+              })),
               ai: aiMetrics
                 ? {
                     heap_used_mb: toMb(aiMetrics.heapUsedBytes),
