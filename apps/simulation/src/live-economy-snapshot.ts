@@ -142,3 +142,72 @@ export const buildLivePlayerEconomySnapshot = (
     fedTownKeys, fedTownKeysByPlayer
   });
 };
+
+type EconomyResultArgs = {
+  player: RuntimeState["players"][number] | undefined;
+  strategicProductionPerMinute: { FOOD: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
+  goldSources: Map<string, EconomyBucket>;
+  goldSinks: Map<string, EconomyBucket>;
+  foodSources: Map<string, EconomyBucket>;
+  foodSinks: Map<string, EconomyBucket>;
+  ironSources: Map<string, EconomyBucket>;
+  ironSinks: Map<string, EconomyBucket>;
+  crystalSources: Map<string, EconomyBucket>;
+  crystalSinks: Map<string, EconomyBucket>;
+  supplySources: Map<string, EconomyBucket>;
+  supplySinks: Map<string, EconomyBucket>;
+  shardSources: Map<string, EconomyBucket>;
+  fedTownKeys: Set<string>;
+  fedTownKeysByPlayer: Map<string, Set<string>>;
+};
+
+const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot => {
+  const { player, strategicProductionPerMinute } = args;
+  const upkeepPerMinute = {
+    food: Number([...args.foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    iron: Number([...args.ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    supply: Number([...args.supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    crystal: Number([...args.crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    gold: Number([...args.goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
+  };
+  const incomePerMinute = Number([...args.goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
+  const foodCoverage =
+    upkeepPerMinute.food <= 0
+      ? 1
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            (((player?.strategicResources.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)
+          )
+        );
+  return {
+    incomePerMinute,
+    strategicProductionPerMinute: {
+      FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
+      IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
+      CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
+      SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
+      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
+    },
+    upkeepPerMinute,
+    upkeepLastTick: {
+      foodCoverage: Number(foodCoverage.toFixed(4)),
+      gold: { contributors: sortedBuckets(args.goldSinks) },
+      food: { contributors: sortedBuckets(args.foodSinks) },
+      iron: { contributors: sortedBuckets(args.ironSinks) },
+      crystal: { contributors: sortedBuckets(args.crystalSinks) },
+      supply: { contributors: sortedBuckets(args.supplySinks) }
+    },
+    economyBreakdown: {
+      GOLD: { sources: sortedBuckets(args.goldSources), sinks: sortedBuckets(args.goldSinks) },
+      FOOD: { sources: sortedBuckets(args.foodSources), sinks: sortedBuckets(args.foodSinks) },
+      IRON: { sources: sortedBuckets(args.ironSources), sinks: sortedBuckets(args.ironSinks) },
+      CRYSTAL: { sources: sortedBuckets(args.crystalSources), sinks: sortedBuckets(args.crystalSinks) },
+      SUPPLY: { sources: sortedBuckets(args.supplySources), sinks: sortedBuckets(args.supplySinks) },
+      SHARD: { sources: sortedBuckets(args.shardSources), sinks: [] }
+    },
+    fedTownKeys: args.fedTownKeys,
+    fedTownKeysByPlayer: args.fedTownKeysByPlayer
+  };
+};
