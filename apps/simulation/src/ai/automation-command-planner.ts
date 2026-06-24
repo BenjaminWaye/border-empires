@@ -1,6 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
-  AI_UTILITY_POLICY_ENABLED,
   ATTACK_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST,
@@ -23,14 +22,12 @@ import {
   type AutomationPlannerDecisionContext
 } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
-import { runGoapWaterfall } from "./automation-goap-waterfall.js";
 
 import {
   createAutomationNoopDiagnostic,
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_REASONS,
-  AUTOMATION_PREPLAN_PROGRESS_STATES,
-  goapGoldReserveHealthy
+  AUTOMATION_PREPLAN_PROGRESS_STATES
 } from "./automation-command-planner-types.js";
 import type {
   AutomationNoopReason,
@@ -46,8 +43,7 @@ export {
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_REASONS,
   AUTOMATION_PREPLAN_PROGRESS_STATES,
-  createAutomationNoopDiagnostic,
-  goapGoldReserveHealthy
+  createAutomationNoopDiagnostic
 };
 export type {
   AutomationNoopReason,
@@ -388,18 +384,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ? (fallbackSettlementCandidate as TTile)
     : undefined;
   const canSettleNow = Boolean(primarySettleDecision?.shouldSettle);
-  const techUnaffordable = input.preplanProgressState === "tech_unaffordable";
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
   const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
-  // Action-class policy: if attack, expand, or settle is clearly available from
-  // frontier analysis, skip the economy build selector entirely. Fort and
-  // siege-outpost selectors still run because they feed GOAP defense decisions
-  // independently of the main priority waterfall.
-  const hasHigherPriorityAction =
-    (canAttack && frontierAnalysis.frontierEnemyTargetCount > 0) ||
-    (canExpand && (frontierAnalysis.frontierNeutralTargetCount > 0 || Boolean(frontierAnalysis.directedExpand))) ||
-    Boolean(settlementCandidate);
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
@@ -416,11 +403,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
     const buildCandidates = restrictToFocus(structureCandidates);
-    // Under utility policy the competition is resolved by scoring, not a boolean gate —
-    // always compute so BUILD_ECONOMY can be scored even when frontier action is available.
-    economicBuild = (!AI_UTILITY_POLICY_ENABLED && hasHigherPriorityAction)
-      ? undefined
-      : chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    // Competition is resolved by scoring, not a boolean gate — always compute
+    // so BUILD_ECONOMY can be scored even when frontier action is available.
+    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
@@ -451,48 +436,22 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   });
   input.onStrategicSnapshot?.(strategic);
 
-  if (AI_UTILITY_POLICY_ENABLED) {
-    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return runUtilityPolicy({
-      context,
-      strategic,
-      canAttack,
-      canExpand,
-      canSettleNow,
-      devSlotAvailable: effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT,
-      actionableFallbackSettlementCandidate,
-      preferredEnemyAttack,
-      economicBuild,
-      fortBuild,
-      siegeOutpostBuild,
-      attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
-      points: input.points,
-      manpower: input.manpower
-    });
-  }
-
-  return runGoapWaterfall({
+  recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+  return runUtilityPolicy({
     context,
     strategic,
-    frontierAnalysis,
-    preferredEnemyAttack,
-    canSettleNow,
-    settlementCandidate: settlementCandidate as TTile | undefined,
-    actionableFallbackSettlementCandidate,
     canAttack,
     canExpand,
-    needsFood,
-    needsEconomy,
-    techUnaffordable,
-    effectiveDevelopmentProcessCount,
-    settlementEligible,
+    canSettleNow,
+    devSlotAvailable: effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT,
+    actionableFallbackSettlementCandidate,
+    preferredEnemyAttack,
+    economicBuild,
     fortBuild,
     siegeOutpostBuild,
-    economicBuild,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,
-    summarizeStartedAt,
-    recordPhaseTiming
+    manpower: input.manpower
   });
 };
