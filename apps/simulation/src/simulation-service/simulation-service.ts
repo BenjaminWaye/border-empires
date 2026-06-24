@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
+import fs from "node:fs";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
@@ -1270,6 +1271,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         error: error.message
       });
       log.error({ err: error }, "simulation entering fatal persistence failure mode");
+      // Dump the error to /data/ before exiting so flyctl logs don't need to
+      // retain it — the file survives the restart and is logged on next boot.
+      try {
+        const stamp = new Date().toISOString();
+        const payload = JSON.stringify({ at: stamp, error: error.message, stack: error.stack ?? "" });
+        fs.writeFileSync("/data/last-persistence-failure.json", payload);
+      } catch {
+        // /data/ may not exist in dev; ignore silently
+      }
       setTimeout(() => {
         process.exitCode = 1;
         process.kill(process.pid, "SIGTERM");

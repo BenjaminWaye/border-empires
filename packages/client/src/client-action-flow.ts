@@ -205,7 +205,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     structureCostText
   } = deps;
 
-  const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
+  const requireAuthedSession = (
+    message = state.authRetrying
+      ? "Server is reconnecting. Please wait a moment."
+      : "Finish sign-in before interacting with the map."
+  ): boolean => {
     if (state.authReady && state.authSessionReady) return true;
     if (!state.authReady && ws.readyState === ws.OPEN && state.authSessionReady) return true;
     if (!state.authReady) {
