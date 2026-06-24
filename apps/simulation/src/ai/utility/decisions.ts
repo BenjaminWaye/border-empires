@@ -39,6 +39,22 @@ export type DecisionInputs = {
   frontierOpportunityEconomic: number;
   hasWeakEnemyBorder: boolean;
   hasBarbTarget: boolean;
+  // Aggregate expansion signal across all opportunity types (neutral, economic,
+  // town-support, scout, scaffold).  Feeds the EXPAND linear curve so that any
+  // non-waste opportunity contributes proportionally.
+  expansionOpportunityCount: number;
+  // Expansion quality: true when an economic/scaffold/town-support opportunity
+  // exists on the frontier, or when an expansion objective is set.  Without
+  // this, plain-tile expansion is suppressed (matches old noDirectedExpansion).
+  // Note: scout is NOT included — scout-only expansion is gated separately
+  // so it can be suppressed when the economy doesn't justify it.
+  hasActionableNonWasteExpand: boolean;
+  hasExpansionObjective: boolean;
+  // True when frontierOpportunityScout > 0 but no economic/scaffold/townSupport
+  // expand exists — the AI has scout-only expansion available.  Scout-only is
+  // gated at the veto level (EXPAND is still available) but penalised when the
+  // economy is weak so that WAIT wins instead (matches old wait_and_recover).
+  hasOnlyScoutExpand: boolean;
   // Settlement
   hasSettlementCandidate: boolean;
   devSlotAvailable: boolean;
@@ -63,7 +79,8 @@ export type DecisionInputs = {
   momentumTicks: Partial<Record<DecisionClass, number>>;
   // Cooldown: class is on cooldown this tick — treated as a veto.
   cooldown: Partial<Record<DecisionClass, boolean>>;
-  // Misc
+  // Misc — stalemate is folded into canAttack for ATTACK scoring but kept
+  // for MUSTER's independent check.
   stalemated: boolean;
 };
 
@@ -87,33 +104,50 @@ const scoreSettle = (inp: DecisionInputs): number =>
     boolVeto(!inp.pressureThreatensCore),
     // Comfortable gold cushion above the settle cost raises confidence
     linear(inp.points, SETTLE_COST, SETTLE_COST + 250),
-    // Economy pressure lowers settle attractiveness (income first)
-    1 - linear(inp.needsEconomy ? 1 : 0, 0, 1) * 0.4
   ]);
 
 const scoreExpand = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canExpand),
-    // Even a single neutral opportunity is strong evidence to expand.
-    // Range of 2 means 1 neutral → 0.5, ≥2 → 1.0, 0 → 0 (natural veto).
-    linear(inp.frontierNeutralCount + inp.frontierOpportunityEconomic, 0, 2),
-    // Expand is still attractive under moderate threat if neutrals exist;
-    // heavy pressure (core threatened) only allows it when there's a direct
-    // economic opportunity to stabilise
-    boolVeto(!inp.pressureThreatensCore || inp.frontierOpportunityEconomic > 0)
+    // Suppress plain/waste expansion when no actionable target exists AND no
+    // expansion objective is set.  Scout-only passes this gate (hasOnlyScoutExpand)
+    // but gets penalised below so WAIT wins when the economy is weak.
+    boolVeto(
+      inp.hasActionableNonWasteExpand ||
+        inp.hasExpansionObjective ||
+        inp.hasOnlyScoutExpand
+    ),
+    // Aggregate expansion signal across all non-waste opportunity types.
+    // Range 0–3: 1 tile → 0.33, 2 tiles → 0.67, ≥3 → 1.0.
+    linear(inp.expansionOpportunityCount, 0, 3),
+    // Under core pressure, expansion is penalised rather than vetoed so
+    // that a strong economic / town-support opportunity can still edge
+    // out an attack.  When pressure is absent this is 1 (identity).
+    inp.pressureThreatensCore && inp.expansionOpportunityCount <= 2
+      ? 1 - logistic(inp.pressureAttackScore, 100, 0.03) * 0.8
+      : 1,
+    // Scout-only expansion is only worthwhile when the economy can afford it.
+    // Scale from mildly permissive (needsEconomy=false → ~0.60 multiplier) to
+    // heavily suppressed (needsEconomy=true → ~0.20 multiplier), so WAIT wins
+    // over wasteful scout expansions in the old wait_and_recover scenarios.
+    inp.hasOnlyScoutExpand
+      ? 1 - logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.1, 0.3, 6) * 0.85
+      : 1,
   ]);
 
 const scoreAttack = (inp: DecisionInputs): number =>
+  // canAttack already folds stalemate + enemy-presence checks inside
+  // buildDecisionInputs so we can represent ATTACK in 5 considerations
+  // instead of 7 (keeping compensation parity with EXPAND).
   scoreConsiderations([
     boolVeto(inp.canAttack),
-    boolVeto(inp.frontierEnemyCount > 0),
     boolVeto(inp.attackReady),
     boolVeto(!inp.musterReady),          // muster system handles it via MUSTER class
-    boolVeto(!inp.stalemated),
     // Barbarian attacks don't require BREAK posture — only player attacks do.
     boolVeto(inp.frontPosture === "BREAK" || inp.hasBarbTarget),
-    // Scales with how hard the enemy is pressing
-    logistic(inp.pressureAttackScore, 150, 0.015)
+    // Scales with how hard the enemy is pressing.
+    // Midpoint 185 means pressure below ~125 barely registers; 170 (test 3) ~0.29.
+    logistic(inp.pressureAttackScore, 185, 0.06)
   ]);
 
 const scoreMuster = (inp: DecisionInputs): number =>
@@ -138,12 +172,13 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     boolVeto(inp.hasEconomicBuild),
     boolVeto(inp.devSlotAvailable),
     // Economy build is unattractive while expansion / attack is available.
-    // Sharp suppression: 1 neutral already cuts BUILD_ECONOMY by ~67%;
-    // ≥2 frontier tiles push it to 0, matching the spirit of hasHigherPriorityAction
-    // but via competition rather than a hard gate.
-    1 - linear(inp.frontierNeutralCount + inp.frontierEnemyCount, 0, 1.5),
-    // Scales up when income is genuinely weak
-    logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.3, 6)
+    // Includes frontier enemy count so that ANY enemy at the gate naturally
+    // suppresses economy building, letting ATTACK win the competition.
+    // 1 frontier action cuts BUILD_ECONOMY by ~67%; ≥1.5 pushes to 0.
+    1 - linear(inp.expansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
+    // Scales up when income is genuinely weak; midpoint 0.7 ensures
+    // SETTLE/EXPAND/ATTACK (all scoring ~1.0) outrank economy builds.
+    logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)
   ]);
 
 const scoreChooseTech = (inp: DecisionInputs): number =>

@@ -14,6 +14,7 @@ const BASE: DecisionInputs = {
   frontierNeutralCount: 0,
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
+  expansionOpportunityCount: 0,
   hasWeakEnemyBorder: false,
   hasBarbTarget: false,
   hasSettlementCandidate: false,
@@ -168,7 +169,8 @@ describe("EXPAND decision", () => {
     const s = scoreDecision("EXPAND", {
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 3
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 3
     });
     expect(s).toBeGreaterThan(0);
   });
@@ -177,19 +179,33 @@ describe("EXPAND decision", () => {
       ...BASE,
       canExpand: true,
       pressureThreatensCore: true,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 3,
       frontierOpportunityEconomic: 2
     });
     expect(s).toBeGreaterThan(0);
   });
-  it("core-threatened expand vetoed when no economic opportunity", () => {
-    const s = scoreDecision("EXPAND", {
+  it("core-threatened expand heavily penalized when few opportunities", () => {
+    // With the new soft-penalty system, core-threatened expansion is not
+    // hard-vetoed but is heavily suppressed via logistic scoring.
+    const penalized = scoreDecision("EXPAND", {
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 3,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 1,
       pressureThreatensCore: true,
-      frontierOpportunityEconomic: 0
+      pressureAttackScore: 500
     });
-    expect(s).toBe(0);
+    const unpenalized = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 1,
+      pressureThreatensCore: false
+    });
+    // Core-threatened score must be strictly lower than unthreatened.
+    expect(penalized).toBeGreaterThan(0);
+    expect(penalized).toBeLessThan(unpenalized);
   });
 });
 
@@ -210,14 +226,28 @@ describe("ATTACK decision", () => {
     });
     expect(s).toBe(0);
   });
-  it("vetoed when stalemated", () => {
+  // stalemate is folded into canAttack (buildDecisionInputs), not a
+  // separate ATTACK veto.  When stalemated, canAttack should be false and
+  // ATTACK scores 0 via the canAttack veto.  MUSTER independently vetos on
+  // stalemate.
+  it("vetoed when stalemated (via canAttack)", () => {
     const s = scoreDecision("ATTACK", {
       ...BASE,
-      canAttack: true,
+      canAttack: false,
       attackReady: true,
       frontierEnemyCount: 1,
       frontPosture: "BREAK",
       pressureAttackScore: 300,
+      stalemated: true
+    });
+    expect(s).toBe(0);
+  });
+  it("MUSTER is vetoed by stalemate", () => {
+    const s = scoreDecision("MUSTER", {
+      ...BASE,
+      musterReady: true,
+      hasWeakEnemyBorder: true,
+      pressureAttackScore: 200,
       stalemated: true
     });
     expect(s).toBe(0);
@@ -247,7 +277,8 @@ describe("BUILD_ECONOMY decision", () => {
     const inp: DecisionInputs = {
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 3,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     };
@@ -296,7 +327,8 @@ describe("evaluateUtilityPolicy", () => {
     const result = evaluateUtilityPolicy({
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 4
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 4
     });
     const max = Math.max(...Object.values(result.scores));
     expect(result.winnerScore).toBeCloseTo(max, 6);
@@ -306,7 +338,8 @@ describe("evaluateUtilityPolicy", () => {
     const result = evaluateUtilityPolicy({
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 4
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 4
     });
     expect(result.runnerUpScore).toBeLessThanOrEqual(result.winnerScore);
   });
@@ -320,7 +353,8 @@ describe("evaluateUtilityPolicy", () => {
     const result = evaluateUtilityPolicy({
       ...BASE,
       canExpand: true,
-      frontierNeutralCount: 3,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     });
