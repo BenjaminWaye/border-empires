@@ -596,6 +596,124 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       pendingPreplanOutcomeByCommandId.set(commandId, { resolve, timeoutHandle });
     });
 
+  type TickMetrics = {
+    planRequestCount: number;
+    submitCount: number;
+    preplanWaitMs: number;
+    lastCommandType: string | undefined;
+  };
+
+  // Submits a preplan command (CHOOSE_TECH / CHOOSE_DOMAIN) and waits for the
+  // server to confirm it was applied before the caller re-plans. Returns
+  // "applied" on success, "rejected"/"timed_out" on failure, "skipped" when an
+  // experiment flag short-circuits submission.
+  const doSubmitPreplan = async (
+    playerId: string,
+    command: CommandEnvelope,
+    clientSeq: number,
+    issuedAt: number,
+    m: TickMetrics
+  ): Promise<"applied" | "rejected" | "timed_out" | "skipped"> => {
+    const maxCmds = options.experimentMaxCommandsPerTick ?? 0;
+    if (maxCmds > 0 && m.submitCount >= maxCmds) {
+      options.onExperimentFilter?.("command_cap");
+      return "skipped";
+    }
+    if (options.experimentDryRun) {
+      options.onExperimentFilter?.("dry_run");
+      return "skipped";
+    }
+    trackedPreplanByCommandId.set(command.commandId, { playerId, trackedAt: issuedAt });
+    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, startedAt: issuedAt });
+    nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+    // Register before submit to avoid the race where the server confirms
+    // before the outcome listener is set up.
+    const outcomePromise = waitForPreplanOutcome(playerId, command.commandId);
+    const submitStart = now();
+    m.submitCount++;
+    m.lastCommandType = command.type;
+    await options.submitCommand(command);
+    lastCommandAtByPlayer.set(playerId, issuedAt);
+    options.onCommand?.({ playerId, commandType: command.type });
+    options.onDiagnostic?.({ phase: "submit_command", durationMs: Math.max(0, now() - submitStart), playerId });
+    const preplanStart = now();
+    const outcome = await outcomePromise;
+    m.preplanWaitMs += Math.max(0, now() - preplanStart);
+    return outcome;
+  };
+
+  // Submits a strategic command (EXPAND, ATTACK, SETTLE, BUILD_*, etc.),
+  // latches AI intent, and records stalemate state.
+  // Returns true if the player was removed from the urgent set (so the caller
+  // can restore it on error).
+  const doSubmitRegular = async (
+    playerId: string,
+    playerIndex: number,
+    command: CommandEnvelope,
+    clientSeq: number,
+    issuedAt: number,
+    playerTerritoryVersion: number,
+    m: TickMetrics
+  ): Promise<boolean> => {
+    const targetTileKey = extractTargetTileKey(command);
+    const intentKind = intentKindForCommand(command.type);
+    if (intentKind && targetTileKey && reservationHeldByOtherAi(intentLatchState, playerId, targetTileKey, issuedAt)) {
+      return false;
+    }
+    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, startedAt: issuedAt });
+    nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+    nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+    const wasUrgent = urgentByPlayerId.delete(playerId);
+    if (intentKind) {
+      const wakeWindowMs = wakeWindowMsForCommand(command.type);
+      if (wakeWindowMs > 0) {
+        const wakeAt = issuedAt + wakeWindowMs;
+        const originTileKey = extractOriginTileKey(command);
+        const actionKey = `${command.type}:${targetTileKey ?? originTileKey ?? command.commandId}`;
+        latchAiIntent(intentLatchState, {
+          playerId, actionKey, kind: intentKind, startedAt: issuedAt, wakeAt,
+          territoryVersion: playerTerritoryVersion,
+          ...(targetTileKey ? { targetTileKey } : {}),
+          ...(originTileKey ? { originTileKey } : {})
+        });
+        if (targetTileKey) {
+          reserveAiTarget(
+            intentLatchState,
+            { playerId, actionKey, tileKey: targetTileKey, createdAt: issuedAt, wakeAt },
+            issuedAt
+          );
+        }
+      }
+    }
+    if (options.experimentDisableExpand && isExpandAction(command.type)) {
+      options.onExperimentFilter?.("expand_disabled");
+      return wasUrgent;
+    }
+    if (options.experimentDisableBuild && isBuildAction(command.type)) {
+      options.onExperimentFilter?.("build_disabled");
+      return wasUrgent;
+    }
+    const maxCmds = options.experimentMaxCommandsPerTick ?? 0;
+    if (maxCmds > 0 && m.submitCount >= maxCmds) {
+      options.onExperimentFilter?.("command_cap");
+      return wasUrgent;
+    }
+    const submitStart = now();
+    m.submitCount++;
+    m.lastCommandType = command.type;
+    if (options.experimentDryRun) {
+      options.onExperimentFilter?.("dry_run");
+    } else {
+      await options.submitCommand(command);
+      reserveDevelopmentSlot(developmentReservationsByPlayer, command, issuedAt);
+    }
+    lastCommandAtByPlayer.set(playerId, issuedAt);
+    options.onCommand?.({ playerId, commandType: command.type });
+    if (command.type === "ATTACK" && targetTileKey) attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
+    options.onDiagnostic?.({ phase: "submit_command", durationMs: Math.max(0, now() - submitStart), playerId });
+    return wasUrgent;
+  };
+
   const stopListening = options.runtime.onEvent((event) => {
     if (event.eventType === "COMMAND_REJECTED") {
       clearDevelopmentReservation(developmentReservationsByPlayer, event.playerId, event.commandId);
@@ -741,329 +859,160 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   };
 
   const tick = async (): Promise<void> => {
-    // Reentrancy guard: the in-flight tick owns the reschedule via its own
-    // finally block (guaranteed by the outer try below), so returning here
-    // is safe — we will NOT double-schedule.
-    if (tickInFlight) return;
-    if (closed) return;
+    if (tickInFlight || closed) return;
 
-    // Every path below this point (throttle skip, backlog skip, real work)
-    // reaches the outer finally and calls scheduleNextTick(). This is the
-    // critical invariant: no early-return before the try means the
-    // setTimeout chain can never die from a transient guard.
-    let didWork = false;
-    let tickStartedAt = 0;
-    let planRequestCount = 0;
-    let submitCount = 0;
-    let preplanWaitMs = 0;
+    if (!shouldRun()) {
+      scheduleNextTick();
+      return;
+    }
+
+    const queueDepths = options.runtime.queueDepths();
+    const humanBacklogNonEmpty = hasHumanInteractiveBacklog(queueDepths);
+    if (humanBacklogNonEmpty !== humanBacklogWasNonEmpty) {
+      worker.postMessage({ type: humanBacklogNonEmpty ? "pause" : "resume" });
+      humanBacklogWasNonEmpty = humanBacklogNonEmpty;
+    }
+    if (humanBacklogNonEmpty) {
+      scheduleNextTick();
+      return;
+    }
+
+    // ── Work phase ────────────────────────────────────────────────────────
+    tickInFlight = true;
+    const tickStartedAt = now();
+    const queueDepthAiAtStart = queueDepths.ai;
+    const pendingPlayerSyncAtStart = pendingPlayerSyncIds.size > 0;
+    const pendingTileDeltasAtStart = pendingTileDeltasByKey.size;
+    const m: TickMetrics = { planRequestCount: 0, submitCount: 0, preplanWaitMs: 0, lastCommandType: undefined };
     let lastPlayerId: string | undefined;
-    let lastCommandType: string | undefined;
-    let queueDepthAiAtStart = 0;
-    let pendingPlayerSyncAtStart = false;
-    let pendingTileDeltasAtStart = 0;
     let iterationOrderLength = 0;
 
     try {
-      if (!shouldRun()) return;
-
-      const queueDepths = options.runtime.queueDepths();
-      const humanBacklogNonEmpty = hasHumanInteractiveBacklog(queueDepths);
-
-      // Sync pause/resume state with worker
-      if (humanBacklogNonEmpty && !humanBacklogWasNonEmpty) {
-        worker.postMessage({ type: "pause" });
-      } else if (!humanBacklogNonEmpty && humanBacklogWasNonEmpty) {
-        worker.postMessage({ type: "resume" });
-      }
-      humanBacklogWasNonEmpty = humanBacklogNonEmpty;
-
-      if (humanBacklogNonEmpty) return;
-
-      // --- Work phase begins. Set tickInFlight so the reentrancy guard above
-      // knows a real tick is active (and won't double-schedule).
-      didWork = true;
-      tickInFlight = true;
-      tickStartedAt = now();
-      // Slow-tick capture: most ticks return in <5ms but rare ticks hit 5s+.
-      // Per-call histograms show every phase under 200ms, so the outlier must
-      // be a combination — capture context per tick and emit when threshold
-      // is crossed.
-      queueDepthAiAtStart = queueDepths.ai;
-      pendingPlayerSyncAtStart = pendingPlayerSyncIds.size > 0;
-      pendingTileDeltasAtStart = pendingTileDeltasByKey.size;
-
       if (options.aiPlayerIds.length === 0) return;
 
-      // Clear timed-out pending commands (90s timeout)
+      // Expire stale tracking entries.
       const cutoff = now() - TRACKED_PREPLAN_RETENTION_MS;
-      for (const [playerId, pending] of pendingCommandByPlayer.entries()) {
-        if (pending.startedAt <= cutoff) pendingCommandByPlayer.delete(playerId);
-      }
-      for (const [commandId, trackedPreplan] of trackedPreplanByCommandId.entries()) {
-        if (trackedPreplan.trackedAt <= cutoff) trackedPreplanByCommandId.delete(commandId);
-      }
+      for (const [id, p] of pendingCommandByPlayer) if (p.startedAt <= cutoff) pendingCommandByPlayer.delete(id);
+      for (const [id, t] of trackedPreplanByCommandId) if (t.trackedAt <= cutoff) trackedPreplanByCommandId.delete(id);
       attackStalemate.expireOlderThan(now() - ATTACK_STALEMATE_WINDOW_MS);
 
+      // Build iteration order: urgent defenders first, then round-robin.
       const iterationOrder: number[] = [];
       const seenIndices = new Set<number>();
-      const urgentSnapshot = [...urgentByPlayerId];
-      for (const urgentPlayerId of urgentSnapshot) {
-        if (!aiPlayerIdSet.has(urgentPlayerId)) {
-          urgentByPlayerId.delete(urgentPlayerId);
-          continue;
-        }
-        const idx = options.aiPlayerIds.indexOf(urgentPlayerId);
-        if (idx >= 0 && !seenIndices.has(idx)) {
-          iterationOrder.push(idx);
-          seenIndices.add(idx);
-        }
+      for (const urgentId of [...urgentByPlayerId]) {
+        if (!aiPlayerIdSet.has(urgentId)) { urgentByPlayerId.delete(urgentId); continue; }
+        const idx = options.aiPlayerIds.indexOf(urgentId);
+        if (idx >= 0 && !seenIndices.has(idx)) { iterationOrder.push(idx); seenIndices.add(idx); }
       }
-      for (let offset = 0; offset < options.aiPlayerIds.length; offset++) {
-        const playerIndex = (nextPlayerIndex + offset) % options.aiPlayerIds.length;
-        if (!seenIndices.has(playerIndex)) {
-          iterationOrder.push(playerIndex);
-          seenIndices.add(playerIndex);
-        }
+      for (let i = 0; i < options.aiPlayerIds.length; i++) {
+        const idx = (nextPlayerIndex + i) % options.aiPlayerIds.length;
+        if (!seenIndices.has(idx)) { iterationOrder.push(idx); seenIndices.add(idx); }
       }
       iterationOrderLength = iterationOrder.length;
+
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
-        const lastCommandAt = lastCommandAtByPlayer.get(playerId);
-        if (
-          minCommandIntervalMs > 0 &&
-          lastCommandAt !== undefined &&
-          now() - lastCommandAt < minCommandIntervalMs
-        ) {
-          continue;
-        }
+        const lastAt = lastCommandAtByPlayer.get(playerId);
+        if (minCommandIntervalMs > 0 && lastAt !== undefined && now() - lastAt < minCommandIntervalMs) continue;
         const playerTerritoryVersion = territoryVersionForPlayer(playerId);
-        const probe = probeAiLatchedIntent(intentLatchState, {
-          playerId,
-          nowMs: now(),
-          territoryVersion: playerTerritoryVersion
-        });
-        if (probe.status === "waiting") continue;
+        if (probeAiLatchedIntent(intentLatchState, { playerId, nowMs: now(), territoryVersion: playerTerritoryVersion }).status === "waiting") continue;
 
+        lastPlayerId = playerId;
         let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
-        let skipPreplan = false;
-        let advancedWithoutPending = false;
-        let activePreplanCommandId: string | undefined;
         let wasUrgent = false;
+        let activePreplanCommandId: string | undefined;
 
         try {
-          for (let pass = 0; pass < 2; pass += 1) {
-            const issuedAt = now();
-            const plannerStartedAt = now();
-            planRequestCount += 1;
-            lastPlayerId = playerId;
-            const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
-            const plan = await requestPlan(playerId, clientSeq, issuedAt, {
-              skipPreplan,
-              ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {})
-            });
-            const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
-            options.onDiagnostic?.({
-              phase: "request_plan_round_trip",
-              durationMs: plannerDurationMs,
-              playerId
-            });
-            const breached = plannerDurationMs > plannerBreachThresholdMs;
-            options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-            if (!plan.command) {
-              if (plan.diagnostic) {
-                options.onDecision?.(plan.diagnostic);
-                options.onNoCommand?.(plan.diagnostic);
-              }
-              if (advancedWithoutPending) {
-                nextClientSeqByPlayer.set(playerId, clientSeq);
-                nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-                return;
-              }
+          const reservedSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, now());
+          const slotOpts = reservedSlots > 0 ? { reservedDevelopmentSlots: reservedSlots } : undefined;
+
+          // ── Phase 1: plan ───────────────────────────────────────────────
+          const issuedAt1 = now();
+          m.planRequestCount++;
+          const plan1 = await requestPlan(playerId, clientSeq, issuedAt1, slotOpts);
+          const planMs1 = Math.max(0, now() - issuedAt1);
+          options.onDiagnostic?.({ phase: "request_plan_round_trip", durationMs: planMs1, playerId });
+          options.onPlannerTick?.({ durationMs: planMs1, breached: planMs1 > plannerBreachThresholdMs });
+          if (plan1.diagnostic) options.onDecision?.(plan1.diagnostic);
+
+          if (!plan1.command) {
+            if (plan1.diagnostic) options.onNoCommand?.(plan1.diagnostic);
+            nextClientSeqByPlayer.set(playerId, clientSeq);
+            nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+            urgentByPlayerId.delete(playerId);
+            break;
+          }
+
+          if (isAutomationPreplanCommand(plan1.command.type)) {
+            // ── Preplan path: submit CHOOSE_TECH / CHOOSE_DOMAIN, await confirmation, re-plan ──
+            activePreplanCommandId = plan1.command.commandId;
+            const outcome = await doSubmitPreplan(playerId, plan1.command, clientSeq, issuedAt1, m);
+            activePreplanCommandId = undefined;
+            if (outcome !== "applied") break;
+            clientSeq++;
+
+            // ── Phase 2: re-plan now that preplan is applied ────────────
+            const issuedAt2 = now();
+            m.planRequestCount++;
+            const plan2 = await requestPlan(playerId, clientSeq, issuedAt2, { skipPreplan: true, ...slotOpts });
+            const planMs2 = Math.max(0, now() - issuedAt2);
+            options.onDiagnostic?.({ phase: "request_plan_round_trip", durationMs: planMs2, playerId });
+            options.onPlannerTick?.({ durationMs: planMs2, breached: planMs2 > plannerBreachThresholdMs });
+            if (plan2.diagnostic) options.onDecision?.(plan2.diagnostic);
+
+            if (!plan2.command) {
+              if (plan2.diagnostic) options.onNoCommand?.(plan2.diagnostic);
               nextClientSeqByPlayer.set(playerId, clientSeq);
               nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
               urgentByPlayerId.delete(playerId);
               break;
             }
-            if (plan.diagnostic) {
-              options.onDecision?.(plan.diagnostic);
-            }
-            if (isAutomationPreplanCommand(plan.command.type)) {
-              trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
-              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
-              activePreplanCommandId = plan.command.commandId;
-              // Register the preplan-outcome resolver BEFORE submitting so the
-              // runtime event listener can signal the outcome without a race.
-              const maxCmds = options.experimentMaxCommandsPerTick ?? 0;
-              if (maxCmds > 0 && submitCount >= maxCmds) {
-                options.onExperimentFilter?.("command_cap");
-                break;
-              }
-              if (options.experimentDryRun) {
-                // Skip the actual submit AND the preplan-outcome wait (no event will fire to resolve it).
-                options.onExperimentFilter?.("dry_run");
-                break;
-              }
-              const preplanWaitStartedAt = now();
-              const outcomePromise = waitForPreplanOutcome(playerId, plan.command.commandId);
-              const submitStartedAt = now();
-              submitCount += 1;
-              lastCommandType = plan.command.type;
-              await options.submitCommand(plan.command);
-              lastCommandAtByPlayer.set(playerId, issuedAt);
-              nextClientSeqByPlayer.set(playerId, clientSeq + 1);
-              options.onCommand?.({ playerId, commandType: plan.command.type });
-              options.onDiagnostic?.({
-                phase: "submit_command",
-                durationMs: Math.max(0, now() - submitStartedAt),
-                playerId
-              });
-              const preplanOutcome = await outcomePromise;
-              preplanWaitMs += Math.max(0, now() - preplanWaitStartedAt);
-              activePreplanCommandId = undefined;
-              if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
-                break;
-              }
-              clientSeq += 1;
-              skipPreplan = true;
-              advancedWithoutPending = true;
-              continue;
-            }
-            const targetTileKey = extractTargetTileKey(plan.command);
-            const intentKind = intentKindForCommand(plan.command.type);
-            if (
-              intentKind &&
-              targetTileKey &&
-              reservationHeldByOtherAi(intentLatchState, playerId, targetTileKey, issuedAt)
-            ) {
-              // Another AI has committed to this tile; defer to let next tick re-plan.
-              break;
-            }
-            pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
-            nextClientSeqByPlayer.set(playerId, clientSeq + 1);
-            nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-            wasUrgent = urgentByPlayerId.delete(playerId);
-            if (intentKind) {
-              const wakeWindowMs = wakeWindowMsForCommand(plan.command.type);
-              if (wakeWindowMs > 0) {
-                const wakeAt = issuedAt + wakeWindowMs;
-                const originTileKey = extractOriginTileKey(plan.command);
-                const actionKey = `${plan.command.type}:${targetTileKey ?? originTileKey ?? plan.command.commandId}`;
-                latchAiIntent(intentLatchState, {
-                  playerId,
-                  actionKey,
-                  kind: intentKind,
-                  startedAt: issuedAt,
-                  wakeAt,
-                  territoryVersion: playerTerritoryVersion,
-                  ...(targetTileKey ? { targetTileKey } : {}),
-                  ...(originTileKey ? { originTileKey } : {})
-                });
-                if (targetTileKey) {
-                  reserveAiTarget(
-                    intentLatchState,
-                    { playerId, actionKey, tileKey: targetTileKey, createdAt: issuedAt, wakeAt },
-                    issuedAt
-                  );
-                }
-              }
-            }
-            const cmdType = plan.command.type;
-            if (options.experimentDisableExpand && isExpandAction(cmdType)) {
-              options.onExperimentFilter?.("expand_disabled");
-              break;
-            }
-            if (options.experimentDisableBuild && isBuildAction(cmdType)) {
-              options.onExperimentFilter?.("build_disabled");
-              break;
-            }
-            const maxCmdsRegular = options.experimentMaxCommandsPerTick ?? 0;
-            if (maxCmdsRegular > 0 && submitCount >= maxCmdsRegular) {
-              options.onExperimentFilter?.("command_cap");
-              break;
-            }
-            const submitStartedAt = now();
-            submitCount += 1;
-            lastCommandType = cmdType;
-            if (options.experimentDryRun) {
-              options.onExperimentFilter?.("dry_run");
-            } else {
-              await options.submitCommand(plan.command);
-              reserveDevelopmentSlot(developmentReservationsByPlayer, plan.command, issuedAt);
-            }
-            lastCommandAtByPlayer.set(playerId, issuedAt);
-            options.onCommand?.({ playerId, commandType: cmdType });
-            if (cmdType === "ATTACK" && targetTileKey) {
-              attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
-            }
-            options.onDiagnostic?.({
-              phase: "submit_command",
-              durationMs: Math.max(0, now() - submitStartedAt),
-              playerId
-            });
-            return;
+            wasUrgent = await doSubmitRegular(playerId, playerIndex, plan2.command, clientSeq, now(), playerTerritoryVersion, m);
+            break;
           }
+
+          // ── Direct command (no preplan needed) ──────────────────────────
+          wasUrgent = await doSubmitRegular(playerId, playerIndex, plan1.command, clientSeq, now(), playerTerritoryVersion, m);
+
         } catch {
           pendingCommandByPlayer.delete(playerId);
           if (activePreplanCommandId) {
             trackedPreplanByCommandId.delete(activePreplanCommandId);
-            // The outcome resolver is now registered BEFORE submitCommand, so
-            // a thrown submit leaves a pending entry with a 5s timer attached.
-            // Resolve it immediately as "rejected" to clear the entry + timer
-            // (otherwise the still-awaited outcomePromise blocks the pass
-            // until the 5s timeout, which we just diagnosed as the AI tick
-            // p99 wall).
             resolvePendingPreplanOutcome(activePreplanCommandId, "rejected");
           }
           releaseAiLatchedIntent(intentLatchState, playerId);
-          // Restore urgency on failed submit so the defender doesn't lose its
-          // priority slot to a transient command-store error.
           if (wasUrgent) urgentByPlayerId.add(playerId);
-          // swallow — will retry on next tick
         }
-        if (advancedWithoutPending) {
-          nextClientSeqByPlayer.set(playerId, clientSeq);
-          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-          urgentByPlayerId.delete(playerId);
-        }
+
         return; // one player per tick
       }
     } finally {
-      if (didWork) {
-        const tickDurationMs = Math.max(0, now() - tickStartedAt);
-        options.onTick?.({ durationMs: tickDurationMs });
-        if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
-          options.onSlowTick({
-            durationMs: tickDurationMs,
-            planRequestCount,
-            submitCount,
-            preplanWaitMs,
-            queueDepthAiAtStart,
-            pendingPlayerSyncAtStart,
-            pendingTileDeltasAtStart,
-            iterationOrderLength,
-            ...(lastPlayerId ? { lastPlayerId } : {}),
-            ...(lastCommandType ? { lastCommandType } : {})
-          });
-        }
-        tickInFlight = false;
-        // Adaptive tick interval (Layer 1): back off when AI work is heavy,
-        // recover when it's light. Never drop below MIN or above MAX.
-        const prevDelayMs = nextTickDelayMs;
-        if (tickDurationMs > ADAPTIVE_BACKOFF_THRESHOLD_MS) {
-          nextTickDelayMs = Math.min(MAX_TICK_MS, nextTickDelayMs * 2);
-          options.onThrottle?.("adaptive");
-        } else if (tickDurationMs < ADAPTIVE_RECOVER_THRESHOLD_MS && nextTickDelayMs > MIN_TICK_MS) {
-          nextTickDelayMs = Math.max(MIN_TICK_MS, Math.floor(nextTickDelayMs / 2));
-        }
-        if (nextTickDelayMs !== prevDelayMs) {
-          options.onIntervalChange?.(nextTickDelayMs);
-        }
+      tickInFlight = false;
+      const tickDurationMs = Math.max(0, now() - tickStartedAt);
+      options.onTick?.({ durationMs: tickDurationMs });
+      if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
+        options.onSlowTick({
+          durationMs: tickDurationMs,
+          planRequestCount: m.planRequestCount,
+          submitCount: m.submitCount,
+          preplanWaitMs: m.preplanWaitMs,
+          queueDepthAiAtStart,
+          pendingPlayerSyncAtStart,
+          pendingTileDeltasAtStart,
+          iterationOrderLength,
+          ...(lastPlayerId ? { lastPlayerId } : {}),
+          ...(m.lastCommandType ? { lastCommandType: m.lastCommandType } : {})
+        });
       }
-      // Always reschedule the next tick (unless closed). This outer finally
-      // runs on every exit — throttle skips, backlog skips, and real work.
-      // The reentrancy guard (tickInFlight) early-returns before this try, so
-      // there is exactly one outstanding scheduleNextTick per live tick cycle.
+      const prevDelayMs = nextTickDelayMs;
+      if (tickDurationMs > ADAPTIVE_BACKOFF_THRESHOLD_MS) {
+        nextTickDelayMs = Math.min(MAX_TICK_MS, nextTickDelayMs * 2);
+        options.onThrottle?.("adaptive");
+      } else if (tickDurationMs < ADAPTIVE_RECOVER_THRESHOLD_MS && nextTickDelayMs > MIN_TICK_MS) {
+        nextTickDelayMs = Math.max(MIN_TICK_MS, Math.floor(nextTickDelayMs / 2));
+      }
+      if (nextTickDelayMs !== prevDelayMs) options.onIntervalChange?.(nextTickDelayMs);
       scheduleNextTick();
     }
   };
