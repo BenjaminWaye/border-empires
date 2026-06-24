@@ -1324,6 +1324,36 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     snapshotCacheByPlayerId.clear();
     return refreshSnapshotCacheMetrics();
   };
+  const stopGameplayTickers = (): void => {
+    if (shardRainTicker) { clearInterval(shardRainTicker); shardRainTicker = undefined; }
+    if (tileSheddingTicker) { clearInterval(tileSheddingTicker); tileSheddingTicker = undefined; }
+    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; }
+    if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
+    if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
+    if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
+    if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
+    log.info("season ended — gameplay tickers stopped");
+  };
+  // Proactively build and cache full-vis snapshots for all subscribed players
+  // immediately after season end. Tiles are frozen post-season so cached
+  // snapshots stay valid indefinitely. Concurrent logins share one runtimeState
+  // via getOrStartFullVisExport + sharedFullVisibilityTiles batch coalescing.
+  const warmSeasonEndSnapshots = (): void => {
+    const playerIds = subscriptionRegistry.subscribedPlayerIds();
+    if (playerIds.length === 0) return;
+    log.info({ playerCount: playerIds.length }, "[season_end_warm] warming full-vis snapshots");
+    for (const playerId of playerIds) {
+      void buildAndCachePlayerSnapshotAsync(playerId, {
+        cacheSnapshot: true,
+        trigger: "season_end_warm"
+      }).then(() => {
+        simulationMetrics.incrementSimSeasonEndSnapshotWarm();
+      }).catch((err: unknown) => {
+        simulationMetrics.incrementSimSeasonEndSnapshotWarmFailed();
+        log.error({ err, playerId }, "[season_end_warm] snapshot warm failed");
+      });
+    }
+  };
   const recordSnapshotDiagnostics = (
     playerId: string,
     snapshot: PlayerSubscriptionSnapshot,
@@ -1384,6 +1414,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
+  let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -1406,7 +1437,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // for the duplication rationale.
   const buildAndCachePlayerSnapshotAsync = async (
     playerId: string,
-    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
+    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string; cacheSnapshot?: boolean }
   ): Promise<PlayerSubscriptionSnapshot> => {
     // Phase 4: block ai-lane drain jobs for the full snapshot build duration
     // (runtime export + enrichment both yield dozens of times for large empires).
@@ -1464,7 +1495,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       fullVisibility: useFullVisibility,
       tileCount: snapshot.tiles.length
     });
-    if (!useFullVisibility) {
+    if (!useFullVisibility || options?.cacheSnapshot === true) {
       const cacheStartedAt = Date.now();
       setCachedSnapshot(playerId, snapshot);
       recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
@@ -1591,6 +1622,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
+      warmSeasonEndSnapshots();
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
     return finalSummary;
@@ -2444,13 +2476,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
                 })
               : await (() => {
-                  // Phase B3: reuse the cached snapshot from the bootstrap-only
-                  // build when it exists and visibility matches (same-tick fresh
-                  // per Q3, gateway ignores the payload per Q1). Only short-circuit
-                  // when NOT full-visibility — admin/spectator/season-ended paths
-                  // don't cache and must always build.
+                  // Phase B3: reuse the cached snapshot when available. For
+                  // normal logins, always check cache. For full-vis (admin/spectator
+                  // or season-ended), only check cache post-season — warming pre-builds
+                  // full-vis snapshots there; during active season full-vis is only for
+                  // admin spectators who shouldn't get a stale non-full-vis snapshot.
                   const useFullVisibility = subscribeOptions.fullVisibility === true || currentSeasonState.status === "ended";
-                  if (!useFullVisibility) {
+                  const seasonEnded = currentSeasonState.status === "ended";
+                  if (!useFullVisibility || seasonEnded) {
                     const cached = snapshotCacheByPlayerId.get(call.request.player_id);
                     if (cached) return cached;
                   }
@@ -2752,6 +2785,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       boundPort = port;
       server.start();
       shardRainTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           mainThreadTasks.trackSync("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
         } catch (error) {
@@ -2760,6 +2794,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
         // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
         // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
@@ -2774,6 +2809,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           .finally(() => { tileSheddingRunning = false; });
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
           if (growthResult) {
@@ -2804,6 +2840,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let territoryAutomationRunning = false;
       territoryAutomationTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: if the previous async tick is still in progress (took
         // >30s despite yields), skip rather than race two instances on the same
         // shared mutable state (tiles, players, frontierTilesByOwner, etc.).
@@ -2819,6 +2856,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           .finally(() => { territoryAutomationRunning = false; });
       }, 30_000);
       orphanLockSweepTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
             const dropped = runtime.tickOrphanedLockSweep(Date.now());
@@ -2829,10 +2867,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 30_000);
       watchedMusterTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         runtime.tickWatchedMusterTiles(Date.now());
       }, 1_000);
       let passiveIncomeRunning = false;
-      setInterval(() => {
+      passiveIncomeTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: if a previous async tick is still running skip to avoid
         // double-crediting players whose lastIncomeTickAtMs hasn't been advanced yet.
         if (passiveIncomeRunning) {
@@ -3062,6 +3102,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
+      if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
       globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {
