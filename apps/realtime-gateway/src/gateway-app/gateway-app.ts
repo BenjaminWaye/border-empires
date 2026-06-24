@@ -2318,6 +2318,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             if (overConcurrency) {
               if (loginQueue.length >= maxLoginQueueSize) {
+                gatewayMetrics.incrementLoginQueueRejectedTotal();
                 recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
                   playerId: playerIdentity.playerId,
                   channel,
@@ -2335,6 +2336,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 authTrace.complete("rejected", "bootstrap_admission");
                 return;
               }
+              gatewayMetrics.incrementLoginQueuedTotal();
               const queuePosition = bootstrapsInFlight + loginQueue.length + 1;
               const estimatedWaitMs = Math.round((loginQueue.length + 1) * bootstrapEstimateMs / maxConcurrentBootstraps);
               recordGatewayEvent("info", "gateway_bootstrap_queued", {

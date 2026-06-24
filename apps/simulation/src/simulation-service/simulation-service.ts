@@ -1274,6 +1274,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
     return sharedFullVisibilityTilesCache;
   };
+  // Batch coalescing for full-visibility exports (season-ended / spectator).
+  // Each 202k-tile exportStateAsync produces a fresh runtimeState object, which
+  // busts the WeakMap-keyed economy caches inside buildLivePlayerEconomySnapshot.
+  // Sharing one in-flight promise means all concurrent full-vis logins get the
+  // same runtimeState → economy caches hit for every player after the first.
+  type FullVisExport = ReturnType<SimulationRuntime["exportState"]>;
+  let inFlightFullVisExportPromise: Promise<FullVisExport> | undefined;
+  const getOrStartFullVisExport = (): Promise<FullVisExport> => {
+    if (!inFlightFullVisExportPromise) {
+      inFlightFullVisExportPromise = runtime.exportStateAsync(yieldToEventLoop).finally(() => {
+        inFlightFullVisExportPromise = undefined;
+      });
+    }
+    return inFlightFullVisExportPromise;
+  };
   const refreshSnapshotCacheMetrics = () => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
     simulationMetrics.setSimSnapshotCache({
@@ -1393,8 +1408,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the full-visibility paths (season-ended / admin spectator) still need the
     // whole world materialised.
     const needsFullWorldExport = useFullVisibility;
+    // Use the shared coalesced export so all concurrent full-vis logins
+    // share one runtimeState object — hits WeakMap economy caches for all.
     const worldStatusRuntimeState = needsFullWorldExport
-      ? await runtime.exportStateAsync(yieldToEventLoop)
+      ? await getOrStartFullVisExport()
       : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
