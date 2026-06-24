@@ -25,6 +25,7 @@ import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapsho
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
 import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
@@ -32,7 +33,7 @@ import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
-import { buildPlayerSubscriptionSnapshotAsync } from "../player-snapshot/player-snapshot.js";
+import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -747,6 +748,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
+  // Snapshot build pool: moves enrichment + assembly off the simulation event
+  // loop so the sim thread is free to answer gRPC pings while the 1–3 s build
+  // runs in a worker.  Falls back to sync inline build if worker unavailable.
+  let snapshotBuildPool: ReturnType<typeof createSnapshotBuilder> | undefined;
+  if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_BUILD_INLINE !== "1") {
+    try {
+      snapshotBuildPool = createSnapshotBuilder();
+    } catch (err) {
+      log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        "failed to start snapshot-build workers; falling back to inline sync build"
+      );
+    }
+  }
   // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
   // store can compact saves and rehydrate loads without paying the 200k-tile
   // generation cost more than once per seed per process.
@@ -1274,6 +1289,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
     return sharedFullVisibilityTilesCache;
   };
+  // Batch coalescing for full-visibility exports (season-ended / spectator).
+  // Each 202k-tile exportStateAsync produces a fresh runtimeState object, which
+  // busts the WeakMap-keyed economy caches inside buildLivePlayerEconomySnapshot.
+  // Sharing one in-flight promise means all concurrent full-vis logins get the
+  // same runtimeState → economy caches hit for every player after the first.
+  type FullVisExport = ReturnType<SimulationRuntime["exportState"]>;
+  let inFlightFullVisExportPromise: Promise<FullVisExport> | undefined;
+  const getOrStartFullVisExport = (): Promise<FullVisExport> => {
+    if (!inFlightFullVisExportPromise) {
+      inFlightFullVisExportPromise = runtime.exportStateAsync(yieldToEventLoop).finally(() => {
+        inFlightFullVisExportPromise = undefined;
+      });
+    }
+    return inFlightFullVisExportPromise;
+  };
   const refreshSnapshotCacheMetrics = () => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
     simulationMetrics.setSimSnapshotCache({
@@ -1393,8 +1423,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the full-visibility paths (season-ended / admin spectator) still need the
     // whole world materialised.
     const needsFullWorldExport = useFullVisibility;
+    // Use the shared coalesced export so all concurrent full-vis logins
+    // share one runtimeState object — hits WeakMap economy caches for all.
     const worldStatusRuntimeState = needsFullWorldExport
-      ? await runtime.exportStateAsync(yieldToEventLoop)
+      ? await getOrStartFullVisExport()
       : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
@@ -1412,25 +1444,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
+    const buildOpts = {
       includeWorldStatus: needsFullWorldExport,
       fullVisibility: useFullVisibility,
+      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
+      // worldStatusRuntimeState is always === runtimeState for full-vis; the
+      // worker falls back to runtimeState automatically, so omit it here.
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
-      onAsyncPhaseTiming: (phase, durationMs, details) => {
-        recordSnapshotBuildTiming(phase, durationMs, {
-          playerId,
-          trigger: options?.trigger ?? "",
-          fullVisibility: useFullVisibility,
-          includeWorldStatus: options?.includeWorldStatus === true,
-          ...(details ?? {})
-        });
-      }
-    });
-    recordSnapshotBuildTiming("snapshot_materialize_async", Date.now() - snapshotBuildStartedAt, {
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+    };
+    const snapshot = snapshotBuildPool
+      ? await snapshotBuildPool.build(playerId, runtimeState, buildOpts)
+      : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
+    recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
       fullVisibility: useFullVisibility,
@@ -2438,87 +2466,106 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         inFlightSubscribeBuilds.set(key, promise);
         return promise;
       })();
+      const stringifySnapshot = snapshotStringifier
+        ? (payload: unknown) => snapshotStringifier(payload)
+        : async (payload: unknown) => JSON.stringify(payload);
+
       void buildPromise.then(
-        (snapshotPayload) => {
-          if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-            log.info(
-              JSON.stringify({
-                type: "debug_subscribe_player",
-                playerId: call.request.player_id,
-                runtimeTiles: snapshotPayload.tiles.length,
-                snapshotTiles: snapshotPayload.tiles.length,
-                snapshotLength: JSON.stringify(snapshotPayload).length
-              })
-            );
-          }
-          callback(null, {
-            ok: true,
-            player_id: snapshotPayload.playerId,
-            playerId: snapshotPayload.playerId,
-            ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
-            ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
-            ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
-            ...(snapshotPayload.docks?.length
-              ? {
-                  docks: snapshotPayload.docks.map((dock) => ({
-                    dock_id: dock.dockId,
-                    tile_key: dock.tileKey,
-                    paired_dock_id: dock.pairedDockId,
-                    ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-                  }))
-                }
-              : {}),
-            tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
-          });
-          if (!subscribeOptions.emitBootstrapEvent) return;
-          const bootstrapEvent = toProtoEvent({
-            eventType: "TILE_DELTA_BATCH",
-            commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
-            playerId: call.request.player_id,
-            tileDeltas: snapshotPayload.tiles
-          });
-          // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
-          // any prior PLAYER_UPDATE that fired before this subscriber attached
-          // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
-          // unconditionally superseded by a fresh value on the event stream.
-          // Include storageCap so the economy panel shows real caps immediately
-          // rather than the floor defaults from client-state initialisation.
-          const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
-          const hydrateEvent = snapshotPayload.player
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "PLAYER_UPDATE",
-                payloadJson: JSON.stringify({
-                  type: "PLAYER_UPDATE",
-                  ...snapshotPayload.player,
-                  ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+        async (snapshotPayload) => {
+          try {
+            const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
+              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
+              snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
+            ]);
+
+            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
+              log.info(
+                JSON.stringify({
+                  type: "debug_subscribe_player",
+                  playerId: call.request.player_id,
+                  runtimeTiles: snapshotPayload.tiles.length,
+                  snapshotTiles: snapshotPayload.tiles.length,
+                  snapshotLength: JSON.stringify(snapshotPayload).length
                 })
-              })
-            : undefined;
-          // Emit a WELCOME_BACK message showing how much the player earned
-          // since their last active session (capped at 12h of accrual).
-          const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
-          const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "WELCOME_BACK",
-                payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
-              })
-            : undefined;
-          runtime.updatePlayerLastActive(call.request.player_id, Date.now());
-          queueMicrotask(() => {
-            for (const stream of eventStreams) stream.write(bootstrapEvent);
-            if (hydrateEvent) {
-              for (const stream of eventStreams) stream.write(hydrateEvent);
+              );
             }
-            if (welcomeBackEvent) {
-              for (const stream of eventStreams) stream.write(welcomeBackEvent);
-            }
-          });
+            callback(null, {
+              ok: true,
+              player_id: snapshotPayload.playerId,
+              playerId: snapshotPayload.playerId,
+              ...(playerJson ? { player_json: playerJson } : {}),
+              ...(worldStatusJson ? { world_status_json: worldStatusJson } : {}),
+              ...(seasonJson ? { season_json: seasonJson } : {}),
+              ...(snapshotPayload.docks?.length
+                ? {
+                    docks: snapshotPayload.docks.map((dock) => ({
+                      dock_id: dock.dockId,
+                      tile_key: dock.tileKey,
+                      paired_dock_id: dock.pairedDockId,
+                      ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
+                    }))
+                  }
+                : {}),
+              tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
+            });
+            if (!subscribeOptions.emitBootstrapEvent) return;
+            const bootstrapEvent = toProtoEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
+              playerId: call.request.player_id,
+              tileDeltas: snapshotPayload.tiles
+            });
+            // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
+            // any prior PLAYER_UPDATE that fired before this subscriber attached
+            // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
+            // unconditionally superseded by a fresh value on the event stream.
+            // Include storageCap so the economy panel shows real caps immediately
+            // rather than the floor defaults from client-state initialisation.
+            const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
+            const hydrateEvent = snapshotPayload.player
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "PLAYER_UPDATE",
+                  payloadJson: JSON.stringify({
+                    type: "PLAYER_UPDATE",
+                    ...snapshotPayload.player,
+                    ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+                  })
+                })
+              : undefined;
+            // Emit a WELCOME_BACK message showing how much the player earned
+            // since their last active session (capped at 12h of accrual).
+            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "WELCOME_BACK",
+                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+                })
+              : undefined;
+            runtime.updatePlayerLastActive(call.request.player_id, Date.now());
+            queueMicrotask(() => {
+              for (const stream of eventStreams) stream.write(bootstrapEvent);
+              if (hydrateEvent) {
+                for (const stream of eventStreams) stream.write(hydrateEvent);
+              }
+              if (welcomeBackEvent) {
+                for (const stream of eventStreams) stream.write(welcomeBackEvent);
+              }
+            });
+          } catch (err) {
+            callback(err instanceof Error ? err : new Error(String(err)), {
+              ok: false,
+              player_id: call.request.player_id,
+              playerId: call.request.player_id,
+              tiles: []
+            });
+          }
         },
         (error) => {
           callback(error instanceof Error ? error : new Error(String(error)), {
@@ -2860,6 +2907,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
                 ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
                 : undefined;
+            const buildWorkerMetrics = snapshotBuildPool?.getMetrics();
             const aiMetrics =
               aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
                 ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
@@ -2882,6 +2930,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                     last_exit_code: snapshotMetrics.lastExitCode
                   }
                 : undefined,
+              build_workers: buildWorkerMetrics?.map((m, i) => ({
+                slot: i,
+                heap_used_mb: toMb(m.heapUsedBytes),
+                respawn_count: m.respawnCount,
+                last_exit_code: m.lastExitCode
+              })),
               ai: aiMetrics
                 ? {
                     heap_used_mb: toMb(aiMetrics.heapUsedBytes),

@@ -521,6 +521,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
   const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
   const lastBootstrapAtByPlayerId = new Map<string, number>();
+  // Login queue: instead of rejecting over-concurrency with SERVER_BUSY, hold
+  // the socket open and resume when a bootstrap slot becomes free. The client
+  // shows a "You are #N in queue" message while waiting.
+  const maxLoginQueueSize = Math.max(0, Number(process.env.GATEWAY_MAX_LOGIN_QUEUE_SIZE ?? 50));
+  // Estimated time per bootstrap slot (ms) — used to compute wait-time hints.
+  const bootstrapEstimateMs = Math.max(1000, Number(process.env.GATEWAY_BOOTSTRAP_ESTIMATE_MS ?? 6000));
+  type LoginQueueEntry = { socket: import("ws").WebSocket; resolve: (granted: boolean) => void; enqueuedAt: number };
+  const loginQueue: LoginQueueEntry[] = [];
+  const drainLoginQueue = (): void => {
+    if (loginQueue.length === 0 || bootstrapsInFlight >= maxConcurrentBootstraps) return;
+    const next = loginQueue.shift();
+    if (!next) return;
+    // Notify remaining waiters of their updated positions.
+    loginQueue.forEach((entry, i) => {
+      try {
+        sendJson(entry.socket, {
+          type: "LOGIN_QUEUE_PROGRESS",
+          position: i + 1,
+          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
+        });
+      } catch { /* socket may already be closed */ }
+    });
+    next.resolve(true);
+  };
   const pendingInputToStateByCommandId = new Map<string, number>();
   const recordGatewayAuthStepTiming = (
     step: string,
@@ -2275,11 +2299,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const lastBootstrapAtMs = lastBootstrapAtByPlayerId.get(playerIdentity.playerId) ?? 0;
             const overConcurrency = bootstrapsInFlight >= maxConcurrentBootstraps;
             const overRate = bootstrapNowMs - lastBootstrapAtMs < minBootstrapIntervalMs;
-            if (overConcurrency || overRate) {
+            if (overRate) {
               recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
                 playerId: playerIdentity.playerId,
                 channel,
-                reason: overConcurrency ? "concurrency" : "rate",
+                reason: "rate",
                 bootstrapsInFlight,
                 maxConcurrentBootstraps
               });
@@ -2291,6 +2315,64 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               authTrace.complete("rejected", "bootstrap_admission");
               return;
+            }
+            if (overConcurrency) {
+              if (loginQueue.length >= maxLoginQueueSize) {
+                gatewayMetrics.incrementLoginQueueRejectedTotal();
+                recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
+                  playerId: playerIdentity.playerId,
+                  channel,
+                  reason: "queue_full",
+                  bootstrapsInFlight,
+                  maxConcurrentBootstraps,
+                  queueDepth: loginQueue.length
+                });
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "SERVER_BUSY",
+                  retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
+                  message: "Server is busy. Retry shortly."
+                });
+                authTrace.complete("rejected", "bootstrap_admission");
+                return;
+              }
+              gatewayMetrics.incrementLoginQueuedTotal();
+              const queuePosition = bootstrapsInFlight + loginQueue.length + 1;
+              const estimatedWaitMs = Math.round((loginQueue.length + 1) * bootstrapEstimateMs / maxConcurrentBootstraps);
+              recordGatewayEvent("info", "gateway_bootstrap_queued", {
+                playerId: playerIdentity.playerId,
+                channel,
+                position: queuePosition,
+                queueDepth: loginQueue.length
+              });
+              sendJson(socket, { type: "LOGIN_QUEUED", position: queuePosition, estimatedWaitMs });
+              authTrace.startStep("login_queue_wait");
+              const granted = await new Promise<boolean>((resolve) => {
+                const entry: LoginQueueEntry = { socket, resolve, enqueuedAt: Date.now() };
+                loginQueue.push(entry);
+                socket.once("close", () => {
+                  const idx = loginQueue.indexOf(entry);
+                  if (idx !== -1) {
+                    loginQueue.splice(idx, 1);
+                    // Notify remaining waiters their position improved.
+                    loginQueue.forEach((e, i) => {
+                      try {
+                        sendJson(e.socket, {
+                          type: "LOGIN_QUEUE_PROGRESS",
+                          position: i + 1,
+                          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
+                        });
+                      } catch { /* socket may already be closed */ }
+                    });
+                  }
+                  resolve(false);
+                });
+              });
+              authTrace.endStep("login_queue_wait", granted);
+              if (!granted) {
+                authTrace.complete("rejected", "queue_socket_closed");
+                return;
+              }
             }
             if (lastBootstrapAtByPlayerId.size > 5000) lastBootstrapAtByPlayerId.clear();
             lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
@@ -2343,6 +2425,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             } finally {
               bootstrapsInFlight -= 1;
+              drainLoginQueue();
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
