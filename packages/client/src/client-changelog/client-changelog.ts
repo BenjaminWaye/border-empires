@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.22.2",
+  version: "2026.06.24.1",
   title: "What's New",
-  summary: "Breakthrough momentum and Empire Integrity bonuses now available.",
+  summary: "Login queue shows your position when the server is busy.",
   entries: [
+    {
+      introducedIn: "2026.06.24.1",
+      title: "Login queue",
+      why: "When many players log in at once the server used to reject you with 'Server busy — retry shortly', requiring manual refreshes. Now you wait in a visible queue instead.",
+      changes: [
+        "If all login slots are taken you are placed in a queue automatically — no refresh needed.",
+        "The loading screen shows your position and an estimated wait time.",
+        "Your position updates in real time as players ahead of you finish loading.",
+        "If you close the tab while waiting your slot is released immediately for the next player."
+      ]
+    },
     {
       introducedIn: "2026.06.22.2",
       title: "Breakthrough momentum",

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
-import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
+import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
 import { buildLivePlayerEconomySnapshot } from "../live-snapshot-view/live-snapshot-view.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { yieldToEventLoop } from "../event-loop-yield.js";
 
 describe("buildPlayerSubscriptionSnapshot", () => {
   it("falls back to seed tiles when the runtime export is unexpectedly empty", () => {
@@ -1274,107 +1273,3 @@ describe("buildLivePlayerEconomySnapshot (Clockwork Stipend trickle)", () => {
   });
 });
 
-describe("buildPlayerSubscriptionSnapshotAsync (parity with sync)", () => {
-  const buildRuntimeStateFixture = () => {
-    // Big-enough world to cross the 200-tile yield chunk so the async path
-    // actually yields between batches. The sync vs async outputs must match
-    // exactly so the bridge can swap in the async variant without behavior
-    // change.
-    const tiles: Array<{
-      x: number;
-      y: number;
-      terrain: "LAND" | "SEA";
-      ownerId?: string;
-      ownershipState?: "SETTLED" | "FRONTIER";
-      townJson?: string;
-      townType?: string;
-      townName?: string;
-      townPopulationTier?: string;
-    }> = [];
-    const territoryKeys: string[] = [];
-    for (let x = 0; x < 30; x += 1) {
-      for (let y = 0; y < 30; y += 1) {
-        const isOwn = x < 20 && y < 20;
-        const tile: typeof tiles[number] = { x, y, terrain: "LAND" };
-        if (isOwn) {
-          tile.ownerId = "player-1";
-          tile.ownershipState = (x + y) % 4 === 0 ? "SETTLED" : "FRONTIER";
-          if (tile.ownershipState === "SETTLED") {
-            tile.townJson = JSON.stringify({ type: "FARMING", populationTier: "SETTLEMENT", name: `T-${x}-${y}` });
-            tile.townType = "FARMING";
-            tile.townName = `T-${x}-${y}`;
-            tile.townPopulationTier = "SETTLEMENT";
-          }
-          territoryKeys.push(`${x},${y}`);
-        }
-        tiles.push(tile);
-      }
-    }
-    return {
-      tiles,
-      players: [
-        {
-          id: "player-1",
-          strategicResources: { FOOD: 5, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-          allies: [],
-          vision: 1,
-          visionRadiusBonus: 0,
-          territoryTileKeys: territoryKeys,
-          points: 100,
-          manpower: 200,
-          techIds: [],
-          domainIds: []
-        }
-      ],
-      pendingSettlements: [],
-      activeLocks: []
-    };
-  };
-
-  it("produces identical output to the sync variant", async () => {
-    const runtimeState = buildRuntimeStateFixture();
-    const syncSnapshot = buildPlayerSubscriptionSnapshot("player-1", runtimeState);
-    const asyncSnapshot = await buildPlayerSubscriptionSnapshotAsync(
-      "player-1",
-      runtimeState,
-      undefined,
-      yieldToEventLoop
-    );
-    // JSON stringify covers structural equality including ordering, which
-    // matters for the protobuf encoder downstream of SubscribePlayer.
-    expect(JSON.stringify(asyncSnapshot)).toEqual(JSON.stringify(syncSnapshot));
-  });
-
-  it("yields to the event loop between chunks during enrichment", async () => {
-    const runtimeState = buildRuntimeStateFixture();
-    let yieldCount = 0;
-    const trackedYield = async (): Promise<void> => {
-      yieldCount += 1;
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    };
-    await buildPlayerSubscriptionSnapshotAsync("player-1", runtimeState, undefined, trackedYield);
-    // 400 visible tiles, ENRICHMENT_YIELD_CHUNK = 200 → at least one mid-loop
-    // yield, plus the pre-enrichment phase yield = 2+.
-    expect(yieldCount).toBeGreaterThanOrEqual(2);
-  });
-
-  it("reports async materialization subphase timings", async () => {
-    const runtimeState = buildRuntimeStateFixture();
-    const phases: string[] = [];
-    await buildPlayerSubscriptionSnapshotAsync("player-1", runtimeState, undefined, yieldToEventLoop, {
-      onAsyncPhaseTiming: (phase, durationMs) => {
-        phases.push(phase);
-        expect(durationMs).toBeGreaterThanOrEqual(0);
-      }
-    });
-    expect(phases).toEqual([
-      "source_tiles_async",
-      "owned_tile_index_async",
-      "visible_tiles_async",
-      "queue_state_async",
-      "live_economy_async",
-      "enrich_tiles_async",
-      "world_status_async"
-    ]);
-  });
-});

@@ -1169,6 +1169,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       return;
     }
+    if (msg.type === "LOGIN_QUEUED" || msg.type === "LOGIN_QUEUE_PROGRESS") {
+      if (!state.authSessionReady) {
+        const position = typeof msg.position === "number" ? msg.position : 1;
+        const estimatedWaitMs = typeof msg.estimatedWaitMs === "number" ? msg.estimatedWaitMs : 0;
+        const estimatedSec = estimatedWaitMs > 0 ? Math.ceil(estimatedWaitMs / 1000) : null;
+        const waitHint = estimatedSec ? ` (~${estimatedSec}s)` : "";
+        applyLoginPhase(
+          "Login queue",
+          `You are #${position} in the login queue${waitHint}. Your session will start automatically when a slot opens.`
+        );
+        renderHud();
+      }
+      return;
+    }
     if (msg.type === "INIT") {
       clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
