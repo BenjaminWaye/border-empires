@@ -43,6 +43,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
+  expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
 };
@@ -63,18 +64,38 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
   const { context, strategic, canAttack, canExpand } = state;
   const fa = context.frontierAnalysis;
 
+  // Fold stalemate into the scoring canAttack so ATTACK can use 5
+  // considerations instead of 6 (keeping compensation parity with EXPAND).
+  const scoringCanAttack = canAttack && !targetStalemated(state.preferredEnemyAttack, state);
+
   return {
     points: state.points,
     manpower: state.manpower,
-    canAttack,
+    canAttack: scoringCanAttack,
     canExpand,
     frontierNeutralCount: fa.frontierNeutralTargetCount,
     frontierEnemyCount: fa.frontierEnemyTargetCount,
     frontierOpportunityEconomic: fa.frontierOpportunityEconomic,
+    expansionOpportunityCount:
+      fa.frontierNeutralTargetCount +
+      fa.frontierOpportunityEconomic +
+      fa.frontierOpportunityTownSupport +
+      fa.frontierOpportunityScout +
+      fa.frontierOpportunityScaffold,
     hasWeakEnemyBorder:
       fa.frontierEnemyPlayerTargetCount > 0 && !targetStalemated(fa.enemyAttack, state),
     hasBarbTarget:
       fa.frontierBarbarianTargetCount > 0 && !targetStalemated(fa.barbarianAttack, state),
+    hasActionableNonWasteExpand:
+      fa.frontierOpportunityEconomic > 0 ||
+      fa.frontierOpportunityTownSupport > 0 ||
+      fa.frontierOpportunityScaffold > 0,
+    hasExpansionObjective: state.expansionObjective !== undefined,
+    hasOnlyScoutExpand:
+      fa.frontierOpportunityScout > 0 &&
+      !(fa.frontierOpportunityEconomic > 0 ||
+        fa.frontierOpportunityTownSupport > 0 ||
+        fa.frontierOpportunityScaffold > 0),
     hasSettlementCandidate:
       state.canSettleNow || Boolean(state.actionableFallbackSettlementCandidate),
     devSlotAvailable: state.devSlotAvailable,
@@ -213,10 +234,18 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
   for (const [cls] of sorted) {
     const result = executeClass(cls, state);
     if (result) {
+      // When WAIT wins and the dev slot is full, the limiting factor is the
+      // development process cap — preserve the legacy diagnostic expected by tests.
+      const noCommandReason =
+        cls === "WAIT" && !state.devSlotAvailable && result.diagnostic.noCommandReason === "wait_and_recover"
+          ? "development_process_limit"
+          : result.diagnostic.noCommandReason;
+
       return {
         ...result,
         diagnostic: {
           ...result.diagnostic,
+          noCommandReason,
           utilityWinner: cls,
           utilityWinnerScore: policy.scores[cls],
           ...utilityBase

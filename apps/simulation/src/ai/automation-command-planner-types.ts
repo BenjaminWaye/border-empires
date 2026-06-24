@@ -8,7 +8,7 @@
 
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { FRONTIER_CLAIM_COST, SETTLE_COST, type EconomicStructureType, type Terrain } from "@border-empires/shared";
+import { type EconomicStructureType, type Terrain } from "@border-empires/shared";
 import type { DecisionClass } from "./utility/decisions.js";
 
 export const AUTOMATION_NOOP_REASONS = [
@@ -146,5 +146,3 @@ export const createAutomationNoopDiagnostic = (
   noCommandReason
 });
 
-export const goapGoldReserveHealthy = (points: number): boolean =>
-  points >= SETTLE_COST + FRONTIER_CLAIM_COST;
