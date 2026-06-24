@@ -180,6 +180,8 @@ export type SimulationMetricsSnapshot = {
   simMusterRemoteAttackTotal: number;
   simMusterRemoteBlockedTotal: number;
   simMusterRemoteBlockedBarbarianTotal: number;
+  simSeasonEndSnapshotWarmTotal: number;
+  simSeasonEndSnapshotWarmFailedTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
   /** Counter per utility DecisionClass acted on. */
