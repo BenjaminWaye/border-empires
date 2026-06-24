@@ -644,8 +644,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   // Submits a strategic command (EXPAND, ATTACK, SETTLE, BUILD_*, etc.),
   // latches AI intent, and records stalemate state.
-  // Returns true if the player was removed from the urgent set (so the caller
-  // can restore it on error).
+  // Restores urgency internally if options.submitCommand throws, then re-throws.
   const doSubmitRegular = async (
     playerId: string,
     playerIndex: number,
@@ -654,11 +653,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     issuedAt: number,
     playerTerritoryVersion: number,
     m: TickMetrics
-  ): Promise<boolean> => {
+  ): Promise<void> => {
     const targetTileKey = extractTargetTileKey(command);
     const intentKind = intentKindForCommand(command.type);
     if (intentKind && targetTileKey && reservationHeldByOtherAi(intentLatchState, playerId, targetTileKey, issuedAt)) {
-      return false;
+      return;
     }
     pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, startedAt: issuedAt });
     nextClientSeqByPlayer.set(playerId, clientSeq + 1);
@@ -687,16 +686,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     }
     if (options.experimentDisableExpand && isExpandAction(command.type)) {
       options.onExperimentFilter?.("expand_disabled");
-      return wasUrgent;
+      return;
     }
     if (options.experimentDisableBuild && isBuildAction(command.type)) {
       options.onExperimentFilter?.("build_disabled");
-      return wasUrgent;
+      return;
     }
     const maxCmds = options.experimentMaxCommandsPerTick ?? 0;
     if (maxCmds > 0 && m.submitCount >= maxCmds) {
       options.onExperimentFilter?.("command_cap");
-      return wasUrgent;
+      return;
     }
     const submitStart = now();
     m.submitCount++;
@@ -704,14 +703,18 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     if (options.experimentDryRun) {
       options.onExperimentFilter?.("dry_run");
     } else {
-      await options.submitCommand(command);
+      try {
+        await options.submitCommand(command);
+      } catch (err) {
+        if (wasUrgent) urgentByPlayerId.add(playerId);
+        throw err;
+      }
       reserveDevelopmentSlot(developmentReservationsByPlayer, command, issuedAt);
     }
     lastCommandAtByPlayer.set(playerId, issuedAt);
     options.onCommand?.({ playerId, commandType: command.type });
     if (command.type === "ATTACK" && targetTileKey) attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
     options.onDiagnostic?.({ phase: "submit_command", durationMs: Math.max(0, now() - submitStart), playerId });
-    return wasUrgent;
   };
 
   const stopListening = options.runtime.onEvent((event) => {
@@ -920,7 +923,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
         lastPlayerId = playerId;
         let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
-        let wasUrgent = false;
         let activePreplanCommandId: string | undefined;
 
         try {
@@ -965,15 +967,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               if (plan2.diagnostic) options.onNoCommand?.(plan2.diagnostic);
               nextClientSeqByPlayer.set(playerId, clientSeq);
               nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-              urgentByPlayerId.delete(playerId);
               break;
             }
-            wasUrgent = await doSubmitRegular(playerId, playerIndex, plan2.command, clientSeq, now(), playerTerritoryVersion, m);
+            await doSubmitRegular(playerId, playerIndex, plan2.command, clientSeq, now(), playerTerritoryVersion, m);
             break;
           }
 
           // ── Direct command (no preplan needed) ──────────────────────────
-          wasUrgent = await doSubmitRegular(playerId, playerIndex, plan1.command, clientSeq, now(), playerTerritoryVersion, m);
+          await doSubmitRegular(playerId, playerIndex, plan1.command, clientSeq, now(), playerTerritoryVersion, m);
 
         } catch {
           pendingCommandByPlayer.delete(playerId);
@@ -982,7 +983,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             resolvePendingPreplanOutcome(activePreplanCommandId, "rejected");
           }
           releaseAiLatchedIntent(intentLatchState, playerId);
-          if (wasUrgent) urgentByPlayerId.add(playerId);
         }
 
         return; // one player per tick
