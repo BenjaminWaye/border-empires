@@ -49,7 +49,7 @@ export const boolVeto = (condition: boolean): number => (condition ? 1 : 0);
  * lower scores even when every consideration is healthy (e.g. 0.9^8 = 0.43).
  */
 export const compensate = (rawProduct: number, considerationCount: number): number => {
-  if (considerationCount <= 1) return rawProduct;
+  if (considerationCount <= 1 || rawProduct === 0) return rawProduct;
   const modFactor = 1 - 1 / considerationCount;
   const makeUp = (1 - rawProduct) * modFactor;
   return rawProduct + makeUp;
