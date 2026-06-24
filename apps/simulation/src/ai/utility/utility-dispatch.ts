@@ -244,7 +244,7 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
         ...result,
         diagnostic: {
           ...result.diagnostic,
-          noCommandReason,
+          ...(noCommandReason !== undefined ? { noCommandReason } : {}),
           utilityWinner: cls,
           utilityWinnerScore: policy.scores[cls],
           ...utilityBase
