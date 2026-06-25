@@ -114,6 +114,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simSeasonEndSnapshotWarmFailedTotal = 0;
   let simPostSeasonProtoTileCacheHitTotal = 0;
   let simPostSeasonProtoTileCacheMissTotal = 0;
+  let simFullVisInlineBuildTotal = 0;
   const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -225,6 +226,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simSeasonEndSnapshotWarmFailedTotal,
     simPostSeasonProtoTileCacheHitTotal,
     simPostSeasonProtoTileCacheMissTotal,
+    simFullVisInlineBuildTotal,
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
     simAiUtilityActionClassTotalByClass: Object.fromEntries(
       DECISION_CLASSES.map((cls) => [cls, simAiUtilityActionClassTotalByClass.get(cls) ?? 0])
@@ -309,6 +311,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimPostSeasonProtoTileCacheMiss(): void {
       simPostSeasonProtoTileCacheMissTotal += 1;
+    },
+    incrementSimFullVisInlineBuild(): void {
+      simFullVisInlineBuildTotal += 1;
     },
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);

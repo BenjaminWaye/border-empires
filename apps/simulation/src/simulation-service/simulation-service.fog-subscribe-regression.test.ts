@@ -22,4 +22,16 @@ describe("simulation service fog subscribe regression", () => {
     // Snapshot is cached when not full-vis OR when explicitly requested (season-end warming).
     expect(file.match(/if \(!useFullVisibility \|\| options\?\.cacheSnapshot === true\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(1);
   });
+
+  it("builds full-visibility snapshots inline and only routes fog-of-war logins through the worker pool", () => {
+    const file = source();
+
+    // Full-vis must bypass the snapshot build worker: the per-tile enrichment is
+    // already memoised via sharedFullVisibilityTiles, so the worker would only
+    // structured-clone the 202k-tile runtimeState/snapshot across the boundary
+    // (~4s sync block per login — the post-season login lock).
+    expect(file).toContain("const useWorkerBuild = snapshotBuildPool !== undefined && !useFullVisibility;");
+    expect(file).toContain("if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();");
+    expect(file).toContain("const snapshot = useWorkerBuild");
+  });
 });

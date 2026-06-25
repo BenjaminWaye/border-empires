@@ -182,6 +182,8 @@ export type SimulationMetricsSnapshot = {
   simMusterRemoteBlockedBarbarianTotal: number;
   simSeasonEndSnapshotWarmTotal: number;
   simSeasonEndSnapshotWarmFailedTotal: number;
+  /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */
+  simFullVisInlineBuildTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
   /** Counter per utility DecisionClass acted on. */
