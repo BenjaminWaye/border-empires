@@ -104,6 +104,8 @@ export type SimulationSnapshotMetricSample = {
 
 export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
+  simOwnedTilesTotal: number;
+  simMaxEmpireTiles: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;

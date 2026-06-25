@@ -2393,6 +2393,21 @@ export class SimulationRuntime {
     });
   }
 
+  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
+  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
+  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
+  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
+    let totalOwnedTiles = 0;
+    let maxEmpireTiles = 0;
+    for (const [playerId, summary] of this.playerSummaries) {
+      if (playerId.startsWith("barbarian")) continue;
+      const size = summary.territoryTileKeys.size;
+      totalOwnedTiles += size;
+      if (size > maxEmpireTiles) maxEmpireTiles = size;
+    }
+    return { totalOwnedTiles, maxEmpireTiles };
+  }
+
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
     return buildRuntimePlannerPlayerViews({
       playerIds,
