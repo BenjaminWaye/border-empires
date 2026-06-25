@@ -1445,10 +1445,15 @@ export class SimulationRuntime {
       entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
     }
 
-    // Return live array references from the incrementally-maintained entry.
-    // The runtime is single-threaded: downstream consumers either copy via
-    // worker.postMessage (structured clone) or new Set(...) before the next
-    // mutation cycle, so sharing the live arrays is safe.
+    // CONTRACT — these are LIVE references into the incremental cache, not
+    // copies. They are mutated in place by the cache hooks on the NEXT
+    // territory mutation. A caller may read/iterate/copy them synchronously,
+    // but MUST NOT retain a reference and read it across a mutation cycle, or
+    // it will observe silently-drifted territory. Current consumers are safe:
+    //   - planner worker receives a structured clone via postMessage;
+    //   - relevantTileKeyIndex.replacePlayers snapshots into `new Set(...)` on
+    //     entry (planner-sync-scope.ts) before returning to the event loop.
+    // If you add a consumer that stores one of these arrays, copy it first.
     return {
       tileCollectionVersion,
       topologyVersion,
