@@ -127,6 +127,13 @@ import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
+  incrementalAdd,
+  incrementalRemove,
+  initCacheEntryFromSummary,
+  resetFromIterable,
+  type PlannerTileKeysCacheEntry
+} from "../planner-tile-keys-cache.js";
+import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
   type AutomationPlannerDiagnostic
@@ -424,16 +431,13 @@ export class SimulationRuntime {
   // refreshSpatialFocusForPlayer; cleared automatically when the player owns
   // no territory.
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
-  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
-    tileCollectionVersion: number;
-    topologyVersion: number;
-    territoryTileKeys: string[];
-    frontierTileKeys: string[];
-    hotFrontierTileKeys: string[];
-    strategicFrontierTileKeys: string[];
-    buildCandidateTileKeys: string[];
-    pendingSettlementTileKeys: string[];
-  }>();
+  // Incrementally-maintained tile key cache for the planner player-view export.
+  // Each entry holds six TileKeyArrayEntry objects (keys[] + positionOf Map)
+  // that are updated in O(1) per tile mutation via swap-with-last-then-pop,
+  // instead of being rebuilt O(territory) on every cache miss.  The cache is
+  // populated lazily on first access via plannerPlayerTileKeys (O(territory)
+  // one-time init) and kept live through targeted mutation hooks thereafter.
+  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId.  A single lock is
   // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
@@ -1399,7 +1403,13 @@ export class SimulationRuntime {
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
     const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
-    this.plannerPlayerTileKeyCacheByPlayer.delete(playerId);
+    // The incremental cache (plannerPlayerTileKeyCacheByPlayer) is no longer
+    // deleted here.  It is kept live by the targeted mutation hooks in
+    // applyTileToPlayerSummaries, removeTileFromPlayerSummaries,
+    // refreshPlannerCandidateIndexesAroundTileChange, addPendingSettlement,
+    // and removePendingSettlement.  plannerPlayerTileKeys() re-initializes
+    // the entry from summary when no entry exists (first access or after
+    // rebuildPlannerCandidateIndexesForPlayer explicitly cleared it).
   }
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
@@ -1422,22 +1432,34 @@ export class SimulationRuntime {
 
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
     const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
-    const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (cached && cached.tileCollectionVersion === tileCollectionVersion) {
-      return { ...cached, topologyDirtyTileKeys };
+
+    // Use the incrementally-maintained cache entry.  The entry is kept in sync
+    // by the mutation hooks in applyTileToPlayerSummaries,
+    // removeTileFromPlayerSummaries, refreshPlannerCandidateIndexesAroundTileChange,
+    // addPendingSettlement, and removePendingSettlement.  If no entry exists
+    // (first access or after a full rebuild cleared it), initialize it now from
+    // the summary Sets — O(territory), but only happens once per player lifetime
+    // rather than on every planner cycle.
+    let entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+    if (!entry) {
+      entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
     }
-    const next = {
+
+    // Return live array references from the incrementally-maintained entry.
+    // The runtime is single-threaded: downstream consumers either copy via
+    // worker.postMessage (structured clone) or new Set(...) before the next
+    // mutation cycle, so sharing the live arrays is safe.
+    return {
       tileCollectionVersion,
       topologyVersion,
-      territoryTileKeys: [...summary.territoryTileKeys],
-      frontierTileKeys: [...summary.frontierTileKeys],
-      hotFrontierTileKeys: [...summary.hotFrontierTileKeys],
-      strategicFrontierTileKeys: [...summary.strategicFrontierTileKeys],
-      buildCandidateTileKeys: [...summary.buildCandidateTileKeys],
-      pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
+      topologyDirtyTileKeys,
+      territoryTileKeys: entry.territory.keys,
+      frontierTileKeys: entry.frontier.keys,
+      hotFrontierTileKeys: entry.hotFrontier.keys,
+      strategicFrontierTileKeys: entry.strategicFrontier.keys,
+      buildCandidateTileKeys: entry.buildCandidate.keys,
+      pendingSettlementTileKeys: entry.pendingSettlement.keys
     };
-    this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
-    return { ...next, topologyDirtyTileKeys };
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -1774,12 +1796,24 @@ export class SimulationRuntime {
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     applyTileToPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    // Mirror the summary mutation into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(tile.ownerId);
+    if (cacheEntry) {
+      incrementalAdd(cacheEntry.territory, tileKey);
+      if (tile.ownershipState === "FRONTIER") incrementalAdd(cacheEntry.frontier, tileKey);
+    }
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private removeTileFromPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     removeTileFromPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    // Mirror the summary mutation into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(tile.ownerId);
+    if (cacheEntry) {
+      incrementalRemove(cacheEntry.territory, tileKey);
+      incrementalRemove(cacheEntry.frontier, tileKey);
+    }
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
@@ -1944,7 +1978,19 @@ export class SimulationRuntime {
       playerId,
       tiles: this.tiles,
       summary: this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id)
+      markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id),
+      onCandidateRebuildComplete: (id, summary) => {
+        // After a full rebuild of hot/strategic/buildCandidate, reset the
+        // incremental cache entry for those three sub-fields from the now-correct
+        // summary Sets.  territory, frontier, and pendingSettlement are not
+        // touched by rebuildPlannerCandidateIndexes so they stay valid.
+        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(id);
+        if (entry) {
+          resetFromIterable(entry.hotFrontier, summary.hotFrontierTileKeys);
+          resetFromIterable(entry.strategicFrontier, summary.strategicFrontierTileKeys);
+          resetFromIterable(entry.buildCandidate, summary.buildCandidateTileKeys);
+        }
+      }
     });
   }
 
@@ -1960,7 +2006,33 @@ export class SimulationRuntime {
       tiles: this.tiles,
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId),
+      onCandidateKeysUpdated: (playerId, affectedKeys, summary) => {
+        // Mirror the hot/strategic/build candidate updates into the incremental
+        // cache.  affectedKeys is a bounded neighborhood (≤25 tiles at r=2),
+        // so this is O(1) in practice regardless of empire size.
+        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+        if (!entry) return;
+        for (const candidateKey of affectedKeys) {
+          // Re-check the summary Sets (which are already updated at this point)
+          // to determine whether each affected key should be in the cached arrays.
+          if (summary.hotFrontierTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.hotFrontier, candidateKey);
+          } else {
+            incrementalRemove(entry.hotFrontier, candidateKey);
+          }
+          if (summary.strategicFrontierTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.strategicFrontier, candidateKey);
+          } else {
+            incrementalRemove(entry.strategicFrontier, candidateKey);
+          }
+          if (summary.buildCandidateTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.buildCandidate, candidateKey);
+          } else {
+            incrementalRemove(entry.buildCandidate, candidateKey);
+          }
+        }
+      }
     });
   }
 
@@ -2009,6 +2081,9 @@ export class SimulationRuntime {
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
+    // Mirror into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(record.ownerId);
+    if (cacheEntry) incrementalAdd(cacheEntry.pendingSettlement, record.tileKey);
     this.markPlannerPlayerTileCollectionDirty(record.ownerId);
   }
 
@@ -2017,6 +2092,9 @@ export class SimulationRuntime {
     if (!record) return undefined;
     this.pendingSettlementsByTile.delete(tileKey);
     removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
+    // Mirror into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(record.ownerId);
+    if (cacheEntry) incrementalRemove(cacheEntry.pendingSettlement, tileKey);
     this.markPlannerPlayerTileCollectionDirty(record.ownerId);
     return record;
   }
