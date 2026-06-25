@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.25.1",
+  version: "2026.06.25.2",
   title: "What's New",
-  summary: "Clearer message when the server is reconnecting mid-game.",
+  summary: "A proper season-end screen — see who won and start the next season.",
   entries: [
+    {
+      introducedIn: "2026.06.25.2",
+      title: "Season-end screen",
+      why: "When a season ended there was no real wrap-up — you were just left on a frozen map with a small leaderboard panel.",
+      changes: [
+        "A full season-end screen now appears when a winner is crowned: the victor, final standings, and how every path to victory played out.",
+        "\"Start New Season\" begins a fresh season for everyone (only available once the current season has ended).",
+        "\"Look Around\" dismisses the screen so you can roam the final map."
+      ]
+    },
     {
       introducedIn: "2026.06.25.1",
       title: "Clearer reconnect message",

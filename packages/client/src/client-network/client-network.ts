@@ -3153,6 +3153,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        // Reset the season-end screen so it shows again when the next season ends.
+        state.seasonEndDismissed = false;
+        state.seasonEndStarting = false;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();
