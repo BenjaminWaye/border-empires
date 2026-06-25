@@ -84,7 +84,7 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
-export const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout"] as const;
+export const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout", "season_ended"] as const;
 export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];
 
 export type SimulationSnapshotMetricSample = {
@@ -187,4 +187,8 @@ export type SimulationMetricsSnapshot = {
   /** Counter per utility DecisionClass acted on. */
   simAiUtilityActionClassTotalByClass: Record<DecisionClass, number>;
   simAiUtilityDecisionRecent: string[];
+  /** Post-season proto-tile cache hits (same seasonId reused, no re-map). */
+  simPostSeasonProtoTileCacheHitTotal: number;
+  /** Post-season proto-tile cache misses (first map or new season). */
+  simPostSeasonProtoTileCacheMissTotal: number;
 };
