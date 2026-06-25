@@ -379,7 +379,27 @@ const attackPreviewResult = (
 
 export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOptions = {}) => {
   const app = Fastify({ logger: options.logger ?? true });
-  await app.register(websocket);
+  // Enable WebSocket per-message compression. The bootstrap/full-visibility init
+  // payload is ~13MB of tile JSON (202,500 tiles) and highly repetitive (terrain /
+  // ownership strings, coordinates) — it compresses ~10x on the wire, so this is
+  // the dominant lever for login latency to remote clients (uncompressed 13MB is
+  // a multi-second download regardless of how fast the server builds it).
+  // Compression runs on the libuv threadpool via zlib, so it does NOT block the
+  // gateway event loop. {server,client}NoContextTakeover release the per-connection
+  // zlib sliding window after each message to bound memory — important because the
+  // combined box runs tight on RAM after the full-visibility OOM (see #694).
+  // threshold skips compressing small gameplay deltas where it isn't worth it.
+  await app.register(websocket, {
+    options: {
+      perMessageDeflate: {
+        threshold: 1024,
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        concurrencyLimit: 10,
+        zlibDeflateOptions: { level: 6 }
+      }
+    }
+  });
   const startupStartedAt = Date.now();
   const allowNonAuthoritativeInitialState =
     options.allowNonAuthoritativeInitialState ??
