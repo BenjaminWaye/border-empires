@@ -2985,6 +2985,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = 0;
         simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
         simulationMetrics.setSimCpuPercent(sampleCpuPercent());
+        const empireTiles = runtime.empireTileCounts();
+        simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
+        simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({
           heapUsedMb: memory.heapUsed / (1024 * 1024),
