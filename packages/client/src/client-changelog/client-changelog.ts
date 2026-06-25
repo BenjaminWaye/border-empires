@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.24.1",
+  version: "2026.06.25.1",
   title: "What's New",
-  summary: "Login queue shows your position when the server is busy.",
+  summary: "Clearer message when the server is reconnecting mid-game.",
   entries: [
+    {
+      introducedIn: "2026.06.25.1",
+      title: "Clearer reconnect message",
+      why: "If the server restarted mid-session, clicking the map showed 'Finish sign-in before interacting with the map.' — confusing, since you were already signed in.",
+      changes: [
+        "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
+        "The original sign-in prompt still appears only when you genuinely are not signed in yet."
+      ]
+    },
     {
       introducedIn: "2026.06.24.1",
       title: "Login queue",
