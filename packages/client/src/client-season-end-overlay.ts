@@ -56,6 +56,21 @@ const num = (value: number, digits = 0): string =>
 const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
   Boolean(state.seasonWinner) && !state.seasonEndDismissed;
 
+// renderClientHud runs on every state tick; post-season the player is parked on
+// the frozen map and the HUD still re-renders on feed/status updates. Rebuilding
+// the overlay innerHTML each time is wasteful and restarts the cog/crown CSS
+// animations (visible stutter). Skip the rebuild unless the rendered inputs
+// actually changed, keyed by this signature.
+const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
+  JSON.stringify({
+    winner: state.seasonWinner?.playerId,
+    objective: state.seasonWinner?.objectiveName,
+    starting: state.seasonEndStarting,
+    self: leaderboard.selfOverall?.id,
+    overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
+    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet])
+  });
+
 const victorMedallion = (
   winner: SeasonWinnerView,
   colors: ReadonlyMap<string, string>,
@@ -72,41 +87,38 @@ const victorMedallion = (
     </div>
   </div>`;
 
+const rankRowHtml = (
+  entry: LeaderboardOverallEntry,
+  colors: ReadonlyMap<string, string>,
+  options: { self: boolean; detached?: boolean }
+): string => {
+  const medalClass = options.detached ? "" : rankClass(entry.rank);
+  const glyph = options.detached ? `${entry.rank}` : rankGlyph(entry.rank);
+  return `
+    <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}">
+      <span class="se-rank-medal ${medalClass}">${glyph}</span>
+      <span class="se-rank-name">${playerBadge(entry.id, options.self ? "You" : entry.name, colors)}</span>
+      <span class="se-rank-stats">
+        <span class="se-gauge" title="Final score"><em>${num(entry.score, 1)}</em><span>score</span></span>
+        <span class="se-gauge" title="Settled tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>
+        <span class="se-gauge" title="Income / min"><em>${num(entry.incomePerMinute, 1)}</em><span>gold/m</span></span>
+        <span class="se-gauge" title="Technologies"><em>${num(entry.techs)}</em><span>tech</span></span>
+      </span>
+    </li>`;
+};
+
 const standingsLedger = (
   leaderboard: SeasonEndLeaderboard,
   colors: ReadonlyMap<string, string>,
   selfId: string | undefined
 ): string => {
   const rows = leaderboard.overall
-    .map((entry) => {
-      const self = Boolean(selfId && entry.id === selfId);
-      return `
-      <li class="se-rank-row${self ? " is-self" : ""}">
-        <span class="se-rank-medal ${rankClass(entry.rank)}">${rankGlyph(entry.rank)}</span>
-        <span class="se-rank-name">${playerBadge(entry.id, self ? "You" : entry.name, colors)}</span>
-        <span class="se-rank-stats">
-          <span class="se-gauge" title="Final score"><em>${num(entry.score, 1)}</em><span>score</span></span>
-          <span class="se-gauge" title="Settled tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>
-          <span class="se-gauge" title="Income / min"><em>${num(entry.incomePerMinute, 1)}</em><span>gold/m</span></span>
-          <span class="se-gauge" title="Technologies"><em>${num(entry.techs)}</em><span>tech</span></span>
-        </span>
-      </li>`;
-    })
+    .map((entry) => rankRowHtml(entry, colors, { self: Boolean(selfId && entry.id === selfId) }))
     .join("");
+  const self = leaderboard.selfOverall;
   const selfFooter =
-    leaderboard.selfOverall &&
-    leaderboard.selfOverall.rank !== 1 &&
-    !leaderboard.overall.some((entry) => entry.id === leaderboard.selfOverall?.id)
-      ? `<li class="se-rank-row is-self is-detached">
-          <span class="se-rank-medal">${leaderboard.selfOverall.rank}</span>
-          <span class="se-rank-name">${playerBadge(leaderboard.selfOverall.id, "You", colors)}</span>
-          <span class="se-rank-stats">
-            <span class="se-gauge"><em>${num(leaderboard.selfOverall.score, 1)}</em><span>score</span></span>
-            <span class="se-gauge"><em>${num(leaderboard.selfOverall.tiles)}</em><span>tiles</span></span>
-            <span class="se-gauge"><em>${num(leaderboard.selfOverall.incomePerMinute, 1)}</em><span>gold/m</span></span>
-            <span class="se-gauge"><em>${num(leaderboard.selfOverall.techs)}</em><span>tech</span></span>
-          </span>
-        </li>`
+    self && self.rank !== 1 && !leaderboard.overall.some((entry) => entry.id === self.id)
+      ? rankRowHtml(self, colors, { self: true, detached: true })
       : "";
   return `
     <section class="se-panel se-standings">
@@ -150,11 +162,19 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const visible = seasonEndVisible(state);
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !state.seasonWinner) {
-    if (overlayEl.innerHTML) overlayEl.innerHTML = "";
+    if (overlayEl.innerHTML) {
+      overlayEl.innerHTML = "";
+      delete overlayEl.dataset.seSignature;
+    }
     return;
   }
 
-  const leaderboard = state.leaderboard as unknown as SeasonEndLeaderboard;
+  const leaderboard: SeasonEndLeaderboard = state.leaderboard;
+  // Skip the rebuild (and animation restart) when nothing rendered has changed.
+  const signature = renderSignature(state, leaderboard);
+  if (overlayEl.dataset.seSignature === signature) return;
+  overlayEl.dataset.seSignature = signature;
+
   const colors = state.playerColors;
   const selfId = leaderboard.selfOverall?.id;
   const isSelfWinner = Boolean(selfId && state.seasonWinner.playerId === selfId);
