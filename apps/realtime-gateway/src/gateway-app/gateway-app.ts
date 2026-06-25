@@ -2774,6 +2774,39 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (message.type === "START_NEW_SEASON") {
+            if (!session.playerId) {
+              sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" });
+              return;
+            }
+            recordGatewayEvent("info", "gateway_start_new_season_requested", {
+              playerId: session.playerId,
+              channel: session.channel
+            });
+            try {
+              // force=false: the sim only rolls over when the current season has
+              // already ended, so a player pressing this on the season-end screen
+              // cannot reset an active season. The resulting SEASON_ROLLOVER is
+              // broadcast to every connected client.
+              const result = await simulationClient.startNextSeason(false);
+              recordGatewayEvent("info", "gateway_start_new_season_ok", {
+                playerId: session.playerId,
+                seasonId: result.seasonId
+              });
+            } catch (error) {
+              // Rejects if the season has not ended yet or a rollover is already
+              // in flight — both are benign races from clicking the button. The
+              // in-flight rollover still broadcasts SEASON_ROLLOVER to everyone.
+              recordGatewayEvent("warn", "gateway_start_new_season_rejected", {
+                playerId: session.playerId,
+                channel: session.channel,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
+            }
+            return;
+          }
+
           if (message.type === "SET_TILE_COLOR") {
             const normalized = normalizeHex(message.color);
             if (!normalized) {
