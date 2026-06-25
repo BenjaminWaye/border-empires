@@ -5786,8 +5786,10 @@ button:disabled,
 
 .se-plate {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(880px, calc(100vw - 32px));
-  max-height: calc(100dvh - 44px);
+  max-height: calc(100dvh - 40px);
   border-radius: 18px;
   padding: 6px;
   background:
@@ -5819,8 +5821,11 @@ button:disabled,
 
 .se-scroll {
   position: relative;
-  max-height: calc(100dvh - 60px);
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   border-radius: 12px;
   padding: 26px clamp(16px, 4vw, 40px) 22px;
   background:
@@ -6032,7 +6037,19 @@ button:disabled,
 .se-fineprint strong { color: var(--se-copper); }
 
 @media (max-width: 560px) {
-  .se-rank-row { grid-template-columns: 32px 1fr; }
-  .se-rank-stats { grid-column: 1 / -1; justify-content: space-between; }
+  #season-end-overlay { padding: 8px; }
+  .se-plate { width: 100%; max-height: calc(100dvh - 16px); }
+  .se-scroll { padding: 20px 14px 18px; }
+  .se-header { gap: 8px; }
+  .se-title { font-size: clamp(24px, 8vw, 34px); }
+  .se-medallion { padding: 16px 18px; max-width: 100%; }
+  .se-victor-name { font-size: 21px; }
+  .se-rank-row { grid-template-columns: 30px 1fr; gap: 8px; padding: 8px 10px; }
+  .se-rank-stats { grid-column: 1 / -1; justify-content: space-between; gap: 6px; }
+  .se-gauge { min-width: 0; flex: 1; }
+  .se-gauge em { font-size: 14px; }
+  .se-dials { grid-template-columns: 1fr; }
   .se-filigree { display: none; }
+  .se-actions { gap: 10px; }
+  .se-btn { padding: 12px 18px; flex: 1 1 auto; justify-content: center; }
 }
