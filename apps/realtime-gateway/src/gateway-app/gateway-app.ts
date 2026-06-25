@@ -36,7 +36,12 @@ import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
-import { withTimeout } from "../promise-timeout.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import {
+  createSimSubmitHealthState,
+  recordSubmitSuccess,
+  shouldMarkUnavailableOnSubmitError
+} from "./sim-submit-health.js";
 import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
@@ -519,6 +524,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
+  const simSubmitHealth = createSimSubmitHealthState();
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   const slowLoginAlerter = createSlowLoginAlerter({
@@ -710,8 +716,42 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
   const markSimulationReady = (): void => {
+    recordSubmitSuccess(simSubmitHealth);
     simulationRpcConnected = true;
     refreshCombinedSimulationHealth();
+  };
+  // Shared submit-error handler for both submit paths (social sync + player
+  // submit). Routes through the tested sim-submit-health helper so a single
+  // transient timeout doesn't flip the sim to "unavailable" (which surfaces
+  // SERVER_STARTING to clients) — only N consecutive timeouts do, mirroring
+  // the ping-failure threshold. Real channel errors flip immediately.
+  const handleSubmitError = (error: unknown, ctx: { commandId: string; playerId: string }): void => {
+    const decision = shouldMarkUnavailableOnSubmitError(error, simSubmitHealth, {
+      threshold: simulationHealthFailureThreshold,
+      hasEverBeenReady: typeof simulationHealth.lastReadyAt === "number"
+    });
+    if (decision.tolerated) {
+      gatewayMetrics.incrementSimulationSubmitTimeoutTolerated();
+      recordGatewayEvent("warn", "simulation_submit_timeout_tolerated", {
+        commandId: ctx.commandId,
+        playerId: ctx.playerId,
+        consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+        failureThreshold: simulationHealthFailureThreshold
+      });
+      return;
+    }
+    if (decision.markUnavailable) {
+      if (error instanceof TimeoutError) {
+        gatewayMetrics.incrementSimulationSubmitTimeoutFlipped();
+        recordGatewayEvent("warn", "simulation_submit_timeout_flipped", {
+          commandId: ctx.commandId,
+          playerId: ctx.playerId,
+          consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+          failureThreshold: simulationHealthFailureThreshold
+        });
+      }
+      markSimulationUnavailable(error);
+    }
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationRpcConnected = false;
@@ -743,7 +783,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       markSimulationReady();
       return true;
     } catch (error) {
-      markSimulationUnavailable(error);
+      handleSubmitError(error, { commandId: command.commandId, playerId: input.playerId });
       recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
         commandId: command.commandId,
         playerId: input.playerId,
@@ -3205,7 +3245,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   commandId: command.commandId,
                   error: error instanceof Error ? error.message : String(error)
                 });
-                markSimulationUnavailable(error);
+                handleSubmitError(error, { commandId: command.commandId, playerId: command.playerId });
                 recordGatewayEvent("warn", "simulation_submit_failed", {
                   commandId: command.commandId,
                   playerId: command.playerId,
