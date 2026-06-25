@@ -307,6 +307,11 @@ export const createInitialState = () => ({
   },
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
+  // Season-end screen: shown once a winner is crowned (season ended). The player
+  // can dismiss it with "Look Around"; reset to false on SEASON_ROLLOVER so the
+  // screen shows again the next time a season ends.
+  seasonEndDismissed: false,
+  seasonEndStarting: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,

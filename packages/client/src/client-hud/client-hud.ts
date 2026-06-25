@@ -15,6 +15,7 @@ import type { EconomyFocusKey } from "../client-economy-model.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
+import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
@@ -1346,6 +1347,14 @@ export const renderClientHud = (deps: HudDeps): void => {
     centerOnOwnedTile,
     pushFeed,
     downloadRespawnBugReport
+  });
+
+  renderSeasonEndOverlay({
+    state,
+    overlayEl: dom.seasonEndOverlayEl,
+    renderHud: () => renderClientHud(deps),
+    startNewSeason: () =>
+      sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new season.")
   });
 
   syncAuthOverlay();
