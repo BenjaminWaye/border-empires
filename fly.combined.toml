@@ -89,4 +89,8 @@ primary_region = "arn"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1024mb"
+  # 2048mb: post-season full-visibility logins materialize the whole 202,500-tile
+  # world (~166MB transient each across sim build + proto + gRPC + gateway JSON);
+  # concurrent post-season logins OOM-killed a 1024mb box. See #693 (inline build
+  # cut CPU 4134ms→694ms) — memory headroom is the remaining post-season ceiling.
+  memory = "2048mb"
