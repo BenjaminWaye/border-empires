@@ -1281,6 +1281,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  // Post-season proto-tile cache: tiles are frozen after season end so the
+  // marshalled proto tile array is an immutable constant for a given seasonId.
+  // All players get identical full-visibility tiles post-season, so one cached
+  // array can be shared across all concurrent SubscribePlayer RPCs.
+  let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
   const invalidateSharedFullVisibilityTilesCache = (): void => {
     sharedFullVisibilityTilesCache = undefined;
@@ -1322,6 +1327,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const clearCachedSnapshots = () => {
     snapshotCacheByPlayerId.clear();
+    postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
   };
   const stopGameplayTickers = (): void => {
@@ -1622,6 +1628,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
+      closeAutopilots();
+      log.info("autopilots stopped on season end");
       warmSeasonEndSnapshots();
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
@@ -1769,6 +1777,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const baseAiTickMs = options.aiTickMs ?? 250;
 
   const aiShouldRun = () => {
+    if (currentSeasonState.status === "ended") {
+      simulationMetrics.incrementSimAiTickThrottled("season_ended");
+      return false;
+    }
     const hrNow = process.hrtime.bigint();
     if (aiShouldRunFirstCall) {
       aiShouldRunFirstCall = false;
@@ -1797,10 +1809,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     );
   };
 
-  const systemShouldRun = () =>
-    !persistenceQueue.isDegraded() &&
-    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
+  const systemShouldRun = () => {
+    if (currentSeasonState.status === "ended") {
+      simulationMetrics.incrementSimAiTickThrottled("season_ended");
+      return false;
+    }
+    return (
+      !persistenceQueue.isDegraded() &&
+      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+      latestEventLoopLagMs <= aiMaxEventLoopLagMs
+    );
+  };
   let aiCommandProducer:
     | ReturnType<typeof createAiCommandProducer>
     | ReturnType<typeof createWorkerAiCommandProducer>
@@ -2540,7 +2559,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                     }))
                   }
                 : {}),
-              tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
+              tiles: (() => {
+                // Post-season: tiles are frozen and all players share identical
+                // full-visibility tiles, so marshal once and reuse.
+                if (currentSeasonState.status === "ended") {
+                  const cached = postSeasonProtoTilesCache;
+                  if (cached !== undefined && cached.seasonId === currentSeasonState.seasonId) {
+                    simulationMetrics.incrementSimPostSeasonProtoTileCacheHit();
+                    return cached.tiles;
+                  }
+                  const mapped = snapshotPayload.tiles.map(toFullSnapshotProtoTile);
+                  postSeasonProtoTilesCache = { seasonId: currentSeasonState.seasonId, tiles: mapped };
+                  simulationMetrics.incrementSimPostSeasonProtoTileCacheMiss();
+                  return mapped;
+                }
+                return snapshotPayload.tiles.map(toFullSnapshotProtoTile);
+              })()
             });
             if (!subscribeOptions.emitBootstrapEvent) return;
             const bootstrapEvent = toProtoEvent({

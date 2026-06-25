@@ -190,7 +190,11 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_season_end_snapshot_warm_total counter",
     `sim_season_end_snapshot_warm_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmTotal)}`,
     "# TYPE sim_season_end_snapshot_warm_failed_total counter",
-    `sim_season_end_snapshot_warm_failed_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmFailedTotal)}`
+    `sim_season_end_snapshot_warm_failed_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmFailedTotal)}`,
+    "# TYPE sim_post_season_proto_tile_cache_hit_total counter",
+    `sim_post_season_proto_tile_cache_hit_total ${formatMetricValue(sample.simPostSeasonProtoTileCacheHitTotal)}`,
+    "# TYPE sim_post_season_proto_tile_cache_miss_total counter",
+    `sim_post_season_proto_tile_cache_miss_total ${formatMetricValue(sample.simPostSeasonProtoTileCacheMissTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
