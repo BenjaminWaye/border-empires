@@ -1492,8 +1492,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(respawnNotice ? { respawnNotice } : {}),
       ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     };
-    const snapshot = snapshotBuildPool
-      ? await snapshotBuildPool.build(playerId, runtimeState, buildOpts)
+    // Full-visibility builds (season-ended / spectator) bypass the worker pool.
+    // For full-vis the per-tile enrichment is already memoised on the main
+    // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
+    // reference in player-snapshot.ts), so the worker has nothing to compute —
+    // it would only structured-clone the entire 202k-tile runtimeState across
+    // the boundary and clone the 202k-tile snapshot back. That clone was a ~4s
+    // synchronous block on the sim event loop per login (prod snapshot_materialize
+    // 4134ms), which stacked across bootstrap retries and killed the sim worker,
+    // wedging post-season logins. Inline reuses the cached tiles by reference and
+    // does only the cheap per-player economy/worldStatus work (~100ms). The
+    // worker still serves fog-of-war logins, where enrichment is per-player and
+    // the returned tile set is small.
+    const useWorkerBuild = snapshotBuildPool !== undefined && !useFullVisibility;
+    if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
+    const snapshot = useWorkerBuild
+      ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
       : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
