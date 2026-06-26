@@ -80,7 +80,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     eventType: "TILE_DELTA_BATCH",
     commandId: `${command.commandId}:bc`,
     playerId: "__broadcast__",
-    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: 0, updatedAt: now }) }]
+    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: 0, updatedAt: now }) }]
   });
   context.emitPlayerStateUpdate(command);
 }
@@ -112,7 +112,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     eventType: "TILE_DELTA_BATCH",
     commandId: `${command.commandId}:bc`,
     playerId: "__broadcast__",
-    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: "" }]
+    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
   });
   context.emitPlayerStateUpdate(command);
 }
