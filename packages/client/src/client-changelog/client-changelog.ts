@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.2",
+  version: "2026.06.26.3",
   title: "What's New",
-  summary: "Fixed 'Combat result delayed' error spam from muster-advance attacks.",
+  summary: "Fixed 'Attack blocked: stage manpower' error when flag is far from the front.",
   entries: [
+    {
+      introducedIn: "2026.06.26.3",
+      title: "Muster flags now supply attacks through connected territory up to 20 tiles away",
+      why: "Setting a muster flag to advance and letting it capture tiles pushed the front forward, but auto-attacks from distant frontier tiles failed with 'Attack blocked: stage manpower' even though the flag had plenty of manpower.",
+      changes: [
+        "Muster-advance auto-attacks now correctly use the flag's manpower regardless of distance from the attack source tile.",
+        "Manual attacks (Launch Attack) can draw from flags within 20 tiles of the origin instead of the previous 4-tile limit.",
+        "The 'Attack blocked: stage manpower on this tile first' error no longer appears when attacking through connected owned territory with a mustered flag in range."
+      ]
+    },
     {
       introducedIn: "2026.06.26.2",
       title: "No more 'Combat result delayed' spam from auto-attacks",
