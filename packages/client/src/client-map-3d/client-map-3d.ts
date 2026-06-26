@@ -495,7 +495,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_RANGE_MAX);
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
   const SWEEP_RANGE_RADIUS = 5;
-  const MUSTER_REACH_RADIUS = 5; // 4 hops to origin + 1 hop to target
   const WATERWORKS_RANGE_RADIUS = 10;
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
@@ -547,29 +546,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
     sweepRangeFillMaterial
   );
-  const musterReachMaterial = new LineBasicMaterial({
-    color: "#e05252",
-    transparent: true,
-    opacity: 0.55,
-    depthTest: false,
-    depthWrite: false
-  });
-  const musterReachFillMaterial = new MeshBasicMaterial({
-    color: "#e05252",
-    transparent: true,
-    opacity: 0.03,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const musterReachMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(sweepRangeMaxSegments),
-    musterReachMaterial
-  );
-  const musterReachFill = new Mesh(
-    createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
-    musterReachFillMaterial
-  );
   const waterworksRangeMaterial = new LineBasicMaterial({
     color: "#4caf74",
     transparent: true,
@@ -599,8 +575,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   observatoryRangeFill.visible = false;
   sweepRangeMarker.visible = false;
   sweepRangeFill.visible = false;
-  musterReachMarker.visible = false;
-  musterReachFill.visible = false;
   waterworksRangeMarker.visible = false;
   waterworksRangeFill.visible = false;
   selectedMarker.renderOrder = 30;
@@ -609,8 +583,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   observatoryRangeFill.renderOrder = 24;
   sweepRangeMarker.renderOrder = 23;
   sweepRangeFill.renderOrder = 22;
-  musterReachMarker.renderOrder = 21;
-  musterReachFill.renderOrder = 20;
   waterworksRangeMarker.renderOrder = 19;
   waterworksRangeFill.renderOrder = 18;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
@@ -648,8 +620,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   observatoryRangeFill.frustumCulled = false;
   sweepRangeMarker.frustumCulled = false;
   sweepRangeFill.frustumCulled = false;
-  musterReachMarker.frustumCulled = false;
-  musterReachFill.frustumCulled = false;
   waterworksRangeMarker.frustumCulled = false;
   waterworksRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -665,8 +635,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     hoverMarker,
     waterworksRangeFill,
     waterworksRangeMarker,
-    musterReachFill,
-    musterReachMarker,
     sweepRangeFill,
     sweepRangeMarker,
     observatoryRangeFill,
@@ -1254,18 +1222,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeObservatoryRangeGeometry(sweepRangeMarker, sweepRangeFill, selectedTile, SWEEP_RANGE_RADIUS);
   };
 
-  const syncMusterReachMarker = (): void => {
-    musterReachMarker.visible = false;
-    musterReachFill.visible = false;
-    const selectedCoord = deps.state.selected;
-    if (!selectedCoord) return;
-    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selectedTile?.muster) return;
-    if (selectedTile.muster.ownerId !== deps.state.me) return;
-    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeObservatoryRangeGeometry(musterReachMarker, musterReachFill, selectedTile, MUSTER_REACH_RADIUS);
-  };
-
   const syncWaterworksRangeMarker = (): void => {
     waterworksRangeMarker.visible = false;
     waterworksRangeFill.visible = false;
@@ -1740,7 +1696,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
-    syncMusterReachMarker();
     syncWaterworksRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
@@ -1789,16 +1744,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryRangeFill.geometry.dispose();
     sweepRangeMarker.geometry.dispose();
     sweepRangeFill.geometry.dispose();
-    musterReachMarker.geometry.dispose();
-    musterReachFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     observatoryRangeMaterial.dispose();
     observatoryRangeFillMaterial.dispose();
     sweepRangeMaterial.dispose();
     sweepRangeFillMaterial.dispose();
-    musterReachMaterial.dispose();
-    musterReachFillMaterial.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();

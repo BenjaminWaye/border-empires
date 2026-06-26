@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.25.2",
+  version: "2026.06.26.1",
   title: "What's New",
-  summary: "A proper season-end screen — see who won and start the next season.",
+  summary: "Removed misleading red attack-range indicator around muster flags.",
   entries: [
+    {
+      introducedIn: "2026.06.26.1",
+      title: "No more fake range circle on muster flags",
+      why: "Selecting a muster flag showed a small red radius box, implying attacks are limited to that range — but muster attacks have unlimited reach from any flag.",
+      changes: [
+        "The red reach indicator no longer appears when you tap a muster flag, since the flag can attack any tile regardless of distance."
+      ]
+    },
     {
       introducedIn: "2026.06.25.2",
       title: "Season-end screen",
