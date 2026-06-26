@@ -2571,6 +2571,46 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("preserves shardSite on target tile after EXPAND onto a tile that has one", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND", shardSite: { kind: "CACHE", amount: 3 } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-shard-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const targetTile = runtime.exportState().tiles.find((t) => t.x === 11 && t.y === 10);
+      expect(targetTile).toBeDefined();
+      expect(targetTile!.ownerId).toBe("player-1");
+      expect(targetTile!.ownershipState).toBe("FRONTIER");
+      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"kind\":\"CACHE\""));
+      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"amount\":3"));
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("cancels an active frontier expansion before it resolves", async () => {
     const scheduled: Array<() => void> = [];
     const runtime = new SimulationRuntime({
@@ -8348,6 +8388,56 @@ describe("simulation runtime — shard rain", () => {
         (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
       )
     ).toBe(false);
+  });
+
+  it("does not re-spawn shards on tiles used in previous rain events", () => {
+    const tiles = [
+      { x: 0, y: 0, terrain: "LAND" as const },
+      { x: 1, y: 0, terrain: "LAND" as const },
+      { x: 2, y: 0, terrain: "LAND" as const }
+    ];
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    const randomValues = [
+      0, // count -> SHARD_RAIN_SITE_MIN + 0 = 3
+      0, 0, 0.5, // attempt 1: tile (0,0), amount 1
+      1 / 450, 0, 0.5, // attempt 2: tile (1,0), amount 1
+      2 / 450, 0, 0.5 // attempt 3: tile (2,0), amount 1
+    ];
+    let cursor = 0;
+    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
+      const value = randomValues[cursor] ?? 0;
+      cursor += 1;
+      return value;
+    });
+
+    try {
+      // First rain at 12:00
+      runtime.tickShardRain(localTime(12, 0));
+
+      // Advance past TTL (30 min) and trigger second rain at 20:00.
+      // expireShardFallSites runs first and clears shardSite; then the
+      // spawn loop finds no eligible tiles because recentShardRainTileKeys
+      // still holds the 3 tiles from the first event.
+      runtime.tickShardRain(localTime(20, 0));
+
+      const startedNotices = seen.filter(
+        (event) =>
+          event.eventType === "PLAYER_MESSAGE" &&
+          event.messageType === "SHARD_RAIN_EVENT" &&
+          JSON.parse(event.payloadJson).phase === "started"
+      );
+      expect(startedNotices).toHaveLength(1);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   describe("SETTLEMENT capture evacuation", () => {
