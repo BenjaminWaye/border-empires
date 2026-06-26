@@ -206,8 +206,9 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   const previousOrigin = context.tiles.get(lock.originKey);
   if (!previousOrigin) return;
   const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
+  const { muster: _discardMuster, ...strippedOrigin } = previousOrigin;
   const resolvedOrigin: DomainTileState = {
-    ...previousOrigin,
+    ...strippedOrigin,
     ownerId: previousOwnerId,
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
@@ -218,6 +219,14 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
   const tileDeltas = [context.tileDeltaFromState(resolvedOrigin)];
+
+  const hadMuster = Boolean(previousOrigin.muster);
+  if (previousOrigin.muster?.ownerId && previousOrigin.muster.amount > 0) {
+    const musterOwner = context.players.get(previousOrigin.muster.ownerId);
+    if (musterOwner) {
+      musterOwner.manpower = Math.min(context.playerManpowerCap(musterOwner), musterOwner.manpower + previousOrigin.muster.amount);
+    }
+  }
 
   if (previousOwnerId === "barbarian-1") {
     const defenderTile = context.tiles.get(lock.targetKey);
@@ -236,6 +245,15 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   }
 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });
+
+  if (hadMuster) {
+    context.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `${lock.commandId}:bc`,
+      playerId: "__broadcast__",
+      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, musterJson: "" }]
+    });
+  }
 }
 
 function applyCombatEncirclement(

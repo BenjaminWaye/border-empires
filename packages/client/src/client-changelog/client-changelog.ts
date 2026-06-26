@@ -21,8 +21,17 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.26.3",
   title: "What's New",
-  summary: "Fixed 'Attack blocked: stage manpower' error when flag is far from the front.",
+  summary: "Muster flags now supply attacks through connected territory up to 20 tiles away; cleared properly on counter-capture.",
   entries: [
+    {
+      introducedIn: "2026.06.26.3",
+      title: "Muster flag cleared when attack origin is counter-captured",
+      why: "When your attack failed and the enemy took the tile you attacked from, the muster flag stayed on the tile as if it still belonged to you. Manpower kept accumulating there, and the flag could keep auto-firing attacks from enemy territory.",
+      changes: [
+        "The muster flag is now removed and manpower refunded when the tile it sits on is lost to a counter-capture.",
+        "All clients see the flag disappear immediately, not just the tile's new owner."
+      ]
+    },
     {
       introducedIn: "2026.06.26.3",
       title: "Muster flags now supply attacks through connected territory up to 20 tiles away",
