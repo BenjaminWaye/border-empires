@@ -4401,7 +4401,7 @@ export class SimulationRuntime {
       const dx = Math.min(Math.abs(tile.x - origin.x), WORLD_WIDTH - Math.abs(tile.x - origin.x));
       const dy = Math.min(Math.abs(tile.y - origin.y), WORLD_HEIGHT - Math.abs(tile.y - origin.y));
       const dist = Math.max(dx, dy);
-      if (dist <= 20 && dist < bestDist) {
+      if (dist <= 10 && dist < bestDist) {
         bestDist = dist;
         bestKey = tileKey;
       }

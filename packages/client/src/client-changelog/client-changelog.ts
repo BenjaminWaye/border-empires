@@ -25,11 +25,11 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   entries: [
     {
       introducedIn: "2026.06.26.3",
-      title: "Muster flags now supply attacks through connected territory up to 20 tiles away",
+      title: "Muster flags now supply attacks through connected territory up to 10 tiles away",
       why: "Setting a muster flag to advance and letting it capture tiles pushed the front forward, but auto-attacks from distant frontier tiles failed with 'Attack blocked: stage manpower' even though the flag had plenty of manpower.",
       changes: [
         "Muster-advance auto-attacks now correctly use the flag's manpower regardless of distance from the attack source tile.",
-        "Manual attacks (Launch Attack) can draw from flags within 20 tiles of the origin instead of the previous 4-tile limit.",
+        "Manual attacks (Launch Attack) can draw from flags within 10 tiles of the origin instead of the previous 4-tile limit.",
         "The 'Attack blocked: stage manpower on this tile first' error no longer appears when attacking through connected owned territory with a mustered flag in range."
       ]
     },
