@@ -129,6 +129,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
+      ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedStructureFields(previousTarget, lock.playerId),
       ownerId: lock.playerId,
