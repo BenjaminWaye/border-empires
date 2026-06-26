@@ -19,17 +19,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.3",
+  version: "2026.06.26.4",
   title: "What's New",
-  summary: "Muster flags now supply attacks through connected territory up to 20 tiles away; cleared properly on counter-capture.",
+  summary: "Shards on expanded tiles are now preserved, and shard rain avoids re-using recently-sharded tiles.",
   entries: [
     {
-      introducedIn: "2026.06.26.3",
-      title: "Muster flag cleared when attack origin is counter-captured",
-      why: "When your attack failed and the enemy took the tile you attacked from, the muster flag stayed on the tile as if it still belonged to you. Manpower kept accumulating there, and the flag could keep auto-firing attacks from enemy territory.",
+      introducedIn: "2026.06.26.4",
+      title: "Shards no longer vanish when you expand onto a shard tile",
+      why: "Expanding to a tile that had a shard silently deleted the shard — the server returned COLLECT_EMPTY even though the client still showed the shard overlay.",
       changes: [
-        "The muster flag is now removed and manpower refunded when the tile it sits on is lost to a counter-capture.",
-        "All clients see the flag disappear immediately, not just the tile's new owner."
+        "Expanding onto a tile with a shard now preserves the shard so you can collect it afterward."
+      ]
+    },
+    {
+      introducedIn: "2026.06.26.4",
+      title: "Shard rain avoids re-using the same tiles",
+      why: "When the eligible tile pool was small, the same tiles got shards dropped on them every rain cycle. This made collection too predictable and rewarded camping known shard spawns.",
+      changes: [
+        "Tiles that have hosted a shard fall site are no longer eligible for future shard rain events.",
+        "Over time the rain spreads to fresh tiles instead of concentrating on the same spots."
       ]
     },
     {
