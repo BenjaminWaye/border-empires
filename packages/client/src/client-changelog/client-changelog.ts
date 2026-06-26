@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.1",
+  version: "2026.06.26.2",
   title: "What's New",
-  summary: "Removed misleading red attack-range indicator around muster flags.",
+  summary: "Fixed 'Combat result delayed' error spam from muster-advance attacks.",
   entries: [
+    {
+      introducedIn: "2026.06.26.2",
+      title: "No more 'Combat result delayed' spam from auto-attacks",
+      why: "Setting a muster flag to advance and leaving it caused a 'Combat result delayed locally; continuing queue.' error after every attack, even though the result was delivered.",
+      changes: [
+        "Muster-advance auto-attacks now resolve cleanly without showing the 'Combat result delayed' warning.",
+        "Combat results from server-initiated attacks appear in the activity feed as expected."
+      ]
+    },
     {
       introducedIn: "2026.06.26.1",
       title: "No more fake range circle on muster flags",
