@@ -3049,8 +3049,12 @@ export class SimulationRuntime {
     const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
       ? this.requiredMusterForTarget(to)
       : undefined;
+    const advancePreferredKey =
+      payload.musterSourceX != null && payload.musterSourceY != null
+        ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
+        : undefined;
     const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1" && actor.id !== "barbarian-1"
-      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST)
+      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
       : undefined;
     const validation = validateFrontierCommand({
       now: this.now(),
@@ -4354,7 +4358,8 @@ export class SimulationRuntime {
   private resolveMusterSource(
     actorId: string,
     originKey: string,
-    requiredMuster: number
+    requiredMuster: number,
+    preferredKey?: string
   ): { sourceKey: string; available: number } | undefined {
     const origin = this.tiles.get(originKey);
     if (!origin) return undefined;
@@ -4366,6 +4371,17 @@ export class SimulationRuntime {
       if (available >= requiredMuster) return { sourceKey: originKey, available };
     }
 
+    // Advance-system preferred key: skip distance check since the BFS
+    // already verified connectivity through owned territory.
+    if (preferredKey && preferredKey !== originKey) {
+      const preferred = this.tiles.get(preferredKey);
+      if (preferred?.muster?.ownerId === actorId) {
+        const reserved = this.musterReservedByKey.get(preferredKey) ?? 0;
+        const available = preferred.muster.amount - reserved;
+        if (available >= requiredMuster) return { sourceKey: preferredKey, available };
+      }
+    }
+
     const musterKeys = this.musterTilesByOwner.get(actorId);
     if (!musterKeys) return undefined;
 
@@ -4374,6 +4390,7 @@ export class SimulationRuntime {
 
     for (const tileKey of musterKeys) {
       if (tileKey === originKey) continue; // already checked above
+      if (tileKey === preferredKey) continue; // already checked above
       const tile = this.tiles.get(tileKey);
       if (!tile?.muster || tile.muster.ownerId !== actorId) continue;
       const reserved = this.musterReservedByKey.get(tileKey) ?? 0;
@@ -4384,7 +4401,7 @@ export class SimulationRuntime {
       const dx = Math.min(Math.abs(tile.x - origin.x), WORLD_WIDTH - Math.abs(tile.x - origin.x));
       const dy = Math.min(Math.abs(tile.y - origin.y), WORLD_HEIGHT - Math.abs(tile.y - origin.y));
       const dist = Math.max(dx, dy);
-      if (dist <= 4 && dist < bestDist) {
+      if (dist <= 20 && dist < bestDist) {
         bestDist = dist;
         bestKey = tileKey;
       }
