@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.2",
+  version: "2026.06.26.3",
   title: "What's New",
-  summary: "Fixed 'Combat result delayed' error spam from muster-advance attacks.",
+  summary: "Muster flags no longer ghost-survive on counter-captured origin tiles.",
   entries: [
+    {
+      introducedIn: "2026.06.26.3",
+      title: "Muster flag cleared when attack origin is counter-captured",
+      why: "When your attack failed and the enemy took the tile you attacked from, the muster flag stayed on the tile as if it still belonged to you. Manpower kept accumulating there, and the flag could keep auto-firing attacks from enemy territory.",
+      changes: [
+        "The muster flag is now removed and manpower refunded when the tile it sits on is lost to a counter-capture.",
+        "All clients see the flag disappear immediately, not just the tile's new owner."
+      ]
+    },
     {
       introducedIn: "2026.06.26.2",
       title: "No more 'Combat result delayed' spam from auto-attacks",
