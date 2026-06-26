@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.4",
+  version: "2026.06.26.5",
   title: "What's New",
-  summary: "Shards on expanded tiles are now preserved, and shard rain avoids re-using recently-sharded tiles.",
+  summary: "Muster flag placement no longer flashes the tile as unowned.",
   entries: [
+    {
+      introducedIn: "2026.06.26.5",
+      title: "Muster flag placement no longer flickers tile ownership",
+      why: "Placing a muster flag briefly showed the tile as unowned for a single frame because the broadcast event stripped the owner field and arrived before the full tile update.",
+      changes: [
+        "The broadcast event now includes the tile's owner and ownership state alongside the flag data.",
+        "The tile no longer flickers to unowned while the server sends the full delta."
+      ]
+    },
     {
       introducedIn: "2026.06.26.4",
       title: "Shards no longer vanish when you expand onto a shard tile",
