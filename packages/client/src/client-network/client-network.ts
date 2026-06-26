@@ -1708,7 +1708,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       state.actionTargetKey = targetKey;
-      if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      if (!state.actionCurrent) {
+        state.actionCurrent = {
+          x: target.x,
+          y: target.y,
+          retries: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(msg.actionType === "EXPAND" || msg.actionType === "ATTACK" ? { actionType: msg.actionType } : {}),
+        };
+      } else if (typeof msg.commandId === "string" && msg.commandId) {
+        state.actionCurrent.commandId = msg.commandId;
+      }
       frontierQueueDebug("action_accepted_applied", {
         actionType: msg.actionType,
         commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
