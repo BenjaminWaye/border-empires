@@ -1,7 +1,16 @@
 import type { EconomicStructureType } from "@border-empires/shared";
 import type { AetherWallDirection } from "./runtime-types.js";
 
-export const parseFrontierPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+export interface FrontierPayload {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  musterSourceX?: number;
+  musterSourceY?: number;
+}
+
+export const parseFrontierPayload = (payloadJson: string): FrontierPayload | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (
@@ -16,7 +25,9 @@ export const parseFrontierPayload = (payloadJson: string): { fromX: number; from
       fromX: parsed.fromX,
       fromY: parsed.fromY,
       toX: parsed.toX,
-      toY: parsed.toY
+      toY: parsed.toY,
+      ...(typeof parsed.musterSourceX === "number" ? { musterSourceX: parsed.musterSourceX } : {}),
+      ...(typeof parsed.musterSourceY === "number" ? { musterSourceY: parsed.musterSourceY } : {})
     };
   } catch {
     return null;
