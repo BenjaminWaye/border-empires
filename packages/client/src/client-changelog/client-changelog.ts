@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.26.3",
   title: "What's New",
-  summary: "Muster flags no longer ghost-survive on counter-captured origin tiles.",
+  summary: "Muster flags now supply attacks through connected territory up to 20 tiles away; cleared properly on counter-capture.",
   entries: [
     {
       introducedIn: "2026.06.26.3",
@@ -30,6 +30,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "The muster flag is now removed and manpower refunded when the tile it sits on is lost to a counter-capture.",
         "All clients see the flag disappear immediately, not just the tile's new owner."
+      ]
+    },
+    {
+      introducedIn: "2026.06.26.3",
+      title: "Muster flags now supply attacks through connected territory up to 20 tiles away",
+      why: "Setting a muster flag to advance and letting it capture tiles pushed the front forward, but auto-attacks from distant frontier tiles failed with 'Attack blocked: stage manpower' even though the flag had plenty of manpower.",
+      changes: [
+        "Muster-advance auto-attacks now correctly use the flag's manpower regardless of distance from the attack source tile.",
+        "Manual attacks (Launch Attack) can draw from flags within 20 tiles of the origin instead of the previous 4-tile limit.",
+        "The 'Attack blocked: stage manpower on this tile first' error no longer appears when attacking through connected owned territory with a mustered flag in range."
       ]
     },
     {
