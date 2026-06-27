@@ -1,10 +1,13 @@
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
+  MUSTER_ATTACK_COST,
+  MUSTER_SYSTEM_ENABLED,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grassShadeAt,
@@ -132,6 +135,12 @@ const classifyTile = (
   if (alliedPlayerIds.has(tile.ownerId)) return { kind: "IMPASSABLE" };
   if (truceTargetIds.has(tile.ownerId)) return { kind: "IMPASSABLE" };
   return { kind: "ENEMY", durationMs: attackDurationMs };
+};
+
+const requiredMusterForTarget = (tile: Tile | undefined): number => {
+  if (!tile || tile.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
+  const fortGarrison = tile.fort?.status === "active" && tile.fort.garrison != null ? tile.fort.garrison : 0;
+  return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
 };
 
 // Min-heap keyed on f-score, with parallel node-index array. Stale
@@ -411,8 +420,8 @@ export const planWaypoint = (
     }
     const action: WaypointAction = classified.kind === "ENEMY" ? "ATTACK" : "EXPAND";
     const goldCost = FRONTIER_CLAIM_COST;
-    const manpowerCost = action === "ATTACK" ? ATTACK_MANPOWER_COST : 0;
-    const manpowerMin = action === "ATTACK" ? ATTACK_MANPOWER_MIN : 0;
+    const manpowerCost = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_COST) : 0;
+    const manpowerMin = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_MIN) : 0;
     const throughFog = Boolean(nextTile?.fogged);
     const step: WaypointStep = {
       origin: prev,
