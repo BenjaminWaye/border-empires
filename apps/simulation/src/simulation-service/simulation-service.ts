@@ -1720,10 +1720,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByTechs ? { selfByTechs } : {})
       };
       const seasonVictory = personalizeSeasonVictoryObjectives(currentSummary?.seasonVictory ?? [], []);
+      const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
         leaderboard: playerLeaderboard,
         seasonVictory,
+        ...(seasonWinner ? { seasonWinner } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
