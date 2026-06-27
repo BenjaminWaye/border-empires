@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.2",
+  version: "2026.06.27.3",
   title: "What's New",
-  summary: "Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
+  summary: "Dock-pair connected attacks can now reach their target across the water. Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
   entries: [
+    {
+      introducedIn: "2026.06.27.3",
+      title: "Dock-pair attacks now validate the dock connection as a valid attack path",
+      why: "Launching an attack from a dock tile to its paired dock on the other side of the water showed the Launch Attack button (via the dockId fallback) but the server rejected it with NOT_ADJACENT because it only checked geometric adjacency and the dockId property on the tile data.",
+      changes: [
+        "The server's attack validation now checks the authoritative dock link map when deciding if the origin can reach the target. If the origin tile is dock-paired with the target tile, the adjacency requirement is satisfied.",
+        "This fixes attacks that were visible in the UI but silently rejected by the server."
+      ]
+    },
     {
       introducedIn: "2026.06.27.2",
       title: "Season-end overlay no longer stuck invisible",

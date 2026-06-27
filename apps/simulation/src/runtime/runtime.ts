@@ -3078,7 +3078,9 @@ export class SimulationRuntime {
       targetLockedUntil: targetLock?.resolvesAt,
       targetLockOwnerId: targetLock?.playerId,
       actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
+      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
+        (this.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
+          .includes(simulationTileKey(to.x, to.y)),
       isDockCrossing,
       isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
