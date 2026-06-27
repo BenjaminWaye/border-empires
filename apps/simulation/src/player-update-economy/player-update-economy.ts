@@ -26,6 +26,7 @@ import {
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import {
@@ -195,19 +196,7 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
   }
 };
 
-export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
-  switch (populationTier) {
-    case "CITY":
-      return 0.3;
-    case "GREAT_CITY":
-      return 0.6;
-    case "METROPOLIS":
-      return 1;
-    default:
-      return 0.1;
-  }
-};
+export { townFoodUpkeepPerMinute };
 
 export const supportSummaryForTown = (
   playerId: string,
