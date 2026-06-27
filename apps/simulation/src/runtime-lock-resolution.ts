@@ -95,10 +95,18 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   if (attacker && typeof combatResult?.manpowerDelta === "number") {
     if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
       const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
-      if (isBarbRaid) {
-        attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
-      } else if (lock.playerId === "barbarian-1") {
+      if (lock.playerId === "barbarian-1") {
         // Barbarian-origin attacks are rate-limited by tile cooldown, not manpower.
+      } else if (isBarbRaid) {
+        // Advance-mode barbarian raids drain the muster flag pool. Manual
+        // raids without a flag fall back to the player's global pool.
+        const sourceKey = lock.musterSourceKey ?? lock.originKey;
+        const sourceTile = context.tiles.get(sourceKey);
+        if (sourceTile?.muster?.ownerId === lock.playerId) {
+          context.consumeOriginMuster(sourceKey, lock.playerId, lock.manpowerCost);
+        } else {
+          attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
+        }
       } else {
         context.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
         if (!attackerWon) context.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
