@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.27.3",
   title: "What's New",
-  summary: "Dock-pair connected attacks can now reach their target across the water. Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
+  summary: "Dock-pair connected attacks can now reach their target across the water. Season-end overlay sections are now tabbed with sticky action buttons.",
   entries: [
     {
       introducedIn: "2026.06.27.3",
@@ -30,6 +30,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "The server's attack validation now checks the authoritative dock link map when deciding if the origin can reach the target. If the origin tile is dock-paired with the target tile, the adjacency requirement is satisfied.",
         "This fixes attacks that were visible in the UI but silently rejected by the server."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.3",
+      title: "Season-end overlay gets tabs and sticky buttons",
+      why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
+      changes: [
+        "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
+        "Start New Season and Look Around buttons are sticky at the bottom and always visible."
       ]
     },
     {
