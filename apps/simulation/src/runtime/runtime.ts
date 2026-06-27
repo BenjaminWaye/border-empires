@@ -1618,7 +1618,7 @@ export class SimulationRuntime {
       SHARD: player.strategicResources?.SHARD ?? 0
     };
     let mutated = false;
-    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+    for (const res of UPKEEP_STRATEGIC_KEYS) {
       if (need[res] > 0) {
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;
