@@ -140,11 +140,7 @@ export const applyEconomyAccrual = (ctx: RuntimeEconomyAccrualContext, player: R
     CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
     SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
   };
-  const foodBeforeConsume = player.strategicResources?.FOOD ?? 0;
   consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-  if (need.FOOD > 0 && upkeep.food > 0) {
-    console.log(`[FOOD_DEBUG] player=${player.id} foodBefore=${foodBeforeConsume} needFOOD=${need.FOOD} upkeepFood=${upkeep.food} elapsedMin=${elapsedMinutes} reason=after_tile_yield_consume`);
-  }
   if (need.gold > 0) player.points = Math.max(0, (player.points ?? 0) - need.gold);
   const stock = {
     FOOD: player.strategicResources?.FOOD ?? 0,
@@ -156,9 +152,6 @@ export const applyEconomyAccrual = (ctx: RuntimeEconomyAccrualContext, player: R
   let mutated = false;
   for (const resource of UPKEEP_STRATEGIC_KEYS) {
     if (need[resource] > 0) {
-      if (resource === "FOOD") {
-        console.log(`[FOOD_DEBUG] player=${player.id} foodBefore=${stock["FOOD"]} deducted=${need["FOOD"]} foodAfter=${Math.max(0, stock["FOOD"] - need["FOOD"])} reason=upkeep_stock_subtract`);
-      }
       stock[resource] = Math.max(0, stock[resource] - need[resource]);
       mutated = true;
     }
@@ -246,9 +239,6 @@ const consumeUpkeepFromTileYield = (
       const available = yieldView.yield.strategic[resource] ?? 0;
       if (available > 0 && need[resource] > 0) {
         const consumed = Math.min(available, need[resource]);
-        if (resource === "FOOD") {
-          console.log(`[FOOD_DEBUG] player=${player.id} tile=${tileKey} foodConsumed=${consumed} needAfter=${need["FOOD"] - consumed} reason=tile_yield_consume`);
-        }
         need[resource] -= consumed;
         updateCandidate(available - consumed, (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000));
       }

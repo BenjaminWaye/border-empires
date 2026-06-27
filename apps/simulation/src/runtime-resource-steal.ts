@@ -65,7 +65,7 @@ export function applyResourceTileSteal(
   if (stolen <= 0.01) return;
 
   if (resource === "FOOD") {
-    console.log(`[FOOD_DEBUG] player=${defender.id} foodBefore=${defenderBalance} stolen=${stolen} foodAfter=${Math.max(0, defenderBalance - stolen)} reason=resource_steal attacker=${attacker.id}`);
+    console.error(`[FOOD_DEBUG] player=${defender.id} foodBefore=${defenderBalance} stolen=${stolen} foodAfter=${Math.max(0, defenderBalance - stolen)} reason=resource_steal attacker=${attacker.id}`);
   }
   defender.strategicResources = { ...(defender.strategicResources ?? {}), [resource]: Math.max(0, defenderBalance - stolen) };
   attacker.strategicResources = { ...(attacker.strategicResources ?? {}), [resource]: ((attacker.strategicResources?.[resource] ?? 0) + stolen) };
