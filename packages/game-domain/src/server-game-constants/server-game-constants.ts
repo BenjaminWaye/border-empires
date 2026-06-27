@@ -185,6 +185,13 @@ export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Food consumed per unit of population grown (food / pop). A town growing by N pop/min costs N * GROWTH_FOOD_COST_PER_POP food/min. */
 export const GROWTH_FOOD_COST_PER_POP = 0.05;
+export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
+  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
+  if (populationTier === "CITY") return 0.3;
+  if (populationTier === "GREAT_CITY") return 0.6;
+  if (populationTier === "METROPOLIS") return 1;
+  return 0.1;
+};
 export const POPULATION_MIN = 3_000;
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_START_SPREAD = 2_000;
