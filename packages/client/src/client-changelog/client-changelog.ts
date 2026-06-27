@@ -19,17 +19,33 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.5",
+  version: "2026.06.27.1",
   title: "What's New",
-  summary: "Muster flag placement no longer flashes the tile as unowned.",
+  summary: "Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
   entries: [
     {
-      introducedIn: "2026.06.26.5",
-      title: "Muster flag placement no longer flickers tile ownership",
-      why: "Placing a muster flag briefly showed the tile as unowned for a single frame because the broadcast event stripped the owner field and arrived before the full tile update.",
+      introducedIn: "2026.06.27.1",
+      title: "Season-end overlay no longer stuck invisible",
+      why: "The season-end overlay was always present in the DOM but never visible after a season ended — only the initial snapshot carried the season winner, so the overlay stayed hidden.",
       changes: [
-        "The broadcast event now includes the tile's owner and ownership state alongside the flag data.",
-        "The tile no longer flickers to unowned while the server sends the full delta."
+        "Live world-status updates now broadcast the season winner too, so the overlay appears the moment a season ends."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.1",
+      title: "'You' marker restored in victory conditions",
+      why: "The victory condition summary stopped showing the 'You' prefix next to your own empire after a refactor, making it impossible to tell at a glance whether you were leading a given victory path.",
+      changes: [
+        "The season-end overlay now correctly shows 'You' on the objective gauge you are leading.",
+        "When you are not the leader, your personal progress still appears on a separate 'You:' line."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.1",
+      title: "Crown now awarded to the season winner, not rank 1",
+      why: "The standings table was putting the crown glyph on the row with rank 1 instead of the actual declared season winner — when the winner finished outside first place the crown appeared on the wrong player.",
+      changes: [
+        "The ♔ crown now appears beside the season winner's name in the final standings, regardless of their leaderboard rank."
       ]
     },
     {
@@ -147,99 +163,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The result popup is suppressed for muster-advance attacks (feed entry still appears)."
       ]
     },
-    {
-      introducedIn: "2026.06.19.1",
-      title: "Barbarian attacks restored",
-      why: "Barbarian attacks were being blocked by the player muster requirement, even though barbarians do not stage muster flags.",
-      changes: [
-        "Barbarian-origin attacks now use their per-tile cooldown instead of looking for staged muster or manpower.",
-        "Player attacks still require staged muster, except for the existing cheap raid path against barbarian tiles."
-      ]
-    },
-    {
-      introducedIn: "2026.06.18.2",
-      title: "Foundry radius tightened",
-      why: "A 10-tile Foundry radius covered too much territory and made mine planning less local than intended.",
-      changes: [
-        "Foundries now double active Mine production within 5 tiles instead of 10.",
-        "Foundry build text, structure details, and map previews now show the 5-tile radius.",
-        "Farmstead, Camp, Mine, Market, Waterworks, and Foundry copy now explains that production gains also raise storage caps, with exact cap gains in build previews where the input is unambiguous."
-      ]
-    },
-    {
-      introducedIn: "2026.06.18.1",
-      title: "Military builds on resources",
-      why: "Upgraded siege and fort placements could be rejected on owned resource tiles even though their base structures were allowed there.",
-      changes: [
-        "Siege Towers and Dread Towers can now be placed on valid owned resource tiles.",
-        "Iron Bastions and Thunder Bastions now share the Fort family's resource-tile placement rules."
-      ]
-    },
-    {
-      introducedIn: "2026.06.17.1",
-      title: "Storage cap in economy panel",
-      why: "There was no way for players to see how much of each resource they could hold without inspecting tile descriptions.",
-      changes: [
-        "Each resource card in the economy panel now shows your current stock alongside the storage cap (e.g. 4,312 / 7.2k).",
-        "The cap is sent only when it changes, so there is no extra server load on each tick.",
-        "Caps scale with production: 12 hours of income is the formula, with a minimum floor for new empires."
-      ]
-    },
-    {
-      introducedIn: "2026.06.17.1",
-      title: "Collect All button restored",
-      why: "The HUD Collect All button was present but silently rejected — the server handler had been removed when passive income was introduced.",
-      changes: [
-        "Collect All now flushes up to 12 hours of accumulated passive income immediately.",
-        "A 20-second cooldown prevents rapid double-collecting.",
-        "The per-tile Collect Yield button and the Stored Yield line in the tile panel have been removed (passive income bypasses the old per-tile yield system)."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.5",
-      title: "Live manpower drain while mustering",
-      why: "The global manpower bar stayed frozen while a muster flag was filling, making it look like staging cost nothing until the next 30-second server snapshot arrived.",
-      changes: [
-        "Each 1-second muster tick now pushes your updated manpower total alongside the tile delta, so the HUD reflects the drain immediately."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.3",
-      title: "Tile panel tab stays put during muster ticks",
-      why: "Opening the Structures or Overview tab while a muster flag tile was selected caused the panel to jump back to Actions every second as the server pushed updated muster amounts.",
-      changes: [
-        "Server-side tile delta updates (including the 1-second muster tick) now refresh the panel content without resetting the active tab or scroll position.",
-        "Only a direct user tap on the tile resets the tab back to Actions."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.2",
-      title: "Live muster amount in tile panel",
-      why: "The staged manpower count in the tile panel was frozen until you re-clicked the tile, making it impossible to watch a flag fill up.",
-      changes: [
-        "While a muster flag tile is open, the server ticks it every second and pushes the updated amount to your client.",
-        "Muster cap now scales with your town tier — City players can accumulate up to 300 manpower at a flag instead of being hard-capped at 150.",
-        "If you already have a muster flag placed elsewhere, queuing an attack from a tile with no nearby flag will no longer drop a duplicate flag — it shows 'Not enough manpower at nearest flag' instead."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.1",
-      title: "Town tier upgrade button",
-      why: "The 'Upgrade to City / Great City / Metropolis' button was never appearing because the simulation was not emitting the upgrade-available signal.",
-      changes: [
-        "The upgrade button now appears when your town reaches the required population (City: 100k, Great City: 1M, Metropolis: 5M).",
-        "Cleaned up diagnostic messages (dock count, town count) that were leaking into the player activity feed on login."
-      ]
-    },
-    {
-      introducedIn: "2026.06.15.1",
-      title: "Outpost sweep removed",
-      why: "The outpost sweep auto-attack has been fully superseded by the muster system, which is now the single way to stage and launch attacks from a structure.",
-      changes: [
-        "Removed the Start/Stop Sweep action from siege outposts and light outposts.",
-        "Outposts no longer auto-attack nearby enemy tiles on their own — use muster to stage manpower and launch attacks."
-      ]
-    },
+
   ]
 };
 
