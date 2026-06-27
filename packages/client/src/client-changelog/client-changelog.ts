@@ -19,17 +19,17 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.5",
+  version: "2026.06.27.1",
   title: "What's New",
-  summary: "Muster flag placement no longer flashes the tile as unowned.",
+  summary: "Food upkeep values in the economy panel now match what is actually deducted.",
   entries: [
     {
-      introducedIn: "2026.06.26.5",
-      title: "Muster flag placement no longer flickers tile ownership",
-      why: "Placing a muster flag briefly showed the tile as unowned for a single frame because the broadcast event stripped the owner field and arrived before the full tile update.",
+      introducedIn: "2026.06.27.1",
+      title: "Food upkeep in economy panel now accurate",
+      why: "The economy panel showed lower food upkeep than the server actually deducted (e.g. 0.2/m per City instead of 0.3/m), making it seem like food was inexplicably draining.",
       changes: [
-        "The broadcast event now includes the tile's owner and ownership state alongside the flag data.",
-        "The tile no longer flickers to unowned while the server sends the full delta."
+        "Town food upkeep rates in the economy panel now match the actual server-side deduction: City 0.3/m, Great City 0.6/m, Metropolis 1.0/m.",
+        "The food net rate in the HUD ribbon and economy cards now correctly reflects what your stockpile will actually lose each tick."
       ]
     },
     {
