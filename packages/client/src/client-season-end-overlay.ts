@@ -277,4 +277,11 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
       overlayEl.dataset.seTab = tabId;
     });
   }
+
+  // Prevent scroll/wheel events from reaching the hidden map underneath.
+  const scrollBody = overlayEl.querySelector(".se-scroll-body") as HTMLElement | null;
+  overlayEl.addEventListener("wheel", (e) => {
+    if (scrollBody && scrollBody.contains(e.target as Node)) return;
+    e.preventDefault();
+  }, { passive: false });
 };

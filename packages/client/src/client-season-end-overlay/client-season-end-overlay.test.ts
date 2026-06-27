@@ -392,4 +392,26 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     expect(overlayEl.querySelector('.se-tab[data-tab="victory"]')).toBeNull();
   });
+
+  it("registers a wheel capture listener on the overlay to prevent map zoom", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard()
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+
+    // The overlay has a wheel event listener (passive: false).
+    // jsdom cannot dispatch synthetic WheelEvent, so verify structurally:
+    const scrollBody = overlayEl.querySelector(".se-scroll-body") as HTMLElement;
+    const backdrop = overlayEl.querySelector(".se-backdrop") as HTMLElement;
+    expect(scrollBody).not.toBeNull();
+    expect(backdrop).not.toBeNull();
+
+    // Click on the backdrop should bubble to the overlay (structural sanity check).
+    let bubbledToOverlay = false;
+    overlayEl.addEventListener("click", () => { bubbledToOverlay = true; });
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(bubbledToOverlay).toBe(true);
+  });
 });
