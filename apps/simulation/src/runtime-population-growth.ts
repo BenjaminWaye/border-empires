@@ -208,7 +208,10 @@ export function tickPopulationGrowth(input: {
         continue;
       }
       if (player.strategicResources) {
-        player.strategicResources.FOOD = (player.strategicResources.FOOD ?? 0) - growthFoodCost;
+        const foodBefore = player.strategicResources.FOOD ?? 0;
+        const foodAfter = foodBefore - growthFoodCost;
+        console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${foodBefore.toFixed(4)} growthFoodCost=${growthFoodCost.toFixed(4)} foodAfter=${foodAfter.toFixed(4)} reason=population_growth tileKey=${tileKey}`);
+        player.strategicResources.FOOD = foodAfter;
       }
 
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
