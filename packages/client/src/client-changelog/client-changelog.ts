@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.26.6",
+  version: "2026.06.27.2",
   title: "What's New",
   summary: "Muster-advance attacks now draw from the flag pool, show correct manpower costs in waypoint planner, and appear in the activity feed.",
   entries: [
     {
-      introducedIn: "2026.06.26.6",
+      introducedIn: "2026.06.27.2",
       title: "Muster-advance attacks now consume the correct manpower pool",
       why: "Advance-mode barbarian raids were drawing from the player's global manpower pool instead of the muster flag's staged manpower. The waypoint planner always showed a flat 60 MP cost even when the actual cost differed for barbarian raids (10 MP) or fort targets (garrison-dependent). Activity feed entries were missing entirely for advance-mode attacks.",
       changes: [
@@ -32,6 +32,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Manual barbarian raids (no muster flag) still draw from the global pool as before.",
         "Waypoint planner manpower cost now shows the correct amount: 10 for barbarian tiles, the fort garrison for fort targets (minimum 60), or 60 for other enemy tiles.",
         "Advance-mode combat results now appear in the activity feed as expected."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.1",
+      title: "Food upkeep in economy panel now accurate",
+      why: "The economy panel showed lower food upkeep than the server actually deducted (e.g. 0.2/m per City instead of 0.3/m), making it seem like food was inexplicably draining.",
+      changes: [
+        "Town food upkeep rates in the economy panel now match the actual server-side deduction: City 0.3/m, Great City 0.6/m, Metropolis 1.0/m.",
+        "The food net rate in the HUD ribbon and economy cards now correctly reflects what your stockpile will actually lose each tick."
       ]
     },
     {
