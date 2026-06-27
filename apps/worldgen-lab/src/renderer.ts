@@ -7,7 +7,10 @@ export type Layers = {
   shade: boolean;
 };
 
-// Base terrain + biome colors [r, g, b]
+export type ViewConfig = {
+  yOffset: number; // 0–449, scrolls the toroidal world vertically
+};
+
 const C_SEA: [number, number, number] = [15, 48, 100];
 const C_COASTAL_SEA: [number, number, number] = [28, 90, 158];
 const C_GRASS: [number, number, number] = [58, 105, 48];
@@ -15,22 +18,24 @@ const C_SAND: [number, number, number] = [185, 158, 62];
 const C_COASTAL_SAND: [number, number, number] = [205, 182, 105];
 const C_MOUNTAIN: [number, number, number] = [88, 82, 76];
 
-// Region overlay tints — blended 40% over base land color
 const REGION_TINTS: Record<number, [number, number, number]> = {
-  0: [90, 200, 70],   // FERTILE_PLAINS — bright green
-  1: [20, 75, 20],    // DEEP_FOREST — dark green
-  2: [130, 105, 75],  // BROKEN_HIGHLANDS — earthy brown
-  3: [210, 175, 65],  // ANCIENT_HEARTLAND — golden
-  4: [155, 110, 205]  // CRYSTAL_WASTES — soft purple
+  0: [90, 200, 70],   // FERTILE_PLAINS
+  1: [20, 75, 20],    // DEEP_FOREST
+  2: [130, 105, 75],  // BROKEN_HIGHLANDS
+  3: [210, 175, 65],  // ANCIENT_HEARTLAND
+  4: [155, 110, 205]  // CRYSTAL_WASTES
 };
 
 const mix = (a: number, b: number, t: number): number => Math.round(a * (1 - t) + b * t);
 
-export const renderWorld = (canvas: HTMLCanvasElement, data: WorkerResponse, layers: Layers): void => {
-  // Fit world into canvas while keeping aspect 1:1 per tile
+export const renderWorld = (
+  canvas: HTMLCanvasElement,
+  data: WorkerResponse,
+  layers: Layers,
+  view: ViewConfig
+): void => {
   const maxDim = Math.min(canvas.width, canvas.height);
   const scale = Math.max(1, Math.floor(maxDim / Math.max(WORLD_WIDTH, WORLD_HEIGHT)));
-
   const drawW = WORLD_WIDTH * scale;
   const drawH = WORLD_HEIGHT * scale;
 
@@ -39,16 +44,19 @@ export const renderWorld = (canvas: HTMLCanvasElement, data: WorkerResponse, lay
 
   const img = ctx.createImageData(drawW, drawH);
   const px = img.data;
+  const yOff = ((Math.round(view.yOffset) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
 
   for (let ty = 0; ty < WORLD_HEIGHT; ty++) {
+    // Toroidal vertical scroll: shift source row
+    const srcY = (ty + yOff) % WORLD_HEIGHT;
+
     for (let tx = 0; tx < WORLD_WIDTH; tx++) {
-      const idx = ty * WORLD_WIDTH + tx;
+      const idx = srcY * WORLD_WIDTH + tx;
       const terrainCode = data.terrain[idx] ?? 0;
 
       let r: number, g: number, b: number;
 
       if (terrainCode === 1) {
-        // LAND — pick base color from biome
         const biomeCode = data.biome[idx] ?? 0;
         let base: [number, number, number];
         if (layers.biome && biomeCode === 1) base = C_SAND;
@@ -56,7 +64,6 @@ export const renderWorld = (canvas: HTMLCanvasElement, data: WorkerResponse, lay
         else base = C_GRASS;
         [r, g, b] = base;
 
-        // Region overlay
         if (layers.region) {
           const regionCode = data.region[idx] ?? 0;
           const tint = REGION_TINTS[regionCode];
@@ -67,7 +74,6 @@ export const renderWorld = (canvas: HTMLCanvasElement, data: WorkerResponse, lay
           }
         }
 
-        // Grass shade variation
         if (layers.shade && data.shade[idx] === 1) {
           r = Math.min(255, r + 18);
           g = Math.min(255, g + 18);
@@ -81,7 +87,6 @@ export const renderWorld = (canvas: HTMLCanvasElement, data: WorkerResponse, lay
         [r, g, b] = C_SEA;
       }
 
-      // Write scale×scale pixel block
       for (let dy = 0; dy < scale; dy++) {
         for (let dx = 0; dx < scale; dx++) {
           const pxIdx = ((ty * scale + dy) * drawW + (tx * scale + dx)) * 4;
