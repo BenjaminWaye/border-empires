@@ -190,11 +190,7 @@ export const chooseBestEconomicBuild = (
     } else if (tile.resource === "IRON" || tile.resource === "GEMS") {
       candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
       candidates.push({ type: "MARKET", score: 22 });
-    } else if (
-      tile.town &&
-      tile.town.populationTier !== "SETTLEMENT" &&
-      (tile.town.supportCurrent ?? 0) < (tile.town.supportMax ?? 0)
-    ) {
+    } else if (tile.town && tile.town.populationTier !== "SETTLEMENT") {
       candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
       candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
       candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
