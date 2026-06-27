@@ -188,6 +188,10 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
 
+  const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
+  const hasVictory = victoryHtml.length > 0;
+  const activeTab = overlayEl.dataset.seTab || "standings";
+
   overlayEl.innerHTML = `
     <div class="se-backdrop" id="se-backdrop" aria-hidden="true">
       <div class="se-cog se-cog-a" aria-hidden="true"></div>
@@ -197,28 +201,42 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
     <div class="se-plate" role="dialog" aria-modal="true" aria-labelledby="se-title">
       <div class="se-rivets" aria-hidden="true"></div>
       <div class="se-scroll">
-        <header class="se-header">
-          <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
-          <div class="se-header-text">
-            <span class="se-kicker">The Great Works Have Settled</span>
-            <h2 id="se-title" class="se-title">Season Concluded</h2>
-            <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
+        <div class="se-scroll-body">
+          <header class="se-header">
+            <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
+            <div class="se-header-text">
+              <span class="se-kicker">The Great Works Have Settled</span>
+              <h2 id="se-title" class="se-title">Season Concluded</h2>
+              <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
+            </div>
+            <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
+          </header>
+
+          ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
+
+          <nav class="se-tab-bar" role="tablist">
+            <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
+            ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
+          </nav>
+          <div class="se-tab-panels">
+            <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
+              ${standingsLedger(leaderboard, colors, selfId, state.seasonWinner.playerId)}
+            </div>
+            ${hasVictory ? `<div class="se-tab-panel${activeTab === "victory" ? " is-active" : ""}" data-tab="victory" role="tabpanel">
+              ${victoryHtml}
+            </div>` : ""}
           </div>
-          <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
-        </header>
-
-        ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
-        ${standingsLedger(leaderboard, colors, selfId, state.seasonWinner.playerId)}
-        ${victoryGauges(state.seasonVictory, colors, selfId)}
-
-        <footer class="se-actions">
-          <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting ? "disabled" : ""}>
-            <span class="se-btn-cog" aria-hidden="true"></span>
-            ${starting ? "Winding the Spring…" : "Start New Season"}
-          </button>
-          <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
-        </footer>
-        <p class="se-fineprint">Starting a new season resets the world and progression for <strong>every</strong> player.</p>
+        </div>
+        <div class="se-scroll-footer">
+          <footer class="se-actions">
+            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting ? "disabled" : ""}>
+              <span class="se-btn-cog" aria-hidden="true"></span>
+              ${starting ? "Winding the Spring…" : "Start New Season"}
+            </button>
+            <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
+          </footer>
+          <p class="se-fineprint">Starting a new season resets the world and progression for <strong>every</strong> player.</p>
+        </div>
       </div>
     </div>`;
 
@@ -242,5 +260,21 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
       startNewSeason();
       renderHud();
     };
+  }
+
+  const tabBar = overlayEl.querySelector(".se-tab-bar") as HTMLElement | null;
+  if (tabBar) {
+    tabBar.addEventListener("click", (e) => {
+      const tab = (e.target as HTMLElement).closest(".se-tab") as HTMLElement | null;
+      if (!tab || tab.classList.contains("is-active")) return;
+      const tabId = tab.dataset.tab;
+      if (!tabId) return;
+      tabBar.querySelectorAll(".se-tab").forEach((t) => t.classList.remove("is-active"));
+      tab.classList.add("is-active");
+      overlayEl.querySelectorAll(".se-tab-panel").forEach((p) => p.classList.remove("is-active"));
+      const panel = overlayEl.querySelector(`.se-tab-panel[data-tab="${tabId}"]`);
+      if (panel) panel.classList.add("is-active");
+      overlayEl.dataset.seTab = tabId;
+    });
   }
 };
