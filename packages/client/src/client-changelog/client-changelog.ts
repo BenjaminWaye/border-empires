@@ -19,17 +19,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.3",
+  version: "2026.06.27.4",
   title: "What's New",
-  summary: "Season-end overlay sections are now tabbed with sticky action buttons, plus fixes for clicking the 'Look Around' button.",
+  summary: "Season-end overlay sections are now tabbed with sticky action buttons, and scroll/wheel events are captured so the hidden map doesn't zoom.",
   entries: [
     {
-      introducedIn: "2026.06.27.3",
+      introducedIn: "2026.06.27.4",
       title: "Season-end overlay gets tabs and sticky buttons",
       why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
       changes: [
         "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
         "Start New Season and Look Around buttons are sticky at the bottom and always visible.",
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.4",
+      title: "Stop scroll/zoom leaking to the map behind the overlay",
+      why: "Wheel and scroll gestures on the season-end screen were zooming the hidden map underneath, causing disorienting camera jumps when the overlay was dismissed.",
+      changes: [
+        "The overlay now captures wheel events outside its scrollable area so they no longer reach the map."
       ]
     },
     {
