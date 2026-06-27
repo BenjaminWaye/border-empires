@@ -21,15 +21,24 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.27.3",
   title: "What's New",
-  summary: "Season-end overlay sections are now tabbed with sticky action buttons, plus fixes for clicking the 'Look Around' button.",
+  summary: "Dock-pair connected attacks can now reach their target across the water. Season-end overlay sections are now tabbed with sticky action buttons.",
   entries: [
+    {
+      introducedIn: "2026.06.27.3",
+      title: "Dock-pair attacks now validate the dock connection as a valid attack path",
+      why: "Launching an attack from a dock tile to its paired dock on the other side of the water showed the Launch Attack button (via the dockId fallback) but the server rejected it with NOT_ADJACENT because it only checked geometric adjacency and the dockId property on the tile data.",
+      changes: [
+        "The server's attack validation now checks the authoritative dock link map when deciding if the origin can reach the target. If the origin tile is dock-paired with the target tile, the adjacency requirement is satisfied.",
+        "This fixes attacks that were visible in the UI but silently rejected by the server."
+      ]
+    },
     {
       introducedIn: "2026.06.27.3",
       title: "Season-end overlay gets tabs and sticky buttons",
       why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
       changes: [
         "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
-        "Start New Season and Look Around buttons are sticky at the bottom and always visible.",
+        "Start New Season and Look Around buttons are sticky at the bottom and always visible."
       ]
     },
     {
