@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.1",
+  version: "2026.06.27.2",
   title: "What's New",
   summary: "Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
   entries: [
     {
-      introducedIn: "2026.06.27.1",
+      introducedIn: "2026.06.27.2",
       title: "Season-end overlay no longer stuck invisible",
       why: "The season-end overlay was always present in the DOM but never visible after a season ended — only the initial snapshot carried the season winner, so the overlay stayed hidden.",
       changes: [
@@ -32,7 +32,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.06.27.1",
+      introducedIn: "2026.06.27.2",
       title: "'You' marker restored in victory conditions",
       why: "The victory condition summary stopped showing the 'You' prefix next to your own empire after a refactor, making it impossible to tell at a glance whether you were leading a given victory path.",
       changes: [
@@ -41,11 +41,31 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.06.27.1",
+      introducedIn: "2026.06.27.2",
       title: "Crown now awarded to the season winner, not rank 1",
       why: "The standings table was putting the crown glyph on the row with rank 1 instead of the actual declared season winner — when the winner finished outside first place the crown appeared on the wrong player.",
       changes: [
         "The ♔ crown now appears beside the season winner's name in the final standings, regardless of their leaderboard rank."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.2",
+      title: "Muster-advance attacks now consume the correct manpower pool",
+      why: "Advance-mode barbarian raids were drawing from the player's global manpower pool instead of the muster flag's staged manpower. The waypoint planner always showed a flat 60 MP cost even when the actual cost differed for barbarian raids (10 MP) or fort targets (garrison-dependent). Activity feed entries were missing entirely for advance-mode attacks.",
+      changes: [
+        "Advance-mode barbarian attacks now drain the muster flag's staged manpower instead of the player's global pool.",
+        "Manual barbarian raids (no muster flag) still draw from the global pool as before.",
+        "Waypoint planner manpower cost now shows the correct amount: 10 for barbarian tiles, the fort garrison for fort targets (minimum 60), or 60 for other enemy tiles.",
+        "Advance-mode combat results now appear in the activity feed as expected."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.2",
+      title: "Food upkeep in economy panel now accurate",
+      why: "The economy panel showed lower food upkeep than the server actually deducted (e.g. 0.2/m per City instead of 0.3/m), making it seem like food was inexplicably draining.",
+      changes: [
+        "Town food upkeep rates in the economy panel now match the actual server-side deduction: City 0.3/m, Great City 0.6/m, Metropolis 1.0/m.",
+        "The food net rate in the HUD ribbon and economy cards now correctly reflects what your stockpile will actually lose each tick."
       ]
     },
     {

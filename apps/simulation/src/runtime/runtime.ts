@@ -1622,6 +1622,7 @@ export class SimulationRuntime {
     // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
     // separately in the tile-yield path; this path covers upkeep drain only.
     const upkeep = this.cachedUpkeepAccrual(player);
+    console.error(`[FOOD_DEBUG] player=${player.id} nowMs=${nowMs} food=${player.strategicResources?.FOOD ?? 0} upkeepFood=${upkeep.food} elapsedMin=${(elapsedMs / 60_000).toFixed(2)} reason=enter_applyEconomyAccrual`);
     // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
     // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
     if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
@@ -1666,11 +1667,15 @@ export class SimulationRuntime {
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
       SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
     };
+    const foodBeforeConsume = player.strategicResources?.FOOD ?? 0;
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
     // so an offline player whose tile income covers upkeep keeps the
     // stockpile they logged out with.
     this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
+    if (need.FOOD > 0 && upkeep.food > 0) {
+      console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${foodBeforeConsume} needFOOD=${need.FOOD} upkeepFood=${upkeep.food} elapsedMin=${elapsedMinutes} reason=after_tile_yield_consume`);
+    }
     if (need.gold > 0) {
       player.points = Math.max(0, (player.points ?? 0) - need.gold);
     }
@@ -1684,6 +1689,9 @@ export class SimulationRuntime {
     let mutated = false;
     for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
       if (need[res] > 0) {
+        if (res === "FOOD") {
+          console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${stock["FOOD"]} deducted=${need["FOOD"]} foodAfter=${Math.max(0, stock["FOOD"] - need["FOOD"])} reason=upkeep_stock_subtract`);
+        }
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;
       }
@@ -1766,6 +1774,9 @@ export class SimulationRuntime {
         const available = yieldView.yield.strategic[resource] ?? 0;
         if (available > 0 && need[resource] > 0) {
           const consumed = Math.min(available, need[resource]);
+          if (resource === "FOOD") {
+            console.error(`[FOOD_DEBUG] player=${player.id} tile=${tileKey} foodConsumed=${consumed} needAfter=${need["FOOD"] - consumed} reason=tile_yield_consume`);
+          }
           need[resource] -= consumed;
           const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
           updateCandidate(available - consumed, ratePerMs);
@@ -3053,7 +3064,7 @@ export class SimulationRuntime {
       payload.musterSourceX != null && payload.musterSourceY != null
         ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
         : undefined;
-    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1" && actor.id !== "barbarian-1"
+    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
       ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
       : undefined;
     const validation = validateFrontierCommand({
