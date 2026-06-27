@@ -1794,7 +1794,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "COMBAT_RESULT") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
@@ -1854,8 +1853,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
-
       if (msg.type === "COMBAT_START") {
+      if (typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:")) {
+        if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>); return;
+      }
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,
@@ -1900,13 +1901,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
       const preservedSilent = Boolean(existingCapture?.silent);
       const preservedFromMusterAdvance = Boolean(existingCapture?.fromMusterAdvance);
-      const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
       state.capture = {
         startAt,
         resolvesAt: resolvesAtForCapture,
         target,
-        ...(preservedSilent || isMusterAdvance ? { silent: true } : {}),
-        ...(preservedFromMusterAdvance || isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
+        ...(preservedSilent ? { silent: true } : {}),
+        ...(preservedFromMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {

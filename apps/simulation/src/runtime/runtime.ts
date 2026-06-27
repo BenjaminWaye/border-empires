@@ -3064,7 +3064,7 @@ export class SimulationRuntime {
       payload.musterSourceX != null && payload.musterSourceY != null
         ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
         : undefined;
-    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1" && actor.id !== "barbarian-1"
+    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
       ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
       : undefined;
     const validation = validateFrontierCommand({
