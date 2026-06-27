@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.2",
+  version: "2026.06.27.3",
   title: "What's New",
-  summary: "Season-end overlay now appears correctly with action buttons, proper crown, and correct 'You' labels.",
+  summary: "Season-end overlay sections are now tabbed with sticky action buttons, plus fixes for clicking the 'Look Around' button.",
   entries: [
+    {
+      introducedIn: "2026.06.27.3",
+      title: "Season-end overlay gets tabs and sticky buttons",
+      why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
+      changes: [
+        "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
+        "Start New Season and Look Around buttons are sticky at the bottom and always visible.",
+      ]
+    },
     {
       introducedIn: "2026.06.27.2",
       title: "Season-end overlay no longer stuck invisible",
