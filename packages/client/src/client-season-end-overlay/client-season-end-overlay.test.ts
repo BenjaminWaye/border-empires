@@ -327,4 +327,69 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     expect(overlayEl.innerHTML).toContain("You");
   });
+
+  it("renders action buttons in the scroll footer (sticky at bottom)", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard()
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    const footer = overlayEl.querySelector(".se-scroll-footer") as HTMLElement;
+    expect(footer).not.toBeNull();
+    expect(footer!.innerHTML).toContain("Start New Season");
+    expect(footer!.innerHTML).toContain("Look Around");
+  });
+
+  it("shows standings tab by default and switches to victory tab on click", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard(),
+      seasonVictory: [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold 50% of towns.",
+          leaderPlayerId: "player-1",
+          leaderName: "Nauticus",
+          progressLabel: "20/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        }
+      ]
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+
+    const standingsTab = overlayEl.querySelector('.se-tab[data-tab="standings"]') as HTMLElement;
+    const victoryTab = overlayEl.querySelector('.se-tab[data-tab="victory"]') as HTMLElement;
+    expect(standingsTab).not.toBeNull();
+    expect(victoryTab).not.toBeNull();
+    expect(standingsTab!.classList.contains("is-active")).toBe(true);
+    expect(victoryTab!.classList.contains("is-active")).toBe(false);
+
+    const standingsPanel = overlayEl.querySelector('.se-tab-panel[data-tab="standings"]') as HTMLElement;
+    const victoryPanel = overlayEl.querySelector('.se-tab-panel[data-tab="victory"]') as HTMLElement;
+    expect(standingsPanel!.classList.contains("is-active")).toBe(true);
+    expect(victoryPanel!.classList.contains("is-active")).toBe(false);
+
+    victoryTab!.click();
+
+    expect(standingsTab!.classList.contains("is-active")).toBe(false);
+    expect(victoryTab!.classList.contains("is-active")).toBe(true);
+    expect(standingsPanel!.classList.contains("is-active")).toBe(false);
+    expect(victoryPanel!.classList.contains("is-active")).toBe(true);
+  });
+
+  it("hides victory tab when there are no victory objectives", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard()
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    expect(overlayEl.querySelector('.se-tab[data-tab="victory"]')).toBeNull();
+  });
 });
