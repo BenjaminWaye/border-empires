@@ -21,7 +21,8 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "astral_dock_launch" ||
   id === "aegis_lock" ||
   id === "create_mountain" ||
-  id === "remove_mountain";
+  id === "remove_mountain" ||
+  id === "airport_bombard";
 
 export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
 
