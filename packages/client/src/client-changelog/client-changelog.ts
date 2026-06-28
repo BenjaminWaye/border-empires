@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.28.3",
+  version: "2026.06.28.4",
   title: "What's New",
-  summary: "Sky Dock Bombard now shows a 3D range overlay on the selected dock. Bombard impacts show hit animations on the targeted tiles.",
+  summary: "Worldbreaker Cannon parts now visible in build menu on Great City tiles. Sky Dock Bombard shows 3D range overlay and hit animations.",
   entries: [
+    {
+      introducedIn: "2026.06.28.4",
+      title: "Worldbreaker Cannon parts show up in the build menu again",
+      why: "Unlocking Worldbreaker Cannon tech made the final monument visible on settled tiles, but the parts were invisible in the build menu on Great City tiles — the tech-unlock filter was also hiding actions disabled for non-tech reasons like 'Requires Great City or Monumental City'.",
+      changes: [
+        "Build Worldbreaker Cannon Part now appears in the build menu on Great City and Metropolis tiles when Worldbreaker Cannon tech is unlocked.",
+        "Other monument parts (Imperial Exchange, Aegis Dome, Astral Dock) also benefit from the same filter fix."
+      ]
+    },
     {
       introducedIn: "2026.06.28.3",
       title: "Sky Dock Bombard range now visible in 3D",
