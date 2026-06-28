@@ -2,6 +2,7 @@ import { COLLECT_VISIBLE_COOLDOWN_MS } from "../client-constants.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
 import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
+import { showShardCollectOverlay } from "../client-shard-collect/client-shard-collect.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -186,5 +187,7 @@ export const collectSelectedShard = (
     state.tiles.set(tileKey, { ...tile, shardSite });
     state.pendingShardCollect = undefined;
     deps.renderHud();
+    return;
   }
+  showShardCollectOverlay({ kind: shardSite.kind, amount: shardSite.amount });
 };

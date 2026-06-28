@@ -1,6 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  GROWTH_FOOD_COST_PER_POP,
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
   NEARBY_WAR_PAUSE_MS,
@@ -197,19 +196,6 @@ export function tickPopulationGrowth(input: {
         logisticFactor;
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;
-
-      const growthFoodCost = growth * GROWTH_FOOD_COST_PER_POP;
-      const foodAvailable = player.strategicResources?.FOOD ?? 0;
-      if (foodAvailable + 1e-6 < growthFoodCost) {
-        input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
-        growthStalledNoFood += 1;
-        pDiag.stalledFood += 1;
-        pHadEligibleTown = true;
-        continue;
-      }
-      if (player.strategicResources) {
-        player.strategicResources.FOOD = (player.strategicResources.FOOD ?? 0) - growthFoodCost;
-      }
 
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
       const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
