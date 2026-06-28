@@ -146,6 +146,7 @@ export type WorldStatusSnapshot = {
     byTechs: LeaderboardMetricEntry[];
   };
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
+  seasonWinner?: SeasonWinnerSnapshot;
   acceptLatencyP95Ms?: number;
 };
 
