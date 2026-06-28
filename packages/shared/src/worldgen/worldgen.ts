@@ -168,44 +168,26 @@ const buildContinents = (): ContinentSeed[] => {
   const scaleX = WORLD_WIDTH / 1000;
   const scaleY = WORLD_HEIGHT / 1000;
   const s = (v: number, axis: "x" | "y"): number => Math.max(24, Math.floor(v * (axis === "x" ? scaleX : scaleY)));
-  // Three continents spread across the full map height: north (~20%), equatorial (~50%), south (~80%).
-  // Each stays within its band (±s(64,"y") ≈ ±28 tiles variation).
-  const yNorth = Math.floor(WORLD_HEIGHT * 0.20);
-  const yMid   = Math.floor(WORLD_HEIGHT * 0.50);
-  const ySouth = Math.floor(WORLD_HEIGHT * 0.80);
-  const out: ContinentSeed[] = [
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.18),
-      cy: yNorth + Math.floor((seeded01(11, 13, seed + 101) - 0.5) * s(64, "y")),
-      rx: s(145 + Math.floor(seeded01(31, 37, seed + 111) * 24), "x"),
-      ry: s(265 + Math.floor(seeded01(41, 43, seed + 121) * 28), "y"),
-      wobble: seeded01(47, 53, seed + 131) * TAU,
-      lobeA: seeded01(109, 113, seed + 311) * TAU,
-      lobeB: seeded01(127, 131, seed + 321) * TAU,
-      coastSeed: seed + 331
-    },
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.5),
-      cy: yMid + Math.floor((seeded01(17, 19, seed + 141) - 0.5) * s(64, "y")),
-      rx: s(150 + Math.floor(seeded01(59, 61, seed + 151) * 26), "x"),
-      ry: s(275 + Math.floor(seeded01(67, 71, seed + 161) * 26), "y"),
-      wobble: seeded01(73, 79, seed + 171) * TAU,
-      lobeA: seeded01(137, 139, seed + 341) * TAU,
-      lobeB: seeded01(149, 151, seed + 351) * TAU,
-      coastSeed: seed + 361
-    },
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.82),
-      cy: ySouth + Math.floor((seeded01(23, 29, seed + 181) - 0.5) * s(64, "y")),
-      rx: s(142 + Math.floor(seeded01(83, 89, seed + 191) * 24), "x"),
-      ry: s(265 + Math.floor(seeded01(97, 101, seed + 201) * 28), "y"),
-      wobble: seeded01(103, 107, seed + 211) * TAU,
-      lobeA: seeded01(157, 163, seed + 371) * TAU,
-      lobeB: seeded01(167, 173, seed + 381) * TAU,
-      coastSeed: seed + 391
-    }
+  // Five continents in a quincunx (NW, NE, center, SW, SE) so all map quadrants get land.
+  // Each has seeded X (±s(130,"x")≈±29 tiles) and Y (±s(88,"y")≈±19 tiles) variation.
+  // so = seed offset base; all params for one continent share a 7-slot range above it.
+  const layouts: Array<{ bx: number; by: number; so: number }> = [
+    { bx: 0.15, by: 0.18, so: 101 }, // NW
+    { bx: 0.75, by: 0.18, so: 141 }, // NE
+    { bx: 0.45, by: 0.50, so: 181 }, // Center
+    { bx: 0.15, by: 0.82, so: 221 }, // SW
+    { bx: 0.75, by: 0.82, so: 261 }, // SE
   ];
-  return out;
+  return layouts.map(({ bx, by, so }) => ({
+    cx:        Math.floor(WORLD_WIDTH  * bx + (seeded01(11, 13, seed + so)     - 0.5) * s(130, "x")),
+    cy:        Math.floor(WORLD_HEIGHT * by + (seeded01(17, 19, seed + so + 1) - 0.5) * s(88,  "y")),
+    rx:        s(133 + Math.floor(seeded01(23, 29, seed + so + 2) * 24), "x"),
+    ry:        s(233 + Math.floor(seeded01(31, 37, seed + so + 3) * 28), "y"),
+    wobble:    seeded01(41, 43, seed + so + 4) * TAU,
+    lobeA:     seeded01(47, 53, seed + so + 5) * TAU,
+    lobeB:     seeded01(59, 61, seed + so + 6) * TAU,
+    coastSeed: seed + so + 200,
+  }));
 };
 let cachedContinentSeed = Number.NaN;
 let cachedContinents: ContinentSeed[] = [];
