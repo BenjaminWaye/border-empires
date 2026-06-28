@@ -340,14 +340,16 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
 
 const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number, docks: PlayerSubscriptionDock[] | undefined): boolean => {
   if (!docks) return false;
-  const dockByTileKey = new Map<string, PlayerSubscriptionDock>();
-  for (const d of docks) dockByTileKey.set(d.tileKey, d);
-  const fromKey = `${fromX},${fromY}`;
-  const fromDock = dockByTileKey.get(fromKey);
+  const dockById = new Map(docks.map((d) => [d.dockId, d] as const));
+  const dockByTileKey = new Map(docks.map((d) => [d.tileKey, d] as const));
+  const fromDock = dockByTileKey.get(`${fromX},${fromY}`);
   if (!fromDock) return false;
-  const pairedDock = dockByTileKey.get(`${toX},${toY}`);
-  if (!pairedDock) return false;
-  return fromDock.pairedDockId === pairedDock.dockId || pairedDock.pairedDockId === fromDock.dockId;
+  const linkedDockIds = fromDock.connectedDockIds?.length ? fromDock.connectedDockIds : fromDock.pairedDockId ? [fromDock.pairedDockId] : [];
+  const toKey = `${toX},${toY}`;
+  return linkedDockIds.some((linkedId) => {
+    const linked = dockById.get(linkedId);
+    return linked?.tileKey === toKey;
+  });
 };
 
 const attackPreviewResult = (
