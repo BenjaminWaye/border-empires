@@ -19,7 +19,7 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile } from "../client-constants.js";
+import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
 import { OBSERVATORY_RANGE_MAX } from "@border-empires/shared";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -56,6 +56,7 @@ import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-si
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
+import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
@@ -150,6 +151,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
+  const bombardFx = createBombardFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
@@ -500,6 +502,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
   const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RANGE_RADIUS);
   const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RANGE_RADIUS);
+  const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
+  const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
@@ -569,6 +573,29 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(waterworksRangeMaxFillVertices),
     waterworksRangeFillMaterial
   );
+  const airportRangeMaterial = new LineBasicMaterial({
+    color: "#ff4444",
+    transparent: true,
+    opacity: 0.4,
+    depthTest: false,
+    depthWrite: false
+  });
+  const airportRangeFillMaterial = new MeshBasicMaterial({
+    color: "#ff4444",
+    transparent: true,
+    opacity: 0.025,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const airportRangeMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(airportRangeMaxSegments),
+    airportRangeMaterial
+  );
+  const airportRangeFill = new Mesh(
+    createObservatoryRangeFillGeometry(airportRangeMaxFillVertices),
+    airportRangeFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
@@ -577,6 +604,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.visible = false;
   waterworksRangeMarker.visible = false;
   waterworksRangeFill.visible = false;
+  airportRangeMarker.visible = false;
+  airportRangeFill.visible = false;
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
@@ -585,6 +614,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.renderOrder = 22;
   waterworksRangeMarker.renderOrder = 19;
   waterworksRangeFill.renderOrder = 18;
+  airportRangeMarker.renderOrder = 17;
+  airportRangeFill.renderOrder = 16;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -622,6 +653,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.frustumCulled = false;
   waterworksRangeMarker.frustumCulled = false;
   waterworksRangeFill.frustumCulled = false;
+  airportRangeMarker.frustumCulled = false;
+  airportRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -635,6 +668,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     hoverMarker,
     waterworksRangeFill,
     waterworksRangeMarker,
+    airportRangeFill,
+    airportRangeMarker,
     sweepRangeFill,
     sweepRangeMarker,
     observatoryRangeFill,
@@ -1140,6 +1175,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
   };
+  const syncBombardFxQueue = (): void => {
+    while (deps.state.bombardFxQueue.length > 0) {
+      const cast = deps.state.bombardFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      bombardFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
@@ -1234,6 +1281,45 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedTile.ownerId !== deps.state.me) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RANGE_RADIUS);
+  };
+
+  const writeAirportRangeGeometry = (
+    lineMarker: LineSegments,
+    fillMesh: Mesh,
+    selectedTile: Tile,
+    radius: number
+  ): void => {
+    const rangeGeometryInputs = {
+      selectedX: selectedTile.x,
+      selectedY: selectedTile.y,
+      camX: deps.state.camX,
+      camY: deps.state.camY,
+      radius,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      wrapX: deps.wrapX,
+      wrapY: deps.wrapY,
+      cornerYAt: (cornerX: number, cornerZ: number) => heightfield.cornerYAt(cornerX, cornerZ),
+      riseAboveSurface: MARKER_RISE_ABOVE_HEIGHTFIELD
+    };
+    writeObservatoryRangeBorderGeometry(lineMarker.geometry as BufferGeometry, rangeGeometryInputs);
+    writeObservatoryRangeFillGeometry(fillMesh.geometry as BufferGeometry, rangeGeometryInputs);
+    lineMarker.visible = true;
+    fillMesh.visible = true;
+  };
+
+  const syncAirportRangeMarker = (): void => {
+    airportRangeMarker.visible = false;
+    airportRangeFill.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selectedTile) return;
+    if (selectedTile.economicStructure?.type !== "AIRPORT") return;
+    if (selectedTile.economicStructure.status !== "active") return;
+    if (selectedTile.ownerId !== deps.state.me) return;
+    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
+    writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
   const applyCamera = (): void => {
@@ -1697,6 +1783,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
+    syncAirportRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
@@ -1705,6 +1792,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRetortRecastFxQueue();
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
+    syncBombardFxQueue();
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
@@ -1713,6 +1801,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.update(nowMs);
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
+    bombardFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
@@ -1744,12 +1833,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryRangeFill.geometry.dispose();
     sweepRangeMarker.geometry.dispose();
     sweepRangeFill.geometry.dispose();
+    airportRangeMarker.geometry.dispose();
+    airportRangeFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     observatoryRangeMaterial.dispose();
     observatoryRangeFillMaterial.dispose();
     sweepRangeMaterial.dispose();
     sweepRangeFillMaterial.dispose();
+    airportRangeMaterial.dispose();
+    airportRangeFillMaterial.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();
@@ -1826,6 +1919,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.dispose();
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
+    bombardFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose();

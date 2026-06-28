@@ -19,10 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.28.2",
+  version: "2026.06.28.3",
   title: "What's New",
-  summary: "Sky Dock Bombard moved from Crystal tab to Actions tab. Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
+  summary: "Sky Dock Bombard now shows a 3D range overlay on the selected dock. Bombard impacts show hit animations on the targeted tiles.",
   entries: [
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Sky Dock Bombard range now visible in 3D",
+      why: "After selecting a Sky Dock and choosing the bombard action, you could not see which tiles were in range — the crystal targeting mode highlighted targets but there was no range overlay on the dock itself.",
+      changes: [
+        "Selecting an active, owned Sky Dock now shows a red 3D range circle (radius 30 tiles) around it, matching the Observatory and Waterworks range overlays."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Hit animations for Sky Dock Bombard",
+      why: "Sending a bombard gave no visual feedback — the targeted 3x3 area just disappeared with no impact effect.",
+      changes: [
+        "When bombard strikes land, the targeted tiles now show a brief orange flash and expanding ring animation lasting 1.5 seconds."
+      ]
+    },
     {
       introducedIn: "2026.06.28.2",
       title: "Sky Dock Bombard moved to Actions tab (was in Crystal tab)",
