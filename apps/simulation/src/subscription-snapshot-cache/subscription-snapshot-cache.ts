@@ -1,4 +1,4 @@
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
 
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
 type WorldStatusSnapshot = NonNullable<PlayerSubscriptionSnapshot["worldStatus"]>;
@@ -86,6 +86,8 @@ export const applyPlayerMessageToSnapshot = (
 ): PlayerSubscriptionSnapshot => {
   if (payload.type === "GLOBAL_STATUS_UPDATE") {
     const previousWorldStatus = snapshot.worldStatus;
+    const incomingSeasonWinner = payload.seasonWinner as SeasonWinnerSnapshot | undefined;
+    const resolvedSeasonWinner = incomingSeasonWinner ?? previousWorldStatus?.seasonWinner;
     return {
       ...snapshot,
       worldStatus: {
@@ -100,7 +102,8 @@ export const applyPlayerMessageToSnapshot = (
         seasonVictory:
           (payload.seasonVictory as WorldStatusSnapshot["seasonVictory"]) ??
           previousWorldStatus?.seasonVictory ??
-          []
+          [],
+        ...(resolvedSeasonWinner !== undefined ? { seasonWinner: resolvedSeasonWinner as SeasonWinnerSnapshot } : {})
       }
     };
   }

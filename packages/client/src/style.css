@@ -5991,6 +5991,7 @@ button:disabled,
 .se-dial-desc { margin: 6px 0 8px; font-size: 11px; color: rgba(236, 220, 180, 0.6); line-height: 1.35; }
 .se-dial-leader { margin: 0; font-size: 12px; }
 .se-dial-threshold { margin: 4px 0 0; font-size: 11px; color: rgba(236, 220, 180, 0.55); }
+.se-dial-self { margin: 4px 0 0; font-size: 11px; color: var(--se-patina); }
 
 /* actions */
 .se-actions { display: flex; justify-content: center; gap: 14px; margin-top: 26px; flex-wrap: wrap; }
