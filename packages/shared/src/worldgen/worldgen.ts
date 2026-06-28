@@ -10,6 +10,7 @@ const TERRAIN_SEA = 0;
 const TERRAIN_LAND = 1;
 const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
+const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
@@ -72,6 +73,8 @@ const isWaterTerrainCode = (terrain: number): boolean => terrain === TERRAIN_SEA
 const baseTerrainCodeAt = (x: number, y: number): number => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
+  // Polar zones: fixed mountain bands at the top and bottom of the map.
+  if (wy < POLAR_BAND || wy >= WORLD_HEIGHT - POLAR_BAND) return TERRAIN_MOUNTAIN;
   const cField = continentField(wx, wy);
   if (cField < 0.075) return TERRAIN_SEA;
   if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
@@ -165,13 +168,17 @@ const buildContinents = (): ContinentSeed[] => {
   const scaleX = WORLD_WIDTH / 1000;
   const scaleY = WORLD_HEIGHT / 1000;
   const s = (v: number, axis: "x" | "y"): number => Math.max(24, Math.floor(v * (axis === "x" ? scaleX : scaleY)));
-  const yBase = Math.floor(WORLD_HEIGHT * 0.53);
+  // Three continents spread across the full map height: north (~20%), equatorial (~50%), south (~80%).
+  // Each stays within its band (±s(64,"y") ≈ ±28 tiles variation).
+  const yNorth = Math.floor(WORLD_HEIGHT * 0.20);
+  const yMid   = Math.floor(WORLD_HEIGHT * 0.50);
+  const ySouth = Math.floor(WORLD_HEIGHT * 0.80);
   const out: ContinentSeed[] = [
     {
       cx: Math.floor(WORLD_WIDTH * 0.18),
-      cy: yBase + Math.floor((seeded01(11, 13, seed + 101) - 0.5) * s(90, "y")),
+      cy: yNorth + Math.floor((seeded01(11, 13, seed + 101) - 0.5) * s(64, "y")),
       rx: s(145 + Math.floor(seeded01(31, 37, seed + 111) * 24), "x"),
-      ry: s(210 + Math.floor(seeded01(41, 43, seed + 121) * 28), "y"),
+      ry: s(265 + Math.floor(seeded01(41, 43, seed + 121) * 28), "y"),
       wobble: seeded01(47, 53, seed + 131) * TAU,
       lobeA: seeded01(109, 113, seed + 311) * TAU,
       lobeB: seeded01(127, 131, seed + 321) * TAU,
@@ -179,9 +186,9 @@ const buildContinents = (): ContinentSeed[] => {
     },
     {
       cx: Math.floor(WORLD_WIDTH * 0.5),
-      cy: yBase + Math.floor((seeded01(17, 19, seed + 141) - 0.5) * s(96, "y")),
+      cy: yMid + Math.floor((seeded01(17, 19, seed + 141) - 0.5) * s(64, "y")),
       rx: s(150 + Math.floor(seeded01(59, 61, seed + 151) * 26), "x"),
-      ry: s(225 + Math.floor(seeded01(67, 71, seed + 161) * 26), "y"),
+      ry: s(275 + Math.floor(seeded01(67, 71, seed + 161) * 26), "y"),
       wobble: seeded01(73, 79, seed + 171) * TAU,
       lobeA: seeded01(137, 139, seed + 341) * TAU,
       lobeB: seeded01(149, 151, seed + 351) * TAU,
@@ -189,9 +196,9 @@ const buildContinents = (): ContinentSeed[] => {
     },
     {
       cx: Math.floor(WORLD_WIDTH * 0.82),
-      cy: yBase + Math.floor((seeded01(23, 29, seed + 181) - 0.5) * s(88, "y")),
+      cy: ySouth + Math.floor((seeded01(23, 29, seed + 181) - 0.5) * s(64, "y")),
       rx: s(142 + Math.floor(seeded01(83, 89, seed + 191) * 24), "x"),
-      ry: s(208 + Math.floor(seeded01(97, 101, seed + 201) * 28), "y"),
+      ry: s(265 + Math.floor(seeded01(97, 101, seed + 201) * 28), "y"),
       wobble: seeded01(103, 107, seed + 211) * TAU,
       lobeA: seeded01(157, 163, seed + 371) * TAU,
       lobeB: seeded01(167, 173, seed + 381) * TAU,

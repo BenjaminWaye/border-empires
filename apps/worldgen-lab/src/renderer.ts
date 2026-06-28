@@ -17,6 +17,8 @@ const C_GRASS: [number, number, number] = [58, 105, 48];
 const C_SAND: [number, number, number] = [185, 158, 62];
 const C_COASTAL_SAND: [number, number, number] = [205, 182, 105];
 const C_MOUNTAIN: [number, number, number] = [88, 82, 76];
+const C_POLAR: [number, number, number] = [210, 225, 238]; // snow/ice color for polar band
+const POLAR_BAND = 15; // must match worldgen.ts POLAR_BAND constant
 
 const REGION_TINTS: Record<number, [number, number, number]> = {
   0: [90, 200, 70],   // FERTILE_PLAINS
@@ -80,7 +82,8 @@ export const renderWorld = (
           b = Math.min(255, b + 12);
         }
       } else if (terrainCode === 2) {
-        [r, g, b] = C_MOUNTAIN;
+        const isPolar = srcY < POLAR_BAND || srcY >= WORLD_HEIGHT - POLAR_BAND;
+        [r, g, b] = isPolar ? C_POLAR : C_MOUNTAIN;
       } else if (terrainCode === 3) {
         [r, g, b] = C_COASTAL_SEA;
       } else {
