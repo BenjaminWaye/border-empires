@@ -4032,7 +4032,6 @@ export class SimulationRuntime {
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
-    if (!from.dockId) return false;
     return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
   }
 
@@ -4058,7 +4057,7 @@ export class SimulationRuntime {
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== playerId || tile.terrain !== "LAND" || !tile.dockId) continue;
+      if (tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
       if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
