@@ -20,11 +20,9 @@ import {
   IRONWORKS_GOLD_UPKEEP,
   IRONWORKS_IRON_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
-  GROWTH_FOOD_COST_PER_POP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
-  POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -454,11 +452,6 @@ export const buildPlayerUpdateEconomySnapshot = (
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
       const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-      if (!isSettlement && fedTownKeys.has(tileKey) && typeof town.population === "number" && typeof town.maxPopulation === "number") {
-        const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
-        const growthFoodRate = town.population * POPULATION_GROWTH_BASE_RATE * logisticFactor * GROWTH_FOOD_COST_PER_POP;
-        if (growthFoodRate > 0) addBucket(foodSinks, "Population growth", growthFoodRate, { count: 1 });
-      }
       goldCapIncomePerMinute += goldPerMinute * (isSettlement ? 1 : townGoldCapMult);
     }
     if (tile.dockId) {
