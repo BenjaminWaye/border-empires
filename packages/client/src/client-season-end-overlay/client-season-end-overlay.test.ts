@@ -393,7 +393,7 @@ describe("season-end overlay", () => {
     expect(overlayEl.querySelector('.se-tab[data-tab="victory"]')).toBeNull();
   });
 
-  it("registers a wheel capture listener on the overlay to prevent map zoom", () => {
+  it("registers wheel and touchmove capture listeners on the overlay to prevent map zoom/scroll", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({
       seasonWinner: makeWinner(),
@@ -401,8 +401,9 @@ describe("season-end overlay", () => {
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
 
-    // The overlay has a wheel event listener (passive: false).
-    // jsdom cannot dispatch synthetic WheelEvent, so verify structurally:
+    // Both listeners are registered once (dataset guard prevents duplicates on re-render).
+    expect(overlayEl.dataset.seWheelReady).toBe("1");
+
     const scrollBody = overlayEl.querySelector(".se-scroll-body") as HTMLElement;
     const backdrop = overlayEl.querySelector(".se-backdrop") as HTMLElement;
     expect(scrollBody).not.toBeNull();
@@ -413,5 +414,17 @@ describe("season-end overlay", () => {
     overlayEl.addEventListener("click", () => { bubbledToOverlay = true; });
     backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(bubbledToOverlay).toBe(true);
+  });
+
+  it("does not register duplicate listeners on re-render", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard()
+    });
+    const deps = { state, overlayEl, renderHud: () => {}, startNewSeason: () => {} };
+    renderSeasonEndOverlay(deps);
+    renderSeasonEndOverlay(deps);
+    expect(overlayEl.dataset.seWheelReady).toBe("1");
   });
 });
