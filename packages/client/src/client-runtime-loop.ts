@@ -1526,11 +1526,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
       const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
       const phase = state.musterTransit ? "transit" : "locked";
-      const alpha = phase === "transit" ? 0.5 + 0.4 * Math.abs(Math.sin(nowMs / 400)) : 0.55;
+      const alpha = phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
       deps.ctx.save();
       deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
       deps.ctx.globalAlpha = alpha;
-      deps.ctx.lineWidth = phase === "transit" ? 2.5 : 1.5;
+      deps.ctx.lineWidth = phase === "transit" ? 3.5 : 2.5;
       if (phase === "transit") deps.ctx.setLineDash([6, 4]);
       deps.ctx.beginPath();
       deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);

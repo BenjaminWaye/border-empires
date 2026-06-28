@@ -30,6 +30,8 @@ export type WorkerResponse = {
   mountainCount: number;
   islandCount: number;      // significant islands (≥20 tiles)
   largestIslandPct: number; // largest island as % of all land (0–100)
+  minLandY: number;         // topmost row containing any LAND tile
+  maxLandY: number;         // bottommost row containing any LAND tile
   durationMs: number;
 };
 
@@ -184,6 +186,20 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
 
   const { significant: islandCount, largestShare } = countIslands(terrain);
 
+  // Find tightest Y extent of land tiles
+  let minLandY = WORLD_HEIGHT;
+  for (let y = 0; y < WORLD_HEIGHT && minLandY === WORLD_HEIGHT; y++) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { minLandY = y; break; }
+    }
+  }
+  let maxLandY = -1;
+  for (let y = WORLD_HEIGHT - 1; y >= 0 && maxLandY === -1; y--) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { maxLandY = y; break; }
+    }
+  }
+
   const response: WorkerResponse = {
     requestedSeed: seed,
     actualSeed: currentSeed,
@@ -198,6 +214,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     mountainCount: counts.mountain,
     islandCount,
     largestIslandPct: Math.round(largestShare * 100),
+    minLandY,
+    maxLandY,
     durationMs: performance.now() - t0
   };
 
