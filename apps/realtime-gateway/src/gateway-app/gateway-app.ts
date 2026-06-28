@@ -59,7 +59,7 @@ import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snap
 import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
 import { seasonalPlayerNameForId } from "../../../simulation/src/season-worldgen/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionDock, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -338,9 +338,22 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
   return map;
 };
 
+const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number, docks: PlayerSubscriptionDock[] | undefined): boolean => {
+  if (!docks) return false;
+  const dockByTileKey = new Map<string, PlayerSubscriptionDock>();
+  for (const d of docks) dockByTileKey.set(d.tileKey, d);
+  const fromKey = `${fromX},${fromY}`;
+  const fromDock = dockByTileKey.get(fromKey);
+  if (!fromDock) return false;
+  const pairedDock = dockByTileKey.get(`${toX},${toY}`);
+  if (!pairedDock) return false;
+  return fromDock.pairedDockId === pairedDock.dockId || pairedDock.pairedDockId === fromDock.dockId;
+};
+
 const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
+  docks: PlayerSubscriptionDock[] | undefined,
   message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
@@ -361,7 +374,7 @@ const attackPreviewResult = (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
+  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
@@ -2646,7 +2659,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "ATTACK_PREVIEW") {
-            sendJson(socket, attackPreviewResult(session.playerId, playerSubscriptions.snapshotForPlayer(session.playerId)?.tiles, message));
+            const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
+            sendJson(socket, attackPreviewResult(session.playerId, previewSnapshot?.tiles, previewSnapshot?.docks, message));
             return;
           }
 
