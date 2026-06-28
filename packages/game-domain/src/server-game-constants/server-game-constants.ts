@@ -183,8 +183,6 @@ export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
-/** Food consumed per unit of population grown (food / pop). A town growing by N pop/min costs N * GROWTH_FOOD_COST_PER_POP food/min. */
-export const GROWTH_FOOD_COST_PER_POP = 0.05;
 export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
   if (populationTier === "SETTLEMENT" || !populationTier) return 0;
   if (populationTier === "CITY") return 0.3;
