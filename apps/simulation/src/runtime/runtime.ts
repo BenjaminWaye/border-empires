@@ -1024,6 +1024,9 @@ export class SimulationRuntime {
       const current = (player.strategicResources ?? {})[resource] ?? 0;
       const available = Math.max(0, cap - current);
       const credited = Math.min(earned, available);
+      if (resource === "FOOD") {
+        console.error(`[FOOD_DEBUG] player=${player.id} productionRatePerMin=${ratePerMinute.toFixed(4)} elapsedMin=${elapsedMinutes.toFixed(4)} earned=${earned.toFixed(4)} cap=${cap.toFixed(4)} foodBefore=${current.toFixed(4)} credited=${credited.toFixed(4)} reason=income_tick`);
+      }
       if (credited > 0) {
         this.addStrategicResource(player, resource, credited);
         anyCredited = true;

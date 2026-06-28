@@ -17,7 +17,7 @@ type SeasonEndLeaderboard = {
 type SeasonEndOverlayDeps = {
   state: Pick<
     ClientState,
-    "seasonWinner" | "leaderboard" | "seasonVictory" | "seasonEndDismissed" | "seasonEndStarting" | "playerColors"
+    "me" | "seasonWinner" | "leaderboard" | "seasonVictory" | "seasonEndDismissed" | "seasonEndStarting" | "playerColors"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -48,7 +48,7 @@ const playerBadge = (
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
 
-const rankGlyph = (rank: number): string => (rank === 1 ? "♔" : `${rank}`);
+const rankGlyph = (rank: number, isWinner: boolean): string => isWinner ? "♔" : `${rank}`;
 
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -90,10 +90,11 @@ const victorMedallion = (
 const rankRowHtml = (
   entry: LeaderboardOverallEntry,
   colors: ReadonlyMap<string, string>,
-  options: { self: boolean; detached?: boolean }
+  options: { self: boolean; detached?: boolean; winnerId: string | undefined }
 ): string => {
+  const isWinner = Boolean(options.winnerId && entry.id === options.winnerId);
   const medalClass = options.detached ? "" : rankClass(entry.rank);
-  const glyph = options.detached ? `${entry.rank}` : rankGlyph(entry.rank);
+  const glyph = options.detached ? `${entry.rank}` : rankGlyph(entry.rank, isWinner);
   return `
     <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}">
       <span class="se-rank-medal ${medalClass}">${glyph}</span>
@@ -110,15 +111,16 @@ const rankRowHtml = (
 const standingsLedger = (
   leaderboard: SeasonEndLeaderboard,
   colors: ReadonlyMap<string, string>,
-  selfId: string | undefined
+  selfId: string | undefined,
+  winnerId: string | undefined
 ): string => {
   const rows = leaderboard.overall
-    .map((entry) => rankRowHtml(entry, colors, { self: Boolean(selfId && entry.id === selfId) }))
+    .map((entry) => rankRowHtml(entry, colors, { self: Boolean(selfId && entry.id === selfId), winnerId }))
     .join("");
   const self = leaderboard.selfOverall;
   const selfFooter =
     self && self.rank !== 1 && !leaderboard.overall.some((entry) => entry.id === self.id)
-      ? rankRowHtml(self, colors, { self: true, detached: true })
+      ? rankRowHtml(self, colors, { self: true, detached: true, winnerId })
       : "";
   return `
     <section class="se-panel se-standings">
@@ -135,9 +137,14 @@ const victoryGauges = (
   if (objectives.length === 0) return "";
   const dials = objectives
     .map((objective) => {
+      const isSelfLeader = Boolean(selfId && objective.leaderPlayerId === selfId);
       const leader = objective.leaderPlayerId
-        ? playerBadge(objective.leaderPlayerId, objective.leaderPlayerId === selfId ? "You" : objective.leaderName, colors)
+        ? playerBadge(objective.leaderPlayerId, isSelfLeader ? "You" : objective.leaderName, colors)
         : escapeHtml(objective.leaderName);
+      const selfLine =
+        objective.selfProgressLabel && !isSelfLeader
+          ? `<p class="se-dial-self">You: ${escapeHtml(objective.selfProgressLabel)}</p>`
+          : "";
       return `
       <article class="se-dial${objective.conditionMet ? " is-met" : ""}">
         <header class="se-dial-head">
@@ -145,7 +152,7 @@ const victoryGauges = (
           <span class="se-dial-status">${escapeHtml(objective.statusLabel)}</span>
         </header>
         <p class="se-dial-desc">${escapeHtml(objective.description)}</p>
-        <p class="se-dial-leader">${leader} · ${escapeHtml(objective.progressLabel)}</p>
+        <p class="se-dial-leader">${leader} · ${escapeHtml(objective.progressLabel)}</p>${selfLine}
         <p class="se-dial-threshold">${escapeHtml(objective.thresholdLabel)}</p>
       </article>`;
     })
@@ -176,7 +183,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   overlayEl.dataset.seSignature = signature;
 
   const colors = state.playerColors;
-  const selfId = leaderboard.selfOverall?.id;
+  const selfId = leaderboard.selfOverall?.id || state.me || undefined;
   const isSelfWinner = Boolean(selfId && state.seasonWinner.playerId === selfId);
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
@@ -201,7 +208,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
         </header>
 
         ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
-        ${standingsLedger(leaderboard, colors, selfId)}
+        ${standingsLedger(leaderboard, colors, selfId, state.seasonWinner.playerId)}
         ${victoryGauges(state.seasonVictory, colors, selfId)}
 
         <footer class="se-actions">
