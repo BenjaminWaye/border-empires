@@ -35,7 +35,7 @@ export type RuntimeLockResolutionContext = {
   onCaptureRevealBuilt: ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void) | undefined;
   applyBarbarianWalkOrMultiply: (lock: LockRecord, previousTarget: DomainTileState | undefined) => void;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean }) => void;
-  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string) => void;
+  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
@@ -286,6 +286,6 @@ function applyCombatEncirclement(
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
     }
   } else if (lock.actionType === "EXPAND" && attackerWon) {
-    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
+    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId, { bfsCap: 2000 });
   }
 }
