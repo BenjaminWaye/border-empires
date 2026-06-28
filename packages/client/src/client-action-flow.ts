@@ -140,7 +140,6 @@ type ActionFlowDeps = Record<string, any> & {
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
 };
-
 type TileDetailRequestOptions = {
   force?: boolean;
 };
@@ -1687,6 +1686,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
+    if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
     hideTileActionMenu();
   };
 

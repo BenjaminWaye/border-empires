@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.28.0",
+  version: "2026.06.28.1",
   title: "What's New",
-  summary: "Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
+  summary: "Sky Dock bombard targeting now works. Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
   entries: [
+    {
+      introducedIn: "2026.06.28.1",
+      title: "Sky Dock Bombard targeting works",
+      why: "Clicking an owned Sky Dock tile showed no bombard action — the tile action generator, crystal targeting type, isCrystal filter, and action-flow handler were all missing the airport_bombard case, even though the server's command handler was complete.",
+      changes: [
+        "Clicking your Sky Dock now shows a 'Sky Dock Bombard' action in the tile menu (costs 1 CRYSTAL, requires active Sky Dock and nearby Aether Tower).",
+        "Selecting the action enters crystal targeting mode, highlighting enemy land tiles within 30 tiles as valid targets.",
+        "Tapping a highlighted target sends AIRPORT_BOMBARD to the server, clearing the 3×3 area around the target."
+      ]
+    },
     {
       introducedIn: "2026.06.27.3",
       title: "Dock-pair attacks now validate the dock connection as a valid attack path",
