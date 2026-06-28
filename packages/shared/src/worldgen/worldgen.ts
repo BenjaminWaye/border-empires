@@ -3,6 +3,8 @@ import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 
 let CURRENT_WORLD_SEED = 42;
+export type WorldStyle = "continents" | "islands";
+let CURRENT_WORLD_STYLE: WorldStyle = "continents";
 const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
 const UNSET_U8 = 255;
 const UNSET_I16 = -2;
@@ -47,8 +49,9 @@ const resetWorldCaches = (): void => {
   continentScoreCache.fill(Number.NaN);
 };
 
-export const setWorldSeed = (seed: number): void => {
+export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): void => {
   CURRENT_WORLD_SEED = Math.floor(seed);
+  CURRENT_WORLD_STYLE = style;
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
@@ -171,17 +174,18 @@ const buildContinents = (): ContinentSeed[] => {
   // Five continents in a quincunx (NW, NE, center, SW, SE) so all map quadrants get land.
   // Each has seeded X (±s(130,"x")≈±29 tiles) and Y (±s(88,"y")≈±19 tiles) variation.
   // so = seed offset base; all params for one continent share a 7-slot range above it.
+  // Corner X moved inward (0.20/0.70 vs 0.15/0.75) and rx increased to close ocean gaps.
   const layouts: Array<{ bx: number; by: number; so: number }> = [
-    { bx: 0.15, by: 0.18, so: 101 }, // NW
-    { bx: 0.75, by: 0.18, so: 141 }, // NE
+    { bx: 0.20, by: 0.18, so: 101 }, // NW
+    { bx: 0.70, by: 0.18, so: 141 }, // NE
     { bx: 0.45, by: 0.50, so: 181 }, // Center
-    { bx: 0.15, by: 0.82, so: 221 }, // SW
-    { bx: 0.75, by: 0.82, so: 261 }, // SE
+    { bx: 0.20, by: 0.82, so: 221 }, // SW
+    { bx: 0.70, by: 0.82, so: 261 }, // SE
   ];
   return layouts.map(({ bx, by, so }) => ({
     cx:        Math.floor(WORLD_WIDTH  * bx + (seeded01(11, 13, seed + so)     - 0.5) * s(130, "x")),
     cy:        Math.floor(WORLD_HEIGHT * by + (seeded01(17, 19, seed + so + 1) - 0.5) * s(88,  "y")),
-    rx:        s(133 + Math.floor(seeded01(23, 29, seed + so + 2) * 24), "x"),
+    rx:        s(165 + Math.floor(seeded01(23, 29, seed + so + 2) * 24), "x"),
     ry:        s(233 + Math.floor(seeded01(31, 37, seed + so + 3) * 28), "y"),
     wobble:    seeded01(41, 43, seed + so + 4) * TAU,
     lobeA:     seeded01(47, 53, seed + so + 5) * TAU,
@@ -189,13 +193,39 @@ const buildContinents = (): ContinentSeed[] => {
     coastSeed: seed + so + 200,
   }));
 };
+const buildIslands = (): ContinentSeed[] => {
+  const seed = worldSeed();
+  // ~55 small island blobs scattered across the map. The existing max-score ellipse
+  // system creates irregular shapes; small rx/ry keeps each island distinct.
+  const N = 55;
+  const out: ContinentSeed[] = [];
+  for (let i = 0; i < N; i++) {
+    const cx = Math.floor(seeded01(i, 0, seed + 10000 + i) * WORLD_WIDTH);
+    const cy = Math.floor(POLAR_BAND + 10 + seeded01(i, 1, seed + 20000 + i) * (WORLD_HEIGHT - 2 * POLAR_BAND - 20));
+    const r  = 7 + Math.floor(seeded01(i, 2, seed + 30000 + i) * 15); // radius 7–22
+    out.push({
+      cx, cy,
+      rx: r,
+      ry: r + Math.floor(seeded01(i, 3, seed + 40000 + i) * 6),
+      wobble:    seeded01(i, 4, seed + 50000 + i) * TAU,
+      lobeA:     seeded01(i, 5, seed + 60000 + i) * TAU,
+      lobeB:     seeded01(i, 6, seed + 70000 + i) * TAU,
+      coastSeed: seed + 80000 + i
+    });
+  }
+  return out;
+};
+
 let cachedContinentSeed = Number.NaN;
+let cachedContinentStyle: WorldStyle = "continents";
 let cachedContinents: ContinentSeed[] = [];
 const continents = (): ContinentSeed[] => {
   const seed = worldSeed();
-  if (seed !== cachedContinentSeed || cachedContinents.length === 0) {
+  const style = CURRENT_WORLD_STYLE;
+  if (seed !== cachedContinentSeed || style !== cachedContinentStyle || cachedContinents.length === 0) {
     cachedContinentSeed = seed;
-    cachedContinents = buildContinents();
+    cachedContinentStyle = style;
+    cachedContinents = style === "islands" ? buildIslands() : buildContinents();
   }
   return cachedContinents;
 };
