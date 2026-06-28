@@ -79,8 +79,8 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   // Polar zones: fixed mountain bands at the top and bottom of the map.
   if (wy < POLAR_BAND || wy >= WORLD_HEIGHT - POLAR_BAND) return TERRAIN_MOUNTAIN;
   const cField = continentField(wx, wy);
-  if (cField < 0.075) return TERRAIN_SEA;
-  if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
+  if (cField < 0.04) return TERRAIN_SEA;
+  if (cField < 0.07 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
   if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
   return TERRAIN_LAND;
 };
