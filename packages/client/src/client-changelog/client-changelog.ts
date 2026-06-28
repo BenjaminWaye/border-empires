@@ -193,9 +193,9 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Empire Integrity",
       why: "Wide, sprawling empires were just as effective as tight blobs — there was no economic reward for building defensible shapes.",
       changes: [
-        "Compact empires now earn an income and population-growth bonus proportional to their defensibility score.",
-        "At 100% defensibility the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
-        "The bonus is visible in the Empire Integrity panel (renamed from Defensibility).",
+        "Compact empires earn an income and growth bonus; sprawling empires take a penalty — both scale with your Empire Integrity score.",
+        "At 100% integrity the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
+        "Your current bonus or penalty is visible in the Empire Integrity panel.",
         "AI players also prefer settling tiles that improve the compactness of their empire."
       ]
     },
