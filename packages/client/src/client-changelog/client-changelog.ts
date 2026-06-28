@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.28.1",
+  version: "2026.06.28.2",
   title: "What's New",
-  summary: "Sky Dock bombard targeting now works. Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
+  summary: "Sky Dock Bombard moved from Crystal tab to Actions tab. Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
   entries: [
+    {
+      introducedIn: "2026.06.28.2",
+      title: "Sky Dock Bombard moved to Actions tab (was in Crystal tab)",
+      why: "Sky Dock Bombard is tied to a specific tile (Sky Dock) — the same pattern as Worldbreaker Shot. Putting it in the Crystal tab (reserved for global abilities like Aether Bridge or Siphon) was confusing.",
+      changes: [
+        "Sky Dock Bombard now appears in the Actions tab of the tile menu, not the Crystal tab.",
+        "Icon and tooltip description added for the action."
+      ]
+    },
     {
       introducedIn: "2026.06.28.1",
       title: "Sky Dock Bombard targeting works",
