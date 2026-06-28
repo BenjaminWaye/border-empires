@@ -18,7 +18,6 @@ import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMen
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
-
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
@@ -112,6 +111,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
   if (actionId === "imperial_exchange_levy_supply") return "Seize every rival empire's stored SUPPLY at once.";
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
+  if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
   if (actionId === "retort_recast_supply") return "Recast this exposed resource tile into a supply vein.";
   if (actionId === "retort_recast_iron") return "Recast this exposed resource tile into an iron vein.";
