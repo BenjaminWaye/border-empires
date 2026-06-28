@@ -6,7 +6,8 @@ import {
   terrainAt,
   landBiomeAt,
   regionTypeAt,
-  grassShadeAt
+  grassShadeAt,
+  type WorldStyle
 } from "@border-empires/shared";
 
 export type MapStyle = "continents" | "islands";
@@ -104,8 +105,8 @@ const isIslandsWorldValid = (significant: number, largestShare: number): boolean
   significant <= ISLANDS_MAX &&
   largestShare <= ISLANDS_MAX_LARGEST_SHARE;
 
-const generateTerrain = (seed: number, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
-  setWorldSeed(seed);
+const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
+  setWorldSeed(seed, style);
   let land = 0, sea = 0, mountain = 0;
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -158,9 +159,11 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
 
   let currentSeed = seed;
   let attempts = 1;
-  let counts = generateTerrain(currentSeed, terrain, biome, region, shade);
+  // Islands mode uses its own generation function (many small blobs) — no seed refinement needed.
+  // Continents mode refines the seed until island-count criteria are met (legacy behaviour kept).
+  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade);
 
-  if (mapStyle === "islands") {
+  if (mapStyle === "continents") {
     const { significant, largestShare } = countIslands(terrain);
     if (!isIslandsWorldValid(significant, largestShare)) {
       for (let i = 1; i <= MAX_REFINE_ATTEMPTS; i++) {
@@ -169,7 +172,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
         biome.fill(255);
         region.fill(255);
         shade.fill(255);
-        counts = generateTerrain(nextSeed, terrain, biome, region, shade);
+        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade);
         const next = countIslands(terrain);
         attempts++;
         if (isIslandsWorldValid(next.significant, next.largestShare)) {
@@ -177,7 +180,6 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
           break;
         }
         if (i === MAX_REFINE_ATTEMPTS) {
-          // Exhausted retries — keep the last attempt anyway
           currentSeed = nextSeed;
         }
       }
