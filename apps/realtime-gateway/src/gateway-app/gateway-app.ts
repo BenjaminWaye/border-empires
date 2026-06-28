@@ -3842,6 +3842,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         wsUrl: `ws://${host}:${resolvedPort}/ws`
       };
     },
+    notifyDeployment(): void {
+      const payload = preSerializeBroadcast({ type: "SERVER_DEPLOYING" });
+      for (const socket of playerSubscriptions.allSockets()) sendJsonToSocket(socket, payload);
+    },
     async close(): Promise<void> {
       await gatewayBootstrapStringifier.close();
       await app.close();
