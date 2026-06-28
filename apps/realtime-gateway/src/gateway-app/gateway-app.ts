@@ -3844,7 +3844,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     },
     notifyDeployment(): void {
       const payload = preSerializeBroadcast({ type: "SERVER_DEPLOYING" });
-      for (const socket of playerSubscriptions.allSockets()) sendJsonToSocket(socket, payload);
+      for (const socket of playerSubscriptions.allSockets()) {
+        try { sendJsonToSocket(socket, payload); } catch {}
+      }
     },
     async close(): Promise<void> {
       await gatewayBootstrapStringifier.close();
