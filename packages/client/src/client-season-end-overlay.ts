@@ -278,10 +278,12 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
     });
   }
 
-  // Prevent scroll/wheel events from reaching the hidden map underneath.
-  const scrollBody = overlayEl.querySelector(".se-scroll-body") as HTMLElement | null;
-  overlayEl.addEventListener("wheel", (e) => {
-    if (scrollBody && scrollBody.contains(e.target as Node)) return;
-    e.preventDefault();
-  }, { passive: false });
+  if (!overlayEl.dataset.seWheelReady) {
+    overlayEl.dataset.seWheelReady = "1";
+    overlayEl.addEventListener("wheel", (e) => {
+      const body = overlayEl.querySelector(".se-scroll-body");
+      if (body && body.contains(e.target as Node)) return;
+      e.preventDefault();
+    }, { passive: false });
+  }
 };

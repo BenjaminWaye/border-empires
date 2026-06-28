@@ -19,7 +19,7 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.4",
+  version: "2026.06.28.0",
   title: "What's New",
   summary: "Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
   entries: [
@@ -199,14 +199,17 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tile detail panel now shows the correct boosted rate when you click on a Farm+Farmstead tile near an active Waterworks."
       ]
     },
+
     {
-      introducedIn: "2026.06.21.1",
-      title: "Muster-advance combat visuals",
-      why: "Muster-advance auto-attacks were invisible — there was no way to see where your far-flung colonies were fighting, and the silent capture popup was noisy for automatic actions.",
+      introducedIn: "2026.06.28.0",
+      title: "Season-end overlay — scrolling finally works",
+      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
       changes: [
-        "Muster-advance attacks now show a supply line from the muster source to the target tile.",
-        "Combat dots appear on the target tile during auto-attack resolution — your empire color vs. a dark defender swarm.",
-        "The result popup is suppressed for muster-advance attacks (feed entry still appears)."
+        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
+        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
+        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
+        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
+        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
       ]
     },
 
