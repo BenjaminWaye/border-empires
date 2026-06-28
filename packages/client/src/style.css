@@ -1428,7 +1428,6 @@ body {
   place-items: center;
   padding: 20px;
   z-index: 31;
-  overflow: auto;
 }
 
 .changelog-backdrop,
@@ -5838,6 +5837,7 @@ button:disabled,
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 26px clamp(16px, 4vw, 40px) 0;
+  touch-action: pan-y;
 }
 .se-scroll-footer {
   flex-shrink: 0;

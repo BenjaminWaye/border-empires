@@ -197,6 +197,11 @@ const shutdown = (signal: NodeJS.Signals | "uncaught"): Promise<void> => {
   console.log(`[merged] caught ${signal}; shutting down`);
   shutdownInFlight = (async () => {
     try {
+      gateway.notifyDeployment();
+    } catch (error) {
+      console.error("[merged] notifyDeployment error:", error);
+    }
+    try {
       await gateway.close();
     } catch (error) {
       console.error("[merged] gateway close error:", error);

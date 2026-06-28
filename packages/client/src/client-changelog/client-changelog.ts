@@ -19,10 +19,54 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.4",
+  version: "2026.06.28.4",
   title: "What's New",
-  summary: "Dock-pair connected attacks can now reach their target. Season-end overlay gets tabs, sticky buttons, and wheel capture to prevent map zoom.",
+  summary: "Worldbreaker Cannon parts now visible in build menu on Great City tiles. Sky Dock Bombard shows 3D range overlay and hit animations.",
   entries: [
+    {
+      introducedIn: "2026.06.28.4",
+      title: "Worldbreaker Cannon parts show up in the build menu again",
+      why: "Unlocking Worldbreaker Cannon tech made the final monument visible on settled tiles, but the parts were invisible in the build menu on Great City tiles — the tech-unlock filter was also hiding actions disabled for non-tech reasons like 'Requires Great City or Monumental City'.",
+      changes: [
+        "Build Worldbreaker Cannon Part now appears in the build menu on Great City and Metropolis tiles when Worldbreaker Cannon tech is unlocked.",
+        "Other monument parts (Imperial Exchange, Aegis Dome, Astral Dock) also benefit from the same filter fix."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Sky Dock Bombard range now visible in 3D",
+      why: "After selecting a Sky Dock and choosing the bombard action, you could not see which tiles were in range — the crystal targeting mode highlighted targets but there was no range overlay on the dock itself.",
+      changes: [
+        "Selecting an active, owned Sky Dock now shows a red 3D range circle (radius 30 tiles) around it, matching the Observatory and Waterworks range overlays."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Hit animations for Sky Dock Bombard",
+      why: "Sending a bombard gave no visual feedback — the targeted 3x3 area just disappeared with no impact effect.",
+      changes: [
+        "When bombard strikes land, the targeted tiles now show a brief orange flash and expanding ring animation lasting 1.5 seconds."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.2",
+      title: "Sky Dock Bombard moved to Actions tab (was in Crystal tab)",
+      why: "Sky Dock Bombard is tied to a specific tile (Sky Dock) — the same pattern as Worldbreaker Shot. Putting it in the Crystal tab (reserved for global abilities like Aether Bridge or Siphon) was confusing.",
+      changes: [
+        "Sky Dock Bombard now appears in the Actions tab of the tile menu, not the Crystal tab.",
+        "Icon and tooltip description added for the action."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.1",
+      title: "Sky Dock Bombard targeting works",
+      why: "Clicking an owned Sky Dock tile showed no bombard action — the tile action generator, crystal targeting type, isCrystal filter, and action-flow handler were all missing the airport_bombard case, even though the server's command handler was complete.",
+      changes: [
+        "Clicking your Sky Dock now shows a 'Sky Dock Bombard' action in the tile menu (costs 1 CRYSTAL, requires active Sky Dock and nearby Aether Tower).",
+        "Selecting the action enters crystal targeting mode, highlighting enemy land tiles within 30 tiles as valid targets.",
+        "Tapping a highlighted target sends AIRPORT_BOMBARD to the server, clearing the 3×3 area around the target."
+      ]
+    },
     {
       introducedIn: "2026.06.27.3",
       title: "Dock-pair attacks now validate the dock connection as a valid attack path",
@@ -183,9 +227,9 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Empire Integrity",
       why: "Wide, sprawling empires were just as effective as tight blobs — there was no economic reward for building defensible shapes.",
       changes: [
-        "Compact empires now earn an income and population-growth bonus proportional to their defensibility score.",
-        "At 100% defensibility the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
-        "The bonus is visible in the Empire Integrity panel (renamed from Defensibility).",
+        "Compact empires earn an income and growth bonus; sprawling empires take a penalty — both scale with your Empire Integrity score.",
+        "At 100% integrity the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
+        "Your current bonus or penalty is visible in the Empire Integrity panel.",
         "AI players also prefer settling tiles that improve the compactness of their empire."
       ]
     },
@@ -199,14 +243,17 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tile detail panel now shows the correct boosted rate when you click on a Farm+Farmstead tile near an active Waterworks."
       ]
     },
+
     {
-      introducedIn: "2026.06.21.1",
-      title: "Muster-advance combat visuals",
-      why: "Muster-advance auto-attacks were invisible — there was no way to see where your far-flung colonies were fighting, and the silent capture popup was noisy for automatic actions.",
+      introducedIn: "2026.06.28.0",
+      title: "Season-end overlay — scrolling finally works",
+      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
       changes: [
-        "Muster-advance attacks now show a supply line from the muster source to the target tile.",
-        "Combat dots appear on the target tile during auto-attack resolution — your empire color vs. a dark defender swarm.",
-        "The result popup is suppressed for muster-advance attacks (feed entry still appears)."
+        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
+        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
+        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
+        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
+        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
       ]
     },
 
