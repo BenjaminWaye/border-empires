@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.1",
+  version: "2026.06.29.2",
   title: "What's New",
-  summary: "Attack alert feed entries now include a 'Center on tile' button.",
+  summary: "Sky Dock Bombard targeting no longer shows redundant text in the feed.",
   entries: [
+    {
+      introducedIn: "2026.06.29.2",
+      title: "Sky Dock Bombard targeting no longer shows redundant feed text",
+      why: "Entering Sky Dock Bombard targeting mode showed a feed message 'Sky Dock Bombard armed. Tap a highlighted target tile.' — but the visual highlighting on the map tiles was already sufficient affordance, making the feed text redundant noise.",
+      changes: [
+        "Removed the redundant feed notification when entering Sky Dock Bombard (and other crystal targeting) mode."
+      ]
+    },
     {
       introducedIn: "2026.06.29.1",
       title: "Attack alert feed entries now include a 'Center on tile' button",
