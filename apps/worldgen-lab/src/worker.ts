@@ -6,7 +6,8 @@ import {
   terrainAt,
   landBiomeAt,
   regionTypeAt,
-  grassShadeAt
+  grassShadeAt,
+  type WorldStyle
 } from "@border-empires/shared";
 
 export type MapStyle = "continents" | "islands";
@@ -32,6 +33,7 @@ export type WorkerResponse = {
   largestIslandPct: number; // largest island as % of all land (0–100)
   minLandY: number;         // topmost row containing any LAND tile
   maxLandY: number;         // bottommost row containing any LAND tile
+
   durationMs: number;
 };
 
@@ -46,13 +48,14 @@ const deriveNextSeed = (i: number, baseSeed: number): number =>
   Math.floor(seeded01(i * 101, i * 137, baseSeed + 9001) * 1e9);
 
 const SIGNIFICANT_ISLAND_TILES = 20;
+const LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD = 250;
 const ISLANDS_MIN = 20;
 const ISLANDS_MAX = 30;
 const ISLANDS_MAX_LARGEST_SHARE = 0.22;
 const MAX_REFINE_ATTEMPTS = 16;
 
 // 8-directional BFS flood-fill on LAND tiles, toroidal wrap
-const countIslands = (terrain: Uint8Array): { significant: number; largestShare: number } => {
+const countIslands = (terrain: Uint8Array): { significant: number; largestShare: number; dockCount: number } => {
   const visited = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   const sizes: number[] = [];
   let landTotal = 0;
@@ -93,9 +96,12 @@ const countIslands = (terrain: Uint8Array): { significant: number; largestShare:
   }
 
   sizes.sort((a, b) => b - a);
+  const sigSizes = sizes.filter(s => s >= SIGNIFICANT_ISLAND_TILES);
+  const dockCount = sigSizes.reduce((sum, sz) => sum + 1 + (sz >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? 1 : 0), 0);
   return {
-    significant: sizes.filter(s => s >= SIGNIFICANT_ISLAND_TILES).length,
-    largestShare: landTotal > 0 ? (sizes[0] ?? 0) / landTotal : 0
+    significant: sigSizes.length,
+    largestShare: landTotal > 0 ? (sizes[0] ?? 0) / landTotal : 0,
+    dockCount
   };
 };
 
@@ -104,8 +110,72 @@ const isIslandsWorldValid = (significant: number, largestShare: number): boolean
   significant <= ISLANDS_MAX &&
   largestShare <= ISLANDS_MAX_LARGEST_SHARE;
 
-const generateTerrain = (seed: number, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
-  setWorldSeed(seed);
+// Manhattan-distance mountain scan matching game-domain isNearMountain
+const isNearMountainLocal = (x: number, y: number, r: number, terrain: Uint8Array): boolean => {
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) > r) continue;
+      const nx = (x + dx + WORLD_WIDTH) % WORLD_WIDTH;
+      const ny = (y + dy + WORLD_HEIGHT) % WORLD_HEIGHT;
+      if (terrain[ny * WORLD_WIDTH + nx] === 2) return true;
+    }
+  }
+  return false;
+};
+
+// 4-directional coastal check (SEA=0 or COASTAL_SEA=3)
+const isCoastalLandLocal = (x: number, y: number, terrain: Uint8Array): boolean => {
+  const u = terrain[((y - 1 + WORLD_HEIGHT) % WORLD_HEIGHT) * WORLD_WIDTH + x]!;
+  const r = terrain[y * WORLD_WIDTH + ((x + 1) % WORLD_WIDTH)]!;
+  const d = terrain[((y + 1) % WORLD_HEIGHT) * WORLD_WIDTH + x]!;
+  const l = terrain[y * WORLD_WIDTH + ((x - 1 + WORLD_WIDTH) % WORLD_WIDTH)]!;
+  return u === 0 || u === 3 || r === 0 || r === 3 || d === 0 || d === 3 || l === 0 || l === 3;
+};
+
+type ResourceCounts = { fish: number; iron: number; gems: number; farm: number; fur: number };
+
+const countResourceSites = (terrain: Uint8Array, biome: Uint8Array, shade: Uint8Array, region: Uint8Array): ResourceCounts => {
+  let fish = 0, iron = 0, gems = 0, farm = 0, fur = 0;
+  for (let y = 0; y < WORLD_HEIGHT; y++) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      const idx = y * WORLD_WIDTH + x;
+      if (terrain[idx] !== 1) continue;
+      const b = biome[idx]!;
+      const s = shade[idx]!;
+      const r = region[idx]!;
+      if (b === 2) fish++;                                                                             // COASTAL_SAND
+      if ((b === 1 && isNearMountainLocal(x, y, 4, terrain)) || (b === 0 && isNearMountainLocal(x, y, 1, terrain))) iron++;  // SAND+mtn4 or GRASS+mtn1
+      if (b === 1) gems++;                                                                             // SAND
+      if (b === 0 && s === 1) farm++;                                                                 // GRASS+LIGHT
+      if (!isCoastalLandLocal(x, y, terrain) && ((b === 0 && s === 0 && r === 1) || b === 1)) fur++; // FUR: non-coastal, dark-forest or sand
+    }
+  }
+  return { fish, iron, gems, farm, fur };
+};
+
+// Replicates generateTowns target/spacing logic; does not skip dock/cluster tiles (lab approximation)
+const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
+  const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
+  const target = Math.max(70, Math.floor(180 * worldScale));
+  const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
+  const placed: Array<{ x: number; y: number }> = [];
+  for (let index = 0; index < 120_000 && placed.length < target; index++) {
+    const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
+    const y = Math.floor(seeded01(index * 19, index * 23, seed + 9311) * WORLD_HEIGHT);
+    if (terrain[y * WORLD_WIDTH + x] !== 1) continue;
+    let tooClose = false;
+    for (const e of placed) {
+      const dx = Math.min(Math.abs(e.x - x), WORLD_WIDTH - Math.abs(e.x - x));
+      const dy = Math.min(Math.abs(e.y - y), WORLD_HEIGHT - Math.abs(e.y - y));
+      if (dx + dy < minSpacing) { tooClose = true; break; }
+    }
+    if (!tooClose) placed.push({ x, y });
+  }
+  return placed.length;
+};
+
+const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
+  setWorldSeed(seed, style);
   let land = 0, sea = 0, mountain = 0;
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -158,9 +228,11 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
 
   let currentSeed = seed;
   let attempts = 1;
-  let counts = generateTerrain(currentSeed, terrain, biome, region, shade);
+  // Islands mode uses its own generation function (many small blobs) — no seed refinement needed.
+  // Continents mode refines the seed until island-count criteria are met (legacy behaviour kept).
+  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade);
 
-  if (mapStyle === "islands") {
+  if (mapStyle === "continents") {
     const { significant, largestShare } = countIslands(terrain);
     if (!isIslandsWorldValid(significant, largestShare)) {
       for (let i = 1; i <= MAX_REFINE_ATTEMPTS; i++) {
@@ -169,7 +241,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
         biome.fill(255);
         region.fill(255);
         shade.fill(255);
-        counts = generateTerrain(nextSeed, terrain, biome, region, shade);
+        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade);
         const next = countIslands(terrain);
         attempts++;
         if (isIslandsWorldValid(next.significant, next.largestShare)) {
@@ -177,14 +249,29 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
           break;
         }
         if (i === MAX_REFINE_ATTEMPTS) {
-          // Exhausted retries — keep the last attempt anyway
           currentSeed = nextSeed;
         }
       }
     }
   }
 
-  const { significant: islandCount, largestShare } = countIslands(terrain);
+  const { significant: islandCount, largestShare, dockCount } = countIslands(terrain);
+  const resources = countResourceSites(terrain, biome, shade, region);
+  const townCount = estimateTownCount(terrain, currentSeed);
+
+  // Find tightest Y extent of land tiles
+  let minLandY = WORLD_HEIGHT;
+  for (let y = 0; y < WORLD_HEIGHT && minLandY === WORLD_HEIGHT; y++) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { minLandY = y; break; }
+    }
+  }
+  let maxLandY = -1;
+  for (let y = WORLD_HEIGHT - 1; y >= 0 && maxLandY === -1; y--) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { maxLandY = y; break; }
+    }
+  }
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
@@ -216,6 +303,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     largestIslandPct: Math.round(largestShare * 100),
     minLandY,
     maxLandY,
+
     durationMs: performance.now() - t0
   };
 
