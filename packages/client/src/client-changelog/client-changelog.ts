@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.6",
+  version: "2026.06.29.7",
   title: "What's New",
-  summary: "Crystal targeting now shows highlighted target tiles and connection lines in 3D mode. 2D overlays no longer render on top of 3D terrain.",
+  summary: "Removed origin-to-target connection line from crystal targeting overlay. Valid target tiles still show fill + border + target outline.",
   entries: [
+    {
+      introducedIn: "2026.06.29.7",
+      title: "Removed confusing origin-to-target line from crystal targeting overlay",
+      why: "The connection line drawn from the origin building to the hovered/selected target tile was confusing — it looked like part of the targeting UI but didn't add useful information.",
+      changes: [
+        "Removed the origin-to-target connection line from the 3D crystal targeting overlay."
+      ]
+    },
     {
       introducedIn: "2026.06.29.6",
       title: "Crystal targeting overlay and range circles are more visible in 3D",
