@@ -72,6 +72,11 @@ export const findEnclosedRegionsAdjacentTo = (
  * Auto-fill: settle all unowned land pockets fully enclosed by `ownerId`'s
  * territory adjacent to `capturedTile`. Returns the newly-settled tiles.
  * Returns an empty array immediately when AUTO_FILL_ENABLED is false.
+ *
+ * `recordYieldAnchor` is invoked once per newly-settled tile so callers can
+ * stamp the per-tile yield-collection baseline, matching the manual settle
+ * path (otherwise an auto-filled tile would accrue yield from the player's
+ * income anchor rather than from the moment it was settled).
  */
 export const applyAutoFill = (input: {
   capturedTile: DomainTileState;
@@ -79,9 +84,10 @@ export const applyAutoFill = (input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   replaceTileState: (key: string, tile: DomainTileState) => void;
   onAutoFillTiles?: ((count: number) => void) | undefined;
+  recordYieldAnchor?: ((key: string) => void) | undefined;
 }): DomainTileState[] => {
   if (!AUTO_FILL_ENABLED) return [];
-  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles } = input;
+  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchor } = input;
   const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
   const settled: DomainTileState[] = [];
   for (const region of regions) {
@@ -96,6 +102,7 @@ export const applyAutoFill = (input: {
         frontierDecayKind: undefined,
       };
       replaceTileState(key, filledTile);
+      recordYieldAnchor?.(key);
       settled.push(filledTile);
     }
   }
