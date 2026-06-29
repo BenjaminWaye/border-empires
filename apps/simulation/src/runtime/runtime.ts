@@ -263,6 +263,7 @@ import {
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
+  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -3626,6 +3627,9 @@ export class SimulationRuntime {
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
+        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),

@@ -123,7 +123,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CENSUS_HALL") return "Drives local population growth through census administration.";
   if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
   if (kind === "CLEARING_HOUSE") return "Strengthens banks and markets for this town and its directly connected towns.";
-  if (kind === "AIRPORT") return "Launches crystal-powered bombardment against enemy territory.";
+  if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). 200 crystal + 5,000 gold per shot, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
@@ -292,7 +292,7 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles"];
-    if (key === "AIRPORT") return ["Bombards enemy territory within 30 tiles", "Requires nearby Aether Tower power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "200 crystal + 5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
@@ -675,7 +675,7 @@ export const structureInfoForKey = (
   if (type === "AIRPORT") {
     return structure({
       title: "Sky Dock",
-      detail: "Sky Docks launch crystal-powered bombardments against enemy territory within 30 tiles for 20 crystal per shot and require Aether Tower power.",
+      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 200 crystal + 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Aether Tower power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
