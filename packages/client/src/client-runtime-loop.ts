@@ -579,7 +579,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.stroke();
       }
 
-      if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
+      if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
         deps.ctx.fillStyle =
           crystalTone === "amber"
             ? "rgba(255, 187, 72, 0.12)"
@@ -1096,7 +1096,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.stroke();
         }
 
-        if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
+        if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
           deps.ctx.fillStyle =
             crystalTone === "amber"
               ? "rgba(255, 187, 72, 0.12)"
@@ -1352,7 +1352,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const selectedStructurePreview = selectedWorld ? structureAreaPreviewForTile(selectedWorld) : undefined;
-    if (selectedWorld && selectedStructurePreview) {
+    if (!isTrue3DRendererActive() && selectedWorld && selectedStructurePreview) {
       const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
       if (selectedVisibility === "visible") {
         const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
@@ -1414,7 +1414,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    if (crystalTargetingActive) {
+    if (!isTrue3DRendererActive() && crystalTargetingActive) {
       const hoveredKey = state.hover ? deps.keyFor(state.hover.x, state.hover.y) : "";
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
       const targetKey = state.crystalTargeting.validTargets.has(hoveredKey)
