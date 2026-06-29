@@ -218,6 +218,9 @@ export const rebuildPlannerCandidateIndexesForPlayer = (input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   summary: PlayerRuntimeSummary;
   markPlannerPlayerTileCollectionDirty: (playerId: string) => void;
+  /** Optional hook called after the full rebuild so callers can re-sync an
+   *  incremental cache from the now-correct summary Sets. */
+  onCandidateRebuildComplete?: (playerId: string, summary: PlayerRuntimeSummary) => void;
 }): void => {
   input.summary.hotFrontierTileKeys.clear();
   input.summary.strategicFrontierTileKeys.clear();
@@ -229,6 +232,7 @@ export const rebuildPlannerCandidateIndexesForPlayer = (input: {
     if (isStrategicFrontierTile(input.playerId, tile, input.tiles)) input.summary.strategicFrontierTileKeys.add(tileKey);
     if (isBuildCandidateTile(input.playerId, tile, input.tiles)) input.summary.buildCandidateTileKeys.add(tileKey);
   }
+  input.onCandidateRebuildComplete?.(input.playerId, input.summary);
   input.markPlannerPlayerTileCollectionDirty(input.playerId);
 };
 
@@ -240,6 +244,15 @@ export const refreshPlannerCandidateIndexesAroundTileChange = (input: {
   playerCandidateIndex: PlayerCandidateIndex;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   markPlannerPlayerTileCollectionDirty: (playerId: string) => void;
+  /** Optional hook called once per affected player, AFTER the summary Sets have
+   *  been updated for `affectedKeys`, so callers can mirror the same deltas
+   *  into an incremental cache.  Receives the player id, the set of candidate
+   *  tile keys that were touched, and the up-to-date summary. */
+  onCandidateKeysUpdated?: (
+    playerId: string,
+    affectedKeys: ReadonlySet<string>,
+    summary: PlayerRuntimeSummary
+  ) => void;
 }): void => {
   const affectedKeys = candidateIndexKeysAroundTileKey(input.tileKey);
   const affectedPlayerIds = playerIdsAffectedByTileChange(input.tileKey, input.tiles, input.previous, input.next);
@@ -255,6 +268,7 @@ export const refreshPlannerCandidateIndexesAroundTileChange = (input: {
       if (isStrategicFrontierTile(playerId, candidateTile, input.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
       if (isBuildCandidateTile(playerId, candidateTile, input.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
     }
+    input.onCandidateKeysUpdated?.(playerId, affectedKeys, summary);
     input.markPlannerPlayerTileCollectionDirty(playerId);
   }
   input.playerCandidateIndex.refreshAroundTile(input.tileKey, (key) => input.tiles.get(key));

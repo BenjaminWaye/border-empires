@@ -84,7 +84,7 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
-export const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout"] as const;
+export const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout", "season_ended"] as const;
 export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];
 
 export type SimulationSnapshotMetricSample = {
@@ -104,6 +104,8 @@ export type SimulationSnapshotMetricSample = {
 
 export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
+  simOwnedTilesTotal: number;
+  simMaxEmpireTiles: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
@@ -179,9 +181,19 @@ export type SimulationMetricsSnapshot = {
   simAiLastCommandAcceptedAtMs: Record<string, number>;
   simMusterRemoteAttackTotal: number;
   simMusterRemoteBlockedTotal: number;
+  simMusterRemoteBlockedBarbarianTotal: number;
+  simSeasonEndSnapshotWarmTotal: number;
+  simSeasonEndSnapshotWarmFailedTotal: number;
+  /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */
+  simFullVisInlineBuildTotal: number;
+  simAutoFillTilesTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
-  /** Counter per utility DecisionClass acted on (only incremented when AI_UTILITY_POLICY_ENABLED). */
+  /** Counter per utility DecisionClass acted on. */
   simAiUtilityActionClassTotalByClass: Record<DecisionClass, number>;
   simAiUtilityDecisionRecent: string[];
+  /** Post-season proto-tile cache hits (same seasonId reused, no re-map). */
+  simPostSeasonProtoTileCacheHitTotal: number;
+  /** Post-season proto-tile cache misses (first map or new season). */
+  simPostSeasonProtoTileCacheMissTotal: number;
 };

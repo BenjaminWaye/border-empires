@@ -1,23 +1,12 @@
 /**
- * Integration tests for the utility AI path (AI_UTILITY_POLICY_ENABLED=true).
+ * Integration tests for the utility AI planner.
  *
- * These run planAutomationCommand through the utility dispatch rather than
- * the GOAP waterfall.  The module mock forces the flag on so the planner
- * takes the utility branch even without an env var set.
- *
- * Coverage goal: ensure the utility path preserves the key ordering guarantees
- * that the existing GOAP tests lock in, and adds the BUILD_ECONOMY regression
- * lock (BUILD_ECONOMY must never win when a frontier/attack opportunity exists).
+ * Coverage goal: ensure the utility path preserves key ordering guarantees
+ * and locks in the BUILD_ECONOMY regression (BUILD_ECONOMY must never win
+ * when a frontier/attack opportunity exists).
  */
 
-import { describe, expect, it, vi } from "vitest";
-
-// Force the utility path.  vi.mock is hoisted above imports by Vitest so the
-// module sees AI_UTILITY_POLICY_ENABLED=true before planAutomationCommand loads.
-vi.mock("@border-empires/shared", async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>;
-  return { ...actual, AI_UTILITY_POLICY_ENABLED: true };
-});
+import { describe, expect, it } from "vitest";
 
 import { planAutomationCommand } from "./automation-command-planner.js";
 

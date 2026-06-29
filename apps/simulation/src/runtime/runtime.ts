@@ -127,6 +127,13 @@ import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
+  incrementalAdd,
+  incrementalRemove,
+  initCacheEntryFromSummary,
+  resetFromIterable,
+  type PlannerTileKeysCacheEntry
+} from "../planner-tile-keys-cache.js";
+import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
   type AutomationPlannerDiagnostic
@@ -207,6 +214,7 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
+import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -256,6 +264,7 @@ import {
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
+  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -424,16 +433,13 @@ export class SimulationRuntime {
   // refreshSpatialFocusForPlayer; cleared automatically when the player owns
   // no territory.
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
-  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
-    tileCollectionVersion: number;
-    topologyVersion: number;
-    territoryTileKeys: string[];
-    frontierTileKeys: string[];
-    hotFrontierTileKeys: string[];
-    strategicFrontierTileKeys: string[];
-    buildCandidateTileKeys: string[];
-    pendingSettlementTileKeys: string[];
-  }>();
+  // Incrementally-maintained tile key cache for the planner player-view export.
+  // Each entry holds six TileKeyArrayEntry objects (keys[] + positionOf Map)
+  // that are updated in O(1) per tile mutation via swap-with-last-then-pop,
+  // instead of being rebuilt O(territory) on every cache miss.  The cache is
+  // populated lazily on first access via plannerPlayerTileKeys (O(territory)
+  // one-time init) and kept live through targeted mutation hooks thereafter.
+  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId.  A single lock is
   // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
@@ -474,6 +480,8 @@ export class SimulationRuntime {
   private readonly watchedMusterTileByPlayer = new Map<string, string>();
   private readonly onMusterRemoteAttack: (() => void) | undefined;
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
+  private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
+  private readonly onAutoFillTiles: ((count: number) => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -695,6 +703,8 @@ export class SimulationRuntime {
     this.shouldPauseBackground = options.shouldPauseBackground;
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
+    this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
+    this.onAutoFillTiles = options.onAutoFillTiles;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -857,6 +867,7 @@ export class SimulationRuntime {
           playerId: pendingSettlement.ownerId,
           tileDeltas: [this.tileDeltaFromState(settledTile)]
         });
+        this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
         this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
@@ -993,7 +1004,7 @@ export class SimulationRuntime {
     const economy = this.cachedEconomySnapshot(player);
     const goldPerMinute = economy.incomePerMinute;
     const summary = this.summaryForPlayer(player.id);
-    const storageCap = computeEmpireStorageCap(summary, goldPerMinute, economy.strategicProductionPerMinute);
+    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
 
     // Credit gold
     let anyCredited = false;
@@ -1277,7 +1288,7 @@ export class SimulationRuntime {
       onCaptureRevealBuilt: this.onCaptureRevealBuilt,
       applyBarbarianWalkOrMultiply: (lock, previousTarget) => this.applyBarbarianWalkOrMultiply(lock, previousTarget),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
-      applyEncirclementForExpand: (targetKey, playerId, commandId) => this.applyEncirclementForExpand(targetKey, playerId, commandId),
+      applyEncirclementForExpand: (targetKey, playerId, commandId, options) => this.applyEncirclementForExpand(targetKey, playerId, commandId, options),
       relocateSettlementForPlayer: (playerId, commandId, population) => this.relocateSettlementForPlayer(playerId, commandId, population),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
@@ -1291,10 +1302,11 @@ export class SimulationRuntime {
             tiles: this.tiles,
             invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
           })
-        : undefined
+        : undefined,
     };
   }
 
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -1397,7 +1409,13 @@ export class SimulationRuntime {
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
     const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
-    this.plannerPlayerTileKeyCacheByPlayer.delete(playerId);
+    // The incremental cache (plannerPlayerTileKeyCacheByPlayer) is no longer
+    // deleted here.  It is kept live by the targeted mutation hooks in
+    // applyTileToPlayerSummaries, removeTileFromPlayerSummaries,
+    // refreshPlannerCandidateIndexesAroundTileChange, addPendingSettlement,
+    // and removePendingSettlement.  plannerPlayerTileKeys() re-initializes
+    // the entry from summary when no entry exists (first access or after
+    // rebuildPlannerCandidateIndexesForPlayer explicitly cleared it).
   }
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
@@ -1420,22 +1438,39 @@ export class SimulationRuntime {
 
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
     const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
-    const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (cached && cached.tileCollectionVersion === tileCollectionVersion) {
-      return { ...cached, topologyDirtyTileKeys };
+
+    // Use the incrementally-maintained cache entry.  The entry is kept in sync
+    // by the mutation hooks in applyTileToPlayerSummaries,
+    // removeTileFromPlayerSummaries, refreshPlannerCandidateIndexesAroundTileChange,
+    // addPendingSettlement, and removePendingSettlement.  If no entry exists
+    // (first access or after a full rebuild cleared it), initialize it now from
+    // the summary Sets — O(territory), but only happens once per player lifetime
+    // rather than on every planner cycle.
+    let entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+    if (!entry) {
+      entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
     }
-    const next = {
+
+    // CONTRACT — these are LIVE references into the incremental cache, not
+    // copies. They are mutated in place by the cache hooks on the NEXT
+    // territory mutation. A caller may read/iterate/copy them synchronously,
+    // but MUST NOT retain a reference and read it across a mutation cycle, or
+    // it will observe silently-drifted territory. Current consumers are safe:
+    //   - planner worker receives a structured clone via postMessage;
+    //   - relevantTileKeyIndex.replacePlayers snapshots into `new Set(...)` on
+    //     entry (planner-sync-scope.ts) before returning to the event loop.
+    // If you add a consumer that stores one of these arrays, copy it first.
+    return {
       tileCollectionVersion,
       topologyVersion,
-      territoryTileKeys: [...summary.territoryTileKeys],
-      frontierTileKeys: [...summary.frontierTileKeys],
-      hotFrontierTileKeys: [...summary.hotFrontierTileKeys],
-      strategicFrontierTileKeys: [...summary.strategicFrontierTileKeys],
-      buildCandidateTileKeys: [...summary.buildCandidateTileKeys],
-      pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
+      topologyDirtyTileKeys,
+      territoryTileKeys: entry.territory.keys,
+      frontierTileKeys: entry.frontier.keys,
+      hotFrontierTileKeys: entry.hotFrontier.keys,
+      strategicFrontierTileKeys: entry.strategicFrontier.keys,
+      buildCandidateTileKeys: entry.buildCandidate.keys,
+      pendingSettlementTileKeys: entry.pendingSettlement.keys
     };
-    this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
-    return { ...next, topologyDirtyTileKeys };
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -1772,12 +1807,24 @@ export class SimulationRuntime {
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     applyTileToPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    // Mirror the summary mutation into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(tile.ownerId);
+    if (cacheEntry) {
+      incrementalAdd(cacheEntry.territory, tileKey);
+      if (tile.ownershipState === "FRONTIER") incrementalAdd(cacheEntry.frontier, tileKey);
+    }
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private removeTileFromPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     removeTileFromPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    // Mirror the summary mutation into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(tile.ownerId);
+    if (cacheEntry) {
+      incrementalRemove(cacheEntry.territory, tileKey);
+      incrementalRemove(cacheEntry.frontier, tileKey);
+    }
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
@@ -1942,7 +1989,19 @@ export class SimulationRuntime {
       playerId,
       tiles: this.tiles,
       summary: this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id)
+      markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id),
+      onCandidateRebuildComplete: (id, summary) => {
+        // After a full rebuild of hot/strategic/buildCandidate, reset the
+        // incremental cache entry for those three sub-fields from the now-correct
+        // summary Sets.  territory, frontier, and pendingSettlement are not
+        // touched by rebuildPlannerCandidateIndexes so they stay valid.
+        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(id);
+        if (entry) {
+          resetFromIterable(entry.hotFrontier, summary.hotFrontierTileKeys);
+          resetFromIterable(entry.strategicFrontier, summary.strategicFrontierTileKeys);
+          resetFromIterable(entry.buildCandidate, summary.buildCandidateTileKeys);
+        }
+      }
     });
   }
 
@@ -1958,7 +2017,33 @@ export class SimulationRuntime {
       tiles: this.tiles,
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId),
+      onCandidateKeysUpdated: (playerId, affectedKeys, summary) => {
+        // Mirror the hot/strategic/build candidate updates into the incremental
+        // cache.  affectedKeys is a bounded neighborhood (≤25 tiles at r=2),
+        // so this is O(1) in practice regardless of empire size.
+        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+        if (!entry) return;
+        for (const candidateKey of affectedKeys) {
+          // Re-check the summary Sets (which are already updated at this point)
+          // to determine whether each affected key should be in the cached arrays.
+          if (summary.hotFrontierTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.hotFrontier, candidateKey);
+          } else {
+            incrementalRemove(entry.hotFrontier, candidateKey);
+          }
+          if (summary.strategicFrontierTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.strategicFrontier, candidateKey);
+          } else {
+            incrementalRemove(entry.strategicFrontier, candidateKey);
+          }
+          if (summary.buildCandidateTileKeys.has(candidateKey)) {
+            incrementalAdd(entry.buildCandidate, candidateKey);
+          } else {
+            incrementalRemove(entry.buildCandidate, candidateKey);
+          }
+        }
+      }
     });
   }
 
@@ -2007,6 +2092,9 @@ export class SimulationRuntime {
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
+    // Mirror into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(record.ownerId);
+    if (cacheEntry) incrementalAdd(cacheEntry.pendingSettlement, record.tileKey);
     this.markPlannerPlayerTileCollectionDirty(record.ownerId);
   }
 
@@ -2015,6 +2103,9 @@ export class SimulationRuntime {
     if (!record) return undefined;
     this.pendingSettlementsByTile.delete(tileKey);
     removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
+    // Mirror into the incremental cache (O(1)).
+    const cacheEntry = this.plannerPlayerTileKeyCacheByPlayer.get(record.ownerId);
+    if (cacheEntry) incrementalRemove(cacheEntry.pendingSettlement, tileKey);
     this.markPlannerPlayerTileCollectionDirty(record.ownerId);
     return record;
   }
@@ -2305,6 +2396,21 @@ export class SimulationRuntime {
       expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
       musterTilesByOwner: this.musterTilesByOwner
     });
+  }
+
+  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
+  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
+  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
+  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
+    let totalOwnedTiles = 0;
+    let maxEmpireTiles = 0;
+    for (const [playerId, summary] of this.playerSummaries) {
+      if (playerId.startsWith("barbarian")) continue;
+      const size = summary.territoryTileKeys.size;
+      totalOwnedTiles += size;
+      if (size > maxEmpireTiles) maxEmpireTiles = size;
+    }
+    return { totalOwnedTiles, maxEmpireTiles };
   }
 
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
@@ -2667,7 +2773,7 @@ export class SimulationRuntime {
     if (!player) return undefined;
     const summary = this.summaryForPlayer(playerId);
     const economy = this.cachedEconomySnapshot(player);
-    return computeEmpireStorageCap(summary, economy.incomePerMinute, economy.strategicProductionPerMinute);
+    return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
   }
 
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
@@ -2683,7 +2789,7 @@ export class SimulationRuntime {
     const metrics = this.cachedDefensibilityMetrics(playerId, summary);
     const economy = this.cachedEconomySnapshot(player);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
-    const storageCap = computeEmpireStorageCap(summary, economy.incomePerMinute, economy.strategicProductionPerMinute);
+    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
     const lastCap = this.lastEmittedStorageCapByPlayer.get(playerId);
     const capChanged =
       !lastCap ||
@@ -2964,8 +3070,12 @@ export class SimulationRuntime {
     const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
       ? this.requiredMusterForTarget(to)
       : undefined;
-    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1" && actor.id !== "barbarian-1"
-      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST)
+    const advancePreferredKey =
+      payload.musterSourceX != null && payload.musterSourceY != null
+        ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
+        : undefined;
+    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
+      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
       : undefined;
     const validation = validateFrontierCommand({
       now: this.now(),
@@ -2978,7 +3088,9 @@ export class SimulationRuntime {
       targetLockedUntil: targetLock?.resolvesAt,
       targetLockOwnerId: targetLock?.playerId,
       actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
+      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
+        (this.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
+          .includes(simulationTileKey(to.x, to.y)),
       isDockCrossing,
       isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
@@ -2992,6 +3104,9 @@ export class SimulationRuntime {
     if (!validation.ok) {
       if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
         this.onMusterRemoteBlocked?.();
+        if (actor.id.startsWith("barbarian-") && !to.ownerId?.startsWith("barbarian-")) {
+          this.onMusterRemoteBlockedBarbarian?.();
+        }
       }
       this.commandTrace?.({
         phase: "frontier_reject",
@@ -3172,6 +3287,7 @@ export class SimulationRuntime {
         playerId: input.playerId,
         tileDeltas: [this.tileDeltaFromState(settledTile)]
       });
+      this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     });
   }
@@ -3532,6 +3648,9 @@ export class SimulationRuntime {
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
+        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
@@ -3927,7 +4046,6 @@ export class SimulationRuntime {
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
-    if (!from.dockId) return false;
     return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
   }
 
@@ -3953,7 +4071,7 @@ export class SimulationRuntime {
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== playerId || tile.terrain !== "LAND" || !tile.dockId) continue;
+      if (tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
       if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
@@ -4138,8 +4256,8 @@ export class SimulationRuntime {
     resolveLockImpl(this.lockResolutionContext(), lock);
   }
 
-  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string): void {
-    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId);
+  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void {
+    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId, options);
   }
 
   private applyEncirclement(
@@ -4266,7 +4384,8 @@ export class SimulationRuntime {
   private resolveMusterSource(
     actorId: string,
     originKey: string,
-    requiredMuster: number
+    requiredMuster: number,
+    preferredKey?: string
   ): { sourceKey: string; available: number } | undefined {
     const origin = this.tiles.get(originKey);
     if (!origin) return undefined;
@@ -4278,6 +4397,17 @@ export class SimulationRuntime {
       if (available >= requiredMuster) return { sourceKey: originKey, available };
     }
 
+    // Advance-system preferred key: skip distance check since the BFS
+    // already verified connectivity through owned territory.
+    if (preferredKey && preferredKey !== originKey) {
+      const preferred = this.tiles.get(preferredKey);
+      if (preferred?.muster?.ownerId === actorId) {
+        const reserved = this.musterReservedByKey.get(preferredKey) ?? 0;
+        const available = preferred.muster.amount - reserved;
+        if (available >= requiredMuster) return { sourceKey: preferredKey, available };
+      }
+    }
+
     const musterKeys = this.musterTilesByOwner.get(actorId);
     if (!musterKeys) return undefined;
 
@@ -4286,6 +4416,7 @@ export class SimulationRuntime {
 
     for (const tileKey of musterKeys) {
       if (tileKey === originKey) continue; // already checked above
+      if (tileKey === preferredKey) continue; // already checked above
       const tile = this.tiles.get(tileKey);
       if (!tile?.muster || tile.muster.ownerId !== actorId) continue;
       const reserved = this.musterReservedByKey.get(tileKey) ?? 0;
@@ -4296,7 +4427,7 @@ export class SimulationRuntime {
       const dx = Math.min(Math.abs(tile.x - origin.x), WORLD_WIDTH - Math.abs(tile.x - origin.x));
       const dy = Math.min(Math.abs(tile.y - origin.y), WORLD_HEIGHT - Math.abs(tile.y - origin.y));
       const dist = Math.max(dx, dy);
-      if (dist <= 4 && dist < bestDist) {
+      if (dist <= 10 && dist < bestDist) {
         bestDist = dist;
         bestKey = tileKey;
       }
@@ -4416,6 +4547,7 @@ export class SimulationRuntime {
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
+    this.updatePlayerLastActive(command.playerId, this.now());
     const lane = laneForCommand(command);
     this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
   }

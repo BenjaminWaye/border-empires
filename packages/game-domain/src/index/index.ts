@@ -1,4 +1,5 @@
 // Re-export domain modules promoted into game-domain.
+export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
@@ -152,6 +153,7 @@ export type DomainTileState = {
         nextUpkeepAt?: number | undefined;
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
         previousStatus?: "active" | "inactive" | undefined;
+        bombardCooldownUntil?: number | undefined;
       }
     | undefined;
   sabotage?:
@@ -291,8 +293,11 @@ export const validateFrontierCommand = (
     };
   }
   if (isBarbRaid) {
-    // Barbarian raid: cheap pool-funded strike, no muster wind-up required.
-    if (input.actor.manpower < BARBARIAN_RAID_COST) {
+    // Advance-mode barbarian raids draw from the muster flag's pool.
+    // Manual raids without a flag use the player's global pool.
+    if (musterAttack && (input.originMuster ?? 0) >= requiredMuster) {
+      // Flag has enough mustered manpower — proceed.
+    } else if (input.actor.manpower < BARBARIAN_RAID_COST) {
       return {
         ok: false,
         code: "INSUFFICIENT_MANPOWER",

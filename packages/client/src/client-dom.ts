@@ -195,6 +195,7 @@ const hudMarkup = `
   <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
   <div id="respawn-overlay" style="display:none;"></div>
+  <div id="season-end-overlay" style="display:none;"></div>
   <div id="intel-overlay" style="display:none;"></div>
   <div id="renderer-prompt-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
@@ -456,6 +457,7 @@ export const initClientDom = () => {
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
+  const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
   const intelOverlayEl = requireElement<HTMLDivElement>("#intel-overlay");
   const rendererPromptOverlayEl = requireElement<HTMLDivElement>("#renderer-prompt-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
@@ -574,6 +576,7 @@ export const initClientDom = () => {
     panelTitleEl,
     rendererPromptOverlayEl,
     respawnOverlayEl,
+    seasonEndOverlayEl,
     selectedEl,
     shardAlertCardEl,
     shardAlertCloseBtn,

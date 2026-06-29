@@ -110,7 +110,6 @@ const maybeSpawnScheduledShardRain = (input: ShardRainRuntimeInput, nowMs: numbe
 };
 
 const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
-  input.recentShardRainTileKeys.clear();
   const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
   const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
   const startsAt = nowMs;
