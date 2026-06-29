@@ -31,7 +31,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Crystal targeting overlay fill opacity increased from 12% to 30%.",
         "Crystal targeting overlay valid target tiles now have a colored border (stroke) matching the 2D overlay style.",
         "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
-        "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
         "Observatory range circle border increased from 35% to 55% and fill from 2% to 10%.",
         "Waterworks and Sweep range circle fills increased from 3-4% to 10%."
       ]
