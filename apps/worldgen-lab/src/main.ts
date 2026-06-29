@@ -34,14 +34,7 @@ const stats = {
   islands: "—",
   largestIsland: "—",
   attempts: "—",
-  time: "—",
-  towns: "—",
-  docks: "—",
-  farm: "—",
-  fish: "—",
-  gems: "—",
-  iron: "—",
-  fur: "—"
+  time: "—"
 };
 
 let lastData: WorkerResponse | null = null;
@@ -71,13 +64,6 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
   stats.largestIsland = `${d.largestIslandPct}% of land`;
   stats.attempts = d.attempts === 1 ? "1 (no refinement)" : `${d.attempts}`;
   stats.time = `${d.durationMs.toFixed(0)} ms`;
-  stats.towns = `${d.townCount}`;
-  stats.docks = `${d.dockCount}`;
-  stats.farm = `${d.farmSites.toLocaleString()} tiles`;
-  stats.fish = `${d.fishSites.toLocaleString()} tiles`;
-  stats.gems = `${d.gemsSites.toLocaleString()} tiles`;
-  stats.iron = `${d.ironSites.toLocaleString()} tiles`;
-  stats.fur = `${d.furSites.toLocaleString()} tiles`;
 
   const seedLabel = d.actualSeed !== d.requestedSeed
     ? `Seed ${d.actualSeed} (requested ${d.requestedSeed})`
@@ -149,19 +135,6 @@ statsFolder.addBinding(stats, "islands", { label: "Islands", readonly: true });
 statsFolder.addBinding(stats, "largestIsland", { label: "Largest", readonly: true });
 statsFolder.addBinding(stats, "attempts", { label: "Attempts", readonly: true });
 statsFolder.addBinding(stats, "time", { label: "Gen time", readonly: true });
-
-// Settlements
-const settlementFolder = pane.addFolder({ title: "Settlements", expanded: true });
-settlementFolder.addBinding(stats, "towns", { label: "Towns", readonly: true });
-settlementFolder.addBinding(stats, "docks", { label: "Docks", readonly: true });
-
-// Resources (eligible tile counts)
-const resourceFolder = pane.addFolder({ title: "Resources", expanded: true });
-resourceFolder.addBinding(stats, "farm", { label: "Farm", readonly: true });
-resourceFolder.addBinding(stats, "fish", { label: "Fish", readonly: true });
-resourceFolder.addBinding(stats, "gems", { label: "Gems", readonly: true });
-resourceFolder.addBinding(stats, "iron", { label: "Iron", readonly: true });
-resourceFolder.addBinding(stats, "fur", { label: "Fur", readonly: true });
 
 // Auto-generate on load
 generate();
