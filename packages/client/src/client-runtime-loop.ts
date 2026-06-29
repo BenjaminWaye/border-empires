@@ -579,7 +579,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.stroke();
       }
 
-      if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
+      if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
         deps.ctx.fillStyle =
           crystalTone === "amber"
             ? "rgba(255, 187, 72, 0.12)"
@@ -1096,7 +1096,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.stroke();
         }
 
-        if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
+        if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
           deps.ctx.fillStyle =
             crystalTone === "amber"
               ? "rgba(255, 187, 72, 0.12)"
@@ -1352,7 +1352,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const selectedStructurePreview = selectedWorld ? structureAreaPreviewForTile(selectedWorld) : undefined;
-    if (selectedWorld && selectedStructurePreview) {
+    if (!isTrue3DRendererActive() && selectedWorld && selectedStructurePreview) {
       const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
       if (selectedVisibility === "visible") {
         const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
@@ -1414,7 +1414,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    if (crystalTargetingActive) {
+    if (!isTrue3DRendererActive() && crystalTargetingActive) {
       const hoveredKey = state.hover ? deps.keyFor(state.hover.x, state.hover.y) : "";
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
       const targetKey = state.crystalTargeting.validTargets.has(hoveredKey)
@@ -1505,11 +1505,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
-    // 2D supply line: flag → attack front.
-    // For ADVANCE mode, find the adjacent muster tile that fired the attack.
-    const musterSupplySrc = state.activeMusterSource ?? (() => {
+    // 2D supply line: flag → attack front, only for attacks on owned tiles (not neutral expands).
+    // For ADVANCE mode, scan for the adjacent muster tile that fired the attack.
+    const targetOwned = Boolean(state.tiles.get(state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "")?.ownerId);
+    const musterSupplySrc = state.activeMusterSource ?? (targetOwned ? (() => {
       if (!state.capture) return undefined;
-      // Find the ADVANCE muster tile closest to the capture target — that's the flag driving this attack.
       let bestTile: { x: number; y: number } | undefined;
       let bestDist = Infinity;
       const tgt = state.capture.target;
@@ -1519,18 +1519,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
       }
       return bestTile;
-    })();
+    })() : undefined);
     if (!isTrue3DRendererActive() && musterSupplySrc && state.capture) {
       const src = musterSupplySrc;
       const tgt = state.capture.target;
       const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
       const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
       const phase = state.musterTransit ? "transit" : "locked";
-      const alpha = phase === "transit" ? 0.5 + 0.4 * Math.abs(Math.sin(nowMs / 400)) : 0.55;
+      const alpha = phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
       deps.ctx.save();
       deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
       deps.ctx.globalAlpha = alpha;
-      deps.ctx.lineWidth = phase === "transit" ? 2.5 : 1.5;
+      deps.ctx.lineWidth = phase === "transit" ? 3.5 : 2.5;
       if (phase === "transit") deps.ctx.setLineDash([6, 4]);
       deps.ctx.beginPath();
       deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);

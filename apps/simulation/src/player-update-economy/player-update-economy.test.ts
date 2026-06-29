@@ -181,6 +181,54 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       expect.objectContaining({ label: "Towns", amountPerMinute: 15.4, count: 4 })
     );
   });
+
+  it("goldCapIncomePerMinute equals incomePerMinute when no cap-mult techs are active", () => {
+    const player = makePlayer();
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", dockId: "dock-a" }],
+      ["20,10", { x: 20, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
+    ]);
+    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+    expect(economy.goldCapIncomePerMinute).toBe(economy.incomePerMinute);
+  });
+
+  it("goldCapIncomePerMinute is higher than incomePerMinute when dockGoldCapMult is active", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("port-infrastructure"); // dockGoldCapMult: 1.25
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.25, 4);
+  });
+
+  it("goldCapIncomePerMinute is higher than incomePerMinute when townGoldCapMult is active", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.05, 4);
+  });
+
+  it("townGoldCapMult does not apply to settlement income", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "S" } }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.goldCapIncomePerMinute).toBe(baseEconomy.goldCapIncomePerMinute);
+  });
 });
 
 describe("refreshTownEconomyFields", () => {
@@ -290,5 +338,57 @@ describe("refreshTownEconomyFields", () => {
     const refreshed = refreshTownEconomyFields(tile.town!, tile, player, tiles, fedTownKeys);
 
     expect(refreshed.isFed).toBe(true);
+  });
+});
+
+describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
+  const makeSettledTownTile = (x: number, y: number): DomainTileState => ({
+    x,
+    y,
+    terrain: "LAND",
+    ownerId: "player-1",
+    ownershipState: "SETTLED",
+    town: { type: "FARMING", populationTier: "TOWN", name: `Town${x}` }
+  });
+
+  const player = makePlayer();
+
+  it("default mult=1 produces identical output to explicit mult=1 (parity)", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
+    const explicit = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    expect(base.incomePerMinute).toBe(explicit.incomePerMinute);
+    expect(base.strategicProductionPerMinute).toEqual(explicit.strategicProductionPerMinute);
+  });
+
+  it("high mult scales up incomePerMinute", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
+    expect(boosted.incomePerMinute).toBeGreaterThan(base.incomePerMinute);
+  });
+
+  it("high mult scales up strategicProductionPerMinute values", () => {
+    const ironTile: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON"
+    };
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", makeSettledTownTile(10, 10)],
+      ["11,10", ironTile]
+    ]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
+    expect(boosted.strategicProductionPerMinute.IRON).toBeGreaterThan(base.strategicProductionPerMinute.IRON);
+  });
+
+  it("low mult (< 1) reduces incomePerMinute", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", makeSettledTownTile(10, 10)]]);
+    const summary = summaryForTiles(tiles);
+    const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
+    const reduced = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 0.8);
+    expect(reduced.incomePerMinute).toBeLessThan(base.incomePerMinute);
   });
 });

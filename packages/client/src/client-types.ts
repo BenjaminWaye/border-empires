@@ -183,6 +183,7 @@ export type Tile = {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     powered?: boolean;
+    bombardCooldownUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
@@ -532,8 +533,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp";
-
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard";
 export type GuideStep = {
   title: string;
   body: string;
@@ -639,6 +639,7 @@ export type TileActionDef = {
     | "siphon_tile"
     | "aether_emp"
     | "world_engine_strike"
+    | "airport_bombard"
     | "aegis_lock"
     | "city_overclock"
     | "astral_dock_launch"

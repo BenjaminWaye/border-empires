@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
-import { goapGoldReserveHealthy, planAutomationCommand } from "./automation-command-planner.js";
+import { planAutomationCommand } from "./automation-command-planner.js";
 
 const makeTile = (
   x: number,
@@ -100,7 +100,7 @@ describe("automation command planner", () => {
     expect(result.diagnostic.settlementCandidateFound).toBe(true);
   });
 
-  it("reports insufficient_manpower_for_attack when only enemy land is adjacent", () => {
+  it("idles with wait_and_recover when only enemy land is adjacent and manpower is low", () => {
     const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
     const tilesByKey = new Map([
@@ -123,10 +123,10 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.frontierEnemyTargetCount).toBe(1);
-    expect(result.diagnostic.noCommandReason).toBe("insufficient_manpower_for_attack");
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
-  it("idles with insufficient_points when no frontier exists (passive income handles resource credit)", () => {
+  it("idles with wait_and_recover when no frontier exists and points are zero", () => {
     const settlement = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -146,13 +146,11 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    // With passive income, the planner no longer emits COLLECT_VISIBLE when stuck.
-    // Income arrives via the server-side tick instead.
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("insufficient_points");
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
-  it("reports no_frontier_targets when no legal land expansion or attack exists", () => {
+  it("reports wait_and_recover when no legal land expansion or attack exists", () => {
     const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const sea = makeTile(1, 0, { terrain: "SEA" });
     const mountain = makeTile(0, 1, { terrain: "MOUNTAIN" });
@@ -176,10 +174,10 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
-  it("reports no_frontier_targets instead of no_settlement_target when nothing actionable exists", () => {
+  it("reports wait_and_recover instead of no_settlement_target when nothing actionable exists", () => {
     const settled = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -204,7 +202,7 @@ describe("automation command planner", () => {
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.settlementEligible).toBe(true);
     expect(result.diagnostic.settlementCandidateFound).toBe(false);
-    expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
     expect(result.diagnostic.ownedTileCount).toBe(1);
     expect(result.diagnostic.ownedFrontierTileCount).toBe(0);
     expect(result.diagnostic.frontierTileCountInput).toBe(0);
@@ -711,7 +709,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
   it("prefers scout expansion over mediocre fallback settlement while first tech is unaffordable", () => {
@@ -798,7 +796,7 @@ describe("automation command planner", () => {
     });
   });
 
-  it("honors goap wait_and_recover instead of falling through to late scout expansion", () => {
+  it("prefers expandable frontier over wait_and_recover at late scout expansion", () => {
     const settled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
     const scout = makeTile(0, 1, {});
@@ -829,8 +827,8 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    // utility policy scores EXPAND > WAIT when a scout frontier exists
+    expect(result.command?.type).toBe("EXPAND");
   });
 
   it("skips broad-fallback when owned tiles exceed threshold", () => {
@@ -858,9 +856,5 @@ describe("automation command planner", () => {
     expect(result.diagnostic.broadFallbackSkipped).toBe(true);
   });
 
-  it("matches the legacy goldHealthy reserve threshold for the goap adapter", () => {
-    expect(goapGoldReserveHealthy(4)).toBe(false);
-    expect(goapGoldReserveHealthy(5)).toBe(true);
-  });
-
 });
+

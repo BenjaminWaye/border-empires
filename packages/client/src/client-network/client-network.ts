@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
 import {
@@ -28,6 +29,7 @@ import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js"
 import { notificationCategoryForServerError } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
+import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -998,6 +1000,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -1034,6 +1037,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -1156,6 +1160,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         message: typeof msg.message === "string" ? msg.message : undefined
       });
     }
+    if (msg.type === "SERVER_DEPLOYING") {
+      state.serverDeploying = true;
+      setServerDeployingSession();
+      return;
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -1166,9 +1175,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       return;
     }
+    if (msg.type === "LOGIN_QUEUED" || msg.type === "LOGIN_QUEUE_PROGRESS") {
+      if (!state.authSessionReady) {
+        const position = typeof msg.position === "number" ? msg.position : 1;
+        const estimatedWaitMs = typeof msg.estimatedWaitMs === "number" ? msg.estimatedWaitMs : 0;
+        const estimatedSec = estimatedWaitMs > 0 ? Math.ceil(estimatedWaitMs / 1000) : null;
+        const waitHint = estimatedSec ? ` (~${estimatedSec}s)` : "";
+        applyLoginPhase(
+          "Login queue",
+          `You are #${position} in the login queue${waitHint}. Your session will start automatically when a slot opens.`
+        );
+        renderHud();
+      }
+      return;
+    }
     if (msg.type === "INIT") {
       clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
+      state.serverDeploying = false;
+      clearServerDeployingSession();
       state.authSessionReady = true;
       state.hasEverInitialized = true;
       resetAuthReconnectAttempt();
@@ -1493,6 +1518,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
+      if (state.incomePerMinute === 0) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
       if (msg.storageCap && typeof msg.storageCap === "object") {
         state.storageCap = msg.storageCap as typeof state.storageCap;
@@ -1681,14 +1707,26 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       // waypoint-driven neutral EXPAND does not pop the big overlay
       // when the server confirms acceptance.
       const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
+      const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
       state.capture = {
         startAt: state.actionStartedAt || Date.now(),
         resolvesAt: msg.resolvesAt as number,
         target,
-        ...(wasSilent ? { silent: true } : {})
+        ...(wasSilent || isMusterAdvance ? { silent: true } : {}),
+        ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       state.actionTargetKey = targetKey;
-      if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      if (!state.actionCurrent) {
+        state.actionCurrent = {
+          x: target.x,
+          y: target.y,
+          retries: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(msg.actionType === "EXPAND" || msg.actionType === "ATTACK" ? { actionType: msg.actionType } : {}),
+        };
+      } else if (typeof msg.commandId === "string" && msg.commandId) {
+        state.actionCurrent.commandId = msg.commandId;
+      }
       frontierQueueDebug("action_accepted_applied", {
         actionType: msg.actionType,
         commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
@@ -1764,7 +1802,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "COMBAT_RESULT") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
@@ -1824,8 +1861,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
-
       if (msg.type === "COMBAT_START") {
+      if (typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:")) {
+        if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>); return;
+      }
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,
@@ -1869,11 +1908,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
       const preservedSilent = Boolean(existingCapture?.silent);
+      const preservedFromMusterAdvance = Boolean(existingCapture?.fromMusterAdvance);
       state.capture = {
         startAt,
         resolvesAt: resolvesAtForCapture,
         target,
-        ...(preservedSilent ? { silent: true } : {})
+        ...(preservedSilent ? { silent: true } : {}),
+        ...(preservedFromMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
@@ -1921,11 +1962,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
       }
       state.unreadAttackAlerts += 1;
-      pushFeed(
-        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        "combat",
-        "error"
-      );
+      appendFeedEntry({
+        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        type: "combat",
+        severity: "error",
+        at: Date.now(),
+        focusX: x,
+        focusY: y,
+        actionLabel: "Center"
+      });
       renderHud();
       return;
     }
@@ -2650,6 +2695,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
+        const pending = state.pendingShardCollect;
+        if (pending && msg.code === "COLLECT_NOT_OWNED") {
+          const tile = state.tiles.get(pending.tileKey);
+          if (tile) state.tiles.set(pending.tileKey, { ...tile, shardSite: pending.shardSite });
+          renderHud();
+        }
+        state.pendingShardCollect = undefined;
       }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
@@ -3094,6 +3146,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "COLLECT_RESULT") {
       state.pendingCollectVisibleKeys.clear();
+      state.pendingShardCollect = undefined;
       if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
       if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
         clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
@@ -3122,7 +3175,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        // Reset the season-end screen so it shows again when the next season ends.
+        state.seasonEndDismissed = false;
+        state.seasonEndStarting = false;
       }
+      state.pendingShardCollect = undefined;
       state.tiles.clear();
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;

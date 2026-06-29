@@ -119,6 +119,40 @@ describe("combatResolutionAlert", () => {
 
     expect(result.detail).toBe("Aetherwick was conquered from Enemy Empire. Plundered ◉ 132.50, 🍞 4 FOOD, ⛏ 1.50 IRON.");
   });
+
+  it("labels a captured dock tile as 'Dock' rather than the terrain name", () => {
+    const result = combatResolutionAlert(
+      {
+        attackType: "ATTACK",
+        attackerWon: true,
+        defenderOwnerId: "enemy",
+        target: { x: 10, y: 5 },
+        changes: [{ x: 10, y: 5, ownerId: "me", ownershipState: "SETTLED" }]
+      },
+      {
+        targetTileBefore: {
+          x: 10,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "enemy",
+          ownershipState: "SETTLED",
+          dockId: "dock-1"
+        } as Tile,
+        originTileBefore: undefined
+      },
+      {
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy" ? "Enemy Empire" : undefined),
+        prettyToken: (value: string) => value,
+        resourceLabel: (value: string) => value,
+        terrainLabel: () => "Sand",
+        terrainAt: () => "LAND",
+        tiles: new Map(),
+        keyFor: (x: number, y: number) => `${x},${y}`
+      }
+    );
+
+    expect(result.detail).toBe("Dock was conquered from Enemy Empire.");
+  });
 });
 
 describe("feed attention state", () => {

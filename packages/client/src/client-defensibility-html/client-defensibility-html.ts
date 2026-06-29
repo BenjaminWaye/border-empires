@@ -1,4 +1,4 @@
-import { fullDefensibilityExposureForTiles, idealExposureForTiles } from "@border-empires/shared";
+import { fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 
@@ -18,6 +18,7 @@ type DefensibilityArgs = {
   settledT: number;
   settledE: number;
   showWeakDefensibility: boolean;
+  empireIntegrityEnabled: boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -95,16 +96,20 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   const compactFrontierTarget = authoritativeSettledTiles > 0 ? idealExposureForTiles(authoritativeSettledTiles) : 0;
   const fullScoreCutoff = authoritativeSettledTiles > 0 ? fullDefensibilityExposureForTiles(authoritativeSettledTiles) : 0;
   const weightedExposureClass = authoritativeWeightedExposure <= fullScoreCutoff ? "is-positive" : "is-negative";
-  const scoreCopy =
-    rounded >= 100
-      ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
-      : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+  const goodShape = rounded >= 100;
+  const shapeClause = goodShape
+    ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
+    : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+  const economicClause = args.empireIntegrityEnabled
+    ? (goodShape ? " You're earning the full income and growth bonus." : " Your income and growth bonus scales with this score.")
+    : "";
+  const scoreCopy = shapeClause + economicClause;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
         <div>
-          <div class="defense-kicker">How safe is your kingdom?</div>
-          <strong>${rounded}% safe</strong>
+          <div class="defense-kicker">Empire Integrity</div>
+          <strong>${rounded}%</strong>
         </div>
       </div>
       <p class="defense-copy">${scoreCopy}</p>
@@ -133,5 +138,26 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       <strong>How to make it better</strong>
       ${summary.tips.map((tip) => `<div class="defense-tip">${tip}</div>`).join("")}
     </article>
+    ${args.empireIntegrityEnabled ? (() => {
+      const t = Math.max(0, Math.min(1, args.defensibilityPct / 100));
+      const econMult = integrityEconomyMult(t);
+      const growthMult = integrityGrowthMult(t);
+      const econPct = Math.round((econMult - 1) * 100);
+      const growthPct = Math.round((growthMult - 1) * 100);
+      const sign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
+      const cls = (n: number) => (n >= 0 ? "is-positive" : "is-negative");
+      const maxEconPct = Math.round((integrityEconomyMult(1) - 1) * 100);
+      const minEconPct = Math.round((integrityEconomyMult(0) - 1) * 100);
+      const maxGrowthPct = Math.round((integrityGrowthMult(1) - 1) * 100);
+      const minGrowthPct = Math.round((integrityGrowthMult(0) - 1) * 100);
+      return `<article class="card defense-breakdown-card">
+        <strong>Income &amp; growth effect</strong>
+        <p class="defense-copy">Compact empires earn a bonus; sprawling empires take a penalty. At 100% that's ${sign(maxEconPct)} income and ${sign(maxGrowthPct)} growth — at 0% it flips to ${sign(minEconPct)} and ${sign(minGrowthPct)}.</p>
+        <div class="defense-stat-grid">
+          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
+          <div class="defense-stat"><span>Growth effect</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
+        </div>
+      </article>`;
+    })() : ""}
   </div>`;
 };

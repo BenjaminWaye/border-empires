@@ -176,7 +176,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(48);
   });
 
-  it("waterworks within 10 tiles boosts farmstead food to 126/day (72 base + 36×1.5)", () => {
+  it("waterworks within 10 tiles boosts farmstead food to 162/day ((72+36)×1.5)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -202,6 +202,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["10,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(126);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(162);
   });
+
 });

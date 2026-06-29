@@ -23,6 +23,7 @@ import {
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 
@@ -183,20 +184,6 @@ const townPopulationGrowthPerMinute = (input: {
   return Number(growth.toFixed(4));
 };
 
-// Mirrors townFoodUpkeepPerMinute in apps/simulation/src/player-update-economy.ts
-// (the authoritative food drain). Kept local so the gateway never depends on
-// townJson carrying the field - same backfill philosophy as goldPerMinute/cap.
-const townFoodUpkeepForTier = (populationTier: string | undefined): number => {
-  switch (populationTier) {
-    case "CITY": return 0.3;
-    case "GREAT_CITY": return 0.6;
-    case "METROPOLIS": return 1;
-    case "SETTLEMENT":
-    case undefined: return 0;
-    default: return 0.1; // TOWN
-  }
-};
-
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
@@ -298,7 +285,7 @@ export const buildSnapshotTileDetail = (
       ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
       : undefined);
   const hasTown = Boolean(tile.townType || parsedTown);
-  const townFoodUpkeep = hasTown ? townFoodUpkeepForTier(populationTier) : 0;
+  const townFoodUpkeep = hasTown ? townFoodUpkeepPerMinute(populationTier) : 0;
   const town = hasTown
     ? {
         ...(parsedTown ?? {}),
@@ -359,8 +346,20 @@ export const buildSnapshotTileDetail = (
     ...(town ? { town: town as YieldSourceTile["town"] } : {}),
     ...(structure ? { economicStructure: structure as YieldSourceTile["economicStructure"] } : {})
   };
+  // Collect active Waterworks positions for the owning player so the radius
+  // boost is reflected in the displayed yield rate (not just in accrual).
+  const waterworksKeys = new Set<string>();
+  for (const snapshotTile of (snapshot?.tiles ?? [])) {
+    if (snapshotTile.ownerId !== playerId || snapshotTile.ownershipState !== "SETTLED") continue;
+    const ws = parseStructure<{ type?: string; status?: string }>(snapshotTile.economicStructureJson);
+    if (ws?.type === "WATERWORKS" && ws.status === "active") {
+      waterworksKeys.add(keyFor(snapshotTile.x, snapshotTile.y));
+    }
+  }
   const now = Date.now();
-  const fallbackYieldView = buildTileYieldView(domainTile, now, now);
+  const fallbackYieldView = buildTileYieldView(domainTile, now, now, {
+    waterworksKeys: waterworksKeys.size > 0 ? waterworksKeys : undefined
+  });
   if (fallbackYieldView?.yieldRate) update.yieldRate = fallbackYieldView.yieldRate;
   if (fallbackYieldView?.yieldCap) update.yieldCap = fallbackYieldView.yieldCap;
   if (!("yield" in update) && fallbackYieldView?.yield) {

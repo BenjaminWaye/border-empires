@@ -3,6 +3,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
+  BREAKTHROUGH_DURATION_MS,
   MUSTER_SYSTEM_ENABLED,
   rollFrontierCombat,
   targetOutpostMult,
@@ -161,6 +162,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const targetHasActiveFort = Boolean(previousTarget?.fort && previousTarget.fort.status === "active" && previousTarget.fort.ownerId === defenderOwnerId);
+  const nowMs = ctx.now();
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
@@ -168,7 +170,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-    fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
+    fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
+    nowMs
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {
@@ -176,7 +179,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
         ownershipState: previousTarget.ownershipState,
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
-        hasFort: targetHasActiveFort
+        hasFort: targetHasActiveFort,
+        breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
   const combat =
@@ -333,4 +337,34 @@ export const settleAttackManpower = (
   const loss = attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
   player.manpower = Math.max(0, player.manpower - loss);
   return loss;
+};
+
+/**
+ * After a successful capture, mark the 4 cardinal enemy-owned neighbours of
+ * the captured tile with a breach window. Callers must emit tile deltas for
+ * any returned updated tiles.
+ *
+ * Only tiles owned by a different player than the attacker are breached.
+ */
+export const applyBreachToNeighbors = (input: {
+  capturedTile: DomainTileState;
+  attackerId: string;
+  nowMs: number;
+  tiles: Map<string, DomainTileState>;
+  invalidateTileStringifyCache: (key: string) => void;
+}): DomainTileState[] => {
+  const { capturedTile, attackerId, nowMs, tiles, invalidateTileStringifyCache } = input;
+  const breachUntil = nowMs + BREAKTHROUGH_DURATION_MS;
+  const updated: DomainTileState[] = [];
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+    const key = simulationTileKey(capturedTile.x + dx, capturedTile.y + dy);
+    const neighbor = tiles.get(key);
+    if (!neighbor?.ownerId || neighbor.ownerId === attackerId) continue;
+    if ((neighbor.breachShockUntil ?? 0) >= breachUntil) continue;
+    const updated_tile = { ...neighbor, breachShockUntil: breachUntil };
+    tiles.set(key, updated_tile);
+    invalidateTileStringifyCache(key);
+    updated.push(updated_tile);
+  }
+  return updated;
 };

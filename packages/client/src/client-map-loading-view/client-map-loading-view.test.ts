@@ -15,7 +15,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 2,
         authRetryNextAt: 4_000,
         authBusyTitle: "Securing session",
-        authBusyDetail: "The game server is still starting. Retrying sign-in shortly..."
+        authBusyDetail: "The game server is still starting. Retrying sign-in shortly...",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       1_000
@@ -43,7 +44,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "",
-        authBusyDetail: ""
+        authBusyDetail: "",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       3_501
@@ -68,7 +70,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 1,
         authRetryNextAt: 4_000,
         authBusyTitle: "Securing session",
-        authBusyDetail: "Game server is still starting. Retrying sign-in... Attempt 1 starts in 3s."
+        authBusyDetail: "Game server is still starting. Retrying sign-in... Attempt 1 starts in 3s.",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       1_000
@@ -89,7 +92,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "",
-        authBusyDetail: ""
+        authBusyDetail: "",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       9_500
@@ -117,7 +121,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "Securing session",
-        authBusyDetail: ""
+        authBusyDetail: "",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       9_000
@@ -143,7 +148,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "Securing session",
-        authBusyDetail: ""
+        authBusyDetail: "",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       26_000
@@ -169,7 +175,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "Syncing empire...",
-        authBusyDetail: "Exporting your territory — almost there."
+        authBusyDetail: "Exporting your territory — almost there.",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       3_000
@@ -193,7 +200,8 @@ describe("buildMapLoadingView", () => {
         authRetryAttempt: 0,
         authRetryNextAt: 0,
         authBusyTitle: "",
-        authBusyDetail: ""
+        authBusyDetail: "",
+        serverDeploying: false
       },
       "ws://localhost:3001/ws",
       7_500
@@ -202,6 +210,59 @@ describe("buildMapLoadingView", () => {
     expect(view.title).toBe("Syncing empire...");
     expect(view.tone).toBe("normal");
     expect(view.showRetry).toBe(false);
+    expect(view.showDiagnostics).toBe(false);
+  });
+
+  it("shows calm deployment message when disconnected and serverDeploying is true", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "disconnected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 0,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
+        authBusyTitle: "",
+        authBusyDetail: "",
+        serverDeploying: true
+      },
+      "ws://localhost:3001/ws",
+      1_000
+    );
+
+    expect(view.title).toBe("Server update in progress");
+    expect(view.meta).toContain("1–2 minutes");
+    expect(view.tone).toBe("normal");
+    expect(view.showRetry).toBe(false);
+    expect(view.showReload).toBe(false);
+    expect(view.showDiagnostics).toBe(false);
+  });
+
+  it("shows calm reconnecting message when connecting and serverDeploying is true", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connecting",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 0,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
+        authBusyTitle: "",
+        authBusyDetail: "",
+        serverDeploying: true
+      },
+      "ws://localhost:3001/ws",
+      1_000
+    );
+
+    expect(view.title).toBe("Reconnecting after update...");
+    expect(view.tone).toBe("normal");
+    expect(view.showRetry).toBe(false);
+    expect(view.showReload).toBe(false);
     expect(view.showDiagnostics).toBe(false);
   });
 });

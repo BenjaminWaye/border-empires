@@ -1,6 +1,6 @@
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-import type { SeasonVictoryObjectiveView } from "@border-empires/shared";
+import type { SeasonVictoryObjectiveView, SeasonWinnerView } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
@@ -73,6 +73,7 @@ export const buildInitMessage = (
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
+  seasonWinner?: SeasonWinnerView;
   mapMeta: {
     dockCount: number;
     dockPairCount: number;
@@ -173,6 +174,7 @@ export const buildInitMessage = (
       missions: bootstrap.missions,
       domainIds: bootstrap.domainIds,
       seasonVictory: bootstrap.seasonVictory,
+      ...(bootstrap.seasonWinner ? { seasonWinner: bootstrap.seasonWinner } : {}),
       mapMeta: bootstrap.mapMeta,
       ...(initialState ? { initialState } : {}),
       recovery: {
