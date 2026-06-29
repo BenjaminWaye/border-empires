@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.28.4",
+  version: "2026.06.29.1",
   title: "What's New",
-  summary: "Worldbreaker Cannon parts now visible in build menu on Great City tiles. Sky Dock Bombard shows 3D range overlay and hit animations.",
+  summary: "Attack alert feed entries now include a 'Center on tile' button.",
   entries: [
+    {
+      introducedIn: "2026.06.29.1",
+      title: "Attack alert feed entries now include a 'Center on tile' button",
+      why: "When attacked, the feed entry showed the coordinates as text but offered no way to jump to the tile. You had to manually scroll or search for the attack location.",
+      changes: [
+        "Attack alert feed entries now render a 'Center' button that snaps the map view to the tile under attack."
+      ]
+    },
     {
       introducedIn: "2026.06.28.4",
       title: "Worldbreaker Cannon parts show up in the build menu again",
