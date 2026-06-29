@@ -334,6 +334,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       targetRequiresDockCrossing(input.frontierAnalysis.expand) ||
       targetRequiresDockCrossing(input.frontierAnalysis.economicExpand) ||
       input.frontierAnalysis.frontierOpportunityEconomic > 0 ||
+      input.frontierAnalysis.frontierOpportunityTownSupport > 0 ||
       input.frontierAnalysis.frontierOpportunityScaffold > 0 ||
       Boolean(input.settlementCandidate) ||
       Boolean(input.fallbackSettlementCandidate)

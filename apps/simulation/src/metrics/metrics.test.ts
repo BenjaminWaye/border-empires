@@ -187,4 +187,27 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_replay_history_evicted_total 3");
     expect(exposition).toContain("sim_replay_server_events_skipped_total 1000");
   });
+
+  it("tracks utility AI action class totals and emits prometheus lines", () => {
+    const metrics = createSimulationMetrics();
+
+    metrics.observeSimAiUtilityDecision("EXPAND", "ai-1");
+    metrics.observeSimAiUtilityDecision("EXPAND", "ai-2");
+    metrics.observeSimAiUtilityDecision("SETTLE", "ai-1");
+    metrics.observeSimAiUtilityDecision("WAIT", "ai-3");
+
+    const exposition = metrics.renderPrometheus();
+
+    // Observed classes
+    expect(exposition).toContain('sim_ai_action_class_total{class="EXPAND"} 2');
+    expect(exposition).toContain('sim_ai_action_class_total{class="SETTLE"} 1');
+    expect(exposition).toContain('sim_ai_action_class_total{class="WAIT"} 1');
+
+    // Unobserved classes must still appear (zero counts allow alert rules to reference them)
+    expect(exposition).toContain('sim_ai_action_class_total{class="ATTACK"} 0');
+    expect(exposition).toContain('sim_ai_action_class_total{class="BUILD_ECONOMY"} 0');
+    expect(exposition).toContain('sim_ai_action_class_total{class="BUILD_DEFENSE"} 0');
+    expect(exposition).toContain('sim_ai_action_class_total{class="MUSTER"} 0');
+    expect(exposition).toContain('sim_ai_action_class_total{class="CHOOSE_TECH"} 0');
+  });
 });

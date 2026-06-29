@@ -6,6 +6,7 @@ import {
   AUTOMATION_PREPLAN_PROGRESS_STATES,
   AUTOMATION_PREPLAN_REASONS,
   AUTOMATION_SETTLE_DECISION_REASONS,
+  DECISION_CLASSES,
   DURABLE_COMMAND_TYPES,
   LANES,
   type SimulationMetricsSnapshot
@@ -15,6 +16,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   const lines = [
     "# TYPE sim_event_loop_max_ms gauge",
     `sim_event_loop_max_ms ${formatMetricValue(sample.simEventLoopMaxMs)}`,
+    "# TYPE sim_owned_tiles_total gauge",
+    `sim_owned_tiles_total ${formatMetricValue(sample.simOwnedTilesTotal)}`,
+    "# TYPE sim_max_empire_tiles gauge",
+    `sim_max_empire_tiles ${formatMetricValue(sample.simMaxEmpireTiles)}`,
     "# TYPE sim_event_loop_delay_ms gauge",
     `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
     `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
@@ -183,11 +188,29 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_muster_remote_attack_total counter",
     `sim_muster_remote_attack_total ${formatMetricValue(sample.simMusterRemoteAttackTotal)}`,
     "# TYPE sim_muster_remote_blocked_total counter",
-    `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`
+    `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`,
+    "# TYPE sim_muster_remote_blocked_barbarian_total counter",
+    `sim_muster_remote_blocked_barbarian_total ${formatMetricValue(sample.simMusterRemoteBlockedBarbarianTotal)}`,
+    "# TYPE sim_season_end_snapshot_warm_total counter",
+    `sim_season_end_snapshot_warm_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmTotal)}`,
+    "# TYPE sim_season_end_snapshot_warm_failed_total counter",
+    `sim_season_end_snapshot_warm_failed_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmFailedTotal)}`,
+    "# TYPE sim_post_season_proto_tile_cache_hit_total counter",
+    `sim_post_season_proto_tile_cache_hit_total ${formatMetricValue(sample.simPostSeasonProtoTileCacheHitTotal)}`,
+    "# TYPE sim_post_season_proto_tile_cache_miss_total counter",
+    `sim_post_season_proto_tile_cache_miss_total ${formatMetricValue(sample.simPostSeasonProtoTileCacheMissTotal)}`,
+    "# TYPE sim_full_vis_inline_build_total counter",
+    `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
+    "# TYPE sim_auto_fill_tiles_total counter",
+    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
     lines.push(`sim_ai_expansion_objective_total{kind=\"${kind}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_action_class_total counter");
+  for (const cls of DECISION_CLASSES) {
+    lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);
   }
 
   return lines.join("\n");

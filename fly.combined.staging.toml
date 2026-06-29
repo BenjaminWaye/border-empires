@@ -25,6 +25,8 @@ primary_region = "arn"
   GATEWAY_SQLITE_PATH = "/data/border-empires.db"
 
   MUSTER_SYSTEM_ENABLED = "true"
+  EMPIRE_INTEGRITY_ENABLED = "true"
+  AUTO_FILL_ENABLED = "true"
 
   # Simulation (loopback within the same Node process)
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
@@ -88,4 +90,6 @@ primary_region = "arn"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1024mb"
+  # 2048mb to match prod: post-season full-visibility logins materialize the whole
+  # 202,500-tile world per login; concurrent logins OOM-killed a 1024mb box. See #693.
+  memory = "2048mb"

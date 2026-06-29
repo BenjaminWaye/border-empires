@@ -20,7 +20,7 @@ describe("3d siphon fx regression guard", () => {
   });
 
   it("queues siphon fx only from the validated targeting send path", () => {
-    const source = clientSource("../client-tile-action-logic/client-tile-action-logic.ts");
+    const source = clientSource("../client-tile-action-logic/client-crystal-targeting.ts");
     expect(source).toContain('deps.ws.send(JSON.stringify({ type: "SIPHON_TILE"');
     expect(source).toContain("state.siphonFxQueue.push");
   });

@@ -12,16 +12,26 @@ describe("simulation service fog subscribe regression", () => {
   it("supports full-visibility subscribe snapshots for fog-admin reveal flows", () => {
     const file = source();
 
-    expect(file).toContain('options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }');
+    expect(file).toContain('options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string; cacheSnapshot?: boolean }');
     expect(file).toContain('const seasonEnded = currentSeasonState.status === "ended";');
     expect(file).toContain('const useFullVisibility = options?.fullVisibility === true || seasonEnded;');
     expect(file).toContain('fullVisibility: parsed.fullVisibility === true');
     expect(file).toContain('...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})');
     expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility,');
     expect(file).toContain('...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})');
-    // Only the async builder remains — the unused synchronous buildAndCachePlayerSnapshot
-    // twin was removed (no callers). The async SubscribePlayer path still caches
-    // non-full-visibility snapshots.
-    expect(file.match(/if \(!useFullVisibility\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(1);
+    // Snapshot is cached when not full-vis OR when explicitly requested (season-end warming).
+    expect(file.match(/if \(!useFullVisibility \|\| options\?\.cacheSnapshot === true\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(1);
+  });
+
+  it("builds full-visibility snapshots inline and only routes fog-of-war logins through the worker pool", () => {
+    const file = source();
+
+    // Full-vis must bypass the snapshot build worker: the per-tile enrichment is
+    // already memoised via sharedFullVisibilityTiles, so the worker would only
+    // structured-clone the 202k-tile runtimeState/snapshot across the boundary
+    // (~4s sync block per login — the post-season login lock).
+    expect(file).toContain("const useWorkerBuild = snapshotBuildPool !== undefined && !useFullVisibility;");
+    expect(file).toContain("if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();");
+    expect(file).toContain("const snapshot = useWorkerBuild");
   });
 });

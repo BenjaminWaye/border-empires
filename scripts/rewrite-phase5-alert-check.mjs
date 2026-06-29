@@ -9,7 +9,11 @@ const state = {
   gatewayConsecutiveBreaches: 0,
   gatewayAlerted: false,
   simBacklogAlerted: false,
-  simRssAlerted: false
+  simRssAlerted: false,
+  simBarbMusterBlockAlerted: false,
+  simEconomyDominanceAlerted: false,
+  // Rolling window of the last N sim_ai_action_class_total samples keyed by class
+  simAiClassWindow: /** @type {Array<Record<string, number>>} */ ([])
 };
 
 const maybeNumber = (line, key) => {
@@ -65,6 +69,33 @@ rl.on("line", (line) => {
     const rss = maybeNumber(line, "sim_checkpoint_rss_mb");
     if (typeof rss === "number" && rss > 400) {
       alertOnce("simRssAlerted", `ALERT sim_checkpoint_rss_mb breached (latest=${rss})`);
+    }
+
+    // Phase 3 alarm: barbarians spamming ATTACK with no muster built up.
+    // >2000 blocks in a session means barbarians are looping without accumulating muster.
+    const barbBlocked = maybeNumber(line, "sim_muster_remote_blocked_barbarian_total");
+    if (typeof barbBlocked === "number" && barbBlocked > 2000) {
+      alertOnce("simBarbMusterBlockAlerted", `ALERT sim_muster_remote_blocked_barbarian_total runaway (total=${barbBlocked})`);
+    }
+
+    // Phase 3 alarm: utility AI economy-class domination.
+    // If BUILD_ECONOMY is the dominant action class while autopilot players are active,
+    // expansion is being incorrectly suppressed — the utility scoring is broken.
+    const autopilotCount = maybeNumber(line, "sim_ai_autopilot_player_count");
+    const econTotal = maybeNumber(line, 'sim_ai_action_class_total\\{class="BUILD_ECONOMY"\\}');
+    const expandTotal = maybeNumber(line, 'sim_ai_action_class_total\\{class="EXPAND"\\}');
+    if (
+      typeof autopilotCount === "number" &&
+      autopilotCount > 0 &&
+      typeof econTotal === "number" &&
+      typeof expandTotal === "number" &&
+      econTotal > 50 &&
+      expandTotal < econTotal * 0.1
+    ) {
+      alertOnce(
+        "simEconomyDominanceAlerted",
+        `ALERT utility AI economy dominance: BUILD_ECONOMY=${econTotal} >> EXPAND=${expandTotal} with ${autopilotCount} autopilot players`
+      );
     }
   }
 });

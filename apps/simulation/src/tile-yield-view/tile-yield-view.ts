@@ -170,12 +170,7 @@ export const buildTileYieldView = (
   }
   const maxDaily = Math.max(0, ...Object.values(strategicPerDay).map((value) => Number(value) || 0));
   const yieldCap = {
-    gold:
-      typeof tile.town?.cap === "number"
-        ? tile.town.cap
-        : goldPerMinute > 0
-          ? goldPerMinute * 60 * 8
-          : TILE_YIELD_CAP_GOLD,
+    gold: goldPerMinute > 0 ? goldPerMinute * 60 * 8 : TILE_YIELD_CAP_GOLD,
     strategicEach: tile.resource === "FISH" ? 0 : (maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE)
   };
   // Clamp at OFFLINE_YIELD_ACCUM_MAX_MS so a missing or stale lastCollectedAt

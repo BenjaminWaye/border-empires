@@ -26,6 +26,7 @@ import {
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import {
@@ -63,6 +64,7 @@ type UpkeepLastTick = {
 
 export type PlayerUpdateEconomySnapshot = {
   incomePerMinute: number;
+  goldCapIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
@@ -194,19 +196,7 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
   }
 };
 
-export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
-  switch (populationTier) {
-    case "CITY":
-      return 0.3;
-    case "GREAT_CITY":
-      return 0.6;
-    case "METROPOLIS":
-      return 1;
-    default:
-      return 0.1;
-  }
-};
+export { townFoodUpkeepPerMinute };
 
 export const supportSummaryForTown = (
   playerId: string,
@@ -358,12 +348,12 @@ export const townGoldPerMinuteForPlayer = (
   ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
 };
 
-// Refresh `town.goldPerMinute` and `town.cap` on a town that was originally
+// Refresh `town.goldPerMinute` and `town.isFed` on a town that was originally
 // populated by buildTownSummary (i.e. carries the full snapshot shape — we
 // detect that by checking the snapshot-only `supportMax` field). Between full
 // snapshot rebuilds the connected-town bonus is re-enriched but goldPerMinute
 // is not, so a tile delta emitted in that window can carry a stale Production
-// row and gold cap while still claiming a fresh "+X% connected-town" modifier.
+// row while still claiming a fresh "+X% connected-town" modifier.
 // Test fixtures pass partial town stubs without supportMax/supportCurrent and
 // rely on their literal goldPerMinute being honored; the predicate keeps them
 // untouched.
@@ -382,25 +372,20 @@ export const refreshTownEconomyFields = (
   const goldPerMinute = isSettlement
     ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
     : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
-  const hasMarket = !isSettlement && tile.ownerId
-    ? hasSupportedStructure(tile.ownerId, tile, "MARKET", tiles)
-    : false;
-  const cap = isSettlement
-    ? goldPerMinute * 60 * 8
-    : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
   // Re-stamp isFed from the freshly-computed fed-key set so the wire payload's
-  // townJson.isFed never contradicts the live fedTownKeys (and the derived
-  // goldPerMinute/cap above). Settlements have no food upkeep so always fed.
+  // townJson.isFed never contradicts the live fedTownKeys and the derived
+  // goldPerMinute. Settlements have no food upkeep so always fed.
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
-  if (town.goldPerMinute === goldPerMinute && town.cap === cap && town.isFed === isFed) return town;
-  return { ...town, goldPerMinute, cap, isFed };
+  if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
+  return { ...town, goldPerMinute, isFed };
 };
 
 export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
-  dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">
+  dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">,
+  integrityEconMult: number = 1
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
@@ -434,6 +419,9 @@ export const buildPlayerUpdateEconomySnapshot = (
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
   const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
+  const townGoldCapMult = multiplicativeEffectForPlayer(player, "townGoldCapMult");
+  const dockGoldCapMult = multiplicativeEffectForPlayer(player, "dockGoldCapMult");
+  let goldCapIncomePerMinute = 0;
 
   for (const tile of settledTiles) {
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
@@ -463,10 +451,13 @@ export const buildPlayerUpdateEconomySnapshot = (
       const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
+      const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
+      goldCapIncomePerMinute += goldPerMinute * (isSettlement ? 1 : townGoldCapMult);
     }
     if (tile.dockId) {
       const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
+      goldCapIncomePerMinute += dockGoldPerMinute * dockGoldCapMult;
     }
     if (tile.fort?.ownerId === player.id && tile.fort.status === "active") {
       addBucket(goldSinks, "Fort", 1 * fortGoldUpkeepMult, { count: 1 });
@@ -512,20 +503,24 @@ export const buildPlayerUpdateEconomySnapshot = (
     crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
     gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
   };
-  const incomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
+  const rawIncomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
   const foodCoverage =
     upkeepPerMinute.food <= 0
       ? 1
       : Math.max(0, Math.min(1, (((player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)));
 
+  // Apply integrity multiplier after the food-gate so intermediate food logic is undisturbed.
+  const incomePerMinute = Number((rawIncomePerMinute * integrityEconMult).toFixed(4));
+
   return {
     incomePerMinute,
+    goldCapIncomePerMinute: Number((goldCapIncomePerMinute * integrityEconMult).toFixed(4)),
     strategicProductionPerMinute: {
-      FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
-      IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
-      CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
-      SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
-      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
+      FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(4)),
+      IRON: Number((strategicProductionPerMinute.IRON * integrityEconMult).toFixed(4)),
+      CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(4)),
+      SUPPLY: Number((strategicProductionPerMinute.SUPPLY * integrityEconMult).toFixed(4)),
+      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(4))
     },
     upkeepPerMinute,
     upkeepLastTick: {

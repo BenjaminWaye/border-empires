@@ -146,6 +146,7 @@ export type WorldStatusSnapshot = {
     byTechs: LeaderboardMetricEntry[];
   };
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
+  seasonWinner?: SeasonWinnerSnapshot;
   acceptLatencyP95Ms?: number;
 };
 
@@ -252,6 +253,7 @@ export type SimulationEvent =
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
         frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+        breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -405,6 +407,7 @@ export type PlayerSubscriptionSnapshot = {
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
     frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+    breachShockUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;
