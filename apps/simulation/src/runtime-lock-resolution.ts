@@ -42,6 +42,7 @@ export type RuntimeLockResolutionContext = {
   respawnIfEliminated: (playerId: string, commandId: string) => void;
   ensureGrossIncomeSettlementForPlayer: (playerId: string, commandId: string) => boolean;
   applyBreachToNeighbors?: ((capturedTile: DomainTileState, attackerId: string) => DomainTileState[]) | undefined;
+  applyAutoFill?: ((capturedTile: DomainTileState, attackerId: string) => DomainTileState[]) | undefined;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -178,6 +179,15 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         commandId: `breach:${lock.targetKey}:${context.now()}`,
         playerId: "__broadcast__",
         tileDeltas: breachedTiles.map((t) => context.tileDeltaFromState(t))
+      });
+    }
+    const autoFilledTiles = context.applyAutoFill?.(resolvedTarget, lock.playerId);
+    if (autoFilledTiles && autoFilledTiles.length > 0) {
+      context.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `auto-fill:${lock.targetKey}:${context.now()}`,
+        playerId: "__broadcast__",
+        tileDeltas: autoFilledTiles.map((t) => context.tileDeltaFromState(t))
       });
     }
     if (hadMuster) {
