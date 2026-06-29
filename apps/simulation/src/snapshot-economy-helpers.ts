@@ -20,6 +20,7 @@ import {
   MINE_GOLD_UPKEEP,
   POPULATION_MAX,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import type { Tile } from "@border-empires/shared";
@@ -35,6 +36,8 @@ import {
   fedTownKeysByPlayerCache
 } from "./snapshot-tile-cache.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+
+export { townFoodUpkeepPerMinute };
 
 export const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -124,14 +127,6 @@ export const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucke
   [...buckets.values()]
     .map((bucket) => ({ ...bucket, amountPerMinute: Number(bucket.amountPerMinute.toFixed(4)) }))
     .sort((left, right) => right.amountPerMinute - left.amountPerMinute || left.label.localeCompare(right.label));
-
-export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
-  if (populationTier === "CITY") return 0.2;
-  if (populationTier === "GREAT_CITY") return 0.4;
-  if (populationTier === "METROPOLIS") return 0.8;
-  return 0.1;
-};
 
 export const townPopulationMultiplier = (populationTier: string | undefined): number => {
   if (populationTier === "SETTLEMENT" || !populationTier) return 0.6;

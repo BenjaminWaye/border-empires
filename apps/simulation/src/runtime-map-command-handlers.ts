@@ -1,7 +1,12 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  AIRPORT_BOMBARD_BASE_MISS_CHANCE,
+  AIRPORT_BOMBARD_COOLDOWN_MS,
   AIRPORT_BOMBARD_CRYSTAL_COST,
+  AIRPORT_BOMBARD_FORT_MISS_BONUS,
+  AIRPORT_BOMBARD_GOLD_COST,
+  AIRPORT_BOMBARD_MAX_MISS_CHANCE,
   AIRPORT_BOMBARD_RANGE,
   IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
@@ -37,6 +42,8 @@ export type RuntimeMapCommandContext = {
   bumpTerrainEpoch: () => void;
   isStructurePowered: (ownerId: string, tileKey: string, structureType: EconomicStructureType) => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  isTileBombardBlockedByRadar: (actorId: string, targetX: number, targetY: number) => boolean;
+  emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
   setAbilityCooldownUntil: (playerId: string, abilityKey: string, untilMs: number) => void;
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
@@ -170,12 +177,14 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   const airportKey = simulationTileKey(payload.fromX, payload.fromY);
   const airport = context.tiles.get(airportKey);
+  const airportStructure = airport?.economicStructure;
   if (
     !airport ||
     airport.ownerId !== actor.id ||
-    airport.economicStructure?.ownerId !== actor.id ||
-    airport.economicStructure.type !== "AIRPORT" ||
-    airport.economicStructure.status !== "active"
+    !airportStructure ||
+    airportStructure.ownerId !== actor.id ||
+    airportStructure.type !== "AIRPORT" ||
+    airportStructure.status !== "active"
   ) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active airport first");
     return;
@@ -188,36 +197,67 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Aether Tower");
     return;
   }
+  const now = context.now();
+  const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
+  if (bombardCooldownUntil > now) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport bombardment on cooldown");
+    return;
+  }
+  if (context.isTileBombardBlockedByRadar(actor.id, payload.toX, payload.toY)) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "blocked by a Resonance Grid");
+    return;
+  }
+  if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
+    return;
+  }
   if (!context.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient CRYSTAL for bombardment");
     return;
   }
+  actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       const tileKey = simulationTileKey(payload.toX + dx, payload.toY + dy);
       const tile = context.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) continue;
+      const missChance = Math.min(
+        AIRPORT_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? AIRPORT_BOMBARD_FORT_MISS_BONUS : 0),
+        AIRPORT_BOMBARD_MAX_MISS_CHANCE
+      );
+      if (Math.random() < missChance) continue;
       const updatedTile: DomainTileState = {
         ...tile,
         ownerId: undefined,
         ownershipState: undefined,
-        town: undefined,
-        fort: undefined,
-        observatory: undefined,
-        siegeOutpost: undefined,
-        economicStructure: undefined,
-        sabotage: undefined
+        frontierDecayAt: undefined,
+        frontierDecayKind: undefined
       };
       context.replaceTileState(tileKey, updatedTile, command.commandId);
       changedTiles.push(context.tileDeltaFromState(updatedTile));
     }
   }
+  // Stamp cooldown on the airport tile and broadcast it
+  const updatedAirport: DomainTileState = {
+    ...airport,
+    economicStructure: {
+      ...airportStructure,
+      bombardCooldownUntil: now + AIRPORT_BOMBARD_COOLDOWN_MS
+    }
+  };
+  context.replaceTileState(airportKey, updatedAirport, command.commandId);
+  changedTiles.push(context.tileDeltaFromState(updatedAirport));
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,
     playerId: command.playerId,
     tileDeltas: changedTiles
+  });
+  context.emitPlayerMessage(command, {
+    type: "PLAYER_UPDATE",
+    points: actor.points,
+    strategicResources: actor.strategicResources
   });
 }
 

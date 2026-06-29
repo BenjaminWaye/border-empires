@@ -9,6 +9,12 @@ export default defineConfig({
   test: {
     include: ["**/*-perf.test.ts"],
     fileParallelism: false,
+    // Run with EMPIRE_INTEGRITY_ENABLED=true so the cachedEconomySnapshot
+    // cold-cache path (which reads defensibilityMetricsCacheByPlayer) is covered.
+    // pool:forks ensures env is set before any module-level constants are loaded.
+    env: {
+      EMPIRE_INTEGRITY_ENABLED: "true"
+    },
     server: {
       deps: {
         external: [/^node:/]

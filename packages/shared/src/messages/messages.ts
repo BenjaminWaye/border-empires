@@ -182,6 +182,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REQUEST_REVEAL_MAP") }),
   z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),
+  // Triggered from the season-end screen. Starts the next season for everyone
+  // (global rollover). The sim only honours it once the current season has
+  // ended (startNextSeason(force=false)), so it cannot reset an active season.
+  z.object({ type: z.literal("START_NEW_SEASON") }),
   z.object({
     type: z.literal("CHOOSE_DOMAIN"),
     domainId: z.string().min(1),

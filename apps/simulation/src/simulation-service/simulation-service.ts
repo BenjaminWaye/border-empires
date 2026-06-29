@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
+import fs from "node:fs";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
@@ -25,6 +26,7 @@ import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapsho
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
 import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
@@ -32,7 +34,7 @@ import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
-import { buildPlayerSubscriptionSnapshotAsync } from "../player-snapshot/player-snapshot.js";
+import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -747,18 +749,101 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
+  // Snapshot build pool: moves enrichment + assembly off the simulation event
+  // loop so the sim thread is free to answer gRPC pings while the 1–3 s build
+  // runs in a worker.  Falls back to sync inline build if worker unavailable.
+  let snapshotBuildPool: ReturnType<typeof createSnapshotBuilder> | undefined;
+  if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_BUILD_INLINE !== "1") {
+    try {
+      snapshotBuildPool = createSnapshotBuilder();
+    } catch (err) {
+      log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        "failed to start snapshot-build workers; falling back to inline sync build"
+      );
+    }
+  }
   // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
   // store can compact saves and rehydrate loads without paying the 200k-tile
   // generation cost more than once per seed per process.
-  const worldgenBaselineCache = new Map<string, ReturnType<typeof generateSeasonWorld>["initialState"]["tiles"]>();
+  //
+  // SQLite persistence layer: on first boot of a new season, generated tiles
+  // are written to a `worldgen_baselines` table. On subsequent restarts the
+  // table row is read instead of calling generateSeasonWorld, eliminating the
+  // 30-74s synchronous block that held the sim worker event loop hostage
+  // during startup recovery (root cause of the SERVER_STARTING cascade on
+  // staging sim-worker restarts).
+  type WorldgenTiles = ReturnType<typeof generateSeasonWorld>["initialState"]["tiles"];
+  const worldgenBaselineCache = new Map<string, WorldgenTiles>();
+
+  let worldgenDb: import("node:sqlite").DatabaseSync | undefined;
+  if (options.sqlitePath) {
+    const { openSqliteDatabase } = await import("../sqlite-db.js");
+    worldgenDb = openSqliteDatabase(options.sqlitePath);
+    // Always run CREATE TABLE IF NOT EXISTS — idempotent, and must be present
+    // even when applySchema is false (e.g. first deploy that adds this table).
+    worldgenDb.exec(`
+      CREATE TABLE IF NOT EXISTS worldgen_baselines (
+        cache_key TEXT PRIMARY KEY,
+        tiles_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+  }
+
+  const readWorldgenBaselineFromDb = (cacheKey: string): WorldgenTiles | undefined => {
+    if (!worldgenDb) return undefined;
+    const row = worldgenDb
+      .prepare(`SELECT tiles_json FROM worldgen_baselines WHERE cache_key = ?`)
+      .get(cacheKey) as { tiles_json: string } | undefined;
+    if (!row) return undefined;
+    try {
+      return JSON.parse(row.tiles_json) as WorldgenTiles;
+    } catch (err) {
+      log.error({ err, cacheKey }, "worldgen_baselines row corrupt — falling back to cold generation");
+      return undefined;
+    }
+  };
+
+  const writeWorldgenBaselineToDb = (cacheKey: string, tiles: WorldgenTiles): void => {
+    if (!worldgenDb) return;
+    try {
+      worldgenDb
+        .prepare(`INSERT OR REPLACE INTO worldgen_baselines (cache_key, tiles_json, created_at) VALUES (?, ?, ?)`)
+        .run(cacheKey, JSON.stringify(tiles), Date.now());
+    } catch (err) {
+      log.error({ err, cacheKey }, "failed to persist worldgen baseline to SQLite (non-fatal)");
+    }
+  };
+
   const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number }) => {
     if (input.rulesetId !== "seasonal-default") return [];
     const cacheKey = `${input.rulesetId}:${input.worldSeed}`;
-    const cached = worldgenBaselineCache.get(cacheKey);
-    if (cached) return cached;
+
+    const inMemory = worldgenBaselineCache.get(cacheKey);
+    if (inMemory) return inMemory;
+
+    // SQLite persisted baseline survives sim-worker restarts — avoids the
+    // 30-74s generateSeasonWorld block that previously held the event loop
+    // hostage during startup recovery on every container restart.
+    const t0 = Date.now();
+    const persisted = readWorldgenBaselineFromDb(cacheKey);
+    if (persisted) {
+      worldgenBaselineCache.set(cacheKey, persisted);
+      log.info({ cacheKey, durationMs: Date.now() - t0 }, "worldgen baseline loaded from SQLite cache (cold-start block eliminated)");
+      return persisted;
+    }
+
+    // Cold generation: only on first boot of a brand-new season seed.
+    log.info({ cacheKey }, "worldgen baseline not cached — running generateSeasonWorld (expected on first season boot only)");
+    const genT0 = Date.now();
     const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed);
-    worldgenBaselineCache.set(cacheKey, generated.initialState.tiles);
-    return generated.initialState.tiles;
+    const tiles = generated.initialState.tiles;
+    const genMs = Date.now() - genT0;
+    log.info({ cacheKey, durationMs: genMs, tileCount: tiles.length }, "worldgen baseline generated — persisting to SQLite");
+    worldgenBaselineCache.set(cacheKey, tiles);
+    writeWorldgenBaselineToDb(cacheKey, tiles);
+    return tiles;
   };
   const storeFactoryOptions = {
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
@@ -1048,7 +1133,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     onCaptureRevealBuilt: captureRevealBuildSample,
     onMusterRemoteAttack: () => { simulationMetrics.incrementSimMusterRemoteAttack(); },
-    onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
+    onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); }, onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
+    onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -1185,6 +1271,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         error: error.message
       });
       log.error({ err: error }, "simulation entering fatal persistence failure mode");
+      // Dump the error to /data/ before exiting so flyctl logs don't need to
+      // retain it — the file survives the restart and is logged on next boot.
+      try {
+        const stamp = new Date().toISOString();
+        const payload = JSON.stringify({ at: stamp, error: error.message, stack: error.stack ?? "" });
+        fs.writeFileSync("/data/last-persistence-failure.json", payload);
+      } catch {
+        // /data/ may not exist in dev; ignore silently
+      }
       setTimeout(() => {
         process.exitCode = 1;
         process.kill(process.pid, "SIGTERM");
@@ -1196,6 +1291,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  // Post-season proto-tile cache: tiles are frozen after season end so the
+  // marshalled proto tile array is an immutable constant for a given seasonId.
+  // All players get identical full-visibility tiles post-season, so one cached
+  // array can be shared across all concurrent SubscribePlayer RPCs.
+  let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
   const invalidateSharedFullVisibilityTilesCache = (): void => {
     sharedFullVisibilityTilesCache = undefined;
@@ -1203,6 +1303,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const sharedFullVisibilityTiles = (runtimeState: ReturnType<SimulationRuntime["exportState"]>): PlayerSubscriptionSnapshot["tiles"] => {
     if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
     return sharedFullVisibilityTilesCache;
+  };
+  // Batch coalescing for full-visibility exports (season-ended / spectator).
+  // Each 202k-tile exportStateAsync produces a fresh runtimeState object, which
+  // busts the WeakMap-keyed economy caches inside buildLivePlayerEconomySnapshot.
+  // Sharing one in-flight promise means all concurrent full-vis logins get the
+  // same runtimeState → economy caches hit for every player after the first.
+  type FullVisExport = ReturnType<SimulationRuntime["exportState"]>;
+  let inFlightFullVisExportPromise: Promise<FullVisExport> | undefined;
+  const getOrStartFullVisExport = (): Promise<FullVisExport> => {
+    if (!inFlightFullVisExportPromise) {
+      inFlightFullVisExportPromise = runtime.exportStateAsync(yieldToEventLoop).finally(() => {
+        inFlightFullVisExportPromise = undefined;
+      });
+    }
+    return inFlightFullVisExportPromise;
   };
   const refreshSnapshotCacheMetrics = () => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
@@ -1222,7 +1337,38 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const clearCachedSnapshots = () => {
     snapshotCacheByPlayerId.clear();
+    postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
+  };
+  const stopGameplayTickers = (): void => {
+    if (shardRainTicker) { clearInterval(shardRainTicker); shardRainTicker = undefined; }
+    if (tileSheddingTicker) { clearInterval(tileSheddingTicker); tileSheddingTicker = undefined; }
+    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; }
+    if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
+    if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
+    if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
+    if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
+    log.info("season ended — gameplay tickers stopped");
+  };
+  // Proactively build and cache full-vis snapshots for all subscribed players
+  // immediately after season end. Tiles are frozen post-season so cached
+  // snapshots stay valid indefinitely. Concurrent logins share one runtimeState
+  // via getOrStartFullVisExport + sharedFullVisibilityTiles batch coalescing.
+  const warmSeasonEndSnapshots = (): void => {
+    const playerIds = subscriptionRegistry.subscribedPlayerIds();
+    if (playerIds.length === 0) return;
+    log.info({ playerCount: playerIds.length }, "[season_end_warm] warming full-vis snapshots");
+    for (const playerId of playerIds) {
+      void buildAndCachePlayerSnapshotAsync(playerId, {
+        cacheSnapshot: true,
+        trigger: "season_end_warm"
+      }).then(() => {
+        simulationMetrics.incrementSimSeasonEndSnapshotWarm();
+      }).catch((err: unknown) => {
+        simulationMetrics.incrementSimSeasonEndSnapshotWarmFailed();
+        log.error({ err, playerId }, "[season_end_warm] snapshot warm failed");
+      });
+    }
   };
   const recordSnapshotDiagnostics = (
     playerId: string,
@@ -1284,6 +1430,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
+  let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -1306,7 +1453,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // for the duplication rationale.
   const buildAndCachePlayerSnapshotAsync = async (
     playerId: string,
-    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
+    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string; cacheSnapshot?: boolean }
   ): Promise<PlayerSubscriptionSnapshot> => {
     // Phase 4: block ai-lane drain jobs for the full snapshot build duration
     // (runtime export + enrichment both yield dozens of times for large empires).
@@ -1323,8 +1470,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the full-visibility paths (season-ended / admin spectator) still need the
     // whole world materialised.
     const needsFullWorldExport = useFullVisibility;
+    // Use the shared coalesced export so all concurrent full-vis logins
+    // share one runtimeState object — hits WeakMap economy caches for all.
     const worldStatusRuntimeState = needsFullWorldExport
-      ? await runtime.exportStateAsync(yieldToEventLoop)
+      ? await getOrStartFullVisExport()
       : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
@@ -1342,31 +1491,41 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
+    const buildOpts = {
       includeWorldStatus: needsFullWorldExport,
       fullVisibility: useFullVisibility,
+      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
+      // worldStatusRuntimeState is always === runtimeState for full-vis; the
+      // worker falls back to runtimeState automatically, so omit it here.
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
-      onAsyncPhaseTiming: (phase, durationMs, details) => {
-        recordSnapshotBuildTiming(phase, durationMs, {
-          playerId,
-          trigger: options?.trigger ?? "",
-          fullVisibility: useFullVisibility,
-          includeWorldStatus: options?.includeWorldStatus === true,
-          ...(details ?? {})
-        });
-      }
-    });
-    recordSnapshotBuildTiming("snapshot_materialize_async", Date.now() - snapshotBuildStartedAt, {
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+    };
+    // Full-visibility builds (season-ended / spectator) bypass the worker pool.
+    // For full-vis the per-tile enrichment is already memoised on the main
+    // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
+    // reference in player-snapshot.ts), so the worker has nothing to compute —
+    // it would only structured-clone the entire 202k-tile runtimeState across
+    // the boundary and clone the 202k-tile snapshot back. That clone was a ~4s
+    // synchronous block on the sim event loop per login (prod snapshot_materialize
+    // 4134ms), which stacked across bootstrap retries and killed the sim worker,
+    // wedging post-season logins. Inline reuses the cached tiles by reference and
+    // does only the cheap per-player economy/worldStatus work (~100ms). The
+    // worker still serves fog-of-war logins, where enrichment is per-player and
+    // the returned tile set is small.
+    const useWorkerBuild = snapshotBuildPool !== undefined && !useFullVisibility;
+    if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
+    const snapshot = useWorkerBuild
+      ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
+      : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
+    recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
       fullVisibility: useFullVisibility,
       tileCount: snapshot.tiles.length
     });
-    if (!useFullVisibility) {
+    if (!useFullVisibility || options?.cacheSnapshot === true) {
       const cacheStartedAt = Date.now();
       setCachedSnapshot(playerId, snapshot);
       recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
@@ -1493,6 +1652,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
+      closeAutopilots();
+      log.info("autopilots stopped on season end");
+      warmSeasonEndSnapshots();
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
     return finalSummary;
@@ -1558,10 +1720,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByTechs ? { selfByTechs } : {})
       };
       const seasonVictory = personalizeSeasonVictoryObjectives(currentSummary?.seasonVictory ?? [], []);
+      const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
         leaderboard: playerLeaderboard,
         seasonVictory,
+        ...(seasonWinner ? { seasonWinner } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
@@ -1639,6 +1803,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const baseAiTickMs = options.aiTickMs ?? 250;
 
   const aiShouldRun = () => {
+    if (currentSeasonState.status === "ended") {
+      simulationMetrics.incrementSimAiTickThrottled("season_ended");
+      return false;
+    }
     const hrNow = process.hrtime.bigint();
     if (aiShouldRunFirstCall) {
       aiShouldRunFirstCall = false;
@@ -1667,10 +1835,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     );
   };
 
-  const systemShouldRun = () =>
-    !persistenceQueue.isDegraded() &&
-    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
+  const systemShouldRun = () => {
+    if (currentSeasonState.status === "ended") {
+      simulationMetrics.incrementSimAiTickThrottled("season_ended");
+      return false;
+    }
+    return (
+      !persistenceQueue.isDegraded() &&
+      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+      latestEventLoopLagMs <= aiMaxEventLoopLagMs
+    );
+  };
   let aiCommandProducer:
     | ReturnType<typeof createAiCommandProducer>
     | ReturnType<typeof createWorkerAiCommandProducer>
@@ -1781,6 +1956,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.expansionObjectiveKind) {
                 simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
               }
+              if (diagnostic.utilityWinner) {
+                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
+              }
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1872,6 +2050,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
               if (diagnostic.narrowAnalyzeCapped) {
                 simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
+              }
+              if (diagnostic.utilityWinner) {
+                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
             },
             onTick: ({ durationMs }) => {
@@ -2340,13 +2521,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
                 })
               : await (() => {
-                  // Phase B3: reuse the cached snapshot from the bootstrap-only
-                  // build when it exists and visibility matches (same-tick fresh
-                  // per Q3, gateway ignores the payload per Q1). Only short-circuit
-                  // when NOT full-visibility — admin/spectator/season-ended paths
-                  // don't cache and must always build.
+                  // Phase B3: reuse the cached snapshot when available. For
+                  // normal logins, always check cache. For full-vis (admin/spectator
+                  // or season-ended), only check cache post-season — warming pre-builds
+                  // full-vis snapshots there; during active season full-vis is only for
+                  // admin spectators who shouldn't get a stale non-full-vis snapshot.
                   const useFullVisibility = subscribeOptions.fullVisibility === true || currentSeasonState.status === "ended";
-                  if (!useFullVisibility) {
+                  const seasonEnded = currentSeasonState.status === "ended";
+                  if (!useFullVisibility || seasonEnded) {
                     const cached = snapshotCacheByPlayerId.get(call.request.player_id);
                     if (cached) return cached;
                   }
@@ -2362,87 +2544,121 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         inFlightSubscribeBuilds.set(key, promise);
         return promise;
       })();
+      const stringifySnapshot = snapshotStringifier
+        ? (payload: unknown) => snapshotStringifier(payload)
+        : async (payload: unknown) => JSON.stringify(payload);
+
       void buildPromise.then(
-        (snapshotPayload) => {
-          if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-            log.info(
-              JSON.stringify({
-                type: "debug_subscribe_player",
-                playerId: call.request.player_id,
-                runtimeTiles: snapshotPayload.tiles.length,
-                snapshotTiles: snapshotPayload.tiles.length,
-                snapshotLength: JSON.stringify(snapshotPayload).length
-              })
-            );
-          }
-          callback(null, {
-            ok: true,
-            player_id: snapshotPayload.playerId,
-            playerId: snapshotPayload.playerId,
-            ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
-            ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
-            ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
-            ...(snapshotPayload.docks?.length
-              ? {
-                  docks: snapshotPayload.docks.map((dock) => ({
-                    dock_id: dock.dockId,
-                    tile_key: dock.tileKey,
-                    paired_dock_id: dock.pairedDockId,
-                    ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-                  }))
-                }
-              : {}),
-            tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
-          });
-          if (!subscribeOptions.emitBootstrapEvent) return;
-          const bootstrapEvent = toProtoEvent({
-            eventType: "TILE_DELTA_BATCH",
-            commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
-            playerId: call.request.player_id,
-            tileDeltas: snapshotPayload.tiles
-          });
-          // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
-          // any prior PLAYER_UPDATE that fired before this subscriber attached
-          // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
-          // unconditionally superseded by a fresh value on the event stream.
-          // Include storageCap so the economy panel shows real caps immediately
-          // rather than the floor defaults from client-state initialisation.
-          const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
-          const hydrateEvent = snapshotPayload.player
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "PLAYER_UPDATE",
-                payloadJson: JSON.stringify({
-                  type: "PLAYER_UPDATE",
-                  ...snapshotPayload.player,
-                  ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+        async (snapshotPayload) => {
+          try {
+            const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
+              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
+              snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
+            ]);
+
+            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
+              log.info(
+                JSON.stringify({
+                  type: "debug_subscribe_player",
+                  playerId: call.request.player_id,
+                  runtimeTiles: snapshotPayload.tiles.length,
+                  snapshotTiles: snapshotPayload.tiles.length,
+                  snapshotLength: JSON.stringify(snapshotPayload).length
                 })
-              })
-            : undefined;
-          // Emit a WELCOME_BACK message showing how much the player earned
-          // since their last active session (capped at 12h of accrual).
-          const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
-          const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
-            ? toProtoEvent({
-                eventType: "PLAYER_MESSAGE",
-                commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
-                playerId: call.request.player_id,
-                messageType: "WELCOME_BACK",
-                payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
-              })
-            : undefined;
-          runtime.updatePlayerLastActive(call.request.player_id, Date.now());
-          queueMicrotask(() => {
-            for (const stream of eventStreams) stream.write(bootstrapEvent);
-            if (hydrateEvent) {
-              for (const stream of eventStreams) stream.write(hydrateEvent);
+              );
             }
-            if (welcomeBackEvent) {
-              for (const stream of eventStreams) stream.write(welcomeBackEvent);
-            }
-          });
+            callback(null, {
+              ok: true,
+              player_id: snapshotPayload.playerId,
+              playerId: snapshotPayload.playerId,
+              ...(playerJson ? { player_json: playerJson } : {}),
+              ...(worldStatusJson ? { world_status_json: worldStatusJson } : {}),
+              ...(seasonJson ? { season_json: seasonJson } : {}),
+              ...(snapshotPayload.docks?.length
+                ? {
+                    docks: snapshotPayload.docks.map((dock) => ({
+                      dock_id: dock.dockId,
+                      tile_key: dock.tileKey,
+                      paired_dock_id: dock.pairedDockId,
+                      ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
+                    }))
+                  }
+                : {}),
+              tiles: (() => {
+                // Post-season: tiles are frozen and all players share identical
+                // full-visibility tiles, so marshal once and reuse.
+                if (currentSeasonState.status === "ended") {
+                  const cached = postSeasonProtoTilesCache;
+                  if (cached !== undefined && cached.seasonId === currentSeasonState.seasonId) {
+                    simulationMetrics.incrementSimPostSeasonProtoTileCacheHit();
+                    return cached.tiles;
+                  }
+                  const mapped = snapshotPayload.tiles.map(toFullSnapshotProtoTile);
+                  postSeasonProtoTilesCache = { seasonId: currentSeasonState.seasonId, tiles: mapped };
+                  simulationMetrics.incrementSimPostSeasonProtoTileCacheMiss();
+                  return mapped;
+                }
+                return snapshotPayload.tiles.map(toFullSnapshotProtoTile);
+              })()
+            });
+            if (!subscribeOptions.emitBootstrapEvent) return;
+            const bootstrapEvent = toProtoEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
+              playerId: call.request.player_id,
+              tileDeltas: snapshotPayload.tiles
+            });
+            // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
+            // any prior PLAYER_UPDATE that fired before this subscriber attached
+            // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
+            // unconditionally superseded by a fresh value on the event stream.
+            // Include storageCap so the economy panel shows real caps immediately
+            // rather than the floor defaults from client-state initialisation.
+            const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
+            const hydrateEvent = snapshotPayload.player
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "PLAYER_UPDATE",
+                  payloadJson: JSON.stringify({
+                    type: "PLAYER_UPDATE",
+                    ...snapshotPayload.player,
+                    ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+                  })
+                })
+              : undefined;
+            // Emit a WELCOME_BACK message showing how much the player earned
+            // since their last active session (capped at 12h of accrual).
+            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
+              ? toProtoEvent({
+                  eventType: "PLAYER_MESSAGE",
+                  commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
+                  playerId: call.request.player_id,
+                  messageType: "WELCOME_BACK",
+                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+                })
+              : undefined;
+            runtime.updatePlayerLastActive(call.request.player_id, Date.now());
+            queueMicrotask(() => {
+              for (const stream of eventStreams) stream.write(bootstrapEvent);
+              if (hydrateEvent) {
+                for (const stream of eventStreams) stream.write(hydrateEvent);
+              }
+              if (welcomeBackEvent) {
+                for (const stream of eventStreams) stream.write(welcomeBackEvent);
+              }
+            });
+          } catch (err) {
+            callback(err instanceof Error ? err : new Error(String(err)), {
+              ok: false,
+              player_id: call.request.player_id,
+              playerId: call.request.player_id,
+              tiles: []
+            });
+          }
         },
         (error) => {
           callback(error instanceof Error ? error : new Error(String(error)), {
@@ -2629,6 +2845,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       boundPort = port;
       server.start();
       shardRainTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           mainThreadTasks.trackSync("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
         } catch (error) {
@@ -2637,6 +2854,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
         // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
         // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
@@ -2651,6 +2869,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           .finally(() => { tileSheddingRunning = false; });
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
           if (growthResult) {
@@ -2681,6 +2900,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let territoryAutomationRunning = false;
       territoryAutomationTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: if the previous async tick is still in progress (took
         // >30s despite yields), skip rather than race two instances on the same
         // shared mutable state (tiles, players, frontierTilesByOwner, etc.).
@@ -2696,6 +2916,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           .finally(() => { territoryAutomationRunning = false; });
       }, 30_000);
       orphanLockSweepTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         try {
           mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
             const dropped = runtime.tickOrphanedLockSweep(Date.now());
@@ -2706,10 +2927,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 30_000);
       watchedMusterTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         runtime.tickWatchedMusterTiles(Date.now());
       }, 1_000);
       let passiveIncomeRunning = false;
-      setInterval(() => {
+      passiveIncomeTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
         // Overlap guard: if a previous async tick is still running skip to avoid
         // double-crediting players whose lastIncomeTickAtMs hasn't been advanced yet.
         if (passiveIncomeRunning) {
@@ -2762,6 +2985,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = 0;
         simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
         simulationMetrics.setSimCpuPercent(sampleCpuPercent());
+        const empireTiles = runtime.empireTileCounts();
+        simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
+        simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({
           heapUsedMb: memory.heapUsed / (1024 * 1024),
@@ -2784,6 +3010,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
                 ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
                 : undefined;
+            const buildWorkerMetrics = snapshotBuildPool?.getMetrics();
             const aiMetrics =
               aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
                 ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
@@ -2806,6 +3033,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                     last_exit_code: snapshotMetrics.lastExitCode
                   }
                 : undefined,
+              build_workers: buildWorkerMetrics?.map((m, i) => ({
+                slot: i,
+                heap_used_mb: toMb(m.heapUsedBytes),
+                respawn_count: m.respawnCount,
+                last_exit_code: m.lastExitCode
+              })),
               ai: aiMetrics
                 ? {
                     heap_used_mb: toMb(aiMetrics.heapUsedBytes),
@@ -2932,6 +3165,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
+      if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
       globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {

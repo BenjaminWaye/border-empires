@@ -32,6 +32,7 @@ export const buildMapLoadingView = (
     | "authRetryNextAt"
     | "authBusyTitle"
     | "authBusyDetail"
+    | "serverDeploying"
   >,
   wsUrl: string,
   now: number = Date.now()
@@ -48,6 +49,16 @@ export const buildMapLoadingView = (
         }`
       : baseRetryMeta;
   if (state.connection === "disconnected") {
+    if (state.serverDeploying) {
+      return {
+        title: "Server update in progress",
+        meta: "Reconnecting automatically — updates usually complete in 1–2 minutes.",
+        showRetry: false,
+        showReload: false,
+        showDiagnostics: false,
+        tone: "normal"
+      };
+    }
     if (state.authRetrying) {
       return {
         title: state.authBusyTitle || "Realtime simulation unavailable",
@@ -68,6 +79,16 @@ export const buildMapLoadingView = (
     };
   }
   if (state.connection === "connecting") {
+    if (state.serverDeploying) {
+      return {
+        title: "Reconnecting after update...",
+        meta: "Waiting for the updated server to come back online.",
+        showRetry: false,
+        showReload: false,
+        showDiagnostics: false,
+        tone: "normal"
+      };
+    }
     return {
       title: "Connecting to server...",
       meta: "Retrying connection...",

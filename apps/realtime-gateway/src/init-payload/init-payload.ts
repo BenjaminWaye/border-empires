@@ -11,6 +11,7 @@ import {
   type PlayerRespawnNotice,
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
+  type SeasonWinnerView,
   type ResourceType,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -159,6 +160,7 @@ type GatewayInitPayload = {
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
+  seasonWinner?: SeasonWinnerView;
   mapMeta: {
     dockCount: number;
     dockPairCount: number;
@@ -881,6 +883,9 @@ export const buildGatewayInitPayload = (
     bootstrapProfile?.strategicResources ??
     { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 };
 
+  const seasonWinner: SeasonWinnerView | undefined =
+    initialState?.season?.winner ?? snapshotBootstrap?.seasonWinner;
+
   return {
     runtimeIdentity,
     player: {
@@ -1011,6 +1016,10 @@ export const buildGatewayInitPayload = (
     missions: [],
     domainIds,
     seasonVictory,
+    // Surface the crowned winner on INIT so the season-end screen can show on a
+    // fresh post-season login (otherwise it only arrives via GLOBAL_STATUS_UPDATE,
+    // which does not fire for a player joining after the season has ended).
+    ...(seasonWinner ? { seasonWinner } : {}),
     mapMeta: {
       dockCount,
       dockPairCount: dockPairs.length,

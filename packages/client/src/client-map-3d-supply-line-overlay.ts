@@ -63,7 +63,7 @@ export const createSupplyLineOverlay = (scene: Scene): SupplyLineOverlay => {
       const mat = new LineBasicMaterial({
         color: p.ownerColor,
         transparent: true,
-        opacity: p.phase === "transit" ? 0.9 : 0.55,
+        opacity: p.phase === "transit" ? 0.95 : 0.75,
         depthTest: false,
         depthWrite: false
       });
@@ -78,7 +78,7 @@ export const createSupplyLineOverlay = (scene: Scene): SupplyLineOverlay => {
   const tick = (nowMs: number): void => {
     for (const { mat, phase } of activeLines) {
       if (phase === "transit") {
-        mat.opacity = 0.5 + 0.4 * Math.abs(Math.sin(nowMs / 400));
+        mat.opacity = 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400));
         mat.needsUpdate = true;
       }
     }

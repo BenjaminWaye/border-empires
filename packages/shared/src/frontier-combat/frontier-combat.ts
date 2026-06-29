@@ -1,4 +1,5 @@
 import { combatWinChance } from "../math/math.js";
+import { BREAKTHROUGH_DEBUFF_MULT } from "../config.js";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
@@ -7,6 +8,8 @@ export type FrontierCombatPreviewTile = {
   townType?: string | undefined;
   // True iff the target tile has an active (not under-construction) fort owned by the defender.
   hasFort?: boolean | undefined;
+  // Breakthrough momentum: set when tile is freshly breached; debuffs defence.
+  breachShockUntil?: number | undefined;
 };
 
 export type FrontierCombatPreview = {
@@ -29,6 +32,8 @@ export type FrontierCombatModifiers = {
   musterSystemEnabled?: boolean;
   fortGarrison?: number | undefined;
   fortGarrisonCap?: number | undefined;
+  // Breakthrough momentum: current timestamp for breach-window check.
+  nowMs?: number | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -51,6 +56,9 @@ const defenseMultiplierForTile = (
     } else {
       defMult *= baseMult;
     }
+  }
+  if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
+    defMult *= BREAKTHROUGH_DEBUFF_MULT;
   }
   return defMult;
 };
