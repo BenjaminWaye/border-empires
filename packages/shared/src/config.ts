@@ -1,6 +1,10 @@
 declare const process: {
   env: {
     MUSTER_SYSTEM_ENABLED?: string;
+    BREAKTHROUGH_ENABLED?: string;
+    EMPIRE_INTEGRITY_ENABLED?: string;
+    AI_UTILITY_POLICY_ENABLED?: string;
+    AUTO_FILL_ENABLED?: string;
   };
 };
 
@@ -147,3 +151,22 @@ export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
 // Fraction of the attacking force the garrison loses on a REPULSED assault.
 export const FORT_GARRISON_ATTRITION_MIN = 0.05;
 export const FORT_GARRISON_ATTRITION_MAX = 0.15;
+
+// --- Breakthrough momentum ---
+export const BREAKTHROUGH_ENABLED = process.env["BREAKTHROUGH_ENABLED"] === "true";
+export const BREAKTHROUGH_DEBUFF_MULT = 0.7;
+export const BREAKTHROUGH_DURATION_MS = 60_000;
+
+// --- Empire Integrity ---
+export const EMPIRE_INTEGRITY_ENABLED = process.env["EMPIRE_INTEGRITY_ENABLED"] === "true";
+export const INTEGRITY_ECON_MIN_MULT = 0.85;
+export const INTEGRITY_ECON_MAX_MULT = 1.15;
+export const INTEGRITY_GROWTH_MIN_MULT = 0.9;
+export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
+
+// --- Utility AI policy ---
+export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";
+
+// --- Auto-fill ---
+export const AUTO_FILL_ENABLED = process.env["AUTO_FILL_ENABLED"] === "true";
+export const AUTO_FILL_MAX_REGION_SIZE = 500;

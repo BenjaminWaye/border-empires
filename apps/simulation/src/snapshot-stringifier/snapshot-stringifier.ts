@@ -8,6 +8,132 @@ const inlineStringifier: SnapshotStringifier = async (payload) => JSON.stringify
 
 export const createInlineSnapshotStringifier = (): SnapshotStringifier => inlineStringifier;
 
+/** Minimum array length that triggers chunked serialisation with EL yields. */
+const CHUNK_THRESHOLD = 500;
+
+/** Number of array elements stringified per synchronous slice before a yield. */
+const CHUNK_SIZE = 2_000;
+
+/** Yield to the event loop via setImmediate. */
+const yieldToEventLoop = (): Promise<void> => new Promise<void>((resolve) => setImmediate(resolve));
+
+/**
+ * Stringify a plain array in slices, yielding between batches.
+ * Each element is stringified with JSON.stringify individually (handles nested
+ * objects correctly). The caller controls whether a yield callback fires.
+ */
+const stringifyArrayChunked = async (
+  arr: unknown[],
+  onYield?: () => void
+): Promise<string> => {
+  if (arr.length === 0) return "[]";
+  if (arr.length < CHUNK_THRESHOLD) return JSON.stringify(arr);
+
+  const parts: string[] = [];
+  for (let i = 0; i < arr.length; i += CHUNK_SIZE) {
+    const slice = arr.slice(i, i + CHUNK_SIZE);
+    // JSON.stringify renders array elements that serialize to `undefined`
+    // (undefined / function / symbol) as `null`. Replicate that, otherwise a
+    // hole produces a literal empty string and corrupt JSON like `[,1]` that
+    // the recovery path can't parse on restart.
+    parts.push(
+      slice
+        .map((el) => {
+          const elJson = JSON.stringify(el);
+          return elJson === undefined ? "null" : elJson;
+        })
+        .join(",")
+    );
+    if (i + CHUNK_SIZE < arr.length) {
+      onYield?.();
+      await yieldToEventLoop();
+    }
+  }
+  return "[" + parts.join(",") + "]";
+};
+
+/**
+ * Build JSON for an object whose values are either scalars or arrays.
+ * Large arrays (>= CHUNK_THRESHOLD) are serialised in chunks; everything
+ * else falls through to JSON.stringify.
+ *
+ * `undefined` / function / symbol values are handled exactly as JSON.stringify
+ * does (keys omitted; array holes rendered as `null`). The caller must still
+ * ensure no circular refs (same contract as JSON.stringify).
+ */
+const stringifyObjectChunked = async (
+  obj: Record<string, unknown>,
+  onYield?: () => void
+): Promise<string> => {
+  const keys = Object.keys(obj);
+  const kvParts: string[] = [];
+  for (const key of keys) {
+    const value = obj[key];
+    const keyJson = JSON.stringify(key) + ":";
+    if (Array.isArray(value) && value.length >= CHUNK_THRESHOLD) {
+      const arrJson = await stringifyArrayChunked(value, onYield);
+      kvParts.push(keyJson + arrJson);
+    } else if (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      // One level deeper: check for large arrays inside (e.g. initialState.tiles)
+      const nested = value as Record<string, unknown>;
+      const nestedKeys = Object.keys(nested);
+      const hasLargeArray = nestedKeys.some(
+        (k) => Array.isArray(nested[k]) && (nested[k] as unknown[]).length >= CHUNK_THRESHOLD
+      );
+      if (hasLargeArray) {
+        // A plain object always serializes (never `undefined`), so no omit guard.
+        kvParts.push(keyJson + (await stringifyObjectChunked(nested, onYield)));
+      } else {
+        const valueJson = JSON.stringify(value);
+        if (valueJson !== undefined) kvParts.push(keyJson + valueJson);
+      }
+    } else {
+      // JSON.stringify OMITS object keys whose value serializes to `undefined`
+      // (undefined / function / symbol). Match that — emitting `"key":undefined`
+      // would be invalid JSON.
+      const valueJson = JSON.stringify(value);
+      if (valueJson !== undefined) kvParts.push(keyJson + valueJson);
+    }
+  }
+  return "{" + kvParts.join(",") + "}";
+};
+
+export type ChunkedSnapshotStringifierOptions = {
+  /** Callback fired every time a yield occurs. Useful for testing. */
+  onYield?: () => void;
+};
+
+/**
+ * A drop-in replacement for the inline JSON.stringify that avoids blocking
+ * the event loop for more than a few milliseconds at a time. Large arrays
+ * inside the snapshot payload (tiles / tileOverlay / commandEvents) are
+ * serialised in slices of CHUNK_SIZE elements with a setImmediate yield
+ * between batches.
+ *
+ * Output is byte-for-byte identical to JSON.stringify for any JSON-safe value
+ * that is either a plain object or an array (the only shapes the snapshot
+ * stores produce).
+ */
+export const createChunkedSnapshotStringifier = (
+  options: ChunkedSnapshotStringifierOptions = {}
+): SnapshotStringifier => {
+  const { onYield } = options;
+  return async (payload: unknown): Promise<string> => {
+    if (Array.isArray(payload)) {
+      return stringifyArrayChunked(payload, onYield);
+    }
+    if (payload !== null && typeof payload === "object") {
+      return stringifyObjectChunked(payload as Record<string, unknown>, onYield);
+    }
+    // Scalar / null / undefined — unlikely for snapshots but handle gracefully.
+    return JSON.stringify(payload);
+  };
+};
+
 export type WorkerSnapshotStringifierOptions = {
   workerScriptPath?: string | URL;
   maxOldGenerationSizeMb?: number;

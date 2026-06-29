@@ -197,6 +197,8 @@ export type SimulationRuntimeOptions = {
   shouldPauseBackground?: () => boolean;
   onMusterRemoteAttack?: () => void;
   onMusterRemoteBlocked?: () => void;
+  onMusterRemoteBlockedBarbarian?: () => void;
+  onAutoFillTiles?: (count: number) => void;
 };
 
 export type SimulationTileWireDelta = {
@@ -209,6 +211,7 @@ export type SimulationTileWireDelta = {
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+  breachShockUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
   siegeOutpostJson?: string | undefined;

@@ -3,6 +3,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
@@ -35,7 +36,12 @@ import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
-import { withTimeout } from "../promise-timeout.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import {
+  createSimSubmitHealthState,
+  recordSubmitSuccess,
+  shouldMarkUnavailableOnSubmitError
+} from "./sim-submit-health.js";
 import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
@@ -59,7 +65,7 @@ import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snap
 import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
 import { seasonalPlayerNameForId } from "../../../simulation/src/season-worldgen/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionDock, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -198,6 +204,7 @@ const playerSubscriptionSnapshotFromSeedWorld = (
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+    ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
@@ -216,6 +223,7 @@ const jsonSafeTileDeltaBatch = (
     ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
     ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
     ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
+    ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
     ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
@@ -336,10 +344,28 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
   return map;
 };
 
+const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number, docks: PlayerSubscriptionDock[] | undefined): boolean => {
+  if (!docks) return false;
+  const dockById = new Map(docks.map((d) => [d.dockId, d] as const));
+  const dockByTileKey = new Map(docks.map((d) => [d.tileKey, d] as const));
+  const fromDock = dockByTileKey.get(`${fromX},${fromY}`);
+  if (!fromDock) return false;
+  const linkedDockIds = fromDock.connectedDockIds?.length ? fromDock.connectedDockIds : fromDock.pairedDockId ? [fromDock.pairedDockId] : [];
+  const toKey = `${toX},${toY}`;
+  return linkedDockIds.some((linkedId) => {
+    const linked = dockById.get(linkedId);
+    return linked?.tileKey === toKey;
+  });
+};
+
 const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  docks: PlayerSubscriptionDock[] | undefined,
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  attackerTechIds?: readonly string[],
+  attackerDomainIds?: readonly string[],
+  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -359,11 +385,23 @@ const attackPreviewResult = (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
+  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
+  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
+  const techModifiers = attackerTechIds
+    ? resolveFrontierCombatMultipliers(
+        attackerTechIds,
+        attackerDomainIds,
+        defenderPlayerData?.techIds,
+        defenderPlayerData?.domainIds,
+      )
+    : undefined;
+  const preview = buildFrontierCombatPreview(target, {
+    attackerOutpostMult,
+    ...(techModifiers ?? {}),
+  });
   return {
     ...responseBase,
     valid: true,
@@ -377,7 +415,27 @@ const attackPreviewResult = (
 
 export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOptions = {}) => {
   const app = Fastify({ logger: options.logger ?? true });
-  await app.register(websocket);
+  // Enable WebSocket per-message compression. The bootstrap/full-visibility init
+  // payload is ~13MB of tile JSON (202,500 tiles) and highly repetitive (terrain /
+  // ownership strings, coordinates) — it compresses ~10x on the wire, so this is
+  // the dominant lever for login latency to remote clients (uncompressed 13MB is
+  // a multi-second download regardless of how fast the server builds it).
+  // Compression runs on the libuv threadpool via zlib, so it does NOT block the
+  // gateway event loop. {server,client}NoContextTakeover release the per-connection
+  // zlib sliding window after each message to bound memory — important because the
+  // combined box runs tight on RAM after the full-visibility OOM (see #694).
+  // threshold skips compressing small gameplay deltas where it isn't worth it.
+  await app.register(websocket, {
+    options: {
+      perMessageDeflate: {
+        threshold: 1024,
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        concurrencyLimit: 10,
+        zlibDeflateOptions: { level: 6 }
+      }
+    }
+  });
   const startupStartedAt = Date.now();
   const allowNonAuthoritativeInitialState =
     options.allowNonAuthoritativeInitialState ??
@@ -466,6 +524,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
+  const simSubmitHealth = createSimSubmitHealthState();
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   const slowLoginAlerter = createSlowLoginAlerter({
@@ -519,6 +578,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
   const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
   const lastBootstrapAtByPlayerId = new Map<string, number>();
+  // Login queue: instead of rejecting over-concurrency with SERVER_BUSY, hold
+  // the socket open and resume when a bootstrap slot becomes free. The client
+  // shows a "You are #N in queue" message while waiting.
+  const maxLoginQueueSize = Math.max(0, Number(process.env.GATEWAY_MAX_LOGIN_QUEUE_SIZE ?? 50));
+  // Estimated time per bootstrap slot (ms) — used to compute wait-time hints.
+  const bootstrapEstimateMs = Math.max(1000, Number(process.env.GATEWAY_BOOTSTRAP_ESTIMATE_MS ?? 6000));
+  type LoginQueueEntry = { socket: import("ws").WebSocket; resolve: (granted: boolean) => void; enqueuedAt: number };
+  const loginQueue: LoginQueueEntry[] = [];
+  const drainLoginQueue = (): void => {
+    if (loginQueue.length === 0 || bootstrapsInFlight >= maxConcurrentBootstraps) return;
+    const next = loginQueue.shift();
+    if (!next) return;
+    // Notify remaining waiters of their updated positions.
+    loginQueue.forEach((entry, i) => {
+      try {
+        sendJson(entry.socket, {
+          type: "LOGIN_QUEUE_PROGRESS",
+          position: i + 1,
+          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
+        });
+      } catch { /* socket may already be closed */ }
+    });
+    next.resolve(true);
+  };
   const pendingInputToStateByCommandId = new Map<string, number>();
   const recordGatewayAuthStepTiming = (
     step: string,
@@ -633,8 +716,42 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
   const markSimulationReady = (): void => {
+    recordSubmitSuccess(simSubmitHealth);
     simulationRpcConnected = true;
     refreshCombinedSimulationHealth();
+  };
+  // Shared submit-error handler for both submit paths (social sync + player
+  // submit). Routes through the tested sim-submit-health helper so a single
+  // transient timeout doesn't flip the sim to "unavailable" (which surfaces
+  // SERVER_STARTING to clients) — only N consecutive timeouts do, mirroring
+  // the ping-failure threshold. Real channel errors flip immediately.
+  const handleSubmitError = (error: unknown, ctx: { commandId: string; playerId: string }): void => {
+    const decision = shouldMarkUnavailableOnSubmitError(error, simSubmitHealth, {
+      threshold: simulationHealthFailureThreshold,
+      hasEverBeenReady: typeof simulationHealth.lastReadyAt === "number"
+    });
+    if (decision.tolerated) {
+      gatewayMetrics.incrementSimulationSubmitTimeoutTolerated();
+      recordGatewayEvent("warn", "simulation_submit_timeout_tolerated", {
+        commandId: ctx.commandId,
+        playerId: ctx.playerId,
+        consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+        failureThreshold: simulationHealthFailureThreshold
+      });
+      return;
+    }
+    if (decision.markUnavailable) {
+      if (error instanceof TimeoutError) {
+        gatewayMetrics.incrementSimulationSubmitTimeoutFlipped();
+        recordGatewayEvent("warn", "simulation_submit_timeout_flipped", {
+          commandId: ctx.commandId,
+          playerId: ctx.playerId,
+          consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+          failureThreshold: simulationHealthFailureThreshold
+        });
+      }
+      markSimulationUnavailable(error);
+    }
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationRpcConnected = false;
@@ -666,7 +783,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       markSimulationReady();
       return true;
     } catch (error) {
-      markSimulationUnavailable(error);
+      handleSubmitError(error, { commandId: command.commandId, playerId: input.playerId });
       recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
         commandId: command.commandId,
         playerId: input.playerId,
@@ -2273,11 +2390,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const lastBootstrapAtMs = lastBootstrapAtByPlayerId.get(playerIdentity.playerId) ?? 0;
             const overConcurrency = bootstrapsInFlight >= maxConcurrentBootstraps;
             const overRate = bootstrapNowMs - lastBootstrapAtMs < minBootstrapIntervalMs;
-            if (overConcurrency || overRate) {
+            if (overRate) {
               recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
                 playerId: playerIdentity.playerId,
                 channel,
-                reason: overConcurrency ? "concurrency" : "rate",
+                reason: "rate",
                 bootstrapsInFlight,
                 maxConcurrentBootstraps
               });
@@ -2289,6 +2406,64 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               authTrace.complete("rejected", "bootstrap_admission");
               return;
+            }
+            if (overConcurrency) {
+              if (loginQueue.length >= maxLoginQueueSize) {
+                gatewayMetrics.incrementLoginQueueRejectedTotal();
+                recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
+                  playerId: playerIdentity.playerId,
+                  channel,
+                  reason: "queue_full",
+                  bootstrapsInFlight,
+                  maxConcurrentBootstraps,
+                  queueDepth: loginQueue.length
+                });
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "SERVER_BUSY",
+                  retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
+                  message: "Server is busy. Retry shortly."
+                });
+                authTrace.complete("rejected", "bootstrap_admission");
+                return;
+              }
+              gatewayMetrics.incrementLoginQueuedTotal();
+              const queuePosition = bootstrapsInFlight + loginQueue.length + 1;
+              const estimatedWaitMs = Math.round((loginQueue.length + 1) * bootstrapEstimateMs / maxConcurrentBootstraps);
+              recordGatewayEvent("info", "gateway_bootstrap_queued", {
+                playerId: playerIdentity.playerId,
+                channel,
+                position: queuePosition,
+                queueDepth: loginQueue.length
+              });
+              sendJson(socket, { type: "LOGIN_QUEUED", position: queuePosition, estimatedWaitMs });
+              authTrace.startStep("login_queue_wait");
+              const granted = await new Promise<boolean>((resolve) => {
+                const entry: LoginQueueEntry = { socket, resolve, enqueuedAt: Date.now() };
+                loginQueue.push(entry);
+                socket.once("close", () => {
+                  const idx = loginQueue.indexOf(entry);
+                  if (idx !== -1) {
+                    loginQueue.splice(idx, 1);
+                    // Notify remaining waiters their position improved.
+                    loginQueue.forEach((e, i) => {
+                      try {
+                        sendJson(e.socket, {
+                          type: "LOGIN_QUEUE_PROGRESS",
+                          position: i + 1,
+                          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
+                        });
+                      } catch { /* socket may already be closed */ }
+                    });
+                  }
+                  resolve(false);
+                });
+              });
+              authTrace.endStep("login_queue_wait", granted);
+              if (!granted) {
+                authTrace.complete("rejected", "queue_socket_closed");
+                return;
+              }
             }
             if (lastBootstrapAtByPlayerId.size > 5000) lastBootstrapAtByPlayerId.clear();
             lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
@@ -2341,6 +2516,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             } finally {
               bootstrapsInFlight -= 1;
+              drainLoginQueue();
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
@@ -2541,7 +2717,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "ATTACK_PREVIEW") {
-            sendJson(socket, attackPreviewResult(session.playerId, playerSubscriptions.snapshotForPlayer(session.playerId)?.tiles, message));
+            const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
+            const getPlayerTechDomainIds = (pid: string) => {
+              const ps = playerSubscriptions.snapshotForPlayer(pid);
+              return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+            };
+            sendJson(socket, attackPreviewResult(
+              session.playerId,
+              previewSnapshot?.tiles,
+              previewSnapshot?.docks,
+              message,
+              previewSnapshot?.player?.techIds,
+              previewSnapshot?.player?.domainIds,
+              getPlayerTechDomainIds,
+            ));
             return;
           }
 
@@ -2665,6 +2854,39 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
             } catch (error) {
               sendJson(socket, { type: "ERROR", code: "SIMULATION_UNAVAILABLE", message: "fog toggle temporarily unavailable" });
+            }
+            return;
+          }
+
+          if (message.type === "START_NEW_SEASON") {
+            if (!session.playerId) {
+              sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" });
+              return;
+            }
+            recordGatewayEvent("info", "gateway_start_new_season_requested", {
+              playerId: session.playerId,
+              channel: session.channel
+            });
+            try {
+              // force=false: the sim only rolls over when the current season has
+              // already ended, so a player pressing this on the season-end screen
+              // cannot reset an active season. The resulting SEASON_ROLLOVER is
+              // broadcast to every connected client.
+              const result = await simulationClient.startNextSeason(false);
+              recordGatewayEvent("info", "gateway_start_new_season_ok", {
+                playerId: session.playerId,
+                seasonId: result.seasonId
+              });
+            } catch (error) {
+              // Rejects if the season has not ended yet or a rollover is already
+              // in flight — both are benign races from clicking the button. The
+              // in-flight rollover still broadcasts SEASON_ROLLOVER to everyone.
+              recordGatewayEvent("warn", "gateway_start_new_season_rejected", {
+                playerId: session.playerId,
+                channel: session.channel,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
             }
             return;
           }
@@ -2955,11 +3177,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          const authedSession = {
-            sessionId: session.sessionId,
-            playerId: session.playerId,
-            nextClientSeq: session.nextClientSeq
-          };
+          // Alias — NOT a snapshot. submitDurableCommand increments nextClientSeq
+          // synchronously before its first await; using a copy here caused a race
+          // where two concurrent WS messages both snapshotted the same seq value,
+          // producing a UNIQUE constraint violation on (player_id, client_seq).
+          const authedSession = session as GatewaySocketSession;
           // For ATTACK/EXPAND commands we pre-generate the commandId so the
           // expand tracer can use it as a correlationId from the moment the
           // message arrives — before submitDurableCommand assigns it.
@@ -3023,7 +3245,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   commandId: command.commandId,
                   error: error instanceof Error ? error.message : String(error)
                 });
-                markSimulationUnavailable(error);
+                handleSubmitError(error, { commandId: command.commandId, playerId: command.playerId });
                 recordGatewayEvent("warn", "simulation_submit_failed", {
                   commandId: command.commandId,
                   playerId: command.playerId,
@@ -3628,7 +3850,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             );
             expandTracer?.done();
           }
-          session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {
           recordGatewayEvent("error", "gateway_websocket_message_failed", {
             messageType,
@@ -3688,6 +3909,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         address: `http://${host}:${resolvedPort}`,
         wsUrl: `ws://${host}:${resolvedPort}/ws`
       };
+    },
+    notifyDeployment(): void {
+      const payload = preSerializeBroadcast({ type: "SERVER_DEPLOYING" });
+      for (const socket of playerSubscriptions.allSockets()) {
+        try { sendJsonToSocket(socket, payload); } catch {}
+      }
     },
     async close(): Promise<void> {
       await gatewayBootstrapStringifier.close();

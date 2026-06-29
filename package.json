@@ -5,6 +5,7 @@
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "dev": "pnpm --filter @border-empires/shared build && pnpm --parallel --filter @border-empires/simulation --filter @border-empires/realtime-gateway --filter @border-empires/client dev",
+    "dev:lab": "pnpm --filter @border-empires/shared build && pnpm --filter @border-empires/worldgen-lab dev",
     "dev:clean": "./scripts/clean-dev.sh",
     "rewrite:restart": "./scripts/restart-rewrite-stack.sh",
     "rewrite:restart:20ai": "./scripts/restart-rewrite-stack-20ai.sh",

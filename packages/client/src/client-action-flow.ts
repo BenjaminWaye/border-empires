@@ -140,7 +140,6 @@ type ActionFlowDeps = Record<string, any> & {
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
 };
-
 type TileDetailRequestOptions = {
   force?: boolean;
 };
@@ -205,7 +204,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     structureCostText
   } = deps;
 
-  const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
+  const requireAuthedSession = (
+    message = state.authRetrying
+      ? "Server is reconnecting. Please wait a moment."
+      : "Finish sign-in before interacting with the map."
+  ): boolean => {
     if (state.authReady && state.authSessionReady) return true;
     if (!state.authReady && ws.readyState === ws.OPEN && state.authSessionReady) return true;
     if (!state.authReady) {
@@ -578,7 +581,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     );
     if (!predictedAlreadyShown) {
       pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+      if (!state.capture?.fromMusterAdvance) showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
     }
     if (resultTargetKey) {
       if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
@@ -1192,7 +1195,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          if (requestSettlement(selected.x, selected.y)) pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
+          requestSettlement(selected.x, selected.y);
         }
         state.autoSettleTargets.delete(k);
       }
@@ -1683,6 +1686,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
+    if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
     hideTileActionMenu();
   };
 

@@ -53,6 +53,27 @@ type QueuedBuildPayload =
   | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
+const SERVER_DEPLOYING_SESSION_KEY = "be:server-deploying-at";
+const SERVER_DEPLOYING_WINDOW_MS = 180_000;
+
+export const setServerDeployingSession = (): void => {
+  try { sessionStorage.setItem(SERVER_DEPLOYING_SESSION_KEY, String(Date.now())); } catch {}
+};
+
+export const clearServerDeployingSession = (): void => {
+  try { sessionStorage.removeItem(SERVER_DEPLOYING_SESSION_KEY); } catch {}
+};
+
+const checkServerDeployingSession = (): boolean => {
+  try {
+    const ts = sessionStorage.getItem(SERVER_DEPLOYING_SESSION_KEY);
+    if (!ts) return false;
+    return Date.now() - Number(ts) < SERVER_DEPLOYING_WINDOW_MS;
+  } catch {
+    return false;
+  }
+};
+
 export const storageGet = (keyName: string): string | null => {
   try {
     return window.localStorage.getItem(keyName);
@@ -73,6 +94,7 @@ export const createInitialState = () => ({
   me: "",
   meName: "",
   connection: "connecting" as "connecting" | "connected" | "initialized" | "disconnected",
+  serverDeploying: checkServerDeployingSession(),
   authReady: false,
   authSessionReady: false,
   hasEverInitialized: false,
@@ -226,6 +248,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -248,7 +271,7 @@ export const createInitialState = () => ({
     screenY: number;
     radius: number;
   }>,
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean } | undefined,
+  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean; fromMusterAdvance?: boolean } | undefined,
   musterTransit: undefined as {
     musterX: number;
     musterY: number;
@@ -294,6 +317,7 @@ export const createInitialState = () => ({
       previousYield?: { gold: number; strategic: Record<string, number> };
     }
   >(),
+  pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     selfOverall: undefined as LeaderboardOverallEntry | undefined,
@@ -306,6 +330,11 @@ export const createInitialState = () => ({
   },
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
+  // Season-end screen: shown once a winner is crowned (season ended). The player
+  // can dismiss it with "Look Around"; reset to false on SEASON_ROLLOVER so the
+  // screen shows again the next time a season ends.
+  seasonEndDismissed: false,
+  seasonEndStarting: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
@@ -507,5 +536,4 @@ export const createInitialState = () => ({
   firstChunkAt: 0,
   chunkFullCount: 0
 });
-
 export type ClientState = ReturnType<typeof createInitialState>;

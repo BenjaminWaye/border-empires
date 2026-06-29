@@ -54,6 +54,8 @@ const converterDailyOutput = (structureType: string | undefined): Record<string,
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+    case "FARMSTEAD":
+      return { FOOD: 72 * 0.5 };
     default:
       return {};
   }
@@ -108,7 +110,15 @@ export const deriveTileYieldRate = (
   };
 
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type) {
-    Object.assign(strategicPerDay, converterDailyOutput(tile.economicStructure.type));
+    const converterOutput = converterDailyOutput(tile.economicStructure.type);
+    // FARMSTEAD on a non-FARM tile (e.g. FISH) gets no food bonus — strip it.
+    if (tile.economicStructure.type === "FARMSTEAD" && tile.resource !== "FARM") {
+      delete converterOutput.FOOD;
+    }
+    // Additive merge so FARMSTEAD on a FARM tile gives 72+36=108, not 36.
+    for (const [key, value] of Object.entries(converterOutput)) {
+      strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
+    }
   }
 
   for (const key of Object.keys(strategicPerDay)) {

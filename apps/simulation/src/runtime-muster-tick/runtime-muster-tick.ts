@@ -231,7 +231,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       clientSeq: 0,
       issuedAt: input.nowMs,
       type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y })
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y })
     },
     "ATTACK"
   );

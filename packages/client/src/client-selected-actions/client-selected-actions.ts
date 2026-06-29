@@ -2,6 +2,7 @@ import { COLLECT_VISIBLE_COOLDOWN_MS } from "../client-constants.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
 import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
+import { showShardCollectOverlay } from "../client-shard-collect/client-shard-collect.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -60,7 +61,6 @@ export const settleSelected = (
     return;
   }
   if (!deps.requestSettlement(selected.x, selected.y)) return;
-  deps.pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
 };
 
 export const buildSiegeOutpostOnSelected = (
@@ -166,7 +166,7 @@ export const collectSelectedYield = (
 };
 
 export const collectSelectedShard = (
-  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile">,
+  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect">,
   deps: {
     keyFor: (x: number, y: number) => string;
     renderHud: () => void;
@@ -175,10 +175,18 @@ export const collectSelectedShard = (
 ): void => {
   const selected = state.selected;
   if (!selected) return;
-  const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
+  const tileKey = deps.keyFor(selected.x, selected.y);
+  const tile = state.tiles.get(tileKey);
   const shardSite = visibleShardSiteForTile(tile, state.shardRainPingsByTile);
   if (!tile || !shardSite) return;
-  state.tiles.set(deps.keyFor(selected.x, selected.y), { ...tile, shardSite: null });
+  state.pendingShardCollect = { tileKey, shardSite };
+  state.tiles.set(tileKey, { ...tile, shardSite: null });
   deps.renderHud();
-  deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y });
+  if (!deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y })) {
+    state.tiles.set(tileKey, { ...tile, shardSite });
+    state.pendingShardCollect = undefined;
+    deps.renderHud();
+    return;
+  }
+  showShardCollectOverlay({ kind: shardSite.kind, amount: shardSite.amount });
 };

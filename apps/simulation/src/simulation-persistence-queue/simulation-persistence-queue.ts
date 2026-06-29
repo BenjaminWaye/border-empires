@@ -40,11 +40,20 @@ const DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS: readonly number[] = [250, 1_000, 5_0
 const isTransientPersistenceError = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
+    // Legacy Postgres transient errors (kept for dev environments)
     message.includes("timeout") ||
     message.includes("timed out") ||
     message.includes("econnreset") ||
     message.includes("connection terminated") ||
-    message.includes("connection reset")
+    message.includes("connection reset") ||
+    // SQLite transient contention errors. SQLITE_BUSY ("database is locked")
+    // fires when a WAL checkpoint auto-triggered by the reader connection
+    // races with a writer write. The writer's busy_timeout=5000ms exhausts
+    // before the checkpoint clears; the 250ms first-retry window is enough
+    // for the checkpoint to release.
+    message.includes("database is locked") ||
+    message.includes("sqlite_busy") ||
+    message.includes("sqlite_locked")
   );
 };
 
