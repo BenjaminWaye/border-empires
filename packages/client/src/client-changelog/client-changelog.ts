@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.6",
+  version: "2026.06.29.7",
   title: "What's New",
-  summary: "Crystal targeting now shows highlighted target tiles and connection lines in 3D mode. 2D overlays no longer render on top of 3D terrain.",
+  summary: "Auto-fill: when your tiles fully enclose a pocket of empty land, those tiles now settle for free instead of needing to be clicked one by one.",
   entries: [
+    {
+      introducedIn: "2026.06.29.7",
+      title: "Auto-fill — enclosed tiles settle for free",
+      why: "Surrounding a pocket of empty land required clicking every tile individually. Compact islands were tedious to paint.",
+      changes: [
+        "When your tiles fully enclose a pocket of empty land (bounded by your own tiles, sea, or mountain), those tiles settle automatically for free.",
+        "The auto-fill fires immediately after a capture or settlement that closes the enclosure.",
+        "Enclosed regions up to 500 tiles settle at once — larger regions are left for manual play.",
+      ]
+    },
     {
       introducedIn: "2026.06.29.6",
       title: "Crystal targeting overlay and range circles are more visible in 3D",
