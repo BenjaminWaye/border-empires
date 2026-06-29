@@ -183,6 +183,7 @@ export type Tile = {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     powered?: boolean;
+    bombardCooldownUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };

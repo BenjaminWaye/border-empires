@@ -35,7 +35,7 @@ export type RuntimeLockResolutionContext = {
   onCaptureRevealBuilt: ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void) | undefined;
   applyBarbarianWalkOrMultiply: (lock: LockRecord, previousTarget: DomainTileState | undefined) => void;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean }) => void;
-  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string) => void;
+  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
@@ -195,8 +195,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   }
 
   applyCombatEncirclement(context, lock, attackerWon, originLost, previousOwnerId);
-  if (attacker) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
-  if (originLost && defender) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
+  // Skip emitPlayerStateUpdate for AI-only resolutions — AI players have no
+  // WS subscribers, so the PLAYER_UPDATE (defensibility rebuild + economy
+  // snapshot + JSON.stringify + SQLite enqueue) is pure wasted work.
+  // Human defenders still get their update even when attacked by an AI.
+  if (attacker && !attacker.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
+  if (originLost && defender && !defender.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
   if (originLost) context.respawnIfEliminated(lock.playerId, lock.commandId);
   if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
     if (settlementRelocationPopulation !== undefined) {
@@ -207,7 +211,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     }
     context.respawnIfEliminated(previousOwnerId, lock.commandId);
     context.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
-    context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
 }
 
@@ -286,6 +290,6 @@ function applyCombatEncirclement(
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
     }
   } else if (lock.actionType === "EXPAND" && attackerWon) {
-    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
+    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId, { bfsCap: 2000 });
   }
 }

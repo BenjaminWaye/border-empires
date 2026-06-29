@@ -12,7 +12,10 @@ import {
   SNAPSHOT_FORMAT_VERSION,
   type RecoveredTile
 } from "../snapshot-compaction/snapshot-compaction.js";
-import type { SnapshotStringifier } from "../snapshot-stringifier/snapshot-stringifier.js";
+import {
+  createChunkedSnapshotStringifier,
+  type SnapshotStringifier
+} from "../snapshot-stringifier/snapshot-stringifier.js";
 
 type Row = {
   snapshot_id: number;
@@ -21,7 +24,7 @@ type Row = {
   created_at: number;
 };
 
-const inlineStringify: SnapshotStringifier = async (payload) => JSON.stringify(payload);
+const defaultStringify: SnapshotStringifier = createChunkedSnapshotStringifier();
 
 /**
  * Resolve the worldgen baseline tiles for a given (rulesetId, worldSeed).
@@ -46,7 +49,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       onPruneFailure?: (error: unknown) => void;
     } = {}
   ) {
-    this.stringify = options.stringify ?? inlineStringify;
+    this.stringify = options.stringify ?? defaultStringify;
     this.resolveBaseline = options.resolveBaseline;
     this.onPruneFailure = options.onPruneFailure;
   }

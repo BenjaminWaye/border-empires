@@ -3,6 +3,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
@@ -35,7 +36,12 @@ import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
-import { withTimeout } from "../promise-timeout.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import {
+  createSimSubmitHealthState,
+  recordSubmitSuccess,
+  shouldMarkUnavailableOnSubmitError
+} from "./sim-submit-health.js";
 import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
@@ -356,7 +362,10 @@ const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  attackerTechIds?: readonly string[],
+  attackerDomainIds?: readonly string[],
+  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -380,7 +389,19 @@ const attackPreviewResult = (
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
+  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
+  const techModifiers = attackerTechIds
+    ? resolveFrontierCombatMultipliers(
+        attackerTechIds,
+        attackerDomainIds,
+        defenderPlayerData?.techIds,
+        defenderPlayerData?.domainIds,
+      )
+    : undefined;
+  const preview = buildFrontierCombatPreview(target, {
+    attackerOutpostMult,
+    ...(techModifiers ?? {}),
+  });
   return {
     ...responseBase,
     valid: true,
@@ -503,6 +524,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
+  const simSubmitHealth = createSimSubmitHealthState();
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   const slowLoginAlerter = createSlowLoginAlerter({
@@ -694,8 +716,42 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
   const markSimulationReady = (): void => {
+    recordSubmitSuccess(simSubmitHealth);
     simulationRpcConnected = true;
     refreshCombinedSimulationHealth();
+  };
+  // Shared submit-error handler for both submit paths (social sync + player
+  // submit). Routes through the tested sim-submit-health helper so a single
+  // transient timeout doesn't flip the sim to "unavailable" (which surfaces
+  // SERVER_STARTING to clients) — only N consecutive timeouts do, mirroring
+  // the ping-failure threshold. Real channel errors flip immediately.
+  const handleSubmitError = (error: unknown, ctx: { commandId: string; playerId: string }): void => {
+    const decision = shouldMarkUnavailableOnSubmitError(error, simSubmitHealth, {
+      threshold: simulationHealthFailureThreshold,
+      hasEverBeenReady: typeof simulationHealth.lastReadyAt === "number"
+    });
+    if (decision.tolerated) {
+      gatewayMetrics.incrementSimulationSubmitTimeoutTolerated();
+      recordGatewayEvent("warn", "simulation_submit_timeout_tolerated", {
+        commandId: ctx.commandId,
+        playerId: ctx.playerId,
+        consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+        failureThreshold: simulationHealthFailureThreshold
+      });
+      return;
+    }
+    if (decision.markUnavailable) {
+      if (error instanceof TimeoutError) {
+        gatewayMetrics.incrementSimulationSubmitTimeoutFlipped();
+        recordGatewayEvent("warn", "simulation_submit_timeout_flipped", {
+          commandId: ctx.commandId,
+          playerId: ctx.playerId,
+          consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+          failureThreshold: simulationHealthFailureThreshold
+        });
+      }
+      markSimulationUnavailable(error);
+    }
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationRpcConnected = false;
@@ -727,7 +783,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       markSimulationReady();
       return true;
     } catch (error) {
-      markSimulationUnavailable(error);
+      handleSubmitError(error, { commandId: command.commandId, playerId: input.playerId });
       recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
         commandId: command.commandId,
         playerId: input.playerId,
@@ -2662,7 +2718,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "ATTACK_PREVIEW") {
             const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
-            sendJson(socket, attackPreviewResult(session.playerId, previewSnapshot?.tiles, previewSnapshot?.docks, message));
+            const getPlayerTechDomainIds = (pid: string) => {
+              const ps = playerSubscriptions.snapshotForPlayer(pid);
+              return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+            };
+            sendJson(socket, attackPreviewResult(
+              session.playerId,
+              previewSnapshot?.tiles,
+              previewSnapshot?.docks,
+              message,
+              previewSnapshot?.player?.techIds,
+              previewSnapshot?.player?.domainIds,
+              getPlayerTechDomainIds,
+            ));
             return;
           }
 
@@ -3177,7 +3245,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   commandId: command.commandId,
                   error: error instanceof Error ? error.message : String(error)
                 });
-                markSimulationUnavailable(error);
+                handleSubmitError(error, { commandId: command.commandId, playerId: command.playerId });
                 recordGatewayEvent("warn", "simulation_submit_failed", {
                   commandId: command.commandId,
                   playerId: command.playerId,
@@ -3841,6 +3909,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         address: `http://${host}:${resolvedPort}`,
         wsUrl: `ws://${host}:${resolvedPort}/ws`
       };
+    },
+    notifyDeployment(): void {
+      const payload = preSerializeBroadcast({ type: "SERVER_DEPLOYING" });
+      for (const socket of playerSubscriptions.allSockets()) {
+        try { sendJsonToSocket(socket, payload); } catch {}
+      }
     },
     async close(): Promise<void> {
       await gatewayBootstrapStringifier.close();

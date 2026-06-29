@@ -832,17 +832,25 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     }
     if (economicStructure?.type === "AIRPORT" && economicStructure.ownerId === state.me) {
       const isPowered = economicStructure.powered !== false;
+      const bombardCooldownUntil = economicStructure.bombardCooldownUntil ?? 0;
+      const bombardOnCooldown = bombardCooldownUntil > Date.now();
       out.push({
         id: "airport_bombard",
         label: "Sky Dock Bombard",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && (state.strategicResources.CRYSTAL ?? 0) >= 1,
+          economicStructure.status === "active" && isPowered && !bombardOnCooldown
+            && (state.strategicResources.CRYSTAL ?? 0) >= 200
+            && (state.gold ?? 0) >= 5_000,
           economicStructure.status !== "active"
             ? "Sky Dock still building"
             : !isPowered
               ? "Needs nearby Aether Tower"
-              : "Need 1 CRYSTAL",
-          "1 CRYSTAL • bombard a 3x3 area within 30 tiles"
+              : bombardOnCooldown
+                ? `Cooldown ${deps.formatCooldownShort(Math.max(0, bombardCooldownUntil - Date.now()))}`
+                : (state.strategicResources.CRYSTAL ?? 0) < 200
+                  ? "Need 200 CRYSTAL"
+                  : "Need 5,000 gold",
+          "200 CRYSTAL + 5,000 gold • 20m cooldown • strip ownership from 3×3 (per-tile miss, +25% near forts)"
         )
       });
     }
@@ -1176,7 +1184,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : state.gold < airportGoldCost
                   ? `Need ${airportGoldCost} gold`
                   : "Need 80 CRYSTAL",
-            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard • 0.025 crystal/min`,
+            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 0.025 crystal/min upkeep`,
             slots,
             deps
           )
