@@ -35,7 +35,7 @@ export type RuntimeLockResolutionContext = {
   onCaptureRevealBuilt: ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void) | undefined;
   applyBarbarianWalkOrMultiply: (lock: LockRecord, previousTarget: DomainTileState | undefined) => void;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean }) => void;
-  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string) => void;
+  applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
@@ -95,10 +95,18 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   if (attacker && typeof combatResult?.manpowerDelta === "number") {
     if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
       const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
-      if (isBarbRaid) {
-        attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
-      } else if (lock.playerId === "barbarian-1") {
+      if (lock.playerId === "barbarian-1") {
         // Barbarian-origin attacks are rate-limited by tile cooldown, not manpower.
+      } else if (isBarbRaid) {
+        // Advance-mode barbarian raids drain the muster flag pool. Manual
+        // raids without a flag fall back to the player's global pool.
+        const sourceKey = lock.musterSourceKey ?? lock.originKey;
+        const sourceTile = context.tiles.get(sourceKey);
+        if (sourceTile?.muster?.ownerId === lock.playerId) {
+          context.consumeOriginMuster(sourceKey, lock.playerId, lock.manpowerCost);
+        } else {
+          attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
+        }
       } else {
         context.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
         if (!attackerWon) context.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
@@ -129,6 +137,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
+      ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedStructureFields(previousTarget, lock.playerId),
       ownerId: lock.playerId,
@@ -186,8 +195,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   }
 
   applyCombatEncirclement(context, lock, attackerWon, originLost, previousOwnerId);
-  if (attacker) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
-  if (originLost && defender) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
+  // Skip emitPlayerStateUpdate for AI-only resolutions — AI players have no
+  // WS subscribers, so the PLAYER_UPDATE (defensibility rebuild + economy
+  // snapshot + JSON.stringify + SQLite enqueue) is pure wasted work.
+  // Human defenders still get their update even when attacked by an AI.
+  if (attacker && !attacker.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
+  if (originLost && defender && !defender.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
   if (originLost) context.respawnIfEliminated(lock.playerId, lock.commandId);
   if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
     if (settlementRelocationPopulation !== undefined) {
@@ -198,7 +211,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     }
     context.respawnIfEliminated(previousOwnerId, lock.commandId);
     context.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
-    context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
 }
 
@@ -206,8 +219,9 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   const previousOrigin = context.tiles.get(lock.originKey);
   if (!previousOrigin) return;
   const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
+  const { muster: _discardMuster, ...strippedOrigin } = previousOrigin;
   const resolvedOrigin: DomainTileState = {
-    ...previousOrigin,
+    ...strippedOrigin,
     ownerId: previousOwnerId,
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
@@ -218,6 +232,14 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
   const tileDeltas = [context.tileDeltaFromState(resolvedOrigin)];
+
+  const hadMuster = Boolean(previousOrigin.muster);
+  if (previousOrigin.muster?.ownerId && previousOrigin.muster.amount > 0) {
+    const musterOwner = context.players.get(previousOrigin.muster.ownerId);
+    if (musterOwner) {
+      musterOwner.manpower = Math.min(context.playerManpowerCap(musterOwner), musterOwner.manpower + previousOrigin.muster.amount);
+    }
+  }
 
   if (previousOwnerId === "barbarian-1") {
     const defenderTile = context.tiles.get(lock.targetKey);
@@ -236,6 +258,15 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   }
 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });
+
+  if (hadMuster) {
+    context.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `${lock.commandId}:bc`,
+      playerId: "__broadcast__",
+      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, musterJson: "" }]
+    });
+  }
 }
 
 function applyCombatEncirclement(
@@ -259,6 +290,6 @@ function applyCombatEncirclement(
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
     }
   } else if (lock.actionType === "EXPAND" && attackerWon) {
-    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
+    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId, { bfsCap: 2000 });
   }
 }

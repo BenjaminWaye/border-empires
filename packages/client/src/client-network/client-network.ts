@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
 import {
@@ -1159,6 +1160,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         message: typeof msg.message === "string" ? msg.message : undefined
       });
     }
+    if (msg.type === "SERVER_DEPLOYING") {
+      state.serverDeploying = true;
+      setServerDeployingSession();
+      return;
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -1169,9 +1175,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       return;
     }
+    if (msg.type === "LOGIN_QUEUED" || msg.type === "LOGIN_QUEUE_PROGRESS") {
+      if (!state.authSessionReady) {
+        const position = typeof msg.position === "number" ? msg.position : 1;
+        const estimatedWaitMs = typeof msg.estimatedWaitMs === "number" ? msg.estimatedWaitMs : 0;
+        const estimatedSec = estimatedWaitMs > 0 ? Math.ceil(estimatedWaitMs / 1000) : null;
+        const waitHint = estimatedSec ? ` (~${estimatedSec}s)` : "";
+        applyLoginPhase(
+          "Login queue",
+          `You are #${position} in the login queue${waitHint}. Your session will start automatically when a slot opens.`
+        );
+        renderHud();
+      }
+      return;
+    }
     if (msg.type === "INIT") {
       clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
+      state.serverDeploying = false;
+      clearServerDeployingSession();
       state.authSessionReady = true;
       state.hasEverInitialized = true;
       resetAuthReconnectAttempt();
@@ -1694,7 +1716,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       state.actionTargetKey = targetKey;
-      if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      if (!state.actionCurrent) {
+        state.actionCurrent = {
+          x: target.x,
+          y: target.y,
+          retries: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(msg.actionType === "EXPAND" || msg.actionType === "ATTACK" ? { actionType: msg.actionType } : {}),
+        };
+      } else if (typeof msg.commandId === "string" && msg.commandId) {
+        state.actionCurrent.commandId = msg.commandId;
+      }
       frontierQueueDebug("action_accepted_applied", {
         actionType: msg.actionType,
         commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
@@ -1770,7 +1802,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "COMBAT_RESULT") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
@@ -1830,8 +1861,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
-
       if (msg.type === "COMBAT_START") {
+      if (typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:")) {
+        if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>); return;
+      }
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,
@@ -1876,13 +1909,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
       const preservedSilent = Boolean(existingCapture?.silent);
       const preservedFromMusterAdvance = Boolean(existingCapture?.fromMusterAdvance);
-      const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
       state.capture = {
         startAt,
         resolvesAt: resolvesAtForCapture,
         target,
-        ...(preservedSilent || isMusterAdvance ? { silent: true } : {}),
-        ...(preservedFromMusterAdvance || isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
+        ...(preservedSilent ? { silent: true } : {}),
+        ...(preservedFromMusterAdvance ? { fromMusterAdvance: true } as const : {}),
       };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
@@ -1930,11 +1962,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
       }
       state.unreadAttackAlerts += 1;
-      pushFeed(
-        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        "combat",
-        "error"
-      );
+      appendFeedEntry({
+        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        type: "combat",
+        severity: "error",
+        at: Date.now(),
+        focusX: x,
+        focusY: y,
+        actionLabel: "Center"
+      });
       renderHud();
       return;
     }
@@ -3139,6 +3175,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        // Reset the season-end screen so it shows again when the next season ends.
+        state.seasonEndDismissed = false;
+        state.seasonEndStarting = false;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();

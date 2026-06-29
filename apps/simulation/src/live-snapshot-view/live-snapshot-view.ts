@@ -20,7 +20,7 @@ import type { EconomyPlayer } from "../economy-network/economy-network.js";
 import { buildStrategicProductionByPlayer, buildFedTownKeysByPlayer } from "../snapshot-economy-helpers.js";
 
 // Re-exports for callers that import from this module path
-export { buildLivePlayerEconomySnapshot, buildLivePlayerEconomySnapshotAsync } from "../live-economy-snapshot.js";
+export { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
 export { computeSeedGranaryBuffedTileKeysForTest } from "../snapshot-tile-cache.js";
 
 type EnrichmentContext = {
@@ -314,37 +314,4 @@ export const enrichSnapshotTilesForPlayer = (
   const ctx = buildEnrichmentContext(runtimeState, playerEconomy, visibleTiles);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   return visibleTiles.map((tile) => buildEnrichedTile(playerId, tile, ctx, playersById));
-};
-
-// Async variant that yields to the event loop every ENRICHMENT_YIELD_CHUNK
-// tiles so a multi-second per-player snapshot build no longer blocks the
-// main thread for its full duration. Output is identical to the sync version
-// for the same inputs (covered by a parity test).
-//
-// Chunk size 100 chosen so each contiguous block (≈1.4s at 13.6ms/tile
-// observed in the 2026-05-20 prod outage) stays well under Fly's 5s healthz
-// timeout and the gateway sim-ping 10s budget. setImmediate overhead at this
-// scale (~20 extra hops per 2000-tile build) is negligible.
-const ENRICHMENT_YIELD_CHUNK = 100;
-
-export const enrichSnapshotTilesForPlayerAsync = async (
-  playerId: string,
-  runtimeState: RuntimeState,
-  visibleTiles: RuntimeState["tiles"],
-  playerEconomy: LivePlayerEconomySnapshot,
-  yieldToEventLoop: () => Promise<void>,
-  // Optional pre-built map from the caller — forwarded to buildEnrichmentContextAsync
-  // to skip a duplicate O(202k) scan.
-  prebuiltTilesByKey?: Map<string, RuntimeState["tiles"][number]>
-): Promise<RuntimeState["tiles"]> => {
-  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, visibleTiles, yieldToEventLoop, prebuiltTilesByKey);
-  const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
-  const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
-  for (let i = 0; i < visibleTiles.length; i += 1) {
-    out[i] = buildEnrichedTile(playerId, visibleTiles[i]!, ctx, playersById);
-    if (i > 0 && i % ENRICHMENT_YIELD_CHUNK === 0) {
-      await yieldToEventLoop();
-    }
-  }
-  return out;
 };

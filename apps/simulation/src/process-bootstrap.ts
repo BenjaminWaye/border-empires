@@ -11,6 +11,7 @@
 //     beginShutdown(...), plus posts the "ready"/"closed"/"fatal" messages.
 
 import { createServer, type Server as HttpServer } from "node:http";
+import fs from "node:fs";
 import { createListenerWatchdog } from "./listener-watchdog/listener-watchdog.js";
 import { createSimulationService } from "./simulation-service/simulation-service.js";
 import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env/runtime-env.js";
@@ -59,6 +60,18 @@ type Hooks = {
 export const bootstrapSimulationProcess = async (
   hooks: Hooks = {}
 ): Promise<SimulationProcessHandle> => {
+  // Replay any persistence failure written by the previous run so it appears
+  // in flyctl logs on restart (the original crash's log buffer may have scrolled).
+  try {
+    const dumpPath = "/data/last-persistence-failure.json";
+    if (fs.existsSync(dumpPath)) {
+      const raw = fs.readFileSync(dumpPath, "utf-8");
+      console.error("[boot] previous run persistence failure:", raw);
+      fs.unlinkSync(dumpPath);
+    }
+  } catch {
+    // /data/ may not exist in dev; ignore silently
+  }
   const runtimeEnv = parseSimulationRuntimeEnv(process.env);
   const service = await createSimulationService({
     host: runtimeEnv.host,

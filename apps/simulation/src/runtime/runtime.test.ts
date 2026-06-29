@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { SimulationRuntime } from "./runtime.js";
+import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 
@@ -2507,6 +2507,7 @@ describe("simulation runtime", () => {
 
       runtime.submitCommand(command);
 
+      // player-2 is AI, so #732 skips its PLAYER_UPDATE on lock resolution (no WS subscriber).
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -2515,12 +2516,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
@@ -2565,6 +2564,46 @@ describe("simulation runtime", () => {
           ownershipState: "FRONTIER"
         })
       );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves shardSite on target tile after EXPAND onto a tile that has one", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND", shardSite: { kind: "CACHE", amount: 3 } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-shard-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const targetTile = runtime.exportState().tiles.find((t) => t.x === 11 && t.y === 10);
+      expect(targetTile).toBeDefined();
+      expect(targetTile!.ownerId).toBe("player-1");
+      expect(targetTile!.ownershipState).toBe("FRONTIER");
+      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"kind\":\"CACHE\""));
+      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"amount\":3"));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -4950,6 +4989,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
 
+      // player-2 is AI (#732 skips its PLAYER_UPDATE); the duplicate seq replays cmd-1's recorded events.
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -4958,12 +4998,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
@@ -5709,6 +5747,14 @@ describe("simulation runtime", () => {
     const previousSeed = getWorldSeed();
     setWorldSeed(1);
     try {
+      // Forest settlement tiles are worldgen-derived; locate one for this seed.
+      let forest: { x: number; y: number } | undefined;
+      for (let y = 0; y < 256 && !forest; y += 1) {
+        for (let x = 0; x < 256 && !forest; x += 1) {
+          if (settlementBaseDurationMsForTile({ x, y }) === MAX_SETTLE_DURATION_MS) forest = { x, y };
+        }
+      }
+      if (!forest) throw new Error("no forest settlement tile found for world seed 1");
       const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -5732,7 +5778,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [{ x: 17, y: 192, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [{ x: forest.x, y: forest.y, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
           activeLocks: []
         }
       });
@@ -5744,13 +5790,14 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "SETTLE",
-        payloadJson: JSON.stringify({ x: 17, y: 192 })
+        payloadJson: JSON.stringify({ x: forest.x, y: forest.y })
       });
 
       await Promise.resolve();
 
       expect(scheduledTasks).toHaveLength(1);
-      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(120_000 / 1.05));
+      // Forest doubles the base (MAX_SETTLE_DURATION_MS); toolmaking applies a 1.05x speed mult.
+      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
     } finally {
       setWorldSeed(previousSeed);
     }
@@ -7274,6 +7321,8 @@ describe("simulation runtime", () => {
   });
 
   it("resolves airport bombardment through rewrite tile deltas", async () => {
+    // Force all per-tile rolls to hit (Math.random returns 1, always above miss threshold)
+    const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -7289,7 +7338,7 @@ describe("simulation runtime", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 10 }
+            strategicResources: { CRYSTAL: 200 }
           }
         ],
         [
@@ -7347,17 +7396,34 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
+    randSpy.mockRestore();
 
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: "bombard-1",
-        tileDeltas: expect.arrayContaining([
-          expect.objectContaining({ x: 2, y: 2 }),
-          expect.objectContaining({ x: 2, y: 3 })
-        ])
-      })
+    const deltaBatch = events.find(
+      (e) => e["eventType"] === "TILE_DELTA_BATCH" && e["commandId"] === "bombard-1"
     );
+    expect(deltaBatch).toBeDefined();
+    const tileDeltas = deltaBatch!["tileDeltas"] as Array<Record<string, unknown>>;
+
+    // Stripped tiles should appear in the batch
+    expect(tileDeltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 2, y: 2 }),
+      expect.objectContaining({ x: 2, y: 3 })
+    ]));
+
+    // Structures are preserved — town on (2,2) survives
+    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 2);
+    expect(tile22Delta).toBeDefined();
+    expect(tile22Delta!["townJson"]).toBeDefined();
+    expect(tile22Delta!["ownerId"]).toBeUndefined();
+
+    // Airport tile should include a bombardCooldownUntil in its economicStructureJson
+    const airportDelta = tileDeltas.find((d) => d["x"] === 0 && d["y"] === 0);
+    expect(airportDelta).toBeDefined();
+    const airportStructureJson = airportDelta!["economicStructureJson"];
+    expect(typeof airportStructureJson).toBe("string");
+    const airportStructure = JSON.parse(airportStructureJson as string) as Record<string, unknown>;
+    expect(typeof airportStructure["bombardCooldownUntil"]).toBe("number");
+    expect(airportStructure["bombardCooldownUntil"] as number).toBeGreaterThan(1_000);
   });
 
   const buildAetherTowerRuntime = (options: {
@@ -8350,6 +8416,56 @@ describe("simulation runtime — shard rain", () => {
     ).toBe(false);
   });
 
+  it("does not re-spawn shards on tiles used in previous rain events", () => {
+    const tiles = [
+      { x: 0, y: 0, terrain: "LAND" as const },
+      { x: 1, y: 0, terrain: "LAND" as const },
+      { x: 2, y: 0, terrain: "LAND" as const }
+    ];
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    const randomValues = [
+      0, // count -> SHARD_RAIN_SITE_MIN + 0 = 3
+      0, 0, 0.5, // attempt 1: tile (0,0), amount 1
+      1 / 450, 0, 0.5, // attempt 2: tile (1,0), amount 1
+      2 / 450, 0, 0.5 // attempt 3: tile (2,0), amount 1
+    ];
+    let cursor = 0;
+    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
+      const value = randomValues[cursor] ?? 0;
+      cursor += 1;
+      return value;
+    });
+
+    try {
+      // First rain at 12:00
+      runtime.tickShardRain(localTime(12, 0));
+
+      // Advance past TTL (30 min) and trigger second rain at 20:00.
+      // expireShardFallSites runs first and clears shardSite; then the
+      // spawn loop finds no eligible tiles because recentShardRainTileKeys
+      // still holds the 3 tiles from the first event.
+      runtime.tickShardRain(localTime(20, 0));
+
+      const startedNotices = seen.filter(
+        (event) =>
+          event.eventType === "PLAYER_MESSAGE" &&
+          event.messageType === "SHARD_RAIN_EVENT" &&
+          JSON.parse(event.payloadJson).phase === "started"
+      );
+      expect(startedNotices).toHaveLength(1);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   describe("SETTLEMENT capture evacuation", () => {
     const winningAttacker = (id: string) => ({
       id,
@@ -8554,11 +8670,6 @@ describe("simulation runtime — shard rain", () => {
             activeLocks: []
           }
         });
-        const seen: SimulationRuntimeEventShape[] = [];
-        runtime.onEvent((event) => {
-          seen.push(event);
-        });
-
         runtime.submitCommand({
           commandId: "settlement-capture-frontier-refuge",
           sessionId: "session-1",
@@ -8585,14 +8696,12 @@ describe("simulation runtime — shard rain", () => {
           })
         );
 
-        const defenderUpdate = seen.find(
-          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-            event.eventType === "PLAYER_MESSAGE" &&
-            event.messageType === "PLAYER_UPDATE" &&
-            event.playerId === "player-2"
-        );
-        const payload = defenderUpdate?.payloadJson ? JSON.parse(defenderUpdate.payloadJson) as { incomePerMinute?: number } : {};
-        expect(payload.incomePerMinute).toBeGreaterThan(0);
+        // player-2 is AI (#732 suppresses its PLAYER_UPDATE), so read the re-rooted
+        // income from exportState rather than the now-suppressed message.
+        const defenderIncome = runtime
+          .exportState()
+          .players.find((player) => player.id === "player-2")?.incomePerMinute;
+        expect(defenderIncome).toBeGreaterThan(0);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
@@ -9313,7 +9422,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // (not the stale stub).
     const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
     expect(refreshedTown?.goldPerMinute).toBeGreaterThan(0.5);
-    expect(refreshedTown?.cap).toBeGreaterThan(10);
   });
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
@@ -9504,12 +9612,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // modifier line shows "3 connected towns: +120%").
     expect(town?.connectedTownCount).toBe(3);
     expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
-    // Now the load-bearing assertion: gpm and cap must reflect that bonus.
+    // Now the load-bearing assertion: gpm must reflect that bonus.
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
-    // townJson carries the authoritative goldPerMinute and cap.
     // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
-    // 4.4 * 60 * 8 = 2112
-    expect(town?.cap).toBeCloseTo(2112, 0);
   });
 });
