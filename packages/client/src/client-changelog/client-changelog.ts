@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.4",
+  version: "2026.06.29.5",
   title: "What's New",
   summary: "Attack preview win chance now accounts for your combat techs and domains. The displayed percentage was previously the same regardless of your research.",
   entries: [
+    {
+      introducedIn: "2026.06.29.5",
+      title: "Auto-fill — enclosed tiles settle for free",
+      why: "Surrounding a pocket of empty land required clicking every tile individually. Compact islands were tedious to paint.",
+      changes: [
+        "When your tiles fully enclose a pocket of empty land (bounded by your own tiles, sea, or mountain), those tiles settle automatically for free.",
+        "The auto-fill fires immediately after a capture or settlement that closes the enclosure.",
+        "Enclosed regions up to 500 tiles settle at once — larger regions are left for manual play.",
+      ]
+    },
     {
       introducedIn: "2026.06.29.4",
       title: "Attack preview win chance now accounts for your combat techs and domains",
