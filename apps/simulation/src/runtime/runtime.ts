@@ -25,7 +25,6 @@ import {
   integrityGrowthMult,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
-  AUTO_FILL_ENABLED,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
@@ -215,7 +214,7 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
-import { findEnclosedRegionsAdjacentTo } from "../runtime-auto-fill.js";
+import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -868,17 +867,7 @@ export class SimulationRuntime {
           playerId: pendingSettlement.ownerId,
           tileDeltas: [this.tileDeltaFromState(settledTile)]
         });
-        if (AUTO_FILL_ENABLED) {
-          const autoFilled = this.applyAutoFillImpl(settledTile, pendingSettlement.ownerId);
-          if (autoFilled.length > 0) {
-            this.emitEvent({
-              eventType: "TILE_DELTA_BATCH",
-              commandId: `auto-fill:${pendingSettlement.tileKey}:${this.now()}`,
-              playerId: "__broadcast__",
-              tileDeltas: autoFilled.map((t) => this.tileDeltaFromState(t))
-            });
-          }
-        }
+        this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
         this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
@@ -1314,34 +1303,11 @@ export class SimulationRuntime {
             invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
           })
         : undefined,
-      applyAutoFill: AUTO_FILL_ENABLED
-        ? (capturedTile, attackerId) => this.applyAutoFillImpl(capturedTile, attackerId)
-        : undefined
+      applyAutoFill: (capturedTile, ownerId) => applyAutoFillImpl({ capturedTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles })
     };
   }
 
-  private applyAutoFillImpl(capturedTile: DomainTileState, ownerId: string): DomainTileState[] {
-    const regions = findEnclosedRegionsAdjacentTo(capturedTile, this.tiles, ownerId);
-    const settled: DomainTileState[] = [];
-    for (const region of regions) {
-      for (const key of region) {
-        const existing = this.tiles.get(key);
-        if (!existing || existing.ownerId) continue;
-        const filledTile: DomainTileState = {
-          ...existing,
-          ownerId,
-          ownershipState: "SETTLED",
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined,
-        };
-        this.replaceTileState(key, filledTile);
-        settled.push(filledTile);
-      }
-    }
-    if (settled.length > 0) this.onAutoFillTiles?.(settled.length);
-    return settled;
-  }
-
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -3322,17 +3288,7 @@ export class SimulationRuntime {
         playerId: input.playerId,
         tileDeltas: [this.tileDeltaFromState(settledTile)]
       });
-      if (AUTO_FILL_ENABLED) {
-        const autoFilled = this.applyAutoFillImpl(settledTile, input.playerId);
-        if (autoFilled.length > 0) {
-          this.emitEvent({
-            eventType: "TILE_DELTA_BATCH",
-            commandId: `auto-fill:${input.targetKey}:${this.now()}`,
-            playerId: "__broadcast__",
-            tileDeltas: autoFilled.map((t) => this.tileDeltaFromState(t))
-          });
-        }
-      }
+      this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     });
   }

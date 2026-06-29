@@ -1,4 +1,4 @@
-import { AUTO_FILL_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
+import { AUTO_FILL_ENABLED, AUTO_FILL_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -66,4 +66,39 @@ export const findEnclosedRegionsAdjacentTo = (
     }
   }
   return results;
+};
+
+/**
+ * Auto-fill: settle all unowned land pockets fully enclosed by `ownerId`'s
+ * territory adjacent to `capturedTile`. Returns the newly-settled tiles.
+ * Returns an empty array immediately when AUTO_FILL_ENABLED is false.
+ */
+export const applyAutoFill = (input: {
+  capturedTile: DomainTileState;
+  ownerId: string;
+  tiles: ReadonlyMap<string, DomainTileState>;
+  replaceTileState: (key: string, tile: DomainTileState) => void;
+  onAutoFillTiles?: ((count: number) => void) | undefined;
+}): DomainTileState[] => {
+  if (!AUTO_FILL_ENABLED) return [];
+  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles } = input;
+  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
+  const settled: DomainTileState[] = [];
+  for (const region of regions) {
+    for (const key of region) {
+      const existing = tiles.get(key);
+      if (!existing || existing.ownerId) continue;
+      const filledTile: DomainTileState = {
+        ...existing,
+        ownerId,
+        ownershipState: "SETTLED",
+        frontierDecayAt: undefined,
+        frontierDecayKind: undefined,
+      };
+      replaceTileState(key, filledTile);
+      settled.push(filledTile);
+    }
+  }
+  if (settled.length > 0) onAutoFillTiles?.(settled.length);
+  return settled;
 };
