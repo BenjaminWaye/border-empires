@@ -19,16 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.7",
+  version: "2026.06.29.8",
   title: "What's New",
   summary: "Removed origin-to-target connection line from crystal targeting overlay. Valid target tiles still show fill + border + target outline.",
   entries: [
     {
-      introducedIn: "2026.06.29.7",
+      introducedIn: "2026.06.29.8",
       title: "Removed confusing origin-to-target line from crystal targeting overlay",
       why: "The connection line drawn from the origin building to the hovered/selected target tile was confusing — it looked like part of the targeting UI but didn't add useful information.",
       changes: [
         "Removed the origin-to-target connection line from the 3D crystal targeting overlay."
+      ]
+    },
+    {
+      introducedIn: "2026.06.29.7",
+      title: "Auto-fill — enclosed tiles settle for free",
+      why: "Surrounding a pocket of empty land required clicking every tile individually. Compact islands were tedious to paint.",
+      changes: [
+        "When your tiles fully enclose a pocket of empty land (bounded by your own tiles, sea, or mountain), those tiles settle automatically for free.",
+        "The auto-fill fires immediately after a capture or settlement that closes the enclosure.",
+        "Enclosed regions up to 500 tiles settle at once — larger regions are left for manual play.",
       ]
     },
     {
