@@ -89,7 +89,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   const fillMaterial = new MeshBasicMaterial({
     color: TONE_COLORS.red.fill,
     transparent: true,
-    opacity: 0.12,
+    opacity: 0.30,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide

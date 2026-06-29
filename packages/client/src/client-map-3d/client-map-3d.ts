@@ -492,14 +492,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryRangeMaterial = new LineBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.55,
     depthTest: false,
     depthWrite: false
   });
   const observatoryRangeFillMaterial = new MeshBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
-    opacity: 0.02,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -522,7 +522,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sweepRangeFillMaterial = new MeshBasicMaterial({
     color: "#ff8c42",
     transparent: true,
-    opacity: 0.04,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -545,7 +545,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const waterworksRangeFillMaterial = new MeshBasicMaterial({
     color: "#4caf74",
     transparent: true,
-    opacity: 0.03,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -561,14 +561,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const airportRangeMaterial = new LineBasicMaterial({
     color: "#ff4444",
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.55,
     depthTest: false,
     depthWrite: false
   });
   const airportRangeFillMaterial = new MeshBasicMaterial({
     color: "#ff4444",
     transparent: true,
-    opacity: 0.025,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -1237,8 +1237,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedTile.ownerId !== deps.state.me) return;
     if (selectedTile.observatory.status !== "active") return;
     const effectiveRange = ownObservatoryRange(deps.state);
-    observatoryRangeMaterial.opacity = 0.35;
-    observatoryRangeFillMaterial.opacity = 0.02;
+    observatoryRangeMaterial.opacity = 0.55;
+    observatoryRangeFillMaterial.opacity = 0.10;
     writeObservatoryRangeGeometry(observatoryRangeMarker, observatoryRangeFill, selectedTile, effectiveRange);
   };
 

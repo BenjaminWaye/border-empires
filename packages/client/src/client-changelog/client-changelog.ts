@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.5",
+  version: "2026.06.29.6",
   title: "What's New",
   summary: "Crystal targeting now shows highlighted target tiles and connection lines in 3D mode. 2D overlays no longer render on top of 3D terrain.",
   entries: [
+    {
+      introducedIn: "2026.06.29.6",
+      title: "Crystal targeting overlay and range circles are more visible in 3D",
+      why: "The 3D crystal targeting overlay (semi-transparent tiles) and the 3D range circles (airport bombard, observatory, waterworks, sweep) were too faint to see clearly.",
+      changes: [
+        "Crystal targeting overlay fill opacity increased from 12% to 30%.",
+        "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
+        "Observatory range circle border increased from 35% to 55% and fill from 2% to 10%.",
+        "Waterworks and Sweep range circle fills increased from 3-4% to 10%."
+      ]
+    },
     {
       introducedIn: "2026.06.29.5",
       title: "Crystal targeting overlay now renders in 3D mode",
