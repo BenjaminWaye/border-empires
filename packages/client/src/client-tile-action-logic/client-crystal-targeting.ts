@@ -240,7 +240,6 @@ export const beginCrystalTargeting = (
     const first = [...validTargets][0];
     if (first) state.selected = deps.parseKey(first);
   }
-  deps.pushFeed(`${crystalTargetingTitle(ability)} armed. Tap a highlighted target tile.`, "combat", "info");
   deps.renderHud();
 };
 

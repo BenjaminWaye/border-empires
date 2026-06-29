@@ -1195,7 +1195,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          if (requestSettlement(selected.x, selected.y)) pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
+          requestSettlement(selected.x, selected.y);
         }
         state.autoSettleTargets.delete(k);
       }

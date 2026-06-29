@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
 import {
@@ -1159,6 +1160,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         message: typeof msg.message === "string" ? msg.message : undefined
       });
     }
+    if (msg.type === "SERVER_DEPLOYING") {
+      state.serverDeploying = true;
+      setServerDeployingSession();
+      return;
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -1186,6 +1192,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "INIT") {
       clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
+      state.serverDeploying = false;
+      clearServerDeployingSession();
       state.authSessionReady = true;
       state.hasEverInitialized = true;
       resetAuthReconnectAttempt();
@@ -1954,11 +1962,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
       }
       state.unreadAttackAlerts += 1;
-      pushFeed(
-        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        "combat",
-        "error"
-      );
+      appendFeedEntry({
+        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        type: "combat",
+        severity: "error",
+        at: Date.now(),
+        focusX: x,
+        focusY: y,
+        actionLabel: "Center"
+      });
       renderHud();
       return;
     }

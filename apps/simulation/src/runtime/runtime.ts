@@ -263,6 +263,7 @@ import {
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
+  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -1024,9 +1025,6 @@ export class SimulationRuntime {
       const current = (player.strategicResources ?? {})[resource] ?? 0;
       const available = Math.max(0, cap - current);
       const credited = Math.min(earned, available);
-      if (resource === "FOOD") {
-        console.error(`[FOOD_DEBUG] player=${player.id} productionRatePerMin=${ratePerMinute.toFixed(4)} elapsedMin=${elapsedMinutes.toFixed(4)} earned=${earned.toFixed(4)} cap=${cap.toFixed(4)} foodBefore=${current.toFixed(4)} credited=${credited.toFixed(4)} reason=income_tick`);
-      }
       if (credited > 0) {
         this.addStrategicResource(player, resource, credited);
         anyCredited = true;
@@ -1286,7 +1284,7 @@ export class SimulationRuntime {
       onCaptureRevealBuilt: this.onCaptureRevealBuilt,
       applyBarbarianWalkOrMultiply: (lock, previousTarget) => this.applyBarbarianWalkOrMultiply(lock, previousTarget),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
-      applyEncirclementForExpand: (targetKey, playerId, commandId) => this.applyEncirclementForExpand(targetKey, playerId, commandId),
+      applyEncirclementForExpand: (targetKey, playerId, commandId, options) => this.applyEncirclementForExpand(targetKey, playerId, commandId, options),
       relocateSettlementForPlayer: (playerId, commandId, population) => this.relocateSettlementForPlayer(playerId, commandId, population),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
@@ -1625,7 +1623,6 @@ export class SimulationRuntime {
     // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
     // separately in the tile-yield path; this path covers upkeep drain only.
     const upkeep = this.cachedUpkeepAccrual(player);
-    console.error(`[FOOD_DEBUG] player=${player.id} nowMs=${nowMs} food=${player.strategicResources?.FOOD ?? 0} upkeepFood=${upkeep.food} elapsedMin=${(elapsedMs / 60_000).toFixed(2)} reason=enter_applyEconomyAccrual`);
     // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
     // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
     if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
@@ -1670,15 +1667,11 @@ export class SimulationRuntime {
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
       SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
     };
-    const foodBeforeConsume = player.strategicResources?.FOOD ?? 0;
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
     // so an offline player whose tile income covers upkeep keeps the
     // stockpile they logged out with.
     this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
-    if (need.FOOD > 0 && upkeep.food > 0) {
-      console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${foodBeforeConsume} needFOOD=${need.FOOD} upkeepFood=${upkeep.food} elapsedMin=${elapsedMinutes} reason=after_tile_yield_consume`);
-    }
     if (need.gold > 0) {
       player.points = Math.max(0, (player.points ?? 0) - need.gold);
     }
@@ -1692,9 +1685,6 @@ export class SimulationRuntime {
     let mutated = false;
     for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
       if (need[res] > 0) {
-        if (res === "FOOD") {
-          console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${stock["FOOD"]} deducted=${need["FOOD"]} foodAfter=${Math.max(0, stock["FOOD"] - need["FOOD"])} reason=upkeep_stock_subtract`);
-        }
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;
       }
@@ -1777,9 +1767,6 @@ export class SimulationRuntime {
         const available = yieldView.yield.strategic[resource] ?? 0;
         if (available > 0 && need[resource] > 0) {
           const consumed = Math.min(available, need[resource]);
-          if (resource === "FOOD") {
-            console.error(`[FOOD_DEBUG] player=${player.id} tile=${tileKey} foodConsumed=${consumed} needAfter=${need["FOOD"] - consumed} reason=tile_yield_consume`);
-          }
           need[resource] -= consumed;
           const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
           updateCandidate(available - consumed, ratePerMs);
@@ -2404,6 +2391,21 @@ export class SimulationRuntime {
       expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
       musterTilesByOwner: this.musterTilesByOwner
     });
+  }
+
+  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
+  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
+  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
+  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
+    let totalOwnedTiles = 0;
+    let maxEmpireTiles = 0;
+    for (const [playerId, summary] of this.playerSummaries) {
+      if (playerId.startsWith("barbarian")) continue;
+      const size = summary.territoryTileKeys.size;
+      totalOwnedTiles += size;
+      if (size > maxEmpireTiles) maxEmpireTiles = size;
+    }
+    return { totalOwnedTiles, maxEmpireTiles };
   }
 
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
@@ -3640,6 +3642,9 @@ export class SimulationRuntime {
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
+        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
@@ -4245,8 +4250,8 @@ export class SimulationRuntime {
     resolveLockImpl(this.lockResolutionContext(), lock);
   }
 
-  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string): void {
-    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId);
+  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void {
+    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId, options);
   }
 
   private applyEncirclement(
@@ -4536,6 +4541,7 @@ export class SimulationRuntime {
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
+    this.updatePlayerLastActive(command.playerId, this.now());
     const lane = laneForCommand(command);
     this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
   }
