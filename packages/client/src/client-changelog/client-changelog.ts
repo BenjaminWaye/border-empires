@@ -19,19 +19,16 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.2",
+  version: "2026.06.29.1",
   title: "What's New",
-  summary: "Muster-advance attacks now draw from the flag pool, show correct manpower costs in waypoint planner, and appear in the activity feed.",
+  summary: "Attack alert feed entries now include a 'Center on tile' button.",
   entries: [
     {
-      introducedIn: "2026.06.27.2",
-      title: "Muster-advance attacks now consume the correct manpower pool",
-      why: "Advance-mode barbarian raids were drawing from the player's global manpower pool instead of the muster flag's staged manpower. The waypoint planner always showed a flat 60 MP cost even when the actual cost differed for barbarian raids (10 MP) or fort targets (garrison-dependent). Activity feed entries were missing entirely for advance-mode attacks.",
+      introducedIn: "2026.06.29.1",
+      title: "Attack alert feed entries now include a 'Center on tile' button",
+      why: "When attacked, the feed entry showed the coordinates as text but offered no way to jump to the tile. You had to manually scroll or search for the attack location.",
       changes: [
-        "Advance-mode barbarian attacks now drain the muster flag's staged manpower instead of the player's global pool.",
-        "Manual barbarian raids (no muster flag) still draw from the global pool as before.",
-        "Waypoint planner manpower cost now shows the correct amount: 10 for barbarian tiles, the fort garrison for fort targets (minimum 60), or 60 for other enemy tiles.",
-        "Advance-mode combat results now appear in the activity feed as expected."
+        "Attack alert feed entries now render a 'Center' button that snaps the map view to the tile under attack."
       ]
     },
     {

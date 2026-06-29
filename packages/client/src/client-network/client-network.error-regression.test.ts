@@ -1533,4 +1533,37 @@ describe("client network regression guards", () => {
       undefined
     );
   });
+
+  it("emits ATTACK_ALERT via pushFeedEntry with focus coordinates", () => {
+    const state = createState();
+    state.unreadAttackAlerts = 0;
+    const ws = new FakeWebSocket();
+    const pushFeedEntry = vi.fn();
+    bindWithDeps(state, ws, { pushFeedEntry });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_ALERT",
+        attackerName: "AttackerPlayer",
+        attackerId: "player-2",
+        x: 42,
+        y: 77,
+        resolvesAt: Date.now() + 5000,
+        fromX: 40,
+        fromY: 75
+      })
+    });
+
+    expect(pushFeedEntry).toHaveBeenCalledWith({
+      text: "Under attack: AttackerPlayer is striking (42, 77) from (40, 75).",
+      type: "combat",
+      severity: "error",
+      at: expect.any(Number),
+      focusX: 42,
+      focusY: 77,
+      actionLabel: "Center"
+    });
+    expect(state.incomingAttacksByTile.get("42,77")).toBeDefined();
+    expect(state.unreadAttackAlerts).toBe(1);
+  });
 });

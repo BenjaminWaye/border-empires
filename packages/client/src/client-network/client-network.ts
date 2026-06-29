@@ -1954,11 +1954,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
       }
       state.unreadAttackAlerts += 1;
-      pushFeed(
-        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        "combat",
-        "error"
-      );
+      appendFeedEntry({
+        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        type: "combat",
+        severity: "error",
+        at: Date.now(),
+        focusX: x,
+        focusY: y,
+        actionLabel: "Center"
+      });
       renderHud();
       return;
     }
