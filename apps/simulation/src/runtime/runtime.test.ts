@@ -7314,6 +7314,8 @@ describe("simulation runtime", () => {
   });
 
   it("resolves airport bombardment through rewrite tile deltas", async () => {
+    // Force all per-tile rolls to hit (Math.random returns 1, always above miss threshold)
+    const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -7329,7 +7331,7 @@ describe("simulation runtime", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 10 }
+            strategicResources: { CRYSTAL: 200 }
           }
         ],
         [
@@ -7387,17 +7389,34 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
+    randSpy.mockRestore();
 
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: "bombard-1",
-        tileDeltas: expect.arrayContaining([
-          expect.objectContaining({ x: 2, y: 2 }),
-          expect.objectContaining({ x: 2, y: 3 })
-        ])
-      })
+    const deltaBatch = events.find(
+      (e) => e["eventType"] === "TILE_DELTA_BATCH" && e["commandId"] === "bombard-1"
     );
+    expect(deltaBatch).toBeDefined();
+    const tileDeltas = deltaBatch!["tileDeltas"] as Array<Record<string, unknown>>;
+
+    // Stripped tiles should appear in the batch
+    expect(tileDeltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 2, y: 2 }),
+      expect.objectContaining({ x: 2, y: 3 })
+    ]));
+
+    // Structures are preserved — town on (2,2) survives
+    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 2);
+    expect(tile22Delta).toBeDefined();
+    expect(tile22Delta!["townJson"]).toBeDefined();
+    expect(tile22Delta!["ownerId"]).toBeUndefined();
+
+    // Airport tile should include a bombardCooldownUntil in its economicStructureJson
+    const airportDelta = tileDeltas.find((d) => d["x"] === 0 && d["y"] === 0);
+    expect(airportDelta).toBeDefined();
+    const airportStructureJson = airportDelta!["economicStructureJson"];
+    expect(typeof airportStructureJson).toBe("string");
+    const airportStructure = JSON.parse(airportStructureJson as string) as Record<string, unknown>;
+    expect(typeof airportStructure["bombardCooldownUntil"]).toBe("number");
+    expect(airportStructure["bombardCooldownUntil"] as number).toBeGreaterThan(1_000);
   });
 
   const buildAetherTowerRuntime = (options: {
