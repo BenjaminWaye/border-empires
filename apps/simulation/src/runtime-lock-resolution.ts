@@ -155,9 +155,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
 
     let tileDeltas: SimulationTileWireDelta[];
-    if (attacker?.isAi) {
+    if (attacker?.isAi || lock.actionType === "EXPAND") {
+      // AI path: 1 tile only.
+      // EXPAND path: the player was adjacent to the target tile and already had
+      // vision of the surrounding area, so a full vision-radius scan adds nothing
+      // new and blocks the gateway event handler for 150-800ms per expand under
+      // a boosted vision radius (observatories/tech push radius from 4→10+, i.e.
+      // 81→441 tiles per event). Return just the newly-claimed tile; incremental
+      // TILE_DELTA_BATCH events from the visibility filter cover anything that
+      // genuinely changes around the new position.
       tileDeltas = [context.tileDeltaFromState(resolvedTarget)];
     } else {
+      // ATTACK win: the player may have captured deep enemy territory outside their
+      // previous vision — the full reveal is meaningful here.
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;
       tileDeltas = context.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
