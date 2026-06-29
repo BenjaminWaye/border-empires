@@ -4526,6 +4526,7 @@ export class SimulationRuntime {
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
+    this.updatePlayerLastActive(command.playerId, this.now());
     const lane = laneForCommand(command);
     this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
   }
