@@ -1303,11 +1303,11 @@ export class SimulationRuntime {
             invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
           })
         : undefined,
-      applyAutoFill: (capturedTile, ownerId) => applyAutoFillImpl({ capturedTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles })
+      applyAutoFill: (capturedTile, ownerId) => applyAutoFillImpl({ capturedTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } })
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,

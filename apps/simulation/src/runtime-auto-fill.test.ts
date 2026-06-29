@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { findEnclosedRegion, findEnclosedRegionsAdjacentTo } from "./runtime-auto-fill.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -211,5 +211,73 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     expect(regions.length).toBe(2);
     expect(regions[0].size).toBe(1);
     expect(regions[1].size).toBe(1);
+  });
+});
+
+describe("applyAutoFill yield-anchor stamping", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("invokes recordYieldAnchors once with every newly settled tile key (matching the settled keys)", async () => {
+    // AUTO_FILL_ENABLED is read at config import time, so stub the env and load
+    // a fresh module instance before exercising applyAutoFill.
+    vi.stubEnv("AUTO_FILL_ENABLED", "true");
+    vi.resetModules();
+    const { applyAutoFill } = await import("./runtime-auto-fill.js");
+
+    // (1,1) is unowned land walled by player-1 on three sides plus the
+    // captured tile (1,2), so it is a 1-tile enclosed pocket.
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+
+    const replaced: string[] = [];
+    const anchorBatches: string[][] = [];
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: (k) => replaced.push(k),
+      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
+    });
+
+    expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
+    // Stamped in a single batch covering exactly the tiles that were replaced.
+    expect(anchorBatches).toEqual([replaced]);
+    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
+  });
+
+  it("does nothing when AUTO_FILL_ENABLED is false", async () => {
+    vi.stubEnv("AUTO_FILL_ENABLED", "false");
+    vi.resetModules();
+    const { applyAutoFill } = await import("./runtime-auto-fill.js");
+
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+
+    const anchorBatches: string[][] = [];
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: () => {},
+      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
+    });
+
+    expect(settled).toEqual([]);
+    expect(anchorBatches).toEqual([]);
   });
 });

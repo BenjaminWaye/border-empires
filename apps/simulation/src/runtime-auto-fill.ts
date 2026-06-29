@@ -72,6 +72,13 @@ export const findEnclosedRegionsAdjacentTo = (
  * Auto-fill: settle all unowned land pockets fully enclosed by `ownerId`'s
  * territory adjacent to `capturedTile`. Returns the newly-settled tiles.
  * Returns an empty array immediately when AUTO_FILL_ENABLED is false.
+ *
+ * `recordYieldAnchors` is invoked once with every newly-settled tile key so the
+ * caller can stamp their yield-collection baseline in a single batch, matching
+ * the manual settle path (otherwise an auto-filled tile would accrue yield from
+ * the player's income anchor rather than from the moment it was settled). It is
+ * batched deliberately — per-tile anchor events are a known event-loop hazard
+ * (see the TILE_YIELD_ANCHOR_BATCH rationale in runtime.ts).
  */
 export const applyAutoFill = (input: {
   capturedTile: DomainTileState;
@@ -79,11 +86,13 @@ export const applyAutoFill = (input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   replaceTileState: (key: string, tile: DomainTileState) => void;
   onAutoFillTiles?: ((count: number) => void) | undefined;
+  recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
 }): DomainTileState[] => {
   if (!AUTO_FILL_ENABLED) return [];
-  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles } = input;
+  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors } = input;
   const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
   const settled: DomainTileState[] = [];
+  const settledKeys: string[] = [];
   for (const region of regions) {
     for (const key of region) {
       const existing = tiles.get(key);
@@ -96,9 +105,13 @@ export const applyAutoFill = (input: {
         frontierDecayKind: undefined,
       };
       replaceTileState(key, filledTile);
+      settledKeys.push(key);
       settled.push(filledTile);
     }
   }
-  if (settled.length > 0) onAutoFillTiles?.(settled.length);
+  if (settled.length > 0) {
+    onAutoFillTiles?.(settled.length);
+    recordYieldAnchors?.(settledKeys);
+  }
   return settled;
 };
