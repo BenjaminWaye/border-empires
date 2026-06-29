@@ -1,30 +1,16 @@
-## What
+## Summary
+Adds two missing visual features for Sky Dock Bombard:
 
-The town food-upkeep entry in the tile detail panel was silently hidden for CITY, GREAT_CITY, and METROPOLIS towns when the snapshot did not carry `foodUpkeepPerMinute` in `townJson`. This was the same "thin townJson" shape that previously caused `goldPerMinute=0`.
-
-## Fix
-
-Added a local `townFoodUpkeepForTier` helper that mirrors the authoritative drain values from `player-update-economy.ts` (CITY 0.3, GREAT_CITY 0.6, METROPOLIS 1, TOWN 0.1). The gateway now derives food upkeep from `populationTier` instead of trusting the stored field - same backfill philosophy as the `goldPerMinute`/`cap` fallbacks.
-
-The derived value is also injected into the re-stitched `townJson` so the client fallback in `client-tile-upkeep-view.ts` stays consistent.
-
-## Open decision
-
-The two existing `townFoodUpkeepPerMinute` copies disagree:
-- `player-update-economy.ts` (authoritative drain): 0.3 / 0.6 / 1
-- `live-snapshot-view.ts` (display/snapshot): 0.2 / 0.4 / 0.8
-
-This PR uses the **drain** values so the UI matches actual food consumption. The snapshot copy should be reconciled separately.
+1. **3D range overlay** — selecting an active, owned Sky Dock shows a red 3D range circle (radius 30) on the map, matching the existing Observatory/Waterworks range overlay pattern.
+2. **Hit animations** — when a bombard lands, the targeted 3x3 tiles show a brief orange flash and expanding ring animation (1.5s duration).
 
 ## Changes
-
-- `apps/realtime-gateway/src/tile-detail-snapshot.ts` - new `townFoodUpkeepForTier` helper, derive upkeep from tier, inject into townJson
-- `apps/realtime-gateway/src/tile-detail-snapshot.test.ts` - regression tests for missing `foodUpkeepPerMinute` with CITY tier and missing `townJson` with tile town fields
-- `packages/client/src/client-changelog.ts` - changelog entry
+- `client-map-3d.ts`: Added `syncAirportRangeMarker()`, `writeAirportRangeGeometry()`, `syncBombardFxQueue()`, airport range meshes/materials, render loop integrations.
+- `client-crystal-targeting.ts`: Push to `bombardFxQueue` after sending `AIRPORT_BOMBARD`.
+- `client-state.ts`: Added `bombardFxQueue`.
+- New: `client-map-3d-bombard-fx/` — bombard FX layer with tests.
+- New: `client-map-3d-airport-range/` — regression test for range marker integration.
+- Changelog bumped to `2026.06.28.3`.
 
 ## Verification
-
-- `pnpm --filter @border-empires/realtime-gateway test -- tile-detail-snapshot` passes (12 tests)
-- `pnpm --filter @border-empires/realtime-gateway build` passes
-- Full gateway tests still have 4 unrelated integration failures in profile/color paths
-- `check-client-changelog-update.mjs` passes
+- 3 new tests pass (bombard FX spawns 9 effects, expired entries removed, range marker functions present in module).
