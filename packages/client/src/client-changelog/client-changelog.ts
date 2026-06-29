@@ -19,17 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.3",
+  version: "2026.06.29.4",
   title: "What's New",
-  summary: "Duplicate 'Settlement started' feed notifications removed. Sky Dock Bombard targeting no longer shows redundant text in the feed.",
+  summary: "Attack preview win chance now accounts for your combat techs and domains. The displayed percentage was previously the same regardless of your research.",
   entries: [
     {
-      introducedIn: "2026.06.29.3",
-      title: "Duplicate 'Settlement started' feed notifications removed",
-      why: "The activity feed showed 'Settlement at (X, Y) started.' twice when settling from the tile context menu — once from the action flow and once from the settle-selected handler. This made the feed noisy for new settlement actions.",
+      introducedIn: "2026.06.29.4",
+      title: "Attack preview win chance now accounts for your combat techs and domains",
+      why: "The attack preview showed the same win percentage regardless of which combat-affecting techs and domains you had researched (iron-vanguard, siege-state, steelworking, etc.). The actual server-side combat roll included them, so the preview was misleading — a SETTLED barbarian tile without a town always showed 43% even with maxed combat techs.",
       changes: [
-        "Removed the redundant pushFeed call from `client-selected-actions.ts`.",
-        "Removed the redundant pushFeed call from `client-action-flow.ts`; the requestSettlement call is preserved."
+        "Attack preview now resolves attackVsSettledMult, attackVsFortsMult, and fortDefenseMult from your researched techs and active domains.",
+        "The preview win chance now matches what the server actually rolls.",
+        "Added resolveFrontierCombatMultipliers to @border-empires/game-domain so both gateway and simulation use the same resolution logic."
       ]
     },
     {
