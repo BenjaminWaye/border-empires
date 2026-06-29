@@ -177,12 +177,14 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   const airportKey = simulationTileKey(payload.fromX, payload.fromY);
   const airport = context.tiles.get(airportKey);
+  const airportStructure = airport?.economicStructure;
   if (
     !airport ||
     airport.ownerId !== actor.id ||
-    airport.economicStructure?.ownerId !== actor.id ||
-    airport.economicStructure.type !== "AIRPORT" ||
-    airport.economicStructure.status !== "active"
+    !airportStructure ||
+    airportStructure.ownerId !== actor.id ||
+    airportStructure.type !== "AIRPORT" ||
+    airportStructure.status !== "active"
   ) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active airport first");
     return;
@@ -196,7 +198,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     return;
   }
   const now = context.now();
-  const bombardCooldownUntil = airport.economicStructure.bombardCooldownUntil ?? 0;
+  const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
   if (bombardCooldownUntil > now) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport bombardment on cooldown");
     return;
@@ -240,7 +242,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   const updatedAirport: DomainTileState = {
     ...airport,
     economicStructure: {
-      ...airport.economicStructure,
+      ...airportStructure,
       bombardCooldownUntil: now + AIRPORT_BOMBARD_COOLDOWN_MS
     }
   };
