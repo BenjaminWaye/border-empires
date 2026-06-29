@@ -108,7 +108,7 @@ export function isTileBombardBlockedByRadar(
 ): boolean {
   for (const candidate of tiles.values()) {
     const s = candidate.economicStructure;
-    if (!s || (s.type !== "RADAR_SYSTEM" && s.type !== "WEATHER_ENGINE") || s.status !== "active") continue;
+    if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
     if (!s.ownerId || s.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
     if (isStructurePowered(tiles, s.ownerId, simulationTileKey(candidate.x, candidate.y), s.type)) return true;
