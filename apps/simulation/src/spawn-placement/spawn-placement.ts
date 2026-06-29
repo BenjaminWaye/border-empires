@@ -100,14 +100,12 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   const foodCoords = tileList
     .filter((tile) => tile.resource === "FARM" || tile.resource === "FISH")
     .map((tile) => ({ x: tile.x, y: tile.y }));
-  const spawnCandidates = tileList
-    .filter((tile) => {
-      const tileKey = simulationTileKey(tile.x, tile.y);
-      if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
-      if (coastalLandKeys.size > 0 && !coastalLandKeys.has(tileKey)) return false;
-      return true;
-    })
-    .sort((left, right) => (left.y - right.y) || (left.x - right.x));
+  const spawnCandidates = tileList.filter((tile) => {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
+    if (coastalLandKeys.size > 0 && !coastalLandKeys.has(tileKey)) return false;
+    return true;
+  });
   if (spawnCandidates.length === 0) return undefined;
 
   const hasNearbyTown = (x: number, y: number, radius: number): boolean =>
@@ -146,24 +144,5 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     }
   }
 
-  // All randomised passes failed — deterministically pick the candidate furthest
-  // from any settled tile. To keep the inner loop cheap when settledCoords is
-  // large, sample up to 500 settled tiles evenly rather than scanning every one.
-  const MAX_SETTLED_SAMPLE = 500;
-  const settledStride = Math.max(1, Math.floor(settledCoords.length / MAX_SETTLED_SAMPLE));
-  const settledSample = settledCoords.filter((_, i) => i % settledStride === 0);
-  let bestCandidate: { x: number; y: number } | undefined;
-  let bestDistance = -1;
-  for (const candidate of spawnCandidates) {
-    let nearest = Number.POSITIVE_INFINITY;
-    for (const spawn of settledSample) {
-      const distance = chebyshevDistance(candidate.x, candidate.y, spawn.x, spawn.y);
-      if (distance < nearest) nearest = distance;
-    }
-    if (nearest > bestDistance) {
-      bestDistance = nearest;
-      bestCandidate = { x: candidate.x, y: candidate.y };
-    }
-  }
-  return bestCandidate;
+  return undefined;
 };
