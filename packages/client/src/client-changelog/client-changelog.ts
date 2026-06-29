@@ -19,43 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.4",
+  version: "2026.06.29.5",
   title: "What's New",
-  summary: "Attack preview win chance now accounts for your combat techs and domains. The displayed percentage was previously the same regardless of your research.",
+  summary: "Crystal targeting now shows highlighted target tiles and connection lines in 3D mode. 2D overlays no longer render on top of 3D terrain.",
   entries: [
     {
-      introducedIn: "2026.06.29.4",
-      title: "Attack preview win chance now accounts for your combat techs and domains",
-      why: "The attack preview showed the same win percentage regardless of which combat-affecting techs and domains you had researched (iron-vanguard, siege-state, steelworking, etc.). The actual server-side combat roll included them, so the preview was misleading — a SETTLED barbarian tile without a town always showed 43% even with maxed combat techs.",
+      introducedIn: "2026.06.29.5",
+      title: "Crystal targeting overlay now renders in 3D mode",
+      why: "When entering crystal targeting mode (Sky Dock Bombard, etc.) in 3D view, the valid target tiles were only highlighted in the 2D overlay — which rendered on top of the 3D scene. You couldn't see which tiles were valid targets in 3D.",
       changes: [
-        "Attack preview now resolves attackVsSettledMult, attackVsFortsMult, and fortDefenseMult from your researched techs and active domains.",
-        "The preview win chance now matches what the server actually rolls.",
-        "Added resolveFrontierCombatMultipliers to @border-empires/game-domain so both gateway and simulation use the same resolution logic."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.2",
-      title: "Sky Dock Bombard targeting no longer shows redundant feed text",
-      why: "Entering Sky Dock Bombard targeting mode showed a feed message 'Sky Dock Bombard armed. Tap a highlighted target tile.' — but the visual highlighting on the map tiles was already sufficient affordance, making the feed text redundant noise.",
-      changes: [
-        "Removed the redundant feed notification when entering Sky Dock Bombard (and other crystal targeting) mode."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.1",
-      title: "Attack alert feed entries now include a 'Center on tile' button",
-      why: "When attacked, the feed entry showed the coordinates as text but offered no way to jump to the tile. You had to manually scroll or search for the attack location.",
-      changes: [
-        "Attack alert feed entries now render a 'Center' button that snaps the map view to the tile under attack."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.4",
-      title: "Worldbreaker Cannon parts show up in the build menu again",
-      why: "Unlocking Worldbreaker Cannon tech made the final monument visible on settled tiles, but the parts were invisible in the build menu on Great City tiles — the tech-unlock filter was also hiding actions disabled for non-tech reasons like 'Requires Great City or Monumental City'.",
-      changes: [
-        "Build Worldbreaker Cannon Part now appears in the build menu on Great City and Metropolis tiles when Worldbreaker Cannon tech is unlocked.",
-        "Other monument parts (Imperial Exchange, Aegis Dome, Astral Dock) also benefit from the same filter fix."
+        "Valid target tiles now show a semi-transparent colored overlay on the 3D terrain.",
+        "Hovering or selecting a valid target shows a connection line from origin to target tile.",
+        "Origin and target tiles get bold outline markers in 3D.",
+        "2D crystal targeting highlights and airport range overlay are now hidden when 3D mode is active."
       ]
     },
     {

@@ -16,23 +16,16 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
-import { OBSERVATORY_RANGE_MAX } from "@border-empires/shared";
+
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
-import {
-  createObservatoryRangeBorderGeometry,
-  createObservatoryRangeFillGeometry,
-  observatoryRangeBorderSegmentCount,
-  observatoryRangeFillVertexCount,
-  writeObservatoryRangeBorderGeometry,
-  writeObservatoryRangeFillGeometry
-} from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
+import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
@@ -65,24 +58,16 @@ import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
-import {
-  createStructureOverlay,
-  STRUCTURE_KINDS_HANDLED_BY_3D,
-  type StructureKind
-} from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
-import {
-  fortificationOpeningForTile,
-  fortificationOverlayKindForTile,
-  type FortificationOpening,
-  type FortificationOverlayKind
-} from "../client-fortification-overlays/client-fortification-overlays.js";
+import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
+import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -606,6 +591,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   waterworksRangeFill.visible = false;
   airportRangeMarker.visible = false;
   airportRangeFill.visible = false;
+  const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
@@ -683,7 +669,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlate
   );
 
-  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1 };
+  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -1482,9 +1468,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             }
           }
           waterSurface.addTile(x, z, shallow);
-          if (terrain === "COASTAL_SEA") {
-            // coastal water rendered by heightfield; intentional no-op
-          }
           continue;
         }
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
@@ -1711,11 +1694,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const severity = weakDefensibilitySeverity(exposedSides.length);
           if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
         }
+        if (deps.state.crystalTargeting.active && tile && visibility === "visible" && deps.state.crystalTargeting.validTargets.has(tileKey)) {
+          crystalTargetingOverlay.addInstance(x, z, surfaceY);
+        }
       }
     }
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
+    crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit();
@@ -1750,13 +1737,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const width = deps.canvas.width;
     const height = deps.canvas.height;
     const zoomChanged = deps.state.zoom !== lastUpdate.zoom;
+    const ctActiveNow = deps.state.crystalTargeting.active, ctActiveChanged = ctActiveNow !== lastUpdate.crystalTargetingActive;
     const changed =
       deps.state.camX !== lastUpdate.camX ||
       deps.state.camY !== lastUpdate.camY ||
       zoomChanged ||
       width !== lastUpdate.width ||
       height !== lastUpdate.height ||
-      deps.state.tilesRevision !== lastUpdate.tilesRevision;
+      deps.state.tilesRevision !== lastUpdate.tilesRevision ||
+      ctActiveChanged;
     if (!changed) return;
     if (width !== lastUpdate.width || height !== lastUpdate.height) resize();
     else if (zoomChanged) applyCamera();
@@ -1768,6 +1757,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     lastUpdate.height = height;
     lastUpdate.at = nowMs;
     lastUpdate.tilesRevision = deps.state.tilesRevision;
+    lastUpdate.crystalTargetingActive = ctActiveNow;
   };
 
   const renderLoop = (): void => {
@@ -1793,6 +1783,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
     syncBombardFxQueue();
+    crystalTargetingOverlay.sync({
+      ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected,
+      keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY,
+      cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY,
+      toroidDelta
+    });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
@@ -1843,6 +1839,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     sweepRangeFillMaterial.dispose();
     airportRangeMaterial.dispose();
     airportRangeFillMaterial.dispose();
+    crystalTargetingOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();
