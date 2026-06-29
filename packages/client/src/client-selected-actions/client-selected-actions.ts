@@ -61,7 +61,6 @@ export const settleSelected = (
     return;
   }
   if (!deps.requestSettlement(selected.x, selected.y)) return;
-  deps.pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
 };
 
 export const buildSiegeOutpostOnSelected = (

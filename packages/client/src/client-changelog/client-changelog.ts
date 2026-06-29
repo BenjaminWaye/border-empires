@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.2",
+  version: "2026.06.29.3",
   title: "What's New",
-  summary: "Sky Dock Bombard targeting no longer shows redundant text in the feed.",
+  summary: "Duplicate 'Settlement started' feed notifications removed. Sky Dock Bombard targeting no longer shows redundant text in the feed.",
   entries: [
+    {
+      introducedIn: "2026.06.29.3",
+      title: "Duplicate 'Settlement started' feed notifications removed",
+      why: "The activity feed showed 'Settlement at (X, Y) started.' twice when settling from the tile context menu — once from the action flow and once from the settle-selected handler. This made the feed noisy for new settlement actions.",
+      changes: [
+        "Removed the redundant pushFeed call from `client-selected-actions.ts`.",
+        "Removed the redundant pushFeed call from `client-action-flow.ts`; the requestSettlement call is preserved."
+      ]
+    },
     {
       introducedIn: "2026.06.29.2",
       title: "Sky Dock Bombard targeting no longer shows redundant feed text",
@@ -81,6 +90,18 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Clicking your Sky Dock now shows a 'Sky Dock Bombard' action in the tile menu (costs 1 CRYSTAL, requires active Sky Dock and nearby Aether Tower).",
         "Selecting the action enters crystal targeting mode, highlighting enemy land tiles within 30 tiles as valid targets.",
         "Tapping a highlighted target sends AIRPORT_BOMBARD to the server, clearing the 3×3 area around the target."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.0",
+      title: "Season-end overlay — scrolling finally works",
+      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
+      changes: [
+        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
+        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
+        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
+        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
+        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
       ]
     },
     {
@@ -228,51 +249,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "If you close the tab while waiting your slot is released immediately for the next player."
       ]
     },
-    {
-      introducedIn: "2026.06.22.2",
-      title: "Breakthrough momentum",
-      why: "Winning a tile felt disconnected from the next attack — there was no incentive to push into a gap once you made one.",
-      changes: [
-        "When you capture a tile, the 4 cardinal enemy-owned neighbours enter a 60-second breach window.",
-        "Breached tiles have their combat defence reduced by 30%, so a quick follow-up attack is easier to win.",
-        "The breach expires naturally — if you don't press the advantage in 60 seconds, the defender's position resets."
-      ]
-    },
-    {
-      introducedIn: "2026.06.22.2",
-      title: "Empire Integrity",
-      why: "Wide, sprawling empires were just as effective as tight blobs — there was no economic reward for building defensible shapes.",
-      changes: [
-        "Compact empires earn an income and growth bonus; sprawling empires take a penalty — both scale with your Empire Integrity score.",
-        "At 100% integrity the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
-        "Your current bonus or penalty is visible in the Empire Integrity panel.",
-        "AI players also prefer settling tiles that improve the compactness of their empire."
-      ]
-    },
-    {
-      introducedIn: "2026.06.22.1",
-      title: "Waterworks boost working",
-      why: "Waterworks was not applying its +50% food bonus to Farmstead tiles in range, and there was no way to see which tiles the Waterworks affected.",
-      changes: [
-        "Waterworks now correctly boosts a Farm+Farmstead tile from 108/day to 162/day when within 10 tiles.",
-        "Selecting an active Waterworks you own shows a green range box (radius 10) on the map.",
-        "Tile detail panel now shows the correct boosted rate when you click on a Farm+Farmstead tile near an active Waterworks."
-      ]
-    },
-
-    {
-      introducedIn: "2026.06.28.0",
-      title: "Season-end overlay — scrolling finally works",
-      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
-      changes: [
-        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
-        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
-        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
-        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
-        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
-      ]
-    },
-
   ]
 };
 
