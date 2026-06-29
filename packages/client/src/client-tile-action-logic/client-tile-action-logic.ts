@@ -840,7 +840,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(
           economicStructure.status === "active" && isPowered && !bombardOnCooldown
             && (state.strategicResources.CRYSTAL ?? 0) >= 200
-            && (state.points ?? 0) >= 5_000,
+            && (state.gold ?? 0) >= 5_000,
           economicStructure.status !== "active"
             ? "Sky Dock still building"
             : !isPowered
