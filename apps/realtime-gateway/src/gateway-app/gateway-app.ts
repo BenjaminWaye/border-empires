@@ -3,6 +3,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
@@ -356,7 +357,10 @@ const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  attackerTechIds?: readonly string[],
+  attackerDomainIds?: readonly string[],
+  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -380,7 +384,19 @@ const attackPreviewResult = (
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
+  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
+  const techModifiers = attackerTechIds
+    ? resolveFrontierCombatMultipliers(
+        attackerTechIds,
+        attackerDomainIds,
+        defenderPlayerData?.techIds,
+        defenderPlayerData?.domainIds,
+      )
+    : undefined;
+  const preview = buildFrontierCombatPreview(target, {
+    attackerOutpostMult,
+    ...(techModifiers ?? {}),
+  });
   return {
     ...responseBase,
     valid: true,
@@ -2662,7 +2678,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "ATTACK_PREVIEW") {
             const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
-            sendJson(socket, attackPreviewResult(session.playerId, previewSnapshot?.tiles, previewSnapshot?.docks, message));
+            const getPlayerTechDomainIds = (pid: string) => {
+              const ps = playerSubscriptions.snapshotForPlayer(pid);
+              return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+            };
+            sendJson(socket, attackPreviewResult(
+              session.playerId,
+              previewSnapshot?.tiles,
+              previewSnapshot?.docks,
+              message,
+              previewSnapshot?.player?.techIds,
+              previewSnapshot?.player?.domainIds,
+              getPlayerTechDomainIds,
+            ));
             return;
           }
 

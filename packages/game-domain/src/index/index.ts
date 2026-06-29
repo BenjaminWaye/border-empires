@@ -1,4 +1,5 @@
 // Re-export domain modules promoted into game-domain.
+export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
