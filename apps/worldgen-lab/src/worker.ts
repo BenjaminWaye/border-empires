@@ -159,11 +159,17 @@ const countResourceSites = (terrain: Uint8Array, biome: Uint8Array, shade: Uint8
   return { fish, iron, gems, farm, fur };
 };
 
-// Replicates generateTowns target/spacing logic; does not skip dock/cluster tiles (lab approximation)
+// Replicates all three town-placement passes from game-domain.
+// Dock/cluster tiles are not tracked here (lab approximation), so count may be slightly high.
 const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
   const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
   const target = Math.max(70, Math.floor(180 * worldScale));
   const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
+
+  // Set of flat indices that have a town
+  const townSet = new Set<number>();
+
+  // Pass 1: generateTowns — seeded random placement up to target
   const placed: Array<{ x: number; y: number }> = [];
   for (let index = 0; index < 120_000 && placed.length < target; index++) {
     const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
@@ -175,9 +181,44 @@ const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
       const dy = Math.min(Math.abs(e.y - y), WORLD_HEIGHT - Math.abs(e.y - y));
       if (dx + dy < minSpacing) { tooClose = true; break; }
     }
-    if (!tooClose) placed.push({ x, y });
+    if (!tooClose) { placed.push({ x, y }); townSet.add(y * WORLD_WIDTH + x); }
   }
-  return placed.length;
+
+  // Pass 2: ensureBaselineEconomyCoverage — one town per 30×30 cell that has land but no town
+  for (let by = 0; by < WORLD_HEIGHT; by += 30) {
+    for (let bx = 0; bx < WORLD_WIDTH; bx += 30) {
+      let hasTown = false;
+      let pick = -1;
+      for (let dy = 0; dy < 30 && !hasTown; dy++) {
+        for (let dx = 0; dx < 30 && !hasTown; dx++) {
+          const idx = (by + dy) * WORLD_WIDTH + (bx + dx);
+          if (terrain[idx] !== 1) continue;
+          if (pick === -1 && !townSet.has(idx)) pick = idx;
+          if (townSet.has(idx)) hasTown = true;
+        }
+      }
+      if (!hasTown && pick !== -1) townSet.add(pick);
+    }
+  }
+
+  // Pass 3: ensureInterestCoverage — one town per 15×15 cell that has land but nothing interesting
+  for (let by = 0; by < WORLD_HEIGHT; by += 15) {
+    for (let bx = 0; bx < WORLD_WIDTH; bx += 15) {
+      let interesting = false;
+      let pick = -1;
+      for (let dy = 0; dy < 15 && !interesting; dy++) {
+        for (let dx = 0; dx < 15 && !interesting; dx++) {
+          const idx = (by + dy) * WORLD_WIDTH + (bx + dx);
+          if (terrain[idx] !== 1) continue;
+          if (pick === -1 && !townSet.has(idx)) pick = idx;
+          if (townSet.has(idx)) interesting = true;
+        }
+      }
+      if (!interesting && pick !== -1) townSet.add(pick);
+    }
+  }
+
+  return townSet.size;
 };
 
 const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
