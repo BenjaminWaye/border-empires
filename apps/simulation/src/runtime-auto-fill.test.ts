@@ -220,7 +220,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
     vi.resetModules();
   });
 
-  it("invokes recordYieldAnchor once per newly settled tile (matching the settled keys)", async () => {
+  it("invokes recordYieldAnchors once with every newly settled tile key (matching the settled keys)", async () => {
     // AUTO_FILL_ENABLED is read at config import time, so stub the env and load
     // a fresh module instance before exercising applyAutoFill.
     vi.stubEnv("AUTO_FILL_ENABLED", "true");
@@ -239,19 +239,19 @@ describe("applyAutoFill yield-anchor stamping", () => {
     ]);
 
     const replaced: string[] = [];
-    const anchored: string[] = [];
+    const anchorBatches: string[][] = [];
     const settled = applyAutoFill({
       capturedTile,
       ownerId: "player-1",
       tiles,
       replaceTileState: (k) => replaced.push(k),
-      recordYieldAnchor: (k) => anchored.push(k)
+      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
     expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
-    // One anchor per settled tile, stamped for exactly the tiles that were replaced.
-    expect(anchored).toEqual(replaced);
-    expect(anchored).toEqual([simulationTileKey(1, 1)]);
+    // Stamped in a single batch covering exactly the tiles that were replaced.
+    expect(anchorBatches).toEqual([replaced]);
+    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
   });
 
   it("does nothing when AUTO_FILL_ENABLED is false", async () => {
@@ -268,16 +268,16 @@ describe("applyAutoFill yield-anchor stamping", () => {
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
 
-    const anchored: string[] = [];
+    const anchorBatches: string[][] = [];
     const settled = applyAutoFill({
       capturedTile,
       ownerId: "player-1",
       tiles,
       replaceTileState: () => {},
-      recordYieldAnchor: (k) => anchored.push(k)
+      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
     expect(settled).toEqual([]);
-    expect(anchored).toEqual([]);
+    expect(anchorBatches).toEqual([]);
   });
 });
