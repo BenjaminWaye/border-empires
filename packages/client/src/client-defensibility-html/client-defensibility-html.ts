@@ -96,10 +96,14 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   const compactFrontierTarget = authoritativeSettledTiles > 0 ? idealExposureForTiles(authoritativeSettledTiles) : 0;
   const fullScoreCutoff = authoritativeSettledTiles > 0 ? fullDefensibilityExposureForTiles(authoritativeSettledTiles) : 0;
   const weightedExposureClass = authoritativeWeightedExposure <= fullScoreCutoff ? "is-positive" : "is-negative";
-  const scoreCopy =
-    rounded >= 100
-      ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
-      : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+  const goodShape = rounded >= 100;
+  const shapeClause = goodShape
+    ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
+    : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+  const economicClause = args.empireIntegrityEnabled
+    ? (goodShape ? " You're earning the full income and growth bonus." : " Your income and growth bonus scales with this score.")
+    : "";
+  const scoreCopy = shapeClause + economicClause;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -142,12 +146,16 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       const growthPct = Math.round((growthMult - 1) * 100);
       const sign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
       const cls = (n: number) => (n >= 0 ? "is-positive" : "is-negative");
+      const maxEconPct = Math.round((integrityEconomyMult(1) - 1) * 100);
+      const minEconPct = Math.round((integrityEconomyMult(0) - 1) * 100);
+      const maxGrowthPct = Math.round((integrityGrowthMult(1) - 1) * 100);
+      const minGrowthPct = Math.round((integrityGrowthMult(0) - 1) * 100);
       return `<article class="card defense-breakdown-card">
-        <strong>Empire Integrity bonus</strong>
-        <p class="defense-copy">A compact empire earns an economy and growth bonus proportional to your defensibility score.</p>
+        <strong>Income &amp; growth effect</strong>
+        <p class="defense-copy">Compact empires earn a bonus; sprawling empires take a penalty. At 100% that's ${sign(maxEconPct)} income and ${sign(maxGrowthPct)} growth — at 0% it flips to ${sign(minEconPct)} and ${sign(minGrowthPct)}.</p>
         <div class="defense-stat-grid">
-          <div class="defense-stat"><span>Income bonus</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
-          <div class="defense-stat"><span>Growth bonus</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
+          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
+          <div class="defense-stat"><span>Growth effect</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
         </div>
       </article>`;
     })() : ""}

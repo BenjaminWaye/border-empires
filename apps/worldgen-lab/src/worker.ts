@@ -33,13 +33,7 @@ export type WorkerResponse = {
   largestIslandPct: number; // largest island as % of all land (0–100)
   minLandY: number;         // topmost row containing any LAND tile
   maxLandY: number;         // bottommost row containing any LAND tile
-  townCount: number;        // estimated town placements
-  dockCount: number;        // 1 per significant island + 1 extra per island ≥250 tiles
-  farmSites: number;        // eligible FARM resource tiles
-  fishSites: number;        // eligible FISH resource tiles
-  gemsSites: number;        // eligible GEMS resource tiles
-  ironSites: number;        // eligible IRON resource tiles
-  furSites: number;         // eligible FUR resource tiles
+
   durationMs: number;
 };
 
@@ -279,6 +273,20 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     }
   }
 
+  // Find tightest Y extent of land tiles
+  let minLandY = WORLD_HEIGHT;
+  for (let y = 0; y < WORLD_HEIGHT && minLandY === WORLD_HEIGHT; y++) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { minLandY = y; break; }
+    }
+  }
+  let maxLandY = -1;
+  for (let y = WORLD_HEIGHT - 1; y >= 0 && maxLandY === -1; y--) {
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      if (terrain[y * WORLD_WIDTH + x] === 1) { maxLandY = y; break; }
+    }
+  }
+
   const response: WorkerResponse = {
     requestedSeed: seed,
     actualSeed: currentSeed,
@@ -295,13 +303,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     largestIslandPct: Math.round(largestShare * 100),
     minLandY,
     maxLandY,
-    townCount,
-    dockCount,
-    farmSites: resources.farm,
-    fishSites: resources.fish,
-    gemsSites: resources.gems,
-    ironSites: resources.iron,
-    furSites: resources.fur,
+
     durationMs: performance.now() - t0
   };
 

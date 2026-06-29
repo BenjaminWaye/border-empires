@@ -43,11 +43,13 @@ export function applyEncirclementForExpand(
   context: RuntimeEncirclementApplicationContext,
   targetKey: string,
   playerId: string,
-  commandId: string
+  commandId: string,
+  options?: { bfsCap?: number }
 ): void {
   const [xStr, yStr] = targetKey.split(",");
   const bx = Number(xStr);
   const by = Number(yStr);
+  const bfsCap = options?.bfsCap ?? 2000;
   const aetherBridgeNeighborKeys = activeAetherBridgeNeighborKeysForPlayer(context, playerId);
 
   const seeds: string[] = [];
@@ -71,6 +73,13 @@ export function applyEncirclementForExpand(
   const reconnected = new Set<string>(seeds);
 
   while (queue.length > 0) {
+    if (bfsCap > 0 && visited.size > bfsCap) {
+      context.runtimeLogInfo(
+        { playerId, bfsVisited: visited.size, bfsCap, seedCount: seeds.length, commandId },
+        "[applyEncirclementForExpand] BFS cap exceeded — skipping reconnection this tick"
+      );
+      return;
+    }
     const current = queue.shift()!;
     const [cxStr, cyStr] = current.split(",") as [string, string];
     const cx = Number(cxStr);

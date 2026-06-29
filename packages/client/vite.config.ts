@@ -39,7 +39,8 @@ export default defineConfig({
     // Replace with a subset so browser builds don't throw.
     // MUSTER_SYSTEM_ENABLED defaults true since it is permanently on in staging/prod.
     "process.env": JSON.stringify({
-      MUSTER_SYSTEM_ENABLED: process.env.MUSTER_SYSTEM_ENABLED ?? "true"
+      MUSTER_SYSTEM_ENABLED: process.env.MUSTER_SYSTEM_ENABLED ?? "true",
+      EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
     })
   }
 });

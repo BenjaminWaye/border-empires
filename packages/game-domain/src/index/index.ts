@@ -152,6 +152,7 @@ export type DomainTileState = {
         nextUpkeepAt?: number | undefined;
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
         previousStatus?: "active" | "inactive" | undefined;
+        bombardCooldownUntil?: number | undefined;
       }
     | undefined;
   sabotage?:

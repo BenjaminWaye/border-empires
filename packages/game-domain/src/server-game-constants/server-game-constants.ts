@@ -121,8 +121,14 @@ export const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.025;
-export const AIRPORT_BOMBARD_CRYSTAL_COST = 1;
+export const AIRPORT_BOMBARD_CRYSTAL_COST = 200;
+export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
 export const AIRPORT_BOMBARD_RANGE = 30;
+export const AIRPORT_BOMBARD_COOLDOWN_MS = 20 * 60_000;
+export const AIRPORT_BOMBARD_BASE_MISS_CHANCE = 0.15;
+export const AIRPORT_BOMBARD_FORT_MISS_BONUS = 0.25;
+export const AIRPORT_BOMBARD_MAX_MISS_CHANCE = 0.80;
+export const RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS = 30;
 export const AETHER_TOWER_RADIUS = 30;
 export const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
 export const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
@@ -183,8 +189,6 @@ export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
-/** Food consumed per unit of population grown (food / pop). A town growing by N pop/min costs N * GROWTH_FOOD_COST_PER_POP food/min. */
-export const GROWTH_FOOD_COST_PER_POP = 0.05;
 export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
   if (populationTier === "SETTLEMENT" || !populationTier) return 0;
   if (populationTier === "CITY") return 0.3;

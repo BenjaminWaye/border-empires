@@ -53,6 +53,27 @@ type QueuedBuildPayload =
   | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
+const SERVER_DEPLOYING_SESSION_KEY = "be:server-deploying-at";
+const SERVER_DEPLOYING_WINDOW_MS = 180_000;
+
+export const setServerDeployingSession = (): void => {
+  try { sessionStorage.setItem(SERVER_DEPLOYING_SESSION_KEY, String(Date.now())); } catch {}
+};
+
+export const clearServerDeployingSession = (): void => {
+  try { sessionStorage.removeItem(SERVER_DEPLOYING_SESSION_KEY); } catch {}
+};
+
+const checkServerDeployingSession = (): boolean => {
+  try {
+    const ts = sessionStorage.getItem(SERVER_DEPLOYING_SESSION_KEY);
+    if (!ts) return false;
+    return Date.now() - Number(ts) < SERVER_DEPLOYING_WINDOW_MS;
+  } catch {
+    return false;
+  }
+};
+
 export const storageGet = (keyName: string): string | null => {
   try {
     return window.localStorage.getItem(keyName);
@@ -73,6 +94,7 @@ export const createInitialState = () => ({
   me: "",
   meName: "",
   connection: "connecting" as "connecting" | "connected" | "initialized" | "disconnected",
+  serverDeploying: checkServerDeployingSession(),
   authReady: false,
   authSessionReady: false,
   hasEverInitialized: false,
@@ -226,6 +248,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
