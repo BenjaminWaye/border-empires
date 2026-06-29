@@ -140,7 +140,24 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   originOutline.renderOrder = 15;
   originOutline.visible = false;
 
-  group.add(fillMesh, lineMesh, targetOutline, originOutline);
+  const TILE_BORDER_RISE = 0.012;
+  const tileBorderGeom = new BufferGeometry();
+  const tileBorderPositions = new Float32Array(maxTiles * 24);
+  tileBorderGeom.setAttribute("position", new BufferAttribute(tileBorderPositions, 3));
+  tileBorderGeom.setDrawRange(0, 0);
+  const tileBorderMaterial = new LineBasicMaterial({
+    color: TONE_COLORS.red.stroke,
+    transparent: true,
+    opacity: 0.88,
+    depthTest: false,
+    depthWrite: false
+  });
+  const tileBorder = new LineSegments(tileBorderGeom, tileBorderMaterial);
+  tileBorder.frustumCulled = false;
+  tileBorder.renderOrder = 15;
+  tileBorder.visible = false;
+
+  group.add(fillMesh, tileBorder, lineMesh, targetOutline, originOutline);
 
   const tempMatrix = new Matrix4();
   let fillCount = 0;
@@ -163,6 +180,34 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     } else {
       fillMesh.visible = false;
     }
+    if (fillCount > 0) {
+      const posAttr = tileBorder.geometry.getAttribute("position") as BufferAttribute;
+      const pos = posAttr.array as Float32Array;
+      for (let i = 0; i < fillCount; i++) {
+        fillMesh.getMatrixAt(i, tempMatrix);
+        const cx = tempMatrix.elements[12];
+        const cz = tempMatrix.elements[14];
+        const cy = tempMatrix.elements[13] + TILE_BORDER_RISE;
+        const x0 = cx - 0.48;
+        const x1 = cx + 0.48;
+        const z0 = cz - 0.48;
+        const z1 = cz + 0.48;
+        const base = i * 24;
+        pos[base + 0] = x0; pos[base + 1] = cy; pos[base + 2] = z0;
+        pos[base + 3] = x1; pos[base + 4] = cy; pos[base + 5] = z0;
+        pos[base + 6] = x1; pos[base + 7] = cy; pos[base + 8] = z0;
+        pos[base + 9] = x1; pos[base + 10] = cy; pos[base + 11] = z1;
+        pos[base + 12] = x1; pos[base + 13] = cy; pos[base + 14] = z1;
+        pos[base + 15] = x0; pos[base + 16] = cy; pos[base + 17] = z1;
+        pos[base + 18] = x0; pos[base + 19] = cy; pos[base + 20] = z1;
+        pos[base + 21] = x0; pos[base + 22] = cy; pos[base + 23] = z0;
+      }
+      posAttr.needsUpdate = true;
+      tileBorder.geometry.setDrawRange(0, fillCount * 8);
+      tileBorder.visible = true;
+    } else {
+      tileBorder.visible = false;
+    }
     committed = true;
   };
 
@@ -179,6 +224,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     const tone = crystalTargetingTone(deps.ct.ability as CrystalTargetingAbility);
     const colors = TONE_COLORS[tone];
     fillMaterial.color.set(colors.fill);
+    tileBorderMaterial.color.set(colors.stroke);
     lineMaterial.color.set(colors.line);
     targetOutlineMaterial.color.set(colors.stroke);
     originOutlineMaterial.color.set(colors.stroke);
@@ -236,6 +282,8 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     scene.remove(group);
     fillGeometry.dispose();
     fillMaterial.dispose();
+    tileBorderGeom.dispose();
+    tileBorderMaterial.dispose();
     lineGeom.dispose();
     lineMaterial.dispose();
     targetOutlineGeom.dispose();
