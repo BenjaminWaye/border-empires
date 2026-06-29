@@ -19,17 +19,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.2",
+  version: "2026.06.29.3",
   title: "What's New",
-  summary: "Duplicate 'Settlement started' feed notifications removed. Attack alert feed entries now include a 'Center on tile' button.",
+  summary: "Duplicate 'Settlement started' feed notifications removed. Sky Dock Bombard targeting no longer shows redundant text in the feed.",
   entries: [
     {
-      introducedIn: "2026.06.29.2",
+      introducedIn: "2026.06.29.3",
       title: "Duplicate 'Settlement started' feed notifications removed",
       why: "The activity feed showed 'Settlement at (X, Y) started.' twice when settling from the tile context menu — once from the action flow and once from the settle-selected handler. This made the feed noisy for new settlement actions.",
       changes: [
         "Removed the redundant pushFeed call from `client-selected-actions.ts`.",
         "Removed the redundant pushFeed call from `client-action-flow.ts`; the requestSettlement call is preserved."
+      ]
+    },
+    {
+      introducedIn: "2026.06.29.2",
+      title: "Sky Dock Bombard targeting no longer shows redundant feed text",
+      why: "Entering Sky Dock Bombard targeting mode showed a feed message 'Sky Dock Bombard armed. Tap a highlighted target tile.' — but the visual highlighting on the map tiles was already sufficient affordance, making the feed text redundant noise.",
+      changes: [
+        "Removed the redundant feed notification when entering Sky Dock Bombard (and other crystal targeting) mode."
       ]
     },
     {
