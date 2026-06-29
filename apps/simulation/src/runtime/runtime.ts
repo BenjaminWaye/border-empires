@@ -1303,11 +1303,11 @@ export class SimulationRuntime {
             invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
           })
         : undefined,
-      applyAutoFill: (capturedTile, ownerId) => applyAutoFillImpl({ capturedTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles })
+      applyAutoFill: (capturedTile, ownerId) => applyAutoFillImpl({ capturedTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchor: (k) => { const t = this.now(); this.setTileYieldCollectedAt(`auto-fill:${k}:${t}`, ownerId, k, t); } })
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchor: (k) => { const t = this.now(); this.setTileYieldCollectedAt(`auto-fill:${k}:${t}`, ownerId, k, t); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
