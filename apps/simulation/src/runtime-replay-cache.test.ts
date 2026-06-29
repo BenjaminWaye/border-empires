@@ -35,7 +35,8 @@ describe("isReplayTrackedCommandId", () => {
       "recovered-settle:": "recovered-settle:player-1:123",
       "startup-gross-income-settlement:": "startup-gross-income-settlement:player-1:123",
       "tile-owner-change:": "tile-owner-change:1,2:123",
-      "breach:": "breach:10,10:123"
+      "breach:": "breach:10,10:123",
+      "auto-fill:": "auto-fill:10,10:123"
     } as const;
     // every prefix in the constant must have a sample, and all must be excluded
     for (const prefix of SERVER_GENERATED_COMMAND_ID_PREFIXES) {

@@ -26,6 +26,7 @@ primary_region = "arn"
 
   MUSTER_SYSTEM_ENABLED = "true"
   EMPIRE_INTEGRITY_ENABLED = "true"
+  AUTO_FILL_ENABLED = "true"
 
   # Simulation (loopback within the same Node process)
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
