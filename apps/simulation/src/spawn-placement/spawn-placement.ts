@@ -27,7 +27,10 @@ const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
   { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } }
+  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0 } }
 ];
 
 const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
@@ -143,17 +146,17 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     }
   }
 
-  if (settledCoords.length === 0) {
-    return spawnCandidates[0] ? { x: spawnCandidates[0].x, y: spawnCandidates[0].y } : undefined;
-  }
-  const MAX_FALLBACK_CANDIDATES = 2_000;
-  const candidateStride = Math.max(1, Math.floor(spawnCandidates.length / MAX_FALLBACK_CANDIDATES));
+  // All randomised passes failed — deterministically pick the candidate furthest
+  // from any settled tile. To keep the inner loop cheap when settledCoords is
+  // large, sample up to 500 settled tiles evenly rather than scanning every one.
+  const MAX_SETTLED_SAMPLE = 500;
+  const settledStride = Math.max(1, Math.floor(settledCoords.length / MAX_SETTLED_SAMPLE));
+  const settledSample = settledCoords.filter((_, i) => i % settledStride === 0);
   let bestCandidate: { x: number; y: number } | undefined;
   let bestDistance = -1;
-  for (let candidateIndex = 0; candidateIndex < spawnCandidates.length; candidateIndex += candidateStride) {
-    const candidate = spawnCandidates[candidateIndex]!;
+  for (const candidate of spawnCandidates) {
     let nearest = Number.POSITIVE_INFINITY;
-    for (const spawn of settledCoords) {
+    for (const spawn of settledSample) {
       const distance = chebyshevDistance(candidate.x, candidate.y, spawn.x, spawn.y);
       if (distance < nearest) nearest = distance;
     }
