@@ -50,6 +50,7 @@ export const supportedClientMessageTypes = [
   "SUBSCRIBE_CHUNKS",
   "PING",
   "SET_FOG_DISABLED",
+  "START_NEW_SEASON",
   "TRUCE_REQUEST",
   "TRUCE_ACCEPT",
   "TRUCE_REJECT",

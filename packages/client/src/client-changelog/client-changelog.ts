@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.2",
+  version: "2026.06.30.3",
   title: "What's New",
-  summary: "Sky Dock Bombard shows which tiles hit and which missed.",
+  summary: "The season-end Start New Season action is available again.",
   entries: [
+    {
+      introducedIn: "2026.06.30.3",
+      title: "Start New Season no longer shows as unavailable",
+      why: "The gateway accepted START_NEW_SEASON but did not advertise it in the rewrite capability list, so the client blocked the season-end button before sending the command.",
+      changes: [
+        "The rewrite gateway now includes START_NEW_SEASON in its supported client message list.",
+        "The client can send the season rollover request from the season-end overlay instead of showing Action unavailable."
+      ]
+    },
     {
       introducedIn: "2026.06.30.2",
       title: "Sky Dock Bombard shows which tiles hit and which missed",
