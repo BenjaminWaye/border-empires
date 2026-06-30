@@ -19,10 +19,27 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.0",
+  version: "2026.06.30.1",
   title: "What's New",
-  summary: "Dock-based attacks now properly verify dock connectivity before queuing.",
+  summary: "Capture pop indicator no longer loops; Sky Dock Bombard overlay clears properly.",
   entries: [
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Capture pop indicator floats once and slower",
+      why: "When capturing a city, the floating \"-XXX pop\" indicator re-fired on every camera move instead of floating up once and fading. The 3.2s animation was also too fast to read.",
+      changes: [
+        "The floating text and its guard map are no longer cleared during terrain rebuild, so the indicator fires only once per capture event.",
+        "Floating duration increased from 3.2s to 5s for easier readability."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Sky Dock Bombard target overlay no longer persists after execution",
+      why: "After executing a Sky Dock Bombard, the red target tile overlay remained visible until browser refresh — the fill mesh and tile borders were only hidden during terrain rebuild, not on every render frame.",
+      changes: [
+        "The crystal targeting overlay now hides its fill mesh and tile borders every frame when targeting mode is inactive, not just during rebuild."
+      ]
+    },
     {
       introducedIn: "2026.06.30.0",
       title: "Dock-based 'Launch Attack' no longer silently fails",
