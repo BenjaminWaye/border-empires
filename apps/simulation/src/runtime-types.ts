@@ -198,7 +198,6 @@ export type SimulationRuntimeOptions = {
   onMusterRemoteAttack?: () => void;
   onMusterRemoteBlocked?: () => void;
   onMusterRemoteBlockedBarbarian?: () => void;
-  onAutoFillTiles?: (count: number) => void;
 };
 
 export type SimulationTileWireDelta = {

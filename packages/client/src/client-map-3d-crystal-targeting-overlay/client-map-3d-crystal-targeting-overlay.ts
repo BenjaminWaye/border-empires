@@ -99,6 +99,23 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   fillMesh.renderOrder = 14;
   fillMesh.count = 0;
 
+  const TILE_BORDER_RISE = 0.012;
+  const tileBorderGeom = new BufferGeometry();
+  const tileBorderPositions = new Float32Array(maxTiles * 24);
+  tileBorderGeom.setAttribute("position", new BufferAttribute(tileBorderPositions, 3));
+  tileBorderGeom.setDrawRange(0, 0);
+  const tileBorderMaterial = new LineBasicMaterial({
+    color: TONE_COLORS.red.stroke,
+    transparent: true,
+    opacity: 0.88,
+    depthTest: false,
+    depthWrite: false
+  });
+  const tileBorder = new LineSegments(tileBorderGeom, tileBorderMaterial);
+  tileBorder.frustumCulled = false;
+  tileBorder.renderOrder = 15;
+  tileBorder.visible = false;
+
   const targetOutlineGeom = createBendingMarkerGeometry();
   const targetOutlineMaterial = new LineBasicMaterial({
     color: TONE_COLORS.red.stroke,
@@ -125,23 +142,6 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   originOutline.renderOrder = 15;
   originOutline.visible = false;
 
-  const TILE_BORDER_RISE = 0.012;
-  const tileBorderGeom = new BufferGeometry();
-  const tileBorderPositions = new Float32Array(maxTiles * 24);
-  tileBorderGeom.setAttribute("position", new BufferAttribute(tileBorderPositions, 3));
-  tileBorderGeom.setDrawRange(0, 0);
-  const tileBorderMaterial = new LineBasicMaterial({
-    color: TONE_COLORS.red.stroke,
-    transparent: true,
-    opacity: 0.88,
-    depthTest: false,
-    depthWrite: false
-  });
-  const tileBorder = new LineSegments(tileBorderGeom, tileBorderMaterial);
-  tileBorder.frustumCulled = false;
-  tileBorder.renderOrder = 15;
-  tileBorder.visible = false;
-
   group.add(fillMesh, tileBorder, targetOutline, originOutline);
 
   const tempMatrix = new Matrix4();
@@ -150,7 +150,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   let committed = true;
 
   const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
-    if (committed) { fillCount = 0; committed = false; }
+    if (committed) { committed = false; }
     if (fillCount >= maxTiles) return;
     tempMatrix.makeTranslation(centerX, surfaceY, centerZ);
     fillMesh.setMatrixAt(fillCount, tempMatrix);
@@ -193,6 +193,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     } else {
       tileBorder.visible = false;
     }
+    fillCount = 0;
     committed = true;
   };
 
