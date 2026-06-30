@@ -217,16 +217,27 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
+  const tileOutcomes: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> = [];
+  let targetableTiles = 0;
+  let hitTiles = 0;
+  let missedTiles = 0;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       const tileKey = simulationTileKey(payload.toX + dx, payload.toY + dy);
       const tile = context.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) continue;
+      targetableTiles += 1;
       const missChance = Math.min(
         AIRPORT_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? AIRPORT_BOMBARD_FORT_MISS_BONUS : 0),
         AIRPORT_BOMBARD_MAX_MISS_CHANCE
       );
-      if (Math.random() < missChance) continue;
+      if (Math.random() < missChance) {
+        missedTiles += 1;
+        tileOutcomes.push({ dx, dy, outcome: "miss" });
+        continue;
+      }
+      hitTiles += 1;
+      tileOutcomes.push({ dx, dy, outcome: "hit" });
       const updatedTile: DomainTileState = {
         ...tile,
         ownerId: undefined,
@@ -258,6 +269,15 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     type: "PLAYER_UPDATE",
     points: actor.points,
     strategicResources: actor.strategicResources
+  });
+  context.emitPlayerMessage(command, {
+    type: "AIRPORT_BOMBARD_RESULT",
+    x: payload.toX,
+    y: payload.toY,
+    targetableTiles,
+    hitTiles,
+    missedTiles,
+    tiles: tileOutcomes
   });
 }
 

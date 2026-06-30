@@ -1135,6 +1135,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteAttack: () => { simulationMetrics.incrementSimMusterRemoteAttack(); },
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
+    onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });

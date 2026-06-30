@@ -1169,7 +1169,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       bombardFx.spawn(
         sceneX,
         sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        cast.tiles
       );
     }
   };
@@ -1356,8 +1357,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    floatingText.clear();
-    lastSeenCaptureShockByTile.clear();
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();

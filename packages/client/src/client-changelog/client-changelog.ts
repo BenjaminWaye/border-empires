@@ -19,10 +19,56 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.0",
+  version: "2026.06.30.3",
   title: "What's New",
-  summary: "Dock-based attacks now properly verify dock connectivity before queuing.",
+  summary: "The season-end Start New Season action is available again.",
   entries: [
+    {
+      introducedIn: "2026.06.30.3",
+      title: "Start New Season no longer shows as unavailable",
+      why: "The gateway accepted START_NEW_SEASON but did not advertise it in the rewrite capability list, so the client blocked the season-end button before sending the command.",
+      changes: [
+        "The rewrite gateway now includes START_NEW_SEASON in its supported client message list.",
+        "The client can send the season rollover request from the season-end overlay instead of showing Action unavailable."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.2",
+      title: "Sky Dock Bombard shows which tiles hit and which missed",
+      why: "Bombarding a target with the airport's Sky Dock gave no indication of why some tiles in the blast radius didn't flip to neutral — players couldn't tell a random miss (forts reduce hit chance) from a bug.",
+      changes: [
+        "The bombardment explosion FX is now driven by the actual server result instead of firing identically on every tile: tiles that hit get the orange ring/flash explosion, tiles that missed get a gray smoke fizzle instead.",
+        "The feed also shows a summary message after each bombardment with the hit/miss counts.",
+        "If no enemy tiles were in range, the feed says so instead of leaving the result ambiguous."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Capture pop indicator floats once and slower",
+      why: "When capturing a city, the floating \"-XXX pop\" indicator re-fired on every camera move instead of floating up once and fading. The 3.2s animation was also too fast to read.",
+      changes: [
+        "The floating text and its guard map are no longer cleared during terrain rebuild, so the indicator fires only once per capture event.",
+        "Floating duration increased from 3.2s to 5s for easier readability."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Sky Dock Bombard target overlay no longer persists after execution",
+      why: "After executing a Sky Dock Bombard, the red target tile overlay remained visible until browser refresh — the fill mesh and tile borders were only hidden during terrain rebuild, not on every render frame.",
+      changes: [
+        "The crystal targeting overlay now hides its fill mesh and tile borders every frame when targeting mode is inactive, not just during rebuild."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Dock-based 'Launch Attack' no longer silently fails",
+      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
+      changes: [
+        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
+        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
+        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
+      ]
+    },
     {
       introducedIn: "2026.06.30.0",
       title: "Dock-based 'Launch Attack' no longer silently fails",
