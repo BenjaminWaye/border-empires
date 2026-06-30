@@ -16,6 +16,12 @@ Use one topic per recurring work area, for example:
 - `deploys-staging.md`
 - `postgres-persistence.md`
 
+## Existing runbooks
+
+| File | Covers |
+|---|---|
+| `docs/agents/topics/staging-access.md` | Reading logs/metrics from staging inside a remote session; proxy constraints; freeze diagnosis |
+
 ## Template
 
 ````md
