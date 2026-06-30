@@ -91,6 +91,11 @@ export function createMusterCombatFx(scene: Scene) {
     tgtWorldZ: number,
     attackerColor: string,
   ): void => {
+    if (cache?.attackerColor !== attackerColor) {
+      tmpColor.set(attackerColor);
+      for (let i = 0; i < DOTS_PER_SIDE; i++) attackerMesh.setColorAt(i, tmpColor);
+      if (attackerMesh.instanceColor) attackerMesh.instanceColor.needsUpdate = true;
+    }
     cache = {
       srcWorldX,
       srcWorldZ,
@@ -110,7 +115,7 @@ export function createMusterCombatFx(scene: Scene) {
     const t = (nowMs - startAt) / duration;
     if (t < 0 || t > 2) { clear(); return; }
 
-    const { srcWorldX, srcWorldZ, tgtWorldX, tgtWorldZ, srcSurfaceY, tgtSurfaceY, attackerColor } = cache;
+    const { srcWorldX, srcWorldZ, tgtWorldX, tgtWorldZ, srcSurfaceY, tgtSurfaceY } = cache;
 
     let dirX = tgtWorldX - srcWorldX;
     let dirZ = tgtWorldZ - srcWorldZ;
@@ -124,12 +129,6 @@ export function createMusterCombatFx(scene: Scene) {
     const midX = (srcWorldX + tgtWorldX) * 0.5;
     const midZ = (srcWorldZ + tgtWorldZ) * 0.5;
     const midY = (srcSurfaceY + tgtSurfaceY) * 0.5 + DOT_Y_OFFSET;
-
-    tmpColor.set(attackerColor);
-    for (let i = 0; i < DOTS_PER_SIDE; i++) {
-      attackerMesh.setColorAt(i, tmpColor);
-    }
-    if (attackerMesh.instanceColor) attackerMesh.instanceColor.needsUpdate = true;
 
     let atkWrite = 0;
     let defWrite = 0;
