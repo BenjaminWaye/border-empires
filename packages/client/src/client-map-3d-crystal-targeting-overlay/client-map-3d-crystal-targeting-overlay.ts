@@ -205,7 +205,11 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   const sync = (deps: SyncCrystalLineDeps): void => {
     targetOutline.visible = false;
     originOutline.visible = false;
-    if (!deps.ct.active) return;
+    if (!deps.ct.active) {
+      fillMesh.visible = false;
+      tileBorder.visible = false;
+      return;
+    }
     const tone = crystalTargetingTone(deps.ct.ability as CrystalTargetingAbility);
     const colors = TONE_COLORS[tone];
     fillMaterial.color.set(colors.fill);
