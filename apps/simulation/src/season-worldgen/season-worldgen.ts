@@ -1,6 +1,6 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 
-import { createSeason20AiSeedWorld } from "../season-seed-world.js";
+import { createSeasonSeedWorld } from "../season-seed-world.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";
@@ -108,7 +108,7 @@ export const generateSeasonWorld = (
   }
   const mapStyle = options.mapStyle ?? "continents";
 
-  const generated = createSeason20AiSeedWorld(
+  const generated = createSeasonSeedWorld(
     requestedWorldSeed,
     (id, isAi) => ({
       ...createRuntimePlayer(id),

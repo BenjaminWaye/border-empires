@@ -285,7 +285,7 @@ const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, town
   return blandBlocks > checkedBlocks * 0.22 || seeded01(seed, seed + 1, seed + 2) < 0;
 };
 
-export const createSeason20AiSeedWorld = (
+export const createSeasonSeedWorld = (
   seed: number,
   createPlayer: (id: string, isAi: boolean) => DomainPlayer,
   options: {
