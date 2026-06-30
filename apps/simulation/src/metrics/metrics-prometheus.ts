@@ -200,7 +200,9 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_post_season_proto_tile_cache_miss_total counter",
     `sim_post_season_proto_tile_cache_miss_total ${formatMetricValue(sample.simPostSeasonProtoTileCacheMissTotal)}`,
     "# TYPE sim_full_vis_inline_build_total counter",
-    `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`
+    `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
+    "# TYPE sim_auto_fill_tiles_total counter",
+    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {

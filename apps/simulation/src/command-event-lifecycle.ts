@@ -34,7 +34,8 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "startup-gross-income-settlement:",
   "tile-owner-change:",
   "income-tick:",
-  "breach:"
+  "breach:",
+  "auto-fill:"
 ] as const;
 
 /**

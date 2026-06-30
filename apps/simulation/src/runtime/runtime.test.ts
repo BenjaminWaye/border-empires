@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { SimulationRuntime } from "./runtime.js";
+import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 
@@ -2507,6 +2507,7 @@ describe("simulation runtime", () => {
 
       runtime.submitCommand(command);
 
+      // player-2 is AI, so #732 skips its PLAYER_UPDATE on lock resolution (no WS subscriber).
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -2515,12 +2516,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
@@ -4990,6 +4989,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
 
+      // player-2 is AI (#732 skips its PLAYER_UPDATE); the duplicate seq replays cmd-1's recorded events.
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -4998,12 +4998,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
@@ -5749,6 +5747,14 @@ describe("simulation runtime", () => {
     const previousSeed = getWorldSeed();
     setWorldSeed(1);
     try {
+      // Forest settlement tiles are worldgen-derived; locate one for this seed.
+      let forest: { x: number; y: number } | undefined;
+      for (let y = 0; y < 256 && !forest; y += 1) {
+        for (let x = 0; x < 256 && !forest; x += 1) {
+          if (settlementBaseDurationMsForTile({ x, y }) === MAX_SETTLE_DURATION_MS) forest = { x, y };
+        }
+      }
+      if (!forest) throw new Error("no forest settlement tile found for world seed 1");
       const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -5772,7 +5778,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [{ x: 17, y: 192, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [{ x: forest.x, y: forest.y, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
           activeLocks: []
         }
       });
@@ -5784,13 +5790,14 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "SETTLE",
-        payloadJson: JSON.stringify({ x: 17, y: 192 })
+        payloadJson: JSON.stringify({ x: forest.x, y: forest.y })
       });
 
       await Promise.resolve();
 
       expect(scheduledTasks).toHaveLength(1);
-      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(120_000 / 1.05));
+      // Forest doubles the base (MAX_SETTLE_DURATION_MS); toolmaking applies a 1.05x speed mult.
+      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
     } finally {
       setWorldSeed(previousSeed);
     }
@@ -8663,11 +8670,6 @@ describe("simulation runtime — shard rain", () => {
             activeLocks: []
           }
         });
-        const seen: SimulationRuntimeEventShape[] = [];
-        runtime.onEvent((event) => {
-          seen.push(event);
-        });
-
         runtime.submitCommand({
           commandId: "settlement-capture-frontier-refuge",
           sessionId: "session-1",
@@ -8694,14 +8696,12 @@ describe("simulation runtime — shard rain", () => {
           })
         );
 
-        const defenderUpdate = seen.find(
-          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-            event.eventType === "PLAYER_MESSAGE" &&
-            event.messageType === "PLAYER_UPDATE" &&
-            event.playerId === "player-2"
-        );
-        const payload = defenderUpdate?.payloadJson ? JSON.parse(defenderUpdate.payloadJson) as { incomePerMinute?: number } : {};
-        expect(payload.incomePerMinute).toBeGreaterThan(0);
+        // player-2 is AI (#732 suppresses its PLAYER_UPDATE), so read the re-rooted
+        // income from exportState rather than the now-suppressed message.
+        const defenderIncome = runtime
+          .exportState()
+          .players.find((player) => player.id === "player-2")?.incomePerMinute;
+        expect(defenderIncome).toBeGreaterThan(0);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
