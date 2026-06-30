@@ -1356,8 +1356,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    floatingText.clear();
-    lastSeenCaptureShockByTile.clear();
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
