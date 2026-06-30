@@ -7,6 +7,8 @@ import type { ClientState } from "./client-state/client-state.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
+let advanceSrcCache: { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
+
 export function syncCaptureOverlays(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -22,7 +24,12 @@ export function syncCaptureOverlays(
   }
   const captureTargetKey = keyFor(capture.target.x, capture.target.y);
   const targetOwned = Boolean(state.tiles.get(captureTargetKey)?.ownerId);
-  const advanceSrc = !state.activeMusterSource && targetOwned ? findClosestAdvanceMuster(state, capture.target) : undefined;
+  const advanceSrc = !state.activeMusterSource && targetOwned ? (() => {
+    if (advanceSrcCache?.targetKey !== captureTargetKey) {
+      advanceSrcCache = { targetKey: captureTargetKey, result: findClosestAdvanceMuster(state, capture.target) };
+    }
+    return advanceSrcCache.result;
+  })() : undefined;
   const src = state.activeMusterSource ?? advanceSrc;
   const transit = state.musterTransit;
   if (!src) {
