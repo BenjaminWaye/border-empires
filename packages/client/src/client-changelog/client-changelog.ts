@@ -21,8 +21,18 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.30.0",
   title: "What's New",
-  summary: "Shard collection animation overlay now adapts to mobile screen sizes.",
+  summary: "Dock-based attacks now properly verify dock connectivity before queuing.",
   entries: [
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Dock-based 'Launch Attack' no longer silently fails",
+      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
+      changes: [
+        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
+        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
+        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
+      ]
+    },
     {
       introducedIn: "2026.06.30.0",
       title: "Shard collection animation overlay adapts to mobile screen sizes",
