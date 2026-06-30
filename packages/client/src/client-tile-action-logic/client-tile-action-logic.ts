@@ -1903,13 +1903,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
-    const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, false);
-    const reachable = Boolean(barbOrigin) || Boolean(tile.dockId);
-    if (tile.dockId && !barbOrigin && tileSyncDebugEnabled()) {
-      console.warn("[dock-attack] Launch Attack enabled via tile.dockId shortcut but no dock origin found (barb)", {
-        tile: { x: tile.x, y: tile.y, dockId: tile.dockId },
-      });
-    }
+    const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, true);
+    const reachable = Boolean(barbOrigin);
     const actions: TileActionDef[] = [
       {
         id: "launch_attack",
@@ -1927,13 +1922,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     actions.push(createMountainAction());
     return actions;
   }
-  const originForDock = deps.pickOriginForTarget(tile.x, tile.y, false);
-  const reachable = Boolean(originForDock) || Boolean(tile.dockId);
-  if (tile.dockId && !originForDock && tileSyncDebugEnabled()) {
-    console.warn("[dock-attack] Launch Attack enabled via tile.dockId shortcut but no dock origin found", {
-      tile: { x: tile.x, y: tile.y, dockId: tile.dockId, ownerId: tile.ownerId },
-    });
-  }
+  const originForDock = deps.pickOriginForTarget(tile.x, tile.y, true);
+  const reachable = Boolean(originForDock);
   const targetShielded = Boolean(tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId));
   const targetShieldedReason = "Empire is under spawn protection";
   const previewDetail = deps.attackPreviewDetailForTarget(tile);
