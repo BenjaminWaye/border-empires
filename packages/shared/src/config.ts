@@ -4,7 +4,6 @@ declare const process: {
     BREAKTHROUGH_ENABLED?: string;
     EMPIRE_INTEGRITY_ENABLED?: string;
     AI_UTILITY_POLICY_ENABLED?: string;
-    AUTO_FILL_ENABLED?: string;
   };
 };
 
@@ -166,7 +165,3 @@ export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
 
 // --- Utility AI policy ---
 export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";
-
-// --- Auto-fill ---
-export const AUTO_FILL_ENABLED = process.env["AUTO_FILL_ENABLED"] === "true";
-export const AUTO_FILL_MAX_REGION_SIZE = 500;
