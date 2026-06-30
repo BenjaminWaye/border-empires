@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.1",
+  version: "2026.06.30.2",
   title: "What's New",
-  summary: "Capture pop indicator no longer loops; Sky Dock Bombard overlay clears properly.",
+  summary: "Sky Dock Bombard shows which tiles hit and which missed.",
   entries: [
+    {
+      introducedIn: "2026.06.30.2",
+      title: "Sky Dock Bombard shows which tiles hit and which missed",
+      why: "Bombarding a target with the airport's Sky Dock gave no indication of why some tiles in the blast radius didn't flip to neutral — players couldn't tell a random miss (forts reduce hit chance) from a bug.",
+      changes: [
+        "The bombardment explosion FX is now driven by the actual server result instead of firing identically on every tile: tiles that hit get the orange ring/flash explosion, tiles that missed get a gray smoke fizzle instead.",
+        "The feed also shows a summary message after each bombardment with the hit/miss counts.",
+        "If no enemy tiles were in range, the feed says so instead of leaving the result ambiguous."
+      ]
+    },
     {
       introducedIn: "2026.06.30.1",
       title: "Capture pop indicator floats once and slower",
