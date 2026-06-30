@@ -60,8 +60,14 @@ describe("season worldgen", () => {
     expect(aiNames).toContain("Freja Sund");
     expect(aiNames).toContain("Bryn Holt");
     expect(aiNames.every((name) => typeof name === "string" && !name.startsWith("ai-"))).toBe(true);
-    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeGreaterThanOrEqual(20);
-    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeLessThanOrEqual(30);
+    // buildIslands() scatters 55 island blobs by construction (worldgen.ts); some
+    // fragment into multiple disconnected landmasses from the coastline wobble,
+    // some merge or fall below the 20-tile significance floor. Sampled across
+    // several seeds the real generator lands consistently in the 40-65 range —
+    // nothing like the old 20-30 band, which was reverse-engineered for the
+    // pre-fix continents-based fake-islands approximation.
+    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeGreaterThanOrEqual(30);
+    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeLessThanOrEqual(80);
     expect(generated.initialState.docks?.length ?? 0).toBeGreaterThan(10);
     expect(generated.initialState.players).toContainEqual(
       expect.objectContaining({

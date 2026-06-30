@@ -1,15 +1,17 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import type { WorldStyle } from "@border-empires/shared";
 
 import { createSeasonSeedWorld } from "../season-seed-world.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";
-export type SimulationMapStyle = "continents" | "islands";
+export type SimulationMapStyle = WorldStyle;
 
 export type GeneratedSeasonWorld = {
   initialPlayers: Map<string, DomainPlayer>;
   initialState: RecoveredSimulationState;
   worldSeed: number;
+  mapStyle: SimulationMapStyle;
 };
 
 export const parseSimulationMapStyle = (value: string | undefined): SimulationMapStyle =>
@@ -117,13 +119,17 @@ export const generateSeasonWorld = (
     {
       humanPlayerCount: 0,
       aiPlayerCount: Math.max(0, options.aiPlayerCount ?? 20),
-      ...(mapStyle === "islands"
-        ? {
-            minSignificantIslands: 20,
-            maxSignificantIslands: 30,
-            maxLargestIslandShare: 0.22
-          }
-        : {})
+      style: mapStyle
+      // No minSignificantIslands/maxSignificantIslands/maxLargestIslandShare here:
+      // those bounds (20-30, <=0.22 share) were tuned to reject-sample CONTINENT
+      // seeds until the coastline noise happened to look archipelago-like — a
+      // stand-in for a real islands generator. Now that style="islands" actually
+      // invokes buildIslands() (55 scattered blobs), that bound is permanently
+      // unsatisfiable (true output is ~44-65 significant islands) and the
+      // acceptance loop below would burn all 16 iterations regenerating the full
+      // world every season bootstrap (~73s) for nothing. islands mode is
+      // archipelago-shaped by construction; it only needs the same blandness
+      // reroll continents mode already relies on.
     }
   );
 
@@ -151,6 +157,7 @@ export const generateSeasonWorld = (
       tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     },
-    worldSeed: generated.worldSeed ?? requestedWorldSeed
+    worldSeed: generated.worldSeed ?? requestedWorldSeed,
+    mapStyle
   };
 };
