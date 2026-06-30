@@ -1979,6 +1979,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const targetableTiles = Number(msg.targetableTiles ?? 0);
       const hitTiles = Number(msg.hitTiles ?? 0);
       const missedTiles = Number(msg.missedTiles ?? 0);
+      const x = Number(msg.x ?? -1);
+      const y = Number(msg.y ?? -1);
+      const rawTiles = Array.isArray(msg.tiles) ? (msg.tiles as Array<Record<string, unknown>>) : [];
+      const tiles = rawTiles
+        .map((t) => ({
+          dx: Number(t.dx ?? 0),
+          dy: Number(t.dy ?? 0),
+          outcome: t.outcome === "hit" ? ("hit" as const) : ("miss" as const)
+        }))
+        .filter((t) => Number.isFinite(t.dx) && Number.isFinite(t.dy));
+      if (x >= 0 && y >= 0 && tiles.length > 0) {
+        state.bombardFxQueue.push({ x, y, queuedAt: Date.now(), tiles });
+      }
       if (targetableTiles === 0) {
         pushFeedSafely("Bombardment found no enemy tiles in range.", "combat", "warn");
       } else if (missedTiles === 0) {

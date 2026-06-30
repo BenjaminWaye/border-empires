@@ -217,6 +217,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
+  const tileOutcomes: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> = [];
   let targetableTiles = 0;
   let hitTiles = 0;
   let missedTiles = 0;
@@ -232,9 +233,11 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       );
       if (Math.random() < missChance) {
         missedTiles += 1;
+        tileOutcomes.push({ dx, dy, outcome: "miss" });
         continue;
       }
       hitTiles += 1;
+      tileOutcomes.push({ dx, dy, outcome: "hit" });
       const updatedTile: DomainTileState = {
         ...tile,
         ownerId: undefined,
@@ -273,7 +276,8 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     y: payload.toY,
     targetableTiles,
     hitTiles,
-    missedTiles
+    missedTiles,
+    tiles: tileOutcomes
   });
 }
 

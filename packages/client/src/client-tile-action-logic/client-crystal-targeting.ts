@@ -270,7 +270,6 @@ export const executeCrystalTargeting = (
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
     deps.ws.send(JSON.stringify({ type: "AIRPORT_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y }));
-    state.bombardFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   } else {
     deps.ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
     if (ability === "siphon") state.siphonFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
