@@ -99,20 +99,22 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   fillMesh.renderOrder = 14;
   fillMesh.count = 0;
 
-  const lineGeom = new BufferGeometry();
-  const linePositions = new Float32Array(6);
-  lineGeom.setAttribute("position", new BufferAttribute(linePositions, 3));
-  const lineMaterial = new LineBasicMaterial({
-    color: TONE_COLORS.red.line,
+  const TILE_BORDER_RISE = 0.012;
+  const tileBorderGeom = new BufferGeometry();
+  const tileBorderPositions = new Float32Array(maxTiles * 24);
+  tileBorderGeom.setAttribute("position", new BufferAttribute(tileBorderPositions, 3));
+  tileBorderGeom.setDrawRange(0, 0);
+  const tileBorderMaterial = new LineBasicMaterial({
+    color: TONE_COLORS.red.stroke,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.88,
     depthTest: false,
     depthWrite: false
   });
-  const lineMesh = new LineSegments(lineGeom, lineMaterial);
-  lineMesh.frustumCulled = false;
-  lineMesh.renderOrder = 15;
-  lineMesh.visible = false;
+  const tileBorder = new LineSegments(tileBorderGeom, tileBorderMaterial);
+  tileBorder.frustumCulled = false;
+  tileBorder.renderOrder = 15;
+  tileBorder.visible = false;
 
   const targetOutlineGeom = createBendingMarkerGeometry();
   const targetOutlineMaterial = new LineBasicMaterial({
@@ -140,24 +142,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   originOutline.renderOrder = 15;
   originOutline.visible = false;
 
-  const TILE_BORDER_RISE = 0.012;
-  const tileBorderGeom = new BufferGeometry();
-  const tileBorderPositions = new Float32Array(maxTiles * 24);
-  tileBorderGeom.setAttribute("position", new BufferAttribute(tileBorderPositions, 3));
-  tileBorderGeom.setDrawRange(0, 0);
-  const tileBorderMaterial = new LineBasicMaterial({
-    color: TONE_COLORS.red.stroke,
-    transparent: true,
-    opacity: 0.88,
-    depthTest: false,
-    depthWrite: false
-  });
-  const tileBorder = new LineSegments(tileBorderGeom, tileBorderMaterial);
-  tileBorder.frustumCulled = false;
-  tileBorder.renderOrder = 15;
-  tileBorder.visible = false;
-
-  group.add(fillMesh, tileBorder, lineMesh, targetOutline, originOutline);
+  group.add(fillMesh, tileBorder, targetOutline, originOutline);
 
   const tempMatrix = new Matrix4();
   let fillCount = 0;
@@ -165,7 +150,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   let committed = true;
 
   const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
-    if (committed) { fillCount = 0; committed = false; }
+    if (committed) { committed = false; }
     if (fillCount >= maxTiles) return;
     tempMatrix.makeTranslation(centerX, surfaceY, centerZ);
     fillMesh.setMatrixAt(fillCount, tempMatrix);
@@ -208,6 +193,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     } else {
       tileBorder.visible = false;
     }
+    fillCount = 0;
     committed = true;
   };
 
@@ -217,7 +203,6 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   };
 
   const sync = (deps: SyncCrystalLineDeps): void => {
-    lineMesh.visible = false;
     targetOutline.visible = false;
     originOutline.visible = false;
     if (!deps.ct.active) return;
@@ -225,7 +210,6 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     const colors = TONE_COLORS[tone];
     fillMaterial.color.set(colors.fill);
     tileBorderMaterial.color.set(colors.stroke);
-    lineMaterial.color.set(colors.line);
     targetOutlineMaterial.color.set(colors.stroke);
     originOutlineMaterial.color.set(colors.stroke);
     const hoveredKey = deps.hover ? deps.keyFor(deps.hover.x, deps.hover.y) : "";
@@ -243,17 +227,6 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
       const origin = parseTileKey(originKey);
       const ox = deps.toroidDelta(deps.camX, origin.x, WORLD_WIDTH) + 0.5;
       const oz = deps.toroidDelta(deps.camY, origin.y, WORLD_HEIGHT) + 0.5;
-      const tx = deps.toroidDelta(deps.camX, target.x, WORLD_WIDTH) + 0.5;
-      const tz = deps.toroidDelta(deps.camY, target.y, WORLD_HEIGHT) + 0.5;
-      const originSurfaceY = deps.tileSurfaceY(origin.x, origin.y) + rise;
-      const targetSurfaceY = deps.tileSurfaceY(target.x, target.y) + rise;
-      const pos = lineMesh.geometry.getAttribute("position") as BufferAttribute;
-      const arr = pos.array as Float32Array;
-      arr[0] = ox; arr[1] = originSurfaceY; arr[2] = oz;
-      arr[3] = tx; arr[4] = targetSurfaceY; arr[5] = tz;
-      pos.needsUpdate = true;
-      lineMesh.geometry.computeBoundingSphere();
-      lineMesh.visible = true;
       writeBendingMarkerCorners(
         originOutline.geometry as BufferGeometry,
         ox, 0, oz,
@@ -284,8 +257,6 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
     fillMaterial.dispose();
     tileBorderGeom.dispose();
     tileBorderMaterial.dispose();
-    lineGeom.dispose();
-    lineMaterial.dispose();
     targetOutlineGeom.dispose();
     targetOutlineMaterial.dispose();
     originOutlineGeom.dispose();

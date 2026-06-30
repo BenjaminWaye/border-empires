@@ -1133,8 +1133,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     onCaptureRevealBuilt: captureRevealBuildSample,
     onMusterRemoteAttack: () => { simulationMetrics.incrementSimMusterRemoteAttack(); },
-    onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); }, onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
-    onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
+    onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
