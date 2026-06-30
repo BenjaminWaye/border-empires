@@ -57,14 +57,14 @@ const injectStyles = (): void => {
 
 const styles = `
 #shard-collect-overlay {
-  position: fixed; inset: 0; display: none; place-items: center; padding: 20px; z-index: 32;
+  position: fixed; inset: 0; display: none; place-items: center; padding: 16px; z-index: 32;
 }
 #shard-collect-backdrop {
   position: absolute; inset: 0; background: rgba(1, 6, 12, 0.72); backdrop-filter: blur(4px);
 }
 #shard-collect-modal {
   position: relative; display: grid; grid-template-columns: auto 1fr; gap: 20px;
-  width: min(480px, calc(100vw - 40px)); padding: 24px 28px; border-radius: 26px;
+  width: min(470px, calc(100vw - 32px)); padding: 24px 24px 24px 28px; border-radius: 20px;
   border: 1px solid rgba(146, 245, 255, 0.3);
   background: radial-gradient(circle at 12% 0%, rgba(50,210,233,0.18), transparent 30%),
     radial-gradient(circle at 90% 12%, rgba(204,239,255,0.12), transparent 34%),
@@ -74,6 +74,7 @@ const styles = `
   animation: shardCollectEnter 0.4s cubic-bezier(0.16,1,0.3,1) both;
 }
 #shard-collect-art { width: 120px; height: 120px; flex-shrink: 0; align-self: center; }
+#shard-collect-art svg { width: 100%; height: 100%; }
 #shard-collect-info { display: grid; gap: 6px; align-content: center; min-width: 0; }
 #shard-collect-kind {
   font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
@@ -84,6 +85,16 @@ const styles = `
 }
 #shard-collect-detail {
   font-size: 14px; color: rgba(222,238,248,0.82); line-height: 1.55; margin-top: 2px;
+}
+@media (max-width: 520px) {
+  #shard-collect-modal {
+    grid-template-columns: 1fr; gap: 10px; padding: 36px 18px 20px; text-align: center;
+  }
+  #shard-collect-art { width: 80px; height: 80px; justify-self: center; }
+  #shard-collect-info { gap: 4px; }
+  #shard-collect-amount { font-size: 22px; }
+  #shard-collect-detail { font-size: 13px; }
+  #shard-collect-kind { font-size: 11px; }
 }
 .shard-collect-close-btn {
   position: absolute; top: 12px; right: 12px;

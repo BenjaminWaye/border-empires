@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.29.7",
+  version: "2026.06.30.0",
   title: "What's New",
-  summary: "Removed origin-to-target connection line from crystal targeting overlay. Valid target tiles still show fill + border + target outline.",
+  summary: "Shard collection animation overlay now adapts to mobile screen sizes.",
   entries: [
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Shard collection animation overlay adapts to mobile screen sizes",
+      why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
+      changes: [
+        "On screens narrower than 520px, the overlay stacks the artwork above the text, centers all content, and reduces art size (120→80px) and font sizes proportionally.",
+        "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
+        "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
+      ]
+    },
     {
       introducedIn: "2026.06.29.7",
       title: "Removed confusing origin-to-target line from crystal targeting overlay",

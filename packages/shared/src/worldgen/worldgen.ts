@@ -3,6 +3,8 @@ import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 
 let CURRENT_WORLD_SEED = 42;
+export type WorldStyle = "continents" | "islands";
+let CURRENT_WORLD_STYLE: WorldStyle = "continents";
 const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
 const UNSET_U8 = 255;
 const UNSET_I16 = -2;
@@ -47,8 +49,9 @@ const resetWorldCaches = (): void => {
   continentScoreCache.fill(Number.NaN);
 };
 
-export const setWorldSeed = (seed: number): void => {
+export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): void => {
   CURRENT_WORLD_SEED = Math.floor(seed);
+  CURRENT_WORLD_STYLE = style;
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
@@ -76,8 +79,8 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   // Polar zones: fixed mountain bands at the top and bottom of the map.
   if (wy < POLAR_BAND || wy >= WORLD_HEIGHT - POLAR_BAND) return TERRAIN_MOUNTAIN;
   const cField = continentField(wx, wy);
-  if (cField < 0.075) return TERRAIN_SEA;
-  if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
+  if (cField < 0.04) return TERRAIN_SEA;
+  if (cField < 0.07 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
   if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
   return TERRAIN_LAND;
 };
@@ -168,52 +171,49 @@ const buildContinents = (): ContinentSeed[] => {
   const scaleX = WORLD_WIDTH / 1000;
   const scaleY = WORLD_HEIGHT / 1000;
   const s = (v: number, axis: "x" | "y"): number => Math.max(24, Math.floor(v * (axis === "x" ? scaleX : scaleY)));
-  // Three continents spread across the full map height: north (~20%), equatorial (~50%), south (~80%).
-  // Each stays within its band (±s(64,"y") ≈ ±28 tiles variation).
-  const yNorth = Math.floor(WORLD_HEIGHT * 0.20);
-  const yMid   = Math.floor(WORLD_HEIGHT * 0.50);
-  const ySouth = Math.floor(WORLD_HEIGHT * 0.80);
-  const out: ContinentSeed[] = [
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.18),
-      cy: yNorth + Math.floor((seeded01(11, 13, seed + 101) - 0.5) * s(64, "y")),
-      rx: s(145 + Math.floor(seeded01(31, 37, seed + 111) * 24), "x"),
-      ry: s(265 + Math.floor(seeded01(41, 43, seed + 121) * 28), "y"),
-      wobble: seeded01(47, 53, seed + 131) * TAU,
-      lobeA: seeded01(109, 113, seed + 311) * TAU,
-      lobeB: seeded01(127, 131, seed + 321) * TAU,
-      coastSeed: seed + 331
-    },
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.5),
-      cy: yMid + Math.floor((seeded01(17, 19, seed + 141) - 0.5) * s(64, "y")),
-      rx: s(150 + Math.floor(seeded01(59, 61, seed + 151) * 26), "x"),
-      ry: s(275 + Math.floor(seeded01(67, 71, seed + 161) * 26), "y"),
-      wobble: seeded01(73, 79, seed + 171) * TAU,
-      lobeA: seeded01(137, 139, seed + 341) * TAU,
-      lobeB: seeded01(149, 151, seed + 351) * TAU,
-      coastSeed: seed + 361
-    },
-    {
-      cx: Math.floor(WORLD_WIDTH * 0.82),
-      cy: ySouth + Math.floor((seeded01(23, 29, seed + 181) - 0.5) * s(64, "y")),
-      rx: s(142 + Math.floor(seeded01(83, 89, seed + 191) * 24), "x"),
-      ry: s(265 + Math.floor(seeded01(97, 101, seed + 201) * 28), "y"),
-      wobble: seeded01(103, 107, seed + 211) * TAU,
-      lobeA: seeded01(157, 163, seed + 371) * TAU,
-      lobeB: seeded01(167, 173, seed + 381) * TAU,
-      coastSeed: seed + 391
-    }
+  // Five continents in a quincunx so all map quadrants get land; each has seeded X/Y variation (±s(130/88,"x"/"y")).
+  const layouts: Array<{ bx: number; by: number; so: number }> = [
+    { bx: 0.20, by: 0.18, so: 101 }, // NW
+    { bx: 0.70, by: 0.18, so: 141 }, // NE
+    { bx: 0.45, by: 0.50, so: 181 }, // Center
+    { bx: 0.20, by: 0.82, so: 221 }, // SW
+    { bx: 0.70, by: 0.82, so: 261 }, // SE
   ];
+  return layouts.map(({ bx, by, so }) => ({
+    cx:        Math.floor(WORLD_WIDTH  * bx + (seeded01(11, 13, seed + so)     - 0.5) * s(130, "x")),
+    cy:        Math.floor(WORLD_HEIGHT * by + (seeded01(17, 19, seed + so + 1) - 0.5) * s(88,  "y")),
+    rx:        s(165 + Math.floor(seeded01(23, 29, seed + so + 2) * 24), "x"),
+    ry:        s(233 + Math.floor(seeded01(31, 37, seed + so + 3) * 28), "y"),
+    wobble:    seeded01(41, 43, seed + so + 4) * TAU,
+    lobeA:     seeded01(47, 53, seed + so + 5) * TAU,
+    lobeB:     seeded01(59, 61, seed + so + 6) * TAU,
+    coastSeed: seed + so + 200,
+  }));
+};
+const buildIslands = (): ContinentSeed[] => {
+  const seed = worldSeed();
+  const N = 55;
+  const out: ContinentSeed[] = [];
+  for (let i = 0; i < N; i++) {
+    const cx  = Math.floor(seeded01(i, 0, seed + 10000 + i) * WORLD_WIDTH);
+    const cy  = Math.floor(POLAR_BAND + 10 + seeded01(i, 1, seed + 20000 + i) * (WORLD_HEIGHT - 2 * POLAR_BAND - 20));
+    const r   = 7 + Math.floor(seeded01(i, 2, seed + 30000 + i) * 15);
+    const ry  = r + Math.floor(seeded01(i, 3, seed + 40000 + i) * 6);
+    out.push({ cx, cy, rx: r, ry, wobble: seeded01(i, 4, seed + 50000 + i) * TAU, lobeA: seeded01(i, 5, seed + 60000 + i) * TAU, lobeB: seeded01(i, 6, seed + 70000 + i) * TAU, coastSeed: seed + 80000 + i });
+  }
   return out;
 };
+
 let cachedContinentSeed = Number.NaN;
+let cachedContinentStyle: WorldStyle = "continents";
 let cachedContinents: ContinentSeed[] = [];
 const continents = (): ContinentSeed[] => {
   const seed = worldSeed();
-  if (seed !== cachedContinentSeed || cachedContinents.length === 0) {
+  const style = CURRENT_WORLD_STYLE;
+  if (seed !== cachedContinentSeed || style !== cachedContinentStyle || cachedContinents.length === 0) {
     cachedContinentSeed = seed;
-    cachedContinents = buildContinents();
+    cachedContinentStyle = style;
+    cachedContinents = style === "islands" ? buildIslands() : buildContinents();
   }
   return cachedContinents;
 };
