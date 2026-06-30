@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
+import type { WorldStyle } from "@border-empires/shared";
 import {
   buildSimulationSnapshotPayload,
   type SimulationSnapshotSections,
@@ -33,6 +34,7 @@ const defaultStringify: SnapshotStringifier = createChunkedSnapshotStringifier()
 export type WorldgenBaselineResolver = (input: {
   rulesetId: string;
   worldSeed: number;
+  mapStyle?: WorldStyle;
 }) => ReadonlyArray<RecoveredTile>;
 
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
@@ -158,7 +160,11 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     if (!this.resolveBaseline) return undefined;
     const season = sections.initialState.season;
     if (!season) return undefined;
-    const tiles = this.resolveBaseline({ rulesetId: season.rulesetId, worldSeed: season.worldSeed });
+    const tiles = this.resolveBaseline({
+      rulesetId: season.rulesetId,
+      worldSeed: season.worldSeed,
+      ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
+    });
     const index = new Map<string, RecoveredTile>();
     for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
     return index;
@@ -169,11 +175,16 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     if (!parsed || typeof parsed !== "object") return undefined;
     const formatVersion = (parsed as { formatVersion?: unknown }).formatVersion;
     if (formatVersion !== SNAPSHOT_FORMAT_VERSION) return undefined;
-    const season = (parsed as { season?: { rulesetId?: unknown; worldSeed?: unknown } }).season;
+    const season = (parsed as { season?: { rulesetId?: unknown; worldSeed?: unknown; mapStyle?: unknown } }).season;
     if (!season || typeof season.rulesetId !== "string" || typeof season.worldSeed !== "number") {
       return undefined;
     }
-    return this.resolveBaseline({ rulesetId: season.rulesetId, worldSeed: season.worldSeed });
+    const mapStyle = season.mapStyle === "islands" || season.mapStyle === "continents" ? season.mapStyle : undefined;
+    return this.resolveBaseline({
+      rulesetId: season.rulesetId,
+      worldSeed: season.worldSeed,
+      ...(mapStyle ? { mapStyle } : {})
+    });
   }
 
   async loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined> {

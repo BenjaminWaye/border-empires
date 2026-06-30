@@ -3,6 +3,7 @@ import type {
   SeasonWinnerSnapshot,
   SimulationSeasonState
 } from "@border-empires/sim-protocol";
+import type { WorldStyle } from "@border-empires/shared";
 
 export const createSeasonId = (seasonSequence: number): string => `season-${seasonSequence}`;
 
@@ -10,17 +11,20 @@ export const createInitialSeasonState = ({
   seasonSequence,
   rulesetId,
   worldSeed,
+  mapStyle,
   startedAt
 }: {
   seasonSequence: number;
   rulesetId: string;
   worldSeed: number;
+  mapStyle?: WorldStyle;
   startedAt: number;
 }): SimulationSeasonState => ({
   seasonId: createSeasonId(seasonSequence),
   seasonSequence,
   rulesetId,
   worldSeed,
+  ...(mapStyle ? { mapStyle } : {}),
   status: "active",
   startedAt,
   victoryTrackers: []
