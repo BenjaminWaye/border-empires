@@ -1,9 +1,10 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { POPULATION_MAX, POPULATION_TOWN_MIN, type DomainTileState } from "@border-empires/game-domain";
+import { type DomainTileState } from "@border-empires/game-domain";
 
+import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
-import { CITY_POPULATION_MIN, GREAT_CITY_POPULATION_MIN, METROPOLIS_POPULATION_MIN } from "@border-empires/shared";
+import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
@@ -145,82 +146,6 @@ export const createRecoveredSimulationAccumulator = (
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
   };
-};
-
-const parseOptionalJson = <T>(value?: string): T | undefined => {
-  if (!value) return undefined;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return undefined;
-  }
-};
-
-const SYNTHETIC_SETTLEMENT_POPULATION = 800;
-
-const isSyntheticSettlementIdentity = (
-  town: Pick<NonNullable<DomainTileState["town"]>, "name" | "populationTier"> | undefined,
-  x: number,
-  y: number
-): boolean => Boolean(town && town.populationTier === "SETTLEMENT" && town.name === `Settlement ${x},${y}`);
-
-const minimumPopulationForTier = (populationTier: NonNullable<DomainTileState["town"]>["populationTier"]): number => {
-  if (populationTier === "METROPOLIS") return METROPOLIS_POPULATION_MIN;
-  if (populationTier === "GREAT_CITY") return GREAT_CITY_POPULATION_MIN;
-  if (populationTier === "CITY") return CITY_POPULATION_MIN;
-  if (populationTier === "TOWN") return POPULATION_TOWN_MIN;
-  return SYNTHETIC_SETTLEMENT_POPULATION;
-};
-
-const hydrateRecoveredTown = (
-  town: DomainTileState["town"] | undefined,
-  x: number,
-  y: number
-): DomainTileState["town"] | undefined => {
-  if (!town) return undefined;
-  const defaultPopulation = isSyntheticSettlementIdentity(town, x, y)
-    ? SYNTHETIC_SETTLEMENT_POPULATION
-    : minimumPopulationForTier(town.populationTier);
-  const population = typeof town.population === "number" ? town.population : defaultPopulation;
-  const maxPopulation = typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX;
-  return {
-    ...town,
-    population,
-    maxPopulation
-  };
-};
-
-const recoverTownState = (
-  tileDelta: TileDelta,
-  existing?: RecoveredTileState
-): DomainTileState["town"] | undefined => {
-  // `townJson: ""` is an explicit clear (mirrors the shardSiteJson pattern).
-  // Without this check the tile-shedding ticker (and any future "destroy
-  // town" command) couldn't replay correctly — the recovered state would
-  // keep the prior town because parseOptionalJson("") returns undefined and
-  // we'd fall through to the existing-town preservation branch below.
-  if ("townJson" in tileDelta && !tileDelta.townJson) {
-    return undefined;
-  }
-  const parsedTown = parseOptionalJson<DomainTileState["town"]>(tileDelta.townJson);
-  if (parsedTown) {
-    return hydrateRecoveredTown({
-      ...existing?.town,
-      ...parsedTown,
-      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
-      type: parsedTown.type ?? tileDelta.townType ?? existing?.town?.type ?? "FARMING",
-      populationTier: parsedTown.populationTier ?? tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
-    }, tileDelta.x, tileDelta.y);
-  }
-  if (tileDelta.townName || tileDelta.townType || tileDelta.townPopulationTier) {
-    return hydrateRecoveredTown({
-      ...existing?.town,
-      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
-      type: tileDelta.townType ?? existing?.town?.type ?? "FARMING",
-      populationTier: tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
-    }, tileDelta.x, tileDelta.y);
-  }
-  return hydrateRecoveredTown(existing?.town, tileDelta.x, tileDelta.y);
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -440,13 +365,19 @@ export const applySimulationEventsToRecoveredAccumulator = (
       if (event.attackerWon) {
         const targetKey = simulationTileKey(event.targetX, event.targetY);
         const previousTarget = accumulator.tiles.get(targetKey);
+        const townAftermath = capturedTownAftermath(
+          previousTarget?.town,
+          previousTarget?.ownerId,
+          event.playerId,
+          Date.now()
+        );
         accumulator.tiles.set(targetKey, {
           x: event.targetX,
           y: event.targetY,
           terrain: previousTarget?.terrain ?? "LAND",
           ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
           ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-          ...(previousTarget?.town ? { town: previousTarget.town } : {}),
+          ...(townAftermath.town ? { town: townAftermath.town } : {}),
           ownerId: event.playerId,
           ownershipState: event.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
         });
