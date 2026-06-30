@@ -1975,6 +1975,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "AIRPORT_BOMBARD_RESULT") {
+      const targetableTiles = Number(msg.targetableTiles ?? 0);
+      const hitTiles = Number(msg.hitTiles ?? 0);
+      const missedTiles = Number(msg.missedTiles ?? 0);
+      if (targetableTiles === 0) {
+        pushFeedSafely("Bombardment found no enemy tiles in range.", "combat", "warn");
+      } else if (missedTiles === 0) {
+        pushFeedSafely(`Bombardment hit all ${hitTiles} target tile${hitTiles === 1 ? "" : "s"}.`, "combat", "success");
+      } else {
+        pushFeedSafely(
+          `Bombardment hit ${hitTiles}/${targetableTiles} tiles — ${missedTiles} missed (forts reduce hit chance).`,
+          "combat",
+          hitTiles > 0 ? "warn" : "error"
+        );
+      }
+      renderHud();
+      return;
+    }
+
     if (msg.type === "COMBAT_CANCELLED") {
       const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       clearFrontierStatusAlert(state);
