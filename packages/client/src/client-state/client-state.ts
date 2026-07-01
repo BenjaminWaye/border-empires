@@ -254,6 +254,10 @@ export const createInitialState = () => ({
     queuedAt: number;
     tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }>;
   }>,
+  worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,

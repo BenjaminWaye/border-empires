@@ -6,7 +6,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createSiphonFxLayer } from "@client/client-map-3d-siphon-fx.js";
+import { createSiphonFxLayer } from "@client/client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

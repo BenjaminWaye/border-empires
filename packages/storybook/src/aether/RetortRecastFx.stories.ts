@@ -5,7 +5,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createRetortRecastFxLayer, type RetortRecastFxResource } from "@client/client-map-3d-retort-recast-fx.js";
+import { createRetortRecastFxLayer, type RetortRecastFxResource } from "@client/client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
