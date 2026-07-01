@@ -1211,7 +1211,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
       state.lastChunkSnapshotGeneration = 0;
-      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
       const incomingSeason = incomingConfig.season;
       const incomingRuntimeIdentity =
         (msg.runtimeIdentity as
@@ -1403,7 +1403,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
       state.fogDisabled = Boolean(incomingConfig.fogDisabled);
       if (typeof incomingSeason?.worldSeed === "number") {
-        setWorldSeed(incomingSeason.worldSeed);
+        setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle);
         clearRenderCaches();
         buildMiniMapBase();
       }
@@ -3198,9 +3198,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
-      const season = msg.season as { worldSeed?: number } | undefined;
+      const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands" } | undefined;
       if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed);
+        setWorldSeed(season.worldSeed, season.mapStyle);
         clearRenderCaches();
         buildMiniMapBase();
       }

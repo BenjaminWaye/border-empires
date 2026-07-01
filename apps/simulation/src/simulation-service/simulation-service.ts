@@ -819,7 +819,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
 
   const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number; mapStyle?: SimulationMapStyle }) => {
     if (input.rulesetId !== "seasonal-default") return [];
-    const cacheKey = `${input.rulesetId}:${input.worldSeed}`;
+    // mapStyle is part of the cache key, not just an input to generation: the same
+    // worldSeed with a different style produces a completely different tile set
+    // (buildContinents vs buildIslands), and a stale hit here would silently
+    // hand back the wrong topology.
+    const cacheKey = `${input.rulesetId}:${input.worldSeed}:${input.mapStyle ?? "continents"}`;
 
     const inMemory = worldgenBaselineCache.get(cacheKey);
     if (inMemory) return inMemory;

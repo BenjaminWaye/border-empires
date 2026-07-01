@@ -119,17 +119,21 @@ export const generateSeasonWorld = (
     {
       humanPlayerCount: 0,
       aiPlayerCount: Math.max(0, options.aiPlayerCount ?? 20),
-      style: mapStyle
-      // No minSignificantIslands/maxSignificantIslands/maxLargestIslandShare here:
-      // those bounds (20-30, <=0.22 share) were tuned to reject-sample CONTINENT
-      // seeds until the coastline noise happened to look archipelago-like — a
-      // stand-in for a real islands generator. Now that style="islands" actually
-      // invokes buildIslands() (55 scattered blobs), that bound is permanently
+      style: mapStyle,
+      // The old 20-30 minSignificantIslands/maxSignificantIslands and 0.22
+      // maxLargestIslandShare bounds were tuned to reject-sample CONTINENT seeds
+      // until the coastline noise happened to look archipelago-like — a stand-in
+      // for a real islands generator. Now that style="islands" actually invokes
+      // buildIslands() (55 scattered blobs), that upper bound is permanently
       // unsatisfiable (true output is ~44-65 significant islands) and the
       // acceptance loop below would burn all 16 iterations regenerating the full
-      // world every season bootstrap (~73s) for nothing. islands mode is
-      // archipelago-shaped by construction; it only needs the same blandness
-      // reroll continents mode already relies on.
+      // world every season bootstrap (~73s) for nothing.
+      //
+      // Keep only a generous floor, well below the natural range, as a safety
+      // net against a truly degenerate seed (e.g. blobs coincidentally merging
+      // into one dominant landmass) — not a real design bound, just a sanity
+      // check that doesn't reintroduce the always-reject perf regression.
+      ...(mapStyle === "islands" ? { minSignificantIslands: 10 } : {})
     }
   );
 

@@ -13,6 +13,7 @@ import {
   type SeasonVictoryPathId,
   type SeasonWinnerView,
   type ResourceType,
+  type WorldStyle,
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
@@ -111,7 +112,7 @@ type GatewayInitPayload = {
     canToggleFog?: boolean;
     respawnNotice?: PlayerRespawnNotice;
   };
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
   techChoices: string[];
   techCatalog: Array<{
     id: string;
@@ -864,6 +865,11 @@ export const buildGatewayInitPayload = (
   const seasonId = snapshotBootstrap?.season?.seasonId ?? rewriteSeason?.seasonId ?? `rewrite-${seedProfile}`;
   const worldSeedCandidate = snapshotBootstrap?.season?.worldSeed ?? rewriteSeason?.worldSeed;
   const worldSeed = typeof worldSeedCandidate === "number" && worldSeedCandidate !== 0 ? worldSeedCandidate : simulationWorldSeedForProfile(seedProfile);
+  // Client independently calls setWorldSeed(seed, style) to render its local
+  // minimap/backdrop terrain — it must match the season's actual generated
+  // shape or the client-rendered map desyncs from the real (server-authoritative)
+  // island/continent terrain. Legacy snapshots never had a mapStyle field.
+  const mapStyle = rewriteSeason?.mapStyle;
 
   const runtimeIdentity = snapshotBootstrap
     ? snapshotBootstrap.runtimeIdentity
@@ -953,7 +959,8 @@ export const buildGatewayInitPayload = (
       height: WORLD_HEIGHT,
       season: {
         seasonId,
-        worldSeed
+        worldSeed,
+        ...(mapStyle ? { mapStyle } : {})
       }
     },
     techChoices,
