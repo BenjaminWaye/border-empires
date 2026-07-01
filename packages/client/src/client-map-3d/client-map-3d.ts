@@ -48,6 +48,8 @@ import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping
 import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
+import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
+import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
@@ -137,6 +139,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
   const bombardFx = createBombardFxLayer(scene);
+  const worldEngineStrikeFx = createMonumentPulseFxLayer(scene, "#ff5533", "world-engine-strike-fx");
+  const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
+  const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
+  const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
@@ -1174,6 +1180,46 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
   };
+  const syncWorldEngineStrikeFxQueue = (): void => {
+    while (deps.state.worldEngineStrikeFxQueue.length > 0) {
+      const cast = deps.state.worldEngineStrikeFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const syncImperialExchangeLevyFxQueue = (): void => {
+    while (deps.state.imperialExchangeLevyFxQueue.length > 0) {
+      const cast = deps.state.imperialExchangeLevyFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const syncAstralDockLaunchFxQueue = (): void => {
+    while (deps.state.astralDockLaunchFxQueue.length > 0) {
+      const cast = deps.state.astralDockLaunchFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      astralDockLaunchFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const AEGIS_LOCK_FIELD_RADIUS_TILES = 30;
+  const AEGIS_LOCK_FIELD_DURATION_MS = 15 * 60_000;
+  const syncAegisLockFxQueue = (): void => {
+    while (deps.state.aegisLockFxQueue.length > 0) {
+      const cast = deps.state.aegisLockFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      aegisLockFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        AEGIS_LOCK_FIELD_RADIUS_TILES,
+        AEGIS_LOCK_FIELD_DURATION_MS
+      );
+    }
+  };
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
@@ -1782,6 +1828,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
     syncBombardFxQueue();
+    syncWorldEngineStrikeFxQueue();
+    syncImperialExchangeLevyFxQueue();
+    syncAstralDockLaunchFxQueue();
+    syncAegisLockFxQueue();
     crystalTargetingOverlay.sync({
       ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected,
       keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY,
@@ -1797,6 +1847,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
     bombardFx.update(nowMs);
+    worldEngineStrikeFx.update(nowMs);
+    imperialExchangeLevyFx.update(nowMs);
+    astralDockLaunchFx.update(nowMs);
+    aegisLockFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
@@ -1916,6 +1970,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
     bombardFx.dispose();
+    worldEngineStrikeFx.dispose();
+    imperialExchangeLevyFx.dispose();
+    astralDockLaunchFx.dispose();
+    aegisLockFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose();

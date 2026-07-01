@@ -9122,6 +9122,7 @@ describe("worldbreaker shot", () => {
   const buildStrikeRuntime = (options: {
     techIds?: string[];
     crystal?: number;
+    points?: number;
     omitTower?: boolean;
     targetTown?: { population: number; populationTier?: string };
     targetStructure?: { ownerId: string; type: string; status: string };
@@ -9186,7 +9187,7 @@ describe("worldbreaker shot", () => {
         ["player-1", {
           id: "player-1",
           isAi: false,
-          points: 10_000,
+          points: options.points ?? 20_000,
           manpower: 10_000,
           techIds: new Set<string>(options.techIds ?? ["worldbreaker-fire"]),
           domainIds: new Set<string>(),
@@ -9251,6 +9252,27 @@ describe("worldbreaker shot", () => {
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
       message: "World Engine requires a nearby Aether Tower"
+    }));
+  });
+
+  it("rejects without enough gold", async () => {
+    const runtime = buildStrikeRuntime({ points: 1_000 });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-gold",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      code: "WORLD_ENGINE_STRIKE_INVALID",
+      message: "insufficient gold"
     }));
   });
 
