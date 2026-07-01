@@ -238,7 +238,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MARKET" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" }
+    { kind: "SEED_GRANARY" },
+    { kind: "CENSUS_HALL" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
