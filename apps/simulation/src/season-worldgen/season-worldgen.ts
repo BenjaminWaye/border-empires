@@ -1,7 +1,7 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { WorldStyle } from "@border-empires/shared";
 
-import { createSeasonSeedWorld } from "../season-seed-world.js";
+import { createSeasonSeedWorldAsync } from "../season-seed-world.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";
@@ -97,20 +97,21 @@ const toRecoveredPlayer = (player: DomainPlayer): NonNullable<RecoveredSimulatio
   ...(player.mods ? { vision: player.mods.vision, incomeMultiplier: player.mods.income } : {})
 });
 
-export const generateSeasonWorld = (
+export const generateSeasonWorld = async (
   rulesetId: SimulationRulesetId,
   requestedWorldSeed: number,
   options: {
     aiPlayerCount?: number;
     mapStyle?: SimulationMapStyle;
+    onYield?: () => Promise<void>;
   } = {}
-): GeneratedSeasonWorld => {
+): Promise<GeneratedSeasonWorld> => {
   if (rulesetId !== "seasonal-default") {
     throw new Error(`unsupported simulation ruleset: ${rulesetId}`);
   }
   const mapStyle = options.mapStyle ?? "continents";
 
-  const generated = createSeasonSeedWorld(
+  const generated = await createSeasonSeedWorldAsync(
     requestedWorldSeed,
     (id, isAi) => ({
       ...createRuntimePlayer(id),
@@ -133,7 +134,8 @@ export const generateSeasonWorld = (
       // net against a truly degenerate seed (e.g. blobs coincidentally merging
       // into one dominant landmass) — not a real design bound, just a sanity
       // check that doesn't reintroduce the always-reject perf regression.
-      ...(mapStyle === "islands" ? { minSignificantIslands: 10 } : {})
+      ...(mapStyle === "islands" ? { minSignificantIslands: 10 } : {}),
+      ...(options.onYield ? { onYield: options.onYield } : {})
     }
   );
 

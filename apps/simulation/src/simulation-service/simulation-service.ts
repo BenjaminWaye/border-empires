@@ -527,27 +527,30 @@ const toFullSnapshotProtoTile = (tile: {
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
-const buildBootstrapSeason = ({
+const buildBootstrapSeason = async ({
   seasonSequence,
   rulesetId,
   mapStyle,
   aiPlayerCount,
-  now
+  now,
+  onYield
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
   aiPlayerCount?: number;
   now: number;
-}): {
+  onYield?: () => Promise<void>;
+}): Promise<{
   seasonState: SimulationSeasonState;
-  initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
-  initialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"];
-} => {
+  initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
+  initialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"];
+}> => {
   const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed, {
+  const generatedWorld = await generateSeasonWorld(rulesetId, requestedWorldSeed, {
     mapStyle,
-    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {})
+    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
+    ...(onYield ? { onYield } : {})
   });
   const seasonState = createInitialSeasonState({
     seasonSequence,
@@ -774,7 +777,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // 30-74s synchronous block that held the sim worker event loop hostage
   // during startup recovery (root cause of the SERVER_STARTING cascade on
   // staging sim-worker restarts).
-  type WorldgenTiles = ReturnType<typeof generateSeasonWorld>["initialState"]["tiles"];
+  type WorldgenTiles = Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"]["tiles"];
   const worldgenBaselineCache = new Map<string, WorldgenTiles>();
 
   let worldgenDb: import("node:sqlite").DatabaseSync | undefined;
@@ -817,7 +820,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
 
-  const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number; mapStyle?: SimulationMapStyle }) => {
+  const resolveWorldgenBaseline = async (input: { rulesetId: string; worldSeed: number; mapStyle?: SimulationMapStyle }) => {
     if (input.rulesetId !== "seasonal-default") return [];
     // mapStyle is part of the cache key, not just an input to generation: the same
     // worldSeed with a different style produces a completely different tile set
@@ -842,7 +845,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Cold generation: only on first boot of a brand-new season seed.
     log.info({ cacheKey }, "worldgen baseline not cached — running generateSeasonWorld (expected on first season boot only)");
     const genT0 = Date.now();
-    const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed, {
+    const generated = await generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed, {
       ...(input.mapStyle ? { mapStyle: input.mapStyle } : {})
     });
     const tiles = generated.initialState.tiles;
@@ -895,7 +898,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     options.seasonSummaryStore ??
     (await createSeasonSummaryStore(storeFactoryOptions));
   let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
-  let bootstrappedInitialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"] | undefined;
+  let bootstrappedInitialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"] | undefined;
   let bootstrappedCurrentSummary: CurrentSeasonSummary | undefined;
   let bootstrappedSeasonState: SimulationSeasonState | undefined;
   const bootstrapManagedSeason = async ({
@@ -907,13 +910,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     logMessage: string;
     logContext: Record<string, unknown>;
   }): Promise<{
-    initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
+    initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
     initialCommandHistory: ReturnType<typeof recoverCommandHistory>;
     recoveredCommandCount: number;
     recoveredEventCount: number;
   }> => {
     if (!rulesetId) throw new Error("managed season bootstrap requires rulesetId");
-    const bootstrap = buildBootstrapSeason({
+    const bootstrap = await buildBootstrapSeason({
       seasonSequence,
       rulesetId,
       mapStyle,
@@ -2282,12 +2285,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         status: "ended",
         ...(currentSeasonState.endedAt ? { endedAt: currentSeasonState.endedAt } : {})
       });
-      const bootstrap = buildBootstrapSeason({
+      // onYield: yieldToEventLoop lets the ~200k-tile world generation below
+      // give the event loop a turn between stages instead of blocking it for
+      // the whole run — this is the live "Start New Season" path, which
+      // (unlike the boot-time bootstrap above) runs with the watchdog armed
+      // and other traffic on the same process, so it must not monopolize
+      // the thread. Safe: SubmitCommand and every background ticker already
+      // no-op while currentSeasonState.status === "ended", which is a
+      // precondition for startNextSeason to run at all.
+      const bootstrap = await buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
-        now: Date.now()
+        now: Date.now(),
+        onYield: yieldToEventLoop
       });
       const nextRuntime = new SimulationRuntime({
         ...(options.runtimeOptions ?? {}),
