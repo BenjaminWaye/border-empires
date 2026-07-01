@@ -13,7 +13,8 @@ import {
   type Player,
   type ResourceType,
   type Tile,
-  type TileKey
+  type TileKey,
+  type WorldStyle
 } from "@border-empires/shared";
 
 import {
@@ -285,18 +286,20 @@ const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, town
   return blandBlocks > checkedBlocks * 0.22 || seeded01(seed, seed + 1, seed + 2) < 0;
 };
 
-export const createSeason20AiSeedWorld = (
+export const createSeasonSeedWorld = (
   seed: number,
   createPlayer: (id: string, isAi: boolean) => DomainPlayer,
   options: {
     humanPlayerCount?: number;
     aiPlayerCount?: number;
+    style?: WorldStyle;
     minSignificantIslands?: number;
     maxSignificantIslands?: number;
     significantIslandTileThreshold?: number;
     maxLargestIslandShare?: number;
   } = {}
 ): GeneratedSeasonSeedWorld => {
+  const style = options.style ?? "continents";
   const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
   const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
   const significantIslandTileThreshold = Math.max(1, options.significantIslandTileThreshold ?? 20);
@@ -429,7 +432,7 @@ export const createSeason20AiSeedWorld = (
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
-    setWorldSeed(worldSeed);
+    setWorldSeed(worldSeed, style);
     clustersRuntime.generateClusters(worldSeed);
     docksRuntime.generateDocks(worldSeed);
     townsRuntime.generateTowns(worldSeed);
@@ -449,7 +452,7 @@ export const createSeason20AiSeedWorld = (
     }
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed);
+  setWorldSeed(worldSeed, style);
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]
