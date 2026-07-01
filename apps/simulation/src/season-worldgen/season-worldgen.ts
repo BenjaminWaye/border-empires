@@ -1,7 +1,7 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { WorldStyle } from "@border-empires/shared";
 
-import { createSeasonSeedWorldAsync } from "../season-seed-world.js";
+import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";

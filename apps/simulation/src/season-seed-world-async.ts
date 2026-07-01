@@ -1,18 +1,13 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  FRONTIER_CLAIM_MS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  grassShadeAt,
   landBiomeAt,
-  regionTypeAt,
   setWorldSeed,
   terrainAt,
   wrapX,
   wrapY,
   type Player,
-  type ResourceType,
-  type Tile,
   type TileKey,
   type WorldStyle
 } from "@border-empires/shared";
@@ -20,8 +15,6 @@ import {
 import {
   INITIAL_SHARD_SCATTER_COUNT,
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
-  PLAYER_MOUNTAIN_DENSITY_LIMIT,
-  PLAYER_MOUNTAIN_DENSITY_RADIUS,
   POPULATION_MAX,
   POPULATION_TOWN_MIN,
   WORLD_TOWN_POPULATION_MIN,
@@ -35,258 +28,33 @@ import {
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenShards,
-  createServerWorldgenTerrain,
   createServerWorldgenTowns,
   assignMissingTownNames
 } from "@border-empires/game-domain";
-import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 
-export type GeneratedSeedPlayerSummary = {
-  playerId: string;
-  isAi: boolean;
-  settledTiles: number;
-  towns: number;
-};
+import {
+  buildIslandMap,
+  chebyshevDistance,
+  createSettlementTown,
+  createTerrainRuntime,
+  islandSizeSummary,
+  noOp,
+  tileKey,
+  townStateFromDefinition,
+  worldLooksBland,
+  type GeneratedDockState,
+  type GeneratedSeasonSeedWorld
+} from "./season-seed-world.js";
 
-export type GeneratedSeasonSeedWorld = {
-  players: Map<string, DomainPlayer>;
-  tiles: Map<string, DomainTileState>;
-  docks: DockRouteDefinition[];
-  worldSeed: number;
-  significantIslandCount: number;
-  humanPlayers: number;
-  aiPlayers: number;
-  totalTiles: number;
-  totalSettledTiles: number;
-  totalTownTiles: number;
-  perPlayer: GeneratedSeedPlayerSummary[];
-};
-
-export const tileKey = (x: number, y: number): TileKey => `${x},${y}`;
-export const noOp = (): void => {};
-export type GeneratedDockState = DockRouteDefinition & { tileKey: TileKey };
-const emptyResourceCounts = (): Record<ResourceType, number> => ({
-  FARM: 0,
-  FISH: 0,
-  FUR: 0,
-  WOOD: 0,
-  IRON: 0,
-  GEMS: 0
-});
-
-export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING"): TownDefinition => ({
-  townId: `town-${tileKeyValue}`,
-  tileKey: tileKeyValue,
-  type: townType,
-  population: 800,
-  maxPopulation: POPULATION_MAX,
-  connectedTownCount: 0,
-  connectedTownBonus: 0,
-  lastGrowthTickAt: 0,
-  isSettlement: true
-});
-
-const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" => {
-  if (town.isSettlement && town.population < 1_000) return "SETTLEMENT";
-  if (town.population >= 5_000_000) return "METROPOLIS";
-  if (town.population >= 1_000_000) return "GREAT_CITY";
-  if (town.population >= 100_000) return "CITY";
-  if (town.population >= POPULATION_TOWN_MIN) return "TOWN";
-  return "SETTLEMENT";
-};
-
-export const townStateFromDefinition = (town: TownDefinition): NonNullable<DomainTileState["town"]> => ({
-  ...(town.name ? { name: town.name } : {}),
-  type: town.type,
-  populationTier: townPopulationTier(town),
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: town.connectedTownBonus
-});
-
-const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["town"]> => ({
-  ...(town.name ? { name: town.name } : {}),
-  type: town.type,
-  baseGoldPerMinute: 0,
-  supportCurrent: 0,
-  supportMax: 0,
-  goldPerMinute: 0,
-  cap: 0,
-  isFed: false,
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  populationTier: townPopulationTier(town),
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: town.connectedTownBonus,
-  hasMarket: false,
-  marketActive: false,
-  hasGranary: false,
-  granaryActive: false,
-  hasBank: false,
-  bankActive: false
-});
-
-export const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = Math.abs(ax - bx);
-  const dy = Math.abs(ay - by);
-  return Math.max(Math.min(dx, WORLD_WIDTH - dx), Math.min(dy, WORLD_HEIGHT - dy));
-};
-
-export const createTerrainRuntime = (state: {
-  activeSeason: { worldSeed: number };
-  clusterByTile: Map<TileKey, string>;
-  clustersById: Map<string, ClusterDefinition>;
-  docksByTile: Map<TileKey, { dockId: string }>;
-  fortsByTile: Map<TileKey, unknown>;
-  observatoriesByTile: Map<TileKey, unknown>;
-  ownership: Map<TileKey, string>;
-  players: Map<string, Player>;
-  siegeOutpostsByTile: Map<TileKey, unknown>;
-  terrainShapesByTile: Map<TileKey, TerrainShapeState>;
-  townsByTile: Map<TileKey, TownDefinition>;
-  economicStructuresByTile: Map<TileKey, unknown>;
-}) => {
-  const playerTile = (x: number, y: number): Tile => {
-    const tk = key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
-    const clusterId = state.clusterByTile.get(tk);
-    const cluster = clusterId ? state.clustersById.get(clusterId) : undefined;
-    const town = state.townsByTile.get(tk);
-    const ownerId = state.ownership.get(tk);
-    return {
-      x: wrapX(x, WORLD_WIDTH),
-      y: wrapY(y, WORLD_HEIGHT),
-      terrain: terrainAt(x, y),
-      ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
-      ...(town ? { town: tileTownViewFromDefinition(town) } : {}),
-      ...(state.docksByTile.get(tk) ? { dockId: state.docksByTile.get(tk)!.dockId } : {}),
-      ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
-      lastChangedAt: 0
-    };
-  };
-
-  return createServerWorldgenTerrain({
-    wrapX,
-    wrapY,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    terrainShapesByTile: state.terrainShapesByTile,
-    key,
-    terrainAt,
-    PLAYER_MOUNTAIN_DENSITY_RADIUS,
-    PLAYER_MOUNTAIN_DENSITY_LIMIT,
-    players: state.players,
-    parseKey,
-    chebyshevDistance,
-    regionTypeAt,
-    clusterByTile: state.clusterByTile,
-    townsByTile: state.townsByTile,
-    docksByTile: state.docksByTile as Map<TileKey, never>,
-    fortsByTile: state.fortsByTile as Map<TileKey, never>,
-    siegeOutpostsByTile: state.siegeOutpostsByTile as Map<TileKey, never>,
-    observatoriesByTile: state.observatoriesByTile as Map<TileKey, never>,
-    economicStructuresByTile: state.economicStructuresByTile as Map<TileKey, never>,
-    playerTile,
-    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
-    activeSeason: state.activeSeason,
-    clustersById: state.clustersById,
-    ownership: state.ownership,
-    getOrInitResourceCounts: emptyResourceCounts,
-    rebuildEconomyIndexForPlayer: noOp,
-    sendPlayerUpdate: noOp,
-    sendVisibleTileDeltaAt: noOp,
-    landBiomeAt,
-    grassShadeAt,
-    FRONTIER_CLAIM_MS
-  });
-};
-
-export const buildIslandMap = (terrainAtRuntime: (x: number, y: number) => Tile["terrain"]): { islandIdByTile: Map<TileKey, number> } => {
-  const islandIdByTile = new Map<TileKey, number>();
-  let nextIslandId = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const startKey = key(x, y);
-      if (islandIdByTile.has(startKey)) continue;
-      const islandId = nextIslandId;
-      nextIslandId += 1;
-      const queue: Array<{ x: number; y: number }> = [{ x, y }];
-      islandIdByTile.set(startKey, islandId);
-      for (let index = 0; index < queue.length; index += 1) {
-        const current = queue[index]!;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = wrapX(current.x + dx, WORLD_WIDTH);
-            const ny = wrapY(current.y + dy, WORLD_HEIGHT);
-            if (terrainAtRuntime(nx, ny) !== "LAND") continue;
-            const neighborKey = key(nx, ny);
-            if (islandIdByTile.has(neighborKey)) continue;
-            islandIdByTile.set(neighborKey, islandId);
-            queue.push({ x: nx, y: ny });
-          }
-        }
-      }
-    }
-  }
-  return { islandIdByTile };
-};
-
-export const islandSizeSummary = (
-  terrainAtRuntime: (x: number, y: number) => Tile["terrain"],
-  significantTileThreshold: number
-): { sizes: number[]; significantCount: number; largestShare: number } => {
-  const { islandIdByTile } = buildIslandMap(terrainAtRuntime);
-  const sizesByIsland = new Map<number, number>();
-  for (const islandId of islandIdByTile.values()) {
-    sizesByIsland.set(islandId, (sizesByIsland.get(islandId) ?? 0) + 1);
-  }
-  const sizes = [...sizesByIsland.values()].sort((left, right) => right - left);
-  const landTiles = sizes.reduce((sum, size) => sum + size, 0);
-  return {
-    sizes,
-    significantCount: sizes.filter((size) => size >= significantTileThreshold).length,
-    largestShare: landTiles > 0 ? (sizes[0] ?? 0) / landTiles : 0
-  };
-};
-
-export const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, townsByTile: Map<TileKey, TownDefinition>, docksByTile: Map<TileKey, { dockId: string }>, seeded01: (x: number, y: number, seed: number) => number): boolean => {
-  const step = 15;
-  let checkedBlocks = 0;
-  let blandBlocks = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += step) {
-    for (let x = 0; x < WORLD_WIDTH; x += step) {
-      let land = 0;
-      let nearBarrier = 0;
-      let nearHook = 0;
-      for (let dy = 0; dy < step; dy += 1) {
-        for (let dx = 0; dx < step; dx += 1) {
-          const wx = wrapX(x + dx, WORLD_WIDTH);
-          const wy = wrapY(y + dy, WORLD_HEIGHT);
-          if (terrainAt(wx, wy) !== "LAND") continue;
-          land += 1;
-          const neighbors: Array<[number, number]> = [
-            [wx, wrapY(wy - 1, WORLD_HEIGHT)],
-            [wrapX(wx + 1, WORLD_WIDTH), wy],
-            [wx, wrapY(wy + 1, WORLD_HEIGHT)],
-            [wrapX(wx - 1, WORLD_WIDTH), wy]
-          ];
-          if (neighbors.some(([nx, ny]) => terrainAt(nx, ny) !== "LAND")) nearBarrier += 1;
-          const tk = key(wx, wy);
-          if (clusterByTile.has(tk) || townsByTile.has(tk) || docksByTile.has(tk)) nearHook += 1;
-        }
-      }
-      checkedBlocks += 1;
-      if (land < step * step * 0.45) continue;
-      if (nearBarrier / Math.max(1, land) < 0.08 && nearHook / Math.max(1, land) < 0.02) blandBlocks += 1;
-    }
-  }
-  return blandBlocks > checkedBlocks * 0.22 || seeded01(seed, seed + 1, seed + 2) < 0;
-};
-
-export const createSeasonSeedWorld = (
+// This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
+// yields between generation stages, used by the live "Start New Season"
+// path (season-worldgen.ts), which runs on an armed watchdog alongside
+// other traffic and must not monopolize the event loop for the whole
+// 6-30s+ run. createSeasonSeedWorld itself stays synchronous because it's
+// also called from the SimulationRuntime constructor (via seed-state.ts's
+// "season-20ai" dev/test profile), which can't await. Keep the generation
+// sequence in sync between the two files when editing either.
+export const createSeasonSeedWorldAsync = async (
   seed: number,
   createPlayer: (id: string, isAi: boolean) => DomainPlayer,
   options: {
@@ -297,8 +65,19 @@ export const createSeasonSeedWorld = (
     maxSignificantIslands?: number;
     significantIslandTileThreshold?: number;
     maxLargestIslandShare?: number;
+    // Optional cooperative yield hook. Passing yieldToEventLoop lets the
+    // ~200k-tile generation loop below give the event loop a turn between
+    // stages instead of blocking it for the whole 6-30s+ run — safe here
+    // specifically because every live call path that touches the shared
+    // terrainAt/setWorldSeed module state (SubmitCommand handlers, the
+    // background tickers) already no-ops once the season is "ended", which
+    // is a precondition for this function running in the first place. Omit
+    // it (as the boot-time worldgen-baseline cache-miss path does) to keep
+    // an uninterrupted block, which is fine before the watchdog is armed.
+    onYield?: () => Promise<void>;
   } = {}
-): GeneratedSeasonSeedWorld => {
+): Promise<GeneratedSeasonSeedWorld> => {
+  const onYield = options.onYield;
   const style = options.style ?? "continents";
   const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
   const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
@@ -434,14 +213,19 @@ export const createSeasonSeedWorld = (
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style);
     clustersRuntime.generateClusters(worldSeed);
+    await onYield?.();
     docksRuntime.generateDocks(worldSeed);
+    await onYield?.();
     townsRuntime.generateTowns(worldSeed);
     shardsRuntime.seedInitialShardScatter(worldSeed);
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
+    await onYield?.();
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
     townsRuntime.assignMissingTownNamesForWorld();
+    await onYield?.();
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
+    await onYield?.();
     const islandDistributionAccepted =
       (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
       (maxSignificantIslands === undefined || islandSummary.significantCount <= maxSignificantIslands) &&
@@ -450,6 +234,7 @@ export const createSeasonSeedWorld = (
     if (iteration < 15) {
       worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
     }
+    await onYield?.();
   }
   activeSeason.worldSeed = worldSeed;
   setWorldSeed(worldSeed, style);
@@ -550,12 +335,15 @@ export const createSeasonSeedWorld = (
 
   for (let index = 0; index < humanPlayerCount; index += 1) {
     spawnPlayerAt(`player-${index + 1}`, false, index);
+    await onYield?.();
   }
   for (let index = 0; index < aiPlayerCount; index += 1) {
     spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
+    await onYield?.();
   }
 
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
+  await onYield?.();
 
   const barbarianTileKeys = new Set<TileKey>();
   const BARBARIAN_SEED_TARGET = 80;
@@ -589,9 +377,11 @@ export const createSeasonSeedWorld = (
     ownership.set(tk, "barbarian-1");
     barbarianTileKeys.add(tk);
   }
+  await onYield?.();
 
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    if (y > 0 && y % 50 === 0) await onYield?.();
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       const tk = tileKey(x, y);
       const clusterId = clusterByTile.get(tk);
