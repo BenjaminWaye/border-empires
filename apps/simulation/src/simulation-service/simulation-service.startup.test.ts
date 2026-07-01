@@ -164,7 +164,7 @@ describe("simulation service startup recovery", () => {
     const snapshotStore = new InMemorySimulationSnapshotStore();
     // Generate snapshot with 10 AI; service is started with "season-20ai" seed.
     // Test verifies the recovered snapshot count wins, not the seed profile.
-    const generated = generateSeasonWorld("seasonal-default", 12345, { aiPlayerCount: 10 });
+    const generated = await generateSeasonWorld("seasonal-default", 12345, { aiPlayerCount: 10 });
     await snapshotStore.saveSnapshot({
       lastAppliedEventId: 0,
       snapshotSections: buildSimulationSnapshotSections({
@@ -401,7 +401,7 @@ describe("simulation service startup recovery", () => {
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
     const seasonSummaryStore = new InMemorySeasonSummaryStore();
-    const generated = generateSeasonWorld("seasonal-default", 12345);
+    const generated = await generateSeasonWorld("seasonal-default", 12345);
     await snapshotStore.saveSnapshot({
       lastAppliedEventId: 0,
       snapshotSections: buildSimulationSnapshotSections({
