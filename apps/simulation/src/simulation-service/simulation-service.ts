@@ -2459,11 +2459,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const promise = (async () => {
           try {
             return subscribeOptions.mode === "bootstrap-only"
-              ? await buildAndCachePlayerSnapshotAsync(call.request.player_id, {
-                  includeWorldStatus: true,
-                  fullVisibility: subscribeOptions.fullVisibility,
-                  ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
-                })
+              ? await (async () => {
+                  // On gateway retry (first build finished in >10s, client fired again),
+                  // the in-flight dedup above is already resolved, but the snapshot was
+                  // cached by the first build. Serve from cache + cheap worldStatus
+                  // rather than re-running the full 9-23s export.
+                  const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+                  if (cached) {
+                    const summary = await readCurrentSummary();
+                    return { ...cached, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+                  }
+                  return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
+                    includeWorldStatus: true,
+                    fullVisibility: subscribeOptions.fullVisibility,
+                    ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
+                  });
+                })()
               : await (() => {
                   // Phase B3: reuse the cached snapshot when available. For
                   // normal logins, always check cache. For full-vis (admin/spectator
