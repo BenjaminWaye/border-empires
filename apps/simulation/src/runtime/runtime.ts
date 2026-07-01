@@ -165,6 +165,7 @@ import {
   type StrategicResourceKey,
   type UpkeepNeed
 } from "../runtime-types.js";
+import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
   parseAllianceSyncPayload,
   parseConverterTogglePayload,
@@ -383,7 +384,6 @@ import {
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 
-
 export { InMemorySimulationPersistence } from "../runtime-types.js";
 export type { SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -396,17 +396,14 @@ const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const RESPAWN_MINIMUM_GOLD = 100;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
-
-// Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
-// inside their setTimeout window; anything still present 60s after its scheduled
-// resolution is a leak from a code path that bypassed validation.
+// Grace beyond resolvesAt before the sweep drops a lock (60s).
+// Normal locks resolve inside their setTimeout window; anything still present
+// is a leak from a code path that bypassed validation.
 const ORPHAN_LOCK_GRACE_MS = 60_000;
 
-// Process-global monotonically increasing counter so each runtime instance
-// gets a unique starting epoch, and every terrain mutation gets a fresh number.
-// Consumers (e.g. live-snapshot-view) cache derived terrain structures (island
-// map) by this epoch; cache misses are O(world tiles) but happen only when
-// terrain actually changes, which is rare (only create_mountain / remove_mountain).
+// Process-global monotonically increasing counter for unique runtime epochs and
+// fresh terrain mutation numbers. Consumers cache derived terrain structures by
+// epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
 
 export class SimulationRuntime {
@@ -1244,6 +1241,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
     };
@@ -3955,9 +3953,8 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-      // Explicit `undefined` (rather than `...({})`) is load-bearing on these
-      // fields: subscribers diff by own-property existence to detect clears
-      // (uncapture, structure removal). See the uncapture regression test.
+      // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
+      // own-property existence to detect clears (uncapture, structure removal).
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
       frontierDecayAt: tile.frontierDecayAt ?? undefined,
@@ -3974,9 +3971,12 @@ export class SimulationRuntime {
       sabotageJson: cached.sabotageJson,
       musterJson: cached.musterJson,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
-      // yieldRate and yieldCap are derived client-side from static yield tables
-      // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.
+      // yieldRate and yieldCap are derived client-side from townJson goldPerMinute/cap.
     };
+  }
+
+  private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
+    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache);
   }
 
   private collectTileYield(
