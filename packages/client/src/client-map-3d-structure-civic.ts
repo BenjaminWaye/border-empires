@@ -3,8 +3,7 @@ import {
   ConeGeometry,
   CylinderGeometry,
   MeshStandardMaterial,
-  OctahedronGeometry,
-  SphereGeometry
+  OctahedronGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
@@ -68,20 +67,16 @@ export const registerCivicStructures = (
   const governorRoofMaterial = new MeshStandardMaterial({ color: "#9c4030", roughness: 0.88, metalness: 0, flatShading: true });
   const governorCupolaMaterial = new MeshStandardMaterial({ color: "#e8dcc2", roughness: 0.88, metalness: 0, flatShading: true });
   const governorFlagMaterial = new MeshStandardMaterial({ color: "#c83a2a", roughness: 0.82, metalness: 0, flatShading: true });
-  // Census Hall — a steampunk "tabulating office": dark iron-grey body
-  // under an oxidized-copper dome, with a brass tally drum punched into
-  // the facade, twin brass ear-trumpet intake horns flanking the
-  // entrance, riveted brass banding, and a gearbox housing on the side
-  // wall (the actual rotating gears + chimney steam live in the
-  // companion client-map-3d-census-hall-fx.ts animated layer; this
-  // static layout just builds their mounting points).
-  const censusWallMaterial = new MeshStandardMaterial({ color: "#3c3a3e", roughness: 0.72, metalness: 0.25, flatShading: true });
-  const censusDomeMaterial = new MeshStandardMaterial({ color: "#4f8f78", roughness: 0.5, metalness: 0.45, flatShading: true });
-  const censusBrassMaterial = new MeshStandardMaterial({ color: "#c8943f", roughness: 0.35, metalness: 0.75, flatShading: true });
-  const censusBrassDarkMaterial = new MeshStandardMaterial({ color: "#8a6526", roughness: 0.4, metalness: 0.7, flatShading: true });
-  const censusGlassMaterial = new MeshStandardMaterial({ color: "#0e1f24", roughness: 0.25, metalness: 0.1, flatShading: true, emissive: "#1f5a52", emissiveIntensity: 0.35 });
+  // Census Hall — a modest records office, scaled and detailed like the
+  // other minor support structures (Customs House, Exchange House), not
+  // a monument. One steampunk flourish only: a small brass tally drum
+  // set into the facade, echoing the tabulating-machine idea without a
+  // power source, animation, or a showy roofline to justify it.
+  const censusWallMaterial = new MeshStandardMaterial({ color: "#8a8078", roughness: 0.88, metalness: 0, flatShading: true });
+  const censusRoofMaterial = new MeshStandardMaterial({ color: "#5a4a3a", roughness: 0.86, metalness: 0, flatShading: true });
+  const censusBrassMaterial = new MeshStandardMaterial({ color: "#b3833a", roughness: 0.45, metalness: 0.6, flatShading: true });
+  const censusBrassDarkMaterial = new MeshStandardMaterial({ color: "#7a5a26", roughness: 0.5, metalness: 0.55, flatShading: true });
   const censusStepMaterial = new MeshStandardMaterial({ color: "#6a6660", roughness: 0.88, metalness: 0, flatShading: true });
-  const censusGearboxMaterial = new MeshStandardMaterial({ color: "#2c2a2c", roughness: 0.6, metalness: 0.4, flatShading: true });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   // Walls taller and slightly thicker than v1 so the perimeter reads
@@ -128,29 +123,14 @@ export const registerCivicStructures = (
   const governorCupolaGeo = new BoxGeometry(0.07, 0.08, 0.07);
   const governorCupolaRoofGeo = new ConeGeometry(0.055, 0.05, 4);
   const governorFlagGeo = new BoxGeometry(0.05, 0.035, 0.004);
-  const censusStepGeo = new BoxGeometry(0.30, 0.035, 0.16);
-  const censusBodyGeo = new BoxGeometry(0.26, 0.18, 0.20);
-  // Half-dome, same construction as the observatory dome (clipped sphere).
-  const censusDomeGeo = new SphereGeometry(0.135, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.5);
-  const censusDomeRingGeo = new CylinderGeometry(0.14, 0.145, 0.03, 16);
-  const censusFinialPoleGeo = new CylinderGeometry(0.008, 0.008, 0.10, 6);
-  const censusFinialCapGeo = new OctahedronGeometry(0.028, 0);
-  // Tally drum: a brass cylinder embedded sideways into the front
-  // facade, like a printing-press/odometer drum reading out the census.
-  const censusDrumGeo = new CylinderGeometry(0.075, 0.075, 0.10, 14);
-  const censusDrumRingGeo = new CylinderGeometry(0.082, 0.082, 0.012, 14);
-  const censusPortholeRimGeo = new CylinderGeometry(0.032, 0.032, 0.018, 12);
-  const censusPortholeGlassGeo = new CylinderGeometry(0.024, 0.024, 0.02, 12);
-  // Ear-trumpet intake horns flanking the steps — flared brass cones,
-  // the building's whimsical "ear to the population" detail.
-  const censusHornGeo = new ConeGeometry(0.05, 0.11, 10, 1, true);
-  const censusHornBellGeo = new CylinderGeometry(0.05, 0.05, 0.012, 10);
-  const censusBandGeo = new BoxGeometry(0.27, 0.018, 0.018);
-  // Side gearbox housing — static mounting block; the visible rotating
-  // gears are layered on top of it by client-map-3d-census-hall-fx.ts.
-  const censusGearboxGeo = new BoxGeometry(0.07, 0.10, 0.05);
-  const censusChimneyGeo = new CylinderGeometry(0.022, 0.026, 0.16, 8);
-  const censusChimneyCapGeo = new CylinderGeometry(0.030, 0.030, 0.02, 8);
+  const censusStepGeo = new BoxGeometry(0.24, 0.03, 0.16);
+  const censusBodyGeo = new BoxGeometry(0.20, 0.13, 0.16);
+  const censusRoofGeo = new ConeGeometry(0.15, 0.08, 4);
+  const censusBandGeo = new BoxGeometry(0.205, 0.014, 0.014);
+  // Tally drum: a small brass cylinder set into the front facade, the
+  // one steampunk detail — no ring, glow, or moving parts.
+  const censusDrumGeo = new CylinderGeometry(0.04, 0.04, 0.05, 12);
+  const censusDrumRingGeo = new CylinderGeometry(0.044, 0.044, 0.008, 12);
 
   // ─── Slots ─────────────────────────────────────────────────────────
   builder.makeSlot("caravanaryWall", caravanaryWallGeo, caravanaryStoneMaterial, C * 4);
@@ -193,20 +173,10 @@ export const registerCivicStructures = (
   builder.makeSlot("governorFlag", governorFlagGeo, governorFlagMaterial, C);
   builder.makeSlot("censusStep", censusStepGeo, censusStepMaterial, C);
   builder.makeSlot("censusBody", censusBodyGeo, censusWallMaterial, C);
-  builder.makeSlot("censusDome", censusDomeGeo, censusDomeMaterial, C);
-  builder.makeSlot("censusDomeRing", censusDomeRingGeo, censusBrassMaterial, C);
-  builder.makeSlot("censusFinialPole", censusFinialPoleGeo, censusBrassDarkMaterial, C);
-  builder.makeSlot("censusFinialCap", censusFinialCapGeo, censusBrassMaterial, C);
+  builder.makeSlot("censusRoof", censusRoofGeo, censusRoofMaterial, C);
+  builder.makeSlot("censusBand", censusBandGeo, censusBrassMaterial, C);
   builder.makeSlot("censusDrum", censusDrumGeo, censusBrassMaterial, C);
-  builder.makeSlot("censusDrumRing", censusDrumRingGeo, censusBrassDarkMaterial, C * 2);
-  builder.makeSlot("censusPortholeRim", censusPortholeRimGeo, censusBrassMaterial, C * 2);
-  builder.makeSlot("censusPortholeGlass", censusPortholeGlassGeo, censusGlassMaterial, C * 2);
-  builder.makeSlot("censusHorn", censusHornGeo, censusBrassMaterial, C * 2);
-  builder.makeSlot("censusHornBell", censusHornBellGeo, censusBrassDarkMaterial, C * 2);
-  builder.makeSlot("censusBand", censusBandGeo, censusBrassMaterial, C * 2);
-  builder.makeSlot("censusGearbox", censusGearboxGeo, censusGearboxMaterial, C);
-  builder.makeSlot("censusChimney", censusChimneyGeo, censusGearboxMaterial, C);
-  builder.makeSlot("censusChimneyCap", censusChimneyCapGeo, censusBrassMaterial, C);
+  builder.makeSlot("censusDrumRing", censusDrumRingGeo, censusBrassDarkMaterial, C);
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addCaravanary: CivicStructureLayout = (sx, sy, sz) => {
@@ -295,35 +265,14 @@ export const registerCivicStructures = (
   };
 
   const addCensusHall: CivicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("censusStep", sx, sy, sz, 0, 0.0225, 0.12);
-    builder.addPiece("censusBody", sx, sy, sz, 0, 0.135, -0.01);
-    // Riveted brass bands wrap the body near the base and the eaves.
-    builder.addPiece("censusBand", sx, sy, sz, 0, 0.07, -0.01);
-    builder.addPiece("censusBand", sx, sy, sz, 0, 0.22, -0.01);
-    builder.addPiece("censusDomeRing", sx, sy, sz, 0, 0.235, -0.01);
-    builder.addPiece("censusDome", sx, sy, sz, 0, 0.235, -0.01);
-    builder.addPiece("censusFinialPole", sx, sy, sz, 0, 0.40, -0.01);
-    builder.addPiece("censusFinialCap", sx, sy, sz, 0, 0.455, -0.01);
-    // Brass tally drum punched into the front facade above the door.
-    builder.addPiece("censusDrum", sx, sy, sz, 0, 0.155, 0.105, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("censusDrumRing", sx, sy, sz, 0, 0.155, 0.155, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("censusDrumRing", sx, sy, sz, 0, 0.155, 0.06, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    // Twin porthole windows flanking the drum.
-    builder.addPiece("censusPortholeRim", sx, sy, sz, -0.085, 0.165, 0.105, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("censusPortholeGlass", sx, sy, sz, -0.085, 0.165, 0.105, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("censusPortholeRim", sx, sy, sz, 0.085, 0.165, 0.105, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("censusPortholeGlass", sx, sy, sz, 0.085, 0.165, 0.105, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    // Twin ear-trumpet intake horns flanking the entrance steps, bells
-    // flared outward and upward as if listening for the next census tick.
-    builder.addPiece("censusHorn", sx, sy, sz, -0.16, 0.075, 0.155, 1, 1, 1, 0, -Math.PI * 0.18, Math.PI * 0.18);
-    builder.addPiece("censusHornBell", sx, sy, sz, -0.175, 0.125, 0.18, 1, 1, 1, 0, -Math.PI * 0.18, Math.PI * 0.18);
-    builder.addPiece("censusHorn", sx, sy, sz, 0.16, 0.075, 0.155, 1, 1, 1, 0, Math.PI * 0.18, -Math.PI * 0.18);
-    builder.addPiece("censusHornBell", sx, sy, sz, 0.175, 0.125, 0.18, 1, 1, 1, 0, Math.PI * 0.18, -Math.PI * 0.18);
-    // Side gearbox housing + roof chimney — anchor points for the
-    // animated rotating gears and rising steam in the fx companion layer.
-    builder.addPiece("censusGearbox", sx, sy, sz, -0.155, 0.10, -0.07);
-    builder.addPiece("censusChimney", sx, sy, sz, 0.12, 0.30, -0.08);
-    builder.addPiece("censusChimneyCap", sx, sy, sz, 0.12, 0.385, -0.08);
+    builder.addPiece("censusStep", sx, sy, sz, 0, 0.02, 0.10);
+    builder.addPiece("censusBody", sx, sy, sz, 0, 0.10, -0.02);
+    builder.addPiece("censusRoof", sx, sy, sz, 0, 0.205, -0.02, 1, 1, 1, Math.PI * 0.25);
+    builder.addPiece("censusBand", sx, sy, sz, 0, 0.155, -0.02);
+    // Small brass tally drum set into the front facade — the one
+    // steampunk detail, no ring glow or moving parts.
+    builder.addPiece("censusDrum", sx, sy, sz, 0, 0.09, 0.081, 1, 1, 1, 0, 0, Math.PI * 0.5);
+    builder.addPiece("censusDrumRing", sx, sy, sz, 0, 0.09, 0.106, 1, 1, 1, 0, 0, Math.PI * 0.5);
   };
 
   return {

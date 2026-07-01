@@ -19,16 +19,16 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.01.1",
+  version: "2026.07.01.2",
   title: "What's New",
-  summary: "Census Hall now has a steampunk building model on the map.",
+  summary: "Census Hall now has its own building model on the map.",
   entries: [
     {
-      introducedIn: "2026.07.01.1",
-      title: "Census Hall has a new steampunk look",
+      introducedIn: "2026.07.01.2",
+      title: "Census Hall has a new building model",
       why: "Census Hall previously reused the Governor's Office icon and had no 3D model, so it was invisible/generic on the map.",
       changes: [
-        "3D map: Census Hall now renders as a brass-and-copper tabulating office with meshing gears, chimney steam, and a pulsing dome beacon.",
+        "3D map: Census Hall now renders as a modest stone records office with a small brass tally drum on the facade, scaled like the other minor support structures.",
         "2D map: Census Hall has its own icon instead of borrowing the Governor's Office icon."
       ]
     },
