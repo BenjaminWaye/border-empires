@@ -25,6 +25,7 @@ export type RuntimeCombatSupportContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  tileDeltaRevealOnly: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
 };
@@ -111,7 +112,7 @@ export const buildCaptureRevealTileDeltas = (
     for (let dx = -radius; dx <= radius; dx += 1) {
       const tile = ctx.tiles.get(simulationTileKey(centerX + dx, centerY + dy));
       if (!tile) continue;
-      deltas.set(simulationTileKey(tile.x, tile.y), ctx.tileDeltaFromState(tile));
+      deltas.set(simulationTileKey(tile.x, tile.y), ctx.tileDeltaRevealOnly(tile));
     }
   }
   return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
