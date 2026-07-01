@@ -3149,6 +3149,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "AIRPORT_BOMBARD" &&
             message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
             message.type !== "WORLD_ENGINE_STRIKE" &&
+            message.type !== "AEGIS_LOCK" &&
+            message.type !== "ASTRAL_DOCK_LAUNCH" &&
             message.type !== "UPGRADE_TOWN_TIER" &&
             message.type !== "COLLECT_SHARD" &&
             message.type !== "SET_MUSTER" &&

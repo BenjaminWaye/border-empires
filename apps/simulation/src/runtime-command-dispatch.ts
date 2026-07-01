@@ -36,6 +36,8 @@ export type RuntimeCommandDispatchHandlers = {
   handleAirportBombardCommand: (command: CommandEnvelope) => void;
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => void;
   handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
+  handleAegisLockCommand: (command: CommandEnvelope) => void;
+  handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
@@ -85,6 +87,8 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
+  if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
+  if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
@@ -134,6 +138,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "AIRPORT_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
   command.type === "WORLD_ENGINE_STRIKE" ||
+  command.type === "AEGIS_LOCK" ||
+  command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE";

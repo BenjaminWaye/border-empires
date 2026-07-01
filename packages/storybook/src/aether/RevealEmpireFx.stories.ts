@@ -6,7 +6,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createRevealEmpireFxLayer } from "@client/client-map-3d-reveal-empire-fx.js";
+import { createRevealEmpireFxLayer } from "@client/client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

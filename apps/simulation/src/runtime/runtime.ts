@@ -264,7 +264,9 @@ import {
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
+  ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
+  isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -288,7 +290,9 @@ import {
 } from "../runtime-ability-command-handlers.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js";
 import {
+  handleAegisLockCommand as handleAegisLockCommandImpl,
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
+  handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
   handleCreateMountainCommand as handleCreateMountainCommandImpl,
   handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl,
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
@@ -1278,6 +1282,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       buildCaptureRevealTileDeltas: (playerId, centerX, centerY) => this.buildCaptureRevealTileDeltas(playerId, centerX, centerY),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
+      isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
+        this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       consumeOriginMuster: (originKey, playerId, amount) => this.consumeOriginMuster(originKey, playerId, amount),
       applyFortGarrisonAttrition: (targetKey, attackingForce) => this.applyFortGarrisonAttrition(targetKey, attackingForce),
       applyLockedManpowerDelta: (player, manpowerDelta) => this.applyLockedManpowerDelta(player, manpowerDelta),
@@ -2631,6 +2637,7 @@ export class SimulationRuntime {
           }
           return v;
         },
+        hasFullVision: (pid) => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
@@ -3648,6 +3655,8 @@ export class SimulationRuntime {
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
+        this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
         isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
@@ -3684,6 +3693,18 @@ export class SimulationRuntime {
 
   private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
     handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private handleAegisLockCommand(command: CommandEnvelope): void {
+    handleAegisLockCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private handleAstralDockLaunchCommand(command: CommandEnvelope): void {
+    handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
+    return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY);
   }
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
@@ -4539,6 +4560,8 @@ export class SimulationRuntime {
       handleAirportBombardCommand: (command) => this.handleAirportBombardCommand(command),
       handleImperialExchangeLevyCommand: (command) => this.handleImperialExchangeLevyCommand(command),
       handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
+      handleAegisLockCommand: (command) => this.handleAegisLockCommand(command),
+      handleAstralDockLaunchCommand: (command) => this.handleAstralDockLaunchCommand(command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
