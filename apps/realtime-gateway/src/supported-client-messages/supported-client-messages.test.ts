@@ -17,6 +17,10 @@ describe("supported client messages", () => {
     expect(supportedClientMessageTypes).toContain("TRUCE_BREAK");
   });
 
+  it("advertises season rollover from the season-end overlay", () => {
+    expect(supportedClientMessageTypes).toContain("START_NEW_SEASON");
+  });
+
   it.each(RECONNECT_COMMAND_TYPES)("keeps durable command %s available on the websocket surface", (type) => {
     expect(supportedClientMessageTypes).toContain(type);
   });

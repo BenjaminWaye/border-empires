@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
 import {
@@ -1159,6 +1160,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         message: typeof msg.message === "string" ? msg.message : undefined
       });
     }
+    if (msg.type === "SERVER_DEPLOYING") {
+      state.serverDeploying = true;
+      setServerDeployingSession();
+      return;
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -1186,6 +1192,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "INIT") {
       clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
+      state.serverDeploying = false;
+      clearServerDeployingSession();
       state.authSessionReady = true;
       state.hasEverInitialized = true;
       resetAuthReconnectAttempt();
@@ -1203,7 +1211,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
       state.lastChunkSnapshotGeneration = 0;
-      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
       const incomingSeason = incomingConfig.season;
       const incomingRuntimeIdentity =
         (msg.runtimeIdentity as
@@ -1395,7 +1403,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
       state.fogDisabled = Boolean(incomingConfig.fogDisabled);
       if (typeof incomingSeason?.worldSeed === "number") {
-        setWorldSeed(incomingSeason.worldSeed);
+        setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle);
         clearRenderCaches();
         buildMiniMapBase();
       }
@@ -1954,11 +1962,47 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
       }
       state.unreadAttackAlerts += 1;
-      pushFeed(
-        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        "combat",
-        "error"
-      );
+      appendFeedEntry({
+        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        type: "combat",
+        severity: "error",
+        at: Date.now(),
+        focusX: x,
+        focusY: y,
+        actionLabel: "Center"
+      });
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "AIRPORT_BOMBARD_RESULT") {
+      const targetableTiles = Number(msg.targetableTiles ?? 0);
+      const hitTiles = Number(msg.hitTiles ?? 0);
+      const missedTiles = Number(msg.missedTiles ?? 0);
+      const x = Number(msg.x ?? -1);
+      const y = Number(msg.y ?? -1);
+      const rawTiles = Array.isArray(msg.tiles) ? (msg.tiles as Array<Record<string, unknown>>) : [];
+      const tiles = rawTiles
+        .map((t) => ({
+          dx: Number(t.dx ?? 0),
+          dy: Number(t.dy ?? 0),
+          outcome: t.outcome === "hit" ? ("hit" as const) : ("miss" as const)
+        }))
+        .filter((t) => Number.isFinite(t.dx) && Number.isFinite(t.dy));
+      if (x >= 0 && y >= 0 && tiles.length > 0) {
+        state.bombardFxQueue.push({ x, y, queuedAt: Date.now(), tiles });
+      }
+      if (targetableTiles === 0) {
+        pushFeedSafely("Bombardment found no enemy tiles in range.", "combat", "warn");
+      } else if (missedTiles === 0) {
+        pushFeedSafely(`Bombardment hit all ${hitTiles} target tile${hitTiles === 1 ? "" : "s"}.`, "combat", "success");
+      } else {
+        pushFeedSafely(
+          `Bombardment hit ${hitTiles}/${targetableTiles} tiles — ${missedTiles} missed (forts reduce hit chance).`,
+          "combat",
+          hitTiles > 0 ? "warn" : "error"
+        );
+      }
       renderHud();
       return;
     }
@@ -3154,9 +3198,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
-      const season = msg.season as { worldSeed?: number } | undefined;
+      const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands" } | undefined;
       if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed);
+        setWorldSeed(season.worldSeed, season.mapStyle);
         clearRenderCaches();
         buildMiniMapBase();
       }

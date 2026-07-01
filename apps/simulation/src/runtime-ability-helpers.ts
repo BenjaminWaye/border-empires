@@ -9,7 +9,8 @@ import {
   AEGIS_DOME_PROTECTION_RADIUS,
   AETHER_BRIDGE_MAX_SEA_TILES,
   AETHER_TOWER_RADIUS,
-  OBSERVATORY_CAST_RADIUS
+  OBSERVATORY_CAST_RADIUS,
+  RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -95,6 +96,43 @@ export function isTileShieldedByEnemyAegisDome(
     if (!dome.ownerId || dome.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
     if (isStructurePowered(tiles, dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
+  }
+  return false;
+}
+
+export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";
+export const ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY = "astral_dock_launch_active_until";
+
+export function isTileShieldedByAegisLock(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  abilityCooldowns: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  now: number,
+  actorId: string,
+  targetX: number,
+  targetY: number
+): boolean {
+  for (const candidate of tiles.values()) {
+    const dome = candidate.economicStructure;
+    if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
+    if (!dome.ownerId || dome.ownerId === actorId) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
+    if (getAbilityCooldownUntil(abilityCooldowns, dome.ownerId, AEGIS_LOCK_ACTIVE_UNTIL_KEY) > now) return true;
+  }
+  return false;
+}
+
+export function isTileBombardBlockedByRadar(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  actorId: string,
+  targetX: number,
+  targetY: number
+): boolean {
+  for (const candidate of tiles.values()) {
+    const s = candidate.economicStructure;
+    if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
+    if (!s.ownerId || s.ownerId === actorId) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
+    if (isStructurePowered(tiles, s.ownerId, simulationTileKey(candidate.x, candidate.y), s.type)) return true;
   }
   return false;
 }

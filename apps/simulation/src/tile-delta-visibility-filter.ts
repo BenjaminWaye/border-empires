@@ -44,6 +44,10 @@ export interface TileDeltaVisibilityFilterDeps {
   // collectionVersion changes (bumped on any territory mutation).
   readonly eagerVisibilitySetCache?: Map<string, { collectionVersion: number; keys: Set<string> }>;
   readonly tileCollectionVersionForPlayer?: (playerId: string) => number;
+  // Astral Dock's Launch Satellite ability: while active, the player sees the
+  // whole map regardless of territory/dock/observatory vision, so the normal
+  // radius filtering is skipped entirely for them.
+  readonly hasFullVision?: (playerId: string) => boolean;
 }
 
 const dilateTerritoryIntoSet = (
@@ -102,6 +106,7 @@ export const filterTileDeltasForPlayer = <
   if (tileDeltas.length === 0) return [];
   const primaryPlayer = deps.players.get(playerId);
   if (!primaryPlayer) return [];
+  if (deps.hasFullVision?.(playerId)) return tileDeltas.slice();
 
   const playerSummary = deps.summaryForPlayer(playerId);
   const playerVisionRadius = Math.max(

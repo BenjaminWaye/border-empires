@@ -140,7 +140,6 @@ type ActionFlowDeps = Record<string, any> & {
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
 };
-
 type TileDetailRequestOptions = {
   force?: boolean;
 };
@@ -1196,7 +1195,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          if (requestSettlement(selected.x, selected.y)) pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
+          requestSettlement(selected.x, selected.y);
         }
         state.autoSettleTargets.delete(k);
       }
@@ -1678,15 +1677,40 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
-    if (actionId === "imperial_exchange_levy_food") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" });
-    if (actionId === "imperial_exchange_levy_iron") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" });
-    if (actionId === "imperial_exchange_levy_crystal") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" });
-    if (actionId === "imperial_exchange_levy_supply") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" });
-    if (actionId === "aegis_lock") sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y });
+    if (actionId === "imperial_exchange_levy_food") {
+      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" })) {
+        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
+    if (actionId === "imperial_exchange_levy_iron") {
+      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" })) {
+        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
+    if (actionId === "imperial_exchange_levy_crystal") {
+      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" })) {
+        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
+    if (actionId === "imperial_exchange_levy_supply") {
+      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" })) {
+        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
+    if (actionId === "aegis_lock") {
+      if (sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y })) {
+        state.aegisLockFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
     if (actionId === "city_overclock") sendGameMessage({ type: "CITY_OVERCLOCK", x: selected.x, y: selected.y });
-    if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
+    if (actionId === "astral_dock_launch") {
+      if (sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y })) {
+        state.astralDockLaunchFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
+    if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
     hideTileActionMenu();
   };
 

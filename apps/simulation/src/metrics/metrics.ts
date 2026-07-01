@@ -84,6 +84,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
+  // Empire-size gauges: total owned tiles across player empires, and the
+  // single largest empire's tile count. The largest empire drives the
+  // per-player O(territory) cost of the planner sync / per-cycle work, so it
+  // is the key scale signal to correlate against event-loop lag.
+  let simOwnedTilesTotal = 0;
+  let simMaxEmpireTiles = 0;
   const simAiBroadFallbackSkipped = new Map<string, number>();
   const simAiNarrowAnalyzeCapped = new Map<string, number>();
   const simAiTickThrottledTotal = new Map<AiTickThrottleReason, number>(
@@ -115,6 +121,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simPostSeasonProtoTileCacheHitTotal = 0;
   let simPostSeasonProtoTileCacheMissTotal = 0;
   let simFullVisInlineBuildTotal = 0;
+  let simAutoFillTilesTotal = 0;
   const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -138,6 +145,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
 
   const snapshot = () => ({
     simEventLoopMaxMs,
+    simOwnedTilesTotal,
+    simMaxEmpireTiles,
     simEventLoopDelayMs: quantileSample(simEventLoopDelayMs),
     simTickDurationMs: {
       ai: quantileSample(simTickDurationMs.get("ai") ?? []),
@@ -227,6 +236,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simPostSeasonProtoTileCacheHitTotal,
     simPostSeasonProtoTileCacheMissTotal,
     simFullVisInlineBuildTotal,
+    simAutoFillTilesTotal,
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
     simAiUtilityActionClassTotalByClass: Object.fromEntries(
       DECISION_CLASSES.map((cls) => [cls, simAiUtilityActionClassTotalByClass.get(cls) ?? 0])
@@ -237,6 +247,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   return {
     setSimEventLoopMaxMs(value: number): void {
       simEventLoopMaxMs = clampMetric(value);
+    },
+    setSimOwnedTilesTotal(value: number): void {
+      simOwnedTilesTotal = clampMetric(value);
+    },
+    setSimMaxEmpireTiles(value: number): void {
+      simMaxEmpireTiles = clampMetric(value);
     },
     observeSimEventLoopDelayMs(value: number): void {
       appendSample(simEventLoopDelayMs, value, limit);
@@ -314,6 +330,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimFullVisInlineBuild(): void {
       simFullVisInlineBuildTotal += 1;
+    },
+    incrementSimAutoFillTiles(count: number): void {
+      simAutoFillTilesTotal += count;
     },
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);

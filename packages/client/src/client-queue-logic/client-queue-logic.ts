@@ -863,7 +863,7 @@ export const queueSpecificTargets = (
       continue;
     }
     const { x, y } = deps.parseKey(targetKey);
-    if (!deps.pickOriginForTarget(x, y) && !tile.dockId) {
+    if (!deps.pickOriginForTarget(x, y)) {
       skipped += 1;
       continue;
     }
@@ -1169,14 +1169,15 @@ export const processActionQueue = (
       continue;
     }
     if (!from && to.ownerId && to.dockId) {
-      if (tileSyncDebugEnabled()) {
-        console.warn("[dock-attack] from=to fallback fired — no origin found for dock target", {
-          target: { x: to.x, y: to.y, dockId: to.dockId, ownerId: to.ownerId },
-          optimisticFrom: optimisticFrom ? { x: optimisticFrom.x, y: optimisticFrom.y, dockId: optimisticFrom.dockId } : null,
-          selectedFrom: selectedFrom ? { x: selectedFrom.x, y: selectedFrom.y, ownerId: selectedFrom.ownerId } : null,
-        });
-      }
-      from = to;
+      logActionQueue("action-queue-drop-no-dock-origin", {
+        targetKey,
+        toOwnerId: to.ownerId,
+        toOwnershipState: to.ownershipState,
+        dockId: to.dockId,
+      });
+      state.actionQueue.shift();
+      state.queuedTargetKeys.delete(targetKey);
+      continue;
     }
     if (!from) {
       logActionQueue("action-queue-drop-no-origin", {

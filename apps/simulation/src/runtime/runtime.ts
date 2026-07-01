@@ -214,6 +214,7 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
+import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -263,6 +264,9 @@ import {
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
+  ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
+  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
+  isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -286,7 +290,9 @@ import {
 } from "../runtime-ability-command-handlers.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js";
 import {
+  handleAegisLockCommand as handleAegisLockCommandImpl,
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
+  handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
   handleCreateMountainCommand as handleCreateMountainCommandImpl,
   handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl,
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
@@ -479,6 +485,7 @@ export class SimulationRuntime {
   private readonly onMusterRemoteAttack: (() => void) | undefined;
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
+  private readonly onAutoFillTiles: ((count: number) => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -701,6 +708,7 @@ export class SimulationRuntime {
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
+    this.onAutoFillTiles = options.onAutoFillTiles;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -863,6 +871,7 @@ export class SimulationRuntime {
           playerId: pendingSettlement.ownerId,
           tileDeltas: [this.tileDeltaFromState(settledTile)]
         });
+        this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
         this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
@@ -1273,6 +1282,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       buildCaptureRevealTileDeltas: (playerId, centerX, centerY) => this.buildCaptureRevealTileDeltas(playerId, centerX, centerY),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
+      isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
+        this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       consumeOriginMuster: (originKey, playerId, amount) => this.consumeOriginMuster(originKey, playerId, amount),
       applyFortGarrisonAttrition: (targetKey, attackingForce) => this.applyFortGarrisonAttrition(targetKey, attackingForce),
       applyLockedManpowerDelta: (player, manpowerDelta) => this.applyLockedManpowerDelta(player, manpowerDelta),
@@ -1283,7 +1294,7 @@ export class SimulationRuntime {
       onCaptureRevealBuilt: this.onCaptureRevealBuilt,
       applyBarbarianWalkOrMultiply: (lock, previousTarget) => this.applyBarbarianWalkOrMultiply(lock, previousTarget),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
-      applyEncirclementForExpand: (targetKey, playerId, commandId) => this.applyEncirclementForExpand(targetKey, playerId, commandId),
+      applyEncirclementForExpand: (targetKey, playerId, commandId, options) => this.applyEncirclementForExpand(targetKey, playerId, commandId, options),
       relocateSettlementForPlayer: (playerId, commandId, population) => this.relocateSettlementForPlayer(playerId, commandId, population),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
@@ -1297,10 +1308,11 @@ export class SimulationRuntime {
             tiles: this.tiles,
             invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
           })
-        : undefined
+        : undefined,
     };
   }
 
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => this.tileDeltaFromState(t)) }); }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -1622,7 +1634,6 @@ export class SimulationRuntime {
     // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
     // separately in the tile-yield path; this path covers upkeep drain only.
     const upkeep = this.cachedUpkeepAccrual(player);
-    console.error(`[FOOD_DEBUG] player=${player.id} nowMs=${nowMs} food=${player.strategicResources?.FOOD ?? 0} upkeepFood=${upkeep.food} elapsedMin=${(elapsedMs / 60_000).toFixed(2)} reason=enter_applyEconomyAccrual`);
     // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
     // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
     if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
@@ -1667,15 +1678,11 @@ export class SimulationRuntime {
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
       SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
     };
-    const foodBeforeConsume = player.strategicResources?.FOOD ?? 0;
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
     // so an offline player whose tile income covers upkeep keeps the
     // stockpile they logged out with.
     this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
-    if (need.FOOD > 0 && upkeep.food > 0) {
-      console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${foodBeforeConsume} needFOOD=${need.FOOD} upkeepFood=${upkeep.food} elapsedMin=${elapsedMinutes} reason=after_tile_yield_consume`);
-    }
     if (need.gold > 0) {
       player.points = Math.max(0, (player.points ?? 0) - need.gold);
     }
@@ -1689,9 +1696,6 @@ export class SimulationRuntime {
     let mutated = false;
     for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
       if (need[res] > 0) {
-        if (res === "FOOD") {
-          console.error(`[FOOD_DEBUG] player=${player.id} foodBefore=${stock["FOOD"]} deducted=${need["FOOD"]} foodAfter=${Math.max(0, stock["FOOD"] - need["FOOD"])} reason=upkeep_stock_subtract`);
-        }
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;
       }
@@ -1774,9 +1778,6 @@ export class SimulationRuntime {
         const available = yieldView.yield.strategic[resource] ?? 0;
         if (available > 0 && need[resource] > 0) {
           const consumed = Math.min(available, need[resource]);
-          if (resource === "FOOD") {
-            console.error(`[FOOD_DEBUG] player=${player.id} tile=${tileKey} foodConsumed=${consumed} needAfter=${need["FOOD"] - consumed} reason=tile_yield_consume`);
-          }
           need[resource] -= consumed;
           const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
           updateCandidate(available - consumed, ratePerMs);
@@ -2403,6 +2404,21 @@ export class SimulationRuntime {
     });
   }
 
+  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
+  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
+  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
+  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
+    let totalOwnedTiles = 0;
+    let maxEmpireTiles = 0;
+    for (const [playerId, summary] of this.playerSummaries) {
+      if (playerId.startsWith("barbarian")) continue;
+      const size = summary.territoryTileKeys.size;
+      totalOwnedTiles += size;
+      if (size > maxEmpireTiles) maxEmpireTiles = size;
+    }
+    return { totalOwnedTiles, maxEmpireTiles };
+  }
+
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
     return buildRuntimePlannerPlayerViews({
       playerIds,
@@ -2621,6 +2637,7 @@ export class SimulationRuntime {
           }
           return v;
         },
+        hasFullVision: (pid) => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
@@ -3078,7 +3095,9 @@ export class SimulationRuntime {
       targetLockedUntil: targetLock?.resolvesAt,
       targetLockOwnerId: targetLock?.playerId,
       actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
+      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
+        (this.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
+          .includes(simulationTileKey(to.x, to.y)),
       isDockCrossing,
       isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
@@ -3275,6 +3294,7 @@ export class SimulationRuntime {
         playerId: input.playerId,
         tileDeltas: [this.tileDeltaFromState(settledTile)]
       });
+      this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     });
   }
@@ -3635,6 +3655,11 @@ export class SimulationRuntime {
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
+        this.isTileShieldedByAegisLock(actorId, targetX, targetY),
+      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
+        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
@@ -3668,6 +3693,18 @@ export class SimulationRuntime {
 
   private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
     handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private handleAegisLockCommand(command: CommandEnvelope): void {
+    handleAegisLockCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private handleAstralDockLaunchCommand(command: CommandEnvelope): void {
+    handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
+    return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY);
   }
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
@@ -4030,7 +4067,6 @@ export class SimulationRuntime {
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
-    if (!from.dockId) return false;
     return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
   }
 
@@ -4056,7 +4092,7 @@ export class SimulationRuntime {
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== playerId || tile.terrain !== "LAND" || !tile.dockId) continue;
+      if (tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
       if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
@@ -4241,8 +4277,8 @@ export class SimulationRuntime {
     resolveLockImpl(this.lockResolutionContext(), lock);
   }
 
-  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string): void {
-    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId);
+  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void {
+    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId, options);
   }
 
   private applyEncirclement(
@@ -4524,6 +4560,8 @@ export class SimulationRuntime {
       handleAirportBombardCommand: (command) => this.handleAirportBombardCommand(command),
       handleImperialExchangeLevyCommand: (command) => this.handleImperialExchangeLevyCommand(command),
       handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
+      handleAegisLockCommand: (command) => this.handleAegisLockCommand(command),
+      handleAstralDockLaunchCommand: (command) => this.handleAstralDockLaunchCommand(command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
@@ -4532,6 +4570,7 @@ export class SimulationRuntime {
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
+    this.updatePlayerLastActive(command.playerId, this.now());
     const lane = laneForCommand(command);
     this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
   }

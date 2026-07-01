@@ -1,6 +1,6 @@
 import { CanvasTexture, Scene, Sprite, SpriteMaterial } from "three";
 
-const FLOAT_DURATION_MS = 3200;
+const FLOAT_DURATION_MS = 5000;
 const FLOAT_RISE_HEIGHT = 4.2;
 const SPRITE_BASE_SCALE_X = 3.2;
 const SPRITE_BASE_SCALE_Y = 1.0;

@@ -201,22 +201,9 @@ const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
     }
   }
 
-  // Pass 3: ensureInterestCoverage — one town per 15×15 cell that has land but nothing interesting
-  for (let by = 0; by < WORLD_HEIGHT; by += 15) {
-    for (let bx = 0; bx < WORLD_WIDTH; bx += 15) {
-      let interesting = false;
-      let pick = -1;
-      for (let dy = 0; dy < 15 && !interesting; dy++) {
-        for (let dx = 0; dx < 15 && !interesting; dx++) {
-          const idx = (by + dy) * WORLD_WIDTH + (bx + dx);
-          if (terrain[idx] !== 1) continue;
-          if (pick === -1 && !townSet.has(idx)) pick = idx;
-          if (townSet.has(idx)) interesting = true;
-        }
-      }
-      if (!interesting && pick !== -1) townSet.add(pick);
-    }
-  }
+  // Pass 3 (ensureInterestCoverage) is omitted: in production, food clusters placed during
+  // pass 2 make nearly every 15×15 sub-cell "interesting", so pass 3 adds very few towns.
+  // Without cluster data in the worker we cannot replicate it without wild overcounting.
 
   return townSet.size;
 };

@@ -3,6 +3,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
@@ -35,7 +36,12 @@ import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
-import { withTimeout } from "../promise-timeout.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import {
+  createSimSubmitHealthState,
+  recordSubmitSuccess,
+  shouldMarkUnavailableOnSubmitError
+} from "./sim-submit-health.js";
 import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
@@ -59,7 +65,7 @@ import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snap
 import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
 import { seasonalPlayerNameForId } from "../../../simulation/src/season-worldgen/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionDock, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -338,10 +344,28 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
   return map;
 };
 
+const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number, docks: PlayerSubscriptionDock[] | undefined): boolean => {
+  if (!docks) return false;
+  const dockById = new Map(docks.map((d) => [d.dockId, d] as const));
+  const dockByTileKey = new Map(docks.map((d) => [d.tileKey, d] as const));
+  const fromDock = dockByTileKey.get(`${fromX},${fromY}`);
+  if (!fromDock) return false;
+  const linkedDockIds = fromDock.connectedDockIds?.length ? fromDock.connectedDockIds : fromDock.pairedDockId ? [fromDock.pairedDockId] : [];
+  const toKey = `${toX},${toY}`;
+  return linkedDockIds.some((linkedId) => {
+    const linked = dockById.get(linkedId);
+    return linked?.tileKey === toKey;
+  });
+};
+
 const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  docks: PlayerSubscriptionDock[] | undefined,
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  attackerTechIds?: readonly string[],
+  attackerDomainIds?: readonly string[],
+  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -361,11 +385,23 @@ const attackPreviewResult = (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
+  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
+  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
+  const techModifiers = attackerTechIds
+    ? resolveFrontierCombatMultipliers(
+        attackerTechIds,
+        attackerDomainIds,
+        defenderPlayerData?.techIds,
+        defenderPlayerData?.domainIds,
+      )
+    : undefined;
+  const preview = buildFrontierCombatPreview(target, {
+    attackerOutpostMult,
+    ...(techModifiers ?? {}),
+  });
   return {
     ...responseBase,
     valid: true,
@@ -488,6 +524,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
+  const simSubmitHealth = createSimSubmitHealthState();
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   const slowLoginAlerter = createSlowLoginAlerter({
@@ -679,8 +716,42 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
   const markSimulationReady = (): void => {
+    recordSubmitSuccess(simSubmitHealth);
     simulationRpcConnected = true;
     refreshCombinedSimulationHealth();
+  };
+  // Shared submit-error handler for both submit paths (social sync + player
+  // submit). Routes through the tested sim-submit-health helper so a single
+  // transient timeout doesn't flip the sim to "unavailable" (which surfaces
+  // SERVER_STARTING to clients) — only N consecutive timeouts do, mirroring
+  // the ping-failure threshold. Real channel errors flip immediately.
+  const handleSubmitError = (error: unknown, ctx: { commandId: string; playerId: string }): void => {
+    const decision = shouldMarkUnavailableOnSubmitError(error, simSubmitHealth, {
+      threshold: simulationHealthFailureThreshold,
+      hasEverBeenReady: typeof simulationHealth.lastReadyAt === "number"
+    });
+    if (decision.tolerated) {
+      gatewayMetrics.incrementSimulationSubmitTimeoutTolerated();
+      recordGatewayEvent("warn", "simulation_submit_timeout_tolerated", {
+        commandId: ctx.commandId,
+        playerId: ctx.playerId,
+        consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+        failureThreshold: simulationHealthFailureThreshold
+      });
+      return;
+    }
+    if (decision.markUnavailable) {
+      if (error instanceof TimeoutError) {
+        gatewayMetrics.incrementSimulationSubmitTimeoutFlipped();
+        recordGatewayEvent("warn", "simulation_submit_timeout_flipped", {
+          commandId: ctx.commandId,
+          playerId: ctx.playerId,
+          consecutiveTimeouts: simSubmitHealth.consecutiveSubmitTimeouts,
+          failureThreshold: simulationHealthFailureThreshold
+        });
+      }
+      markSimulationUnavailable(error);
+    }
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationRpcConnected = false;
@@ -712,7 +783,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       markSimulationReady();
       return true;
     } catch (error) {
-      markSimulationUnavailable(error);
+      handleSubmitError(error, { commandId: command.commandId, playerId: input.playerId });
       recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
         commandId: command.commandId,
         playerId: input.playerId,
@@ -2646,7 +2717,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "ATTACK_PREVIEW") {
-            sendJson(socket, attackPreviewResult(session.playerId, playerSubscriptions.snapshotForPlayer(session.playerId)?.tiles, message));
+            const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
+            const getPlayerTechDomainIds = (pid: string) => {
+              const ps = playerSubscriptions.snapshotForPlayer(pid);
+              return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+            };
+            sendJson(socket, attackPreviewResult(
+              session.playerId,
+              previewSnapshot?.tiles,
+              previewSnapshot?.docks,
+              message,
+              previewSnapshot?.player?.techIds,
+              previewSnapshot?.player?.domainIds,
+              getPlayerTechDomainIds,
+            ));
             return;
           }
 
@@ -3065,6 +3149,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "AIRPORT_BOMBARD" &&
             message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
             message.type !== "WORLD_ENGINE_STRIKE" &&
+            message.type !== "AEGIS_LOCK" &&
+            message.type !== "ASTRAL_DOCK_LAUNCH" &&
             message.type !== "UPGRADE_TOWN_TIER" &&
             message.type !== "COLLECT_SHARD" &&
             message.type !== "SET_MUSTER" &&
@@ -3161,7 +3247,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   commandId: command.commandId,
                   error: error instanceof Error ? error.message : String(error)
                 });
-                markSimulationUnavailable(error);
+                handleSubmitError(error, { commandId: command.commandId, playerId: command.playerId });
                 recordGatewayEvent("warn", "simulation_submit_failed", {
                   commandId: command.commandId,
                   playerId: command.playerId,
@@ -3715,6 +3801,38 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 submitDeps
               )
             );
+          } else if (message.type === "AEGIS_LOCK") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "AEGIS_LOCK",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "ASTRAL_DOCK_LAUNCH",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
           } else if (message.type === "UPGRADE_TOWN_TIER") {
             const metadata = optionalCommandMetadata(message);
             await trackSubmitLatency(() =>
@@ -3825,6 +3943,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         address: `http://${host}:${resolvedPort}`,
         wsUrl: `ws://${host}:${resolvedPort}/ws`
       };
+    },
+    notifyDeployment(): void {
+      const payload = preSerializeBroadcast({ type: "SERVER_DEPLOYING" });
+      for (const socket of playerSubscriptions.allSockets()) {
+        try { sendJsonToSocket(socket, payload); } catch {}
+      }
     },
     async close(): Promise<void> {
       await gatewayBootstrapStringifier.close();

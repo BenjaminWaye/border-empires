@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay.js";
+import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
@@ -12,7 +12,7 @@ type Args = {
 
 const KINDS: ReadonlyArray<StructureKind> = [
   "FARMSTEAD", "WATERWORKS", "CAMP", "MINE", "IRONWORKS",
-  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY",
+  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY", "CENSUS_HALL",
   "BANK", "CLEARING_HOUSE", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE",
   "AIRPORT", "CARAVANARY", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE",
   "GARRISON_HALL", "GOVERNORS_OFFICE", "RAIL_DEPOT", "RADAR_SYSTEM",
@@ -80,6 +80,7 @@ export const MineGems: Story = { args: { structures: ["MINE"], resourceHint: "GE
 export const Observatory: Story = { args: { structures: ["OBSERVATORY"], cameraDistance: 3 } };
 export const Market: Story = { args: { structures: ["MARKET"], cameraDistance: 3 } };
 export const Granary: Story = { args: { structures: ["GRANARY"], cameraDistance: 3 } };
+export const CensusHall: Story = { args: { structures: ["CENSUS_HALL"], cameraDistance: 3 } };
 export const Bank: Story = { args: { structures: ["BANK"], cameraDistance: 3 } };
 export const ClearingHouse: Story = { args: { structures: ["CLEARING_HOUSE"], cameraDistance: 3 } };
 export const AetherTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
@@ -102,7 +103,7 @@ export const CrystalSynthesizer: Story = { args: { structures: ["CRYSTAL_SYNTHES
 export const AdvancedCrystalSynthesizer: Story = { args: { structures: ["ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 4 } };
 export const AstralDock: Story = { args: { structures: ["ASTRAL_DOCK"], cameraDistance: 4 } };
 export const FirstBatch: Story = { args: { structures: ["BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
-export const CivicBatch: Story = { args: { structures: ["BANK", "CLEARING_HOUSE", "EXCHANGE_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE"], cameraDistance: 8, spacing: 1.5 } };
+export const CivicBatch: Story = { args: { structures: ["BANK", "CLEARING_HOUSE", "EXCHANGE_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
 export const IndustrialBatch: Story = { args: { structures: ["IRONWORKS", "ADVANCED_IRONWORKS", "FOUNDRY"], cameraDistance: 7, spacing: 1.7 } };
 export const SynthesizerBatch: Story = { args: { structures: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 8, spacing: 1.6 } };

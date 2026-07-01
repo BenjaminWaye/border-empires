@@ -204,6 +204,7 @@ export const hideTechLockedTileAction = (
   if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
   const requiredTech = requiredTechForTileAction(action.id);
   if (requiredTech && !state.techIds.includes(requiredTech)) return true;
+  if (requiredTech) return false;
   if (!action.disabled || !action.disabledReason) return false;
   return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
 };
