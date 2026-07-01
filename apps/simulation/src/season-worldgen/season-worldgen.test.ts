@@ -42,8 +42,8 @@ const countSignificantIslands = (tiles: RecoveredSimulationState["tiles"], minTi
 };
 
 describe("season worldgen", () => {
-  it("builds a 20-ai seasonal world without pre-seeded human empires", () => {
-    const generated = generateSeasonWorld("seasonal-default", 12345, { mapStyle: "islands" });
+  it("builds a 20-ai seasonal world without pre-seeded human empires", async () => {
+    const generated = await generateSeasonWorld("seasonal-default", 12345, { mapStyle: "islands" });
 
     const towns = generated.initialState.tiles.filter((tile) => tile.town);
     const aiOwnedTiles = generated.initialState.tiles.filter((tile) => tile.ownerId?.startsWith("ai-"));
