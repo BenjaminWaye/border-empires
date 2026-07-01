@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield.js";
+import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type TerrainPattern = "all-grass" | "all-sand" | "checker" | "coastline" | "mountain-ridge" | "mixed";
