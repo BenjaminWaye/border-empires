@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { revealEmpireStatsDossierHtml } from "@client/client-empire-intel.js";
+import { revealEmpireStatsDossierHtml } from "@client/client-empire-intel/client-empire-intel.js";
 import type { RevealEmpireStatsView } from "@client/client-types.js";
 import "@client/style.css";
 

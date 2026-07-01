@@ -1,8 +1,19 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  AEGIS_LOCK_COOLDOWN_MS,
+  AEGIS_LOCK_CRYSTAL_COST,
+  AEGIS_LOCK_DURATION_MS,
+  AIRPORT_BOMBARD_BASE_MISS_CHANCE,
+  AIRPORT_BOMBARD_COOLDOWN_MS,
   AIRPORT_BOMBARD_CRYSTAL_COST,
+  AIRPORT_BOMBARD_FORT_MISS_BONUS,
+  AIRPORT_BOMBARD_GOLD_COST,
+  AIRPORT_BOMBARD_MAX_MISS_CHANCE,
   AIRPORT_BOMBARD_RANGE,
+  ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
+  ASTRAL_DOCK_LAUNCH_CRYSTAL_COST,
+  ASTRAL_DOCK_LAUNCH_DURATION_MS,
   IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
   IMPERIAL_EXCHANGE_LEVY_SHARE,
@@ -11,10 +22,14 @@ import {
   TERRAIN_SHAPING_GOLD_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_CRYSTAL_COST,
+  WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
 } from "@border-empires/game-domain";
+import { AEGIS_LOCK_ACTIVE_UNTIL_KEY, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY } from "./runtime-ability-helpers.js";
 import {
+  parseAegisLockPayload,
   parseAirportBombardPayload,
+  parseAstralDockLaunchPayload,
   parseImperialExchangeLevyPayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
@@ -37,6 +52,9 @@ export type RuntimeMapCommandContext = {
   bumpTerrainEpoch: () => void;
   isStructurePowered: (ownerId: string, tileKey: string, structureType: EconomicStructureType) => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
+  isTileBombardBlockedByRadar: (actorId: string, targetX: number, targetY: number) => boolean;
+  emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
   setAbilityCooldownUntil: (playerId: string, abilityKey: string, untilMs: number) => void;
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
@@ -170,12 +188,14 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   const airportKey = simulationTileKey(payload.fromX, payload.fromY);
   const airport = context.tiles.get(airportKey);
+  const airportStructure = airport?.economicStructure;
   if (
     !airport ||
     airport.ownerId !== actor.id ||
-    airport.economicStructure?.ownerId !== actor.id ||
-    airport.economicStructure.type !== "AIRPORT" ||
-    airport.economicStructure.status !== "active"
+    !airportStructure ||
+    airportStructure.ownerId !== actor.id ||
+    airportStructure.type !== "AIRPORT" ||
+    airportStructure.status !== "active"
   ) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active airport first");
     return;
@@ -188,36 +208,87 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Aether Tower");
     return;
   }
+  const now = context.now();
+  const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
+  if (bombardCooldownUntil > now) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport bombardment on cooldown");
+    return;
+  }
+  if (context.isTileBombardBlockedByRadar(actor.id, payload.toX, payload.toY)) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "blocked by a Resonance Grid");
+    return;
+  }
+  if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
+    return;
+  }
   if (!context.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient CRYSTAL for bombardment");
     return;
   }
+  actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
+  const tileOutcomes: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> = [];
+  let targetableTiles = 0;
+  let hitTiles = 0;
+  let missedTiles = 0;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       const tileKey = simulationTileKey(payload.toX + dx, payload.toY + dy);
       const tile = context.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) continue;
+      targetableTiles += 1;
+      const missChance = Math.min(
+        AIRPORT_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? AIRPORT_BOMBARD_FORT_MISS_BONUS : 0),
+        AIRPORT_BOMBARD_MAX_MISS_CHANCE
+      );
+      if (Math.random() < missChance) {
+        missedTiles += 1;
+        tileOutcomes.push({ dx, dy, outcome: "miss" });
+        continue;
+      }
+      hitTiles += 1;
+      tileOutcomes.push({ dx, dy, outcome: "hit" });
       const updatedTile: DomainTileState = {
         ...tile,
         ownerId: undefined,
         ownershipState: undefined,
-        town: undefined,
-        fort: undefined,
-        observatory: undefined,
-        siegeOutpost: undefined,
-        economicStructure: undefined,
-        sabotage: undefined
+        frontierDecayAt: undefined,
+        frontierDecayKind: undefined
       };
       context.replaceTileState(tileKey, updatedTile, command.commandId);
       changedTiles.push(context.tileDeltaFromState(updatedTile));
     }
   }
+  // Stamp cooldown on the airport tile and broadcast it
+  const updatedAirport: DomainTileState = {
+    ...airport,
+    economicStructure: {
+      ...airportStructure,
+      bombardCooldownUntil: now + AIRPORT_BOMBARD_COOLDOWN_MS
+    }
+  };
+  context.replaceTileState(airportKey, updatedAirport, command.commandId);
+  changedTiles.push(context.tileDeltaFromState(updatedAirport));
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,
     playerId: command.playerId,
     tileDeltas: changedTiles
+  });
+  context.emitPlayerMessage(command, {
+    type: "PLAYER_UPDATE",
+    points: actor.points,
+    strategicResources: actor.strategicResources
+  });
+  context.emitPlayerMessage(command, {
+    type: "AIRPORT_BOMBARD_RESULT",
+    x: payload.toX,
+    y: payload.toY,
+    targetableTiles,
+    hitTiles,
+    missedTiles,
+    tiles: tileOutcomes
   });
 }
 
@@ -310,10 +381,15 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "blocked by an Aegis Dome");
     return;
   }
+  if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
+    return;
+  }
   if (!context.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient CRYSTAL");
     return;
   }
+  actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;
   const target = context.tiles.get(targetKey);
   if (target) {
     let updated: DomainTileState = target;
@@ -347,4 +423,88 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     }
   }
   context.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
+}
+
+export function handleAegisLockCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
+  const actor = context.players.get(command.playerId);
+  const payload = parseAegisLockPayload(command.payloadJson);
+  if (!actor || !payload) {
+    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
+    return;
+  }
+  const anchorKey = simulationTileKey(payload.fromX, payload.fromY);
+  const anchor = context.tiles.get(anchorKey);
+  if (
+    !anchor ||
+    anchor.ownerId !== actor.id ||
+    anchor.economicStructure?.ownerId !== actor.id ||
+    anchor.economicStructure.type !== "AEGIS_DOME" ||
+    anchor.economicStructure.status !== "active"
+  ) {
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "select an active Aegis Dome");
+    return;
+  }
+  if (!context.isStructurePowered(actor.id, anchorKey, "AEGIS_DOME")) {
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "Aegis Dome requires a nearby Aether Tower");
+    return;
+  }
+  const now = context.now();
+  if (context.getAbilityCooldownUntil(actor.id, "aegis_lock") > now) {
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "ability on cooldown");
+    return;
+  }
+  if (!context.spendStrategicResource(actor, "CRYSTAL", AEGIS_LOCK_CRYSTAL_COST)) {
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "insufficient CRYSTAL");
+    return;
+  }
+  context.setAbilityCooldownUntil(actor.id, AEGIS_LOCK_ACTIVE_UNTIL_KEY, now + AEGIS_LOCK_DURATION_MS);
+  context.setAbilityCooldownUntil(actor.id, "aegis_lock", now + AEGIS_LOCK_COOLDOWN_MS);
+  context.emitPlayerMessage(command, {
+    type: "AEGIS_LOCK_ACTIVATED",
+    x: payload.fromX,
+    y: payload.fromY,
+    activeUntil: now + AEGIS_LOCK_DURATION_MS
+  });
+}
+
+export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
+  const actor = context.players.get(command.playerId);
+  const payload = parseAstralDockLaunchPayload(command.payloadJson);
+  if (!actor || !payload) {
+    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
+    return;
+  }
+  const anchorKey = simulationTileKey(payload.fromX, payload.fromY);
+  const anchor = context.tiles.get(anchorKey);
+  if (
+    !anchor ||
+    anchor.ownerId !== actor.id ||
+    anchor.economicStructure?.ownerId !== actor.id ||
+    anchor.economicStructure.type !== "ASTRAL_DOCK" ||
+    anchor.economicStructure.status !== "active"
+  ) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "select an active Astral Dock");
+    return;
+  }
+  if (!context.isStructurePowered(actor.id, anchorKey, "ASTRAL_DOCK")) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "Astral Dock requires a nearby Aether Tower");
+    return;
+  }
+  const now = context.now();
+  if (context.getAbilityCooldownUntil(actor.id, "astral_dock_launch") > now) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
+    return;
+  }
+  if (!context.spendStrategicResource(actor, "CRYSTAL", ASTRAL_DOCK_LAUNCH_CRYSTAL_COST)) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "insufficient CRYSTAL");
+    return;
+  }
+  context.setAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY, now + ASTRAL_DOCK_LAUNCH_DURATION_MS);
+  context.setAbilityCooldownUntil(actor.id, "astral_dock_launch", now + ASTRAL_DOCK_LAUNCH_COOLDOWN_MS);
+  context.emitPlayerMessage(command, {
+    type: "ASTRAL_DOCK_LAUNCH_ACTIVATED",
+    x: payload.fromX,
+    y: payload.fromY,
+    activeUntil: now + ASTRAL_DOCK_LAUNCH_DURATION_MS
+  });
 }

@@ -42,6 +42,7 @@ describe("recoverSimulationStateFromEvents", () => {
   });
 
   it("preserves terrain, resource, dockId, and town on COMBAT_RESOLVED replay when capture follow-up tile delta is missing", () => {
+    const before = Date.now();
     const recovered = applySimulationEventsToRecoveredState(
       {
         tiles: [
@@ -81,6 +82,54 @@ describe("recoverSimulationStateFromEvents", () => {
     expect(target?.dockId).toBe("dock-7");
     expect(target?.town?.name).toBe("SAND");
     expect(target?.town?.populationTier).toBe("TOWN");
+    expect(typeof target?.town?.populationBeforeCapture).toBe("number");
+    expect(target!.town!.populationBeforeCapture).toBe(800);
+    expect(typeof target?.town?.captureShockUntil).toBe("number");
+    expect(target!.town!.captureShockUntil).toBeGreaterThan(before);
+    expect(target!.town!.captureShockUntil).toBeLessThan(before + 610_000);
+    expect(typeof target?.town?.population).toBe("number");
+    expect(target!.town!.population).toBeLessThan(800);
+  });
+
+  it("destroys SETTLEMENT-tier towns on COMBAT_RESOLVED replay to match live capture aftermath", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [
+          {
+            x: 9,
+            y: 270,
+            terrain: "FOREST",
+            resource: "FOOD",
+            dockId: "dock-7",
+            ownerId: "player-defender",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Settlement 9,270" }
+          }
+        ],
+        activeLocks: []
+      },
+      [
+        {
+          eventType: "COMBAT_RESOLVED",
+          commandId: "cmd-s1",
+          playerId: "player-attacker",
+          originX: 8,
+          originY: 270,
+          targetX: 9,
+          targetY: 270,
+          attackerWon: true
+        }
+      ]
+    );
+
+    const target = recovered.tiles.find((tile) => tile.x === 9 && tile.y === 270);
+    expect(target).toBeDefined();
+    expect(target?.ownerId).toBe("player-attacker");
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(target?.terrain).toBe("FOREST");
+    expect(target?.resource).toBe("FOOD");
+    expect(target?.dockId).toBe("dock-7");
+    expect(target?.town).toBeUndefined();
   });
 
   it("transfers origin to defender on COMBAT_RESOLVED replay when origin was lost in a failed attack", () => {

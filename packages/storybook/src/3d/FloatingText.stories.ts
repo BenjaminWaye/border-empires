@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createFloatingTextLayer } from "@client/client-map-3d-floating-text.js";
+import { createFloatingTextLayer } from "@client/client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

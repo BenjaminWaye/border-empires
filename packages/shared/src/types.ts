@@ -100,6 +100,7 @@ export interface EconomicStructure {
   previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
   powered?: boolean;
+  bombardCooldownUntil?: number;
 }
 
 export interface SeasonVictoryObjectiveView {

@@ -1,15 +1,17 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import type { WorldStyle } from "@border-empires/shared";
 
-import { createSeason20AiSeedWorld } from "../season-seed-world.js";
+import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";
-export type SimulationMapStyle = "continents" | "islands";
+export type SimulationMapStyle = WorldStyle;
 
 export type GeneratedSeasonWorld = {
   initialPlayers: Map<string, DomainPlayer>;
   initialState: RecoveredSimulationState;
   worldSeed: number;
+  mapStyle: SimulationMapStyle;
 };
 
 export const parseSimulationMapStyle = (value: string | undefined): SimulationMapStyle =>
@@ -95,20 +97,21 @@ const toRecoveredPlayer = (player: DomainPlayer): NonNullable<RecoveredSimulatio
   ...(player.mods ? { vision: player.mods.vision, incomeMultiplier: player.mods.income } : {})
 });
 
-export const generateSeasonWorld = (
+export const generateSeasonWorld = async (
   rulesetId: SimulationRulesetId,
   requestedWorldSeed: number,
   options: {
     aiPlayerCount?: number;
     mapStyle?: SimulationMapStyle;
+    onYield?: () => Promise<void>;
   } = {}
-): GeneratedSeasonWorld => {
+): Promise<GeneratedSeasonWorld> => {
   if (rulesetId !== "seasonal-default") {
     throw new Error(`unsupported simulation ruleset: ${rulesetId}`);
   }
   const mapStyle = options.mapStyle ?? "continents";
 
-  const generated = createSeason20AiSeedWorld(
+  const generated = await createSeasonSeedWorldAsync(
     requestedWorldSeed,
     (id, isAi) => ({
       ...createRuntimePlayer(id),
@@ -117,13 +120,22 @@ export const generateSeasonWorld = (
     {
       humanPlayerCount: 0,
       aiPlayerCount: Math.max(0, options.aiPlayerCount ?? 20),
-      ...(mapStyle === "islands"
-        ? {
-            minSignificantIslands: 20,
-            maxSignificantIslands: 30,
-            maxLargestIslandShare: 0.22
-          }
-        : {})
+      style: mapStyle,
+      // The old 20-30 minSignificantIslands/maxSignificantIslands and 0.22
+      // maxLargestIslandShare bounds were tuned to reject-sample CONTINENT seeds
+      // until the coastline noise happened to look archipelago-like — a stand-in
+      // for a real islands generator. Now that style="islands" actually invokes
+      // buildIslands() (55 scattered blobs), that upper bound is permanently
+      // unsatisfiable (true output is ~44-65 significant islands) and the
+      // acceptance loop below would burn all 16 iterations regenerating the full
+      // world every season bootstrap (~73s) for nothing.
+      //
+      // Keep only a generous floor, well below the natural range, as a safety
+      // net against a truly degenerate seed (e.g. blobs coincidentally merging
+      // into one dominant landmass) — not a real design bound, just a sanity
+      // check that doesn't reintroduce the always-reject perf regression.
+      ...(mapStyle === "islands" ? { minSignificantIslands: 10 } : {}),
+      ...(options.onYield ? { onYield: options.onYield } : {})
     }
   );
 
@@ -151,6 +163,7 @@ export const generateSeasonWorld = (
       tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     },
-    worldSeed: generated.worldSeed ?? requestedWorldSeed
+    worldSeed: generated.worldSeed ?? requestedWorldSeed,
+    mapStyle
   };
 };

@@ -104,6 +104,8 @@ export type SimulationSnapshotMetricSample = {
 
 export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
+  simOwnedTilesTotal: number;
+  simMaxEmpireTiles: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
@@ -184,6 +186,7 @@ export type SimulationMetricsSnapshot = {
   simSeasonEndSnapshotWarmFailedTotal: number;
   /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */
   simFullVisInlineBuildTotal: number;
+  simAutoFillTilesTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
   /** Counter per utility DecisionClass acted on. */

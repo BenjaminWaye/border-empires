@@ -7,7 +7,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createSurveySweepFxLayer } from "@client/client-map-3d-survey-sweep-fx.js";
+import { createSurveySweepFxLayer } from "@client/client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
 import { createSurveySweepPingOverlay } from "@client/client-map-3d-survey-sweep-ping-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 

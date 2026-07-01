@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createRoadOverlay } from "@client/client-map-3d-road-overlay.js";
-import type { RoadDirections } from "@client/client-road-network.js";
+import { createRoadOverlay } from "@client/client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import type { RoadDirections } from "@client/client-road-network/client-road-network.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

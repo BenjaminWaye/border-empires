@@ -1,0 +1,439 @@
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import {
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  landBiomeAt,
+  setWorldSeed,
+  terrainAt,
+  wrapX,
+  wrapY,
+  type Player,
+  type TileKey,
+  type WorldStyle
+} from "@border-empires/shared";
+
+import {
+  INITIAL_SHARD_SCATTER_COUNT,
+  LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
+  POPULATION_MAX,
+  POPULATION_TOWN_MIN,
+  WORLD_TOWN_POPULATION_MIN,
+  WORLD_TOWN_POPULATION_START_SPREAD,
+  key,
+  parseKey,
+  type ClusterDefinition,
+  type ShardSiteState,
+  type TerrainShapeState,
+  type TownDefinition,
+  createServerWorldgenClusters,
+  createServerWorldgenDocks,
+  createServerWorldgenShards,
+  createServerWorldgenTowns,
+  assignMissingTownNames
+} from "@border-empires/game-domain";
+
+import {
+  buildIslandMap,
+  chebyshevDistance,
+  createSettlementTown,
+  createTerrainRuntime,
+  islandSizeSummary,
+  noOp,
+  tileKey,
+  townStateFromDefinition,
+  worldLooksBland,
+  type GeneratedDockState,
+  type GeneratedSeasonSeedWorld
+} from "./season-seed-world.js";
+
+// This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
+// yields between generation stages, used by the live "Start New Season"
+// path (season-worldgen.ts), which runs on an armed watchdog alongside
+// other traffic and must not monopolize the event loop for the whole
+// 6-30s+ run. createSeasonSeedWorld itself stays synchronous because it's
+// also called from the SimulationRuntime constructor (via seed-state.ts's
+// "season-20ai" dev/test profile), which can't await. Keep the generation
+// sequence in sync between the two files when editing either.
+export const createSeasonSeedWorldAsync = async (
+  seed: number,
+  createPlayer: (id: string, isAi: boolean) => DomainPlayer,
+  options: {
+    humanPlayerCount?: number;
+    aiPlayerCount?: number;
+    style?: WorldStyle;
+    minSignificantIslands?: number;
+    maxSignificantIslands?: number;
+    significantIslandTileThreshold?: number;
+    maxLargestIslandShare?: number;
+    // Optional cooperative yield hook. Passing yieldToEventLoop lets the
+    // ~200k-tile generation loop below give the event loop a turn between
+    // stages instead of blocking it for the whole 6-30s+ run — safe here
+    // specifically because every live call path that touches the shared
+    // terrainAt/setWorldSeed module state (SubmitCommand handlers, the
+    // background tickers) already no-ops once the season is "ended", which
+    // is a precondition for this function running in the first place. Omit
+    // it (as the boot-time worldgen-baseline cache-miss path does) to keep
+    // an uninterrupted block, which is fine before the watchdog is armed.
+    onYield?: () => Promise<void>;
+  } = {}
+): Promise<GeneratedSeasonSeedWorld> => {
+  const onYield = options.onYield;
+  const style = options.style ?? "continents";
+  const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
+  const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
+  const significantIslandTileThreshold = Math.max(1, options.significantIslandTileThreshold ?? 20);
+  const minSignificantIslands = options.minSignificantIslands === undefined ? undefined : Math.max(0, options.minSignificantIslands);
+  const maxSignificantIslands =
+    options.maxSignificantIslands === undefined
+      ? undefined
+      : Math.max(minSignificantIslands ?? 0, options.maxSignificantIslands);
+  const maxLargestIslandShare =
+    options.maxLargestIslandShare === undefined
+      ? undefined
+      : Math.min(1, Math.max(0.01, options.maxLargestIslandShare));
+  const activeSeason = { worldSeed: seed };
+  const clusterByTile = new Map<TileKey, string>();
+  const clustersById = new Map<string, ClusterDefinition>();
+  const townsByTile = new Map<TileKey, TownDefinition>();
+  const docksByTile = new Map<TileKey, GeneratedDockState>();
+  const dockById = new Map<string, GeneratedDockState>();
+  const shardSitesByTile = new Map<TileKey, ShardSiteState>();
+  const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
+  const ownership = new Map<TileKey, string>();
+  const playersForTerrain = new Map<string, Player>();
+  const terrainRuntime = createTerrainRuntime({
+    activeSeason,
+    clusterByTile,
+    clustersById,
+    docksByTile,
+    fortsByTile: new Map(),
+    observatoriesByTile: new Map(),
+    ownership,
+    players: playersForTerrain,
+    siegeOutpostsByTile: new Map(),
+    terrainShapesByTile,
+    townsByTile,
+    economicStructuresByTile: new Map()
+  });
+  const clustersRuntime = createServerWorldgenClusters({
+    clusterByTile,
+    clustersById,
+    clusterTypeDefs: terrainRuntime.clusterTypeDefs,
+    seeded01: terrainRuntime.seeded01,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    clusterRuleMatch: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, false),
+    clusterRuleMatchRelaxed: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, true),
+    clusterTileCountForResource: terrainRuntime.clusterTileCountForResource,
+    collectClusterTiles: terrainRuntime.collectClusterTiles,
+    collectClusterTilesRelaxed: terrainRuntime.collectClusterTilesRelaxed,
+    clusterRadiusForResource: terrainRuntime.clusterRadiusForResource,
+    key,
+    clusterResourceType: terrainRuntime.clusterResourceType
+  });
+  const docksRuntime = createServerWorldgenDocks({
+    seeded01: terrainRuntime.seeded01,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    key,
+    wrapX,
+    wrapY,
+    worldIndex: (x, y) => y * WORLD_WIDTH + x,
+    terrainAt,
+    adjacentOceanSea: terrainRuntime.adjacentOceanSea,
+    largestSeaComponentMask: terrainRuntime.largestSeaComponentMask,
+    clusterByTile,
+    LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    dockById: dockById as Map<string, never>,
+    getDockLinkedTileKeysByDockTileKey: () => new Map()
+  });
+  const townsRuntime = createServerWorldgenTowns({
+    seeded01: terrainRuntime.seeded01,
+    regionTypeAtLocal: terrainRuntime.regionTypeAtLocal,
+    landBiomeAt,
+    activeSeason,
+    townsByTile,
+    firstSpecialSiteCaptureClaimed: new Set(),
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainAt,
+    key,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    clusterByTile,
+    POPULATION_MAX,
+    POPULATION_TOWN_MIN,
+    now: () => 0,
+    wrapX,
+    wrapY,
+    parseKey,
+    assignMissingTownNames,
+    getIslandMap: () => buildIslandMap(terrainRuntime.terrainAtRuntime),
+    WORLD_TOWN_POPULATION_MIN,
+    WORLD_TOWN_POPULATION_START_SPREAD,
+    nearestLandTiles: terrainRuntime.nearestLandTiles,
+    resourcePlacementAllowed: terrainRuntime.resourcePlacementAllowed,
+    clustersById,
+    clusterResourceType: terrainRuntime.clusterResourceType
+  });
+  const shardsRuntime = createServerWorldgenShards({
+    terrainAt,
+    key,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    clusterByTile,
+    townsByTile,
+    shardSitesByTile,
+    now: () => 0,
+    INITIAL_SHARD_SCATTER_COUNT,
+    seeded01: terrainRuntime.seeded01,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    currentShardRainNotice: () => undefined,
+    SHARD_RAIN_TTL_MS: 0,
+    nextShardRainStartAt: () => 0,
+    getLastShardRainWarningSlotKey: () => undefined,
+    setLastShardRainWarningSlotKey: noOp,
+    broadcast: noOp,
+    hasOnlinePlayers: () => false,
+    SHARD_RAIN_SITE_MIN: 0,
+    SHARD_RAIN_SITE_MAX: 0,
+    broadcastLocalVisionDelta: noOp,
+    SHARD_RAIN_SCHEDULE_HOURS: [],
+    getLastShardRainSlotKey: () => undefined,
+    setLastShardRainSlotKey: noOp,
+    parseKey,
+    markSummaryChunkDirtyAtTile: noOp,
+    visible: () => false,
+    getOrInitStrategicStocks: () => ({ SHARD: 0 })
+  });
+
+  let worldSeed = seed;
+  let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
+  for (let iteration = 0; iteration < 16; iteration += 1) {
+    activeSeason.worldSeed = worldSeed;
+    setWorldSeed(worldSeed, style);
+    clustersRuntime.generateClusters(worldSeed);
+    await onYield?.();
+    docksRuntime.generateDocks(worldSeed);
+    await onYield?.();
+    townsRuntime.generateTowns(worldSeed);
+    shardsRuntime.seedInitialShardScatter(worldSeed);
+    townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
+    await onYield?.();
+    townsRuntime.ensureInterestCoverage(worldSeed);
+    townsRuntime.normalizeTownPlacements();
+    townsRuntime.assignMissingTownNamesForWorld();
+    await onYield?.();
+    islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
+    await onYield?.();
+    const islandDistributionAccepted =
+      (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
+      (maxSignificantIslands === undefined || islandSummary.significantCount <= maxSignificantIslands) &&
+      (maxLargestIslandShare === undefined || islandSummary.largestShare <= maxLargestIslandShare);
+    if (islandDistributionAccepted && !worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01)) break;
+    if (iteration < 15) {
+      worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
+    }
+    await onYield?.();
+  }
+  activeSeason.worldSeed = worldSeed;
+  setWorldSeed(worldSeed, style);
+
+  const players = new Map<string, DomainPlayer>([
+    ["barbarian-1", createPlayer("barbarian-1", false)]
+  ]);
+  for (let index = 0; index < humanPlayerCount; index += 1) {
+    const playerId = `player-${index + 1}`;
+    players.set(playerId, createPlayer(playerId, false));
+  }
+  for (let index = 0; index < aiPlayerCount; index += 1) {
+    const playerId = `ai-${index + 1}`;
+    players.set(playerId, createPlayer(playerId, true));
+  }
+
+  const spawnPositions: Array<{ playerId: string; x: number; y: number; isAi: boolean }> = [];
+  const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+        if (townsByTile.has(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)))) return true;
+      }
+    }
+    return false;
+  };
+  const hasNearbyFood = (x: number, y: number, radius: number): boolean => {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+        const clusterId = clusterByTile.get(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
+        const cluster = clusterId ? clustersById.get(clusterId) : undefined;
+        if (!cluster) continue;
+        if (cluster.resourceType === "FARM" || cluster.resourceType === "FISH") return true;
+      }
+    }
+    return false;
+  };
+  const hasNearbySpawn = (x: number, y: number, radius: number): boolean =>
+    spawnPositions.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
+  const canSpawnAt = (
+    x: number,
+    y: number,
+    requirements: { needsTown: boolean; needsFood: boolean; minSpawnDistance: number }
+  ): boolean => {
+    const tk = key(x, y);
+    if (terrainAt(x, y) !== "LAND") return false;
+    if (townsByTile.has(tk) || docksByTile.has(tk) || ownership.has(tk)) return false;
+    if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
+    if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
+    if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
+    return true;
+  };
+  const spawnSearchOrder = [
+    { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
+    { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
+    { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
+    { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
+    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 35 } }
+  ] as const;
+  const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
+    let spawn: { x: number; y: number } | undefined;
+    for (const [passIndex, pass] of spawnSearchOrder.entries()) {
+      if (pass.tries === WORLD_WIDTH * WORLD_HEIGHT) {
+        for (let y = 0; y < WORLD_HEIGHT && !spawn; y += 1) {
+          for (let x = 0; x < WORLD_WIDTH; x += 1) {
+            if (!canSpawnAt(x, y, pass.requirements)) continue;
+            spawn = { x, y };
+            break;
+          }
+        }
+      } else {
+        for (let attempt = 0; attempt < pass.tries; attempt += 1) {
+          const x = Math.floor(
+            terrainRuntime.seeded01((playerIndex + 1) * 101 + attempt * 17, (passIndex + 1) * 43 + playerIndex * 11, worldSeed + 700 + passIndex) *
+              WORLD_WIDTH
+          );
+          const y = Math.floor(
+            terrainRuntime.seeded01((playerIndex + 1) * 131 + attempt * 19, (passIndex + 1) * 59 + playerIndex * 13, worldSeed + 900 + passIndex) *
+              WORLD_HEIGHT
+          );
+          if (!canSpawnAt(x, y, pass.requirements)) continue;
+          spawn = { x, y };
+          break;
+        }
+      }
+      if (spawn) break;
+    }
+    if (!spawn) {
+      throw new Error(`failed to place season seed spawn for ${playerId}`);
+    }
+    const tk = key(spawn.x, spawn.y);
+    ownership.set(tk, playerId);
+    shardSitesByTile.delete(tk);
+    townsByTile.set(tk, createSettlementTown(tk, townsRuntime.townTypeAt(spawn.x, spawn.y)));
+    spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
+  };
+
+  for (let index = 0; index < humanPlayerCount; index += 1) {
+    spawnPlayerAt(`player-${index + 1}`, false, index);
+    await onYield?.();
+  }
+  for (let index = 0; index < aiPlayerCount; index += 1) {
+    spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
+    await onYield?.();
+  }
+
+  assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
+  await onYield?.();
+
+  const barbarianTileKeys = new Set<TileKey>();
+  const BARBARIAN_SEED_TARGET = 80;
+  const BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN = 12;
+  const BARBARIAN_SEED_MIN_SEPARATION = 4;
+  const BARBARIAN_SEED_MAX_TRIES = BARBARIAN_SEED_TARGET * 200;
+  const isFarFromAnyPlayerSpawn = (x: number, y: number): boolean =>
+    spawnPositions.every((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) >= BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN);
+  const isFarFromOtherBarbs = (x: number, y: number): boolean => {
+    for (const existingKey of barbarianTileKeys) {
+      const [bx, by] = parseKey(existingKey);
+      if (chebyshevDistance(x, y, bx, by) < BARBARIAN_SEED_MIN_SEPARATION) return false;
+    }
+    return true;
+  };
+  for (let attempt = 0; attempt < BARBARIAN_SEED_MAX_TRIES && barbarianTileKeys.size < BARBARIAN_SEED_TARGET; attempt += 1) {
+    const x = Math.floor(
+      terrainRuntime.seeded01(attempt * 73 + 11, attempt * 131 + 17, worldSeed + 50_001) * WORLD_WIDTH
+    );
+    const y = Math.floor(
+      terrainRuntime.seeded01(attempt * 89 + 19, attempt * 113 + 23, worldSeed + 50_002) * WORLD_HEIGHT
+    );
+    const tk = key(x, y);
+    if (terrainAt(x, y) !== "LAND") continue;
+    if (ownership.has(tk)) continue;
+    if (townsByTile.has(tk)) continue;
+    if (docksByTile.has(tk)) continue;
+    if (shardSitesByTile.has(tk)) continue;
+    if (!isFarFromAnyPlayerSpawn(x, y)) continue;
+    if (!isFarFromOtherBarbs(x, y)) continue;
+    ownership.set(tk, "barbarian-1");
+    barbarianTileKeys.add(tk);
+  }
+  await onYield?.();
+
+  const tiles = new Map<string, DomainTileState>();
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    if (y > 0 && y % 50 === 0) await onYield?.();
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const tk = tileKey(x, y);
+      const clusterId = clusterByTile.get(tk);
+      const cluster = clusterId ? clustersById.get(clusterId) : undefined;
+      const dock = docksByTile.get(tk);
+      const town = townsByTile.get(tk);
+      const ownerId = ownership.get(tk);
+      const shardSite = shardSitesByTile.get(tk);
+      tiles.set(tk, {
+        x,
+        y,
+        terrain: terrainAt(x, y),
+        ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
+        ...(dock ? { dockId: dock.dockId } : {}),
+        ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
+        ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
+        ...(town ? { town: townStateFromDefinition(town) } : {})
+      });
+    }
+  }
+
+  const perPlayer = [
+    ...Array.from({ length: humanPlayerCount }, (_, index) => ({
+      playerId: `player-${index + 1}`,
+      isAi: false,
+      settledTiles: 1,
+      towns: 1
+    })),
+    ...Array.from({ length: aiPlayerCount }, (_, index) => ({
+      playerId: `ai-${index + 1}`,
+      isAi: true,
+      settledTiles: 1,
+      towns: 1
+    }))
+  ];
+
+  return {
+    players,
+    tiles,
+    docks: [...dockById.values()].map((dock) => ({
+      dockId: dock.dockId,
+      tileKey: dock.tileKey,
+      pairedDockId: dock.pairedDockId,
+      ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+    })),
+    worldSeed,
+    significantIslandCount: islandSummary.significantCount,
+    humanPlayers: humanPlayerCount,
+    aiPlayers: aiPlayerCount,
+    totalTiles: tiles.size,
+    totalSettledTiles: spawnPositions.length,
+    totalTownTiles: spawnPositions.length,
+    perPlayer
+  };
+};

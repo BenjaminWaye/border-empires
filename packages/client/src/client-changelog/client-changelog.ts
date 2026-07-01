@@ -19,10 +19,234 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.27.2",
+  version: "2026.07.01.2",
   title: "What's New",
-  summary: "Muster-advance attacks now draw from the flag pool, show correct manpower costs in waypoint planner, and appear in the activity feed.",
+  summary: "Census Hall now has its own building model on the map.",
   entries: [
+    {
+      introducedIn: "2026.07.01.2",
+      title: "Census Hall has a new building model",
+      why: "Census Hall previously reused the Governor's Office icon and had no 3D model, so it was invisible/generic on the map.",
+      changes: [
+        "3D map: Census Hall now renders as a modest stone records office with a small brass tally drum on the facade, scaled like the other minor support structures.",
+        "2D map: Census Hall has its own icon instead of borrowing the Governor's Office icon."
+      ]
+    },
+    {
+      introducedIn: "2026.07.01.1",
+      title: "Aegis Lock and Launch Satellite are live",
+      why: "Both abilities showed a working button in the tile menu, but the gateway silently rejected the command with 'not yet migrated to gateway' because the server-side handler was never built — clicking either button did nothing.",
+      changes: [
+        "Aegis Lock now actually locks: while active, hostile attacks inside the dome's 30-tile radius can no longer flip ownership of tiles there.",
+        "Launch Satellite now actually reveals: while active, your empire sees the whole map instead of only your usual territory/vision radius, for the full 24 hours.",
+        "Both abilities have new activation FX: Aegis Lock gets a glowing stasis-field ring (not a solid dome, so it doesn't block your view), and Launch Satellite reuses the beacon-launch effect."
+      ]
+    },
+    {
+      introducedIn: "2026.07.01.1",
+      title: "Worldbreaker Cannon costs more per shot",
+      why: "The Worldbreaker Shot tooltip described a different cost, cooldown, and effect than what the server actually did, and the ability was underpriced for what it does (destroy a structure and cut a town's population 30%, from anywhere on the map, with no miss chance).",
+      changes: [
+        "Worldbreaker Shot now costs 15,000 gold in addition to its existing 500 crystal.",
+        "The World Engine tooltip and Actions tab description now match the real cooldown (60m), cost, and effect instead of the old text.",
+        "World Engine Strike, Imperial Exchange Levy, and Astral Dock Launch all have new activation FX at the monument tile."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.3",
+      title: "Start New Season no longer shows as unavailable",
+      why: "The gateway accepted START_NEW_SEASON but did not advertise it in the rewrite capability list, so the client blocked the season-end button before sending the command.",
+      changes: [
+        "The rewrite gateway now includes START_NEW_SEASON in its supported client message list.",
+        "The client can send the season rollover request from the season-end overlay instead of showing Action unavailable."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.2",
+      title: "Sky Dock Bombard shows which tiles hit and which missed",
+      why: "Bombarding a target with the airport's Sky Dock gave no indication of why some tiles in the blast radius didn't flip to neutral — players couldn't tell a random miss (forts reduce hit chance) from a bug.",
+      changes: [
+        "The bombardment explosion FX is now driven by the actual server result instead of firing identically on every tile: tiles that hit get the orange ring/flash explosion, tiles that missed get a gray smoke fizzle instead.",
+        "The feed also shows a summary message after each bombardment with the hit/miss counts.",
+        "If no enemy tiles were in range, the feed says so instead of leaving the result ambiguous."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Capture pop indicator floats once and slower",
+      why: "When capturing a city, the floating \"-XXX pop\" indicator re-fired on every camera move instead of floating up once and fading. The 3.2s animation was also too fast to read.",
+      changes: [
+        "The floating text and its guard map are no longer cleared during terrain rebuild, so the indicator fires only once per capture event.",
+        "Floating duration increased from 3.2s to 5s for easier readability."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.1",
+      title: "Sky Dock Bombard target overlay no longer persists after execution",
+      why: "After executing a Sky Dock Bombard, the red target tile overlay remained visible until browser refresh — the fill mesh and tile borders were only hidden during terrain rebuild, not on every render frame.",
+      changes: [
+        "The crystal targeting overlay now hides its fill mesh and tile borders every frame when targeting mode is inactive, not just during rebuild."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Dock-based 'Launch Attack' no longer silently fails",
+      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
+      changes: [
+        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
+        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
+        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Dock-based 'Launch Attack' no longer silently fails",
+      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
+      changes: [
+        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
+        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
+        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
+      ]
+    },
+    {
+      introducedIn: "2026.06.30.0",
+      title: "Shard collection animation overlay adapts to mobile screen sizes",
+      why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
+      changes: [
+        "On screens narrower than 520px, the overlay stacks the artwork above the text, centers all content, and reduces art size (120→80px) and font sizes proportionally.",
+        "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
+        "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
+      ]
+    },
+    {
+      introducedIn: "2026.06.29.7",
+      title: "Removed confusing origin-to-target line from crystal targeting overlay",
+      why: "The connection line drawn from the origin building to the hovered/selected target tile was confusing — it looked like part of the targeting UI but didn't add useful information.",
+      changes: [
+        "Removed the origin-to-target connection line from the 3D crystal targeting overlay."
+      ]
+    },
+    {
+      introducedIn: "2026.06.29.6",
+      title: "Crystal targeting overlay and range circles are more visible in 3D",
+      why: "The 3D crystal targeting overlay (semi-transparent tiles) and the 3D range circles (airport bombard, observatory, waterworks, sweep) were too faint to see clearly.",
+      changes: [
+        "Crystal targeting overlay fill opacity increased from 12% to 30%.",
+        "Crystal targeting overlay valid target tiles now have a colored border (stroke) matching the 2D overlay style.",
+        "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
+        "Observatory range circle border increased from 35% to 55% and fill from 2% to 10%.",
+        "Waterworks and Sweep range circle fills increased from 3-4% to 10%."
+      ]
+    },
+    {
+      introducedIn: "2026.06.29.5",
+      title: "Crystal targeting overlay now renders in 3D mode",
+      why: "When entering crystal targeting mode (Sky Dock Bombard, etc.) in 3D view, the valid target tiles were only highlighted in the 2D overlay — which rendered on top of the 3D scene. You couldn't see which tiles were valid targets in 3D.",
+      changes: [
+        "Valid target tiles now show a semi-transparent colored overlay on the 3D terrain.",
+        "Hovering or selecting a valid target shows a connection line from origin to target tile.",
+        "Origin and target tiles get bold outline markers in 3D.",
+        "2D crystal targeting highlights and airport range overlay are now hidden when 3D mode is active."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Sky Dock Bombard range now visible in 3D",
+      why: "After selecting a Sky Dock and choosing the bombard action, you could not see which tiles were in range — the crystal targeting mode highlighted targets but there was no range overlay on the dock itself.",
+      changes: [
+        "Selecting an active, owned Sky Dock now shows a red 3D range circle (radius 30 tiles) around it, matching the Observatory and Waterworks range overlays."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.3",
+      title: "Hit animations for Sky Dock Bombard",
+      why: "Sending a bombard gave no visual feedback — the targeted 3x3 area just disappeared with no impact effect.",
+      changes: [
+        "When bombard strikes land, the targeted tiles now show a brief orange flash and expanding ring animation lasting 1.5 seconds."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.2",
+      title: "Sky Dock Bombard moved to Actions tab (was in Crystal tab)",
+      why: "Sky Dock Bombard is tied to a specific tile (Sky Dock) — the same pattern as Worldbreaker Shot. Putting it in the Crystal tab (reserved for global abilities like Aether Bridge or Siphon) was confusing.",
+      changes: [
+        "Sky Dock Bombard now appears in the Actions tab of the tile menu, not the Crystal tab.",
+        "Icon and tooltip description added for the action."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.1",
+      title: "Sky Dock Bombard targeting works",
+      why: "Clicking an owned Sky Dock tile showed no bombard action — the tile action generator, crystal targeting type, isCrystal filter, and action-flow handler were all missing the airport_bombard case, even though the server's command handler was complete.",
+      changes: [
+        "Clicking your Sky Dock now shows a 'Sky Dock Bombard' action in the tile menu (costs 1 CRYSTAL, requires active Sky Dock and nearby Aether Tower).",
+        "Selecting the action enters crystal targeting mode, highlighting enemy land tiles within 30 tiles as valid targets.",
+        "Tapping a highlighted target sends AIRPORT_BOMBARD to the server, clearing the 3×3 area around the target."
+      ]
+    },
+    {
+      introducedIn: "2026.06.28.0",
+      title: "Season-end overlay — scrolling finally works",
+      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
+      changes: [
+        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
+        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
+        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
+        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
+        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.3",
+      title: "Dock-pair attacks now validate the dock connection as a valid attack path",
+      why: "Launching an attack from a dock tile to its paired dock on the other side of the water showed the Launch Attack button (via the dockId fallback) but the server rejected it with NOT_ADJACENT because it only checked geometric adjacency and the dockId property on the tile data.",
+      changes: [
+        "The server's attack validation now checks the authoritative dock link map when deciding if the origin can reach the target. If the origin tile is dock-paired with the target tile, the adjacency requirement is satisfied.",
+        "This fixes attacks that were visible in the UI but silently rejected by the server."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.4",
+      title: "Season-end overlay gets tabs and sticky buttons",
+      why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
+      changes: [
+        "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
+        "Start New Season and Look Around buttons are sticky at the bottom and always visible."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.4",
+      title: "Stop scroll/zoom leaking to the map behind the overlay",
+      why: "Wheel and scroll gestures on the season-end screen were zooming the hidden map underneath, causing disorienting camera jumps when the overlay was dismissed.",
+      changes: [
+        "The overlay now captures wheel events outside its scrollable area so they no longer reach the map."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.2",
+      title: "Season-end overlay no longer stuck invisible",
+      why: "The season-end overlay was always present in the DOM but never visible after a season ended — only the initial snapshot carried the season winner, so the overlay stayed hidden.",
+      changes: [
+        "Live world-status updates now broadcast the season winner too, so the overlay appears the moment a season ends."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.2",
+      title: "'You' marker restored in victory conditions",
+      why: "The victory condition summary stopped showing the 'You' prefix next to your own empire after a refactor, making it impossible to tell at a glance whether you were leading a given victory path.",
+      changes: [
+        "The season-end overlay now correctly shows 'You' on the objective gauge you are leading.",
+        "When you are not the leader, your personal progress still appears on a separate 'You:' line."
+      ]
+    },
+    {
+      introducedIn: "2026.06.27.2",
+      title: "Crown now awarded to the season winner, not rank 1",
+      why: "The standings table was putting the crown glyph on the row with rank 1 instead of the actual declared season winner — when the winner finished outside first place the crown appeared on the wrong player.",
+      changes: [
+        "The ♔ crown now appears beside the season winner's name in the final standings, regardless of their leaderboard rank."
+      ]
+    },
     {
       introducedIn: "2026.06.27.2",
       title: "Muster-advance attacks now consume the correct manpower pool",
@@ -35,7 +259,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.06.27.1",
+      introducedIn: "2026.06.27.2",
       title: "Food upkeep in economy panel now accurate",
       why: "The economy panel showed lower food upkeep than the server actually deducted (e.g. 0.2/m per City instead of 0.3/m), making it seem like food was inexplicably draining.",
       changes: [
@@ -104,151 +328,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
         "The original sign-in prompt still appears only when you genuinely are not signed in yet."
-      ]
-    },
-    {
-      introducedIn: "2026.06.24.1",
-      title: "Login queue",
-      why: "When many players log in at once the server used to reject you with 'Server busy — retry shortly', requiring manual refreshes. Now you wait in a visible queue instead.",
-      changes: [
-        "If all login slots are taken you are placed in a queue automatically — no refresh needed.",
-        "The loading screen shows your position and an estimated wait time.",
-        "Your position updates in real time as players ahead of you finish loading.",
-        "If you close the tab while waiting your slot is released immediately for the next player."
-      ]
-    },
-    {
-      introducedIn: "2026.06.22.2",
-      title: "Breakthrough momentum",
-      why: "Winning a tile felt disconnected from the next attack — there was no incentive to push into a gap once you made one.",
-      changes: [
-        "When you capture a tile, the 4 cardinal enemy-owned neighbours enter a 60-second breach window.",
-        "Breached tiles have their combat defence reduced by 30%, so a quick follow-up attack is easier to win.",
-        "The breach expires naturally — if you don't press the advantage in 60 seconds, the defender's position resets."
-      ]
-    },
-    {
-      introducedIn: "2026.06.22.2",
-      title: "Empire Integrity",
-      why: "Wide, sprawling empires were just as effective as tight blobs — there was no economic reward for building defensible shapes.",
-      changes: [
-        "Compact empires now earn an income and population-growth bonus proportional to their defensibility score.",
-        "At 100% defensibility the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
-        "The bonus is visible in the Empire Integrity panel (renamed from Defensibility).",
-        "AI players also prefer settling tiles that improve the compactness of their empire."
-      ]
-    },
-    {
-      introducedIn: "2026.06.22.1",
-      title: "Waterworks boost working",
-      why: "Waterworks was not applying its +50% food bonus to Farmstead tiles in range, and there was no way to see which tiles the Waterworks affected.",
-      changes: [
-        "Waterworks now correctly boosts a Farm+Farmstead tile from 108/day to 162/day when within 10 tiles.",
-        "Selecting an active Waterworks you own shows a green range box (radius 10) on the map.",
-        "Tile detail panel now shows the correct boosted rate when you click on a Farm+Farmstead tile near an active Waterworks."
-      ]
-    },
-    {
-      introducedIn: "2026.06.21.1",
-      title: "Muster-advance combat visuals",
-      why: "Muster-advance auto-attacks were invisible — there was no way to see where your far-flung colonies were fighting, and the silent capture popup was noisy for automatic actions.",
-      changes: [
-        "Muster-advance attacks now show a supply line from the muster source to the target tile.",
-        "Combat dots appear on the target tile during auto-attack resolution — your empire color vs. a dark defender swarm.",
-        "The result popup is suppressed for muster-advance attacks (feed entry still appears)."
-      ]
-    },
-    {
-      introducedIn: "2026.06.19.1",
-      title: "Barbarian attacks restored",
-      why: "Barbarian attacks were being blocked by the player muster requirement, even though barbarians do not stage muster flags.",
-      changes: [
-        "Barbarian-origin attacks now use their per-tile cooldown instead of looking for staged muster or manpower.",
-        "Player attacks still require staged muster, except for the existing cheap raid path against barbarian tiles."
-      ]
-    },
-    {
-      introducedIn: "2026.06.18.2",
-      title: "Foundry radius tightened",
-      why: "A 10-tile Foundry radius covered too much territory and made mine planning less local than intended.",
-      changes: [
-        "Foundries now double active Mine production within 5 tiles instead of 10.",
-        "Foundry build text, structure details, and map previews now show the 5-tile radius.",
-        "Farmstead, Camp, Mine, Market, Waterworks, and Foundry copy now explains that production gains also raise storage caps, with exact cap gains in build previews where the input is unambiguous."
-      ]
-    },
-    {
-      introducedIn: "2026.06.18.1",
-      title: "Military builds on resources",
-      why: "Upgraded siege and fort placements could be rejected on owned resource tiles even though their base structures were allowed there.",
-      changes: [
-        "Siege Towers and Dread Towers can now be placed on valid owned resource tiles.",
-        "Iron Bastions and Thunder Bastions now share the Fort family's resource-tile placement rules."
-      ]
-    },
-    {
-      introducedIn: "2026.06.17.1",
-      title: "Storage cap in economy panel",
-      why: "There was no way for players to see how much of each resource they could hold without inspecting tile descriptions.",
-      changes: [
-        "Each resource card in the economy panel now shows your current stock alongside the storage cap (e.g. 4,312 / 7.2k).",
-        "The cap is sent only when it changes, so there is no extra server load on each tick.",
-        "Caps scale with production: 12 hours of income is the formula, with a minimum floor for new empires."
-      ]
-    },
-    {
-      introducedIn: "2026.06.17.1",
-      title: "Collect All button restored",
-      why: "The HUD Collect All button was present but silently rejected — the server handler had been removed when passive income was introduced.",
-      changes: [
-        "Collect All now flushes up to 12 hours of accumulated passive income immediately.",
-        "A 20-second cooldown prevents rapid double-collecting.",
-        "The per-tile Collect Yield button and the Stored Yield line in the tile panel have been removed (passive income bypasses the old per-tile yield system)."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.5",
-      title: "Live manpower drain while mustering",
-      why: "The global manpower bar stayed frozen while a muster flag was filling, making it look like staging cost nothing until the next 30-second server snapshot arrived.",
-      changes: [
-        "Each 1-second muster tick now pushes your updated manpower total alongside the tile delta, so the HUD reflects the drain immediately."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.3",
-      title: "Tile panel tab stays put during muster ticks",
-      why: "Opening the Structures or Overview tab while a muster flag tile was selected caused the panel to jump back to Actions every second as the server pushed updated muster amounts.",
-      changes: [
-        "Server-side tile delta updates (including the 1-second muster tick) now refresh the panel content without resetting the active tab or scroll position.",
-        "Only a direct user tap on the tile resets the tab back to Actions."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.2",
-      title: "Live muster amount in tile panel",
-      why: "The staged manpower count in the tile panel was frozen until you re-clicked the tile, making it impossible to watch a flag fill up.",
-      changes: [
-        "While a muster flag tile is open, the server ticks it every second and pushes the updated amount to your client.",
-        "Muster cap now scales with your town tier — City players can accumulate up to 300 manpower at a flag instead of being hard-capped at 150.",
-        "If you already have a muster flag placed elsewhere, queuing an attack from a tile with no nearby flag will no longer drop a duplicate flag — it shows 'Not enough manpower at nearest flag' instead."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.1",
-      title: "Town tier upgrade button",
-      why: "The 'Upgrade to City / Great City / Metropolis' button was never appearing because the simulation was not emitting the upgrade-available signal.",
-      changes: [
-        "The upgrade button now appears when your town reaches the required population (City: 100k, Great City: 1M, Metropolis: 5M).",
-        "Cleaned up diagnostic messages (dock count, town count) that were leaking into the player activity feed on login."
-      ]
-    },
-    {
-      introducedIn: "2026.06.15.1",
-      title: "Outpost sweep removed",
-      why: "The outpost sweep auto-attack has been fully superseded by the muster system, which is now the single way to stage and launch attacks from a structure.",
-      changes: [
-        "Removed the Start/Stop Sweep action from siege outposts and light outposts.",
-        "Outposts no longer auto-attack nearby enemy tiles on their own — use muster to stage manpower and launch attacks."
       ]
     },
   ]

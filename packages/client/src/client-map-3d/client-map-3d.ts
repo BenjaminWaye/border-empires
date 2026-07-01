@@ -16,23 +16,16 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile } from "../client-constants.js";
-import { OBSERVATORY_RANGE_MAX } from "@border-empires/shared";
+import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
+
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
-import {
-  createObservatoryRangeBorderGeometry,
-  createObservatoryRangeFillGeometry,
-  observatoryRangeBorderSegmentCount,
-  observatoryRangeFillVertexCount,
-  writeObservatoryRangeBorderGeometry,
-  writeObservatoryRangeFillGeometry
-} from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
+import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
@@ -55,7 +48,10 @@ import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping
 import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
+import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
+import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
+import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
@@ -64,24 +60,16 @@ import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
-import {
-  createStructureOverlay,
-  STRUCTURE_KINDS_HANDLED_BY_3D,
-  type StructureKind
-} from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
-import {
-  fortificationOpeningForTile,
-  fortificationOverlayKindForTile,
-  type FortificationOpening,
-  type FortificationOverlayKind
-} from "../client-fortification-overlays/client-fortification-overlays.js";
+import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
+import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -150,6 +138,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
+  const bombardFx = createBombardFxLayer(scene);
+  const worldEngineStrikeFx = createMonumentPulseFxLayer(scene, "#ff5533", "world-engine-strike-fx");
+  const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
+  const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
+  const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
@@ -245,7 +238,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MARKET" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" }
+    { kind: "SEED_GRANARY" },
+    { kind: "CENSUS_HALL" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
@@ -500,17 +494,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
   const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RANGE_RADIUS);
   const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RANGE_RADIUS);
+  const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
+  const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.55,
     depthTest: false,
     depthWrite: false
   });
   const observatoryRangeFillMaterial = new MeshBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
-    opacity: 0.02,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -533,7 +529,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sweepRangeFillMaterial = new MeshBasicMaterial({
     color: "#ff8c42",
     transparent: true,
-    opacity: 0.04,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -556,7 +552,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const waterworksRangeFillMaterial = new MeshBasicMaterial({
     color: "#4caf74",
     transparent: true,
-    opacity: 0.03,
+    opacity: 0.10,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
@@ -569,6 +565,29 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(waterworksRangeMaxFillVertices),
     waterworksRangeFillMaterial
   );
+  const airportRangeMaterial = new LineBasicMaterial({
+    color: "#ff4444",
+    transparent: true,
+    opacity: 0.55,
+    depthTest: false,
+    depthWrite: false
+  });
+  const airportRangeFillMaterial = new MeshBasicMaterial({
+    color: "#ff4444",
+    transparent: true,
+    opacity: 0.10,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const airportRangeMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(airportRangeMaxSegments),
+    airportRangeMaterial
+  );
+  const airportRangeFill = new Mesh(
+    createObservatoryRangeFillGeometry(airportRangeMaxFillVertices),
+    airportRangeFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
@@ -577,6 +596,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.visible = false;
   waterworksRangeMarker.visible = false;
   waterworksRangeFill.visible = false;
+  airportRangeMarker.visible = false;
+  airportRangeFill.visible = false;
+  const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
@@ -585,6 +607,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.renderOrder = 22;
   waterworksRangeMarker.renderOrder = 19;
   waterworksRangeFill.renderOrder = 18;
+  airportRangeMarker.renderOrder = 17;
+  airportRangeFill.renderOrder = 16;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -622,6 +646,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   sweepRangeFill.frustumCulled = false;
   waterworksRangeMarker.frustumCulled = false;
   waterworksRangeFill.frustumCulled = false;
+  airportRangeMarker.frustumCulled = false;
+  airportRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -635,6 +661,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     hoverMarker,
     waterworksRangeFill,
     waterworksRangeMarker,
+    airportRangeFill,
+    airportRangeMarker,
     sweepRangeFill,
     sweepRangeMarker,
     observatoryRangeFill,
@@ -648,7 +676,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlate
   );
 
-  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1 };
+  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -1140,6 +1168,59 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
   };
+  const syncBombardFxQueue = (): void => {
+    while (deps.state.bombardFxQueue.length > 0) {
+      const cast = deps.state.bombardFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      bombardFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        cast.tiles
+      );
+    }
+  };
+  const syncWorldEngineStrikeFxQueue = (): void => {
+    while (deps.state.worldEngineStrikeFxQueue.length > 0) {
+      const cast = deps.state.worldEngineStrikeFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const syncImperialExchangeLevyFxQueue = (): void => {
+    while (deps.state.imperialExchangeLevyFxQueue.length > 0) {
+      const cast = deps.state.imperialExchangeLevyFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const syncAstralDockLaunchFxQueue = (): void => {
+    while (deps.state.astralDockLaunchFxQueue.length > 0) {
+      const cast = deps.state.astralDockLaunchFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      astralDockLaunchFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const AEGIS_LOCK_FIELD_RADIUS_TILES = 30;
+  const AEGIS_LOCK_FIELD_DURATION_MS = 15 * 60_000;
+  const syncAegisLockFxQueue = (): void => {
+    while (deps.state.aegisLockFxQueue.length > 0) {
+      const cast = deps.state.aegisLockFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      aegisLockFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        AEGIS_LOCK_FIELD_RADIUS_TILES,
+        AEGIS_LOCK_FIELD_DURATION_MS
+      );
+    }
+  };
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
@@ -1204,8 +1285,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedTile.ownerId !== deps.state.me) return;
     if (selectedTile.observatory.status !== "active") return;
     const effectiveRange = ownObservatoryRange(deps.state);
-    observatoryRangeMaterial.opacity = 0.35;
-    observatoryRangeFillMaterial.opacity = 0.02;
+    observatoryRangeMaterial.opacity = 0.55;
+    observatoryRangeFillMaterial.opacity = 0.10;
     writeObservatoryRangeGeometry(observatoryRangeMarker, observatoryRangeFill, selectedTile, effectiveRange);
   };
 
@@ -1234,6 +1315,45 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedTile.ownerId !== deps.state.me) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RANGE_RADIUS);
+  };
+
+  const writeAirportRangeGeometry = (
+    lineMarker: LineSegments,
+    fillMesh: Mesh,
+    selectedTile: Tile,
+    radius: number
+  ): void => {
+    const rangeGeometryInputs = {
+      selectedX: selectedTile.x,
+      selectedY: selectedTile.y,
+      camX: deps.state.camX,
+      camY: deps.state.camY,
+      radius,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      wrapX: deps.wrapX,
+      wrapY: deps.wrapY,
+      cornerYAt: (cornerX: number, cornerZ: number) => heightfield.cornerYAt(cornerX, cornerZ),
+      riseAboveSurface: MARKER_RISE_ABOVE_HEIGHTFIELD
+    };
+    writeObservatoryRangeBorderGeometry(lineMarker.geometry as BufferGeometry, rangeGeometryInputs);
+    writeObservatoryRangeFillGeometry(fillMesh.geometry as BufferGeometry, rangeGeometryInputs);
+    lineMarker.visible = true;
+    fillMesh.visible = true;
+  };
+
+  const syncAirportRangeMarker = (): void => {
+    airportRangeMarker.visible = false;
+    airportRangeFill.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selectedTile) return;
+    if (selectedTile.economicStructure?.type !== "AIRPORT") return;
+    if (selectedTile.economicStructure.status !== "active") return;
+    if (selectedTile.ownerId !== deps.state.me) return;
+    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
+    writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
   const applyCamera = (): void => {
@@ -1284,8 +1404,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    floatingText.clear();
-    lastSeenCaptureShockByTile.clear();
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
@@ -1396,9 +1514,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             }
           }
           waterSurface.addTile(x, z, shallow);
-          if (terrain === "COASTAL_SEA") {
-            // coastal water rendered by heightfield; intentional no-op
-          }
           continue;
         }
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
@@ -1625,11 +1740,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const severity = weakDefensibilitySeverity(exposedSides.length);
           if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
         }
+        if (deps.state.crystalTargeting.active && tile && visibility === "visible" && deps.state.crystalTargeting.validTargets.has(tileKey)) {
+          crystalTargetingOverlay.addInstance(x, z, surfaceY);
+        }
       }
     }
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
+    crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit();
@@ -1664,13 +1783,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const width = deps.canvas.width;
     const height = deps.canvas.height;
     const zoomChanged = deps.state.zoom !== lastUpdate.zoom;
+    const ctActiveNow = deps.state.crystalTargeting.active, ctActiveChanged = ctActiveNow !== lastUpdate.crystalTargetingActive;
     const changed =
       deps.state.camX !== lastUpdate.camX ||
       deps.state.camY !== lastUpdate.camY ||
       zoomChanged ||
       width !== lastUpdate.width ||
       height !== lastUpdate.height ||
-      deps.state.tilesRevision !== lastUpdate.tilesRevision;
+      deps.state.tilesRevision !== lastUpdate.tilesRevision ||
+      ctActiveChanged;
     if (!changed) return;
     if (width !== lastUpdate.width || height !== lastUpdate.height) resize();
     else if (zoomChanged) applyCamera();
@@ -1682,6 +1803,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     lastUpdate.height = height;
     lastUpdate.at = nowMs;
     lastUpdate.tilesRevision = deps.state.tilesRevision;
+    lastUpdate.crystalTargetingActive = ctActiveNow;
   };
 
   const renderLoop = (): void => {
@@ -1697,6 +1819,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
+    syncAirportRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
@@ -1705,6 +1828,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRetortRecastFxQueue();
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
+    syncBombardFxQueue();
+    syncWorldEngineStrikeFxQueue();
+    syncImperialExchangeLevyFxQueue();
+    syncAstralDockLaunchFxQueue();
+    syncAegisLockFxQueue();
+    crystalTargetingOverlay.sync({
+      ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected,
+      keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY,
+      cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY,
+      toroidDelta
+    });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
@@ -1713,6 +1847,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.update(nowMs);
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
+    bombardFx.update(nowMs);
+    worldEngineStrikeFx.update(nowMs);
+    imperialExchangeLevyFx.update(nowMs);
+    astralDockLaunchFx.update(nowMs);
+    aegisLockFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
@@ -1744,12 +1883,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryRangeFill.geometry.dispose();
     sweepRangeMarker.geometry.dispose();
     sweepRangeFill.geometry.dispose();
+    airportRangeMarker.geometry.dispose();
+    airportRangeFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     observatoryRangeMaterial.dispose();
     observatoryRangeFillMaterial.dispose();
     sweepRangeMaterial.dispose();
     sweepRangeFillMaterial.dispose();
+    airportRangeMaterial.dispose();
+    airportRangeFillMaterial.dispose();
+    crystalTargetingOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();
@@ -1826,6 +1970,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.dispose();
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
+    bombardFx.dispose();
+    worldEngineStrikeFx.dispose();
+    imperialExchangeLevyFx.dispose();
+    astralDockLaunchFx.dispose();
+    aegisLockFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose();

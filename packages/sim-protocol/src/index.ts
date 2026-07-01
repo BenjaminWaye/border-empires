@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, PlayerRespawnNotice } from "@border-empires/shared";
+import type { ChosenTrickleResource, PlayerRespawnNotice, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -127,6 +127,10 @@ export type SimulationSeasonState = {
   seasonSequence: number;
   rulesetId: string;
   worldSeed: number;
+  /** Map shape used to generate this season's world. Absent on seasons created
+   *  before this field existed — callers must treat that as "continents",
+   *  the historical hardcoded default, never the current env's map style. */
+  mapStyle?: WorldStyle;
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;
@@ -146,6 +150,7 @@ export type WorldStatusSnapshot = {
     byTechs: LeaderboardMetricEntry[];
   };
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
+  seasonWinner?: SeasonWinnerSnapshot;
   acceptLatencyP95Ms?: number;
 };
 

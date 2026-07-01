@@ -6,7 +6,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createAetherPurgeFxLayer } from "@client/client-map-3d-aether-purge-fx.js";
+import { createAetherPurgeFxLayer } from "@client/client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

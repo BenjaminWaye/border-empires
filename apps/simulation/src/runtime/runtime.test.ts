@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { SimulationRuntime } from "./runtime.js";
+import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 
@@ -2507,6 +2507,7 @@ describe("simulation runtime", () => {
 
       runtime.submitCommand(command);
 
+      // player-2 is AI, so #732 skips its PLAYER_UPDATE on lock resolution (no WS subscriber).
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -2515,12 +2516,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
@@ -4990,6 +4989,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
 
+      // player-2 is AI (#732 skips its PLAYER_UPDATE); the duplicate seq replays cmd-1's recorded events.
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -4998,12 +4998,10 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
-        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
@@ -5749,6 +5747,14 @@ describe("simulation runtime", () => {
     const previousSeed = getWorldSeed();
     setWorldSeed(1);
     try {
+      // Forest settlement tiles are worldgen-derived; locate one for this seed.
+      let forest: { x: number; y: number } | undefined;
+      for (let y = 0; y < 256 && !forest; y += 1) {
+        for (let x = 0; x < 256 && !forest; x += 1) {
+          if (settlementBaseDurationMsForTile({ x, y }) === MAX_SETTLE_DURATION_MS) forest = { x, y };
+        }
+      }
+      if (!forest) throw new Error("no forest settlement tile found for world seed 1");
       const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -5772,7 +5778,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [{ x: 17, y: 192, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [{ x: forest.x, y: forest.y, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
           activeLocks: []
         }
       });
@@ -5784,13 +5790,14 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "SETTLE",
-        payloadJson: JSON.stringify({ x: 17, y: 192 })
+        payloadJson: JSON.stringify({ x: forest.x, y: forest.y })
       });
 
       await Promise.resolve();
 
       expect(scheduledTasks).toHaveLength(1);
-      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(120_000 / 1.05));
+      // Forest doubles the base (MAX_SETTLE_DURATION_MS); toolmaking applies a 1.05x speed mult.
+      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
     } finally {
       setWorldSeed(previousSeed);
     }
@@ -7314,6 +7321,8 @@ describe("simulation runtime", () => {
   });
 
   it("resolves airport bombardment through rewrite tile deltas", async () => {
+    // Force all per-tile rolls to hit (Math.random returns 1, always above miss threshold)
+    const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -7329,7 +7338,7 @@ describe("simulation runtime", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 10 }
+            strategicResources: { CRYSTAL: 200 }
           }
         ],
         [
@@ -7387,17 +7396,34 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
+    randSpy.mockRestore();
 
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: "bombard-1",
-        tileDeltas: expect.arrayContaining([
-          expect.objectContaining({ x: 2, y: 2 }),
-          expect.objectContaining({ x: 2, y: 3 })
-        ])
-      })
+    const deltaBatch = events.find(
+      (e) => e["eventType"] === "TILE_DELTA_BATCH" && e["commandId"] === "bombard-1"
     );
+    expect(deltaBatch).toBeDefined();
+    const tileDeltas = deltaBatch!["tileDeltas"] as Array<Record<string, unknown>>;
+
+    // Stripped tiles should appear in the batch
+    expect(tileDeltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 2, y: 2 }),
+      expect.objectContaining({ x: 2, y: 3 })
+    ]));
+
+    // Structures are preserved — town on (2,2) survives
+    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 2);
+    expect(tile22Delta).toBeDefined();
+    expect(tile22Delta!["townJson"]).toBeDefined();
+    expect(tile22Delta!["ownerId"]).toBeUndefined();
+
+    // Airport tile should include a bombardCooldownUntil in its economicStructureJson
+    const airportDelta = tileDeltas.find((d) => d["x"] === 0 && d["y"] === 0);
+    expect(airportDelta).toBeDefined();
+    const airportStructureJson = airportDelta!["economicStructureJson"];
+    expect(typeof airportStructureJson).toBe("string");
+    const airportStructure = JSON.parse(airportStructureJson as string) as Record<string, unknown>;
+    expect(typeof airportStructure["bombardCooldownUntil"]).toBe("number");
+    expect(airportStructure["bombardCooldownUntil"] as number).toBeGreaterThan(1_000);
   });
 
   const buildAetherTowerRuntime = (options: {
@@ -8644,11 +8670,6 @@ describe("simulation runtime — shard rain", () => {
             activeLocks: []
           }
         });
-        const seen: SimulationRuntimeEventShape[] = [];
-        runtime.onEvent((event) => {
-          seen.push(event);
-        });
-
         runtime.submitCommand({
           commandId: "settlement-capture-frontier-refuge",
           sessionId: "session-1",
@@ -8675,14 +8696,12 @@ describe("simulation runtime — shard rain", () => {
           })
         );
 
-        const defenderUpdate = seen.find(
-          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-            event.eventType === "PLAYER_MESSAGE" &&
-            event.messageType === "PLAYER_UPDATE" &&
-            event.playerId === "player-2"
-        );
-        const payload = defenderUpdate?.payloadJson ? JSON.parse(defenderUpdate.payloadJson) as { incomePerMinute?: number } : {};
-        expect(payload.incomePerMinute).toBeGreaterThan(0);
+        // player-2 is AI (#732 suppresses its PLAYER_UPDATE), so read the re-rooted
+        // income from exportState rather than the now-suppressed message.
+        const defenderIncome = runtime
+          .exportState()
+          .players.find((player) => player.id === "player-2")?.incomePerMinute;
+        expect(defenderIncome).toBeGreaterThan(0);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
@@ -9103,6 +9122,7 @@ describe("worldbreaker shot", () => {
   const buildStrikeRuntime = (options: {
     techIds?: string[];
     crystal?: number;
+    points?: number;
     omitTower?: boolean;
     targetTown?: { population: number; populationTier?: string };
     targetStructure?: { ownerId: string; type: string; status: string };
@@ -9167,7 +9187,7 @@ describe("worldbreaker shot", () => {
         ["player-1", {
           id: "player-1",
           isAi: false,
-          points: 10_000,
+          points: options.points ?? 20_000,
           manpower: 10_000,
           techIds: new Set<string>(options.techIds ?? ["worldbreaker-fire"]),
           domainIds: new Set<string>(),
@@ -9232,6 +9252,27 @@ describe("worldbreaker shot", () => {
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
       message: "World Engine requires a nearby Aether Tower"
+    }));
+  });
+
+  it("rejects without enough gold", async () => {
+    const runtime = buildStrikeRuntime({ points: 1_000 });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-gold",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      code: "WORLD_ENGINE_STRIKE_INVALID",
+      message: "insufficient gold"
     }));
   });
 

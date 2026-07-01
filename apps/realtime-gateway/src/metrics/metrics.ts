@@ -67,6 +67,8 @@ export type GatewayMetricsSnapshot = {
   colorCollisionRejectedTotal: number;
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
+  simulationSubmitTimeoutToleratedTotal: number;
+  simulationSubmitTimeoutFlippedTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -99,6 +101,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let colorCollisionRejectedTotal = 0;
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
+  let simulationSubmitTimeoutToleratedTotal = 0;
+  let simulationSubmitTimeoutFlippedTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -133,7 +137,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     gatewaySqliteRetryTotal,
     colorCollisionRejectedTotal,
     loginQueuedTotal,
-    loginQueueRejectedTotal
+    loginQueueRejectedTotal,
+    simulationSubmitTimeoutToleratedTotal,
+    simulationSubmitTimeoutFlippedTotal
   });
 
   return {
@@ -205,6 +211,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementLoginQueueRejectedTotal(count = 1): void {
       loginQueueRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementSimulationSubmitTimeoutTolerated(count = 1): void {
+      simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementSimulationSubmitTimeoutFlipped(count = 1): void {
+      simulationSubmitTimeoutFlippedTotal += Math.max(0, Math.floor(count));
     },
     snapshot,
     renderPrometheus(): string {
@@ -281,7 +293,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_login_queued_total counter",
         `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
         "# TYPE gateway_login_queue_rejected_total counter",
-        `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`
+        `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`,
+        "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
+        `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
+        "# TYPE gateway_simulation_submit_timeout_flipped_total counter",
+        `gateway_simulation_submit_timeout_flipped_total ${formatMetricValue(sample.simulationSubmitTimeoutFlippedTotal)}`
       ].join("\n");
     }
   };
