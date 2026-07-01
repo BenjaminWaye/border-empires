@@ -118,6 +118,43 @@ pnpm rewrite:restart:20ai:seed
 
 ---
 
+## Worldgen Lab
+
+A browser-based tool for inspecting and iterating on the world generation engine without running the full game stack.
+
+```bash
+pnpm dev:lab
+```
+
+Opens at **http://localhost:5174**. The shared package is built first automatically.
+
+**Controls**
+
+| Panel | What it does |
+|---|---|
+| Map Type | Switch between `Continents` (5 large landmasses) and `Islands` (55 small blobs) |
+| Seed | Enter a specific seed, randomise, or enable auto-generate on every change |
+| View → Scroll Y | Pan the toroidal world vertically |
+| Layers | Toggle visual overlays (see below) |
+| Stats | Live tile counts, island stats, estimated towns/docks, eligible resource tile counts |
+| Settlements | Estimated town and dock counts after worldgen placement passes |
+| Resources | Eligible tile count per resource type |
+
+**Layer overlays**
+
+| Toggle | Description |
+|---|---|
+| Biome colors | Shows sand / coastal-sand biomes distinct from grass |
+| Region tint | Tints land by region (Fertile Plains, Deep Forest, Broken Highlands, Ancient Heartland, Crystal Wastes) |
+| Grass shade | Light/dark grass variation |
+| Resources | 55% colour tint on each eligible resource tile: cyan = Fish, orange = Iron, purple = Gems, bright green = Farm, brown = Fur |
+| Towns | Yellow marker at each estimated town position |
+| Docks | Cyan marker at one tile per significant island |
+
+Generation runs in a Web Worker so the UI stays responsive even while the seed-refinement loop runs (up to 16 attempts for Continents mode).
+
+---
+
 ## Local CI
 
 Run the full local gate from a clean worktree:
