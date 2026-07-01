@@ -3801,6 +3801,38 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 submitDeps
               )
             );
+          } else if (message.type === "AEGIS_LOCK") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "AEGIS_LOCK",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "ASTRAL_DOCK_LAUNCH",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
           } else if (message.type === "UPGRADE_TOWN_TIER") {
             const metadata = optionalCommandMetadata(message);
             await trackSubmitLatency(() =>
