@@ -30,6 +30,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
+import { createCensusHallFx } from "../client-map-3d-census-hall-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
 import { createForest } from "../client-map-3d-forest.js";
@@ -114,6 +115,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
+  const censusHallFx = createCensusHallFx(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportCoins = createTownSupportCoinLayer(scene);
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
@@ -232,7 +234,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MARKET" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" }
+    { kind: "SEED_GRANARY" },
+    { kind: "CENSUS_HALL" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
@@ -1357,6 +1360,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
+    censusHallFx.clear();
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
@@ -1577,6 +1581,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
                 ? tileResource
                 : undefined;
             structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHint);
+            if (structureType === "CENSUS_HALL") {
+              censusHallFx.addInstance(x, z, surfaceY, wx * 17 + wy * 31);
+            }
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`.
@@ -1611,6 +1618,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const demoStructureEntry = structureDemoEntryFor(wx, wy);
         if (demoStructureEntry && terrain === "LAND") {
           structureOverlay.addInstance(x, z, surfaceY, demoStructureEntry.kind, demoStructureEntry.resource);
+          if (demoStructureEntry.kind === "CENSUS_HALL") {
+            censusHallFx.addInstance(x, z, surfaceY, wx * 17 + wy * 31);
+          }
         }
         const settleProgress = deps.settlementProgressForTile(wx, wy);
         if (settleProgress && terrain === "LAND") {
@@ -1704,6 +1714,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
+    censusHallFx.commit();
     forest.commit();
     ownershipOverlay.commit();
     townOverlay.commit();
@@ -1789,6 +1800,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
+    censusHallFx.update(nowMs);
     shardOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
@@ -1927,6 +1939,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
+    censusHallFx.dispose();
     floatingText.dispose();
     townSupportCoins.dispose();
     waterSurface.dispose();

@@ -1,0 +1,52 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Isometric building shell: dark iron-grey walls under an oxidized-copper dome roof. -->
+  <path d="M16 100L32 90H76L60 100H16Z" fill="#2A2830"/>
+  <path d="M32 90V68H76V90H32Z" fill="#3C3A3E"/>
+  <path d="M76 90L98 78V56L76 68V90Z" fill="#26242A"/>
+  <path d="M32 68L48 56H98L76 68H32Z" fill="#4F8F78"/>
+
+  <!-- Riveted brass band at the eaves -->
+  <path d="M34 79H74" stroke="#C8943F" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="40" cy="79" r="1.6" fill="#5A4118"/>
+  <circle cx="50" cy="79" r="1.6" fill="#5A4118"/>
+  <circle cx="60" cy="79" r="1.6" fill="#5A4118"/>
+  <circle cx="70" cy="79" r="1.6" fill="#5A4118"/>
+
+  <!-- Brass finial spike on the dome ridge -->
+  <path d="M86 60V50" stroke="#8A6526" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M86 50L82 45H90L86 50Z" fill="#C8943F"/>
+
+  <!-- Twin brass portholes flanking the entrance -->
+  <circle cx="46" cy="84" r="5" fill="#C8943F"/>
+  <circle cx="46" cy="84" r="3" fill="#0E1F24"/>
+  <circle cx="62" cy="84" r="5" fill="#C8943F"/>
+  <circle cx="62" cy="84" r="3" fill="#0E1F24"/>
+
+  <!-- Brass tally drum centred above the door -->
+  <rect x="50" y="71" width="12" height="9" rx="2" fill="#C8943F"/>
+  <path d="M50 75H62" stroke="#5A4118" stroke-width="1.4"/>
+
+  <!-- Steam pipe + rising puffs on the roof corner -->
+  <path d="M70 67V54" stroke="#2C2A2C" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="70" cy="50" r="2.6" fill="#8A6526"/>
+  <circle cx="71" cy="42" r="3.5" fill="#E8E2D4" opacity="0.85"/>
+  <circle cx="74" cy="35" r="4.5" fill="#E8E2D4" opacity="0.6"/>
+  <circle cx="73" cy="26" r="5.5" fill="#E8E2D4" opacity="0.35"/>
+
+  <!-- Meshing brass gear cluster on the west wall (the census tally mechanism) -->
+  <g>
+    <circle cx="22" cy="86" r="9" fill="#C8943F"/>
+    <circle cx="22" cy="86" r="3.5" fill="#2C2A2C"/>
+    <path d="M22 75V79M22 93V97M11 86H15M29 86H33M14.6 78.6L17.4 81.4M26.6 90.6L29.4 93.4M14.6 93.4L17.4 90.6M26.6 81.4L29.4 78.6" stroke="#8A6526" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <g>
+    <circle cx="14" cy="72" r="5.5" fill="#8A6526"/>
+    <circle cx="14" cy="72" r="2" fill="#2C2A2C"/>
+    <path d="M14 65V67.5M14 76.5V79M7.5 72H10M18 72H20.5M9.6 67.6L11.4 69.4M16.6 74.6L18.4 76.4M9.6 76.4L11.4 74.6M16.6 69.4L18.4 67.6" stroke="#C8943F" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+
+  <!-- Stone entrance steps -->
+  <path d="M30 104L40 99H58L48 104H30Z" fill="#6A6660"/>
+
+</svg>

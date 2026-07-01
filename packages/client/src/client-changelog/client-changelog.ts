@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.3",
+  version: "2026.07.01.1",
   title: "What's New",
-  summary: "The season-end Start New Season action is available again.",
+  summary: "Census Hall now has a steampunk building model on the map.",
   entries: [
+    {
+      introducedIn: "2026.07.01.1",
+      title: "Census Hall has a new steampunk look",
+      why: "Census Hall previously reused the Governor's Office icon and had no 3D model, so it was invisible/generic on the map.",
+      changes: [
+        "3D map: Census Hall now renders as a brass-and-copper tabulating office with meshing gears, chimney steam, and a pulsing dome beacon.",
+        "2D map: Census Hall has its own icon instead of borrowing the Governor's Office icon."
+      ]
+    },
     {
       introducedIn: "2026.06.30.3",
       title: "Start New Season no longer shows as unavailable",
@@ -299,17 +308,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
         "The original sign-in prompt still appears only when you genuinely are not signed in yet."
-      ]
-    },
-    {
-      introducedIn: "2026.06.24.1",
-      title: "Login queue",
-      why: "When many players log in at once the server used to reject you with 'Server busy — retry shortly', requiring manual refreshes. Now you wait in a visible queue instead.",
-      changes: [
-        "If all login slots are taken you are placed in a queue automatically — no refresh needed.",
-        "The loading screen shows your position and an estimated wait time.",
-        "Your position updates in real time as players ahead of you finish loading.",
-        "If you close the tab while waiting your slot is released immediately for the next player."
       ]
     },
   ]
