@@ -5,6 +5,7 @@ import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empir
 import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
+import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
   validateFrontierCommand,
   fortAttackManpowerMultiplier,
@@ -447,14 +448,9 @@ export class SimulationRuntime {
   // unique-lock iteration for exportState's activeLocks projection, replacing
   // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
   private readonly locksByCommandId = new Map<string, LockRecord>();
-  // Index of FRONTIER tiles per owner — avoids full this.tiles scan in autoSettlementQueueForPlayer.
-  // Key: ownerId, Value: Set of tile keys that are FRONTIER-owned by that player.
-  // Maintained in replaceTileState; rebuilt from this.tiles in the constructor.
   private readonly frontierTilesByOwner = new Map<string, Set<string>>();
+  private readonly deltaBuffer = new CommandDeltaBuffer();
   // Part 2: index of fort/town anchors that grant frontier support per owner.
-  // Key: ownerId, Value: Map of (anchorTileKey → maxRadius) for FORT + WOODEN_FORT + TOWN kinds only.
-  // Siege outposts are excluded (they do not grant frontier support).
-  // Maintained in replaceTileState via refreshFortAnchorIndexForTile.
   private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
   // Index of active siege outpost tiles per owner (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER).
   // Key: ownerId, Value: Set of tileKeys with an active siegeOutpost owned by that player.
@@ -3888,6 +3884,7 @@ export class SimulationRuntime {
   }
 
   private emitEvent(event: SimulationEvent): void {
+    if (this.deltaBuffer.absorb(event)) return;
     if (event.eventType === "TILE_DELTA_BATCH") {
       const expanded = this.expandTileDeltasWithLinkedDocks(event.tileDeltas);
       if (expanded !== event.tileDeltas) event = { ...event, tileDeltas: expanded };
@@ -4274,7 +4271,9 @@ export class SimulationRuntime {
   }
 
   private resolveLock(lock: LockRecord): void {
-    resolveLockImpl(this.lockResolutionContext(), lock);
+    this.deltaBuffer.begin();
+    try { resolveLockImpl(this.lockResolutionContext(), lock); }
+    finally { this.deltaBuffer.flush(lock.commandId, lock.playerId, (e: SimulationEvent) => this.emitEvent(e)); }
   }
 
   private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void {
