@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
-import { createCensusHallFx } from "@client/client-map-3d-census-hall-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -81,37 +80,7 @@ export const MineGems: Story = { args: { structures: ["MINE"], resourceHint: "GE
 export const Observatory: Story = { args: { structures: ["OBSERVATORY"], cameraDistance: 3 } };
 export const Market: Story = { args: { structures: ["MARKET"], cameraDistance: 3 } };
 export const Granary: Story = { args: { structures: ["GRANARY"], cameraDistance: 3 } };
-export const CensusHall: Story = {
-  args: { structures: ["CENSUS_HALL"], cameraDistance: 3 },
-  // Custom render layers the animated fx companion (rotating brass
-  // gears, chimney steam, pulsing dome beacon) on top of the static
-  // building so the story shows the full steampunk effect, not just
-  // the static mesh.
-  render: (args) => {
-    const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
-    const structureOverlay = createStructureOverlay(stage.scene, 1);
-    structureOverlay.addInstance(0, 0, 0, "CENSUS_HALL");
-    structureOverlay.commit();
-
-    const fx = createCensusHallFx(stage.scene);
-    fx.addInstance(0, 0, 0, 7);
-    fx.commit();
-
-    const start = performance.now();
-    let rafId = 0;
-    const animate = (): void => {
-      fx.update(performance.now() - start);
-      rafId = requestAnimationFrame(animate);
-    };
-    animate();
-
-    return wrapWithCleanup(stage, [
-      () => cancelAnimationFrame(rafId),
-      structureOverlay.dispose,
-      fx.dispose
-    ]);
-  }
-};
+export const CensusHall: Story = { args: { structures: ["CENSUS_HALL"], cameraDistance: 3 } };
 export const Bank: Story = { args: { structures: ["BANK"], cameraDistance: 3 } };
 export const ClearingHouse: Story = { args: { structures: ["CLEARING_HOUSE"], cameraDistance: 3 } };
 export const AetherTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
