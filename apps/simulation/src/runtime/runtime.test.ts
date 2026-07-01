@@ -2512,15 +2512,14 @@ describe("simulation runtime", () => {
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
-        "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
       randomSpy.mockRestore();
@@ -4994,15 +4993,14 @@ describe("simulation runtime", () => {
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
-        "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
     } finally {
