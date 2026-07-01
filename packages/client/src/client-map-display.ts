@@ -150,7 +150,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Every 60 minutes, it can levy one resource from every rival empire for 240 crystal.";
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a 15-minute Aegis Lock for 220 crystal every 60 minutes.";
-  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 90 minutes, it can fire one Worldbreaker shot that shatters an enemy land tile into mountain for 300 crystal.";
+  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 60 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold and 500 crystal.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +18 food cap.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +50% within a 10-tile radius; boosted production raises food cap.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
@@ -302,7 +302,7 @@ export const structureInfoForKey = (
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Levy one resource from all rivals every 60 minutes for 240 crystal", "Requires nearby Aether Tower power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes at 220 crystal", "Requires nearby Aether Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot that shatters an enemy land tile into mountain every 90 minutes for 300 crystal", "Requires nearby Aether Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 60 minutes, destroying an enemy structure and cutting that town's population by 30%, for 15,000 gold and 500 crystal", "Requires nearby Aether Tower power"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createUnfedBadgeOverlay } from "@client/client-map-3d-unfed-badge-overlay.js";
+import { createUnfedBadgeOverlay } from "@client/client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.30.3",
+  version: "2026.07.01.1",
   title: "What's New",
-  summary: "The season-end Start New Season action is available again.",
+  summary: "Aegis Lock and Astral Dock's Launch Satellite now actually work, and every monument ability has real activation FX.",
   entries: [
+    {
+      introducedIn: "2026.07.01.1",
+      title: "Aegis Lock and Launch Satellite are live",
+      why: "Both abilities showed a working button in the tile menu, but the gateway silently rejected the command with 'not yet migrated to gateway' because the server-side handler was never built — clicking either button did nothing.",
+      changes: [
+        "Aegis Lock now actually locks: while active, hostile attacks inside the dome's 30-tile radius can no longer flip ownership of tiles there.",
+        "Launch Satellite now actually reveals: while active, your empire sees the whole map instead of only your usual territory/vision radius, for the full 24 hours.",
+        "Both abilities have new activation FX: Aegis Lock gets a glowing stasis-field ring (not a solid dome, so it doesn't block your view), and Launch Satellite reuses the beacon-launch effect."
+      ]
+    },
+    {
+      introducedIn: "2026.07.01.1",
+      title: "Worldbreaker Cannon costs more per shot",
+      why: "The Worldbreaker Shot tooltip described a different cost, cooldown, and effect than what the server actually did, and the ability was underpriced for what it does (destroy a structure and cut a town's population 30%, from anywhere on the map, with no miss chance).",
+      changes: [
+        "Worldbreaker Shot now costs 15,000 gold in addition to its existing 500 crystal.",
+        "The World Engine tooltip and Actions tab description now match the real cooldown (60m), cost, and effect instead of the old text.",
+        "World Engine Strike, Imperial Exchange Levy, and Astral Dock Launch all have new activation FX at the monument tile."
+      ]
+    },
     {
       introducedIn: "2026.06.30.3",
       title: "Start New Season no longer shows as unavailable",

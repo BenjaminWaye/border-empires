@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay.js";
+import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
