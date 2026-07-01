@@ -35,7 +35,7 @@ export type WorldgenBaselineResolver = (input: {
   rulesetId: string;
   worldSeed: number;
   mapStyle?: WorldStyle;
-}) => ReadonlyArray<RecoveredTile>;
+}) => Promise<ReadonlyArray<RecoveredTile>> | ReadonlyArray<RecoveredTile>;
 
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly stringify: SnapshotStringifier;
@@ -74,7 +74,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   }
 
   async preparePayload(sections: SimulationSnapshotSections): Promise<string> {
-    const baselineIndex = this.resolveBaselineIndexFromSections(sections);
+    const baselineIndex = await this.resolveBaselineIndexFromSections(sections);
     const payload = baselineIndex
       ? compactSnapshotForStorage(sections, baselineIndex)
       : buildSimulationSnapshotPayload(sections);
@@ -154,13 +154,13 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     }
   }
 
-  private resolveBaselineIndexFromSections(
+  private async resolveBaselineIndexFromSections(
     sections: SimulationSnapshotSections
-  ): ReadonlyMap<string, RecoveredTile> | undefined {
+  ): Promise<ReadonlyMap<string, RecoveredTile> | undefined> {
     if (!this.resolveBaseline) return undefined;
     const season = sections.initialState.season;
     if (!season) return undefined;
-    const tiles = this.resolveBaseline({
+    const tiles = await this.resolveBaseline({
       rulesetId: season.rulesetId,
       worldSeed: season.worldSeed,
       ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
@@ -170,7 +170,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     return index;
   }
 
-  private resolveBaselineForLoadedPayload(parsed: unknown): ReadonlyArray<RecoveredTile> | undefined {
+  private async resolveBaselineForLoadedPayload(parsed: unknown): Promise<ReadonlyArray<RecoveredTile> | undefined> {
     if (!this.resolveBaseline) return undefined;
     if (!parsed || typeof parsed !== "object") return undefined;
     const formatVersion = (parsed as { formatVersion?: unknown }).formatVersion;
@@ -180,7 +180,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       return undefined;
     }
     const mapStyle = season.mapStyle === "islands" || season.mapStyle === "continents" ? season.mapStyle : undefined;
-    return this.resolveBaseline({
+    return await this.resolveBaseline({
       rulesetId: season.rulesetId,
       worldSeed: season.worldSeed,
       ...(mapStyle ? { mapStyle } : {})
@@ -203,7 +203,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     this.lastLoadedFormatVersion = observedFormatVersion;
     // If the on-disk row is v1 (mutable-only overlay), rehydrate against the
     // worldgen baseline extracted from the snapshot's own season seed.
-    const baseline = this.resolveBaselineForLoadedPayload(parsed);
+    const baseline = await this.resolveBaselineForLoadedPayload(parsed);
     const snapshotPayload = baseline
       ? expandSnapshotFromStorage(parsed, baseline)
       : parsed;
