@@ -57,29 +57,9 @@ Then paste into the chat. The simulation emits structured JSON log lines; look f
 - `noCommandReason` — why the AI emitted no command (`wait_and_recover`, `development_process_limit`, etc.)
 - `phase: "request_plan_round_trip"` — confirms the planner is actually running
 
-## Key metrics to check
+## Metrics, log-line reference, and freeze diagnosis
 
-Staging exposes Prometheus metrics on `:50052/metrics` internally. From `fly ssh console`:
-
-```bash
-curl -s http://127.0.0.1:50052/metrics | grep -E "sim_ai_|sim_tick_duration|sim_muster_remote"
-```
-
-Useful counters (verify current names against `apps/simulation/src/metrics/metrics-prometheus.ts`
-before relying on them — they drift):
-- `sim_ai_command_total` — increments each time the AI submits a command
-- `sim_ai_noop_total` — increments when the AI explicitly decides not to act
-- `sim_ai_last_command_accepted_at_ms` — gauge of the last time any AI command was accepted; a stale timestamp means a frozen player
-- `sim_tick_duration_ms` — overall sim tick duration histogram (not AI-specific)
-- `sim_ai_planner_phase_ms` — AI planner phase timing
-
-A flat `sim_ai_command_total` after several minutes = the AI loop is frozen.
-
-## Common freeze causes
-
-| Symptom | Likely cause |
-|---|---|
-| Both AI and barbarians frozen | Season ticker stopped early (check `season ended — gameplay tickers stopped` in logs) or worker thread crash |
-| AI only frozen, barbarians moving | AI tick loop crash or `tickInFlight` stuck true |
-| AI expanding but not attacking | `frontPosture` stuck off `BREAK`; the actual gate logic in `apps/simulation/src/ai/automation-strategic-snapshot.ts` (`frontPosture` assignment) has several branches with different `pressureAttackScore` thresholds depending on `primaryVictoryPath` and other flags — read that function directly rather than relying on a single restated threshold here |
-| Barbarians only frozen | `system-job-barbarian-planner` job not scheduled |
+For the full grep-able log line reference, Prometheus metric names, the
+exit_code=137 playbook, the SQLite prod probe, and the common freeze-cause table
+(applies to staging and production alike), see
+`docs/agents/topics/fly-logs-debugging.md`.

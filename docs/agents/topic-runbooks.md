@@ -20,7 +20,8 @@ Use one topic per recurring work area, for example:
 
 | File | Covers |
 |---|---|
-| `docs/agents/topics/staging-access.md` | Reading logs/metrics from staging inside a remote session; proxy constraints; freeze diagnosis |
+| `docs/agents/topics/staging-access.md` | Network/proxy access to staging from a remote session (reachability check, allowlist vs. paste-log fallback) |
+| `docs/agents/topics/fly-logs-debugging.md` | Fly log/metric debugging for staging + prod: key log lines, exit_code=137 playbook, SQLite prod probe, event-loop-blocked correlation, death-forensics retention gap, common freeze causes |
 
 ## Template
 
