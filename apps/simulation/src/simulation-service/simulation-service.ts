@@ -57,6 +57,7 @@ import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
+import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import { createMainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
@@ -527,32 +528,36 @@ const toFullSnapshotProtoTile = (tile: {
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
-const buildBootstrapSeason = ({
+const buildBootstrapSeason = async ({
   seasonSequence,
   rulesetId,
   mapStyle,
   aiPlayerCount,
-  now
+  now,
+  onYield
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
   aiPlayerCount?: number;
   now: number;
-}): {
+  onYield?: () => Promise<void>;
+}): Promise<{
   seasonState: SimulationSeasonState;
-  initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
-  initialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"];
-} => {
+  initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
+  initialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"];
+}> => {
   const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed, {
+  const generatedWorld = await generateSeasonWorld(rulesetId, requestedWorldSeed, {
     mapStyle,
-    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {})
+    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
+    ...(onYield ? { onYield } : {})
   });
   const seasonState = createInitialSeasonState({
     seasonSequence,
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
+    mapStyle: generatedWorld.mapStyle,
     startedAt: now
   });
   return {
@@ -763,88 +768,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
-  // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
-  // store can compact saves and rehydrate loads without paying the 200k-tile
-  // generation cost more than once per seed per process.
-  //
-  // SQLite persistence layer: on first boot of a new season, generated tiles
-  // are written to a `worldgen_baselines` table. On subsequent restarts the
-  // table row is read instead of calling generateSeasonWorld, eliminating the
-  // 30-74s synchronous block that held the sim worker event loop hostage
-  // during startup recovery (root cause of the SERVER_STARTING cascade on
-  // staging sim-worker restarts).
-  type WorldgenTiles = ReturnType<typeof generateSeasonWorld>["initialState"]["tiles"];
-  const worldgenBaselineCache = new Map<string, WorldgenTiles>();
-
-  let worldgenDb: import("node:sqlite").DatabaseSync | undefined;
-  if (options.sqlitePath) {
-    const { openSqliteDatabase } = await import("../sqlite-db.js");
-    worldgenDb = openSqliteDatabase(options.sqlitePath);
-    // Always run CREATE TABLE IF NOT EXISTS — idempotent, and must be present
-    // even when applySchema is false (e.g. first deploy that adds this table).
-    worldgenDb.exec(`
-      CREATE TABLE IF NOT EXISTS worldgen_baselines (
-        cache_key TEXT PRIMARY KEY,
-        tiles_json TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `);
-  }
-
-  const readWorldgenBaselineFromDb = (cacheKey: string): WorldgenTiles | undefined => {
-    if (!worldgenDb) return undefined;
-    const row = worldgenDb
-      .prepare(`SELECT tiles_json FROM worldgen_baselines WHERE cache_key = ?`)
-      .get(cacheKey) as { tiles_json: string } | undefined;
-    if (!row) return undefined;
-    try {
-      return JSON.parse(row.tiles_json) as WorldgenTiles;
-    } catch (err) {
-      log.error({ err, cacheKey }, "worldgen_baselines row corrupt — falling back to cold generation");
-      return undefined;
-    }
-  };
-
-  const writeWorldgenBaselineToDb = (cacheKey: string, tiles: WorldgenTiles): void => {
-    if (!worldgenDb) return;
-    try {
-      worldgenDb
-        .prepare(`INSERT OR REPLACE INTO worldgen_baselines (cache_key, tiles_json, created_at) VALUES (?, ?, ?)`)
-        .run(cacheKey, JSON.stringify(tiles), Date.now());
-    } catch (err) {
-      log.error({ err, cacheKey }, "failed to persist worldgen baseline to SQLite (non-fatal)");
-    }
-  };
-
-  const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number }) => {
-    if (input.rulesetId !== "seasonal-default") return [];
-    const cacheKey = `${input.rulesetId}:${input.worldSeed}`;
-
-    const inMemory = worldgenBaselineCache.get(cacheKey);
-    if (inMemory) return inMemory;
-
-    // SQLite persisted baseline survives sim-worker restarts — avoids the
-    // 30-74s generateSeasonWorld block that previously held the event loop
-    // hostage during startup recovery on every container restart.
-    const t0 = Date.now();
-    const persisted = readWorldgenBaselineFromDb(cacheKey);
-    if (persisted) {
-      worldgenBaselineCache.set(cacheKey, persisted);
-      log.info({ cacheKey, durationMs: Date.now() - t0 }, "worldgen baseline loaded from SQLite cache (cold-start block eliminated)");
-      return persisted;
-    }
-
-    // Cold generation: only on first boot of a brand-new season seed.
-    log.info({ cacheKey }, "worldgen baseline not cached — running generateSeasonWorld (expected on first season boot only)");
-    const genT0 = Date.now();
-    const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed);
-    const tiles = generated.initialState.tiles;
-    const genMs = Date.now() - genT0;
-    log.info({ cacheKey, durationMs: genMs, tileCount: tiles.length }, "worldgen baseline generated — persisting to SQLite");
-    worldgenBaselineCache.set(cacheKey, tiles);
-    writeWorldgenBaselineToDb(cacheKey, tiles);
-    return tiles;
-  };
+  // See worldgen-baseline-cache.ts for why this exists (SERVER_STARTING
+  // cascade on staging sim-worker restarts) and how warmWorldgenBaselineCache
+  // avoids re-triggering the same class of stall on a live season rollover.
+  const { resolveWorldgenBaseline, warmWorldgenBaselineCache } = await createWorldgenBaselineCache({
+    ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
+    ...(rulesetId ? { rulesetId } : {}),
+    log
+  });
   const storeFactoryOptions = {
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
@@ -888,7 +819,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     options.seasonSummaryStore ??
     (await createSeasonSummaryStore(storeFactoryOptions));
   let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
-  let bootstrappedInitialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"] | undefined;
+  let bootstrappedInitialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"] | undefined;
   let bootstrappedCurrentSummary: CurrentSeasonSummary | undefined;
   let bootstrappedSeasonState: SimulationSeasonState | undefined;
   const bootstrapManagedSeason = async ({
@@ -900,19 +831,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     logMessage: string;
     logContext: Record<string, unknown>;
   }): Promise<{
-    initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
+    initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
     initialCommandHistory: ReturnType<typeof recoverCommandHistory>;
     recoveredCommandCount: number;
     recoveredEventCount: number;
   }> => {
     if (!rulesetId) throw new Error("managed season bootstrap requires rulesetId");
-    const bootstrap = buildBootstrapSeason({
+    const bootstrap = await buildBootstrapSeason({
       seasonSequence,
       rulesetId,
       mapStyle,
       ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
       now: Date.now()
     });
+    warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
     const bootstrapRuntime = new SimulationRuntime({
       ...(options.runtimeOptions ?? {}),
       initialState: bootstrap.initialState,
@@ -1064,9 +996,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonSequence: 1,
       rulesetId: rulesetId ?? `seed:${options.seedProfile ?? "default"}`,
       worldSeed: 0,
+      mapStyle,
       startedAt: Date.now()
     });
-  setWorldSeed(currentSeasonState.worldSeed);
+  // Seasons persisted before mapStyle existed have no field — they were always
+  // generated as "continents" (the historical hardcoded default), so that must
+  // be the fallback here, never the live env's mapStyle. Otherwise a container
+  // restart on an old continents-shaped season with SIMULATION_MAP_STYLE=islands
+  // would desync terrainAt() from the season's actual persisted tile shape.
+  setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents");
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
@@ -2269,13 +2207,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         status: "ended",
         ...(currentSeasonState.endedAt ? { endedAt: currentSeasonState.endedAt } : {})
       });
-      const bootstrap = buildBootstrapSeason({
+      // Only yield if status is already "ended" — that's what makes
+      // SubmitCommand/tickers no-op; force=true bypasses it, so fall back to
+      // an unyielded (slower, not racy) block in that case.
+      const bootstrap = await buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
-        now: Date.now()
+        now: Date.now(),
+        ...(currentSeasonState.status === "ended" ? { onYield: yieldToEventLoop } : {})
       });
+      warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
       const nextRuntime = new SimulationRuntime({
         ...(options.runtimeOptions ?? {}),
         initialState: bootstrap.initialState,

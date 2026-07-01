@@ -25,6 +25,7 @@ export type RuntimeLockResolutionContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   buildCaptureRevealTileDeltas: (playerId: string, centerX: number, centerY: number) => SimulationTileWireDelta[];
   buildLockedCombatResolution: (lock: LockRecord) => LockedCombatResolution | undefined;
+  isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
   consumeOriginMuster: (originKey: string, playerId: string, amount: number) => void;
   applyFortGarrisonAttrition: (targetKey: string, attackingForce: number) => void;
   applyLockedManpowerDelta: (player: DomainPlayer, manpowerDelta: number) => number;
@@ -70,7 +71,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   const combatResult = combatResolution?.result;
   const attacker = context.players.get(lock.playerId);
   const defender = previousOwnerId ? context.players.get(previousOwnerId) : undefined;
-  const attackerWon = combatResult?.attackerWon ?? false;
+  const blockedByAegisLock =
+    lock.actionType === "ATTACK" &&
+    Boolean(previousOwnerId) &&
+    previousOwnerId !== lock.playerId &&
+    context.isTileShieldedByAegisLock(lock.playerId, lock.targetX, lock.targetY);
+  const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
   const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
 
   if (attacker && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {

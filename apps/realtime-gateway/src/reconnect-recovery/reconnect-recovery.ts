@@ -1,6 +1,6 @@
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-import type { SeasonVictoryObjectiveView, SeasonWinnerView } from "@border-empires/shared";
+import type { SeasonVictoryObjectiveView, SeasonWinnerView, WorldStyle } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
@@ -54,7 +54,7 @@ export const buildInitMessage = (
     seededTileCount: number;
   };
   player: Record<string, unknown>;
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
   recovery: { nextClientSeq: number; pendingCommands: PendingGatewayCommand[] };
   supportedMessageTypes: string[];
   techChoices: string[];
