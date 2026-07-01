@@ -26,6 +26,9 @@ export type WorkerResponse = {
   biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 255=N/A
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
+  resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH (highest-priority resource per tile)
+  townIndices: Uint32Array; // flat tile indices of estimated town positions
+  dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
   landCount: number;
   seaCount: number;
   mountainCount: number;
@@ -61,9 +64,11 @@ const ISLANDS_MAX_LARGEST_SHARE = 0.22;
 const MAX_REFINE_ATTEMPTS = 16;
 
 // 8-directional BFS flood-fill on LAND tiles, toroidal wrap
-const countIslands = (terrain: Uint8Array): { significant: number; largestShare: number; dockCount: number } => {
+const countIslands = (terrain: Uint8Array): {
+  significant: number; largestShare: number; dockCount: number; dockSiteIndices: Uint32Array
+} => {
   const visited = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
-  const sizes: number[] = [];
+  const islands: Array<{ size: number; start: number }> = [];
   let landTotal = 0;
 
   for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
@@ -96,18 +101,19 @@ const countIslands = (terrain: Uint8Array): { significant: number; largestShare:
         }
       }
 
-      sizes.push(size);
+      islands.push({ size, start: si });
       landTotal += size;
     }
   }
 
-  sizes.sort((a, b) => b - a);
-  const sigSizes = sizes.filter(s => s >= SIGNIFICANT_ISLAND_TILES);
-  const dockCount = sigSizes.reduce((sum, sz) => sum + 1 + (sz >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? 1 : 0), 0);
+  islands.sort((a, b) => b.size - a.size);
+  const sigIslands = islands.filter(i => i.size >= SIGNIFICANT_ISLAND_TILES);
+  const dockCount = sigIslands.reduce((sum, i) => sum + 1 + (i.size >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? 1 : 0), 0);
   return {
-    significant: sigSizes.length,
-    largestShare: landTotal > 0 ? (sizes[0] ?? 0) / landTotal : 0,
-    dockCount
+    significant: sigIslands.length,
+    largestShare: landTotal > 0 ? (islands[0]?.size ?? 0) / landTotal : 0,
+    dockCount,
+    dockSiteIndices: new Uint32Array(sigIslands.map(i => i.start))
   };
 };
 
@@ -138,10 +144,11 @@ const isCoastalLandLocal = (x: number, y: number, terrain: Uint8Array): boolean 
   return u === 0 || u === 3 || r === 0 || r === 3 || d === 0 || d === 3 || l === 0 || l === 3;
 };
 
-type ResourceCounts = { fish: number; iron: number; gems: number; farm: number; fur: number };
+type ResourceCounts = { fish: number; iron: number; gems: number; farm: number; fur: number; layer: Uint8Array };
 
 const countResourceSites = (terrain: Uint8Array, biome: Uint8Array, shade: Uint8Array, region: Uint8Array): ResourceCounts => {
   let fish = 0, iron = 0, gems = 0, farm = 0, fur = 0;
+  const layer = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let x = 0; x < WORLD_WIDTH; x++) {
       const idx = y * WORLD_WIDTH + x;
@@ -149,19 +156,26 @@ const countResourceSites = (terrain: Uint8Array, biome: Uint8Array, shade: Uint8
       const b = biome[idx]!;
       const s = shade[idx]!;
       const r = region[idx]!;
-      if (b === 2) fish++;                                                                             // COASTAL_SAND
-      if ((b === 1 && isNearMountainLocal(x, y, 4, terrain)) || (b === 0 && isNearMountainLocal(x, y, 1, terrain))) iron++;  // SAND+mtn4 or GRASS+mtn1
-      if (b === 1) gems++;                                                                             // SAND
-      if (b === 0 && s === 1) farm++;                                                                 // GRASS+LIGHT
-      if (!isCoastalLandLocal(x, y, terrain) && ((b === 0 && s === 0 && r === 1) || b === 1)) fur++; // FUR: non-coastal, dark-forest or sand
+      const isFish = b === 2;
+      const isIron = (b === 1 && isNearMountainLocal(x, y, 4, terrain)) || (b === 0 && isNearMountainLocal(x, y, 1, terrain));
+      const isGems = b === 1;
+      const isFarm = b === 0 && s === 1;
+      const isFur = !isCoastalLandLocal(x, y, terrain) && ((b === 0 && s === 0 && r === 1) || b === 1);
+      if (isFish) fish++;
+      if (isIron) iron++;
+      if (isGems) gems++;
+      if (isFarm) farm++;
+      if (isFur) fur++;
+      // Display priority: FISH > IRON > GEMS > FARM > FUR
+      layer[idx] = isFish ? 5 : isIron ? 4 : isGems ? 3 : isFarm ? 2 : isFur ? 1 : 0;
     }
   }
-  return { fish, iron, gems, farm, fur };
+  return { fish, iron, gems, farm, fur, layer };
 };
 
 // Replicates all three town-placement passes from game-domain.
 // Dock/cluster tiles are not tracked here (lab approximation), so count may be slightly high.
-const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
+const estimateTownCount = (terrain: Uint8Array, seed: number): { count: number; indices: Uint32Array } => {
   const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
   const target = Math.max(70, Math.floor(180 * worldScale));
   const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
@@ -205,7 +219,7 @@ const estimateTownCount = (terrain: Uint8Array, seed: number): number => {
   // pass 2 make nearly every 15×15 sub-cell "interesting", so pass 3 adds very few towns.
   // Without cluster data in the worker we cannot replicate it without wild overcounting.
 
-  return townSet.size;
+  return { count: townSet.size, indices: Uint32Array.from(townSet) };
 };
 
 const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
@@ -289,9 +303,9 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     }
   }
 
-  const { significant: islandCount, largestShare, dockCount } = countIslands(terrain);
+  const { significant: islandCount, largestShare, dockCount, dockSiteIndices } = countIslands(terrain);
   const resources = countResourceSites(terrain, biome, shade, region);
-  const townCount = estimateTownCount(terrain, currentSeed);
+  const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
@@ -316,6 +330,9 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     biome,
     region,
     shade,
+    resourceLayer: resources.layer,
+    townIndices,
+    dockSiteIndices,
     landCount: counts.land,
     seaCount: counts.sea,
     mountainCount: counts.mountain,
@@ -333,5 +350,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     durationMs: performance.now() - t0
   };
 
-  self.postMessage(response, [terrain.buffer, biome.buffer, region.buffer, shade.buffer]);
+  self.postMessage(response, [
+    terrain.buffer, biome.buffer, region.buffer, shade.buffer,
+    resources.layer.buffer, townIndices.buffer, dockSiteIndices.buffer
+  ]);
 };
