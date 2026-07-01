@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Color } from "three";
-import { createSettleOverlay } from "@client/client-map-3d-settle-overlay.js";
+import { createSettleOverlay } from "@client/client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {

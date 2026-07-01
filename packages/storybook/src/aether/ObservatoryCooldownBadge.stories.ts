@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createObservatoryCooldownBadgeOverlay } from "@client/client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createObservatoryCooldownBadgeOverlay } from "@client/client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 
 // The "recharging" badge that floats over an owned observatory while its

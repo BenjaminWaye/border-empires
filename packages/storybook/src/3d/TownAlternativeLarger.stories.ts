@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createClientThreeTownLayer } from "@client/client-map-3d-town.js";
+import { createClientThreeTownLayer } from "@client/client-map-3d-town/client-map-3d-town.js";
 import type { Tile } from "@client/client-types.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 

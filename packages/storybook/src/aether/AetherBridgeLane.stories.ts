@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { drawAetherBridgeLane } from "@client/client-map-render.js";
+import { drawAetherBridgeLane } from "@client/client-map-render/client-map-render.js";
 
 // The animated Aether Bridge lane (see drawAetherBridgeLane in
 // client-map-render.ts): a pulsing cyan sea-lane with an anchor glyph at
