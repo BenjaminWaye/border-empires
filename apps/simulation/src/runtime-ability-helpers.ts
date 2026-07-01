@@ -100,6 +100,27 @@ export function isTileShieldedByEnemyAegisDome(
   return false;
 }
 
+export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";
+export const ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY = "astral_dock_launch_active_until";
+
+export function isTileShieldedByAegisLock(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  abilityCooldowns: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  now: number,
+  actorId: string,
+  targetX: number,
+  targetY: number
+): boolean {
+  for (const candidate of tiles.values()) {
+    const dome = candidate.economicStructure;
+    if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
+    if (!dome.ownerId || dome.ownerId === actorId) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
+    if (getAbilityCooldownUntil(abilityCooldowns, dome.ownerId, AEGIS_LOCK_ACTIVE_UNTIL_KEY) > now) return true;
+  }
+  return false;
+}
+
 export function isTileBombardBlockedByRadar(
   tiles: ReadonlyMap<string, DomainTileState>,
   actorId: string,

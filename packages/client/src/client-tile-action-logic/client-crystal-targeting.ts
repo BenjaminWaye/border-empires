@@ -167,8 +167,12 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Select your Worldbreaker Cannon first.", "combat", "warn");
       return;
     }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 400) {
-      deps.pushFeed("Worldbreaker Shot needs 400 CRYSTAL.", "combat", "warn");
+    if ((state.strategicResources.CRYSTAL ?? 0) < 500) {
+      deps.pushFeed("Worldbreaker Shot needs 500 CRYSTAL.", "combat", "warn");
+      return;
+    }
+    if (state.gold < 15_000) {
+      deps.pushFeed("Worldbreaker Shot needs 15,000 gold.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
@@ -265,6 +269,7 @@ export const executeCrystalTargeting = (
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
     deps.ws.send(JSON.stringify({ type: "WORLD_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
+    state.worldEngineStrikeFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   } else if (ability === "airport_bombard") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
