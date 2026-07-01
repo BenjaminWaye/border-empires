@@ -1,5 +1,5 @@
 import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { createSeason20AiSeedWorld } from "../season-seed-world.js";
+import { createSeasonSeedWorld } from "../season-seed-world.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 
 export const simulationTileKey = (x: number, y: number): string => `${x},${y}`;
@@ -245,7 +245,7 @@ export const createSeedWorld = (profile: SimulationSeedProfile = "default"): Sim
   if (profile === "stress-20ai") return createStressSeedWorld(20, "stress-20ai");
   if (profile === "stress-40ai") return createStressSeedWorld(40, "stress-40ai");
   if (profile === "season-20ai") {
-    const generated = createSeason20AiSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer);
+    const generated = createSeasonSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer);
     return {
       players: generated.players,
       tiles: generated.tiles,

@@ -553,6 +553,7 @@ const buildBootstrapSeason = ({
     seasonSequence,
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
+    mapStyle: generatedWorld.mapStyle,
     startedAt: now
   });
   return {
@@ -816,9 +817,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
 
-  const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number }) => {
+  const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number; mapStyle?: SimulationMapStyle }) => {
     if (input.rulesetId !== "seasonal-default") return [];
-    const cacheKey = `${input.rulesetId}:${input.worldSeed}`;
+    // mapStyle is part of the cache key, not just an input to generation: the same
+    // worldSeed with a different style produces a completely different tile set
+    // (buildContinents vs buildIslands), and a stale hit here would silently
+    // hand back the wrong topology.
+    const cacheKey = `${input.rulesetId}:${input.worldSeed}:${input.mapStyle ?? "continents"}`;
 
     const inMemory = worldgenBaselineCache.get(cacheKey);
     if (inMemory) return inMemory;
@@ -837,7 +842,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Cold generation: only on first boot of a brand-new season seed.
     log.info({ cacheKey }, "worldgen baseline not cached — running generateSeasonWorld (expected on first season boot only)");
     const genT0 = Date.now();
-    const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed);
+    const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed, {
+      ...(input.mapStyle ? { mapStyle: input.mapStyle } : {})
+    });
     const tiles = generated.initialState.tiles;
     const genMs = Date.now() - genT0;
     log.info({ cacheKey, durationMs: genMs, tileCount: tiles.length }, "worldgen baseline generated — persisting to SQLite");
@@ -1064,9 +1071,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonSequence: 1,
       rulesetId: rulesetId ?? `seed:${options.seedProfile ?? "default"}`,
       worldSeed: 0,
+      mapStyle,
       startedAt: Date.now()
     });
-  setWorldSeed(currentSeasonState.worldSeed);
+  // Seasons persisted before mapStyle existed have no field — they were always
+  // generated as "continents" (the historical hardcoded default), so that must
+  // be the fallback here, never the live env's mapStyle. Otherwise a container
+  // restart on an old continents-shaped season with SIMULATION_MAP_STYLE=islands
+  // would desync terrainAt() from the season's actual persisted tile shape.
+  setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents");
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
