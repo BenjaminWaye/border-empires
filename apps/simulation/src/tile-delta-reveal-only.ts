@@ -33,12 +33,5 @@ export const tileDeltaRevealOnly = (
     sabotageJson: cached.sabotageJson,
     musterJson: cached.musterJson
   };
-  // Always full, never sparse-diffed: this path fires for tiles entering a
-  // player's fog-of-war radius, which may be the first delta that specific
-  // subscriber has ever received for this tile. The sparse cache's
-  // "last emitted" baseline is global across all subscribers, so diffing
-  // against it here can omit fields (e.g. ownerId) that this particular
-  // recipient never actually saw, rendering owned tiles as neutral client-side.
-  cache.setLastEmitted(tileKey, tile);
-  return fullDelta;
+  return cache.sparseEmit(tileKey, tile, cached, fullDelta);
 };
