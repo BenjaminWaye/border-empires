@@ -22,7 +22,10 @@ const params = {
 const layers: Layers = {
   biome: true,
   region: false,
-  shade: true
+  shade: true,
+  resources: false,
+  towns: false,
+  docks: false
 };
 
 const view: ViewConfig = {
@@ -141,6 +144,9 @@ const layerFolder = pane.addFolder({ title: "Layers" });
 layerFolder.addBinding(layers, "biome", { label: "Biome colors" }).on("change", redraw);
 layerFolder.addBinding(layers, "region", { label: "Region tint" }).on("change", redraw);
 layerFolder.addBinding(layers, "shade", { label: "Grass shade" }).on("change", redraw);
+layerFolder.addBinding(layers, "resources", { label: "Resources" }).on("change", redraw);
+layerFolder.addBinding(layers, "towns", { label: "Towns" }).on("change", redraw);
+layerFolder.addBinding(layers, "docks", { label: "Docks" }).on("change", redraw);
 
 // Stats
 const statsFolder = pane.addFolder({ title: "Stats", expanded: true });

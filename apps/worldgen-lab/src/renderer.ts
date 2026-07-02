@@ -5,6 +5,9 @@ export type Layers = {
   biome: boolean;
   region: boolean;
   shade: boolean;
+  resources: boolean;
+  towns: boolean;
+  docks: boolean;
 };
 
 export type ViewConfig = {
@@ -28,7 +31,45 @@ const REGION_TINTS: Record<number, [number, number, number]> = {
   4: [155, 110, 205]  // CRYSTAL_WASTES
 };
 
+// resourceLayer values: 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH
+const RESOURCE_TINT: Array<[number, number, number]> = [
+  [0, 0, 0],        // 0 none
+  [160, 90, 30],    // 1 FUR  – warm brown
+  [80, 210, 80],    // 2 FARM – bright green
+  [170, 90, 210],   // 3 GEMS – purple
+  [220, 110, 50],   // 4 IRON – orange
+  [60, 190, 230],   // 5 FISH – cyan
+];
+
 const mix = (a: number, b: number, t: number): number => Math.round(a * (1 - t) + b * t);
+
+// Draw a square marker into ImageData around world tile (wx, wy).
+// halfw = half-width in pixels (marker is 2*halfw+1 square).
+const drawMarker = (
+  px: Uint8ClampedArray,
+  wx: number, wy: number,
+  colR: number, colG: number, colB: number,
+  borderR: number, borderG: number, borderB: number,
+  halfw: number,
+  scale: number, drawW: number, drawH: number, yOff: number
+): void => {
+  const dispY = ((wy - yOff + WORLD_HEIGHT) % WORLD_HEIGHT);
+  const cx = wx * scale + Math.floor(scale / 2);
+  const cy = dispY * scale + Math.floor(scale / 2);
+  for (let dy = -halfw; dy <= halfw; dy++) {
+    for (let dx = -halfw; dx <= halfw; dx++) {
+      const px0 = cx + dx;
+      const py0 = cy + dy;
+      if (px0 < 0 || px0 >= drawW || py0 < 0 || py0 >= drawH) continue;
+      const border = Math.abs(dx) === halfw || Math.abs(dy) === halfw;
+      const i = (py0 * drawW + px0) * 4;
+      px[i]     = border ? borderR : colR;
+      px[i + 1] = border ? borderG : colG;
+      px[i + 2] = border ? borderB : colB;
+      px[i + 3] = 255;
+    }
+  }
+};
 
 export const renderWorld = (
   canvas: HTMLCanvasElement,
@@ -81,6 +122,16 @@ export const renderWorld = (
           g = Math.min(255, g + 18);
           b = Math.min(255, b + 12);
         }
+
+        if (layers.resources) {
+          const resCode = data.resourceLayer[idx] ?? 0;
+          if (resCode > 0) {
+            const tc = RESOURCE_TINT[resCode]!;
+            r = mix(r, tc[0], 0.55);
+            g = mix(g, tc[1], 0.55);
+            b = mix(b, tc[2], 0.55);
+          }
+        }
       } else if (terrainCode === 2) {
         const isPolar = srcY < POLAR_BAND || srcY >= WORLD_HEIGHT - POLAR_BAND;
         [r, g, b] = isPolar ? C_POLAR : C_MOUNTAIN;
@@ -99,6 +150,24 @@ export const renderWorld = (
           px[pxIdx + 3] = 255;
         }
       }
+    }
+  }
+
+  // Dock markers (cyan) — drawn before town markers so towns appear on top
+  if (layers.docks) {
+    for (const flatIdx of data.dockSiteIndices) {
+      const wx = flatIdx % WORLD_WIDTH;
+      const wy = Math.floor(flatIdx / WORLD_WIDTH);
+      drawMarker(px, wx, wy, 0, 200, 255, 0, 80, 140, 4, scale, drawW, drawH, yOff);
+    }
+  }
+
+  // Town markers (white/yellow)
+  if (layers.towns) {
+    for (const flatIdx of data.townIndices) {
+      const wx = flatIdx % WORLD_WIDTH;
+      const wy = Math.floor(flatIdx / WORLD_WIDTH);
+      drawMarker(px, wx, wy, 255, 240, 80, 80, 60, 0, 3, scale, drawW, drawH, yOff);
     }
   }
 

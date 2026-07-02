@@ -171,7 +171,10 @@ const buildContinents = (): ContinentSeed[] => {
   const scaleX = WORLD_WIDTH / 1000;
   const scaleY = WORLD_HEIGHT / 1000;
   const s = (v: number, axis: "x" | "y"): number => Math.max(24, Math.floor(v * (axis === "x" ? scaleX : scaleY)));
-  // Five continents in a quincunx so all map quadrants get land; each has seeded X/Y variation (±s(130/88,"x"/"y")).
+  // Five continents in a quincunx (NW, NE, center, SW, SE) so all map quadrants get land.
+  // Each has seeded X (±s(130,"x")≈±29 tiles) and Y (±s(88,"y")≈±19 tiles) variation.
+  // so = seed offset base; all params for one continent share a 7-slot range above it.
+  // Corner X moved inward (0.20/0.70 vs 0.15/0.75) and rx increased to close ocean gaps.
   const layouts: Array<{ bx: number; by: number; so: number }> = [
     { bx: 0.20, by: 0.18, so: 101 }, // NW
     { bx: 0.70, by: 0.18, so: 141 }, // NE
@@ -192,14 +195,23 @@ const buildContinents = (): ContinentSeed[] => {
 };
 const buildIslands = (): ContinentSeed[] => {
   const seed = worldSeed();
+  // ~55 small island blobs scattered across the map. The existing max-score ellipse
+  // system creates irregular shapes; small rx/ry keeps each island distinct.
   const N = 55;
   const out: ContinentSeed[] = [];
   for (let i = 0; i < N; i++) {
-    const cx  = Math.floor(seeded01(i, 0, seed + 10000 + i) * WORLD_WIDTH);
-    const cy  = Math.floor(POLAR_BAND + 10 + seeded01(i, 1, seed + 20000 + i) * (WORLD_HEIGHT - 2 * POLAR_BAND - 20));
-    const r   = 7 + Math.floor(seeded01(i, 2, seed + 30000 + i) * 15);
-    const ry  = r + Math.floor(seeded01(i, 3, seed + 40000 + i) * 6);
-    out.push({ cx, cy, rx: r, ry, wobble: seeded01(i, 4, seed + 50000 + i) * TAU, lobeA: seeded01(i, 5, seed + 60000 + i) * TAU, lobeB: seeded01(i, 6, seed + 70000 + i) * TAU, coastSeed: seed + 80000 + i });
+    const cx = Math.floor(seeded01(i, 0, seed + 10000 + i) * WORLD_WIDTH);
+    const cy = Math.floor(POLAR_BAND + 10 + seeded01(i, 1, seed + 20000 + i) * (WORLD_HEIGHT - 2 * POLAR_BAND - 20));
+    const r  = 7 + Math.floor(seeded01(i, 2, seed + 30000 + i) * 15); // radius 7–22
+    out.push({
+      cx, cy,
+      rx: r,
+      ry: r + Math.floor(seeded01(i, 3, seed + 40000 + i) * 6),
+      wobble:    seeded01(i, 4, seed + 50000 + i) * TAU,
+      lobeA:     seeded01(i, 5, seed + 60000 + i) * TAU,
+      lobeB:     seeded01(i, 6, seed + 70000 + i) * TAU,
+      coastSeed: seed + 80000 + i
+    });
   }
   return out;
 };

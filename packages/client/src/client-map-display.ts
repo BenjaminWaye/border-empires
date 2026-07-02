@@ -310,7 +310,7 @@ export const structureInfoForKey = (
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
     if (key === "GRANARY") return "/overlays/granary-overlay.svg";
-    if (key === "CENSUS_HALL") return "/overlays/governors-office-overlay.svg";
+    if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
     if (key === "BANK") return "/overlays/bank-overlay.svg";
     if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
