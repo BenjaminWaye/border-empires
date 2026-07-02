@@ -9637,4 +9637,98 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
   });
+
+  it("keeps ownerId/ownershipState in a tile delta even when an unrelated later event re-touches the same tile (#774/#777/#779 regression)", async () => {
+    // Reproduces the real-world bug end-to-end through the actual runtime
+    // wiring, not just the cache class in isolation: a tile gets its FIRST
+    // real broadcast (which seeds TileDeltaStringifyCache's global
+    // "last emitted" baseline for it: fort under_construction), then a
+    // SECOND, later event re-touches the SAME tile (fort construction
+    // completing) without ownerId/ownershipState changing at all between
+    // the two. Any consumer who only ever sees the SECOND event (a fresh
+    // subscriber, a reconnect, the gateway's own snapshot cache) must still
+    // be able to tell who owns this tile from that delta alone -- it must
+    // not rely on "ownerId didn't change since some other emission" to skip it.
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 60_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 5_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Regression Town", type: "MARKET", populationTier: "TOWN" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      type SeenTileDelta = { x: number; y: number; ownerId?: string; ownershipState?: string; fortJson?: string };
+      const tileDeltaBatches: SeenTileDelta[][] = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "TILE_DELTA_BATCH") {
+          tileDeltaBatches.push(event.tileDeltas.map((delta) => ({ ...delta })) as SeenTileDelta[]);
+        }
+      });
+
+      // First real broadcast for (10,10): fort construction starting. This
+      // is what seeds the cache's "last emitted" baseline for this tile.
+      runtime.submitCommand({
+        commandId: "fort-cmd-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 60_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+
+      const firstBatch = tileDeltaBatches.find((batch) => batch.some((delta) => delta.x === 10 && delta.y === 10));
+      expect(firstBatch).toBeDefined();
+      const firstDelta = firstBatch!.find((delta) => delta.x === 10 && delta.y === 10)!;
+      expect(firstDelta.ownerId).toBe("player-1");
+      expect(firstDelta.ownershipState).toBe("SETTLED");
+      expect(firstDelta.fortJson).toContain("under_construction");
+
+      // Second, later event on the SAME tile: fort construction completes,
+      // changing `fort` from under_construction to active -- not ownerId or
+      // ownershipState. Under the pre-fix sparse diff, this delta would have
+      // omitted ownerId/ownershipState entirely because they "hadn't
+      // changed" since the fort-start emission above.
+      tileDeltaBatches.length = 0;
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+
+      const secondBatch = tileDeltaBatches.find((batch) => batch.some((delta) => delta.x === 10 && delta.y === 10));
+      expect(secondBatch).toBeDefined();
+      const secondDelta = secondBatch!.find((delta) => delta.x === 10 && delta.y === 10)!;
+      expect(secondDelta.fortJson).toContain("\"status\":\"active\"");
+      expect(secondDelta.ownerId).toBe("player-1");
+      expect(secondDelta.ownershipState).toBe("SETTLED");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
