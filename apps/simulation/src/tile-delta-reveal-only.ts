@@ -10,7 +10,7 @@ export const tileDeltaRevealOnly = (
 ): SimulationTileWireDelta => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = cache.getOrComputeAll(tileKey, tile);
-  return {
+  const fullDelta: SimulationTileWireDelta = {
     x: tile.x,
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
@@ -33,4 +33,5 @@ export const tileDeltaRevealOnly = (
     sabotageJson: cached.sabotageJson,
     musterJson: cached.musterJson
   };
+  return cache.sparseEmit(tileKey, tile, cached, fullDelta);
 };

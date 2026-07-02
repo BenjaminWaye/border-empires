@@ -188,7 +188,6 @@ import {
 import { ENCIRCLEMENT_DECAY_MS } from "../encirclement/encirclement.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import { domainTileToWireDelta } from "../runtime-tile-deltas.js";
 import {
   FOREST_SETTLEMENT_MULT,
   MAX_SETTLE_DURATION_MS,
@@ -3943,7 +3942,7 @@ export class SimulationRuntime {
     });
     const tileKey = simulationTileKey(tile.x, tile.y);
     const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-    return {
+    const fullDelta: SimulationTileWireDelta = {
       x: tile.x,
       y: tile.y,
       ...(tile.terrain ? { terrain: tile.terrain } : {}),
@@ -3970,6 +3969,7 @@ export class SimulationRuntime {
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
       // yieldRate and yieldCap are derived client-side from townJson goldPerMinute/cap.
     };
+    return this.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
   }
 
   private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
