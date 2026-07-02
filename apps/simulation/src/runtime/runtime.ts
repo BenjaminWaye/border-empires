@@ -1831,19 +1831,25 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
-    // Invalidate the economy snapshot cache for affected owners so the next
-    // call to cachedEconomySnapshot() rebuilds with fresh tile data.
-    // We invalidate conservatively — any tile mutation could change income/upkeep
-    // for its owner(s).  O(1) map.delete per call.
+    // Invalidate the economy snapshot + tile-yield context caches only when a
+    // SETTLED tile is affected.  The economy snapshot and tile yield context
+    // builders only iterate ownershipState === "SETTLED" tiles, so frontier-
+    // only mutations (territory expansion, muster, pop growth) cannot change
+    // their output.  Defensibility metrics count all owned tiles (frontier +
+    // settled), so they are invalidated unconditionally.
     if (previous?.ownerId) {
-      this.economySnapshotCacheByPlayer.delete(previous.ownerId);
+      if (previous.ownershipState === "SETTLED") {
+        this.economySnapshotCacheByPlayer.delete(previous.ownerId);
+        this.tileYieldContextCacheByPlayer.delete(previous.ownerId);
+      }
       this.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
-      this.tileYieldContextCacheByPlayer.delete(previous.ownerId);
     }
     if (tile.ownerId) {
-      this.economySnapshotCacheByPlayer.delete(tile.ownerId);
+      if (tile.ownershipState === "SETTLED") {
+        this.economySnapshotCacheByPlayer.delete(tile.ownerId);
+        this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
+      }
       this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
-      this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
     }
     // Incrementally maintain the upkeep accrual cache.  The cache is keyed by
     // owner; subtract the previous tile's contribution and add the new one.
