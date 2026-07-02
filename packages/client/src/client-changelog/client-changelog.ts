@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.02.4",
+  version: "2026.07.02.5",
   title: "What's New",
-  summary: "Owned tiles no longer flash unowned when a server update omits owner fields.",
+  summary: "Reduced background network traffic for large empires.",
   entries: [
+    {
+      introducedIn: "2026.07.02.5",
+      title: "Reduced background network traffic for large empires",
+      why: "A background sweep continuously pre-fetched enriched tile-detail data for any visible owned tile, including bare settled land with nothing to enrich. For a large empire made mostly of plain settled tiles, this sweep never idled -- it just kept cycling through thousands of tiles as their 60-second freshness window expired, generating constant traffic even with the camera still.",
+      changes: [
+        "The background sweep now only pre-fetches detail for tiles with a town, since those are the only tiles with real enrichable data (support, food coverage, connected-town bonus). Docks, forts, and other structures still show full detail instantly when clicked -- just via the normal on-demand fetch instead of a continuous background sweep."
+      ]
+    },
     {
       introducedIn: "2026.07.02.4",
       title: "Owned tiles no longer flash unowned on sparse server updates",
