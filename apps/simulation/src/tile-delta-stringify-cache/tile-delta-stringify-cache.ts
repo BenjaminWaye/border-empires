@@ -161,29 +161,11 @@ export class TileDeltaStringifyCache {
     const delta: SimulationTileWireDelta = { x: fullDelta.x, y: fullDelta.y };
     let hasFieldChanges = false;
 
-    // ownerId/ownershipState/dockId are ALWAYS included, never conditionally
-    // diffed: downstream consumers of this delta (the gateway's per-player
-    // snapshot cache, the client's local tile store, tile-detail responses
-    // built from either cache) all merge deltas with a naive
-    // `{...existing, ...delta}` or an insert path that starts from `{x, y}`
-    // with no prior state. If this tile is new to that particular consumer
-    // (a fresh subscriber, a reconnect, a cache that lost this tile),
-    // omitting an "unchanged" identity field here means that consumer's own
-    // copy of the tile never acquires it at all -- and since these fields
-    // essentially never change once set, nothing ever corrects it. The
-    // extra fields are cheap; the failure mode (a tile, or a dock, stuck
-    // permanently neutral) is not. See #774, #777.
-    (delta as Record<string, unknown>).ownerId = tile.ownerId;
-    (delta as Record<string, unknown>).ownershipState = tile.ownershipState;
-    (delta as Record<string, unknown>).dockId = tile.dockId;
-    if (
-      tile.ownerId !== last.ownerId ||
-      tile.ownershipState !== last.ownershipState ||
-      tile.dockId !== last.dockId
-    ) hasFieldChanges = true;
-
     if (tile.terrain !== last.terrain) { (delta as Record<string, unknown>).terrain = tile.terrain; hasFieldChanges = true; }
     if (tile.resource !== last.resource) { (delta as Record<string, unknown>).resource = tile.resource; hasFieldChanges = true; }
+    if (tile.dockId !== last.dockId) { (delta as Record<string, unknown>).dockId = tile.dockId; hasFieldChanges = true; }
+    if (tile.ownerId !== last.ownerId) { (delta as Record<string, unknown>).ownerId = tile.ownerId; hasFieldChanges = true; }
+    if (tile.ownershipState !== last.ownershipState) { (delta as Record<string, unknown>).ownershipState = tile.ownershipState; hasFieldChanges = true; }
     if (tile.frontierDecayAt !== last.frontierDecayAt) { (delta as Record<string, unknown>).frontierDecayAt = tile.frontierDecayAt; hasFieldChanges = true; }
     if (tile.frontierDecayKind !== last.frontierDecayKind) { (delta as Record<string, unknown>).frontierDecayKind = tile.frontierDecayKind; hasFieldChanges = true; }
     if (tile.breachShockUntil !== last.breachShockUntil) { (delta as Record<string, unknown>).breachShockUntil = tile.breachShockUntil; hasFieldChanges = true; }
