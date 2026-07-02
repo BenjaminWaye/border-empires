@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.01.2",
+  version: "2026.07.02.1",
   title: "What's New",
-  summary: "Census Hall now has its own building model on the map.",
+  summary: "Fewer \"Simulation unavailable\" errors for large empires.",
   entries: [
+    {
+      introducedIn: "2026.07.02.1",
+      title: "Fewer \"Simulation unavailable\" errors for large empires",
+      why: "Every tile change (including ones that only touched frontier tiles — territory expansion, muster, population growth) force-rebuilt a large empire's full income/upkeep breakdown before the next Settle. On empires with a couple thousand owned tiles this rebuild could take over two seconds, occasionally blowing past the server's command timeout and surfacing as \"Simulation unavailable.\"",
+      changes: [
+        "The server now only rebuilds an empire's income/upkeep breakdown when a settled tile actually changes, not on every frontier tile update.",
+        "Settle commands in large empires resolve without the added rebuild delay, reducing \"Simulation unavailable\" errors during busy expansion turns."
+      ]
+    },
     {
       introducedIn: "2026.07.01.2",
       title: "Census Hall has a new building model",
@@ -309,25 +318,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Selecting a muster flag showed a small red radius box, implying attacks are limited to that range — but muster attacks have unlimited reach from any flag.",
       changes: [
         "The red reach indicator no longer appears when you tap a muster flag, since the flag can attack any tile regardless of distance."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.2",
-      title: "Season-end screen",
-      why: "When a season ended there was no real wrap-up — you were just left on a frozen map with a small leaderboard panel.",
-      changes: [
-        "A full season-end screen now appears when a winner is crowned: the victor, final standings, and how every path to victory played out.",
-        "\"Start New Season\" begins a fresh season for everyone (only available once the current season has ended).",
-        "\"Look Around\" dismisses the screen so you can roam the final map."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.1",
-      title: "Clearer reconnect message",
-      why: "If the server restarted mid-session, clicking the map showed 'Finish sign-in before interacting with the map.' — confusing, since you were already signed in.",
-      changes: [
-        "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
-        "The original sign-in prompt still appears only when you genuinely are not signed in yet."
       ]
     },
   ]

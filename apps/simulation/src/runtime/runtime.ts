@@ -105,9 +105,7 @@ import {
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
 import {
-  addTileUpkeepToCache,
   buildUpkeepAccrualSnapshot,
-  removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer } from "../economy-network/economy-network.js";
@@ -330,6 +328,7 @@ import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
+  refreshEconomyCachesForTileChange,
   refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
@@ -1831,46 +1830,17 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
-    // Invalidate the economy snapshot + tile-yield context caches only when a
-    // SETTLED tile is affected.  The economy snapshot and tile yield context
-    // builders only iterate ownershipState === "SETTLED" tiles, so frontier-
-    // only mutations (territory expansion, muster, pop growth) cannot change
-    // their output.  Defensibility metrics count all owned tiles (frontier +
-    // settled), so they are invalidated unconditionally.
-    if (previous?.ownerId) {
-      if (previous.ownershipState === "SETTLED") {
-        this.economySnapshotCacheByPlayer.delete(previous.ownerId);
-        this.tileYieldContextCacheByPlayer.delete(previous.ownerId);
-      }
-      this.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
-    }
-    if (tile.ownerId) {
-      if (tile.ownershipState === "SETTLED") {
-        this.economySnapshotCacheByPlayer.delete(tile.ownerId);
-        this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
-      }
-      this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
-    }
-    // Incrementally maintain the upkeep accrual cache.  The cache is keyed by
-    // owner; subtract the previous tile's contribution and add the new one.
-    // Multipliers (fortGoldUpkeepMult etc.) are sourced from the player object
-    // which is looked up live — no stale-multiplier risk unless tech/domain
-    // changes the player object without calling replaceTileState (that path
-    // deletes the cache entry explicitly in handleChooseTech/Domain helpers).
-    if (previous?.ownerId) {
-      const prevPlayer = this.players.get(previous.ownerId);
-      const prevCache = this.upkeepAccrualCacheByPlayer.get(previous.ownerId);
-      if (prevPlayer && prevCache) {
-        removeTileUpkeepFromCache(prevCache, previous, previous.ownerId, prevPlayer);
-      }
-    }
-    if (tile.ownerId) {
-      const nextPlayer = this.players.get(tile.ownerId);
-      const nextCache = this.upkeepAccrualCacheByPlayer.get(tile.ownerId);
-      if (nextPlayer && nextCache) {
-        addTileUpkeepToCache(nextCache, tile, tile.ownerId, nextPlayer);
-      }
-    }
+    // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
+    // ownership instead of invalidating unconditionally on every mutation.
+    refreshEconomyCachesForTileChange({
+      previous,
+      next: tile,
+      players: this.players,
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
+    });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
     //   - leaves SETTLED → clear
