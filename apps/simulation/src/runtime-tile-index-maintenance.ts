@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { RuntimeTileYieldEconomyContext } from "./runtime-types.js";
+import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "./runtime-types.js";
 import type { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
 import {
   candidateIndexKeysAroundTileKey,
@@ -9,6 +9,12 @@ import {
   playerIdsAffectedByTileChange
 } from "./ai/planner-candidate-index.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
+import {
+  addTileUpkeepToCache,
+  removeTileUpkeepFromCache,
+  type UpkeepAccrualSnapshot
+} from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
@@ -211,6 +217,51 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshLightOutpostIndexForTile(input);
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
+};
+
+/**
+ * Keeps the per-player economy snapshot, tile-yield context, defensibility
+ * metrics, and upkeep accrual caches in sync with a tile mutation.
+ *
+ * The economy snapshot and tile-yield context builders only iterate
+ * ownershipState === "SETTLED" tiles, so frontier-only mutations (territory
+ * expansion, muster, pop growth) cannot change their output — invalidating
+ * them on every tile change would force an O(settled-tiles) rebuild (BFS +
+ * town network) on the next read even when nothing relevant changed.
+ * Defensibility metrics count all owned tiles (frontier + settled), so they
+ * are invalidated unconditionally. Upkeep accrual is maintained incrementally
+ * (O(1) add/subtract) instead of invalidated.
+ */
+export const refreshEconomyCachesForTileChange = (input: {
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  players: ReadonlyMap<string, RuntimePlayer>;
+  economySnapshotCacheByPlayer: Map<string, PlayerUpdateEconomySnapshot>;
+  tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
+  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
+  upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
+}): void => {
+  const { previous, next, players } = input;
+  if (previous?.ownerId) {
+    if (previous.ownershipState === "SETTLED") {
+      input.economySnapshotCacheByPlayer.delete(previous.ownerId);
+      input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
+    }
+    input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
+    const prevPlayer = players.get(previous.ownerId);
+    const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
+    if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
+  }
+  if (next.ownerId) {
+    if (next.ownershipState === "SETTLED") {
+      input.economySnapshotCacheByPlayer.delete(next.ownerId);
+      input.tileYieldContextCacheByPlayer.delete(next.ownerId);
+    }
+    input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
+    const nextPlayer = players.get(next.ownerId);
+    const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
+    if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);
+  }
 };
 
 export const rebuildPlannerCandidateIndexesForPlayer = (input: {
