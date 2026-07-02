@@ -952,7 +952,16 @@ describe("client network regression guards", () => {
     expect(state.tiles.get("100,247")?.regionType).toBeUndefined();
   });
 
-  it("clears stale barbarian ownership when an authoritative TILE_DELTA omits owner fields", () => {
+  it("preserves ownership when a sparse TILE_DELTA omits owner fields (unchanged means preserve)", () => {
+    // Previously named "clears stale barbarian ownership when an
+    // authoritative TILE_DELTA omits owner fields" -- that behavior was a
+    // workaround for stale barbarian tiles, but treating "no ownerId in the
+    // message" as "clear it" is backwards: the server now always includes
+    // ownerId/ownershipState/capital when they actually change (#774/#777/
+    // #779), so omission means unchanged, not cleared. The old behavior
+    // wiped correct ownership on any update that happened to omit these
+    // fields (e.g. a REQUEST_TILE_DETAIL response built from an incomplete
+    // server-side cache entry -- confirmed live on a dock tile).
     const state = createState();
     state.tiles.set("100,247", {
       x: 100,
@@ -981,9 +990,9 @@ describe("client network regression guards", () => {
         regionType: "ANCIENT_HEARTLAND"
       })
     );
-    expect(state.tiles.get("100,247")?.ownerId).toBeUndefined();
-    expect(state.tiles.get("100,247")?.ownershipState).toBeUndefined();
-    expect(state.tiles.get("100,247")?.capital).toBeUndefined();
+    expect(state.tiles.get("100,247")?.ownerId).toBe("barbarian");
+    expect(state.tiles.get("100,247")?.ownershipState).toBe("BARBARIAN");
+    expect(state.tiles.get("100,247")?.capital).toBe(true);
   });
 
   it("resumes the frontier queue when a chunk refresh confirms a queued capture", () => {
