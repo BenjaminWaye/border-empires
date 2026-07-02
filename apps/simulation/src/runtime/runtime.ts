@@ -114,6 +114,7 @@ import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-stor
 import {
   buildModBreakdownForPlayer,
   chosenTrickleRateForPlayer,
+  effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   recomputeMods
 } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -123,6 +124,7 @@ import {
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "../tile-yield-view/tile-yield-view.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
+import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
@@ -424,7 +426,12 @@ export class SimulationRuntime {
   // are visible — invalidating the O(territory×r²) expansion on every one of
   // them was the primary cause of cold-cache bootstraps even on quiet sessions.
   private readonly territoryVersionByPlayer = new Map<string, number>();
-  private readonly eagerVisibilitySetCache = new Map<string, { collectionVersion: number; keys: Set<string> }>();
+  // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
+  private readonly visibilityCoverage = new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
+    visionRadiusForPlayer: (id) => { const p = this.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
+    getPlayer: (id) => this.players.get(id),
+    territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
+  });
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -738,6 +745,7 @@ export class SimulationRuntime {
     // neighbour regardless of iteration order.
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
+      this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1878,6 +1886,7 @@ export class SimulationRuntime {
       if (tile.ownerId) {
         this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
       }
+      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y);
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
@@ -2593,19 +2602,7 @@ export class SimulationRuntime {
         docks: this.docks,
         dockLinksByDockTileKey: this.dockLinksByDockTileKey,
         summaryForPlayer: (id) => this.summaryForPlayer(id),
-        eagerVisibilitySetCache: this.eagerVisibilitySetCache,
-        tileCollectionVersionForPlayer: (pid) => {
-          // Include ally territory versions so ally expansion invalidates the cache.
-          // Counters only ever increment, so the sum is monotonically increasing.
-          const player = this.players.get(pid);
-          let v = this.plannerPlayerTileCollectionVersionByPlayer.get(pid) ?? 0;
-          if (player) {
-            for (const allyId of player.allies) {
-              v += this.plannerPlayerTileCollectionVersionByPlayer.get(allyId) ?? 0;
-            }
-          }
-          return v;
-        },
+        visibilityCoverage: this.visibilityCoverage,
         hasFullVision: (pid) => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
@@ -2821,6 +2818,7 @@ export class SimulationRuntime {
       this.rejectCommand(command, "BAD_COMMAND", "invalid alliance sync payload"); return;
     }
 
+    const wasAllied = actor.allies.has(target.id); // SYNC_ALLIANCE skips clientSeq dedup; syncAllianceChange isn't idempotent like allies.add/delete.
     if (payload.allied) {
       actor.allies.add(target.id);
       target.allies.add(actor.id);
@@ -2828,6 +2826,7 @@ export class SimulationRuntime {
       actor.allies.delete(target.id);
       target.allies.delete(actor.id);
     }
+    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied);
 
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId: actor.id },
@@ -3692,6 +3691,7 @@ export class SimulationRuntime {
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
       invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
+      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
