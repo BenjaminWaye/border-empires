@@ -1,5 +1,4 @@
 import { EventEmitter } from "node:events";
-
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import {
@@ -249,7 +248,6 @@ import {
   getBarbActivationVisionSignature as getBarbActivationVisionSignatureImpl,
   type BarbActivationVisibilityCache
 } from "../runtime-visible-state.js";
-
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
   classifyVisibilityForPlayer as classifyVisibilityForPlayerImpl,
@@ -392,7 +390,6 @@ export { InMemorySimulationPersistence } from "../runtime-types.js";
 export type { SimulationTileWireDelta } from "../runtime-types.js";
 
 export type { VisibilityAuditSample };
-
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // Force a full upkeep-cache rebuild every N reads to bound floating-point drift
 // from the incremental add/subtract sum over a long-lived season.
@@ -627,6 +624,7 @@ export class SimulationRuntime {
   private readonly onJobApplied:
     | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"] }) => void)
     | undefined;
+  private readonly wrapJobRun: ((run: () => void) => () => void) | undefined;
   private drainScheduled = false;
   private immediateDrainScheduled = false;
   private draining = false;
@@ -713,6 +711,7 @@ export class SimulationRuntime {
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
+    this.wrapJobRun = options.wrapJobRun;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
@@ -2926,7 +2925,7 @@ export class SimulationRuntime {
           break;
         }
         const jobStartedAt = this.now();
-        next.run();
+        (this.wrapJobRun ? this.wrapJobRun(next.run) : next.run)();
         if (this.onJobApplied) {
           const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
           this.onJobApplied({

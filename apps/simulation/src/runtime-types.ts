@@ -177,6 +177,7 @@ export type SimulationRuntimeOptions = {
     durationMs: number;
     commandType?: CommandEnvelope["type"];
   }) => void;
+  wrapJobRun?: (run: () => void) => () => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;

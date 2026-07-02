@@ -1058,6 +1058,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(sample.commandType ? { commandType: sample.commandType } : {})
       });
     },
+    wrapJobRun: (run) => () => mainThreadTasks.trackSync("command_execution", undefined, run),
     onVisibilityAudit: handleVisibilityAudit,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
@@ -2103,49 +2104,48 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // per group, or maintain a per-player incremental visible-tile set so
       // the filter is O(deltas) instead of O(deltas × territory).
       if (event.eventType === "TILE_DELTA_BATCH") {
-        const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-        let maxFilterMs = 0;
-        let slowestFilterPlayerId = "";
-        let subscriberCount = 0;
-        for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-          const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-          const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
+        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
+          const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
+          let maxFilterMs = 0;
+          let slowestFilterPlayerId = "";
+          let subscriberCount = 0;
+          for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+            const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
+            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
+            if (slowTileDeltaFilterWarnMs > 0) {
+              const filterMs = Date.now() - filterStartedAt;
+              subscriberCount += 1;
+              if (filterMs > maxFilterMs) {
+                maxFilterMs = filterMs;
+                slowestFilterPlayerId = subscribedPlayerId;
+              }
+            }
+            const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+            if (cachedSnapshot && filteredDeltas.length > 0) {
+              setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
+            }
+            if (filteredDeltas.length === 0) continue;
+            const perPlayerEvent = toProtoEvent({
+              ...event,
+              playerId: subscribedPlayerId,
+              tileDeltas: filteredDeltas
+            });
+            for (const stream of eventStreams) stream.write(perPlayerEvent);
+          }
           if (slowTileDeltaFilterWarnMs > 0) {
-            const filterMs = Date.now() - filterStartedAt;
-            subscriberCount += 1;
-            if (filterMs > maxFilterMs) {
-              maxFilterMs = filterMs;
-              slowestFilterPlayerId = subscribedPlayerId;
+            const totalFanoutMs = Date.now() - fanoutStartedAt;
+            if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
+              recordLagDiagnostic("warn", "tile_delta_filter_slow", {
+                commandId: event.commandId,
+                deltaCount: event.tileDeltas.length,
+                subscriberCount,
+                totalFanoutMs,
+                maxFilterMs,
+                slowestFilterPlayerId
+              });
             }
           }
-          const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-          if (cachedSnapshot && filteredDeltas.length > 0) {
-            setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
-          }
-          if (filteredDeltas.length === 0) continue;
-          const perPlayerEvent = toProtoEvent({
-            ...event,
-            playerId: subscribedPlayerId,
-            tileDeltas: filteredDeltas
-          });
-          for (const stream of eventStreams) stream.write(perPlayerEvent);
-        }
-        if (slowTileDeltaFilterWarnMs > 0) {
-          const totalFanoutMs = Date.now() - fanoutStartedAt;
-          if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
-            recordLagDiagnostic("warn", "tile_delta_filter_slow", {
-              commandId: event.commandId,
-              deltaCount: event.tileDeltas.length,
-              subscriberCount,
-              totalFanoutMs,
-              maxFilterMs,
-              slowestFilterPlayerId,
-              latestEventLoopLagMs,
-              queueDepths: runtime.queueDepths()
-            });
-          }
-        }
-        return;
+        }); return;
       }
       if (isWireInternalEvent(event)) return;
       if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
