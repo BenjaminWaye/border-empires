@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.02.2",
+  version: "2026.07.02.3",
   title: "What's New",
-  summary: "Frontier territory is easier to see on the map.",
+  summary: "Frozen AI empires are active again.",
   entries: [
+    {
+      introducedIn: "2026.07.02.3",
+      title: "Frozen AI empires are active again",
+      why: "A repair pass that runs on startup to fix player records with zero gross income always rebuilt missing records as human players, even for AI ids. Once an AI record got mislabeled this way it was permanently excluded from the AI tick loop (which only acts on players flagged isAi), so that empire froze forever at its starting settlement with no growth, combat, or expansion.",
+      changes: [
+        "The startup repair now recognizes the \"ai-<n>\" id convention and rebuilds or self-heals those records as AI players instead of human, without resetting any accumulated progress.",
+        "Newly repaired AI ids are fed back into the autopilot's active player list immediately, so they resume playing on the same startup instead of staying frozen until a full restart."
+      ]
+    },
     {
       introducedIn: "2026.07.02.2",
       title: "Frontier territory is easier to see on the map",
