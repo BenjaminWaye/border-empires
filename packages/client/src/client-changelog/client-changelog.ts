@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.02.1",
+  version: "2026.07.02.2",
   title: "What's New",
-  summary: "Fewer \"Simulation unavailable\" errors for large empires.",
+  summary: "Frontier territory is easier to see on the map.",
   entries: [
+    {
+      introducedIn: "2026.07.02.2",
+      title: "Frontier territory is easier to see on the map",
+      why: "Frontier tiles were tinted at only 32% opacity, which on grass terrain was nearly indistinguishable from unowned land — owned frontier claims (including the tiles supporting farms, docks, and towns) could look neutral even though they were correctly yours.",
+      changes: [
+        "Frontier ownership tint raised from 32% to 50% opacity so owned-but-unsettled tiles read clearly across all terrain types."
+      ]
+    },
     {
       introducedIn: "2026.07.02.1",
       title: "Fewer \"Simulation unavailable\" errors for large empires",
