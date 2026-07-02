@@ -6126,7 +6126,7 @@ describe("simulation runtime", () => {
         ]
       }
     });
-    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"])).toBe(1);
+    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"]).repaired).toBe(1);
 
     const recoveredState = runtime.exportState();
     const originalTown = recoveredState.tiles.find((tile) => tile.x === 12 && tile.y === 18);

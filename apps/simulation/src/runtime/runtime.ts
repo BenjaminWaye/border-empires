@@ -255,7 +255,10 @@ import {
   classifyVisibilityForPlayer as classifyVisibilityForPlayerImpl,
   type RuntimeVisibilityClassification
 } from "../runtime-visibility-classifier.js";
-import { createHumanRuntimePlayer } from "../runtime-player-factory.js";
+import {
+  repairZeroGrossIncomeSettlements as repairZeroGrossIncomeSettlementsImpl,
+  type GrossIncomeRepairResult
+} from "../runtime-gross-income-repair.js";
 import {
   activeAetherBridgesForPlayer as activeAetherBridgesForPlayerImpl,
   activeAetherWallsForPlayer as activeAetherWallsForPlayerImpl,
@@ -1359,19 +1362,16 @@ export class SimulationRuntime {
     this.enqueueJob("ai", job, undefined, "background");
   }
 
-  repairZeroGrossIncomeSettlements(playerIds: Iterable<string>): number {
-    let repaired = 0;
-    for (const playerId of new Set(playerIds)) {
-      if (!this.players.has(playerId)) {
-        const recoveredSummary = this.playerSummaries.get(playerId);
-        if (!recoveredSummary || recoveredSummary.territoryTileKeys.size === 0) continue;
-        this.players.set(playerId, createHumanRuntimePlayer(playerId));
-      }
-      if (this.ensureGrossIncomeSettlementForPlayer(playerId, `startup-gross-income-settlement:${playerId}`)) {
-        repaired += 1;
-      }
-    }
-    return repaired;
+  repairZeroGrossIncomeSettlements(playerIds: Iterable<string>): GrossIncomeRepairResult {
+    return repairZeroGrossIncomeSettlementsImpl(
+      {
+        players: this.players,
+        hasTerritory: (playerId) => (this.playerSummaries.get(playerId)?.territoryTileKeys.size ?? 0) > 0,
+        ensureGrossIncomeSettlementForPlayer: (playerId, commandId) =>
+          this.ensureGrossIncomeSettlementForPlayer(playerId, commandId)
+      },
+      playerIds
+    );
   }
 
   queueDepths(): Record<QueueLane, number> {

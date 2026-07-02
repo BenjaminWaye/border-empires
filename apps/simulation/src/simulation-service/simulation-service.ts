@@ -2155,7 +2155,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   attachRuntimeEventHandlers();
   if (shouldRepairZeroGrossIncomeSettlements) {
-    runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState));
+    for (const id of runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState)).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
   }
   startAutopilots();
   const replaceRuntime = ({
@@ -2175,7 +2175,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
-    runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]);
+    for (const id of runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
     startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
