@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.02.3",
+  version: "2026.07.02.4",
   title: "What's New",
-  summary: "Frozen AI empires are active again.",
+  summary: "Owned tiles no longer flash unowned when a server update omits owner fields.",
   entries: [
+    {
+      introducedIn: "2026.07.02.4",
+      title: "Owned tiles no longer flash unowned on sparse server updates",
+      why: "A tile update from the server that omitted owner fields (because they hadn't changed) was being treated by the client as an explicit signal to clear ownership -- a workaround for a narrow stale-barbarian-ownership case that instead wiped correct ownership on any update missing those fields, including tile-detail responses built from an incomplete server-side cache entry.",
+      changes: [
+        "The client now correctly treats missing owner fields on an update as \"unchanged\" rather than \"cleared\", matching how the server actually emits these updates.",
+        "Owned tiles (including docks and towns) stay correctly marked as yours instead of intermittently appearing neutral."
+      ]
+    },
     {
       introducedIn: "2026.07.02.3",
       title: "Frozen AI empires are active again",
