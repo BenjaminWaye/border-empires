@@ -2232,15 +2232,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
                 foodCoverage: state.upkeepLastTick.foodCoverage
               })
             : {};
-        const normalizedUpdate =
-          "ownerId" in update
-            ? update
-            : {
-                ...update,
-                ownerId: undefined,
-                ownershipState: undefined,
-                capital: undefined
-              };
+        // Do NOT inject ownerId/ownershipState/capital: undefined when the
+        // server's update omits them. Omission means "unchanged" (sparse
+        // delta semantics) -- the server now always includes these fields
+        // when they actually change (see #774/#777/#779). Treating omission
+        // as an implicit clear was a workaround for stale barbarian
+        // ownership that instead wiped correct ownership on any tile whose
+        // update happened to omit these fields, e.g. a REQUEST_TILE_DETAIL
+        // response built from an incomplete server-side cache entry.
+        const normalizedUpdate = { ...update };
         Object.assign(normalizedUpdate, gatewayNormalizedUpdate);
         const updateKey = keyFor(update.x, update.y);
         state.incomingAttacksByTile.delete(updateKey);
