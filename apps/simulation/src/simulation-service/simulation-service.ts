@@ -2092,17 +2092,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // The same filter is applied to each player's cached snapshot so the
       // server-held cache stays consistent with what the player can actually see.
       //
-      // Trade-off: we lose the gateway's preSerializeBroadcast optimisation
-      // (each subscriber now gets their own JSON.stringify) and the simulation
-      // emits N proto events per command instead of one. With the lazy filter
-      // (runtime.filterTileDeltasForPlayer) the added sim cost is roughly
-      // O(N_subscribed × deltas × territory) — at staging load ~1% of one
-      // core on top of the existing snapshot-cache rebuild that was already
-      // O(N_subscribed × snapshot_size). If subscriber count grows large
-      // enough that gateway per-player serialisation becomes the hot spot,
-      // group subscribers by identical filtered tile-sets and stringify once
-      // per group, or maintain a per-player incremental visible-tile set so
-      // the filter is O(deltas) instead of O(deltas × territory).
+      // Cost per event: O(N_subscribed × deltas) for the visibility-coverage
+      // lookup (incremental refcounted cache, O(1) per delta per player),
+      // plus O(M_affected × sparse_delta_fields) for serialising only the
+      // changed fields to each player who sees any of the deltas. Events are
+      // coalesced per command resolution (CommandDeltaBuffer) so 3-5
+      // individual batches become 1. Capture-reveal-only deltas skip yield,
+      // economy, and town-enrichment computation.
+      //
+      // If subscriber count grows large enough that per-player serialisation
+      // becomes the hot spot, group subscribers by identical filtered
+      // tile-sets and stringify once per group.
       if (event.eventType === "TILE_DELTA_BATCH") {
         mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
           const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
