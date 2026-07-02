@@ -3976,10 +3976,6 @@ export class SimulationRuntime {
     return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache);
   }
 
-  private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
-    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache);
-  }
-
   private collectTileYield(
     tile: DomainTileState,
     now: number,
