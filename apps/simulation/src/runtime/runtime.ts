@@ -105,9 +105,7 @@ import {
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
 import {
-  addTileUpkeepToCache,
   buildUpkeepAccrualSnapshot,
-  removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer } from "../economy-network/economy-network.js";
@@ -330,6 +328,7 @@ import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
+  refreshEconomyCachesForTileChange,
   refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
@@ -1831,40 +1830,17 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
-    // Invalidate the economy snapshot cache for affected owners so the next
-    // call to cachedEconomySnapshot() rebuilds with fresh tile data.
-    // We invalidate conservatively — any tile mutation could change income/upkeep
-    // for its owner(s).  O(1) map.delete per call.
-    if (previous?.ownerId) {
-      this.economySnapshotCacheByPlayer.delete(previous.ownerId);
-      this.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
-      this.tileYieldContextCacheByPlayer.delete(previous.ownerId);
-    }
-    if (tile.ownerId) {
-      this.economySnapshotCacheByPlayer.delete(tile.ownerId);
-      this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
-      this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
-    }
-    // Incrementally maintain the upkeep accrual cache.  The cache is keyed by
-    // owner; subtract the previous tile's contribution and add the new one.
-    // Multipliers (fortGoldUpkeepMult etc.) are sourced from the player object
-    // which is looked up live — no stale-multiplier risk unless tech/domain
-    // changes the player object without calling replaceTileState (that path
-    // deletes the cache entry explicitly in handleChooseTech/Domain helpers).
-    if (previous?.ownerId) {
-      const prevPlayer = this.players.get(previous.ownerId);
-      const prevCache = this.upkeepAccrualCacheByPlayer.get(previous.ownerId);
-      if (prevPlayer && prevCache) {
-        removeTileUpkeepFromCache(prevCache, previous, previous.ownerId, prevPlayer);
-      }
-    }
-    if (tile.ownerId) {
-      const nextPlayer = this.players.get(tile.ownerId);
-      const nextCache = this.upkeepAccrualCacheByPlayer.get(tile.ownerId);
-      if (nextPlayer && nextCache) {
-        addTileUpkeepToCache(nextCache, tile, tile.ownerId, nextPlayer);
-      }
-    }
+    // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
+    // ownership instead of invalidating unconditionally on every mutation.
+    refreshEconomyCachesForTileChange({
+      previous,
+      next: tile,
+      players: this.players,
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
+    });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
     //   - leaves SETTLED → clear
