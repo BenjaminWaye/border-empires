@@ -4718,7 +4718,7 @@ describe("simulation runtime", () => {
     runtime.onEvent((event) => {
       events.push(event as unknown as Record<string, unknown>);
     });
-
+    runtime.exportVisibleStateForPlayer("player-1");
     runtime.submitCommand({
       commandId: "uncapture-cmd-1",
       sessionId: "session-1",
