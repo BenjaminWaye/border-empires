@@ -379,6 +379,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // time so we can tell whether filterTileDeltasForPlayer is the source of
   // simulation event-loop stalls under heavy combat load.
   const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
+  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see
+  // SqliteWriterChannel.onWriteTimed). Discriminates "the SQL write itself was
+  // slow" (workMs) from "the worker was still busy with a prior message when
+  // this one arrived" (queueWaitMs) — a multi-second appendEvent round trip
+  // looks identical in the event_store diagnostic either way.
+  const slowWriterQueueWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_WRITER_QUEUE_WARN_MS ?? 50));
   // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
   // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
   // under heavy combat the build itself (before fanout) could block the loop.
@@ -513,7 +519,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // Reads stay on the sim thread; WAL mode allows concurrent readers.
   const writerChannel =
     !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
-      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath)
+      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath, {
+          ...(slowWriterQueueWarnMs > 0
+            ? {
+                slowThresholdMs: slowWriterQueueWarnMs,
+                onWriteTimed: (sample) => recordLagDiagnostic("warn", "sqlite_writer_queue_slow", sample)
+              }
+            : {})
+        })
       : undefined;
   const commandStore = writerChannel
     ? new WriterBackedCommandStore(writerChannel, commandStoreBase)
