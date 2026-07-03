@@ -437,11 +437,9 @@ export class SimulationRuntime {
   // no territory.
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
   // Incrementally-maintained tile key cache for the planner player-view export.
-  // Each entry holds six TileKeyArrayEntry objects (keys[] + positionOf Map)
-  // that are updated in O(1) per tile mutation via swap-with-last-then-pop,
-  // instead of being rebuilt O(territory) on every cache miss.  The cache is
-  // populated lazily on first access via plannerPlayerTileKeys (O(territory)
-  // one-time init) and kept live through targeted mutation hooks thereafter.
+  // Each entry holds six TileKeyArrayEntry objects, updated O(1) per tile
+  // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
+  // miss. Populated lazily via plannerPlayerTileKeys, kept live via mutation hooks.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId.  A single lock is
@@ -519,11 +517,9 @@ export class SimulationRuntime {
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
-  // inside replaceTileState; consumed by tickTileShedding to shed newest-first
-  // when a player is broke (points <= 0 and net gold/min <= 0). Not persisted —
-  // tiles recovered from the event log have no entry and tie at -Infinity, so
-  // they're shed last (which matches the intent: an empire that survived
-  // restart shouldn't have its core tiles shed before its newer expansions).
+  // in replaceTileState; consumed by tickTileShedding to shed newest-first when
+  // broke. Not persisted — tiles recovered from the event log tie at -Infinity
+  // so they shed last (a restarted empire's core tiles outlast its expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
@@ -681,21 +677,12 @@ export class SimulationRuntime {
       Math.max(0, options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES)
     );
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
-    // Background drain (AI/system commands) previously used setTimeout(0) for
-    // scheduleAfter(0, ...) calls, which fires in the Timers phase — BEFORE the
-    // Check phase where setImmediate callbacks (snapshot-build yields and human-
-    // interactive drains) run.  This caused every snapshot-build yield to be
-    // preceded by a ~200ms AI drain callback, stalling player login for 22+ s.
-    //
-    // Fix: use setImmediate for delay=0 so background drains land in the Check
-    // phase.  Within a single Check phase, callbacks fire in registration order.
-    // Snapshot-build yields register their next setImmediate BEFORE the drain
-    // registers its next setImmediate (snapshot yields from step 1, drain from
-    // step 2 of the same Check phase), so snapshot chunks always run ahead of
-    // drains in the next iteration.  Total snapshot build time drops from ~22 s
-    // (110 yields × 200 ms stall each) to the bare computation cost (~500 ms).
-    // Real-delay timers (settleDurationMs, etc.) are unaffected — they still use
-    // setTimeout for accurate wall-clock scheduling.
+    // scheduleAfter(0, ...) previously used setTimeout(0) (Timers phase, before
+    // Check-phase setImmediate snapshot-build yields), so every yield ate a
+    // ~200ms AI drain callback first — 22+s login stalls. Fix: setImmediate for
+    // delay=0 lands drains in the same Check phase, but registered AFTER
+    // snapshot yields re-arm theirs, so yields always run ahead of drains next
+    // iteration (~22s → ~500ms). Real-delay timers still use setTimeout.
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
@@ -1459,15 +1446,12 @@ export class SimulationRuntime {
       entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
     }
 
-    // CONTRACT — these are LIVE references into the incremental cache, not
-    // copies. They are mutated in place by the cache hooks on the NEXT
-    // territory mutation. A caller may read/iterate/copy them synchronously,
-    // but MUST NOT retain a reference and read it across a mutation cycle, or
-    // it will observe silently-drifted territory. Current consumers are safe:
-    //   - planner worker receives a structured clone via postMessage;
-    //   - relevantTileKeyIndex.replacePlayers snapshots into `new Set(...)` on
-    //     entry (planner-sync-scope.ts) before returning to the event loop.
-    // If you add a consumer that stores one of these arrays, copy it first.
+    // CONTRACT — LIVE references into the incremental cache (mutated in place
+    // on the NEXT territory mutation), not copies. Read/iterate/copy sync only;
+    // never retain across a mutation cycle (silently-drifted territory). Safe
+    // today: planner worker gets a structured clone; relevantTileKeyIndex
+    // snapshots into `new Set(...)` before yielding. Copy first if you add a
+    // consumer that retains one of these arrays.
     return {
       tileCollectionVersion,
       topologyVersion,
@@ -1558,25 +1542,32 @@ export class SimulationRuntime {
   private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {
     const cached = this.economySnapshotCacheByPlayer.get(player.id);
     if (cached) return cached;
-    const summary = this.summaryForPlayer(player.id);
-    let econMult = 1;
-    if (EMPIRE_INTEGRITY_ENABLED) {
-      // Read from the defensibility cache without triggering a rebuild here —
-      // emitPlayerStateUpdate always calls cachedDefensibilityMetrics() before
-      // cachedEconomySnapshot(), so the cache is warm on the normal command path.
-      // Callers outside emitPlayerStateUpdate (login snapshot, passive income)
-      // get econMult=1 when the cache is cold, which is acceptable because
-      // emitPlayerStateUpdate will emit the corrected value in the same tick.
-      const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
-      if (metrics) {
-        econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+    const rebuild = (): PlayerUpdateEconomySnapshot => {
+      const summary = this.summaryForPlayer(player.id);
+      let econMult = 1;
+      if (EMPIRE_INTEGRITY_ENABLED) {
+        // Read from the defensibility cache without triggering a rebuild here —
+        // emitPlayerStateUpdate always calls cachedDefensibilityMetrics() before
+        // cachedEconomySnapshot(), so the cache is warm on the normal command path.
+        // Callers outside emitPlayerStateUpdate (login snapshot, passive income)
+        // get econMult=1 when the cache is cold, which is acceptable because
+        // emitPlayerStateUpdate will emit the corrected value in the same tick.
+        const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
+        if (metrics) {
+          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+        }
       }
-    }
-    const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    }, econMult);
-    this.economySnapshotCacheByPlayer.set(player.id, snapshot);
-    return snapshot;
+      const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+        dockLinksByDockTileKey: this.dockLinksByDockTileKey
+      }, econMult);
+      this.economySnapshotCacheByPlayer.set(player.id, snapshot);
+      return snapshot;
+    };
+    // Attribution for event_loop_blocked (was empty mainThreadTasks): scales
+    // with settled/owned tile count; hit from passive income + command handlers.
+    return this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("cached_economy_snapshot_rebuild", { playerId: player.id }, rebuild)
+      : rebuild();
   }
 
   /**
@@ -1630,80 +1621,90 @@ export class SimulationRuntime {
       this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
       return;
     }
-    // Use the incremental upkeep cache (stays warm across mutations via
-    // replaceTileState; O(1) per tile change).  The full cachedEconomySnapshot
-    // is NOT read here — that would rebuild O(settled-tiles) on every cache miss
-    // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
-    // separately in the tile-yield path; this path covers upkeep drain only.
-    const upkeep = this.cachedUpkeepAccrual(player);
-    // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
-    // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
-    if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
-      const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      });
-      // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
-      // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
-      // rounding noise below the gameplay-significant precision.
-      const round4 = (n: number): number => Number(n.toFixed(4));
-      const mismatches: string[] = [];
-      for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
-        const inc = round4(upkeep[key]);
-        const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
-        if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
+    const run = (): void => {
+      // Use the incremental upkeep cache (stays warm across mutations via
+      // replaceTileState; O(1) per tile change).  The full cachedEconomySnapshot
+      // is NOT read here — that would rebuild O(settled-tiles) on every cache miss
+      // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
+      // separately in the tile-yield path; this path covers upkeep drain only.
+      const upkeep = this.cachedUpkeepAccrual(player);
+      // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
+      // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
+      if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
+        const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
+          dockLinksByDockTileKey: this.dockLinksByDockTileKey
+        });
+        // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
+        // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
+        // rounding noise below the gameplay-significant precision.
+        const round4 = (n: number): number => Number(n.toFixed(4));
+        const mismatches: string[] = [];
+        for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
+          const inc = round4(upkeep[key]);
+          const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
+          if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
+        }
+        if (mismatches.length > 0) {
+          // eslint-disable-next-line no-console
+          console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
+        }
       }
-      if (mismatches.length > 0) {
-        // eslint-disable-next-line no-console
-        console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
+      const summary = this.summaryForPlayer(player.id);
+      const elapsedMinutes = elapsedMs / 60_000;
+      // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
+      // upkeep drain, so the trickle helps cover upkeep on a starved empire
+      // instead of being instantly clawed back.
+      const trickle = chosenTrickleRateForPlayer(player);
+      if (trickle && trickle.ratePerMinute > 0) {
+        const credit = trickle.ratePerMinute * elapsedMinutes;
+        if (credit > 0) {
+          const current = player.strategicResources ?? {};
+          player.strategicResources = {
+            ...current,
+            [trickle.resource]: (current[trickle.resource] ?? 0) + credit
+          };
+        }
       }
-    }
-    const summary = this.summaryForPlayer(player.id);
-    const elapsedMinutes = elapsedMs / 60_000;
-    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
-    // upkeep drain, so the trickle helps cover upkeep on a starved empire
-    // instead of being instantly clawed back.
-    const trickle = chosenTrickleRateForPlayer(player);
-    if (trickle && trickle.ratePerMinute > 0) {
-      const credit = trickle.ratePerMinute * elapsedMinutes;
-      if (credit > 0) {
-        const current = player.strategicResources ?? {};
-        player.strategicResources = {
-          ...current,
-          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
-        };
+      const need: UpkeepNeed = {
+        gold: Math.max(0, upkeep.gold) * elapsedMinutes,
+        FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
+        IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
+        CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
+        SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
+      };
+      // Towns pay their own upkeep from accumulated yield before raiding the
+      // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
+      // so an offline player whose tile income covers upkeep keeps the
+      // stockpile they logged out with.
+      this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
+      if (need.gold > 0) {
+        player.points = Math.max(0, (player.points ?? 0) - need.gold);
       }
-    }
-    const need: UpkeepNeed = {
-      gold: Math.max(0, upkeep.gold) * elapsedMinutes,
-      FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
-      IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
-      CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
+      const stock = {
+        FOOD: player.strategicResources?.FOOD ?? 0,
+        IRON: player.strategicResources?.IRON ?? 0,
+        CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
+        SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+        SHARD: player.strategicResources?.SHARD ?? 0
+      };
+      let mutated = false;
+      for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+        if (need[res] > 0) {
+          stock[res] = Math.max(0, stock[res] - need[res]);
+          mutated = true;
+        }
+      }
+      if (mutated) player.strategicResources = stock;
+      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
     };
-    // Towns pay their own upkeep from accumulated yield before raiding the
-    // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
-    // so an offline player whose tile income covers upkeep keeps the
-    // stockpile they logged out with.
-    this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
-    if (need.gold > 0) {
-      player.points = Math.max(0, (player.points ?? 0) - need.gold);
+    // Attribution for event_loop_blocked (was empty mainThreadTasks): hit from
+    // tick functions AND command handlers (via applyManpowerRegen); 15s/player
+    // rate limit still allows it to land mid-command on the hot path.
+    if (this.trackSyncMainThreadTask) {
+      this.trackSyncMainThreadTask("apply_economy_accrual", { playerId: player.id }, run);
+    } else {
+      run();
     }
-    const stock = {
-      FOOD: player.strategicResources?.FOOD ?? 0,
-      IRON: player.strategicResources?.IRON ?? 0,
-      CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-      SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-      SHARD: player.strategicResources?.SHARD ?? 0
-    };
-    let mutated = false;
-    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
-      if (need[res] > 0) {
-        stock[res] = Math.max(0, stock[res] - need[res]);
-        mutated = true;
-      }
-    }
-    if (mutated) player.strategicResources = stock;
-    this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
   }
 
   private consumeUpkeepFromTileYield(
@@ -1757,13 +1758,11 @@ export class SimulationRuntime {
       if (!yieldView?.yield) continue;
       const anchorWas = lastCollectedAt ?? 0;
       // The single per-tile anchor is shared across every resource the tile
-      // produces. We compute a per-resource candidate anchor from the
-      // remaining buffer (newAnchor = now - remaining/rate) and pick the
-      // latest — so no resource is ever credited with more than its math
-      // allows. The trade-off: when upkeep consumes one resource on a
-      // mixed-yield tile, the unconsumed resource's remaining yield is
-      // drained too (lost, not banked). Mixed-yield tiles are rare, and
-      // per-resource anchors would cost a snapshot-schema change.
+      // produces: compute a per-resource candidate anchor from the remaining
+      // buffer (newAnchor = now - remaining/rate) and pick the latest, so no
+      // resource is over-credited. Trade-off: consuming one resource on a
+      // mixed-yield tile drains the unconsumed resource's remaining yield too
+      // (lost, not banked) — rare, and fixing it needs a snapshot-schema change.
       let candidateAnchorMs = anchorWas;
       const updateCandidate = (remaining: number, ratePerMs: number): void => {
         if (ratePerMs <= 0) return;
@@ -2556,14 +2555,11 @@ export class SimulationRuntime {
     };
   }
 
-  // Async variant that yields to the event loop between heavy sections so a
-  // big-territory bootstrap build doesn't block the main thread contiguously.
-  // PR #343 chunked enrichment downstream, but classifyVisibilityForPlayer's
-  // vision-raster expansion (O(territory×radius²), trackSyncMainThreadTask-
-  // wrapped above) plus the visible-tile map here are themselves sync — for
-  // ~13k owned tiles / radius 5 that's ~1.5M iterations, which can graze the
-  // 30s gateway watchdog SIGKILL on shared-cpu-1x. Output is identical to the
-  // sync version (parity test in runtime.export-visible-async.test.ts).
+  // Async variant that yields between heavy sections so a big-territory
+  // bootstrap build doesn't block the main thread contiguously — see
+  // classifyVisibilityForPlayer (O(territory×radius²), trackSync-wrapped
+  // above) and its ~13k-tile/1.5M-iteration watchdog-grazing note. Output
+  // parity with sync covered by runtime.export-visible-async.test.ts.
   async exportVisibleStateForPlayerAsync(
     playerId: string,
     yieldToEventLoop: () => Promise<void>
@@ -2646,27 +2642,34 @@ export class SimulationRuntime {
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
     const cached = this.tileYieldContextCacheByPlayer.get(player.id);
     if (cached) return cached;
-    const settledTiles = this.settledTilesForPlayer(player.id);
-    const waterworksKeys = new Set<string>();
-    for (const tile of settledTiles) {
-      if (tile.economicStructure?.type === "WATERWORKS" && tile.economicStructure.status === "active") {
-        waterworksKeys.add(`${tile.x},${tile.y}`);
+    const rebuild = (): RuntimeTileYieldEconomyContext => {
+      const settledTiles = this.settledTilesForPlayer(player.id);
+      const waterworksKeys = new Set<string>();
+      for (const tile of settledTiles) {
+        if (tile.economicStructure?.type === "WATERWORKS" && tile.economicStructure.status === "active") {
+          waterworksKeys.add(`${tile.x},${tile.y}`);
+        }
       }
-    }
-    const context: RuntimeTileYieldEconomyContext = {
-      player,
-      townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
-      fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
-      // Skip expensive first-three-town key computation if the player has no
-      // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
-      // the key set has no effect. Skips O(towns) sort for most players.
-      firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
-        ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
-        : new Set<string>(),
-      waterworksKeys
+      const context: RuntimeTileYieldEconomyContext = {
+        player,
+        townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
+        fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
+        // Skip expensive first-three-town key computation if the player has no
+        // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
+        // the key set has no effect. Skips O(towns) sort for most players.
+        firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
+          ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
+          : new Set<string>(),
+        waterworksKeys
+      };
+      this.tileYieldContextCacheByPlayer.set(player.id, context);
+      return context;
     };
-    this.tileYieldContextCacheByPlayer.set(player.id, context);
-    return context;
+    // Attribution for event_loop_blocked (was empty mainThreadTasks): rebuild
+    // is buildConnectedTownNetworkForPlayer's O(settled_tiles + towns²) BFS.
+    return this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("tile_yield_economy_context_rebuild", { playerId: player.id }, rebuild)
+      : rebuild();
   }
 
   private enrichTileWithTownContext(tile: DomainTileState, player: RuntimePlayer | undefined, context: RuntimeTileYieldEconomyContext): DomainTileState {
@@ -3159,15 +3162,12 @@ export class SimulationRuntime {
       resolvesAt: validation.resolvesAt,
       ...(combatResolution ? { combatResult: combatResolution.result } : {})
     });
-    // Notify the defender that an attack is incoming on one of their tiles
-    // so the rewrite client can render the under-attack overlay. Routed via
-    // PLAYER_MESSAGE with playerId=defender — the gateway delivers this to
-    // the defender's socket, even when the attacker is an unsubscribed AI.
-    // Re-uses the attacker's commandId so the alert is recorded alongside
-    // the rest of that command's events (avoids unbounded growth in the
-    // non-terminal replay map). The gateway's PLAYER_MESSAGE handler
-    // recognises the ATTACK_ALERT messageType and skips markResolved so
-    // the attacker's real recovery slot stays open until COMBAT_RESOLVED.
+    // Notify the defender of an incoming attack (under-attack overlay) via
+    // PLAYER_MESSAGE with playerId=defender, delivered even when the attacker
+    // is an unsubscribed AI. Re-uses the attacker's commandId (avoids
+    // unbounded replay-map growth); the gateway's PLAYER_MESSAGE handler
+    // recognises ATTACK_ALERT and skips markResolved so the attacker's real
+    // recovery slot stays open until COMBAT_RESOLVED.
     const defenderOwnerId = combatResolution?.result.defenderOwnerId;
     if (
       actionType === "ATTACK" &&
