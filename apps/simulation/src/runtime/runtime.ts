@@ -261,7 +261,7 @@ import {
 import {
   activeAetherBridgesForPlayer as activeAetherBridgesForPlayerImpl,
   activeAetherWallsForPlayer as activeAetherWallsForPlayerImpl,
-  buildRevealEmpireStats as buildRevealEmpireStatsImpl,
+  buildRevealEmpireStatsFromSummary,
   closestAetherBridgeOrigin as closestAetherBridgeOriginImpl,
   crossingBlockedByAetherWall as crossingBlockedByAetherWallImpl,
   getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
@@ -3789,13 +3789,10 @@ export class SimulationRuntime {
    * observatory). Ties on distance fall back to Map iteration order (deterministic).
    */
   private pickReadyOwnedObservatoryForTarget(
-    playerId: string,
-    targetX: number,
-    targetY: number,
-    now: number,
-    range = this.observatoryCastRadiusFor(playerId)
+    playerId: string, targetX: number, targetY: number, now: number, range = this.observatoryCastRadiusFor(playerId)
   ): string | undefined {
-    return pickReadyOwnedObservatoryForTargetImpl({ tiles: this.tiles, playerId, targetX, targetY, now, range });
+    const territoryTileKeys = this.summaryForPlayer(playerId).territoryTileKeys;
+    return pickReadyOwnedObservatoryForTargetImpl({ tiles: this.tiles, territoryTileKeys, playerId, targetX, targetY, now, range });
   }
 
   /**
@@ -3803,7 +3800,7 @@ export class SimulationRuntime {
    * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
    */
   private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
-    return pickReadyOwnedObservatoryAnyImpl(this.tiles, playerId, now);
+    return pickReadyOwnedObservatoryAnyImpl(this.tiles, this.summaryForPlayer(playerId).territoryTileKeys, playerId, now);
   }
 
   /**
@@ -3862,7 +3859,8 @@ export class SimulationRuntime {
   }
 
   private buildRevealEmpireStats(target: DomainPlayer): Record<string, unknown> {
-    return buildRevealEmpireStatsImpl(this.tiles.values(), target, this.now());
+    const summary = this.summaryForPlayer(target.id);
+    return buildRevealEmpireStatsFromSummary(target, summary.territoryTileKeys.size, summary.settledTileCount, summary.townCount, this.now());
   }
 
   private emitEvent(event: SimulationEvent): void {
@@ -4071,16 +4069,15 @@ export class SimulationRuntime {
   }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
+    for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
       if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
   }
 
-  private findOwnedAetherBridgeOriginForCrossing(
-    playerId: string, toX: number, toY: number
-  ): DomainTileState | undefined {
+  private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
       if (bridge.to.x !== toX || bridge.to.y !== toY) continue;
       const origin = this.tiles.get(simulationTileKey(bridge.from.x, bridge.from.y));
