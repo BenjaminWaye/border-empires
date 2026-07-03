@@ -543,7 +543,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ? new WriterBackedCommandStore(writerChannel, commandStoreBase)
     : commandStoreBase;
   const eventStore = writerChannel
-    ? new WriterBackedEventStore(writerChannel, eventStoreBase)
+    ? new WriterBackedEventStore(writerChannel, eventStoreBase, (s, t, et, cid) => t >= 200 && log.warn({ phase: "event_store_append_sync_slow", eventType: et, commandId: cid, stringifyMs: s, syncMs: t }, "event store append sync slow"))
     : eventStoreBase;
   const snapshotStore =
     options.snapshotStore ??
