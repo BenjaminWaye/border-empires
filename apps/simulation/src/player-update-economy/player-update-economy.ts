@@ -35,6 +35,7 @@ import {
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
   firstThreeTownsGoldOutputMultiplierForPlayer,
+  type ConnectedTownNetworkEntry,
   type DockEconomyContext,
   type EconomyPlayer
 } from "../economy-network/economy-network.js";
@@ -348,15 +349,10 @@ export const townGoldPerMinuteForPlayer = (
   ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
 };
 
-// Refresh `town.goldPerMinute` and `town.isFed` on a town that was originally
-// populated by buildTownSummary (i.e. carries the full snapshot shape — we
-// detect that by checking the snapshot-only `supportMax` field). Between full
-// snapshot rebuilds the connected-town bonus is re-enriched but goldPerMinute
-// is not, so a tile delta emitted in that window can carry a stale Production
-// row while still claiming a fresh "+X% connected-town" modifier.
-// Test fixtures pass partial town stubs without supportMax/supportCurrent and
-// rely on their literal goldPerMinute being honored; the predicate keeps them
-// untouched.
+// Refresh goldPerMinute/isFed on a town originally from buildTownSummary
+// (detected via the snapshot-only supportMax field) — between full rebuilds
+// the connected-town bonus re-enriches but goldPerMinute doesn't. Partial
+// test-fixture town stubs (no supportMax/supportCurrent) pass through untouched.
 export const refreshTownEconomyFields = (
   town: NonNullable<DomainTileState["town"]>,
   tile: DomainTileState,
@@ -372,9 +368,7 @@ export const refreshTownEconomyFields = (
   const goldPerMinute = isSettlement
     ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
     : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
-  // Re-stamp isFed from the freshly-computed fed-key set so the wire payload's
-  // townJson.isFed never contradicts the live fedTownKeys and the derived
-  // goldPerMinute. Settlements have no food upkeep so always fed.
+  // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
   if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
   return { ...town, goldPerMinute, isFed };
@@ -385,7 +379,10 @@ export const buildPlayerUpdateEconomySnapshot = (
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
   dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">,
-  integrityEconMult: number = 1
+  integrityEconMult: number = 1,
+  // Reuse a caller-shared network so buildConnectedTownNetworkForPlayer
+  // (O(settled_tiles + towns^2)) doesn't rebuild twice per cache-miss cycle.
+  prebuiltTownNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
@@ -417,7 +414,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const supplySinks = new Map<string, EconomyBucket>();
   const shardSources = new Map<string, EconomyBucket>();
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
-  const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
+  const townNetwork = prebuiltTownNetwork ?? buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
   const townGoldCapMult = multiplicativeEffectForPlayer(player, "townGoldCapMult");
   const dockGoldCapMult = multiplicativeEffectForPlayer(player, "dockGoldCapMult");
