@@ -111,6 +111,7 @@ export type SimulationJob = {
   run: () => void;
   enqueuedAt: number;
   commandType?: CommandEnvelope["type"];
+  commandId?: string;
   scheduling?: "immediate" | "background";
 };
 
@@ -177,8 +178,12 @@ export type SimulationRuntimeOptions = {
     lane: QueueLane;
     durationMs: number;
     commandType?: CommandEnvelope["type"];
+    commandId?: string;
   }) => void;
-  wrapJobRun?: (run: () => void) => () => void;
+  wrapJobRun?: (
+    run: () => void,
+    meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }
+  ) => () => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;

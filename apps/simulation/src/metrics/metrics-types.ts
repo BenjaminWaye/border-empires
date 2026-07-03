@@ -110,6 +110,11 @@ export type SimulationMetricsSnapshot = {
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
+  simAiQueueBacklogMs: number;
+  simSystemQueueBacklogMs: number;
+  simHumanNoninteractiveQueueBacklogMs: number;
+  /** commandApplyTracker FIFO evictions (counter); >0 means commands are never resolving (see command-apply-tracker.ts). */
+  simCommandApplyTrackEvictedTotal: number;
   simAiAutopilotEnabled: number;
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
