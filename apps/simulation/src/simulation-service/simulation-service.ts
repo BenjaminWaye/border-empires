@@ -1588,6 +1588,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   runtime.exportTilesForKeys(keys)
                 )
             },
+            trackSync: (phase, details, task) => mainThreadTasks.trackSync(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
