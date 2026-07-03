@@ -418,13 +418,9 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Separate counter that increments ONLY when a tile changes owner. Used as
-  // the cache key for VisionExpansionCache so that same-owner mutations (muster
-  // tick updating muster.amount, population growth updating town.population,
-  // passive income accrual, etc.) do NOT bust the vision expansion. Those
-  // mutations happen hundreds of times per second and don't change which tiles
-  // are visible — invalidating the O(territory×r²) expansion on every one of
-  // them was the primary cause of cold-cache bootstraps even on quiet sessions.
+  // Increments ONLY on tile ownership change (not muster/population/income
+  // ticks) — VisionExpansionCache's key, so unrelated per-tick mutations
+  // don't bust the O(territory×r²) expansion.
   private readonly territoryVersionByPlayer = new Map<string, number>();
   // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
   private readonly visibilityCoverage = new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
@@ -547,9 +543,8 @@ export class SimulationRuntime {
   // Running counter of growth ticks skipped due to insufficient food.
   // Exposed for diagnostics / metrics.
   growthStalledNoFoodCounter = 0;
-  // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
-  // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
-  // via signature (tileCollectionVersion:vision:visionRadiusBonus).
+  // Per-player vision expansion cache; miss cost is O(territory×r²) and is
+  // wrapped in trackSyncMainThreadTask by classifyVisibilityForPlayer below.
   private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
@@ -606,6 +601,7 @@ export class SimulationRuntime {
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
+  private readonly trackSyncMainThreadTask: SimulationRuntimeOptions["trackSyncMainThreadTask"];
   private readonly onCaptureRevealBuilt:
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
     | undefined;
@@ -713,6 +709,7 @@ export class SimulationRuntime {
     this.onJobApplied = options.onJobApplied;
     this.wrapJobRun = options.wrapJobRun;
     this.onVisibilityAudit = options.onVisibilityAudit;
+    this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
     this.players =
@@ -2473,7 +2470,7 @@ export class SimulationRuntime {
   }
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
-    return classifyVisibilityForPlayerImpl({
+    const run = (): RuntimeVisibilityClassification => classifyVisibilityForPlayerImpl({
       playerId,
       players: this.players,
       tiles: this.tiles,
@@ -2486,6 +2483,12 @@ export class SimulationRuntime {
       tileCollectionVersionForPlayer: (visiblePlayerId) =>
         this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0
     });
+    // Named so an event_loop_blocked incident can see this instead of an
+    // empty mainThreadTasks — this is the O(territory×r²) vision-expansion
+    // cache-miss cost documented on VisionExpansionCache.
+    return this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("classify_visibility_for_player", { playerId }, run)
+      : run();
   }
 
   getBarbActivationVisionSignature(): string {
@@ -2553,17 +2556,14 @@ export class SimulationRuntime {
     };
   }
 
-  // Async variant that yields to the event loop between heavy sections so
-  // a big-territory bootstrap snapshot build no longer blocks the main
-  // thread contiguously. PR #343 chunked the per-tile enrichment downstream
-  // of this function, but the upstream classifyVisibilityForPlayer (vision
-  // raster expansion, O(territory × radius²)) plus the visible-tile map
-  // here are themselves sync — for a player with ~13k owned tiles and
-  // vision radius 5 that's ~1.5M iterations purely in this function, which
-  // can graze the 30s gateway watchdog SIGKILL threshold on shared-cpu-1x.
-  //
-  // Output is identical to the sync version for the same inputs (parity
-  // test in runtime.export-visible-async.test.ts).
+  // Async variant that yields to the event loop between heavy sections so a
+  // big-territory bootstrap build doesn't block the main thread contiguously.
+  // PR #343 chunked enrichment downstream, but classifyVisibilityForPlayer's
+  // vision-raster expansion (O(territory×radius²), trackSyncMainThreadTask-
+  // wrapped above) plus the visible-tile map here are themselves sync — for
+  // ~13k owned tiles / radius 5 that's ~1.5M iterations, which can graze the
+  // 30s gateway watchdog SIGKILL on shared-cpu-1x. Output is identical to the
+  // sync version (parity test in runtime.export-visible-async.test.ts).
   async exportVisibleStateForPlayerAsync(
     playerId: string,
     yieldToEventLoop: () => Promise<void>

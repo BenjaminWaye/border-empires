@@ -760,7 +760,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let snapshotBuildPool: ReturnType<typeof createSnapshotBuilder> | undefined;
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_BUILD_INLINE !== "1") {
     try {
-      snapshotBuildPool = createSnapshotBuilder();
+      snapshotBuildPool = createSnapshotBuilder({ trackSync: mainThreadTasks.trackSync });
     } catch (err) {
       log.error(
         { err: err instanceof Error ? err.message : String(err) },
@@ -1060,6 +1060,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     wrapJobRun: (run) => () => mainThreadTasks.trackSync("command_execution", undefined, run),
     onVisibilityAudit: handleVisibilityAudit,
+    trackSyncMainThreadTask: mainThreadTasks.trackSync,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
         simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -1415,12 +1416,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const worldStatusRuntimeState = needsFullWorldExport
       ? await getOrStartFullVisExport()
       : undefined;
-    // Route the per-player visible export through the async chunked path
-    // when we don't already have a full-world runtime state captured.
-    // exportVisibleStateForPlayer was the last contiguous sync block in
-    // the bootstrap snapshot pipeline after PR #343 made the downstream
-    // enrichment chunked — for a player with ~13k owned tiles the vision
-    // raster + visible-tile map was its own multi-second main-thread block.
+    // Route through the async chunked path when we lack a full-world state.
+    // The vision raster expansion here is still sync for a large empire; it's
+    // wrapped via trackSyncMainThreadTask (mainThreadTasks above) so it shows
+    // up as classify_visibility_for_player instead of an unattributed gap.
     const runtimeState =
       worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
@@ -2226,6 +2225,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
+        trackSyncMainThreadTask: mainThreadTasks.trackSync,
         onCaptureRevealBuilt: captureRevealBuildSample,
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
