@@ -98,4 +98,55 @@ describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
     // (2500 owned tiles crosses TILE_CHUNK=2000) = ≥3.
     expect(yields).toBeGreaterThanOrEqual(3);
   });
+
+  // Regression: the sim's event_loop_blocked diagnostic showed
+  // mainThreadTasks: [] during a real >3s stall on an 18k-tile bootstrap
+  // because classifyVisibilityForPlayer's vision-expansion-cache-miss cost
+  // wasn't wrapped in trackSyncMainThreadTask. Pins that the wrapper is
+  // actually invoked (with the right phase name) whenever it's supplied,
+  // and that omitting it still works (backward compatible for callers/tests
+  // that don't care about instrumentation).
+  it("wraps classifyVisibilityForPlayer in trackSyncMainThreadTask when provided", async () => {
+    const territoryKeys = ["0,0", "1,0", "0,1"];
+    const tracked: Array<{ phase: string; details: unknown }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", territoryKeys)]]),
+      initialState: {
+        tiles: territoryKeys.map((key) => {
+          const [x, y] = key.split(",").map(Number);
+          return { x, y, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const };
+        }),
+        activeLocks: []
+      },
+      trackSyncMainThreadTask: (phase, details, task) => {
+        tracked.push({ phase, details });
+        return task();
+      }
+    });
+
+    await runtime.exportVisibleStateForPlayerAsync("player-1", yieldToEventLoop);
+
+    expect(tracked).toHaveLength(1);
+    expect(tracked[0]?.phase).toBe("classify_visibility_for_player");
+    expect(tracked[0]?.details).toEqual({ playerId: "player-1" });
+  });
+
+  it("still produces correct output when trackSyncMainThreadTask is not provided", async () => {
+    const territoryKeys = ["0,0", "1,0", "0,1"];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", territoryKeys)]]),
+      initialState: {
+        tiles: territoryKeys.map((key) => {
+          const [x, y] = key.split(",").map(Number);
+          return { x, y, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const };
+        }),
+        activeLocks: []
+      }
+    });
+
+    const out = await runtime.exportVisibleStateForPlayerAsync("player-1", yieldToEventLoop);
+    expect(out.tiles.length).toBeGreaterThan(0);
+  });
 });

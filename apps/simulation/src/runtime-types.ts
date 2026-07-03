@@ -8,6 +8,7 @@ import type { SimulationSeedProfile } from "./seed-state/seed-state.js";
 import type { QueueLane } from "./command-lane/command-lane.js";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import type { buildConnectedTownNetworkForPlayer } from "./economy-network/economy-network.js";
+import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thread-task-tracker.js";
 
 export type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
@@ -181,6 +182,10 @@ export type SimulationRuntimeOptions = {
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+  // Wraps the exact synchronous blocks worth attributing on an event_loop_blocked
+  // stall (currently: classifyVisibilityForPlayer's vision-expansion-cache-miss
+  // path). Optional so tests/other callers can omit it; falls back to a plain call.
+  trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   onCaptureRevealBuilt?: (sample: {
     commandId: string;
     playerId: string;
