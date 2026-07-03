@@ -1790,9 +1790,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 mainThreadTasks.trackSync("system_get_barb_activation_vision_signature", undefined, () =>
                   runtime.getBarbActivationVisionSignature()
                 ),
-              exportBarbActivationVisibleUnion: (keys) =>
+              exportBarbActivationVisibleUnion: () =>
                 mainThreadTasks.trackSync("system_export_barb_activation_visible_union", undefined, () =>
-                  runtime.exportBarbActivationVisibleUnion(keys)
+                  runtime.exportBarbActivationVisibleUnion()
                 )
             },
             systemPlayerIds,
