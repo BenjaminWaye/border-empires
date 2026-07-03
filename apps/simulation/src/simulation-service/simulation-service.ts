@@ -413,6 +413,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // forwarded to the gateway main thread so both watchdog-kill and sim-exit
   // write paths have the sim's last known state. See lag-diagnostics.ts.
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
+  // GC observer to detect stop-the-world pauses. Major GC can cause multi-second
+  // event_loop_blocked entries with no tracked tasks; GC pauses are invisible to
+  // instrumentation since they block JS execution.
+  let gcPauseObserver: PerformanceObserver | undefined;
+  try {
+    gcPauseObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
+          recordLagDiagnostic("info", "gc_pause_detected", {
+            durationMs: (entry.duration as number),
+            gcKind: (entry as unknown as Record<string, unknown>).kind
+          });
+        }
+      }
+    });
+    gcPauseObserver.observe({ entryTypes: ["gc"], buffered: false });
+  } catch (_err) {
+    // PerformanceObserver for 'gc' requires --expose-gc; silently skip if unavailable
+  }
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -1756,7 +1775,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (systemAutopilotEnabled) {
       systemCommandProducer = useAiWorker
         ? createWorkerSystemCommandProducer({
-            runtime,
+            runtime: {
+              queueDepths: () => runtime.queueDepths(),
+              onEvent: (handler) => runtime.onEvent(handler),
+              exportPlannerWorldView: (playerIds) =>
+                mainThreadTasks.trackSync("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerWorldView(playerIds)
+                ),
+              exportPlannerPlayerViews: (playerIds) =>
+                mainThreadTasks.trackSync("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerPlayerViews(playerIds)
+                ),
+              getBarbActivationVisionSignature: () =>
+                mainThreadTasks.trackSync("system_get_barb_activation_vision_signature", undefined, () =>
+                  runtime.getBarbActivationVisionSignature()
+                ),
+              exportBarbActivationVisibleUnion: (keys) =>
+                mainThreadTasks.trackSync("system_export_barb_activation_visible_union", undefined, () =>
+                  runtime.exportBarbActivationVisibleUnion(keys)
+                )
+            },
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
