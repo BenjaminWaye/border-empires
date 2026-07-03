@@ -45,6 +45,9 @@ type VisibleStateSharedDeps = VisibilityPlayerProjectionDeps & {
     redacted: boolean,
     classification: RuntimeVisibilityClassification
   ) => void;
+  /** Seed sparse-delta baseline for every visible tile so command/tick deltas
+   *  do not emit spurious null fields on first emission. */
+  seedLastEmitted?: (tileKey: string, tile: DomainTileState) => void;
 };
 
 export type BarbActivationVisibilityCache = {
@@ -143,9 +146,13 @@ export function exportVisibleStateForPlayer(
 
   return {
     tiles: [...visibleKeys]
-      .map((tileKey) => input.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile))
-      .map((tile) => visibleTileProjection(input, input.playerId, tile, lockTargetOnlyKeys, allyAndSelfIds, classification))
+      .map((tileKey) => {
+        const tile = input.tiles.get(tileKey);
+        if (!tile) return null;
+        input.seedLastEmitted?.(tileKey, tile);
+        return visibleTileProjection(input, input.playerId, tile, lockTargetOnlyKeys, allyAndSelfIds, classification);
+      })
+      .filter((entry): entry is RuntimeExportState["tiles"][number] => entry !== null)
       .sort((left, right) => left.x - right.x || left.y - right.y),
     players: visiblePlayersProjection(input, input.playerId),
     ...visibleSharedState(input)
@@ -175,6 +182,7 @@ export async function exportVisibleStateForPlayerAsync(
   for (const tileKey of visibleKeys) {
     const tile = input.tiles.get(tileKey);
     if (tile) {
+      input.seedLastEmitted?.(tileKey, tile);
       tiles.push(visibleTileProjection(input, input.playerId, tile, lockTargetOnlyKeys, allyAndSelfIds, classification));
     }
     idx += 1;
