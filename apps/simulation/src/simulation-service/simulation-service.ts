@@ -62,6 +62,8 @@ import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
+import { createCommandApplyTracker } from "../command-apply-tracker.js";
+import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -385,6 +387,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;
     recordLagDiagnostic("warn", "capture_reveal_build_slow", sample);
   };
+  // Threshold for the submit-to-apply "why was this command slow" diagnostic (always on above threshold).
+  const slowCommandApplyWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_COMMAND_APPLY_WARN_MS ?? 300));
+  const commandApplyTracker = createCommandApplyTracker({ slowWarnMs: slowCommandApplyWarnMs });
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
@@ -398,39 +403,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     console[level](message, payload);
   };
-  // ---------------------------------------------------------------------------
   // Death-forensics ring buffer — rolling window of recent lag diagnostics
   // forwarded to the gateway main thread so both watchdog-kill and sim-exit
-  // write paths have the sim's last known state.
-  // ---------------------------------------------------------------------------
-  const LAG_DIAG_RING_CAP = 50;
-  type LagDiagEntry = {
-    at: number;
-    level: "warn" | "error";
-    event: string;
-    phase?: unknown;
-    durationMs?: unknown;
-  };
-  const lagDiagRing: LagDiagEntry[] = [];
-  const appendLagDiagRing = (level: "warn" | "error", event: string, payload: Record<string, unknown>): void => {
-    lagDiagRing.push({
-      at: Date.now(),
-      level,
-      event,
-      ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
-      ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {})
-    });
-    if (lagDiagRing.length > LAG_DIAG_RING_CAP) lagDiagRing.shift();
-  };
-  const recordLagDiagnostic = (
-    level: "info" | "warn" | "error",
-    event: string,
-    payload: Record<string, unknown>
-  ): void => {
-    if (level === "info") return;
-    emitLog(level, `simulation lag diagnostic: ${event}`, payload);
-    appendLagDiagRing(level, event, payload);
-  };
+  // write paths have the sim's last known state. See lag-diagnostics.ts.
+  const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -800,8 +776,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         durationMs: sample.durationMs,
         ...(sample.commandType ? { commandType: sample.commandType } : {})
       });
+      if (!sample.commandId) return;
+      const diagnostic = commandApplyTracker.resolve(sample.commandId, sample.durationMs);
+      if (!diagnostic) return;
+      recordLagDiagnostic("warn", "simulation_command_apply_slow", {
+        ...diagnostic,
+        lane: sample.lane,
+        ...(sample.commandType ? { commandType: sample.commandType } : {}),
+        queueDepths: runtime.queueDepths(),
+        queueBacklogMs: runtime.queueBacklogMs(),
+        mainThreadTasks: mainThreadTasks.recentSince(diagnostic.submittedAt)
+      });
     },
-    wrapJobRun: (run) => () => mainThreadTasks.trackSync("command_execution", undefined, run),
+    wrapJobRun: (run, meta) => () =>
+      mainThreadTasks.trackSync("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
     onVisibilityAudit: handleVisibilityAudit,
     trackSyncMainThreadTask: mainThreadTasks.trackSync,
     shouldPauseBackground: () => {
@@ -2091,6 +2079,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             return;
           }
           simTracer.stage("sim_submit_durable_start", { queueDepths: runtime.queueDepths() });
+          commandApplyTracker.track(command.commandId);
           await submitDurableCommand(command);
           simTracer.stage("sim_submit_durable_end", { queueDepths: runtime.queueDepths() });
           const acceptDurationMs = Date.now() - acceptStartedAt;
@@ -2709,7 +2698,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       metricsTicker = setInterval(() => {
         simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
         eventLoopWindowMaxMs = 0;
-        simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
+        const queueBacklogMs = runtime.queueBacklogMs();
+        simulationMetrics.setSimHumanInteractiveBacklogMs(queueBacklogMs.human_interactive);
+        simulationMetrics.setSimBackgroundQueueBacklogMs({
+          ai: queueBacklogMs.ai,
+          system: queueBacklogMs.system,
+          humanNoninteractive: queueBacklogMs.human_noninteractive
+        });
+        simulationMetrics.setSimCommandApplyTrackEvictedTotal(commandApplyTracker.evictedTotal());
         simulationMetrics.setSimCpuPercent(sampleCpuPercent());
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
@@ -2947,7 +2943,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     /** Snapshot of the recent lag-diagnostic ring buffer for death forensics. */
     lagDiagSnapshot(): readonly LagDiagEntry[] {
-      return lagDiagRing.slice();
+      return getLagDiagRing();
     }
   };
 };
