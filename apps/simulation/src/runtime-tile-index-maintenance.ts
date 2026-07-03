@@ -10,6 +10,7 @@ import {
 } from "./ai/planner-candidate-index.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
+import type { ConnectedTownNetworkEntry } from "./economy-network/economy-network.js";
 import {
   addTileUpkeepToCache,
   removeTileUpkeepFromCache,
@@ -238,6 +239,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   players: ReadonlyMap<string, RuntimePlayer>;
   economySnapshotCacheByPlayer: Map<string, PlayerUpdateEconomySnapshot>;
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
+  townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
 }): void => {
@@ -246,6 +248,7 @@ export const refreshEconomyCachesForTileChange = (input: {
     if (previous.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
+      input.townNetworkCacheByPlayer.delete(previous.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
@@ -256,6 +259,7 @@ export const refreshEconomyCachesForTileChange = (input: {
     if (next.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(next.ownerId);
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
+      input.townNetworkCacheByPlayer.delete(next.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
