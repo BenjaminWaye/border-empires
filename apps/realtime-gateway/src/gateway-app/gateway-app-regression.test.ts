@@ -96,4 +96,26 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("activeRevealStreamSockets.add(socket);");
     expect(source).toContain("activeRevealStreamSockets.delete(socket);");
   });
+
+  // Regression for "why did the websocket reply take so long" — the gateway
+  // already measured gateway_input_to_state_update_latency_ms as an aggregate
+  // quantile, but a single slow command never got its own diagnostic log
+  // (commandId, eventType, elapsed), so a real incident could only be seen
+  // as a shifted p95/p99, not traced back to one player action.
+  it("logs a per-command diagnostic when input-to-state latency crosses the slow threshold", () => {
+    const source = sourceFor("./gateway-app.ts");
+
+    expect(source).toContain(
+      "const slowGatewayInputToStateWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_INPUT_TO_STATE_WARN_MS ?? 1_000));"
+    );
+    const observeStart = source.indexOf("const submittedAt = pendingInputToStateByCommandId.get(event.commandId);");
+    const observeEnd = source.indexOf("if (event.eventType === \"PLAYER_MESSAGE\"");
+    const observeSource = source.slice(observeStart, observeEnd);
+
+    expect(observeSource).toContain("gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(inputToStateDurationMs);");
+    expect(observeSource).toContain("if (inputToStateDurationMs >= slowGatewayInputToStateWarnMs) {");
+    expect(observeSource).toContain('recordGatewayEvent("warn", "gateway_input_to_state_slow", {');
+    expect(observeSource).toContain("commandId: event.commandId,");
+    expect(observeSource).toContain("eventType: event.eventType,");
+  });
 });

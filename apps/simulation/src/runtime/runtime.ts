@@ -165,6 +165,7 @@ import {
   type StrategicResourceKey,
   type UpkeepNeed
 } from "../runtime-types.js";
+import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
   parseAllianceSyncPayload,
@@ -614,9 +615,9 @@ export class SimulationRuntime {
       }) => void)
     | undefined;
   private readonly onJobApplied:
-    | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"] }) => void)
+    | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"]; commandId?: string }) => void)
     | undefined;
-  private readonly wrapJobRun: ((run: () => void) => () => void) | undefined;
+  private readonly wrapJobRun: ((run: () => void, meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }) => () => void) | undefined;
   private drainScheduled = false;
   private immediateDrainScheduled = false;
   private draining = false;
@@ -1358,26 +1359,11 @@ export class SimulationRuntime {
   }
 
   queueDepths(): Record<QueueLane, number> {
-    return {
-      human_interactive: this.jobsByLane.human_interactive.length,
-      human_noninteractive: this.jobsByLane.human_noninteractive.length,
-      system: this.jobsByLane.system.length,
-      ai: this.jobsByLane.ai.length
-    };
+    return computeQueueDepths(this.jobsByLane);
   }
 
   queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
-    const backlogFor = (lane: QueueLane): number => {
-      const oldest = this.jobsByLane[lane][0];
-      if (!oldest) return 0;
-      return Math.max(0, nowMs - oldest.enqueuedAt);
-    };
-    return {
-      human_interactive: backlogFor("human_interactive"),
-      human_noninteractive: backlogFor("human_noninteractive"),
-      system: backlogFor("system"),
-      ai: backlogFor("ai")
-    };
+    return computeQueueBacklogMs(this.jobsByLane, nowMs);
   }
 
   private summaryForPlayer(playerId: string): PlayerRuntimeSummary {
@@ -2868,10 +2854,12 @@ export class SimulationRuntime {
     lane: QueueLane,
     run: () => void,
     commandType?: CommandEnvelope["type"],
-    scheduling: "immediate" | "background" = "immediate"
+    scheduling: "immediate" | "background" = "immediate",
+    commandId?: string
   ): void {
     const job: SimulationJob = { lane, run, enqueuedAt: this.now(), scheduling };
     if (commandType !== undefined) job.commandType = commandType;
+    if (commandId !== undefined) job.commandId = commandId;
     this.jobsByLane[lane].push(job);
     this.scheduleDrain(scheduling);
   }
@@ -2935,13 +2923,19 @@ export class SimulationRuntime {
           break;
         }
         const jobStartedAt = this.now();
-        (this.wrapJobRun ? this.wrapJobRun(next.run) : next.run)();
+        const jobMeta = {
+          lane: next.lane,
+          ...(next.commandType ? { commandType: next.commandType } : {}),
+          ...(next.commandId ? { commandId: next.commandId } : {})
+        };
+        (this.wrapJobRun ? this.wrapJobRun(next.run, jobMeta) : next.run)();
         if (this.onJobApplied) {
           const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
           this.onJobApplied({
             lane: next.lane,
             durationMs: jobDurationMs,
-            ...(next.commandType ? { commandType: next.commandType } : {})
+            ...(next.commandType ? { commandType: next.commandType } : {}),
+            ...(next.commandId ? { commandId: next.commandId } : {})
           });
         }
         processedJobs += 1;
@@ -4561,7 +4555,13 @@ export class SimulationRuntime {
   private queueCommandForProcessing(command: CommandEnvelope): void {
     this.updatePlayerLastActive(command.playerId, this.now());
     const lane = laneForCommand(command);
-    this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
+    this.enqueueJob(
+      lane,
+      () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()),
+      command.type,
+      commandScheduling(command),
+      command.commandId
+    );
   }
 
   seedLiveBarbarians(targetCount: number, commandId?: string): SeedLiveBarbariansResult {

@@ -84,6 +84,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
+  let simAiQueueBacklogMs = 0;
+  let simSystemQueueBacklogMs = 0;
+  let simHumanNoninteractiveQueueBacklogMs = 0;
+  let simCommandApplyTrackEvictedTotal = 0;
   // Empire-size gauges: total owned tiles across player empires, and the
   // single largest empire's tile count. The largest empire drives the
   // per-player O(territory) cost of the planner sync / per-cycle work, so it
@@ -157,6 +161,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       spawn: quantileSample(simPreparePlayerLatencyMs.get("spawn") ?? [])
     },
     simHumanInteractiveBacklogMs,
+    simAiQueueBacklogMs,
+    simSystemQueueBacklogMs,
+    simHumanNoninteractiveQueueBacklogMs,
+    simCommandApplyTrackEvictedTotal,
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
@@ -269,6 +277,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     setSimHumanInteractiveBacklogMs(value: number): void {
       simHumanInteractiveBacklogMs = clampMetric(value);
+    },
+    setSimBackgroundQueueBacklogMs(values: { ai: number; system: number; humanNoninteractive: number }): void {
+      simAiQueueBacklogMs = clampMetric(values.ai);
+      simSystemQueueBacklogMs = clampMetric(values.system);
+      simHumanNoninteractiveQueueBacklogMs = clampMetric(values.humanNoninteractive);
+    },
+    setSimCommandApplyTrackEvictedTotal(value: number): void {
+      simCommandApplyTrackEvictedTotal = clampMetric(value);
     },
     setSimAiAutopilotState(values: { enabled: boolean; playerCount: number }): void {
       simAiAutopilotEnabled = values.enabled ? 1 : 0;
