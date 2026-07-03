@@ -943,7 +943,8 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
+      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     });
   }
 
@@ -961,8 +962,6 @@ export class SimulationRuntime {
   }
 
   applyPassiveIncome(nowMs: number, inactivityCapMs: number): void {
-    // Kept synchronous for callers that don't have a yield function.
-    // Production path uses applyPassiveIncomeAsync (see below).
     for (const player of this.players.values()) {
       this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
     }
@@ -973,10 +972,14 @@ export class SimulationRuntime {
     inactivityCapMs: number,
     yieldToEventLoop: () => Promise<void>
   ): Promise<void> {
+    const ts = this.trackSyncMainThreadTask;
     for (const player of this.players.values()) {
-      this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
-      // Yield between players: cachedEconomySnapshot may rebuild O(settledTiles)
-      // on cache miss, so batching all 6 players back-to-back is a 15s stall risk.
+      const apply = () => this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
+      if (ts) {
+        ts("apply_passive_income_for_player", { playerId: player.id }, apply);
+      } else {
+        apply();
+      }
       await yieldToEventLoop();
     }
   }
@@ -987,7 +990,6 @@ export class SimulationRuntime {
 
     const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
     if (lastTickAt === undefined) {
-      // First tick: seed the anchor at nowMs so we start accruing from here
       this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
       return;
     }
@@ -1001,7 +1003,7 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
 
-    // Credit gold
+    // Credit gold and strategic resources
     let anyCredited = false;
     const goldEarned = goldPerMinute * elapsedMinutes;
     if (goldEarned > 0) {
@@ -1013,7 +1015,6 @@ export class SimulationRuntime {
       }
     }
 
-    // Credit strategic resources
     const sp = economy.strategicProductionPerMinute;
     const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
     for (const resource of strategicKeys) {
@@ -1134,8 +1135,7 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
-      // exactOptionalPropertyTypes: omit key entirely when undefined rather than
-      // setting it to undefined, which would be rejected by the optional type.
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
     this.tickMuster(nowMs);
