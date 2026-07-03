@@ -2702,7 +2702,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             activePlayerCount: activePlayers.size,
             mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now)
               .sort((a, b) => (b.active ? b.elapsedMs : b.durationMs) - (a.active ? a.elapsedMs : a.durationMs))
-              .slice(0, 8)
+              .slice(0, 16)
           });
         }
       }, 100);
