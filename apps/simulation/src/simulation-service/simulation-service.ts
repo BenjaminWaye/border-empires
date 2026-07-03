@@ -16,8 +16,9 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed, type Terrain } from "@border-empires/shared";
+import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
+import { type ProtoSimulationEvent, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -171,88 +172,6 @@ const formatNoFrontierDiagnostic = (
   return parts.join(":");
 };
 
-type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
-type ProtoSimulationEvent = {
-  event_type: string;
-  command_id: string;
-  player_id: string;
-  message_type?: string;
-  action_type: string;
-  origin_x: number;
-  origin_y: number;
-  target_x: number;
-  target_y: number;
-  resolves_at: number;
-  code: string;
-  message: string;
-  attacker_won: boolean;
-  manpower_delta?: number;
-  pillaged_gold?: number;
-  pillaged_strategic_json?: string;
-  combat_result_json?: string;
-  collect_mode?: string;
-  gold?: number;
-  strategic_json?: string;
-  tiles?: number;
-  collect_x?: number;
-  collect_y?: number;
-  payload_json?: string;
-  tile_deltas: Array<{
-    x: number;
-    y: number;
-    terrain?: string | undefined;
-    resource?: string | undefined;
-    dock_id?: string | undefined;
-    owner_id?: string | undefined;
-    ownership_state?: string | undefined;
-    frontier_decay_at?: number | undefined;
-    town_json?: string | undefined;
-    town_type?: string | undefined;
-    town_name?: string | undefined;
-    town_population_tier?: string | undefined;
-    fort_json?: string | undefined;
-    observatory_json?: string | undefined;
-    siege_outpost_json?: string | undefined;
-    economic_structure_json?: string | undefined;
-    sabotage_json?: string | undefined;
-    shard_site_json?: string | undefined;
-    muster_json?: string | undefined;
-  }>;
-  tileDeltas?: Array<{
-    x: number;
-    y: number;
-    terrain?: string | undefined;
-    resource?: string | undefined;
-    dockId?: string | undefined;
-    ownerId?: string | null | undefined;
-    ownershipState?: string | null | undefined;
-    frontierDecayAt?: number | null | undefined;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null | undefined;
-    townJson?: string | undefined;
-    townType?: string | undefined;
-    townName?: string | undefined;
-    townPopulationTier?: string | undefined;
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    shardSiteJson?: string | undefined;
-    musterJson?: string | undefined;
-    yield?: {
-      gold?: number;
-      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    } | undefined;
-    yieldRate?: {
-      goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
-  }>;
-  count?: number;
-  cancelled_command_ids?: string[];
-};
-
 type SimulationServiceOptions = {
   host?: string;
   port?: number;
@@ -291,28 +210,6 @@ type SimulationServiceOptions = {
   seasonSummaryStore?: SeasonSummaryStore;
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
-};
-
-type SimulationTileDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain;
-  resource?: string | undefined;
-  dockId?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
-  townJson?: string | undefined;
-  townType?: "MARKET" | "FARMING";
-  townName?: string | undefined;
-  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  shardSiteJson?: string | undefined;
 };
 
 const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorld>): RecoveredSimulationState => ({
@@ -370,160 +267,6 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
   issuedAt: value.issued_at,
   type: value.type as CommandEnvelope["type"],
   payloadJson: value.payload_json
-});
-
-// Event types that exist purely for in-sim bookkeeping (replay anchors,
-// snapshot reconstruction, etc.) and have no client-facing audience. Writing
-// them to the gRPC stream wastes bandwidth and — because the gateway proto
-// shape is flat — has historically tripped consumers into mis-tagging them
-// as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
-// gateway never sees them in the first place.
-export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED",
-  "TILE_YIELD_ANCHOR_BATCH",
-  "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED"
-]);
-
-export const isWireInternalEvent = (event: SimulationEvent): boolean =>
-  WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
-
-export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
-  event_type: value.eventType,
-  command_id: value.commandId,
-  player_id: value.playerId,
-  ...("messageType" in value ? { message_type: value.messageType } : {}),
-  action_type: "actionType" in value ? value.actionType : "",
-  origin_x: "originX" in value ? value.originX : 0,
-  origin_y: "originY" in value ? value.originY : 0,
-  target_x: "targetX" in value ? value.targetX : 0,
-  target_y: "targetY" in value ? value.targetY : 0,
-  resolves_at: "resolvesAt" in value ? value.resolvesAt : 0,
-  code: "code" in value ? value.code : "",
-  message: "message" in value ? value.message : "",
-  attacker_won: "attackerWon" in value ? value.attackerWon : false,
-  ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
-  ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
-  ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),
-  ...("combatResult" in value && value.combatResult ? { combat_result_json: JSON.stringify(value.combatResult) } : {}),
-  ...(value.eventType === "COLLECT_RESULT"
-    ? {
-        collect_mode: value.mode,
-        gold: value.gold,
-        strategic_json: JSON.stringify(value.strategic),
-        tiles: value.tiles,
-        ...(typeof value.x === "number" ? { collect_x: value.x } : {}),
-        ...(typeof value.y === "number" ? { collect_y: value.y } : {})
-      }
-    : {}),
-  ...(value.eventType === "TECH_UPDATE" || value.eventType === "DOMAIN_UPDATE" || value.eventType === "PLAYER_MESSAGE"
-    ? { payload_json: value.payloadJson }
-    : {}),
-  ...(value.eventType === "COMBAT_CANCELLED"
-    ? {
-        count: value.count,
-        cancelled_command_ids: value.cancelledCommandIds ?? []
-      }
-    : {}),
-  tile_deltas:
-    value.eventType === "TILE_DELTA_BATCH"
-      ? value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-          ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
-          ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
-          ...("frontierDecayAt" in tile ? { frontier_decay_at: tile.frontierDecayAt ?? 0 } : {}),
-          ...("frontierDecayKind" in tile ? { frontier_decay_kind: tile.frontierDecayKind ?? "" } : {}),
-          ...(tile.townJson ? { town_json: tile.townJson } : {}),
-          ...(tile.townType ? { town_type: tile.townType } : {}),
-          ...(tile.townName ? { town_name: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fort_json: tile.fortJson ?? "" } : {}),
-          ...("observatoryJson" in tile ? { observatory_json: tile.observatoryJson ?? "" } : {}),
-          ...("siegeOutpostJson" in tile ? { siege_outpost_json: tile.siegeOutpostJson ?? "" } : {}),
-          ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
-          ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
-          ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
-          ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
-          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-          ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
-        }))
-      : [],
-  ...(value.eventType === "TILE_DELTA_BATCH"
-    ? {
-        tile_delta_json: JSON.stringify(value.tileDeltas),
-        tileDeltas: value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
-          ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
-          ...("frontierDecayAt" in tile ? { frontierDecayAt: tile.frontierDecayAt ?? null } : {}),
-          ...("frontierDecayKind" in tile ? { frontierDecayKind: tile.frontierDecayKind ?? null } : {}),
-          ...(tile.townJson ? { townJson: tile.townJson } : {}),
-          ...(tile.townType ? { townType: tile.townType } : {}),
-          ...(tile.townName ? { townName: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fortJson: tile.fortJson } : {}),
-          ...("observatoryJson" in tile ? { observatoryJson: tile.observatoryJson } : {}),
-          ...("siegeOutpostJson" in tile ? { siegeOutpostJson: tile.siegeOutpostJson } : {}),
-          ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
-          ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
-          ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
-          ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
-          ...("yield" in tile ? { yield: tile.yield } : {}),
-          ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
-        }))
-      }
-    : {})
-});
-
-// Shared serializer for both SubscribePlayer and FetchTileDetail tile arrays.
-// Both are full-snapshot paths (no clear-signaling semantics) so all structure
-// fields use truthy guards — absent means not present, never "was removed".
-// TILE_DELTA_BATCH uses toProtoEvent with `?? ""` clear-signaling for removals;
-// keep the two serializers separate.
-const toFullSnapshotProtoTile = (tile: {
-  x: number; y: number;
-  terrain?: string | undefined; resource?: string | undefined; dockId?: string | undefined;
-  ownerId?: string | undefined; ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
-  townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
-  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
-  musterJson?: string | undefined;
-  yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
-}) => ({
-  x: tile.x,
-  y: tile.y,
-  ...(tile.terrain ? { terrain: tile.terrain } : {}),
-  ...(tile.resource ? { resource: tile.resource } : {}),
-  ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-  ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-  ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
-  ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
-  ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
-  ...(tile.townJson ? { town_json: tile.townJson } : {}),
-  ...(tile.townType ? { town_type: tile.townType } : {}),
-  ...(tile.townName ? { town_name: tile.townName } : {}),
-  ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-  ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
-  ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
-  ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
-  ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
-  ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-  ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
-  ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
-  ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-  ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
 });
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
@@ -2093,21 +1836,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       //
       // Cost per event: O(N_subscribed × deltas) for the visibility-coverage
       // lookup (incremental refcounted cache, O(1) per delta per player),
-      // plus O(M_affected × sparse_delta_fields) for serialising only the
-      // changed fields to each player who sees any of the deltas. Events are
-      // coalesced per command resolution (CommandDeltaBuffer) so 3-5
-      // individual batches become 1. Capture-reveal-only deltas skip yield,
-      // economy, and town-enrichment computation.
-      //
-      // If subscriber count grows large enough that per-player serialisation
-      // becomes the hot spot, group subscribers by identical filtered
-      // tile-sets and stringify once per group.
+      // plus O(G × M × sparse_delta_fields) for serialising only the changed
+      // fields — where G is the number of unique visible tile-sets across all
+      // subscribers. Grouping subscribers by identical filtered tile-sets means
+      // the proto serialization (tile_deltas + tileDeltas + JSON) runs once per
+      // unique set and the result is shared by reference across all players in
+      // that group. Events are coalesced per command resolution
+      // (CommandDeltaBuffer) so 3-5 individual batches become 1.
+      // Capture-reveal-only deltas skip yield, economy, and town-enrichment
+      // computation.
       if (event.eventType === "TILE_DELTA_BATCH") {
         mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
           const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
           let maxFilterMs = 0;
           let slowestFilterPlayerId = "";
           let subscriberCount = 0;
+          // Cache proto events keyed by the filtered delta set so subscribers
+          // with identical visible tiles share one serialization pass.
+          const protoCache = new Map<string, ProtoSimulationEvent>();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
             const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
@@ -2124,12 +1870,37 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
             }
             if (filteredDeltas.length === 0) continue;
-            const perPlayerEvent = toProtoEvent({
-              ...event,
-              playerId: subscribedPlayerId,
-              tileDeltas: filteredDeltas
-            });
-            for (const stream of eventStreams) stream.write(perPlayerEvent);
+            // Build a cheap group key: "x:y" per tile (optionally suffixed
+            // ":r"), joined by "|". The ":r" suffix marks terrain-only
+            // redacted stubs (lock targets owned by another player) so full
+            // and redacted content never collide in the cache. Redaction only
+            // fires when the original delta had a truthy ownerId (see
+            // tile-delta-visibility-filter.ts), so a delta that never carried
+            // ownerId always serializes identically for every viewer — safe
+            // to key the same way even though the ":r" label is technically
+            // inexact for that case. Use for-of to avoid index-access
+            // narrowing issues.
+            let groupKey = "";
+            let groupKeyFirst = true;
+            for (const d of filteredDeltas) {
+              if (!groupKeyFirst) groupKey += "|";
+              groupKeyFirst = false;
+              groupKey += `${d.x}:${d.y}`;
+              if (!("ownerId" in d)) groupKey += ":r";
+            }
+            const cachedProto = protoCache.get(groupKey);
+            if (cachedProto) {
+              const perPlayerEvent = { ...cachedProto, player_id: subscribedPlayerId };
+              for (const stream of eventStreams) stream.write(perPlayerEvent);
+            } else {
+              const perPlayerEvent = toProtoEvent({
+                ...event,
+                playerId: subscribedPlayerId,
+                tileDeltas: filteredDeltas
+              });
+              protoCache.set(groupKey, perPlayerEvent);
+              for (const stream of eventStreams) stream.write(perPlayerEvent);
+            }
           }
           if (slowTileDeltaFilterWarnMs > 0) {
             const totalFanoutMs = Date.now() - fanoutStartedAt;
