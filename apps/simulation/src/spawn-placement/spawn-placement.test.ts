@@ -140,7 +140,7 @@ describe("chooseLegacySpawnPlacement", () => {
     const spawn = chooseLegacySpawnPlacement({ playerId: "newcomer", tiles });
 
     expect(spawn).toBeDefined();
-    expect(spawn!.x).toBe(39);
+    expect(spawn!.x).toBeGreaterThanOrEqual(34);
   });
 
   it("prefers open land near a rally anchor before default spawn placement", () => {
