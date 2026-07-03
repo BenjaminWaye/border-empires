@@ -60,7 +60,7 @@ import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
-import { createMainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
@@ -388,7 +388,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
-  const mainThreadTasks = createMainThreadTaskTracker();
+  const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
     const writer = logWriters[level];
