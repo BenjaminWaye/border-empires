@@ -159,14 +159,13 @@ type WorkerAiCommandProducerOptions = {
     frontierTileCount?: number;
     relevantKeyCount?: number;
     unseenCount?: number;
+    queueWaitMs?: number; messagesAheadCount?: number;
   }) => void;
 };
 
-const resolveWorkerScript = (given?: string): string | URL =>
-  given ?? resolveWorkerEntryUrl("./ai-planner-worker.js", import.meta.url);
+const resolveWorkerScript = (given?: string): string | URL => given ?? resolveWorkerEntryUrl("./ai-planner-worker.js", import.meta.url);
 
-const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
-  queueDepths.human_interactive > 0;
+const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean => queueDepths.human_interactive > 0;
 // Tick duration that triggers the onSlowTick context emit. Steady-state ticks
 // are p50=2ms / p95=5ms; p99=5000ms+ is a rare outlier we want to capture.
 // 1s threshold catches the outliers without flooding logs with normal ticks.
@@ -306,6 +305,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           playerId: string;
           ownedTileCount?: number;
           frontierTileCount?: number;
+          queueWaitMs?: number; messagesAheadCount?: number;
         };
         options.onDiagnostic?.(diagnostic);
       } else if (message.type === "error") {
