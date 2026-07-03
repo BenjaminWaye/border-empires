@@ -107,7 +107,7 @@ import {
   buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer } from "../economy-network/economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -543,19 +543,12 @@ export class SimulationRuntime {
   // wrapped in trackSyncMainThreadTask by classifyVisibilityForPlayer below.
   private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
-  // Cached economy snapshot per player. Invalidated in replaceTileState whenever
-  // a tile mutates in a way that could change income/upkeep rates (ownership,
-  // town, fort, economicStructure, siegeOutpost, observatory, dockId changes).
-  // applyEconomyAccrual and emitPlayerStateUpdate both read from this cache so
-  // each player pays O(settled-tiles) at most once per tick instead of once per
-  // call site.  The cache is keyed by player ID; a missing entry means dirty.
+  // Cached economy snapshot per player. Invalidated in replaceTileState on any
+  // income/upkeep-relevant tile mutation; keyed by player ID, missing = dirty.
   private readonly economySnapshotCacheByPlayer = new Map<string, PlayerUpdateEconomySnapshot>();
-  // Incremental upkeep accrual cache per player. Unlike economySnapshotCacheByPlayer
-  // (invalidate-on-mutation, O(tiles) to rebuild), this cache is kept warm by
-  // O(1) add/subtract in replaceTileState. applyEconomyAccrual reads upkeep from
-  // here instead of triggering a full snapshot rebuild on every tile mutation.
-  // A missing entry is lazily populated on first read (O(settled-tiles) once).
-  // Must be invalidated (deleted) when tech/domain multipliers change.
+  // Incremental upkeep cache: unlike economySnapshotCacheByPlayer (invalidate +
+  // O(tiles) rebuild), kept warm via O(1) add/subtract in replaceTileState.
+  // Lazily populated on first read; invalidated when tech/domain mults change.
   private readonly upkeepAccrualCacheByPlayer = new Map<string, UpkeepAccrualSnapshot>();
   // Per-player read counter for the upkeep cache. Drives the periodic full
   // rebuild that bounds floating-point drift (see cachedUpkeepAccrual).
@@ -565,9 +558,12 @@ export class SimulationRuntime {
   // (same replaceTileState triggers). Used by consumeUpkeepFromTileYield and
   // applyPassiveIncome to avoid rebuilding the town network from all settled tiles.
   private readonly tileYieldContextCacheByPlayer = new Map<string, RuntimeTileYieldEconomyContext>();
-  // Cached defensibility metrics per player.  Invalidated alongside the
-  // economy snapshot cache because the same tile mutations that change income
-  // also change border exposure (T, E, Ts, Es).
+  // Shared town-network cache: buildConnectedTownNetworkForPlayer is O(settled
+  // tiles + towns^2) and was being built TWICE per cache-miss cycle (once here,
+  // once inside buildPlayerUpdateEconomySnapshot). Sharing cuts that in half.
+  private readonly townNetworkCacheByPlayer = new Map<string, Map<string, ConnectedTownNetworkEntry>>();
+  // Defensibility metrics cache; invalidated alongside economy snapshot (same
+  // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
@@ -1404,13 +1400,9 @@ export class SimulationRuntime {
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
     const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
-    // The incremental cache (plannerPlayerTileKeyCacheByPlayer) is no longer
-    // deleted here.  It is kept live by the targeted mutation hooks in
-    // applyTileToPlayerSummaries, removeTileFromPlayerSummaries,
-    // refreshPlannerCandidateIndexesAroundTileChange, addPendingSettlement,
-    // and removePendingSettlement.  plannerPlayerTileKeys() re-initializes
-    // the entry from summary when no entry exists (first access or after
-    // rebuildPlannerCandidateIndexesForPlayer explicitly cleared it).
+    // plannerPlayerTileKeyCacheByPlayer stays live via targeted mutation hooks
+    // (applyTileToPlayerSummaries etc.); plannerPlayerTileKeys() re-inits from
+    // summary only if no entry exists.
   }
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
@@ -1434,13 +1426,8 @@ export class SimulationRuntime {
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
     const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
 
-    // Use the incrementally-maintained cache entry.  The entry is kept in sync
-    // by the mutation hooks in applyTileToPlayerSummaries,
-    // removeTileFromPlayerSummaries, refreshPlannerCandidateIndexesAroundTileChange,
-    // addPendingSettlement, and removePendingSettlement.  If no entry exists
-    // (first access or after a full rebuild cleared it), initialize it now from
-    // the summary Sets — O(territory), but only happens once per player lifetime
-    // rather than on every planner cycle.
+    // Kept in sync by mutation hooks; if no entry exists (first access or after
+    // a full rebuild), init once from summary Sets — O(territory) one-time cost.
     let entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
     if (!entry) {
       entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
@@ -1557,9 +1544,11 @@ export class SimulationRuntime {
           econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
         }
       }
+      const settledTiles = this.settledTilesForPlayer(player.id);
+      const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
       const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      }, econMult);
+      }, econMult, townNetwork);
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
       return snapshot;
     };
@@ -1622,11 +1611,8 @@ export class SimulationRuntime {
       return;
     }
     const run = (): void => {
-      // Use the incremental upkeep cache (stays warm across mutations via
-      // replaceTileState; O(1) per tile change).  The full cachedEconomySnapshot
-      // is NOT read here — that would rebuild O(settled-tiles) on every cache miss
-      // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
-      // separately in the tile-yield path; this path covers upkeep drain only.
+      // Incremental upkeep cache (O(1) via replaceTileState); NOT the full
+      // cachedEconomySnapshot, which would rebuild O(settled-tiles) per mutation.
       const upkeep = this.cachedUpkeepAccrual(player);
       // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
       // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
@@ -1801,13 +1787,9 @@ export class SimulationRuntime {
         anchors: batchedAnchors
       });
     }
-    // Drop the synthetic commandId from the in-memory replay cache. The
-    // anchor events are already durably persisted via emitEvent →
-    // persistence.recordEvent, so event-store recovery still reconstructs
-    // anchors. The cache only retains entries until a terminal event marks
-    // their commandId prunable — accrual never emits terminal events, so
-    // these would otherwise accumulate forever (and bloat every snapshot
-    // built from this map).
+    // Drop the synthetic commandId from replay cache — already durably
+    // persisted via emitEvent; accrual never emits terminal events so this
+    // would otherwise accumulate forever.
     this.replayCache.recordedEventsByCommandId.delete(syntheticCommandId);
   }
 
@@ -1847,6 +1829,7 @@ export class SimulationRuntime {
       players: this.players,
       economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
       tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
     });
@@ -2646,6 +2629,25 @@ export class SimulationRuntime {
     );
   }
 
+  // Shared with cachedEconomySnapshot so buildConnectedTownNetworkForPlayer
+  // (O(settled_tiles + towns^2)) fires once per cache-miss cycle, not twice.
+  private cachedTownNetworkForPlayer(
+    player: DomainPlayer,
+    settledTiles: readonly DomainTileState[],
+    maxConnectedTownNames: number
+  ): Map<string, ConnectedTownNetworkEntry> {
+    const cached = this.townNetworkCacheByPlayer.get(player.id);
+    if (cached) return cached;
+    const rebuild = (): Map<string, ConnectedTownNetworkEntry> => {
+      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames });
+      this.townNetworkCacheByPlayer.set(player.id, network);
+      return network;
+    };
+    return this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("town_network_rebuild", { playerId: player.id }, rebuild)
+      : rebuild();
+  }
+
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
     const cached = this.tileYieldContextCacheByPlayer.get(player.id);
     if (cached) return cached;
@@ -2659,7 +2661,7 @@ export class SimulationRuntime {
       }
       const context: RuntimeTileYieldEconomyContext = {
         player,
-        townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
+        townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
         fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
         // Skip expensive first-three-town key computation if the player has no
         // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
@@ -3169,12 +3171,9 @@ export class SimulationRuntime {
       resolvesAt: validation.resolvesAt,
       ...(combatResolution ? { combatResult: combatResolution.result } : {})
     });
-    // Notify the defender of an incoming attack (under-attack overlay) via
-    // PLAYER_MESSAGE with playerId=defender, delivered even when the attacker
-    // is an unsubscribed AI. Re-uses the attacker's commandId (avoids
-    // unbounded replay-map growth); the gateway's PLAYER_MESSAGE handler
-    // recognises ATTACK_ALERT and skips markResolved so the attacker's real
-    // recovery slot stays open until COMBAT_RESOLVED.
+    // Notify defender of incoming attack via PLAYER_MESSAGE (delivered even to
+    // unsubscribed AI). Reuses attacker's commandId; gateway skips markResolved
+    // for ATTACK_ALERT so the attacker's recovery slot stays open until resolved.
     const defenderOwnerId = combatResolution?.result.defenderOwnerId;
     if (
       actionType === "ATTACK" &&
