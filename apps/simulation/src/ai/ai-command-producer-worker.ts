@@ -86,6 +86,16 @@ const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta => ({
 
 type WorkerAiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews" | "exportTilesForKeys">;
+  /**
+   * Optional main-thread task tracker hook. `syncPlayers` runs several
+   * synchronous steps (relevance rebuild, worker postMessage) that are NOT
+   * wrapped by the caller the way exportPlannerPlayerViews is — without this,
+   * those steps are invisible to `event_loop_blocked`'s mainThreadTasks
+   * breakdown even though they show up as onDiagnostic samples. Passing this
+   * through lets both sync_players_replace_players and sync_players_post
+   * appear in the same trace as the rest of the tick.
+   */
+  trackSync?: <T>(phase: string, details: Record<string, string | number | boolean | null> | undefined, task: () => T) => T;
   aiPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -202,6 +212,7 @@ const isBuildAction = (type: CommandEnvelope["type"]): boolean =>
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
+  const trackSync = options.trackSync ?? (<T>(_phase: string, _details: unknown, task: () => T): T => task());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
   const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
   let nextTickDelayMs = initialTickMs;
@@ -419,7 +430,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     // rebuilt players. We scope the unseen-tile backfill scan to these keys
     // instead of scanning all relevantTileKeys (was O(global_100k), now
     // O(newly_relevant) ≈ 0 at steady state, small on territory expansion).
-    const newlyRelevantKeys = relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
+    const newlyRelevantKeys = trackSync(
+      "sync_players_replace_players",
+      { playerCount: players.length },
+      () => relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey)
+    );
     const replacePlayersDurationMs = Math.max(0, now() - replacePlayersStartedAt);
     // relevantTileKeys is a live reference to the index's internal Set —
     // no copy needed; it reflects the update replacePlayers just made.
@@ -496,10 +511,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       return p;
     });
-    worker.postMessage({
-      type: "sync_players",
-      players: playersForPost
-    });
+    trackSync(
+      "sync_players_post",
+      { playerCount: playersForPost.length },
+      () =>
+        worker.postMessage({
+          type: "sync_players",
+          players: playersForPost
+        })
+    );
     options.onDiagnostic?.({
       phase: "sync_players_post",
       durationMs: Math.max(0, now() - postStartedAt),
