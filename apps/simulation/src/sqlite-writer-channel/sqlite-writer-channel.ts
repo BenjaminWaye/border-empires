@@ -63,18 +63,27 @@ export class SqliteWriterChannel {
 export class WriterBackedEventStore implements SimulationEventStore {
   constructor(
     private readonly channel: SqliteWriterChannel,
-    private readonly reader: SimulationEventStore
+    private readonly reader: SimulationEventStore,
+    private readonly onSyncAppendDuration?: (stringifyMs: number, syncMs: number, eventType: string, commandId: string) => void
   ) {}
 
   async appendEvent(event: SimulationEvent, createdAt: number): Promise<void> {
-    await this.channel.post({
+    const stringifyStartedAt = Date.now();
+    const payloadJson = JSON.stringify(event);
+    const stringifyMs = Date.now() - stringifyStartedAt;
+    const promise = this.channel.post({
       op: "appendEvent",
       commandId: event.commandId,
       playerId: event.playerId,
       eventType: event.eventType,
-      payloadJson: JSON.stringify(event),
+      payloadJson,
       createdAt
     });
+    // Measured before the await — this is the actual main-thread-blocking
+    // cost (JSON.stringify + worker.postMessage structured clone). The await
+    // below yields; it must not be included in this measurement.
+    this.onSyncAppendDuration?.(stringifyMs, Date.now() - stringifyStartedAt, event.eventType, event.commandId);
+    await promise;
   }
 
   loadAllEvents(): Promise<StoredSimulationEvent[]> { return this.reader.loadAllEvents(); }
