@@ -2551,7 +2551,14 @@ export class SimulationRuntime {
       summaryForPlayer: (summaryPlayerId: string) => this.summaryForPlayer(summaryPlayerId),
       applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
-      cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player)
+      cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
+      // Seeds the sparse-delta cache's baseline for every tile a player sees
+      // at connect time, so their subsequent command/tick deltas for
+      // already-visible tiles can be genuinely sparse. This is a perf/
+      // payload-size improvement layered on top of (not a substitute for)
+      // buildSparseDelta always including ownerId/ownershipState/dockId --
+      // see the comment there for why this alone isn't sufficient.
+      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile)
     };
   }
 
