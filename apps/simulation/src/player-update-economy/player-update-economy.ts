@@ -35,6 +35,8 @@ import {
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
   firstThreeTownsGoldOutputMultiplierForPlayer,
+  hasSupportedStructure,
+  supportTileBelongsToTown,
   type ConnectedTownNetworkEntry,
   type DockEconomyContext,
   type EconomyPlayer
@@ -198,6 +200,7 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
 };
 
 export { townFoodUpkeepPerMinute };
+export { hasSupportedStructure } from "../economy-network/economy-network.js";
 
 export const supportSummaryForTown = (
   playerId: string,
@@ -218,45 +221,6 @@ export const supportSummaryForTown = (
     }
   }
   return { supportCurrent, supportMax };
-};
-
-const supportTileBelongsToTown = (
-  playerId: string,
-  supportTile: DomainTileState,
-  townTile: DomainTileState,
-  tiles: ReadonlyMap<string, DomainTileState>
-): boolean => {
-  let assignedTown: DomainTileState | undefined;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const candidate = tiles.get(`${supportTile.x + dx},${supportTile.y + dy}`);
-      if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
-      if (candidate.town.populationTier === "SETTLEMENT") continue;
-      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
-        assignedTown = candidate;
-      }
-    }
-  }
-  return assignedTown?.x === townTile.x && assignedTown.y === townTile.y;
-};
-
-export const hasSupportedStructure = (
-  playerId: string,
-  tile: DomainTileState,
-  structureType: string,
-  tiles: ReadonlyMap<string, DomainTileState>
-): boolean => {
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
-      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      if (neighbor.economicStructure?.ownerId === playerId && neighbor.economicStructure.status === "active" && neighbor.economicStructure.type === structureType) return true;
-    }
-  }
-  return false;
 };
 
 export const buildStrategicProductionForSettledTiles = (
@@ -315,7 +279,7 @@ export const townGoldPerMinuteForPlayer = (
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
-  connectedTownKeys?: readonly string[]
+  connectedClearingHouseKeys?: readonly string[]
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -327,9 +291,13 @@ export const townGoldPerMinuteForPlayer = (
   const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
   const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
   const hasCaravanary = hasSupportedStructure(player.id, tile, "CARAVANARY", tiles);
+  // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
+  // network-build time. Re-verify defensively — a progression command may
+  // have destroyed a CH between build and read — but the candidate set is
+  // O(#CH_towns), not O(#connected_towns), so this is O(1) in practice.
   const clearingHouseActive =
     hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) ||
-    (connectedTownKeys ?? []).some((key) => {
+    (connectedClearingHouseKeys ?? []).some((key) => {
       const connectedTile = tiles.get(key);
       return connectedTile ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles) : false;
     });
@@ -360,14 +328,14 @@ export const refreshTownEconomyFields = (
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys?: ReadonlySet<string>,
-  connectedTownKeys?: readonly string[]
+  connectedClearingHouseKeys?: readonly string[]
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
   const goldPerMinute = isSettlement
     ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
+    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedClearingHouseKeys);
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
   if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
@@ -444,8 +412,8 @@ export const buildPlayerUpdateEconomySnapshot = (
     if (tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
       const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
-      const connectedTownKeys = townNetwork.get(tileKey)?.connectedTownKeys;
-      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
+      const connectedClearingHouseKeys = townNetwork.get(tileKey)?.connectedClearingHouseKeys;
+      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedClearingHouseKeys);
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
       const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
