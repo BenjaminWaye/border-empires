@@ -199,7 +199,7 @@ const consumeUpkeepFromTileYield = (
   const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
   const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
   for (const tileKey of tileKeys) {
-    if (!hasOutstandingUpkeepNeed(need)) return;
+    if (!hasOutstandingUpkeepNeed(need)) break;
     const tile = ctx.tiles.get(tileKey);
     if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!economyContext) economyContext = ctx.tileYieldEconomyContextForPlayer(player);
