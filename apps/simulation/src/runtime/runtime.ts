@@ -368,7 +368,6 @@ import {
 import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
 import {
   handleFrontierCommandImpl,
-  type MusterSourceResult,
   type RuntimeFrontierCommandContext
 } from "../runtime-frontier-command.js";
 import {
@@ -1258,7 +1257,7 @@ export class SimulationRuntime {
       isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
-      resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred ?? undefined) as MusterSourceResult | undefined,
+      resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock)
     };

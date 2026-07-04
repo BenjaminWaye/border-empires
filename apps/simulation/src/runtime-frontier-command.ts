@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainPlayer, DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
+import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
 } from "@border-empires/game-domain";
