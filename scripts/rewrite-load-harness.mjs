@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
 const quantile = (values, q) => {
   if (values.length === 0) return null;
@@ -33,7 +34,7 @@ const fetchMetrics = async (url) => {
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
-const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, settleAfterAcceptedMs, refreshOnEmptyFrontier }) => {
+const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, settleAfterAcceptedMs, refreshOnEmptyFrontier, authToken }) => {
   const soakScript = resolve(cwd, "scripts", "rewrite-local-soak.mjs");
   const env = {
     ...process.env,
@@ -45,7 +46,8 @@ const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, 
     SOAK_EMIT_LATENCIES: "1",
     SOAK_WAIT_FOR_RESULT: waitForResult ? "1" : "0",
     SOAK_SETTLE_AFTER_ACCEPTED_MS: String(settleAfterAcceptedMs),
-    SOAK_REFRESH_ON_EMPTY_FRONTIER: refreshOnEmptyFrontier ? "1" : "0"
+    SOAK_REFRESH_ON_EMPTY_FRONTIER: refreshOnEmptyFrontier ? "1" : "0",
+    ...(authToken ? { AUTH_TOKEN: authToken } : {})
   };
 
   return new Promise((resolvePromise, rejectPromise) => {
@@ -104,6 +106,11 @@ const settleAfterAcceptedMs = Math.max(0, Number(process.env.LOAD_HARNESS_SETTLE
 const interBatchPauseMs = Math.max(0, Number(process.env.LOAD_HARNESS_INTER_BATCH_PAUSE_MS ?? "0"));
 const minAcceptedSamples = Math.max(1, Number(process.env.LOAD_HARNESS_MIN_ACCEPTED_SAMPLES ?? "30"));
 const refreshOnEmptyFrontier = process.env.LOAD_HARNESS_REFRESH_ON_EMPTY_FRONTIER === "1";
+// Staging requires real Firebase auth (GATEWAY_ALLOW_SEED_FALLBACK=0) — exchange
+// once up front and reuse for every soak batch, mirroring staging-login-latency-probe.mjs.
+const authToken = process.env.PROBE_FIREBASE_REFRESH_TOKEN
+  ? await refreshFirebaseAuthToken(process.env.PROBE_FIREBASE_REFRESH_TOKEN)
+  : process.env.AUTH_TOKEN;
 const eventLoopGateLimitMs = 100;
 const metricsWarmupStableMs = Math.max(0, Number(process.env.LOAD_HARNESS_METRICS_WARMUP_STABLE_MS ?? "3000"));
 const metricsWarmupTimeoutMs = Math.max(
@@ -189,7 +196,8 @@ try {
         timeoutMs: soakTimeoutMs,
         waitForResult,
         settleAfterAcceptedMs,
-        refreshOnEmptyFrontier
+        refreshOnEmptyFrontier,
+        authToken
       });
       soakBatches.push({
         at: Date.now(),
