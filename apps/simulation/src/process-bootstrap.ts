@@ -12,6 +12,8 @@
 
 import { createServer, type Server as HttpServer } from "node:http";
 import fs from "node:fs";
+import path from "node:path";
+import v8 from "node:v8";
 import { createListenerWatchdog } from "./listener-watchdog/listener-watchdog.js";
 import { createSimulationService } from "./simulation-service/simulation-service.js";
 import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env/runtime-env.js";
@@ -180,6 +182,24 @@ export const bootstrapSimulationProcess = async (
       const players = service.playerDebugSnapshot();
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
+      return;
+    }
+    if (request.url && request.url.startsWith("/debug/heap-snapshot")) {
+      // Ops-only: capture a .heapsnapshot to /data for offline retention analysis
+      // (see event_loop_blocked entries with heapUsedMb near --max-old-space-size
+      // and empty mainThreadTasks — GC thrash, not tracked JS work). Snapshotting
+      // itself pauses the loop for the world's live heap size, so only trigger
+      // this deliberately during a controlled load test, not on every request.
+      try {
+        const dumpPath = path.join("/data", `heap-${Date.now()}.heapsnapshot`);
+        const writtenPath = v8.writeHeapSnapshot(dumpPath);
+        response.setHeader("Content-Type", "application/json; charset=utf-8");
+        response.end(`${JSON.stringify({ ok: true, path: writtenPath })}\n`);
+      } catch (err) {
+        response.statusCode = 500;
+        response.setHeader("Content-Type", "application/json; charset=utf-8");
+        response.end(`${JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) })}\n`);
+      }
       return;
     }
     response.statusCode = 404;
