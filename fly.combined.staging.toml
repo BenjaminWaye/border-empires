@@ -59,7 +59,10 @@ primary_region = "arn"
   SIMULATION_AI_PLAYER_COUNT = "5"
   SIMULATION_AI_TICK_MS = "2000"
   SIMULATION_AI_MIN_COMMAND_INTERVAL_MS = "5000"
-  NODE_OPTIONS = "--max-old-space-size=900"
+  # --expose-gc lets the sim's PerformanceObserver('gc') diagnostic (see
+  # simulation-service.ts) fire, so stop-the-world pauses show up as
+  # gc_pause_detected instead of being invisible in mainThreadTasks.
+  NODE_OPTIONS = "--max-old-space-size=900 --expose-gc"
 
 [http_service]
   internal_port = 8080
