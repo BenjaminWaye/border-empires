@@ -78,7 +78,7 @@ export const hasSupportedStructure = (
   return false;
 };
 
-const clearingHouseSourceTownNames = (tileKey: string, ownerId: string, tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>, townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>): string[] => [tileKey, ...(townNetwork?.get(tileKey)?.connectedTownKeys ?? [])].flatMap((sourceKey) => hasSupportedStructure(sourceKey, ownerId, "CLEARING_HOUSE", tilesByKey) ? [tilesByKey.get(sourceKey) ? parseTown(tilesByKey.get(sourceKey)!)?.name ?? `town at ${sourceKey}` : `town at ${sourceKey}`] : []);
+const clearingHouseSourceTownNames = (tileKey: string, ownerId: string, tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>, townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>): string[] => [tileKey, ...(townNetwork?.get(tileKey)?.connectedClearingHouseKeys ?? [])].flatMap((sourceKey) => hasSupportedStructure(sourceKey, ownerId, "CLEARING_HOUSE", tilesByKey) ? [tilesByKey.get(sourceKey) ? parseTown(tilesByKey.get(sourceKey)!)?.name ?? `town at ${sourceKey}` : `town at ${sourceKey}`] : []);
 
 export const supportTileBelongsToTown = (
   supportTile: RuntimeState["tiles"][number],
