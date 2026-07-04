@@ -17,7 +17,12 @@ const makePlayer = (id: string, vision = 1) => [
 ] as const;
 
 describe("runtime.exportBarbActivationVisibleUnion", () => {
-  it("includes only non-barb players' fog and grows when a second player joins far away", () => {
+  // The union only ever gets queried against barb-owned tile keys (see
+  // system-job-barbarian-planner.ts), so it is computed from the barb side:
+  // for each barb-owned tile, is it within some non-barb player's vision
+  // radius? Non-barb-owned tiles are never barb-owned and so can never
+  // appear in the result, regardless of whose fog covers them.
+  it("includes only barb-owned tiles that fall within a non-barb player's vision radius", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -30,6 +35,9 @@ describe("runtime.exportBarbActivationVisibleUnion", () => {
         tiles: [
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          // Within player-1's radius-4 bubble (distance 2) — must be visible.
+          { x: 52, y: 52, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
+          // Far from every non-barb player — must not be visible.
           { x: 100, y: 100, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -37,14 +45,13 @@ describe("runtime.exportBarbActivationVisibleUnion", () => {
     });
 
     const union = runtime.exportBarbActivationVisibleUnion();
-    expect(union.keys).toContain("50,50");
-    expect(union.keys).toContain("54,54"); // within vision radius of player-1
-    expect(union.keys).toContain("200,200");
-    expect(union.keys).toContain("204,204"); // within vision radius of player-2
-    expect(union.keys).not.toContain("100,100"); // barb-only territory must not contribute
-    expect(union.keys).not.toContain("100,104");
-    // Two disjoint 9×9 bubbles → 162 keys total.
-    expect(union.keys.length).toBe(162);
+    expect(union.keys).toContain("52,52");
+    expect(union.keys).not.toContain("100,100");
+    // Non-barb-owned tiles never appear, even though they're the ones whose
+    // vision makes barb tiles eligible.
+    expect(union.keys).not.toContain("50,50");
+    expect(union.keys).not.toContain("200,200");
+    expect(union.keys.length).toBe(1);
   });
 
   it("returns a stable signature when nothing changes (cache hit)", () => {
