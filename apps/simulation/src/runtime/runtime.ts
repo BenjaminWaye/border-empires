@@ -23,20 +23,14 @@ import {
   empireIntegrity,
   integrityEconomyMult,
   integrityGrowthMult,
-  MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
-  FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
-  FRONTIER_CLAIM_MS,
   SETTLE_COST,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  grassShadeAt,
-  landBiomeAt,
-  terrainAt,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -60,7 +54,7 @@ import {
   dispatchRuntimeCommand,
   type RuntimeCommandDispatchHandlers
 } from "../runtime-command-dispatch.js";
-import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
+
 import {
   buildDockLinksByDockTileKey,
   computeLinkedDockRevealTileKeys,
@@ -150,7 +144,6 @@ import {
   TERRITORY_AUTO_COMMAND_PREFIX,
   UPKEEP_STRATEGIC_KEYS,
   hasOutstandingUpkeepNeed,
-  lockSourceFromSessionId,
   type ActiveAetherBridgeView,
   type ActiveAetherWallView,
   type AetherWallDirection,
@@ -171,7 +164,6 @@ import {
   parseAllianceSyncPayload,
   parseConverterTogglePayload,
   parseEconomicStructurePayload,
-  parseFrontierPayload,
   parseSettlePayload,
   parseStructureTilePayload,
   parseTilePayload
@@ -374,6 +366,11 @@ import {
   type RuntimeLockResolutionContext
 } from "../runtime-lock-resolution.js";
 import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
+import {
+  handleFrontierCommandImpl,
+  type MusterSourceResult,
+  type RuntimeFrontierCommandContext
+} from "../runtime-frontier-command.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
@@ -1235,6 +1232,35 @@ export class SimulationRuntime {
       tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    };
+  }
+
+  private frontierCommandContext(): RuntimeFrontierCommandContext {
+    return {
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId,
+      musterReservedByKey: this.musterReservedByKey,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      emitEvent: (event) => this.emitEvent(event),
+      commandTrace: this.commandTrace,
+      onMusterRemoteBlocked: this.onMusterRemoteBlocked,
+      onMusterRemoteAttack: this.onMusterRemoteAttack,
+      onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
+      scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
+      adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
+      findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
+      findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
+      isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
+      isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
+      crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
+      resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred ?? undefined) as MusterSourceResult | undefined,
+      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
+      buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock)
     };
   }
 
@@ -2996,203 +3022,7 @@ export class SimulationRuntime {
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
-    const actor = this.players.get(command.playerId);
-    const payload = parseFrontierPayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return false; }
-    this.applyManpowerRegen(actor);
-
-    const submittedFrom = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
-    const to = this.tiles.get(simulationTileKey(payload.toX, payload.toY));
-    if (!submittedFrom || !to) { this.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return false; }
-
-    // Recover from stale client origin selection by re-picking a valid owned adjacent origin.
-    const from =
-      submittedFrom.ownerId === actor.id
-        ? submittedFrom
-        : this.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
-          this.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
-          this.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
-          submittedFrom;
-
-    const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
-    const targetLock = this.locksByTile.get(simulationTileKey(to.x, to.y));
-    this.commandTrace?.({
-      phase: "frontier_validate",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      actionType,
-      submittedOrigin: { x: payload.fromX, y: payload.fromY },
-      resolvedOrigin: { x: from.x, y: from.y },
-      target: { x: to.x, y: to.y },
-      originLockOwnerId: originLock?.playerId,
-      originLockResolvesAt: originLock?.resolvesAt,
-      targetLockOwnerId: targetLock?.playerId,
-      targetLockResolvesAt: targetLock?.resolvesAt
-    });
-    // Encirclement guard: a cut-off frontier tile cannot be used as an attack
-    // or expand source. Attacks *against* cut-off tiles proceed normally.
-    // `frontierDecayAt` is shared by natural frontier expiry and encirclement,
-    // so only the explicit encirclement owner marks a tile as action-blocked.
-    if (
-      (actionType === "ATTACK" || actionType === "EXPAND") &&
-      from.ownershipState === "FRONTIER" &&
-      from.frontierDecayKind === "ENCIRCLEMENT"
-    ) {
-      this.rejectCommand(command, "ORIGIN_CUT_OFF", "origin tile is cut off from supply and cannot launch actions");
-      return false;
-    }
-
-    const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
-    const isForestTarget =
-      terrainAt(to.x, to.y) === "LAND" &&
-      landBiomeAt(to.x, to.y) === "GRASS" &&
-      grassShadeAt(to.x, to.y) === "DARK";
-    const expandClaimDurationMs =
-      actionType === "EXPAND"
-        ? isForestTarget
-          ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT
-          : FRONTIER_CLAIM_MS
-        : undefined;
-    const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
-      ? this.requiredMusterForTarget(to)
-      : undefined;
-    const advancePreferredKey =
-      payload.musterSourceX != null && payload.musterSourceY != null
-        ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
-        : undefined;
-    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
-      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
-      : undefined;
-    const validation = validateFrontierCommand({
-      now: this.now(),
-      actor,
-      actionType,
-      from,
-      to,
-      originLockedUntil: originLock?.resolvesAt,
-      originLockOwnerId: originLock?.playerId,
-      targetLockedUntil: targetLock?.resolvesAt,
-      targetLockOwnerId: targetLock?.playerId,
-      actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-      isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
-        (this.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
-          .includes(simulationTileKey(to.x, to.y)),
-      isDockCrossing,
-      isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
-      targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
-      defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
-      expandClaimDurationMs,
-      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
-      originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
-      requiredMuster
-    });
-
-    if (!validation.ok) {
-      if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
-        this.onMusterRemoteBlocked?.();
-        if (actor.id.startsWith("barbarian-") && !to.ownerId?.startsWith("barbarian-")) {
-          this.onMusterRemoteBlockedBarbarian?.();
-        }
-      }
-      this.commandTrace?.({
-        phase: "frontier_reject",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        actionType,
-        code: validation.code,
-        message: validation.message,
-        cooldownRemainingMs: "cooldownRemainingMs" in validation ? validation.cooldownRemainingMs : undefined,
-        originLockOwnerId: originLock?.playerId,
-        originLockResolvesAt: originLock?.resolvesAt,
-        targetLockOwnerId: targetLock?.playerId,
-        targetLockResolvesAt: targetLock?.resolvesAt
-      });
-      this.rejectCommand(command, validation.code, validation.message);
-      return false;
-    }
-
-    const resolvedOriginKey = simulationTileKey(validation.origin.x, validation.origin.y);
-    const effectiveMusterSourceKey = musterSource?.sourceKey ?? resolvedOriginKey;
-    const baseLock: LockRecord = {
-      commandId: command.commandId,
-      playerId: command.playerId,
-      actionType,
-      manpowerCost: validation.manpowerCost,
-      originX: validation.origin.x,
-      originY: validation.origin.y,
-      targetX: validation.target.x,
-      targetY: validation.target.y,
-      originKey: resolvedOriginKey,
-      targetKey: simulationTileKey(validation.target.x, validation.target.y),
-      resolvesAt: validation.resolvesAt,
-      source: lockSourceFromSessionId(command.sessionId),
-      ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
-    };
-    // Reserve the muster amount so concurrent in-flight attacks can't double-spend.
-    if (baseLock.musterSourceKey && actionType === "ATTACK") {
-      const prev = this.musterReservedByKey.get(baseLock.musterSourceKey) ?? 0;
-      this.musterReservedByKey.set(baseLock.musterSourceKey, prev + validation.manpowerCost);
-      if (musterSource && baseLock.musterSourceKey !== resolvedOriginKey) {
-        this.onMusterRemoteAttack?.();
-      }
-    }
-    const combatResolution = actionType === "EXPAND" ? undefined : this.buildLockedCombatResolution(baseLock);
-    const lock: LockRecord = {
-      ...baseLock,
-      ...(combatResolution ? { combatResolution } : {})
-    };
-    this.locksByTile.set(lock.originKey, lock);
-    this.locksByTile.set(lock.targetKey, lock);
-    this.locksByCommandId.set(lock.commandId, lock);
-    this.commandTrace?.({
-      phase: "frontier_accept",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      actionType,
-      origin: { x: lock.originX, y: lock.originY },
-      target: { x: lock.targetX, y: lock.targetY },
-      resolvesAt: lock.resolvesAt
-    });
-    this.emitEvent({
-      eventType: "COMMAND_ACCEPTED",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      actionType,
-      originX: validation.origin.x,
-      originY: validation.origin.y,
-      targetX: validation.target.x,
-      targetY: validation.target.y,
-      resolvesAt: validation.resolvesAt,
-      ...(combatResolution ? { combatResult: combatResolution.result } : {})
-    });
-    // Notify defender of incoming attack via PLAYER_MESSAGE (delivered even to
-    // unsubscribed AI). Reuses attacker's commandId; gateway skips markResolved
-    // for ATTACK_ALERT so the attacker's recovery slot stays open until resolved.
-    const defenderOwnerId = combatResolution?.result.defenderOwnerId;
-    if (
-      actionType === "ATTACK" &&
-      defenderOwnerId &&
-      defenderOwnerId !== command.playerId
-    ) {
-      this.emitEvent({
-        eventType: "PLAYER_MESSAGE",
-        commandId: command.commandId,
-        playerId: defenderOwnerId,
-        messageType: "ATTACK_ALERT",
-        payloadJson: JSON.stringify({
-          type: "ATTACK_ALERT",
-          attackerId: command.playerId,
-          attackerName: actor.name ?? command.playerId,
-          x: validation.target.x,
-          y: validation.target.y,
-          fromX: validation.origin.x,
-          fromY: validation.origin.y,
-          resolvesAt: validation.resolvesAt
-        })
-      });
-    }
-    this.scheduleLockResolution(lock);
-    return true;
+    return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType);
   }
 
   private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
