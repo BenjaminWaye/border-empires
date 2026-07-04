@@ -2697,7 +2697,7 @@ export class SimulationRuntime {
     const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
     const tileKey = `${tile.x},${tile.y}`;
     const refreshedTown = networkTown && player
-      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys, context.townNetwork?.get(tileKey)?.connectedTownKeys)
+      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys, context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys)
       : networkTown;
     return { ...tile, town: refreshedTown };
   }
