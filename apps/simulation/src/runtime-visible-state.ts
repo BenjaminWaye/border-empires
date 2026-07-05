@@ -97,7 +97,12 @@ export function exportBarbActivationVisibleUnion(input: {
     return { keys: [...input.cache.union], signature };
   }
 
-  const radiusByOwnedTileKey = new Map<string, number>();
+  // Numeric keys (wy * WORLD_WIDTH + wx) instead of `${wx},${wy}` strings —
+  // this is the hottest loop in the function (up to (2*maxRadius+1)^2 probes
+  // per barb tile), and the string-template key was allocating hundreds of
+  // thousands of short-lived strings per recompute under a large barbarian
+  // territory (~1283 tiles observed on staging). Numeric keys are GC-free.
+  const radiusByOwnedTileNumericKey = new Map<number, number>();
   const barbarianPlayers: DomainPlayer[] = [];
   let maxRadius = 0;
   for (const player of input.players.values()) {
@@ -112,12 +117,16 @@ export function exportBarbActivationVisibleUnion(input: {
     if (radius > maxRadius) maxRadius = radius;
     const summary = input.summaryForPlayer(player.id);
     for (const tileKey of summary.territoryTileKeys) {
-      radiusByOwnedTileKey.set(tileKey, radius);
+      const [rawX, rawY] = tileKey.split(",");
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius);
     }
   }
 
   const union = new Set<string>();
-  if (maxRadius > 0 && radiusByOwnedTileKey.size > 0) {
+  if (maxRadius > 0 && radiusByOwnedTileNumericKey.size > 0) {
     for (const barbPlayer of barbarianPlayers) {
       const barbSummary = input.summaryForPlayer(barbPlayer.id);
       for (const tileKey of barbSummary.territoryTileKeys) {
@@ -130,7 +139,7 @@ export function exportBarbActivationVisibleUnion(input: {
           const wy = ((y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
           for (let dx = -maxRadius; dx <= maxRadius; dx += 1) {
             const wx = ((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-            const ownerRadius = radiusByOwnedTileKey.get(`${wx},${wy}`);
+            const ownerRadius = radiusByOwnedTileNumericKey.get(wy * WORLD_WIDTH + wx);
             if (ownerRadius !== undefined && Math.max(Math.abs(dx), Math.abs(dy)) <= ownerRadius) {
               visible = true;
               break;
