@@ -110,6 +110,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simWriterQueueDepth = 0;
+  let simWriterQueueBackpressureWaitTotal = 0;
   let simReplayRecordedCommandHistory = 0;
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
@@ -171,6 +173,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simWriterQueueDepth,
+    simWriterQueueBackpressureWaitTotal,
     simReplayRecordedCommandHistory,
     simReplayHistoryEvictedTotal,
     simReplayServerEventsSkippedTotal,
@@ -301,6 +305,19 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    // Live gauge of in-flight writer-channel messages; set on every post()/ack
+    // so a growing queue is visible in /metrics before it becomes a heap
+    // incident. See SqliteWriterChannel — pending has no depth cap, so this
+    // is the only signal that the queue is backing up, not just individual
+    // writes being slow.
+    setSimWriterQueueDepth(value: number): void {
+      simWriterQueueDepth = clampMetric(value);
+    },
+    // Fires each time post() had to await drain because the queue hit its
+    // cap — zero forever means backpressure never engages under normal load.
+    incrementSimWriterQueueBackpressureWait(): void {
+      simWriterQueueBackpressureWaitTotal += 1;
     },
     setReplayCacheStats(stats: {
       recordedCommandHistorySize: number;

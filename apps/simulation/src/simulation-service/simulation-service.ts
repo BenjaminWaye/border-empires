@@ -544,7 +544,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 slowThresholdMs: slowWriterQueueWarnMs,
                 onWriteTimed: (sample) => recordLagDiagnostic("warn", "sqlite_writer_queue_slow", sample)
               }
-            : {})
+            : {}),
+          onQueueDepthChanged: (depth) => simulationMetrics.setSimWriterQueueDepth(depth),
+          onBackpressureWait: () => {
+            simulationMetrics.incrementSimWriterQueueBackpressureWait();
+            log.warn({ phase: "sqlite_writer_channel" }, "writer queue backpressure engaged; sim thread awaiting drain");
+          }
         })
       : undefined;
   const commandStore = writerChannel
