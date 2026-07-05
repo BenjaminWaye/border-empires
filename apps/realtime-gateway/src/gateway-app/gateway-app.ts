@@ -36,6 +36,9 @@ import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
+import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
+import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import {
   createSimSubmitHealthState,
@@ -88,6 +91,7 @@ type RealtimeGatewayAppOptions = {
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
+  galaxyPlanetStore?: GalaxyPlanetStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -877,6 +881,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
   const rallyLinkStore = await createGatewayRallyLinkStore(commandStoreFactoryOptions);
+  const galaxyPlanetStore =
+    options.galaxyPlanetStore ??
+    (await createGalaxyPlanetStore(commandStoreFactoryOptions));
   const emailAlerts = createEmailAlertService({
     authBindingStore,
     ...(options.emailAlerts ?? {}),
@@ -1362,52 +1369,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     )
   );
 
-  registerGatewayHttpRoutes(app, {
-    startupStartedAt,
-    simulationAddress: options.simulationAddress ?? "127.0.0.1:50051",
-    simulationSeedProfile,
-    health: () => ({
-      ok: simulationHealth.connected,
-      simulation: {
-        connected: simulationHealth.connected,
-        ...(typeof simulationHealth.lastReadyAt === "number" ? { lastReadyAt: simulationHealth.lastReadyAt } : {}),
-        ...(simulationHealth.lastError ? { lastError: simulationHealth.lastError } : {})
-      }
-    }),
-    ...(options.snapshotDir ? { snapshotDir: options.snapshotDir } : {}),
-    ...(legacySnapshotBootstrap ? { runtimeIdentity: legacySnapshotBootstrap.runtimeIdentity } : {}),
-    supportedMessageTypes: [...supportedClientMessageTypes],
-    recentEvents: () => [...recentGatewayEvents],
-    attackDebug: buildAttackDebug,
-    attackTraces: buildAttackTraces,
-    metrics: () => gatewayMetrics.renderPrometheus(),
-    ...(options.simMetricsUrl
-      ? {
-          getSimMetrics: async () => {
-            const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
-            if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
-            return res.text();
-          }
-        }
-      : {}),
-    getCurrentSeasonSummary: async () =>
-      hydrateCurrentSeasonSummaryDisplayNames(await simulationClient.getCurrentSeasonSummary(), profileStore),
-    getCurrentSeasonStatus: () => simulationClient.getCurrentSeasonSummary().then((s) => s.status),
-    listSeasonArchives: async () =>
-      hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
-    startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
-    seedBarbarians: (count?: number) => simulationClient.seedBarbarians(count),
-    ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
-    authenticateBearer: resolveHttpBearerIdentity,
-    rallyLinkStore,
-    preparePlayer: (playerId: string) => simulationClient.preparePlayer(playerId),
-    subscribePlayer: (playerId: string) =>
-      simulationClient.subscribePlayer(
-        playerId,
-        JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_rally_link" })
-      ),
-    ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
-  });
+  registerGatewayHttpRoutes(
+    app,
+    buildGatewayHttpRoutesDeps({
+      startupStartedAt,
+      ...(options.simulationAddress ? { simulationAddress: options.simulationAddress } : {}),
+      simulationSeedProfile,
+      simulationHealth,
+      ...(options.snapshotDir ? { snapshotDir: options.snapshotDir } : {}),
+      ...(legacySnapshotBootstrap ? { legacySnapshotBootstrap } : {}),
+      recentGatewayEvents,
+      buildAttackDebug,
+      buildAttackTraces,
+      gatewayMetrics,
+      ...(options.simMetricsUrl ? { simMetricsUrl: options.simMetricsUrl } : {}),
+      simulationClient,
+      profileStore,
+      ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
+      resolveHttpBearerIdentity,
+      rallyLinkStore,
+      galaxyPlanetStore,
+      authBindingStore,
+      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
+    })
+  );
 
   const queueOrSendSessionPayload = (socket: import("ws").WebSocket, payload: unknown): void => {
     const session = sessionsBySocket.get(socket);

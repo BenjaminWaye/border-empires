@@ -19,6 +19,7 @@ import {
 } from "../client-renderer-mode.js";
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { mountRallyInvitePanel, mountRallyNewPanel } from "../client-rally-links/client-rally-links.js";
+import { mountGalaxyView } from "../client-galaxy-view/client-galaxy-view.js";
 
 type BootstrapDeps = Record<string, any>;
 
@@ -191,8 +192,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
-  mountRallyNewPanel({ firebaseAuth, wsUrl });
-  mountRallyInvitePanel({ firebaseAuth, wsUrl });
+  [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) => mount({ firebaseAuth, wsUrl }));
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
     if (ws.readyState !== ws.OPEN) {
