@@ -3729,6 +3729,13 @@ export class SimulationRuntime {
       if (seen.has(tileKey)) continue;
       const tile = this.tiles.get(tileKey);
       if (!tile) continue;
+      // This loop re-touches every tile in the dock's linked-reveal network
+      // on every batch that contains a delta for the dock's own SETTLED
+      // tile, regardless of whether the reveal tile itself changed. Since
+      // tileDeltaFromState always includes ownerId/ownershipState/dockId
+      // (see tile-delta-stringify-cache.ts), skipping this check would
+      // rebroadcast the entire linked network every tick forever.
+      if (!this.tileDeltaStringifyCache.hasChangedSinceLastEmit(tileKey, tile)) continue;
       additional.push(this.tileDeltaFromState(tile));
     }
     if (additional.length === 0) return deltas;
