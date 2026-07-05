@@ -32,6 +32,11 @@ export type RuntimeProgressionCommandContext = {
   invalidateEconomySnapshot: (playerId: string) => void;
   invalidateTileYieldContext: (playerId: string) => void;
   invalidateUpkeepAccrual: (playerId: string) => void;
+  // Tech/domain choices can change a player's effective vision radius
+  // (vision mods, visionRadiusBonus effects). Call after a successful choice
+  // so the incremental visibility coverage cache stays correct — see
+  // resyncVisionRadiusContribution in runtime.ts.
+  resyncVisionRadius: (playerId: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   decrementShardRainSiteCount: () => number;
   clearShardRainExpiry: () => void;
@@ -186,6 +191,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "TECH_UPDATE",
     commandId: command.commandId,
@@ -228,6 +234,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "DOMAIN_UPDATE",
     commandId: command.commandId,

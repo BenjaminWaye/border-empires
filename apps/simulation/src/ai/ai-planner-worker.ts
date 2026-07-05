@@ -21,7 +21,6 @@
  */
 
 import { parentPort } from "node:worker_threads";
-import type { EconomicStructureType, Terrain } from "@border-empires/shared";
 import { buildAiTrainingRecord } from "./ai-training-records.js";
 import { createAiTrainingRecorder } from "./ai-training-recorder.js";
 import {
@@ -36,6 +35,12 @@ import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-n
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import { resolvePlayerTiles as resolvePlayerTilesFromCache } from "./planner-tile-resolver.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import {
+  parseTownSupport,
+  parseOwnedStructure,
+  parseEconomicStructure,
+  type SimulationTileDelta
+} from "./planner-tile-delta-parse.js";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
 
@@ -97,79 +102,6 @@ const resolvedPlayerScopeTileCount = (resolved: {
   for (const tile of resolved.strategicFrontierTiles) scopedKeys.add(`${tile.x},${tile.y}`);
   for (const tile of resolved.buildCandidateTiles) scopedKeys.add(`${tile.x},${tile.y}`);
   return scopedKeys.size;
-};
-
-type SimulationTileDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain | undefined;
-  resource?: string | undefined;
-  dockId?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  townJson?: string | undefined;
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-};
-
-const parseTownSupport = (
-  townJson: string | undefined
-): PlannerTileView["town"] | undefined => {
-  if (typeof townJson !== "string") return undefined;
-  try {
-    const parsed = JSON.parse(townJson) as {
-      supportMax?: unknown;
-      supportCurrent?: unknown;
-      type?: unknown;
-      name?: unknown;
-      populationTier?: unknown;
-    };
-    return {
-      ...(typeof parsed.supportMax === "number" ? { supportMax: parsed.supportMax } : {}),
-      ...(typeof parsed.supportCurrent === "number" ? { supportCurrent: parsed.supportCurrent } : {}),
-      ...(parsed.type === "MARKET" || parsed.type === "FARMING" ? { type: parsed.type } : {}),
-      ...(typeof parsed.name === "string" ? { name: parsed.name } : {}),
-      ...(parsed.populationTier === "SETTLEMENT" ||
-      parsed.populationTier === "TOWN" ||
-      parsed.populationTier === "CITY" ||
-      parsed.populationTier === "GREAT_CITY" ||
-      parsed.populationTier === "METROPOLIS"
-        ? { populationTier: parsed.populationTier }
-        : {})
-    };
-  } catch {
-    return undefined;
-  }
-};
-
-const parseOwnedStructure = (
-  raw: string | undefined
-): { ownerId?: string; status?: string; type?: string } | undefined => {
-  if (typeof raw !== "string") return undefined;
-  try {
-    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown };
-    return {
-      ...(typeof parsed.ownerId === "string" ? { ownerId: parsed.ownerId } : {}),
-      ...(typeof parsed.status === "string" ? { status: parsed.status } : {}),
-      ...(typeof parsed.type === "string" ? { type: parsed.type } : {})
-    };
-  } catch {
-    return undefined;
-  }
-};
-
-const parseEconomicStructure = (
-  raw: string | undefined
-): { ownerId?: string; status?: string; type?: EconomicStructureType } | undefined => {
-  const parsed = parseOwnedStructure(raw);
-  if (!parsed) return undefined;
-  return {
-    ...(parsed.ownerId ? { ownerId: parsed.ownerId } : {}),
-    ...(parsed.status ? { status: parsed.status } : {}),
-    ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {})
-  };
 };
 
 const applyTileDelta = (delta: SimulationTileDelta): void => {
@@ -252,12 +184,16 @@ const emitDiagnostic = (sample: {
   playerId: string;
   ownedTileCount?: number;
   frontierTileCount?: number;
+  queueWaitMs?: number; // gap before worker started processing this plan
+  messagesAheadCount?: number; // messages handled since the prior plan
 }): void => {
   parentPort!.postMessage({
     type: "diagnostic",
     diagnostic: sample
   });
 };
+
+let messagesSinceLastPlan = 0;
 
 const choosePlannerCommand = (
   playerId: string,
@@ -271,6 +207,9 @@ const choosePlannerCommand = (
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
+  const queueWaitMs = Math.max(0, plannerStartedAt - issuedAt);
+  const messagesAheadCount = messagesSinceLastPlan;
+  messagesSinceLastPlan = 0;
   const player = playersById.get(playerId);
   if (!player) {
     return {
@@ -318,7 +257,9 @@ const choosePlannerCommand = (
         durationMs: Math.max(0, Date.now() - plannerStartedAt),
         playerId,
         ownedTileCount: ownedTiles.length,
-        frontierTileCount: frontierTiles.length
+        frontierTileCount: frontierTiles.length,
+        queueWaitMs,
+        messagesAheadCount
       });
       return {
         command: preplan.command,
@@ -433,7 +374,9 @@ const choosePlannerCommand = (
     durationMs: Math.max(0, Date.now() - plannerStartedAt),
     playerId,
     ownedTileCount: ownedTiles.length,
-    frontierTileCount: frontierTiles.length
+    frontierTileCount: frontierTiles.length,
+    queueWaitMs,
+    messagesAheadCount
   });
   return {
     command: plan.command ?? null,
@@ -446,6 +389,8 @@ const choosePlannerCommand = (
 parentPort.on("message", (msg: unknown) => {
   if (!msg || typeof msg !== "object") return;
   const message = msg as Record<string, unknown>;
+
+  if (message.type !== "plan") messagesSinceLastPlan += 1;
 
   switch (message.type) {
     case "pause":
@@ -463,6 +408,7 @@ parentPort.on("message", (msg: unknown) => {
       break;
 
     case "plan": {
+      const issuedAt = message.issuedAt as number;
       if (paused) {
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command: null });
         break;
@@ -475,7 +421,7 @@ parentPort.on("message", (msg: unknown) => {
         const plan = choosePlannerCommand(
           message.playerId as string,
           message.clientSeq as number,
-          message.issuedAt as number,
+          issuedAt,
           {
             skipPreplan: message.skipPreplan === true,
             ...(typeof message.reservedDevelopmentSlots === "number" ? { reservedDevelopmentSlots: message.reservedDevelopmentSlots as number } : {}),

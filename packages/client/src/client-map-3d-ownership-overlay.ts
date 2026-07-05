@@ -12,14 +12,16 @@ const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
 
 // Settled keeps the strong claim color (0.85) so owned territory reads
-// unambiguously. Frontier is dropped from 0.55 → 0.32 so the new biome
-// detail (grass blades, sand ripples, tile-edge AO) shows through and the
-// two ownership states are clearly distinct.
+// unambiguously. Frontier was previously dropped to 0.32 to let biome detail
+// show through, but on grass terrain that reads as visually indistinguishable
+// from unowned land (confirmed live: a tile with correct owner data and
+// ownershipState FRONTIER rendered with no visible tint at 0.32). Raised to
+// 0.5 to keep frontier reliably distinct from unowned tiles across biomes.
 const SETTLED_OPACITY = 0.85;
 // Exported so the waypoint claim-sweep in client-map-3d.ts matches the
 // real ownership tint exactly — any drift would show as a visible pop
 // the moment the sweep hands off to the ownership overlay.
-export const FRONTIER_OPACITY = 0.32;
+export const FRONTIER_OPACITY = 0.5;
 
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;

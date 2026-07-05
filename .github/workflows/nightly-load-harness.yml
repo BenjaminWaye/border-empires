@@ -47,6 +47,10 @@ jobs:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       LOAD_HARNESS_SLACK_WEBHOOK: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
 
+      # Staging requires real Firebase auth (GATEWAY_ALLOW_SEED_FALLBACK=0) —
+      # exchanged for a fresh ID token by rewrite-load-harness.mjs at startup.
+      PROBE_FIREBASE_REFRESH_TOKEN: ${{ secrets.PROBE_FIREBASE_REFRESH_TOKEN }}
+
     steps:
       - name: Preflight — verify required secrets are set
         shell: bash
@@ -55,10 +59,11 @@ jobs:
           GATEWAY_METRICS_URL: ${{ secrets.GATEWAY_METRICS_URL }}
           SIMULATION_METRICS_URL: ${{ secrets.SIMULATION_METRICS_URL }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PROBE_FIREBASE_REFRESH_TOKEN: ${{ secrets.PROBE_FIREBASE_REFRESH_TOKEN }}
         run: |
           set -eu
           MISSING=""
-          for var in GATEWAY_WS_URL GATEWAY_METRICS_URL SIMULATION_METRICS_URL FLY_API_TOKEN; do
+          for var in GATEWAY_WS_URL GATEWAY_METRICS_URL SIMULATION_METRICS_URL FLY_API_TOKEN PROBE_FIREBASE_REFRESH_TOKEN; do
             value="${!var:-}"
             if [ -z "${value}" ]; then
               MISSING="${MISSING} ${var}"
@@ -67,7 +72,8 @@ jobs:
           if [ -n "${MISSING}" ]; then
             echo "::error::Missing required GitHub Actions secret(s):${MISSING}"
             echo "::error::Set them under Settings → Secrets and variables → Actions."
-            echo "::error::Required: GATEWAY_WS_URL, GATEWAY_METRICS_URL, SIMULATION_METRICS_URL, FLY_API_TOKEN"
+            echo "::error::Required: GATEWAY_WS_URL, GATEWAY_METRICS_URL, SIMULATION_METRICS_URL, FLY_API_TOKEN, PROBE_FIREBASE_REFRESH_TOKEN"
+            echo "::error::PROBE_FIREBASE_REFRESH_TOKEN authenticates the synthetic soak client — staging rejects non-Firebase tokens (GATEWAY_ALLOW_SEED_FALLBACK=0)."
             exit 1
           fi
           echo "All required secrets present."

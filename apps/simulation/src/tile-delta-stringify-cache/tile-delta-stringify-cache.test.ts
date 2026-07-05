@@ -194,4 +194,41 @@ describe("TileDeltaStringifyCache", () => {
     expect(result.sabotageJson).toBe(JSON.stringify(sab));
     expect(result.shardSiteJson).toBe(JSON.stringify(shard));
   });
+
+  it("buildSparseDelta always includes ownerId/ownershipState/dockId, even when unchanged from the last emission", () => {
+    // Downstream consumers of a sparse delta (the gateway's per-player
+    // snapshot cache, tile-detail responses, a fresh client subscriber) may
+    // be seeing this tile for the first time even though the sim's cache
+    // has "already emitted" it to someone else. Omitting these fields
+    // because they "didn't change" leaves any such consumer with no owner
+    // (or no dock) at all, and nothing ever re-sends them since they never
+    // change again. Regression for the bug behind #774/#777 -- confirmed
+    // live on a dock tile whose tile-detail response was missing ownerId,
+    // ownershipState, AND dockId simultaneously.
+    const cache = new TileDeltaStringifyCache();
+    const tile: DomainTileState = {
+      ...makeBaseTile(),
+      ownerId: "p1",
+      ownershipState: "SETTLED",
+      dockId: "dock-1"
+    };
+    const cached = cache.getOrComputeAll("1,1", tile);
+    const fullDelta = { x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState, dockId: tile.dockId };
+
+    // First call: no prior emission, sparse diff falls back to the full delta.
+    const first = cache.sparseEmit("1,1", tile, cached, fullDelta);
+    expect(first.ownerId).toBe("p1");
+    expect(first.ownershipState).toBe("SETTLED");
+    expect(first.dockId).toBe("dock-1");
+
+    // Second call on the *same, unchanged* tile: a naive sparse diff would
+    // consider ownerId/ownershipState/dockId unchanged and omit them entirely.
+    const unrelatedFieldChange = { ...tile, terrain: "LAND" as const };
+    const second = cache.buildSparseDelta("1,1", unrelatedFieldChange, cached, {
+      x: tile.x, y: tile.y, terrain: "LAND", ownerId: tile.ownerId, ownershipState: tile.ownershipState, dockId: tile.dockId
+    });
+    expect(second.ownerId).toBe("p1");
+    expect(second.ownershipState).toBe("SETTLED");
+    expect(second.dockId).toBe("dock-1");
+  });
 });

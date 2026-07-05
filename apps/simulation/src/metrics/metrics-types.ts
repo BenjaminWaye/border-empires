@@ -110,12 +110,21 @@ export type SimulationMetricsSnapshot = {
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
+  simAiQueueBacklogMs: number;
+  simSystemQueueBacklogMs: number;
+  simHumanNoninteractiveQueueBacklogMs: number;
+  /** commandApplyTracker FIFO evictions (counter); >0 means commands are never resolving (see command-apply-tracker.ts). */
+  simCommandApplyTrackEvictedTotal: number;
   simAiAutopilotEnabled: number;
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  /** In-flight sqlite-writer-channel messages (gauge). Growing without bound means the writer worker is falling behind. */
+  simWriterQueueDepth: number;
+  /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
+  simWriterQueueBackpressureWaitTotal: number;
   /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */
   simReplayRecordedCommandHistory: number;
   /** Replay-cache hard-cap evictions; >0 means a server commandId prefix is leaking past the denylist. */

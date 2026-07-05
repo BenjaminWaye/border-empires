@@ -90,3 +90,13 @@ export const createMainThreadTaskTracker = (options: {
     }
   };
 };
+
+// Per-player tick phases (tile shedding, territory automation, passive income)
+// are individually sub-10ms but add up across 25 players; the createMainThreadTaskTracker
+// default 10ms retention threshold and 32-entry ring buffer would drop or evict
+// every one of them before the event_loop_blocked check reads them.
+export const createMainThreadTaskTrackerFromEnv = (env: NodeJS.ProcessEnv = process.env): MainThreadTaskTracker =>
+  createMainThreadTaskTracker({
+    minRetainedDurationMs: Math.max(0, Number(env.SIMULATION_MAIN_THREAD_TASK_MIN_MS ?? 1)),
+    maxEntries: Math.max(1, Number(env.SIMULATION_MAIN_THREAD_TASK_MAX_ENTRIES ?? 256))
+  });

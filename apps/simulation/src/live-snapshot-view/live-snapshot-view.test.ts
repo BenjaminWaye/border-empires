@@ -208,4 +208,52 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownCount).toBe(1);
     expect(town.connectedTownBonus).toBe(0.5);
   });
+
+  it("boosts a Farmstead FARM tile's FOOD yield by 1.5x when an active Waterworks is within radius", () => {
+    const farmTile = {
+      x: 5,
+      y: 5,
+      terrain: "LAND" as const,
+      resource: "FARM",
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "player-1" })
+    };
+    const waterworksTile = {
+      x: 10,
+      y: 5,
+      terrain: "LAND" as const,
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      economicStructureJson: JSON.stringify({ type: "WATERWORKS", status: "active", ownerId: "player-1" })
+    };
+    const player = {
+      id: "player-1",
+      name: "player-1",
+      points: 0,
+      manpower: 0,
+      techIds: [],
+      domainIds: [],
+      strategicResources: {},
+      allies: [],
+      vision: 1,
+      visionRadiusBonus: 0
+    };
+    const withoutWaterworks = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [farmTile],
+      players: [player],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+    const withWaterworks = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [farmTile, waterworksTile],
+      players: [player],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+    const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    expect(baseFood).toBeGreaterThan(0);
+    expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
+  });
 });

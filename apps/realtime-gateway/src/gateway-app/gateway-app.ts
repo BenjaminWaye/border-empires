@@ -58,6 +58,7 @@ import { createGatewaySocialStore } from "../social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { createRequestTracer } from "../request-tracer.js";
+import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "../live-world-status-recovery.js";
 import {
@@ -554,6 +555,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
   const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
   const slowGatewayAuthStepWarnMs = Math.max(0, Number(process.env.GATEWAY_SLOW_AUTH_STEP_WARN_MS ?? 100));
+  // Full submit->reply latency the player actually feels (gateway receipt to seeing the result event).
+  const slowGatewayInputToStateWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_INPUT_TO_STATE_WARN_MS ?? 1_000));
   const gatewayMetricsLogIntervalMs = Math.max(0, Number(process.env.GATEWAY_METRICS_LOG_INTERVAL_MS ?? 0));
   // Threshold for "single processSimulationEvent handler took too long" warning.
   // The gateway serializes all sim events through a single Promise chain
@@ -652,32 +655,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     lastCpuSampleAt = at;
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
   };
-  const buildPendingInputToStateEvents = (): Array<{
-    at: number;
-    level: "info" | "warn" | "error";
-    event: string;
-    payload: Record<string, unknown>;
-  }> =>
-    [...pendingInputToStateByCommandId.entries()]
-      .map(([commandId, submittedAt]) => {
-        const ageMs = Date.now() - submittedAt;
-        const level: "info" | "warn" = ageMs >= 5_000 ? "warn" : "info";
-        return {
-          at: submittedAt,
-          level,
-          event: "pending_input_to_state",
-          payload: {
-            commandId,
-            ageMs,
-            simulationConnected: simulationHealth.connected,
-            simulationLastError: simulationHealth.lastError ?? ""
-          }
-        };
-      })
-      .sort((left, right) => left.at - right.at);
   const buildAttackDebug = () => {
     const recentEvents = [...recentGatewayEvents];
-    const pendingEvents = buildPendingInputToStateEvents();
+    const pendingEvents = buildPendingInputToStateEvents(pendingInputToStateByCommandId, simulationHealth);
     return {
       controlPath: recentEvents.filter((event) => controlPathEventNames.has(event.event)),
       hotPath: [...recentEvents.filter((event) => typeof event.payload.commandId === "string"), ...pendingEvents].sort(
@@ -690,7 +670,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const buildAttackTraces = () => {
     const grouped = new Map<string, Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }>>();
-    for (const event of [...recentGatewayEvents, ...buildPendingInputToStateEvents()]) {
+    for (const event of [...recentGatewayEvents, ...buildPendingInputToStateEvents(pendingInputToStateByCommandId, simulationHealth)]) {
       const commandId = typeof event.payload.commandId === "string" ? event.payload.commandId : undefined;
       if (!commandId) continue;
       const existing = grouped.get(commandId);
@@ -1697,8 +1677,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
       const submittedAt = pendingInputToStateByCommandId.get(event.commandId);
       if (typeof submittedAt === "number") {
-        gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
+        const inputToStateDurationMs = Date.now() - submittedAt;
+        gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(inputToStateDurationMs);
         pendingInputToStateByCommandId.delete(event.commandId);
+        if (inputToStateDurationMs >= slowGatewayInputToStateWarnMs) {
+          recordGatewayEvent("warn", "gateway_input_to_state_slow", {
+            commandId: event.commandId,
+            playerId: event.playerId,
+            eventType: event.eventType,
+            durationMs: inputToStateDurationMs,
+            simulationConnected: simulationHealth.connected,
+            simulationLastError: simulationHealth.lastError ?? ""
+          });
+        }
       }
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
         const attackAlert = readAttackAlert(event.payload);
@@ -2095,10 +2086,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         gatewayMetrics.observeGatewayGcPauseMs(durationMs);
       }
     }
-    const staleBeforeMs = Date.now() - 120_000;
-    for (const [commandId, submittedAt] of pendingInputToStateByCommandId.entries()) {
-      if (submittedAt < staleBeforeMs) pendingInputToStateByCommandId.delete(commandId);
-    }
+    sweepStalePendingInputToState(pendingInputToStateByCommandId, Date.now() - 120_000);
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
     if (gatewayMetricsLogIntervalMs > 0 && now - lastGatewayMetricsLogAt >= gatewayMetricsLogIntervalMs) {
