@@ -769,7 +769,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
-      state.tiles.set(tileKey, merged);
+      state.tiles.set(tileKey, merged); state.tilesRevision += 1;
       if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
         state.frontierSyncWaitUntilByTarget.delete(tileKey);
         clearLateFrontierAck(tileKey);
@@ -2378,7 +2378,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
-        state.tiles.set(updateKey, resolved);
+        state.tiles.set(updateKey, resolved); state.tilesRevision += 1;
         if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
           clearRenderCaches();
           buildMiniMapBase();
