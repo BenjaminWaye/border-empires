@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.05.2",
+  version: "2026.07.05.3",
   title: "What's New",
-  summary: "Fixed a captured muster-flag tile briefly showing as neutral, restored the Waterworks food radius bonus on live tile collection and broadcasts, lowered the manpower cost of attacking undefended frontier land, and fixed frontier tiles cut off by encirclement not updating on the map until refresh.",
+  summary: "Barbarian ghost tiles no longer persist on the map after the barbarian territory shifts.",
   entries: [
+    {
+      introducedIn: "2026.07.05.3",
+      title: "Barbarian ghost tiles cleaned up on territory movement",
+      why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
+      changes: [
+        "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
+      ]
+    },
     {
       introducedIn: "2026.07.05.2",
       title: "Captured tiles no longer flash neutral when they carried an enemy muster flag",

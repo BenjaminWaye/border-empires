@@ -113,7 +113,7 @@ import {
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
-  type VisibilityAuditSample
+  type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "../tile-yield-view/tile-yield-view.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
@@ -2593,8 +2593,7 @@ export class SimulationRuntime {
   }
 
   filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
-    tileDeltas: readonly TDelta[],
-    playerId: string
+    tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
   ): TDelta[] {
     return filterTileDeltasForPlayerImpl(
       {
@@ -2609,10 +2608,10 @@ export class SimulationRuntime {
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
-      playerId
+      playerId,
+      options
     );
   }
-
 
   private strategicProductionPerMinuteForPlayer(playerId: string): Record<StrategicResourceKey, number> {
     return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
