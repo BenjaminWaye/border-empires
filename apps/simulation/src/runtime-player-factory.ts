@@ -10,6 +10,16 @@ const AI_PLAYER_ID_PATTERN = /^ai-\d+$/;
 
 export const isAiPlayerId = (playerId: string): boolean => AI_PLAYER_ID_PATTERN.test(playerId);
 
+// True for any server-controlled actor that has no WS subscriber: the "ai-<n>"
+// autopilot players and the "barbarian-*" system faction. Use this — not the
+// bare `player.isAi` flag — for "does this actor have a human client" decisions
+// (e.g. skipping human-only capture-reveal fan-out). Barbarians deliberately
+// carry isAi: false so they stay out of the AI-respawn / income-repair paths
+// (barbarians propagate via walk/multiply and never respawn as settlements),
+// so the flag alone under-counts them.
+export const isAiControlledActor = (playerId: string, isAi: boolean | undefined): boolean =>
+  isAi === true || playerId.startsWith("barbarian-");
+
 export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
   isAi: false,
