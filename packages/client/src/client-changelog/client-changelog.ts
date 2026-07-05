@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.05.3",
+  version: "2026.07.05.4",
   title: "What's New",
-  summary: "Barbarian ghost tiles no longer persist on the map after the barbarian territory shifts.",
+  summary: "Season winners can now name a permanent planet in the new galaxy view.",
   entries: [
+    {
+      introducedIn: "2026.07.05.4",
+      title: "The galaxy: your planet, permanently",
+      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
+      changes: [
+        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
+        "Planet names are permanent and can only be set once.",
+        "Accounts with multiple season wins can switch between their planets in the same view."
+      ]
+    },
     {
       introducedIn: "2026.07.05.3",
       title: "Barbarian ghost tiles cleaned up on territory movement",

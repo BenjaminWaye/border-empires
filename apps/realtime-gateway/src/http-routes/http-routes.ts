@@ -16,28 +16,31 @@ import {
   type RallyLink,
   type RallyLinkStore
 } from "../rally-link-store/rally-link-store.js";
+import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
+import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 
-type GatewayDebugEvent = {
+export type GatewayDebugEvent = {
   at: number;
   level: "info" | "warn" | "error";
   event: string;
   payload: Record<string, unknown>;
 };
 
-type GatewayAttackDebug = {
+export type GatewayAttackDebug = {
   controlPath: GatewayDebugEvent[];
   hotPath: GatewayDebugEvent[];
   slowOrWarn: GatewayDebugEvent[];
 };
 
-type GatewayAttackTrace = {
+export type GatewayAttackTrace = {
   traceId: string;
   firstAt: number;
   lastAt: number;
   events: GatewayDebugEvent[];
 };
 
-type RegisterGatewayHttpRoutesDeps = {
+export type RegisterGatewayHttpRoutesDeps = {
   startupStartedAt: number;
   simulationAddress: string;
   simulationSeedProfile: string;
@@ -85,6 +88,8 @@ type RegisterGatewayHttpRoutesDeps = {
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
+  galaxyPlanetStore?: GalaxyPlanetStore;
+  authBindingStore?: GatewayAuthBindingStore;
 };
 
 const addCorsHeaders = (app: FastifyInstance): void => {
@@ -429,6 +434,14 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
         error: error instanceof Error ? error.message : "failed to seed barbarians"
       };
     }
+  });
+
+  registerGalaxyRoutes(app, {
+    listSeasonArchives: deps.listSeasonArchives,
+    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
+    ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}),
+    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 };
   const forceRequested = (value: unknown): boolean =>
