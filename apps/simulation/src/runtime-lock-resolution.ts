@@ -7,6 +7,7 @@ import {
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
+import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
@@ -161,7 +162,16 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
 
     let tileDeltas: SimulationTileWireDelta[];
-    if (attacker?.isAi) {
+    // Only human captors get the vision-radius capture-reveal square; AI-
+    // controlled actors (autopilot "ai-<n>" AND the barbarian faction) have no
+    // WS subscriber, so building/broadcasting an (2r+1)² reveal block for them
+    // is pure waste. Barbarians roam neutral wilderness, so that block is dozens
+    // of ownerId:null deltas that the broadcast path forwards to every human as
+    // ownership-clears (visibility filter's includeOwnershipClears), flooding
+    // clients with mid-map neutral tiles on every barbarian capture. Keying off
+    // isAiControlledActor rather than attacker.isAi is load-bearing: barbarians
+    // carry isAi:false by design (see runtime-player-factory.ts).
+    if (isAiControlledActor(lock.playerId, attacker?.isAi)) {
       tileDeltas = [context.tileDeltaFromState(resolvedTarget)];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
