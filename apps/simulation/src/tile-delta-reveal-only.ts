@@ -17,6 +17,11 @@ export const tileDeltaRevealOnly = (
     ...(tile.resource ? { resource: tile.resource } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
+    // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
+    // own-property existence to detect clears (uncapture, structure removal).
+    // This path also fires for a tile's first-ever exposure to a given
+    // subscriber (fog-of-war reveal), so omitting these fields here would
+    // recreate the #791 bug class -- see tile-delta-stringify-cache.ts.
     ownerId: tile.ownerId ?? undefined,
     ownershipState: tile.ownershipState ?? undefined,
     frontierDecayAt: tile.frontierDecayAt ?? undefined,
@@ -33,5 +38,14 @@ export const tileDeltaRevealOnly = (
     sabotageJson: cached.sabotageJson,
     musterJson: cached.musterJson
   };
-  return cache.sparseEmit(tileKey, tile, cached, fullDelta);
+  // Always full, never sparse-diffed: this path fires for tiles entering a
+  // player's fog-of-war radius, which may be the first delta that specific
+  // subscriber has ever received for this tile. The sparse cache's
+  // "last emitted" baseline is global across all subscribers, so diffing
+  // against it here can omit fields (e.g. ownerId) that this particular
+  // recipient never actually saw, rendering owned tiles as neutral client-side.
+  // DO NOT change this back to `cache.sparseEmit(...)` -- that exact change
+  // (PR #784) reintroduced a production bug already fixed twice (#774, #779).
+  cache.setLastEmitted(tileKey, tile);
+  return fullDelta;
 };

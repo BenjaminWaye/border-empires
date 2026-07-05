@@ -20,6 +20,7 @@ packages/client/public/__build_sha.txt
 # Multi-hundred-MB binary blobs; never commit.
 .prod-shape-clones/
 .local-data/
+.firecrawl/
 package-lock.json
 packages/storybook/storybook-static/
 docs/load-results/

@@ -2,6 +2,14 @@ import { MANPOWER_BASE_CAP } from "@border-empires/game-domain";
 
 import type { RuntimePlayer } from "./runtime-types.js";
 
+// Worldgen always names AI player records "ai-<n>" (see
+// season-worldgen.ts). Any repair/recovery path that needs to reconstruct a
+// missing player record from tile ownership alone (no other context) can use
+// this convention to tell an AI slot apart from a genuine human id.
+const AI_PLAYER_ID_PATTERN = /^ai-\d+$/;
+
+export const isAiPlayerId = (playerId: string): boolean => AI_PLAYER_ID_PATTERN.test(playerId);
+
 export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
   isAi: false,
@@ -15,4 +23,9 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   allies: new Set<string>(),
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+});
+
+export const createAiRuntimePlayer = (playerId: string): RuntimePlayer => ({
+  ...createHumanRuntimePlayer(playerId),
+  isAi: true
 });

@@ -32,7 +32,10 @@ primary_region = "arn"
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
   SIMULATION_HOST = "127.0.0.1"
   SIMULATION_PORT = "50051"
-  SIMULATION_METRICS_HOST = "127.0.0.1"
+  # 0.0.0.0 so `flyctl proxy` can reach /debug/* for live heap diagnostics.
+  # Still private-only: http_service below forwards only port 8080 to the
+  # internet; 50052 is reachable solely over Fly's 6PN / flyctl proxy.
+  SIMULATION_METRICS_HOST = "0.0.0.0"
   SIMULATION_METRICS_PORT = "50052"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "1000"
   SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS = "4000"
@@ -59,7 +62,10 @@ primary_region = "arn"
   SIMULATION_AI_PLAYER_COUNT = "5"
   SIMULATION_AI_TICK_MS = "2000"
   SIMULATION_AI_MIN_COMMAND_INTERVAL_MS = "5000"
-  NODE_OPTIONS = "--max-old-space-size=900"
+  # --expose-gc lets the sim's PerformanceObserver('gc') diagnostic (see
+  # simulation-service.ts) fire, so stop-the-world pauses show up as
+  # gc_pause_detected instead of being invisible in mainThreadTasks.
+  NODE_OPTIONS = "--max-old-space-size=900 --expose-gc"
 
 [http_service]
   internal_port = 8080

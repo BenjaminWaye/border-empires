@@ -68,8 +68,9 @@ describe("muster-gated attacks", () => {
 
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
-      // Muster on the origin tile was spent (60 - 60 = 0).
-      expect(tileMuster(runtime, 10, 10)?.amount).toBeCloseTo(0, 5);
+      // Target is FRONTIER (undefended, no fort) — costs FRONTIER_ATTACK_MUSTER_COST
+      // (15), not the full MUSTER_ATTACK_COST (60): 60 - 15 = 45.
+      expect(tileMuster(runtime, 10, 10)?.amount).toBeCloseTo(45, 5);
       // The pool is unchanged by the strike (no manpowerDelta applied to pool).
       const player = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!;
       expect(player.manpower).toBeCloseTo(150, 0);
@@ -161,6 +162,78 @@ describe("muster-gated attacks", () => {
       // (5,8) must still be owned by player-2: the isolated pocket at (5,7) must not be used.
       const shouldNotCapture = runtime.exportState().tiles.find((t) => t.x === 5 && t.y === 8);
       expect(shouldNotCapture?.ownerId).toBe("player-2");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("capturing a tile with a muster flag broadcasts the clear with the new owner attached, not a bare neutral delta", async () => {
+    // Regression: the muster-clear broadcast fired on capture used to send
+    // `{x, y, musterJson: ""}` with no ownerId/ownershipState over the
+    // unfiltered "__broadcast__" channel, which made the captured tile look
+    // neutral on clients that treat a tile-wide delta as authoritative.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "HOLD", updatedAt: 1_000 }
+            },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-2", amount: 10, mode: "HOLD", updatedAt: 1_000 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+      runtime.submitCommand({
+        commandId: "muster-attack-flag",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+      expect(captured?.ownerId).toBe("player-1");
+
+      // The per-command delta buffer coalesces every TILE_DELTA_BATCH emitted
+      // during lock resolution (including the muster-clear "broadcast") into
+      // one flushed event, so find every delta entry for the captured tile
+      // that clears the muster flag and assert none of them omit ownership.
+      const musterClearDeltas = seen
+        .filter((event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> => event.eventType === "TILE_DELTA_BATCH")
+        .flatMap((event) => event.tileDeltas)
+        .filter((delta) => delta.x === 10 && delta.y === 11 && delta.musterJson === "");
+      expect(musterClearDeltas.length).toBeGreaterThan(0);
+      for (const delta of musterClearDeltas) {
+        expect(delta.ownerId).toBe("player-1");
+        expect(delta.ownershipState).toBe("FRONTIER");
+      }
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
