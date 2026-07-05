@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { FORT_GARRISON_CAP_BY_VARIANT, MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { FORT_GARRISON_CAP_BY_VARIANT, FRONTIER_ATTACK_MUSTER_COST, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
@@ -100,7 +100,7 @@ describe("Phase 7: fort garrison containers", () => {
     expect(g2).toBeCloseTo(g1 / 2, 1);
   });
 
-  it("half-full garrison raises required muster above the base MUSTER_ATTACK_COST", () => {
+  it("half-full garrison raises required muster above the base MUSTER_ATTACK_COST (SETTLED target only — forts on FRONTIER targets never raise the cost)", () => {
     const buildRuntime = (garrison: number) =>
       new SimulationRuntime({
         now: () => 1_000,
@@ -111,7 +111,7 @@ describe("Phase 7: fort garrison containers", () => {
               x: 10, y: 11,
               terrain: "LAND",
               ownerId: "player-1",
-              ownershipState: "FRONTIER",
+              ownershipState: "SETTLED",
               fort: {
                 ownerId: "player-1",
                 status: "active",
@@ -138,6 +138,35 @@ describe("Phase 7: fort garrison containers", () => {
     expect(requiredFor(0)).toBe(MUSTER_ATTACK_COST);
     expect(requiredFor(MUSTER_ATTACK_COST + 1)).toBeGreaterThan(MUSTER_ATTACK_COST);
     expect(requiredFor(CAP)).toBe(CAP);
+  });
+
+  it("a fort built on a FRONTIER (un-settled) target never raises required muster above FRONTIER_ATTACK_MUSTER_COST — forts only defend once SETTLED", () => {
+    const buildRuntime = (garrison: number) =>
+      new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", makePlayer("player-1", 999)]]),
+        initialState: {
+          tiles: [
+            {
+              x: 10, y: 11,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              fort: { ownerId: "player-1", status: "active", variant: "FORT", garrison, garrisonCap: CAP, garrisonUpdatedAt: 1_000 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+    const internalTile = (tile: SimulationRuntime) =>
+      (tile as unknown as { tiles: Map<string, unknown> }).tiles.get(simulationTileKey(10, 11));
+    const requiredFor = (garrison: number): number => {
+      const rt = buildRuntime(garrison);
+      return (rt as unknown as { requiredMusterForTarget(t: unknown): number })
+        .requiredMusterForTarget(internalTile(rt));
+    };
+    expect(requiredFor(0)).toBe(FRONTIER_ATTACK_MUSTER_COST);
+    expect(requiredFor(CAP)).toBe(FRONTIER_ATTACK_MUSTER_COST);
   });
 
   it("repulsed assault reduces fort garrison (attrition)", () => {

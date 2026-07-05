@@ -13,7 +13,8 @@ import {
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
   townKeysWithNearbyWar,
-  computeSeedGranaryBuffedTileKeys
+  computeSeedGranaryBuffedTileKeys,
+  parseStructure
 } from "../snapshot-tile-cache.js";
 import { buildTownSummary } from "../live-town-summary.js";
 import type { EconomyPlayer } from "../economy-network/economy-network.js";
@@ -36,6 +37,25 @@ type EnrichmentContext = {
   fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
   seedGranaryBuffedTileKeys: ReadonlySet<string>;
+  waterworksKeysByPlayer: Map<string, Set<string>>;
+};
+
+// Active Waterworks tile keys per owning player — mirrors
+// SimulationRuntime.tileYieldEconomyContextForPlayer's waterworksKeys so the
+// snapshot/bootstrap path applies the same +50% radius boost as live ticks.
+// Built from the raw wire tiles (not domainTilesByKey — that cache strips
+// economicStructure) by parsing economicStructureJson directly.
+const buildWaterworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
+  const byPlayerId = new Map<string, Set<string>>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.type !== "WATERWORKS" || structure.status !== "active") continue;
+    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
+    keys.add(`${tile.x},${tile.y}`);
+    byPlayerId.set(tile.ownerId, keys);
+  }
+  return byPlayerId;
 };
 
 const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined): DomainTileState["town"] | undefined => {
@@ -61,6 +81,7 @@ const buildSnapshotTileYieldFields = (
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
+    waterworksKeys?: ReadonlySet<string> | undefined;
     tiles: ReadonlyMap<string, DomainTileState>;
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   }
@@ -113,6 +134,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
+  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
@@ -135,6 +157,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         ...(economyPlayer ? { player: economyPlayer } : {}),
         fedTownKeys,
         ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
+        ...(tile.ownerId ? { waterworksKeys: waterworksKeysByPlayer.get(tile.ownerId) } : {}),
         tiles: domainTilesByKey,
         dockLinksByDockTileKey
       });
@@ -183,6 +206,7 @@ const buildEnrichmentContext = (
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
+  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
   return {
     collectedAtByTile,
     playerYieldCollectionEpochByPlayer,
@@ -195,7 +219,8 @@ const buildEnrichmentContext = (
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
     fedTownKeys: playerEconomy.fedTownKeys,
-    seedGranaryBuffedTileKeys
+    seedGranaryBuffedTileKeys,
+    waterworksKeysByPlayer
   };
 };
 
@@ -249,6 +274,7 @@ const buildEnrichmentContextAsync = async (
   await yieldToEventLoop();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   await yieldToEventLoop();
+  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
   return {
     collectedAtByTile,
     playerYieldCollectionEpochByPlayer,
@@ -261,7 +287,8 @@ const buildEnrichmentContextAsync = async (
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
     fedTownKeys: playerEconomy.fedTownKeys,
-    seedGranaryBuffedTileKeys
+    seedGranaryBuffedTileKeys,
+    waterworksKeysByPlayer
   };
 };
 
@@ -291,6 +318,7 @@ const buildEnrichedTile = (
       ? { fedTownKeys: tile.ownerId === playerId ? ctx.fedTownKeys : (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
       : {}),
     ...(tile.ownerId ? { firstThreeTownKeys: ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
+    ...(tile.ownerId ? { waterworksKeys: ctx.waterworksKeysByPlayer.get(tile.ownerId) } : {}),
     tiles: ctx.domainTilesByKey,
     dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
   });
