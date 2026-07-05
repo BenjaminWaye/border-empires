@@ -12,9 +12,9 @@ import {
   getDomainTilesByKeyAsync,
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
+  buildWaterworksKeysByPlayer,
   townKeysWithNearbyWar,
-  computeSeedGranaryBuffedTileKeys,
-  parseStructure
+  computeSeedGranaryBuffedTileKeys
 } from "../snapshot-tile-cache.js";
 import { buildTownSummary } from "../live-town-summary.js";
 import type { EconomyPlayer } from "../economy-network/economy-network.js";
@@ -38,24 +38,6 @@ type EnrichmentContext = {
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
   seedGranaryBuffedTileKeys: ReadonlySet<string>;
   waterworksKeysByPlayer: Map<string, Set<string>>;
-};
-
-// Active Waterworks tile keys per owning player — mirrors
-// SimulationRuntime.tileYieldEconomyContextForPlayer's waterworksKeys so the
-// snapshot/bootstrap path applies the same +50% radius boost as live ticks.
-// Built from the raw wire tiles (not domainTilesByKey — that cache strips
-// economicStructure) by parsing economicStructureJson directly.
-const buildWaterworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
-  const byPlayerId = new Map<string, Set<string>>();
-  for (const tile of runtimeState.tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-    if (structure?.type !== "WATERWORKS" || structure.status !== "active") continue;
-    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
-    keys.add(`${tile.x},${tile.y}`);
-    byPlayerId.set(tile.ownerId, keys);
-  }
-  return byPlayerId;
 };
 
 const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined): DomainTileState["town"] | undefined => {
