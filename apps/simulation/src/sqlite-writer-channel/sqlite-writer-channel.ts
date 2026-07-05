@@ -28,6 +28,18 @@ export type WriterWriteTiming = {
   totalMs: number;
 };
 
+// No hard limit on in-flight messages previously existed here: if the writer
+// worker fell behind (e.g. a burst of AI upkeep accrual across many large
+// empires), `pending` grew without bound, turning a temporary slowdown into
+// unbounded sim-thread heap growth. Confirmed 2026-07-05: a persistence
+// backlog cascaded into 47-53s single "event_store" stalls and the sim
+// worker OOM'd at the --max-old-space-size cap. DEFAULT_MAX_PENDING makes
+// the sim thread self-throttle (await drain) once the queue backs up,
+// bounding memory at the cost of slowing writers down further under
+// sustained backlog — the correct trade: a backed-up writer should push
+// back on its caller, not let the caller pile up unbounded work in memory.
+const DEFAULT_MAX_PENDING = 500;
+
 export class SqliteWriterChannel {
   private readonly worker: Worker;
   private nextId = 0;
@@ -41,19 +53,42 @@ export class SqliteWriterChannel {
   // command, far more often than other trackSync-style instrumentation in
   // this codebase, so the fast (not-slow) path must stay allocation-free.
   private readonly slowThresholdMs: number;
+  private readonly maxPending: number;
+  private readonly onQueueDepthChanged: ((depth: number) => void) | undefined;
+  private readonly onBackpressureWait: (() => void) | undefined;
+  private drainWaiters: Array<{ resolve: () => void; reject: (e: Error) => void }> = [];
+  // Set once the worker dies. A caller queued in drainWaiters at that point
+  // must be REJECTED, not released to proceed — if we just resolved it, its
+  // post() would go on to call postMessage on a dead worker and construct a
+  // new pending entry that no "message"/"error"/"exit" handler will ever
+  // touch again, hanging the caller's await forever. Also checked at the top
+  // of post() so a call made entirely after death fails fast instead of
+  // silently hanging the same way.
+  private fatalError: Error | undefined;
 
   constructor(
     dbPath: string,
-    options: { onWriteTimed?: (sample: WriterWriteTiming) => void; slowThresholdMs?: number } = {}
+    options: {
+      onWriteTimed?: (sample: WriterWriteTiming) => void;
+      slowThresholdMs?: number;
+      maxPending?: number;
+      onQueueDepthChanged?: (depth: number) => void;
+      onBackpressureWait?: () => void;
+    } = {}
   ) {
     this.onWriteTimed = options.onWriteTimed;
     this.slowThresholdMs = Math.max(0, options.slowThresholdMs ?? 0);
+    this.maxPending = Math.max(1, options.maxPending ?? DEFAULT_MAX_PENDING);
+    this.onQueueDepthChanged = options.onQueueDepthChanged;
+    this.onBackpressureWait = options.onBackpressureWait;
     const workerUrl = resolveWorkerEntryUrl("../sqlite-writer-worker.js", import.meta.url);
     this.worker = new Worker(workerUrl, { workerData: { dbPath } });
     this.worker.on("message", (msg: AckMessage) => {
       const entry = this.pending.get(msg.id);
       if (!entry) return;
       this.pending.delete(msg.id);
+      this.onQueueDepthChanged?.(this.pending.size);
+      this.releaseDrainWaiterIfRoom();
       if (this.onWriteTimed && typeof msg.handlerStartedAtMs === "number" && typeof msg.workMs === "number") {
         const queueWaitMs = Math.max(0, msg.handlerStartedAtMs - entry.sentAtMs);
         if (queueWaitMs >= this.slowThresholdMs || msg.workMs >= this.slowThresholdMs) {
@@ -72,23 +107,54 @@ export class SqliteWriterChannel {
       }
     });
     this.worker.on("error", (err) => {
+      this.fatalError = err;
       for (const entry of this.pending.values()) entry.reject(err);
       this.pending.clear();
+      this.onQueueDepthChanged?.(0);
+      this.rejectAllDrainWaiters(err);
     });
     this.worker.on("exit", (code) => {
-      if (this.pending.size === 0) return;
       const err = new Error(`sqlite-writer-worker exited unexpectedly (code ${code})`);
-      for (const entry of this.pending.values()) entry.reject(err);
-      this.pending.clear();
+      this.fatalError ??= err;
+      if (this.pending.size > 0) {
+        for (const entry of this.pending.values()) entry.reject(err);
+        this.pending.clear();
+        this.onQueueDepthChanged?.(0);
+      }
+      this.rejectAllDrainWaiters(err);
     });
   }
 
-  post(msg: { op: string } & Record<string, unknown>): Promise<void> {
+  private releaseDrainWaiterIfRoom(): void {
+    if (this.drainWaiters.length === 0) return;
+    if (this.pending.size >= this.maxPending) return;
+    const waiter = this.drainWaiters.shift();
+    waiter?.resolve();
+  }
+
+  private rejectAllDrainWaiters(err: Error): void {
+    const waiters = this.drainWaiters;
+    this.drainWaiters = [];
+    for (const waiter of waiters) waiter.reject(err);
+  }
+
+  private waitForDrain(): Promise<void> {
+    this.onBackpressureWait?.();
+    return new Promise<void>((resolve, reject) => this.drainWaiters.push({ resolve, reject }));
+  }
+
+  async post(msg: { op: string } & Record<string, unknown>): Promise<void> {
+    if (this.fatalError) throw this.fatalError;
+    if (this.pending.size >= this.maxPending) {
+      await this.waitForDrain();
+    }
     const id = this.nextId++;
-    return new Promise<void>((resolve, reject) => {
+    const result = new Promise<void>((resolve, reject) => {
       this.pending.set(id, { op: msg.op, sentAtMs: Date.now(), resolve, reject });
-      this.worker.postMessage({ ...msg, id });
     });
+    this.onQueueDepthChanged?.(this.pending.size);
+    this.worker.postMessage({ ...msg, id });
+    return result;
   }
 
   async terminate(): Promise<void> {
