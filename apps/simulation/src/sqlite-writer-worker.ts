@@ -13,8 +13,15 @@
 //   { id, op: "flush" }                (no-op write, used for whenIdle() sync)
 //
 // Message protocol (this worker → sim thread):
-//   { id, ok: true }
-//   { id, ok: false, error: string }
+//   { id, ok: true, handlerStartedAtMs, workMs }
+//   { id, ok: false, error: string, handlerStartedAtMs, workMs }
+//
+// handlerStartedAtMs/workMs let the sim thread discriminate "the SQL
+// statement itself was slow" (workMs is large) from "this worker was still
+// busy running a PREVIOUS message's handler when this one was queued" (the
+// gap between the sim thread's postMessage and handlerStartedAtMs is large —
+// see SqliteWriterChannel's queueWaitMs). A single round-trip duration on the
+// sim thread can't tell these apart; they call for very different fixes.
 
 import { DatabaseSync } from "node:sqlite";
 import { workerData, parentPort } from "node:worker_threads";
@@ -74,6 +81,7 @@ let stmtDeleteOldSnapshots: ReturnType<typeof db.prepare> | undefined;
 let stmtPruneEvents: ReturnType<typeof db.prepare> | undefined;
 
 parentPort.on("message", (msg: WriteMessage) => {
+  const handlerStartedAtMs = Date.now();
   try {
     switch (msg.op) {
       case "appendEvent":
@@ -135,8 +143,16 @@ parentPort.on("message", (msg: WriteMessage) => {
       case "flush":
         break;
     }
-    parentPort!.postMessage({ id: msg.id, ok: true });
+    const workMs = Date.now() - handlerStartedAtMs;
+    parentPort!.postMessage({ id: msg.id, ok: true, handlerStartedAtMs, workMs });
   } catch (error) {
-    parentPort!.postMessage({ id: msg.id, ok: false, error: error instanceof Error ? error.message : String(error) });
+    const workMs = Date.now() - handlerStartedAtMs;
+    parentPort!.postMessage({
+      id: msg.id,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      handlerStartedAtMs,
+      workMs
+    });
   }
 });

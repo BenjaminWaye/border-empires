@@ -179,6 +179,18 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_snapshot_cache_bytes 4096");
   });
 
+  it("exposes background-lane queue backlog gauges and the command-apply-tracker eviction counter", () => {
+    const metrics = createSimulationMetrics();
+    metrics.setSimBackgroundQueueBacklogMs({ ai: 1_200, system: 340, humanNoninteractive: 15 });
+    metrics.setSimCommandApplyTrackEvictedTotal(2);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain("sim_ai_queue_backlog_ms 1200");
+    expect(exposition).toContain("sim_system_queue_backlog_ms 340");
+    expect(exposition).toContain("sim_human_noninteractive_queue_backlog_ms 15");
+    expect(exposition).toContain("sim_command_apply_track_evicted_total 2");
+  });
+
   it("exposes replay-cache gauges and counters", () => {
     const metrics = createSimulationMetrics();
     metrics.setReplayCacheStats({ recordedCommandHistorySize: 42, recordedHistoryEvicted: 3, serverEventsSkipped: 1000 });
