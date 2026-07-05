@@ -82,12 +82,26 @@ const isTileWithinTerritoryRadius = (
   return false;
 };
 
+export interface TileDeltaVisibilityFilterOptions {
+  // Lets a minimal ownership-clearing signal (x, y, ownerId: undefined,
+  // ownershipState: undefined) through for tiles that are NOT currently
+  // visible to the player, so stale ownership (e.g. barbarian ghosts left
+  // behind after territory movement) gets cleaned up client-side even after
+  // the tile leaves the player's fog-of-war radius. Off by default because
+  // several callers (survey sweep's "is this tile already visible" check,
+  // the bootstrap visible-state exporter) rely on an EMPTY result meaning
+  // "not visible" -- only the live tile-delta broadcast path should set
+  // this to true.
+  includeOwnershipClears?: boolean;
+}
+
 export const filterTileDeltasForPlayer = <
   TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }
 >(
   deps: TileDeltaVisibilityFilterDeps,
   tileDeltas: readonly TDelta[],
-  playerId: string
+  playerId: string,
+  options?: TileDeltaVisibilityFilterOptions
 ): TDelta[] => {
   if (tileDeltas.length === 0) return [];
   const primaryPlayer = deps.players.get(playerId);
@@ -203,7 +217,31 @@ export const filterTileDeltasForPlayer = <
         if (auditEnabled) reasons.push("lock-target");
       }
     }
-    if (!visible) continue;
+    if (!visible) {
+      // Ownership-clearing deltas must always reach the client so stale
+      // ownership (e.g. barbarian ghosts from territory movement) is cleaned
+      // up even when the tile has fallen out of the player's visible area.
+      // Gated on options.includeOwnershipClears: only the live broadcast
+      // path opts into this -- other callers (survey sweep's visibility
+      // check, the bootstrap visible-state exporter) rely on an empty
+      // result meaning "not visible", and buildSparseDelta now ALWAYS
+      // includes ownerId/ownershipState on every emitted delta (see
+      // tile-delta-stringify-cache.ts), so an ungated check here would fire
+      // for every non-visible tile currently without an owner, not just
+      // genuine clear transitions. We also forward only the minimal
+      // ownership-state fields, never the rest of the delta's substructure
+      // (fort/muster/sabotage/yield/etc.), for a tile the player can't see.
+      if (!options?.includeOwnershipClears) continue;
+      const ownerIdCleared = "ownerId" in delta && !delta.ownerId;
+      if (!ownerIdCleared) continue;
+      filtered.push({
+        x: delta.x,
+        y: delta.y,
+        ownerId: undefined,
+        ...("ownershipState" in delta ? { ownershipState: undefined } : {})
+      } as TDelta);
+      continue;
+    }
 
     const ownedByOther = Boolean(delta.ownerId) && !allyAndSelfIds.has(delta.ownerId as string);
     if (viaLockTargetOnly && ownedByOther) {
