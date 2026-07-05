@@ -66,6 +66,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_writer_queue_backpressure_wait_total ${formatMetricValue(sample.simWriterQueueBackpressureWaitTotal)}`,
     "# TYPE sim_barb_vision_union_recompute_throttled_total counter",
     `sim_barb_vision_union_recompute_throttled_total ${formatMetricValue(sample.simBarbVisionUnionRecomputeThrottledTotal)}`,
+    "# TYPE sim_player_state_update_skipped_ai_total counter",
+    `sim_player_state_update_skipped_ai_total ${formatMetricValue(sample.simPlayerStateUpdateSkippedAiTotal)}`,
     "# TYPE sim_replay_recorded_command_history gauge",
     `sim_replay_recorded_command_history ${formatMetricValue(sample.simReplayRecordedCommandHistory)}`,
     "# TYPE sim_replay_history_evicted_total counter",

@@ -23,6 +23,9 @@ export async function tickTileShedding(input: {
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
   yieldToEventLoop?: () => Promise<void>;
   trackSync?: TrackSync;
+  /** Fires each time the AI-player PLAYER_UPDATE emit is skipped below. Zero
+   *  forever means the skip never engages under real load. */
+  onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
 }): Promise<void> {
   const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
   const track = input.trackSync;
@@ -92,7 +95,20 @@ export async function tickTileShedding(input: {
           }
         ]
       });
-      input.emitPlayerStateUpdate({ commandId, playerId: player.id });
+      // AI players have no WS subscribers (established precedent: PR #732
+      // skips this same emit on lock resolution for the same reason), so the
+      // resulting PLAYER_UPDATE — which forces an economy snapshot +
+      // town-network rebuild via cachedEconomySnapshot's invalidate-on-every-
+      // replaceTileState contract — has nowhere to go. Measured 1123ms
+      // (economy) + 880ms (nested town-network BFS) on a ~1918-tile/13-town
+      // AI empire on staging 2026-07-05, one of two blockers behind spurious
+      // human SIMULATION_UNAVAILABLE (the sim thread was too busy past the
+      // gateway's 2500ms submit timeout).
+      if (player.isAi) {
+        input.onPlayerStateUpdateSkippedAi?.(player.id);
+      } else {
+        input.emitPlayerStateUpdate({ commandId, playerId: player.id });
+      }
     };
     if (track) {
       track("tick_tile_shedding_execute", { playerId: player.id, tileKey: shedTileKey }, exec);

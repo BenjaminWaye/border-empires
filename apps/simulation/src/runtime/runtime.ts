@@ -475,6 +475,7 @@ export class SimulationRuntime {
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   private readonly onAutoFillTiles: ((count: number) => void) | undefined;
+  private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -684,6 +685,7 @@ export class SimulationRuntime {
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
     this.onAutoFillTiles = options.onAutoFillTiles;
+    this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -936,6 +938,7 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      onPlayerStateUpdateSkippedAi: (playerId) => this.onPlayerStateUpdateSkippedAi?.(playerId),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     });
