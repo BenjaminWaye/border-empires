@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.01.2",
+  version: "2026.07.02.1",
   title: "What's New",
-  summary: "Census Hall now has its own building model on the map.",
+  summary: "Season winners can now name a permanent planet in the new galaxy view.",
   entries: [
+    {
+      introducedIn: "2026.07.02.1",
+      title: "The galaxy: your planet, permanently",
+      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
+      changes: [
+        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
+        "Planet names are permanent and can only be set once.",
+        "Accounts with multiple season wins can switch between their planets in the same view."
+      ]
+    },
     {
       introducedIn: "2026.07.01.2",
       title: "Census Hall has a new building model",
@@ -309,25 +319,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Selecting a muster flag showed a small red radius box, implying attacks are limited to that range — but muster attacks have unlimited reach from any flag.",
       changes: [
         "The red reach indicator no longer appears when you tap a muster flag, since the flag can attack any tile regardless of distance."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.2",
-      title: "Season-end screen",
-      why: "When a season ended there was no real wrap-up — you were just left on a frozen map with a small leaderboard panel.",
-      changes: [
-        "A full season-end screen now appears when a winner is crowned: the victor, final standings, and how every path to victory played out.",
-        "\"Start New Season\" begins a fresh season for everyone (only available once the current season has ended).",
-        "\"Look Around\" dismisses the screen so you can roam the final map."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.1",
-      title: "Clearer reconnect message",
-      why: "If the server restarted mid-session, clicking the map showed 'Finish sign-in before interacting with the map.' — confusing, since you were already signed in.",
-      changes: [
-        "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
-        "The original sign-in prompt still appears only when you genuinely are not signed in yet."
       ]
     },
   ]
