@@ -1807,6 +1807,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             tickIntervalMs: options.systemTickMs ?? 500,
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
+            },
+            onVisionUnionRecomputeThrottled: () => {
+              simulationMetrics.incrementSimBarbVisionUnionRecomputeThrottled();
             }
           })
         : createSystemCommandProducer({
