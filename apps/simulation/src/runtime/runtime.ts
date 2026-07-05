@@ -27,7 +27,7 @@ import {
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST,
+  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST,
   SETTLE_COST,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -3746,7 +3746,7 @@ export class SimulationRuntime {
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
-      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
+      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys, waterworksKeys: resolvedContext.waterworksKeys } : {}),
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
@@ -3805,7 +3805,7 @@ export class SimulationRuntime {
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
-      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
+      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys, waterworksKeys: resolvedContext.waterworksKeys } : {}),
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
@@ -4269,16 +4269,15 @@ export class SimulationRuntime {
   }
 
   /**
-   * Manpower an attacker must have mustered on the origin tile to strike this
-   * target. Phase 5 baseline: the flat attack cost. Phase 7 raises it to the
-   * target fort's garrison; Phase 8 lowers it for barbarian raids.
+   * Manpower an attacker must have mustered to strike this target. Phase 5
+   * baseline: flat attack cost, raised to fort garrison (Phase 7), lowered
+   * for barbarian raids (Phase 8) and FRONTIER targets (forts only defend once SETTLED).
    */
   private requiredMusterForTarget(target: DomainTileState): number {
     // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
     if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
-    const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null)
-      ? target.fort.garrison
-      : 0;
+    if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
+    const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null) ? target.fort.garrison : 0;
     return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
   }
 

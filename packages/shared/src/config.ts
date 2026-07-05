@@ -125,6 +125,12 @@ export const MUSTER_SYSTEM_ENABLED =
 // How much mustered manpower one ordinary attack costs (placeholder).
 // Also used as the fill-ratio reference for the muster flag animation.
 export const MUSTER_ATTACK_COST = 60;
+// Attacking a FRONTIER-owned target (claimed but not settled) — these have
+// zero effective defense (see defenseMultiplierForTile in frontier-combat.ts,
+// which returns 0 for ownershipState === "FRONTIER" regardless of any fort
+// built on the tile — forts only grant their defense bonus once the tile is
+// SETTLED). Cheap like a barbarian raid, not the full settled-attack floor.
+export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
 // Maximum manpower a single muster tile can hold.
