@@ -17,11 +17,16 @@ export const tileDeltaRevealOnly = (
     ...(tile.resource ? { resource: tile.resource } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-    ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-    ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-    ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-    ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-    ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
+    // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
+    // own-property existence to detect clears (uncapture, structure removal).
+    // This path also fires for a tile's first-ever exposure to a given
+    // subscriber (fog-of-war reveal), so omitting these fields here would
+    // recreate the #791 bug class -- see tile-delta-stringify-cache.ts.
+    ownerId: tile.ownerId ?? undefined,
+    ownershipState: tile.ownershipState ?? undefined,
+    frontierDecayAt: tile.frontierDecayAt ?? undefined,
+    frontierDecayKind: tile.frontierDecayKind ?? undefined,
+    breachShockUntil: tile.breachShockUntil ?? undefined,
     ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
