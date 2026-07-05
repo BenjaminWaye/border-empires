@@ -161,11 +161,35 @@ export class TileDeltaStringifyCache {
     const delta: SimulationTileWireDelta = { x: fullDelta.x, y: fullDelta.y };
     let hasFieldChanges = false;
 
+    // ownerId/ownershipState/dockId are ALWAYS included, never conditionally
+    // diffed. DO NOT make this conditional again (e.g. `if (tile.ownerId !==
+    // last.ownerId)`) -- that exact change (PR #784) reintroduced a
+    // production bug that had already been fixed twice (#774, #777, #779):
+    // downstream consumers of this delta (the gateway's per-player snapshot
+    // cache, the client's local tile store, tile-detail responses, any
+    // future "first exposure" path like a bootstrap/reconnect/export we
+    // haven't audited -- exactly what caused the #791 bug) merge deltas
+    // assuming "field absent" means "unchanged", which is only true if that
+    // specific consumer already has the correct prior value. `last` here is
+    // a single GLOBAL baseline shared across every consumer, not a
+    // per-consumer one, so relying on every future code path to correctly
+    // seed it before its first emission is a fragile whack-a-mole guarantee
+    // -- it has already been missed at least four times (muster, capture-
+    // reveal, settle/auto-fill, bootstrap-export). These three fields are
+    // cheap and essentially permanent once set; always including them costs
+    // nothing meaningful and makes the entire bug class structurally
+    // impossible instead of dependent on remembering to seed a cache.
+    (delta as Record<string, unknown>).ownerId = tile.ownerId;
+    (delta as Record<string, unknown>).ownershipState = tile.ownershipState;
+    (delta as Record<string, unknown>).dockId = tile.dockId;
+    if (
+      tile.ownerId !== last.ownerId ||
+      tile.ownershipState !== last.ownershipState ||
+      tile.dockId !== last.dockId
+    ) hasFieldChanges = true;
+
     if (tile.terrain !== last.terrain) { (delta as Record<string, unknown>).terrain = tile.terrain; hasFieldChanges = true; }
     if (tile.resource !== last.resource) { (delta as Record<string, unknown>).resource = tile.resource; hasFieldChanges = true; }
-    if (tile.dockId !== last.dockId) { (delta as Record<string, unknown>).dockId = tile.dockId; hasFieldChanges = true; }
-    if (tile.ownerId !== last.ownerId) { (delta as Record<string, unknown>).ownerId = tile.ownerId; hasFieldChanges = true; }
-    if (tile.ownershipState !== last.ownershipState) { (delta as Record<string, unknown>).ownershipState = tile.ownershipState; hasFieldChanges = true; }
     if (tile.frontierDecayAt !== last.frontierDecayAt) { (delta as Record<string, unknown>).frontierDecayAt = tile.frontierDecayAt; hasFieldChanges = true; }
     if (tile.frontierDecayKind !== last.frontierDecayKind) { (delta as Record<string, unknown>).frontierDecayKind = tile.frontierDecayKind; hasFieldChanges = true; }
     if (tile.breachShockUntil !== last.breachShockUntil) { (delta as Record<string, unknown>).breachShockUntil = tile.breachShockUntil; hasFieldChanges = true; }

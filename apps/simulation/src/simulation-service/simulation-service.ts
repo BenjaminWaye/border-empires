@@ -16,8 +16,9 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed, type Terrain } from "@border-empires/shared";
+import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
+import { type ProtoSimulationEvent, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -59,8 +60,10 @@ import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
-import { createMainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
+import { createCommandApplyTracker } from "../command-apply-tracker.js";
+import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -171,88 +174,6 @@ const formatNoFrontierDiagnostic = (
   return parts.join(":");
 };
 
-type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
-type ProtoSimulationEvent = {
-  event_type: string;
-  command_id: string;
-  player_id: string;
-  message_type?: string;
-  action_type: string;
-  origin_x: number;
-  origin_y: number;
-  target_x: number;
-  target_y: number;
-  resolves_at: number;
-  code: string;
-  message: string;
-  attacker_won: boolean;
-  manpower_delta?: number;
-  pillaged_gold?: number;
-  pillaged_strategic_json?: string;
-  combat_result_json?: string;
-  collect_mode?: string;
-  gold?: number;
-  strategic_json?: string;
-  tiles?: number;
-  collect_x?: number;
-  collect_y?: number;
-  payload_json?: string;
-  tile_deltas: Array<{
-    x: number;
-    y: number;
-    terrain?: string | undefined;
-    resource?: string | undefined;
-    dock_id?: string | undefined;
-    owner_id?: string | undefined;
-    ownership_state?: string | undefined;
-    frontier_decay_at?: number | undefined;
-    town_json?: string | undefined;
-    town_type?: string | undefined;
-    town_name?: string | undefined;
-    town_population_tier?: string | undefined;
-    fort_json?: string | undefined;
-    observatory_json?: string | undefined;
-    siege_outpost_json?: string | undefined;
-    economic_structure_json?: string | undefined;
-    sabotage_json?: string | undefined;
-    shard_site_json?: string | undefined;
-    muster_json?: string | undefined;
-  }>;
-  tileDeltas?: Array<{
-    x: number;
-    y: number;
-    terrain?: string | undefined;
-    resource?: string | undefined;
-    dockId?: string | undefined;
-    ownerId?: string | null | undefined;
-    ownershipState?: string | null | undefined;
-    frontierDecayAt?: number | null | undefined;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null | undefined;
-    townJson?: string | undefined;
-    townType?: string | undefined;
-    townName?: string | undefined;
-    townPopulationTier?: string | undefined;
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    shardSiteJson?: string | undefined;
-    musterJson?: string | undefined;
-    yield?: {
-      gold?: number;
-      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    } | undefined;
-    yieldRate?: {
-      goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
-  }>;
-  count?: number;
-  cancelled_command_ids?: string[];
-};
-
 type SimulationServiceOptions = {
   host?: string;
   port?: number;
@@ -291,28 +212,6 @@ type SimulationServiceOptions = {
   seasonSummaryStore?: SeasonSummaryStore;
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
-};
-
-type SimulationTileDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain;
-  resource?: string | undefined;
-  dockId?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
-  townJson?: string | undefined;
-  townType?: "MARKET" | "FARMING";
-  townName?: string | undefined;
-  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  shardSiteJson?: string | undefined;
 };
 
 const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorld>): RecoveredSimulationState => ({
@@ -370,160 +269,6 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
   issuedAt: value.issued_at,
   type: value.type as CommandEnvelope["type"],
   payloadJson: value.payload_json
-});
-
-// Event types that exist purely for in-sim bookkeeping (replay anchors,
-// snapshot reconstruction, etc.) and have no client-facing audience. Writing
-// them to the gRPC stream wastes bandwidth and — because the gateway proto
-// shape is flat — has historically tripped consumers into mis-tagging them
-// as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
-// gateway never sees them in the first place.
-export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED",
-  "TILE_YIELD_ANCHOR_BATCH",
-  "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED"
-]);
-
-export const isWireInternalEvent = (event: SimulationEvent): boolean =>
-  WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
-
-export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
-  event_type: value.eventType,
-  command_id: value.commandId,
-  player_id: value.playerId,
-  ...("messageType" in value ? { message_type: value.messageType } : {}),
-  action_type: "actionType" in value ? value.actionType : "",
-  origin_x: "originX" in value ? value.originX : 0,
-  origin_y: "originY" in value ? value.originY : 0,
-  target_x: "targetX" in value ? value.targetX : 0,
-  target_y: "targetY" in value ? value.targetY : 0,
-  resolves_at: "resolvesAt" in value ? value.resolvesAt : 0,
-  code: "code" in value ? value.code : "",
-  message: "message" in value ? value.message : "",
-  attacker_won: "attackerWon" in value ? value.attackerWon : false,
-  ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
-  ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
-  ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),
-  ...("combatResult" in value && value.combatResult ? { combat_result_json: JSON.stringify(value.combatResult) } : {}),
-  ...(value.eventType === "COLLECT_RESULT"
-    ? {
-        collect_mode: value.mode,
-        gold: value.gold,
-        strategic_json: JSON.stringify(value.strategic),
-        tiles: value.tiles,
-        ...(typeof value.x === "number" ? { collect_x: value.x } : {}),
-        ...(typeof value.y === "number" ? { collect_y: value.y } : {})
-      }
-    : {}),
-  ...(value.eventType === "TECH_UPDATE" || value.eventType === "DOMAIN_UPDATE" || value.eventType === "PLAYER_MESSAGE"
-    ? { payload_json: value.payloadJson }
-    : {}),
-  ...(value.eventType === "COMBAT_CANCELLED"
-    ? {
-        count: value.count,
-        cancelled_command_ids: value.cancelledCommandIds ?? []
-      }
-    : {}),
-  tile_deltas:
-    value.eventType === "TILE_DELTA_BATCH"
-      ? value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-          ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
-          ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
-          ...("frontierDecayAt" in tile ? { frontier_decay_at: tile.frontierDecayAt ?? 0 } : {}),
-          ...("frontierDecayKind" in tile ? { frontier_decay_kind: tile.frontierDecayKind ?? "" } : {}),
-          ...(tile.townJson ? { town_json: tile.townJson } : {}),
-          ...(tile.townType ? { town_type: tile.townType } : {}),
-          ...(tile.townName ? { town_name: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fort_json: tile.fortJson ?? "" } : {}),
-          ...("observatoryJson" in tile ? { observatory_json: tile.observatoryJson ?? "" } : {}),
-          ...("siegeOutpostJson" in tile ? { siege_outpost_json: tile.siegeOutpostJson ?? "" } : {}),
-          ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
-          ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
-          ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
-          ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
-          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-          ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
-        }))
-      : [],
-  ...(value.eventType === "TILE_DELTA_BATCH"
-    ? {
-        tile_delta_json: JSON.stringify(value.tileDeltas),
-        tileDeltas: value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
-          ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
-          ...("frontierDecayAt" in tile ? { frontierDecayAt: tile.frontierDecayAt ?? null } : {}),
-          ...("frontierDecayKind" in tile ? { frontierDecayKind: tile.frontierDecayKind ?? null } : {}),
-          ...(tile.townJson ? { townJson: tile.townJson } : {}),
-          ...(tile.townType ? { townType: tile.townType } : {}),
-          ...(tile.townName ? { townName: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fortJson: tile.fortJson } : {}),
-          ...("observatoryJson" in tile ? { observatoryJson: tile.observatoryJson } : {}),
-          ...("siegeOutpostJson" in tile ? { siegeOutpostJson: tile.siegeOutpostJson } : {}),
-          ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
-          ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
-          ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
-          ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
-          ...("yield" in tile ? { yield: tile.yield } : {}),
-          ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
-        }))
-      }
-    : {})
-});
-
-// Shared serializer for both SubscribePlayer and FetchTileDetail tile arrays.
-// Both are full-snapshot paths (no clear-signaling semantics) so all structure
-// fields use truthy guards — absent means not present, never "was removed".
-// TILE_DELTA_BATCH uses toProtoEvent with `?? ""` clear-signaling for removals;
-// keep the two serializers separate.
-const toFullSnapshotProtoTile = (tile: {
-  x: number; y: number;
-  terrain?: string | undefined; resource?: string | undefined; dockId?: string | undefined;
-  ownerId?: string | undefined; ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
-  townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
-  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
-  musterJson?: string | undefined;
-  yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
-}) => ({
-  x: tile.x,
-  y: tile.y,
-  ...(tile.terrain ? { terrain: tile.terrain } : {}),
-  ...(tile.resource ? { resource: tile.resource } : {}),
-  ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-  ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-  ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
-  ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
-  ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
-  ...(tile.townJson ? { town_json: tile.townJson } : {}),
-  ...(tile.townType ? { town_type: tile.townType } : {}),
-  ...(tile.townName ? { town_name: tile.townName } : {}),
-  ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-  ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
-  ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
-  ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
-  ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
-  ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-  ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
-  ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
-  ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-  ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
 });
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
@@ -634,6 +379,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // time so we can tell whether filterTileDeltasForPlayer is the source of
   // simulation event-loop stalls under heavy combat load.
   const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
+  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see
+  // SqliteWriterChannel.onWriteTimed). Discriminates "the SQL write itself was
+  // slow" (workMs) from "the worker was still busy with a prior message when
+  // this one arrived" (queueWaitMs) — a multi-second appendEvent round trip
+  // looks identical in the event_store diagnostic either way.
+  const slowWriterQueueWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_WRITER_QUEUE_WARN_MS ?? 50));
   // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
   // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
   // under heavy combat the build itself (before fanout) could block the loop.
@@ -642,10 +393,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;
     recordLagDiagnostic("warn", "capture_reveal_build_slow", sample);
   };
+  // Threshold for the submit-to-apply "why was this command slow" diagnostic (always on above threshold).
+  const slowCommandApplyWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_COMMAND_APPLY_WARN_MS ?? 300));
+  const commandApplyTracker = createCommandApplyTracker({ slowWarnMs: slowCommandApplyWarnMs });
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
-  const mainThreadTasks = createMainThreadTaskTracker();
+  const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
     const writer = logWriters[level];
@@ -655,39 +409,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     console[level](message, payload);
   };
-  // ---------------------------------------------------------------------------
   // Death-forensics ring buffer — rolling window of recent lag diagnostics
   // forwarded to the gateway main thread so both watchdog-kill and sim-exit
-  // write paths have the sim's last known state.
-  // ---------------------------------------------------------------------------
-  const LAG_DIAG_RING_CAP = 50;
-  type LagDiagEntry = {
-    at: number;
-    level: "warn" | "error";
-    event: string;
-    phase?: unknown;
-    durationMs?: unknown;
-  };
-  const lagDiagRing: LagDiagEntry[] = [];
-  const appendLagDiagRing = (level: "warn" | "error", event: string, payload: Record<string, unknown>): void => {
-    lagDiagRing.push({
-      at: Date.now(),
-      level,
-      event,
-      ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
-      ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {})
+  // write paths have the sim's last known state. See lag-diagnostics.ts.
+  const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
+  // GC observer to detect stop-the-world pauses. Major GC can cause multi-second
+  // event_loop_blocked entries with no tracked tasks; GC pauses are invisible to
+  // instrumentation since they block JS execution.
+  let gcPauseObserver: PerformanceObserver | undefined;
+  try {
+    gcPauseObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
+          recordLagDiagnostic("info", "gc_pause_detected", {
+            durationMs: (entry.duration as number),
+            gcKind: (entry as unknown as Record<string, unknown>).kind
+          });
+        }
+      }
     });
-    if (lagDiagRing.length > LAG_DIAG_RING_CAP) lagDiagRing.shift();
-  };
-  const recordLagDiagnostic = (
-    level: "info" | "warn" | "error",
-    event: string,
-    payload: Record<string, unknown>
-  ): void => {
-    if (level === "info") return;
-    emitLog(level, `simulation lag diagnostic: ${event}`, payload);
-    appendLagDiagRing(level, event, payload);
-  };
+    gcPauseObserver.observe({ entryTypes: ["gc"], buffered: false });
+  } catch (_err) {
+    // PerformanceObserver for 'gc' requires --expose-gc; silently skip if unavailable
+  }
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -760,7 +504,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let snapshotBuildPool: ReturnType<typeof createSnapshotBuilder> | undefined;
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_BUILD_INLINE !== "1") {
     try {
-      snapshotBuildPool = createSnapshotBuilder();
+      snapshotBuildPool = createSnapshotBuilder({ trackSync: mainThreadTasks.trackSync });
     } catch (err) {
       log.error(
         { err: err instanceof Error ? err.message : String(err) },
@@ -794,13 +538,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // Reads stay on the sim thread; WAL mode allows concurrent readers.
   const writerChannel =
     !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
-      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath)
+      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath, {
+          ...(slowWriterQueueWarnMs > 0
+            ? {
+                slowThresholdMs: slowWriterQueueWarnMs,
+                onWriteTimed: (sample) => recordLagDiagnostic("warn", "sqlite_writer_queue_slow", sample)
+              }
+            : {})
+        })
       : undefined;
   const commandStore = writerChannel
     ? new WriterBackedCommandStore(writerChannel, commandStoreBase)
     : commandStoreBase;
   const eventStore = writerChannel
-    ? new WriterBackedEventStore(writerChannel, eventStoreBase)
+    ? new WriterBackedEventStore(writerChannel, eventStoreBase, (s, t, et, cid) => t >= 200 && log.warn({ phase: "event_store_append_sync_slow", eventType: et, commandId: cid, stringifyMs: s, syncMs: t }, "event store append sync slow"))
     : eventStoreBase;
   const snapshotStore =
     options.snapshotStore ??
@@ -1057,8 +808,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         durationMs: sample.durationMs,
         ...(sample.commandType ? { commandType: sample.commandType } : {})
       });
+      if (!sample.commandId) return;
+      const diagnostic = commandApplyTracker.resolve(sample.commandId, sample.durationMs);
+      if (!diagnostic) return;
+      recordLagDiagnostic("warn", "simulation_command_apply_slow", {
+        ...diagnostic,
+        lane: sample.lane,
+        ...(sample.commandType ? { commandType: sample.commandType } : {}),
+        queueDepths: runtime.queueDepths(),
+        queueBacklogMs: runtime.queueBacklogMs(),
+        mainThreadTasks: mainThreadTasks.recentSince(diagnostic.submittedAt)
+      });
     },
+    wrapJobRun: (run, meta) => () =>
+      mainThreadTasks.trackSync("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
     onVisibilityAudit: handleVisibilityAudit,
+    trackSyncMainThreadTask: mainThreadTasks.trackSync,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
         simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -1414,12 +1179,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const worldStatusRuntimeState = needsFullWorldExport
       ? await getOrStartFullVisExport()
       : undefined;
-    // Route the per-player visible export through the async chunked path
-    // when we don't already have a full-world runtime state captured.
-    // exportVisibleStateForPlayer was the last contiguous sync block in
-    // the bootstrap snapshot pipeline after PR #343 made the downstream
-    // enrichment chunked — for a player with ~13k owned tiles the vision
-    // raster + visible-tile map was its own multi-second main-thread block.
+    // Route through the async chunked path when we lack a full-world state.
+    // The vision raster expansion here is still sync for a large empire; it's
+    // wrapped via trackSyncMainThreadTask (mainThreadTasks above) so it shows
+    // up as classify_visibility_for_player instead of an unattributed gap.
     const runtimeState =
       worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
@@ -1857,6 +1620,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   runtime.exportTilesForKeys(keys)
                 )
             },
+            trackSync: (phase, details, task) => mainThreadTasks.trackSync(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
@@ -2011,7 +1775,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (systemAutopilotEnabled) {
       systemCommandProducer = useAiWorker
         ? createWorkerSystemCommandProducer({
-            runtime,
+            runtime: {
+              queueDepths: () => runtime.queueDepths(),
+              onEvent: (handler) => runtime.onEvent(handler),
+              exportPlannerWorldView: (playerIds) =>
+                mainThreadTasks.trackSync("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerWorldView(playerIds)
+                ),
+              exportPlannerPlayerViews: (playerIds) =>
+                mainThreadTasks.trackSync("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerPlayerViews(playerIds)
+                ),
+              getBarbActivationVisionSignature: () =>
+                mainThreadTasks.trackSync("system_get_barb_activation_vision_signature", undefined, () =>
+                  runtime.getBarbActivationVisionSignature()
+                ),
+              exportBarbActivationVisibleUnion: () =>
+                mainThreadTasks.trackSync("system_export_barb_activation_visible_union", undefined, () =>
+                  runtime.exportBarbActivationVisibleUnion()
+                )
+            },
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
@@ -2091,61 +1874,88 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // The same filter is applied to each player's cached snapshot so the
       // server-held cache stays consistent with what the player can actually see.
       //
-      // Trade-off: we lose the gateway's preSerializeBroadcast optimisation
-      // (each subscriber now gets their own JSON.stringify) and the simulation
-      // emits N proto events per command instead of one. With the lazy filter
-      // (runtime.filterTileDeltasForPlayer) the added sim cost is roughly
-      // O(N_subscribed × deltas × territory) — at staging load ~1% of one
-      // core on top of the existing snapshot-cache rebuild that was already
-      // O(N_subscribed × snapshot_size). If subscriber count grows large
-      // enough that gateway per-player serialisation becomes the hot spot,
-      // group subscribers by identical filtered tile-sets and stringify once
-      // per group, or maintain a per-player incremental visible-tile set so
-      // the filter is O(deltas) instead of O(deltas × territory).
+      // Cost per event: O(N_subscribed × deltas) for the visibility-coverage
+      // lookup (incremental refcounted cache, O(1) per delta per player),
+      // plus O(G × M × sparse_delta_fields) for serialising only the changed
+      // fields — where G is the number of unique visible tile-sets across all
+      // subscribers. Grouping subscribers by identical filtered tile-sets means
+      // the proto serialization (tile_deltas + tileDeltas + JSON) runs once per
+      // unique set and the result is shared by reference across all players in
+      // that group. Events are coalesced per command resolution
+      // (CommandDeltaBuffer) so 3-5 individual batches become 1.
+      // Capture-reveal-only deltas skip yield, economy, and town-enrichment
+      // computation.
       if (event.eventType === "TILE_DELTA_BATCH") {
-        const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-        let maxFilterMs = 0;
-        let slowestFilterPlayerId = "";
-        let subscriberCount = 0;
-        for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-          const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-          const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
-          if (slowTileDeltaFilterWarnMs > 0) {
-            const filterMs = Date.now() - filterStartedAt;
-            subscriberCount += 1;
-            if (filterMs > maxFilterMs) {
-              maxFilterMs = filterMs;
-              slowestFilterPlayerId = subscribedPlayerId;
+        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
+          const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
+          let maxFilterMs = 0;
+          let slowestFilterPlayerId = "";
+          let subscriberCount = 0;
+          // Cache proto events keyed by the filtered delta set so subscribers
+          // with identical visible tiles share one serialization pass.
+          const protoCache = new Map<string, ProtoSimulationEvent>();
+          for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+            const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
+            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
+            if (slowTileDeltaFilterWarnMs > 0) {
+              const filterMs = Date.now() - filterStartedAt;
+              subscriberCount += 1;
+              if (filterMs > maxFilterMs) {
+                maxFilterMs = filterMs;
+                slowestFilterPlayerId = subscribedPlayerId;
+              }
+            }
+            const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+            if (cachedSnapshot && filteredDeltas.length > 0) {
+              setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
+            }
+            if (filteredDeltas.length === 0) continue;
+            // Build a cheap group key: "x:y" per tile (optionally suffixed
+            // ":r"), joined by "|". The ":r" suffix marks terrain-only
+            // redacted stubs (lock targets owned by another player) so full
+            // and redacted content never collide in the cache. Redaction only
+            // fires when the original delta had a truthy ownerId (see
+            // tile-delta-visibility-filter.ts), so a delta that never carried
+            // ownerId always serializes identically for every viewer — safe
+            // to key the same way even though the ":r" label is technically
+            // inexact for that case. Use for-of to avoid index-access
+            // narrowing issues.
+            let groupKey = "";
+            let groupKeyFirst = true;
+            for (const d of filteredDeltas) {
+              if (!groupKeyFirst) groupKey += "|";
+              groupKeyFirst = false;
+              groupKey += `${d.x}:${d.y}`;
+              if (!("ownerId" in d)) groupKey += ":r";
+            }
+            const cachedProto = protoCache.get(groupKey);
+            if (cachedProto) {
+              const perPlayerEvent = { ...cachedProto, player_id: subscribedPlayerId };
+              for (const stream of eventStreams) stream.write(perPlayerEvent);
+            } else {
+              const perPlayerEvent = toProtoEvent({
+                ...event,
+                playerId: subscribedPlayerId,
+                tileDeltas: filteredDeltas
+              });
+              protoCache.set(groupKey, perPlayerEvent);
+              for (const stream of eventStreams) stream.write(perPlayerEvent);
             }
           }
-          const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-          if (cachedSnapshot && filteredDeltas.length > 0) {
-            setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
+          if (slowTileDeltaFilterWarnMs > 0) {
+            const totalFanoutMs = Date.now() - fanoutStartedAt;
+            if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
+              recordLagDiagnostic("warn", "tile_delta_filter_slow", {
+                commandId: event.commandId,
+                deltaCount: event.tileDeltas.length,
+                subscriberCount,
+                totalFanoutMs,
+                maxFilterMs,
+                slowestFilterPlayerId
+              });
+            }
           }
-          if (filteredDeltas.length === 0) continue;
-          const perPlayerEvent = toProtoEvent({
-            ...event,
-            playerId: subscribedPlayerId,
-            tileDeltas: filteredDeltas
-          });
-          for (const stream of eventStreams) stream.write(perPlayerEvent);
-        }
-        if (slowTileDeltaFilterWarnMs > 0) {
-          const totalFanoutMs = Date.now() - fanoutStartedAt;
-          if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
-            recordLagDiagnostic("warn", "tile_delta_filter_slow", {
-              commandId: event.commandId,
-              deltaCount: event.tileDeltas.length,
-              subscriberCount,
-              totalFanoutMs,
-              maxFilterMs,
-              slowestFilterPlayerId,
-              latestEventLoopLagMs,
-              queueDepths: runtime.queueDepths()
-            });
-          }
-        }
-        return;
+        }); return;
       }
       if (isWireInternalEvent(event)) return;
       if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
@@ -2155,7 +1965,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   attachRuntimeEventHandlers();
   if (shouldRepairZeroGrossIncomeSettlements) {
-    runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState));
+    for (const id of runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState)).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
   }
   startAutopilots();
   const replaceRuntime = ({
@@ -2175,7 +1985,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
-    runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]);
+    for (const id of runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
     startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
@@ -2226,6 +2036,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
+        trackSyncMainThreadTask: mainThreadTasks.trackSync,
         onCaptureRevealBuilt: captureRevealBuildSample,
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
@@ -2320,6 +2131,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             return;
           }
           simTracer.stage("sim_submit_durable_start", { queueDepths: runtime.queueDepths() });
+          commandApplyTracker.track(command.commandId);
           await submitDurableCommand(command);
           simTracer.stage("sim_submit_durable_end", { queueDepths: runtime.queueDepths() });
           const acceptDurationMs = Date.now() - acceptStartedAt;
@@ -2931,14 +2743,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             activePlayerCount: activePlayers.size,
             mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now)
               .sort((a, b) => (b.active ? b.elapsedMs : b.durationMs) - (a.active ? a.elapsedMs : a.durationMs))
-              .slice(0, 8)
+              .slice(0, 16)
           });
         }
       }, 100);
       metricsTicker = setInterval(() => {
         simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
         eventLoopWindowMaxMs = 0;
-        simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
+        const queueBacklogMs = runtime.queueBacklogMs();
+        simulationMetrics.setSimHumanInteractiveBacklogMs(queueBacklogMs.human_interactive);
+        simulationMetrics.setSimBackgroundQueueBacklogMs({
+          ai: queueBacklogMs.ai,
+          system: queueBacklogMs.system,
+          humanNoninteractive: queueBacklogMs.human_noninteractive
+        });
+        simulationMetrics.setSimCommandApplyTrackEvictedTotal(commandApplyTracker.evictedTotal());
         simulationMetrics.setSimCpuPercent(sampleCpuPercent());
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
@@ -3176,7 +2995,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     /** Snapshot of the recent lag-diagnostic ring buffer for death forensics. */
     lagDiagSnapshot(): readonly LagDiagEntry[] {
-      return lagDiagRing.slice();
+      return getLagDiagRing();
     }
   };
 };

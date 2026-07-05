@@ -13,20 +13,58 @@ import type { SimulationSnapshotSections, SimulationSnapshotStore, StoredSimulat
 import type { SqliteSimulationSnapshotStore } from "../sqlite-snapshot-store/sqlite-snapshot-store.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
 
-type AckMessage = { id: number; ok: true } | { id: number; ok: false; error: string };
+type AckMessage =
+  | { id: number; ok: true; handlerStartedAtMs?: number; workMs?: number }
+  | { id: number; ok: false; error: string; handlerStartedAtMs?: number; workMs?: number };
+
+export type WriterWriteTiming = {
+  op: string;
+  /** Time between this channel's postMessage and the worker's handler actually starting. Large values mean the
+   * worker was still busy with a prior message (or GC/CPU contention), NOT that this op's SQL was slow. */
+  queueWaitMs: number;
+  /** Time the worker spent inside the handler (the actual synchronous SQL work) once it started. */
+  workMs: number;
+  /** Full round trip as seen by the sim thread — queueWaitMs + workMs + postMessage/dispatch overhead. */
+  totalMs: number;
+};
 
 export class SqliteWriterChannel {
   private readonly worker: Worker;
   private nextId = 0;
-  private readonly pending = new Map<number, { resolve: () => void; reject: (e: Error) => void }>();
+  private readonly pending = new Map<
+    number,
+    { op: string; sentAtMs: number; resolve: () => void; reject: (e: Error) => void }
+  >();
+  private readonly onWriteTimed: ((sample: WriterWriteTiming) => void) | undefined;
+  // Gate applied BEFORE constructing a WriterWriteTiming sample or reading
+  // Date.now() a second time — appendEvent/markAccepted/etc. fire on every
+  // command, far more often than other trackSync-style instrumentation in
+  // this codebase, so the fast (not-slow) path must stay allocation-free.
+  private readonly slowThresholdMs: number;
 
-  constructor(dbPath: string) {
+  constructor(
+    dbPath: string,
+    options: { onWriteTimed?: (sample: WriterWriteTiming) => void; slowThresholdMs?: number } = {}
+  ) {
+    this.onWriteTimed = options.onWriteTimed;
+    this.slowThresholdMs = Math.max(0, options.slowThresholdMs ?? 0);
     const workerUrl = resolveWorkerEntryUrl("../sqlite-writer-worker.js", import.meta.url);
     this.worker = new Worker(workerUrl, { workerData: { dbPath } });
     this.worker.on("message", (msg: AckMessage) => {
       const entry = this.pending.get(msg.id);
       if (!entry) return;
       this.pending.delete(msg.id);
+      if (this.onWriteTimed && typeof msg.handlerStartedAtMs === "number" && typeof msg.workMs === "number") {
+        const queueWaitMs = Math.max(0, msg.handlerStartedAtMs - entry.sentAtMs);
+        if (queueWaitMs >= this.slowThresholdMs || msg.workMs >= this.slowThresholdMs) {
+          this.onWriteTimed({
+            op: entry.op,
+            queueWaitMs,
+            workMs: msg.workMs,
+            totalMs: Math.max(0, Date.now() - entry.sentAtMs)
+          });
+        }
+      }
       if (msg.ok) {
         entry.resolve();
       } else {
@@ -45,10 +83,10 @@ export class SqliteWriterChannel {
     });
   }
 
-  post(msg: object): Promise<void> {
+  post(msg: { op: string } & Record<string, unknown>): Promise<void> {
     const id = this.nextId++;
     return new Promise<void>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { op: msg.op, sentAtMs: Date.now(), resolve, reject });
       this.worker.postMessage({ ...msg, id });
     });
   }
@@ -63,18 +101,27 @@ export class SqliteWriterChannel {
 export class WriterBackedEventStore implements SimulationEventStore {
   constructor(
     private readonly channel: SqliteWriterChannel,
-    private readonly reader: SimulationEventStore
+    private readonly reader: SimulationEventStore,
+    private readonly onSyncAppendDuration?: (stringifyMs: number, syncMs: number, eventType: string, commandId: string) => void
   ) {}
 
   async appendEvent(event: SimulationEvent, createdAt: number): Promise<void> {
-    await this.channel.post({
+    const stringifyStartedAt = Date.now();
+    const payloadJson = JSON.stringify(event);
+    const stringifyMs = Date.now() - stringifyStartedAt;
+    const promise = this.channel.post({
       op: "appendEvent",
       commandId: event.commandId,
       playerId: event.playerId,
       eventType: event.eventType,
-      payloadJson: JSON.stringify(event),
+      payloadJson,
       createdAt
     });
+    // Measured before the await — this is the actual main-thread-blocking
+    // cost (JSON.stringify + worker.postMessage structured clone). The await
+    // below yields; it must not be included in this measurement.
+    this.onSyncAppendDuration?.(stringifyMs, Date.now() - stringifyStartedAt, event.eventType, event.commandId);
+    await promise;
   }
 
   loadAllEvents(): Promise<StoredSimulationEvent[]> { return this.reader.loadAllEvents(); }
