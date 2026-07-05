@@ -844,6 +844,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -2052,7 +2053,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             return true;
           }
           return false;
-        }
+        },
+        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
       });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
