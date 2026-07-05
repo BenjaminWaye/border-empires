@@ -113,7 +113,7 @@ import {
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
-  type VisibilityAuditSample
+  type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "../tile-yield-view/tile-yield-view.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
@@ -2593,8 +2593,7 @@ export class SimulationRuntime {
   }
 
   filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
-    tileDeltas: readonly TDelta[],
-    playerId: string
+    tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
   ): TDelta[] {
     return filterTileDeltasForPlayerImpl(
       {
@@ -2609,10 +2608,10 @@ export class SimulationRuntime {
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
-      playerId
+      playerId,
+      options
     );
   }
-
 
   private strategicProductionPerMinuteForPlayer(playerId: string): Record<StrategicResourceKey, number> {
     return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
@@ -3759,12 +3758,13 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-      // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-      ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-      ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
+      // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
+      // own-property existence to detect clears (uncapture, structure removal).
+      ownerId: tile.ownerId ?? undefined,
+      ownershipState: tile.ownershipState ?? undefined,
+      frontierDecayAt: tile.frontierDecayAt ?? undefined,
+      frontierDecayKind: tile.frontierDecayKind ?? undefined,
+      breachShockUntil: tile.breachShockUntil ?? undefined,
       ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
