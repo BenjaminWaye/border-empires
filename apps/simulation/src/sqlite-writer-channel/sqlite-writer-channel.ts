@@ -56,7 +56,15 @@ export class SqliteWriterChannel {
   private readonly maxPending: number;
   private readonly onQueueDepthChanged: ((depth: number) => void) | undefined;
   private readonly onBackpressureWait: (() => void) | undefined;
-  private drainWaiters: Array<() => void> = [];
+  private drainWaiters: Array<{ resolve: () => void; reject: (e: Error) => void }> = [];
+  // Set once the worker dies. A caller queued in drainWaiters at that point
+  // must be REJECTED, not released to proceed — if we just resolved it, its
+  // post() would go on to call postMessage on a dead worker and construct a
+  // new pending entry that no "message"/"error"/"exit" handler will ever
+  // touch again, hanging the caller's await forever. Also checked at the top
+  // of post() so a call made entirely after death fails fast instead of
+  // silently hanging the same way.
+  private fatalError: Error | undefined;
 
   constructor(
     dbPath: string,
@@ -99,18 +107,21 @@ export class SqliteWriterChannel {
       }
     });
     this.worker.on("error", (err) => {
+      this.fatalError = err;
       for (const entry of this.pending.values()) entry.reject(err);
       this.pending.clear();
       this.onQueueDepthChanged?.(0);
-      this.releaseAllDrainWaiters();
+      this.rejectAllDrainWaiters(err);
     });
     this.worker.on("exit", (code) => {
-      if (this.pending.size === 0) return;
       const err = new Error(`sqlite-writer-worker exited unexpectedly (code ${code})`);
-      for (const entry of this.pending.values()) entry.reject(err);
-      this.pending.clear();
-      this.onQueueDepthChanged?.(0);
-      this.releaseAllDrainWaiters();
+      this.fatalError ??= err;
+      if (this.pending.size > 0) {
+        for (const entry of this.pending.values()) entry.reject(err);
+        this.pending.clear();
+        this.onQueueDepthChanged?.(0);
+      }
+      this.rejectAllDrainWaiters(err);
     });
   }
 
@@ -118,21 +129,22 @@ export class SqliteWriterChannel {
     if (this.drainWaiters.length === 0) return;
     if (this.pending.size >= this.maxPending) return;
     const waiter = this.drainWaiters.shift();
-    waiter?.();
+    waiter?.resolve();
   }
 
-  private releaseAllDrainWaiters(): void {
+  private rejectAllDrainWaiters(err: Error): void {
     const waiters = this.drainWaiters;
     this.drainWaiters = [];
-    for (const waiter of waiters) waiter();
+    for (const waiter of waiters) waiter.reject(err);
   }
 
   private waitForDrain(): Promise<void> {
     this.onBackpressureWait?.();
-    return new Promise<void>((resolve) => this.drainWaiters.push(resolve));
+    return new Promise<void>((resolve, reject) => this.drainWaiters.push({ resolve, reject }));
   }
 
   async post(msg: { op: string } & Record<string, unknown>): Promise<void> {
+    if (this.fatalError) throw this.fatalError;
     if (this.pending.size >= this.maxPending) {
       await this.waitForDrain();
     }

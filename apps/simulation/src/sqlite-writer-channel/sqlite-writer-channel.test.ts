@@ -119,4 +119,50 @@ describe("SqliteWriterChannel backpressure", () => {
     db.close();
     expect(rows.map((r) => r.command_id)).toEqual(commandIds);
   });
+
+  it("rejects (never hangs) callers queued behind the cap when the worker dies", async () => {
+    const dbPath = makeDb();
+    channel = new SqliteWriterChannel(dbPath, { maxPending: 1 });
+
+    // First post occupies the only slot; it never gets a chance to be acked
+    // because we kill the worker immediately after.
+    const firstPost = channel.post({
+      op: "appendEvent",
+      commandId: "cmd-occupies-slot",
+      playerId: "player-1",
+      eventType: "TILE_YIELD_ANCHOR_BATCH",
+      payloadJson: "{}",
+      createdAt: Date.now()
+    });
+    // Second post is forced to queue behind the cap (drainWaiters).
+    const queuedPost = channel.post({
+      op: "appendEvent",
+      commandId: "cmd-queued-behind-cap",
+      playerId: "player-1",
+      eventType: "TILE_YIELD_ANCHOR_BATCH",
+      payloadJson: "{}",
+      createdAt: Date.now()
+    });
+
+    await channel.terminate();
+
+    // Before the fix: queuedPost would resolve past waitForDrain() and then
+    // call postMessage on a dead worker, hanging forever with no ack ever
+    // coming. It must reject instead.
+    await expect(queuedPost).rejects.toThrow();
+    await expect(firstPost).rejects.toThrow();
+
+    // A post() made after the worker is already gone must also fail fast,
+    // not hang trying to talk to a dead worker.
+    await expect(
+      channel.post({
+        op: "appendEvent",
+        commandId: "cmd-after-death",
+        playerId: "player-1",
+        eventType: "TILE_YIELD_ANCHOR_BATCH",
+        payloadJson: "{}",
+        createdAt: Date.now()
+      })
+    ).rejects.toThrow();
+  });
 });
