@@ -112,6 +112,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simSnapshotPruneFailedTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
+  let simBarbVisionUnionRecomputeThrottledTotal = 0;
   let simReplayRecordedCommandHistory = 0;
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
@@ -175,6 +176,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simSnapshotPruneFailedTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
+    simBarbVisionUnionRecomputeThrottledTotal,
     simReplayRecordedCommandHistory,
     simReplayHistoryEvictedTotal,
     simReplayServerEventsSkippedTotal,
@@ -318,6 +320,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     // cap — zero forever means backpressure never engages under normal load.
     incrementSimWriterQueueBackpressureWait(): void {
       simWriterQueueBackpressureWaitTotal += 1;
+    },
+    // Fires each time ensureVisionUnionFresh skips a recompute because the
+    // signature changed before the min-interval floor elapsed — zero forever
+    // means the throttle never actually engages under real load.
+    incrementSimBarbVisionUnionRecomputeThrottled(): void {
+      simBarbVisionUnionRecomputeThrottledTotal += 1;
     },
     setReplayCacheStats(stats: {
       recordedCommandHistorySize: number;
