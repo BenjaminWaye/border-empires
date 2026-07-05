@@ -19,10 +19,34 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.05.1",
+  version: "2026.07.05.2",
   title: "What's New",
-  summary: "Fixed frontier tiles cut off by encirclement not updating on the map until refresh.",
+  summary: "Fixed a captured muster-flag tile briefly showing as neutral, restored the Waterworks food radius bonus on live tile collection and broadcasts, lowered the manpower cost of attacking undefended frontier land, and fixed frontier tiles cut off by encirclement not updating on the map until refresh.",
   entries: [
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Captured tiles no longer flash neutral when they carried an enemy muster flag",
+      why: "Capturing a tile that had an enemy muster flag on it sent a follow-up 'clear the flag' update that omitted the tile's owner fields entirely, instead of including the new owner like every other muster-clearing update in the codebase does. Depending on how a client merged that update, the freshly captured tile could render unowned right after the correct capture update.",
+      changes: [
+        "The muster-flag-clear update fired on capture (and on losing your own origin tile in a counter-attack) now always includes the tile's current owner and ownership state, matching the two other call sites that already did this correctly."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Waterworks food bonus now applies to live tile collection and tile updates, not just background income ticks",
+      why: "The Waterworks +50% Farmstead food radius bonus was correctly modeled and applied during periodic background income accrual, but the code path used when a player actually clicks Collect on a tile, and the code path used to build the live tile-update broadcast, both built their own copy of the yield context and forgot to forward the Waterworks tile set into it -- silently dropping the bonus for anything except the background tick. The initial map snapshot/bootstrap view had the same gap.",
+      changes: [
+        "Collecting a Farmstead tile's yield, the live tile-update broadcast, and the initial map snapshot all now apply the Waterworks +50% food bonus consistently with background income ticks."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Attacking undefended frontier land now costs much less mustered manpower",
+      why: "Frontier-owned tiles (claimed but not yet settled) have zero effective defense in combat -- they always fall to any attack, fort or no fort, until the tile is actually settled. Despite that, attacking one under the mustering system still charged the full settled-attack manpower floor (60), the same cost as attacking a heavily fortified settled town.",
+      changes: [
+        "Attacking a frontier (un-settled) target now costs a low flat mustered-manpower amount, similar to a barbarian raid, regardless of any fort built on that tile -- forts only raise the attack cost once their tile is actually settled."
+      ]
+    },
     {
       introducedIn: "2026.07.05.1",
       title: "Cut-off frontier tiles now update the map immediately",
