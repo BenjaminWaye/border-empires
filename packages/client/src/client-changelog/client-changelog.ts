@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.01.2",
+  version: "2026.07.04.0",
   title: "What's New",
-  summary: "Census Hall now has its own building model on the map.",
+  summary: "Barbarian ghost tiles no longer persist on the map after the barbarian territory shifts.",
   entries: [
+    {
+      introducedIn: "2026.07.04.0",
+      title: "Barbarian ghost tiles cleaned up on territory movement",
+      why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
+      changes: [
+        "The simulation's visibility filter now lets ownership-clearing deltas through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
+      ]
+    },
     {
       introducedIn: "2026.07.01.2",
       title: "Census Hall has a new building model",

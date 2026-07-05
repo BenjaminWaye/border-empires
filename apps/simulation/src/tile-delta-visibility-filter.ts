@@ -210,7 +210,13 @@ export const filterTileDeltasForPlayer = <
         if (auditEnabled) reasons.push("lock-target");
       }
     }
-    if (!visible) continue;
+    if (!visible) {
+      // Ownership-clearing deltas must always reach the client so stale
+      // ownership (e.g. barbarian ghosts from territory movement) is cleaned
+      // up even when the tile has fallen out of the player's visible area.
+      const ownerIdCleared = "ownerId" in delta && !delta.ownerId;
+      if (!ownerIdCleared) continue;
+    }
 
     const ownedByOther = Boolean(delta.ownerId) && !allyAndSelfIds.has(delta.ownerId as string);
     if (viaLockTargetOnly && ownedByOther) {
