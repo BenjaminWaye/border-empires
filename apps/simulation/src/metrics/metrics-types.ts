@@ -127,6 +127,8 @@ export type SimulationMetricsSnapshot = {
   simWriterQueueBackpressureWaitTotal: number;
   /** Times ensureVisionUnionFresh skipped a recompute due to the min-interval throttle; 0 means it never engaged. */
   simBarbVisionUnionRecomputeThrottledTotal: number;
+  /** Times the tile-shedding tick skipped emitPlayerStateUpdate for an AI player; 0 means the skip never engaged. */
+  simPlayerStateUpdateSkippedAiTotal: number;
   /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */
   simReplayRecordedCommandHistory: number;
   /** Replay-cache hard-cap evictions; >0 means a server commandId prefix is leaking past the denylist. */

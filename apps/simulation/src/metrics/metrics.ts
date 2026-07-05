@@ -113,6 +113,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
   let simBarbVisionUnionRecomputeThrottledTotal = 0;
+  let simPlayerStateUpdateSkippedAiTotal = 0;
   let simReplayRecordedCommandHistory = 0;
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
@@ -177,6 +178,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
     simBarbVisionUnionRecomputeThrottledTotal,
+    simPlayerStateUpdateSkippedAiTotal,
     simReplayRecordedCommandHistory,
     simReplayHistoryEvictedTotal,
     simReplayServerEventsSkippedTotal,
@@ -326,6 +328,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     // means the throttle never actually engages under real load.
     incrementSimBarbVisionUnionRecomputeThrottled(): void {
       simBarbVisionUnionRecomputeThrottledTotal += 1;
+    },
+    // Fires each time the tile-shedding tick skips emitPlayerStateUpdate for
+    // an AI player — zero forever means the skip never engages.
+    incrementSimPlayerStateUpdateSkippedAi(): void {
+      simPlayerStateUpdateSkippedAiTotal += 1;
     },
     setReplayCacheStats(stats: {
       recordedCommandHistorySize: number;
