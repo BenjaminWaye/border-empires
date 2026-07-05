@@ -191,7 +191,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         eventType: "TILE_DELTA_BATCH",
         commandId: `${lock.commandId}:bc`,
         playerId: "__broadcast__",
-        tileDeltas: [{ x: resolvedTarget.x, y: resolvedTarget.y, musterJson: "" }]
+        tileDeltas: [{ x: resolvedTarget.x, y: resolvedTarget.y, ownerId: resolvedTarget.ownerId, ownershipState: resolvedTarget.ownershipState, musterJson: "" }]
       });
     }
     if (lock.playerId === "barbarian-1") context.applyBarbarianWalkOrMultiply(lock, previousTarget);
@@ -270,7 +270,7 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
       eventType: "TILE_DELTA_BATCH",
       commandId: `${lock.commandId}:bc`,
       playerId: "__broadcast__",
-      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, musterJson: "" }]
+      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, ownerId: resolvedOrigin.ownerId, ownershipState: resolvedOrigin.ownershipState, musterJson: "" }]
     });
   }
 }
