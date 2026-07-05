@@ -1901,9 +1901,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           const protoCache = new Map<string, ProtoSimulationEvent>();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, {
-              includeOwnershipClears: true
-            });
+            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
               subscriberCount += 1;
