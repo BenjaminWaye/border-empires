@@ -236,6 +236,37 @@ export class TileDeltaStringifyCache {
     return this.entries.get(tileKey)?.lastEmitted;
   }
 
+  /**
+   * Read-only check: would sparseEmit produce a delta with real field
+   * changes for this tile, or is it identical to the last emission?
+   * Used by callers that re-touch a tile unconditionally (e.g. dock-linked
+   * reveal expansion) and need to avoid rebroadcasting a no-op every tick.
+   * Returns true (treat as changed) when there is no prior emission, since
+   * that means this tile has never been sent and must go out.
+   */
+  hasChangedSinceLastEmit(tileKey: string, tile: DomainTileState): boolean {
+    const last = this.entries.get(tileKey)?.lastEmitted;
+    if (!last) return true;
+    return (
+      tile.ownerId !== last.ownerId ||
+      tile.ownershipState !== last.ownershipState ||
+      tile.dockId !== last.dockId ||
+      tile.terrain !== last.terrain ||
+      tile.resource !== last.resource ||
+      tile.frontierDecayAt !== last.frontierDecayAt ||
+      tile.frontierDecayKind !== last.frontierDecayKind ||
+      tile.breachShockUntil !== last.breachShockUntil ||
+      tile.town !== last.townRef ||
+      tile.fort !== last.fortRef ||
+      tile.observatory !== last.observatoryRef ||
+      tile.siegeOutpost !== last.siegeOutpostRef ||
+      tile.economicStructure !== last.economicStructureRef ||
+      tile.sabotage !== last.sabotageRef ||
+      tile.shardSite !== last.shardSiteRef ||
+      tile.muster !== last.musterRef
+    );
+  }
+
   setLastEmitted(tileKey: string, tile: DomainTileState): void {
     let entry = this.entries.get(tileKey);
     if (!entry) {

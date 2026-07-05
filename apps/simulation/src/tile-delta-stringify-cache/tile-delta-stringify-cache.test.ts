@@ -231,4 +231,41 @@ describe("TileDeltaStringifyCache", () => {
     expect(second.ownershipState).toBe("SETTLED");
     expect(second.dockId).toBe("dock-1");
   });
+
+  describe("hasChangedSinceLastEmit", () => {
+    it("returns true when the tile has never been emitted", () => {
+      const cache = new TileDeltaStringifyCache();
+      const tile = makeBaseTile();
+      expect(cache.hasChangedSinceLastEmit("1,1", tile)).toBe(true);
+    });
+
+    it("returns false for a tile re-touched with no real changes since last emission", () => {
+      const cache = new TileDeltaStringifyCache();
+      const tile: DomainTileState = { ...makeBaseTile() };
+      cache.setLastEmitted("1,1", tile);
+
+      // Same tile object re-touched by e.g. expandTileDeltasWithLinkedDocks
+      // on an unrelated triggering delta elsewhere in the batch.
+      expect(cache.hasChangedSinceLastEmit("1,1", { ...tile })).toBe(false);
+    });
+
+    it("returns true once a tracked field actually changes", () => {
+      const cache = new TileDeltaStringifyCache();
+      const tile: DomainTileState = { ...makeBaseTile(), ownerId: undefined };
+      cache.setLastEmitted("1,1", tile);
+
+      const changed: DomainTileState = { ...tile, ownerId: "barbarian-1", ownershipState: "SETTLED" };
+      expect(cache.hasChangedSinceLastEmit("1,1", changed)).toBe(true);
+    });
+
+    it("stays false across repeated no-op re-touches (the dock-reveal flood scenario)", () => {
+      const cache = new TileDeltaStringifyCache();
+      const tile: DomainTileState = { ...makeBaseTile() };
+      cache.setLastEmitted("1,1", tile);
+
+      for (let tick = 0; tick < 5; tick += 1) {
+        expect(cache.hasChangedSinceLastEmit("1,1", { ...tile })).toBe(false);
+      }
+    });
+  });
 });
