@@ -342,6 +342,48 @@ export const dockConnectedOwnedSettledCount = (
   return connectedCount;
 };
 
+/**
+ * Additive gold/min granted per connected owned dock when a dock is
+ * "supported" by an adjacent (8-neighbor) owned, active CUSTOMS_HOUSE
+ * (Harbor Exchange). This was previously all-cost/no-benefit in the
+ * rewrite — CUSTOMS_HOUSE_GOLD_UPKEEP was charged with no matching income.
+ * See docs/plans/2026-07-06-radius-yield-delivery.md Phase 5.
+ */
+export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1;
+
+/**
+ * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by
+ * `playerId`, SETTLED, with an active CUSTOMS_HOUSE — i.e. the dock is
+ * "supported" by a Harbor Exchange. Mirrors legacy `supportedStructureAtDock`
+ * adjacency semantics (legacy-snapshot-economy.ts:342-350) but scoped to
+ * CUSTOMS_HOUSE only.
+ */
+export const dockSupportedByCustomsHouse = (
+  dockTileKey: string,
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>
+): boolean => {
+  const [rawX, rawY] = dockTileKey.split(",");
+  const cx = Number(rawX);
+  const cy = Number(rawY);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return false;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighbor = tiles.get(keyFor(cx + dx, cy + dy));
+      if (
+        neighbor?.ownerId === playerId &&
+        neighbor.ownershipState === "SETTLED" &&
+        neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
+        neighbor.economicStructure.status === "active"
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 export const dockBaseGoldPerMinuteForPlayer = (
   tile: DomainTileState,
   player: EconomyPlayer,
@@ -349,9 +391,13 @@ export const dockBaseGoldPerMinuteForPlayer = (
 ): number => {
   if (!tile.dockId || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") return 0;
   const connectedDockCount = context ? dockConnectedOwnedSettledCount(keyFor(tile.x, tile.y), player.id, context) : 0;
-  return (
+  const base =
     DOCK_INCOME_PER_MIN *
     dockGoldOutputMultiplierForPlayer(player) *
-    (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount)
-  );
+    (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
+  const harborExchangeBonus =
+    context && dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles)
+      ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
+      : 0;
+  return base + harborExchangeBonus;
 };

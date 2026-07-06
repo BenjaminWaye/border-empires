@@ -80,6 +80,18 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.07.06.0",
+      title: "Waterworks, Foundry, and Harbor Exchange bonuses now display correctly",
+      why: "Waterworks/Foundry radius bonuses and the advanced synthesizer upgrades were computed correctly on the server but never sent to the client, so the map under-reported a boosted Farmstead's food (108 instead of 162) or a boosted Mine's iron. Mine and Camp were also missing their own output bonus entirely, and Harbor Exchange charged upkeep with no income to offset it.",
+      changes: [
+        "Farmsteads within range of an active Waterworks now show their true boosted food rate (162/day) immediately, including the moment the Farmstead itself is built.",
+        "Mines within range of an active Foundry now show their true boosted iron/crystal rate, and Mine/Camp now correctly get their own +50% output bonus.",
+        "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
+        "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
+        "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
+      ]
+    },
+    {
       introducedIn: "2026.07.05.3",
       title: "Barbarian ghost tiles cleaned up on territory movement",
       why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",

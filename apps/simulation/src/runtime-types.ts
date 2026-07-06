@@ -17,6 +17,8 @@ export type RuntimeTileYieldEconomyContext = {
   firstThreeTownKeys: Set<string>;
   /** Precomputed tile keys of active WATERWORKS structures owned by this player. */
   waterworksKeys: Set<string>;
+  /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
+  foundryKeys: Set<string>;
 };
 
 export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;

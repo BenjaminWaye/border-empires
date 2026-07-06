@@ -9,12 +9,16 @@
  */
 
 import {
+  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_IRONWORKS_IRON_PER_DAY,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_INCOME_PER_MIN,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   IRONWORKS_IRON_PER_DAY,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
+  STRUCTURE_OUTPUT_MULT,
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE
 } from "@border-empires/game-domain";
@@ -38,22 +42,26 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
   }
 };
 
-// Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput
+// Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput. These
+// structure types (ADVANCED synths, MINE/CAMP, FOUNDRY-boosted MINE) require
+// server-authoritative yieldRate/yieldCap (see tileYieldNeedsServerAuthority
+// on the sim side) — this fallback only runs before the server value arrives
+// or as a last resort, so it now matches the corrected server constants
+// rather than intentionally under-reporting.
 const converterDailyOutput = (structureType: string | undefined): Record<string, number> => {
-  // Sim's tile-yield-view.ts:converterDailyOutput currently returns
-  // the basic value for ADVANCED_* too. Match that here so the
-  // client display equals what the sim produces. If/when the sim is
-  // fixed to honor ADVANCED_* constants, update this in lockstep.
   switch (structureType) {
     case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER":
       return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
+    case "ADVANCED_FUR_SYNTHESIZER":
+      return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
     case "IRONWORKS":
-    case "ADVANCED_IRONWORKS":
       return { IRON: IRONWORKS_IRON_PER_DAY };
+    case "ADVANCED_IRONWORKS":
+      return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
     case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+    case "ADVANCED_CRYSTAL_SYNTHESIZER":
+      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     case "FARMSTEAD":
       return { FOOD: 48 * 0.5 };
     default:
@@ -118,6 +126,15 @@ export const deriveTileYieldRate = (
     // Additive merge so FARMSTEAD on a FARM tile gives 48+24=72, not 24.
     for (const [key, value] of Object.entries(converterOutput)) {
       strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
+    }
+    // MINE/CAMP: active structure multiplies the tile's base resource output
+    // by STRUCTURE_OUTPUT_MULT (matches server tile-yield-view.ts). Foundry's
+    // additional radius boost on MINE cannot be derived locally (no topology
+    // data) and stays server-authoritative.
+    if (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "CAMP") {
+      for (const key of Object.keys(strategicPerDay)) {
+        strategicPerDay[key] = (strategicPerDay[key] ?? 0) * STRUCTURE_OUTPUT_MULT;
+      }
     }
   }
 

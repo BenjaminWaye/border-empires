@@ -218,6 +218,7 @@ const consumeUpkeepFromTileYield = (
       fedTownKeys: economyContext.fedTownKeys,
       firstThreeTownKeys: economyContext.firstThreeTownKeys,
       waterworksKeys: economyContext.waterworksKeys,
+      foundryKeys: economyContext.foundryKeys,
       tiles: ctx.tiles,
       dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
     });
