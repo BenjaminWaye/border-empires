@@ -30,7 +30,7 @@ const PER_TILE_RATE_BY_RESOURCE: Record<StealableResource, number> = {
   IRON: 60 / 1440,
   CRYSTAL: 36 / 1440,
   SUPPLY: 60 / 1440,
-  FOOD: 72 / 1440
+  FOOD: 60 / 1440
 };
 
 export function stolenResourceForCapture(tileResource: string | undefined, structureType?: string): StealableResource | undefined {
