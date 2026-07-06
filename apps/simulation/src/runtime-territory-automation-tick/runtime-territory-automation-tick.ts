@@ -1,6 +1,7 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  AI_AUTO_CLAIM_GOLD_RESERVE,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -85,9 +86,15 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           _claimAnchorScanMs += Date.now() - _tAnchor;
           continue;
         }
+        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold so auto-claim
+        // (which runs every tick, unconditionally) can never outpace the AI's
+        // own income and starve it of the SETTLE_COST needed to convert a
+        // claimed FRONTIER tile into an income-producing town. Human players
+        // keep the original FRONTIER_CLAIM_COST-only floor.
+        const claimGoldFloor = actor.isAi ? AI_AUTO_CLAIM_GOLD_RESERVE : FRONTIER_CLAIM_COST;
         for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
           _claimCandidatesEvaluated++;
-          if (actor.points < FRONTIER_CLAIM_COST) break;
+          if (actor.points < claimGoldFloor) break;
           if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
           const target = input.tiles.get(targetKey);
