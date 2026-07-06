@@ -188,7 +188,9 @@ jobs:
             exit 0
           fi
 
-          git add "${RESULT_FILE}"
+          # docs/load-results/ is gitignored by default (agents historically
+          # dumped scratch output there); force-add just the dated result file.
+          git add -f "${RESULT_FILE}"
           git diff --cached --quiet && echo "Nothing to commit." && exit 0
 
           GATE_STATUS="PASS"
@@ -198,6 +200,11 @@ jobs:
 
           COMMIT_MSG=$'ci: load harness '"${DATE}"$' \u2014 gates '"${GATE_STATUS}"$'\n\nAuto-committed by nightly-load-harness workflow (local fixture run).\nRun: '"${{ github.run_id }}"
           git commit -m "${COMMIT_MSG}"
+
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Not on main (ref=${GITHUB_REF}) — skipping push to avoid fast-forwarding main from a feature branch."
+            exit 0
+          fi
 
           git push origin HEAD:main
 
