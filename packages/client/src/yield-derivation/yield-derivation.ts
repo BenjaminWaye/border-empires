@@ -23,9 +23,9 @@ import {
 const strategicDailyFromResource = (resource: string | undefined): Record<string, number> => {
   switch (resource) {
     case "FARM":
-      return { FOOD: 72 };
-    case "FISH":
       return { FOOD: 48 };
+    case "FISH":
+      return { FOOD: 72 };
     case "IRON":
       return { IRON: 60 };
     case "WOOD":
@@ -55,7 +55,7 @@ const converterDailyOutput = (structureType: string | undefined): Record<string,
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     case "FARMSTEAD":
-      return { FOOD: 72 * 0.5 };
+      return { FOOD: 48 * 0.5 };
     default:
       return {};
   }
@@ -115,7 +115,7 @@ export const deriveTileYieldRate = (
     if (tile.economicStructure.type === "FARMSTEAD" && tile.resource !== "FARM") {
       delete converterOutput.FOOD;
     }
-    // Additive merge so FARMSTEAD on a FARM tile gives 72+36=108, not 36.
+    // Additive merge so FARMSTEAD on a FARM tile gives 48+24=72, not 24.
     for (const [key, value] of Object.entries(converterOutput)) {
       strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
     }

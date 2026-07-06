@@ -19,10 +19,29 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.2",
+  version: "2026.07.06.3",
   title: "What's New",
-  summary: "Your galaxy planet now looks like a real place, and never hides the login screen.",
+  summary: "Fish and grain production rates swapped, plus waypoint UX improvements.",
   entries: [
+    {
+      introducedIn: "2026.07.06.3",
+      title: "Fish tiles now produce more food than grain",
+      why: "Fish was strictly worse than grain — lower production, can't be improved, can't be banked. Swapping the production rates gives fish a clear strategic niche: high flow for immediate population feeding, but still perishable and unimprovable. Grain is now the lower-rate option but bankable and improvable with Farmsteads and Waterworks.",
+      changes: [
+        "Fish tile production increased from 48 to 72 FOOD/day; farm tile production reduced from 72 to 48 FOOD/day.",
+        "Farmstead bonus on farm tiles updated accordingly (48 + 24 = 72/day with Farmstead).",
+        "All structures and techs that reference food rates have been updated to match."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.3",
+      title: "Waypoint replacement from any neutral tile",
+      why: "Setting a waypoint locked you into it — tapping another neutral tile while a waypoint was active did nothing. You had to manually cancel the old waypoint first, then tap the new tile again to set a new one, which was frustrating in fast-paced expansion.",
+      changes: [
+        "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
+        "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
+      ]
+    },
     {
       introducedIn: "2026.07.06.2",
       title: "Galaxy planet is now an animated world, and never blocks the login screen",
@@ -212,16 +231,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.06.30.0",
-      title: "Dock-based 'Launch Attack' no longer silently fails",
-      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
-      changes: [
-        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
-        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
-        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
       title: "Shard collection animation overlay adapts to mobile screen sizes",
       why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
       changes: [
@@ -229,7 +238,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
         "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
       ]
-    },
+    }
   ]
 };
 

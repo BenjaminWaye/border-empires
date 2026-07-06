@@ -113,7 +113,7 @@ import {
 } from "./client-tile-menu-view/client-tile-menu-view.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
-import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -1110,37 +1110,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    if (actionId === "cancel_waypoint") {
-      if (state.waypoint) {
-        const target = state.waypoint.target;
-        state.waypoint = undefined;
-        pushFeed(`Waypoint at (${target.x}, ${target.y}) cancelled.`, "info", "info");
-      }
-      hideTileActionMenu();
-      renderHud();
-      return;
-    }
-    if (actionId === "expand_here" && selected) {
-      const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
-      if (!plan.reachable) {
-        showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
-        hideTileActionMenu();
-        renderHud();
-        return;
-      }
-      state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
-      const summary = plan.attackCount > 0
-        ? `${plan.expandCount} expand + ${plan.attackCount} attack`
-        : `${plan.expandCount} expand`;
-      pushFeed(`Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
-      hideTileActionMenu();
-      // Kick the action queue so topUpFromWaypoint enqueues the first
-      // step immediately. Without this, the waypoint sits idle until
-      // some unrelated action pokes processActionQueue.
-      processActionQueue();
-      renderHud();
-      return;
-    }
+    if (handleWaypointAction({ state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
 
     if (actionId === "settle_connected_frontier" && selected) {
       const origSelected = { x: selected.x, y: selected.y };

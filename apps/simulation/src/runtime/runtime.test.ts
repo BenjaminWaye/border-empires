@@ -2078,13 +2078,13 @@ describe("simulation runtime", () => {
       }
     });
     // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
-    // tiles produce 72/day = 0.05/min each (6 food total). Yield exactly
-    // covers upkeep, so FOOD stockpile stays at 100.
+    // tiles produce 48/day = 0.0333/min each (4 food total). Net -2 food,
+    // so FOOD stockpile drops from 100 to 98.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeCloseTo(100, 1);
+    expect(player?.strategicResources.FOOD).toBeCloseTo(98, 0);
   });
 
   it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
@@ -2198,8 +2198,8 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // The mixed-yield tile (5,5) produces 10 gold/min AND 72 FOOD/day
-    // (~3.05 FOOD over 61 minutes since the anchor was never set).
+    // The mixed-yield tile (5,5) produces 10 gold/min AND 48 FOOD/day
+    // (~2.03 FOOD over 61 minutes since the anchor was never set).
     // GARRISON_HALL draws gold but no food, so accrual consumes gold
     // only — yet the single shared anchor advances, so a later collect
     // sees less than the full 61-minute window of FOOD. This pins the
@@ -2218,8 +2218,8 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeGreaterThan(2);
-    expect(player?.strategicResources.FOOD).toBeLessThan(3);
+    expect(player?.strategicResources.FOOD).toBeGreaterThan(1);
+    expect(player?.strategicResources.FOOD).toBeLessThan(2);
   });
 
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
