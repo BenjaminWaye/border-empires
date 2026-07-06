@@ -14,7 +14,8 @@ Those apps no longer exist; everything below targets the combined app.
 - `GET /admin/runtime/debug-bundle` — recent server events, attack debug,
   attack traces. No auth required.
 - `GET /hq/summary`, `GET /season`, `GET /hq/archives` — season/leaderboard
-  data (tiles, income/min, techs, score per player). No per-player gold.
+  data (tiles, income/min, techs, score per player). No per-player gold —
+  use the token-gated `/admin/players` below for that.
 
 ## Token-gated endpoints
 
@@ -23,8 +24,16 @@ Those apps no longer exist; everything below targets the combined app.
   one scrape URL that lets you compare AI-on vs AI-off runs from a laptop
   without `flyctl ssh`-ing in.
 - `GET /admin/runtime/dashboard` — HTML view of the same data.
+- `GET /admin/players` — per-player stats including gold, which
+  `/hq/summary` doesn't expose: `{ id, name, isAi, gold, settledTiles,
+  ownedTiles, incomePerMinute, techs, manpower }`, for every player
+  (including barbarians, not just competitive players). `settledTiles`
+  counts `SETTLED`-state tiles only; `ownedTiles` also counts
+  `FRONTIER`-state tiles. Source: `runtime.exportPlayerDebugSnapshot()`,
+  the same cheap per-player summary path `/hq/summary` uses — no full
+  tile export.
 
-Both require either:
+All three require either:
 
 ```
 Authorization: Bearer <ADMIN_API_TOKEN>
@@ -66,11 +75,8 @@ Useful series for "is the AI stuck / what is it doing" questions:
 - `sim_ai_autopilot_player_count`, `sim_ai_autopilot_enabled` — AI on/off.
 - `sim_ai_planner_breaches`, `sim_ai_narrow_analyze_capped_total{playerId=}` —
   planner budget pressure per player.
-- No `gold`/treasury gauge is exported. For per-player gold, either read
-  `/hq/summary` (income/min + tiles only, no balance) or query the sim's
-  SQLite state directly via `flyctl ssh`, using node's built-in
-  `node:sqlite` module (there's no `curl`/`sqlite3` binary in the
-  container).
+- No `gold`/treasury gauge is exported via Prometheus. For per-player gold,
+  use `GET /admin/players` (above) instead of `flyctl ssh`-ing into SQLite.
 
 Simulation-only metrics (not proxied, loopback-only, useful when already
 `flyctl ssh`'d in):
