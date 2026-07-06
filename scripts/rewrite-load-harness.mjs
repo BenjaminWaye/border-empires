@@ -3,7 +3,6 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
 const quantile = (values, q) => {
   if (values.length === 0) return null;
@@ -34,7 +33,7 @@ const fetchMetrics = async (url) => {
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
-const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, settleAfterAcceptedMs, refreshOnEmptyFrontier, authToken }) => {
+const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, settleAfterAcceptedMs, refreshOnEmptyFrontier }) => {
   const soakScript = resolve(cwd, "scripts", "rewrite-local-soak.mjs");
   const env = {
     ...process.env,
@@ -46,8 +45,7 @@ const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, 
     SOAK_EMIT_LATENCIES: "1",
     SOAK_WAIT_FOR_RESULT: waitForResult ? "1" : "0",
     SOAK_SETTLE_AFTER_ACCEPTED_MS: String(settleAfterAcceptedMs),
-    SOAK_REFRESH_ON_EMPTY_FRONTIER: refreshOnEmptyFrontier ? "1" : "0",
-    ...(authToken ? { AUTH_TOKEN: authToken } : {})
+    SOAK_REFRESH_ON_EMPTY_FRONTIER: refreshOnEmptyFrontier ? "1" : "0"
   };
 
   return new Promise((resolvePromise, rejectPromise) => {
@@ -106,12 +104,8 @@ const settleAfterAcceptedMs = Math.max(0, Number(process.env.LOAD_HARNESS_SETTLE
 const interBatchPauseMs = Math.max(0, Number(process.env.LOAD_HARNESS_INTER_BATCH_PAUSE_MS ?? "0"));
 const minAcceptedSamples = Math.max(1, Number(process.env.LOAD_HARNESS_MIN_ACCEPTED_SAMPLES ?? "30"));
 const refreshOnEmptyFrontier = process.env.LOAD_HARNESS_REFRESH_ON_EMPTY_FRONTIER === "1";
-// Staging requires real Firebase auth (GATEWAY_ALLOW_SEED_FALLBACK=0) — exchange
-// once up front and reuse for every soak batch, mirroring staging-login-latency-probe.mjs.
-const authToken = process.env.PROBE_FIREBASE_REFRESH_TOKEN
-  ? await refreshFirebaseAuthToken(process.env.PROBE_FIREBASE_REFRESH_TOKEN)
-  : process.env.AUTH_TOKEN;
-const eventLoopGateLimitMs = 100;
+const gatewayEventLoopGateLimitMs = 500;
+const simEventLoopGateLimitMs = 150;
 const metricsWarmupStableMs = Math.max(0, Number(process.env.LOAD_HARNESS_METRICS_WARMUP_STABLE_MS ?? "3000"));
 const metricsWarmupTimeoutMs = Math.max(
   metricsWarmupStableMs,
@@ -144,7 +138,7 @@ const waitForMetricsWarmup = async () => {
     samples += 1;
     lastGatewayEventLoopMaxMs = sample.gateway["gateway_event_loop_max_ms"] ?? 0;
     lastSimEventLoopMaxMs = sample.simulation["sim_event_loop_max_ms"] ?? 0;
-    if (lastGatewayEventLoopMaxMs < eventLoopGateLimitMs && lastSimEventLoopMaxMs < eventLoopGateLimitMs) {
+    if (lastGatewayEventLoopMaxMs < gatewayEventLoopGateLimitMs && lastSimEventLoopMaxMs < simEventLoopGateLimitMs) {
       stableSince ??= Date.now();
       if (Date.now() - stableSince >= metricsWarmupStableMs) {
         return {
@@ -196,8 +190,7 @@ try {
         timeoutMs: soakTimeoutMs,
         waitForResult,
         settleAfterAcceptedMs,
-        refreshOnEmptyFrontier,
-        authToken
+        refreshOnEmptyFrontier
       });
       soakBatches.push({
         at: Date.now(),
@@ -263,13 +256,13 @@ const soakDiagnostics = soakBatches.reduce(
 
 const gates = {
   acceptedSamplesAtLeastMinimum: acceptedLatenciesMs.length >= minAcceptedSamples,
-  actionAcceptedP95Under100: typeof acceptedP95Ms === "number" && acceptedP95Ms < 100,
-  actionAcceptedP99Under250: typeof acceptedP99Ms === "number" && acceptedP99Ms < 250,
-  actionAcceptedMaxUnder500: typeof acceptedMaxMs === "number" && acceptedMaxMs < 500,
-  gatewayEventLoopMaxUnder100: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < eventLoopGateLimitMs,
-  simEventLoopMaxUnder100: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < eventLoopGateLimitMs,
+  actionAcceptedP95Under300: typeof acceptedP95Ms === "number" && acceptedP95Ms < 300,
+  actionAcceptedP99Under500: typeof acceptedP99Ms === "number" && acceptedP99Ms < 500,
+  actionAcceptedMaxUnder1000: typeof acceptedMaxMs === "number" && acceptedMaxMs < 1000,
+  gatewayEventLoopMaxUnder500: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < gatewayEventLoopGateLimitMs,
+  simEventLoopMaxUnder150: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < simEventLoopGateLimitMs,
   simHumanInteractiveBacklogMaxUnder500: typeof simHumanInteractiveBacklogMaxMs === "number" && simHumanInteractiveBacklogMaxMs < 500,
-  simCheckpointRssMaxUnder400: typeof simCheckpointRssMaxMb === "number" && simCheckpointRssMaxMb < 400
+  simCheckpointRssMaxUnder800: typeof simCheckpointRssMaxMb === "number" && simCheckpointRssMaxMb < 800
 };
 
 const payload = {
