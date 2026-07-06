@@ -1,12 +1,19 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
+  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_IRONWORKS_IRON_PER_DAY,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_INCOME_PER_MIN,
+  FOUNDRY_OUTPUT_MULT,
+  FOUNDRY_RADIUS,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   IRONWORKS_IRON_PER_DAY,
   OFFLINE_YIELD_ACCUM_MAX_MS,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
+  STRUCTURE_OUTPUT_MULT,
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE,
   WATERWORKS_OUTPUT_MULT,
@@ -61,14 +68,17 @@ const converterDailyOutput = (
 ): Partial<Record<StrategicYieldKey, number>> => {
   switch (structureType) {
     case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER":
       return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
+    case "ADVANCED_FUR_SYNTHESIZER":
+      return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
     case "IRONWORKS":
-    case "ADVANCED_IRONWORKS":
       return { IRON: IRONWORKS_IRON_PER_DAY };
+    case "ADVANCED_IRONWORKS":
+      return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
     case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+    case "ADVANCED_CRYSTAL_SYNTHESIZER":
+      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     // Farmstead: +50% food only on FARM tiles. FISH gets nothing.
     // (Waterworks is a radius-support building like Foundry — it boosts nearby
     //  Farmsteads rather than producing food itself.)
@@ -79,9 +89,86 @@ const converterDailyOutput = (
   }
 };
 
+/**
+ * Strategic-affecting economic structure types whose yield cannot be
+ * correctly re-derived on the client (radius/neighbor bonuses, ADVANCED
+ * synth constants, MINE/CAMP output multiplier). Tiles carrying one of
+ * these (active) or a dockId must receive server-authoritative
+ * `yieldRate`/`yieldCap` on the wire — see docs/plans/2026-07-06-radius-yield-delivery.md.
+ */
+const STRATEGIC_AFFECTING_STRUCTURE_TYPES: ReadonlySet<string> = new Set([
+  "FARMSTEAD",
+  "MINE",
+  "CAMP",
+  "IRONWORKS",
+  "ADVANCED_IRONWORKS",
+  "FUR_SYNTHESIZER",
+  "ADVANCED_FUR_SYNTHESIZER",
+  "CRYSTAL_SYNTHESIZER",
+  "ADVANCED_CRYSTAL_SYNTHESIZER"
+]);
+
+/**
+ * Predicate: does this tile need server-authoritative `yieldRate`/`yieldCap`
+ * emission because the client cannot re-derive its value locally (radius
+ * bonus dependency, dock-topology dependency)? Bare resource tiles and
+ * structure-less settled tiles are excluded to preserve the bootstrap
+ * payload-shrink savings (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
+ */
+export const tileYieldNeedsServerAuthority = (tile: Pick<DomainTileState, "economicStructure" | "dockId">): boolean => {
+  if (tile.dockId) return true;
+  const structure = tile.economicStructure;
+  if (!structure || structure.status !== "active") return false;
+  return STRATEGIC_AFFECTING_STRUCTURE_TYPES.has(structure.type);
+};
+
+/**
+ * Scans a player's settled tiles once and returns the "x,y" tile keys of
+ * their active WATERWORKS and FOUNDRY structures — the radius-source
+ * lookups `buildTileYieldView` needs for the Farmstead/Mine neighbor boosts.
+ * Shared by the live runtime (`tileYieldEconomyContextForPlayer`) and the
+ * snapshot-view builders (`live-snapshot-view.ts`) so both paths compute the
+ * exact same sets from the exact same predicate.
+ */
+export const radiusStructureKeysForSettledTiles = (
+  settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "economicStructure">>
+): { waterworksKeys: Set<string>; foundryKeys: Set<string> } => {
+  const waterworksKeys = new Set<string>();
+  const foundryKeys = new Set<string>();
+  for (const tile of settledTiles) {
+    if (tile.economicStructure?.status !== "active") continue;
+    if (tile.economicStructure.type === "WATERWORKS") {
+      waterworksKeys.add(`${tile.x},${tile.y}`);
+    } else if (tile.economicStructure.type === "FOUNDRY") {
+      foundryKeys.add(`${tile.x},${tile.y}`);
+    }
+  }
+  return { waterworksKeys, foundryKeys };
+};
+
 const roundPositive = (value: number, digits: number): number => {
   if (!(value > 0.0001)) return 0;
   return Number(value.toFixed(digits));
+};
+
+/** True when (x,y) is within `radius` (Chebyshev) of any "x,y" key in `candidateKeys`. */
+// World-wrapping Chebyshev distance — matches coordsInChebyshevRadius
+// (territory-automation.ts) so a source near one map edge still boosts a
+// beneficiary near the opposite edge instead of appearing out of range.
+const wrappedAxisDistance = (a: number, b: number, span: number): number => {
+  const raw = Math.abs(a - b);
+  return Math.min(raw, span - raw);
+};
+
+const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
+  for (const candidateKey of candidateKeys) {
+    const comma = candidateKey.indexOf(",");
+    if (comma < 0) continue;
+    const cx = Number(candidateKey.slice(0, comma));
+    const cy = Number(candidateKey.slice(comma + 1));
+    if (Math.max(wrappedAxisDistance(x, cx, WORLD_WIDTH), wrappedAxisDistance(y, cy, WORLD_HEIGHT)) <= radius) return true;
+  }
+  return false;
 };
 
 export const buildTileYieldView = (
@@ -94,6 +181,8 @@ export const buildTileYieldView = (
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
     /** Precomputed set of active Waterworks positions (tileKey) owned by the tile's player. */
     waterworksKeys?: ReadonlySet<string> | undefined;
+    /** Precomputed set of active Foundry positions (tileKey) owned by the tile's player. */
+    foundryKeys?: ReadonlySet<string> | undefined;
   }
 ): TileYieldView | undefined => {
   if (tile.ownerId === undefined || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return undefined;
@@ -143,6 +232,32 @@ export const buildTileYieldView = (
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
   }
+  // MINE/CAMP: active structure multiplies the tile's base resource output by
+  // STRUCTURE_OUTPUT_MULT (matches legacy economicStructureOutputMultAt).
+  // MINE sits on IRON tiles, CAMP on WOOD/FUR tiles — neither is a converter
+  // (no entry in converterDailyOutput), they boost the resource itself.
+  if (
+    tile.economicStructure?.status === "active" &&
+    (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "CAMP")
+  ) {
+    for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
+      strategicPerDay[key] = (strategicPerDay[key] ?? 0) * STRUCTURE_OUTPUT_MULT;
+    }
+  }
+  // Foundry radius boost: an active MINE within FOUNDRY_RADIUS of an active,
+  // owned Foundry gets its IRON/CRYSTAL output multiplied by FOUNDRY_OUTPUT_MULT
+  // (applied on top of the MINE's own STRUCTURE_OUTPUT_MULT above).
+  if (
+    tile.economicStructure?.type === "MINE" &&
+    tile.economicStructure.status === "active" &&
+    economyContext?.foundryKeys &&
+    economyContext.foundryKeys.size > 0 &&
+    withinRadiusOfAnyKey(tile.x, tile.y, economyContext.foundryKeys, FOUNDRY_RADIUS)
+  ) {
+    for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
+      strategicPerDay[key] = (strategicPerDay[key] ?? 0) * FOUNDRY_OUTPUT_MULT;
+    }
+  }
   // Waterworks radius boost: a FARM tile with an active Farmstead within
   // WATERWORKS_RADIUS of an active Waterworks gets +50% on its total FOOD
   // output (base + farmstead combined).
@@ -152,18 +267,10 @@ export const buildTileYieldView = (
     tile.economicStructure.status === "active" &&
     typeof strategicPerDay.FOOD === "number" &&
     economyContext?.waterworksKeys &&
-    economyContext.waterworksKeys.size > 0
+    economyContext.waterworksKeys.size > 0 &&
+    withinRadiusOfAnyKey(tile.x, tile.y, economyContext.waterworksKeys, WATERWORKS_RADIUS)
   ) {
-    for (const candidateKey of economyContext.waterworksKeys) {
-      const comma = candidateKey.indexOf(",");
-      if (comma < 0) continue;
-      const cx = Number(candidateKey.slice(0, comma));
-      const cy = Number(candidateKey.slice(comma + 1));
-      if (Math.max(Math.abs(tile.x - cx), Math.abs(tile.y - cy)) <= WATERWORKS_RADIUS) {
-        strategicPerDay.FOOD *= WATERWORKS_OUTPUT_MULT;
-        break;
-      }
-    }
+    strategicPerDay.FOOD *= WATERWORKS_OUTPUT_MULT;
   }
   for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;

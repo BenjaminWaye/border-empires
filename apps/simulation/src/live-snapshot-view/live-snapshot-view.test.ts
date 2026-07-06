@@ -256,4 +256,50 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(baseFood).toBeGreaterThan(0);
     expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
   });
+
+  it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {
+    const basePlayer = {
+      id: "player-2",
+      name: "player-2",
+      points: 0,
+      manpower: 0,
+      techIds: [],
+      domainIds: [],
+      strategicResources: {},
+      allies: [],
+      vision: 1,
+      visionRadiusBonus: 0
+    };
+    const tiles = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [
+        // Bare settled resource tile — no structure, no dock: predicate is false.
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" },
+        // Active MINE — strategic-affecting structure: predicate is true.
+        {
+          x: 2,
+          y: 1,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          resource: "IRON",
+          economicStructureJson: JSON.stringify({ type: "MINE", status: "active", ownerId: "player-2" })
+        },
+        // Dock tile — predicate is true regardless of structure.
+        { x: 3, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" }
+      ],
+      players: [basePlayer],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const bare = tiles.find((t) => t.x === 1 && t.y === 1);
+    const mine = tiles.find((t) => t.x === 2 && t.y === 1);
+    const dock = tiles.find((t) => t.x === 3 && t.y === 1);
+
+    expect(bare).not.toHaveProperty("yieldRate");
+    expect(bare).not.toHaveProperty("yieldCap");
+    expect(mine).toHaveProperty("yieldRate");
+    expect((mine as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.IRON).toBe(90);
+    expect(dock).toHaveProperty("yieldRate");
+  });
 });
