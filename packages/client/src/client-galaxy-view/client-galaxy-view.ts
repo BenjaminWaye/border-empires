@@ -21,11 +21,11 @@ const galaxyStyle = `
      stacking context, so a sibling of #hud with any explicit z-index would
      otherwise paint above everything inside #hud regardless of the number
      used, including the login screen. */
-  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:48px;height:48px;padding:0;margin:0;appearance:none;border-radius:50%;overflow:hidden;display:grid;place-items:center;border:1px solid rgba(255,255,255,.28);background:radial-gradient(circle at 30% 26%,#a9ecff 0%,#38bdf8 35%,#0d6ab0 68%,#062a45 100%);cursor:pointer;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 16px rgba(56,189,248,.45)}
-  .gx-launcher-bands{position:absolute;inset:-25%;background:repeating-linear-gradient(98deg, transparent 0 10%, rgba(255,255,255,.2) 10% 14%, transparent 14% 26%, rgba(4,20,34,.3) 26% 30%, transparent 30% 42%);animation:gx-spin 9s linear infinite;mix-blend-mode:overlay}
+  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:44px;height:44px;padding:0;margin:0;appearance:none;border-radius:50%;border:0;background:transparent;cursor:pointer;pointer-events:auto;font-size:28px;line-height:1;display:grid;place-items:center;color:#94a3b8;transition:color .15s,transform .15s}
+  .gx-launcher:hover{color:#f1f5f9;transform:scale(1.15)}
   #hud.desktop-side-panel-open ~ .gx-launcher{right:464px}
   @media (max-width: 900px) {
-    .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:44px;height:44px}
+    .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:40px;height:40px;font-size:24px}
   }
   .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto}
   .gx-overlay[hidden]{display:none}
@@ -71,7 +71,7 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
   const launcher = document.createElement("button");
   launcher.type = "button";
   launcher.className = "gx-launcher";
-  launcher.innerHTML = `<span class="gx-launcher-bands" aria-hidden="true"></span>`;
+  launcher.textContent = "🪐";
   launcher.setAttribute("aria-label", "Open your galaxy");
   root.append(launcher);
 
