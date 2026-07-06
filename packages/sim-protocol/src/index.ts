@@ -83,6 +83,18 @@ export type LeaderboardMetricEntry = {
   rank: number;
 };
 
+export type AdminPlayerRow = {
+  id: string;
+  name: string;
+  isAi: boolean;
+  gold: number;
+  settledTiles: number;
+  ownedTiles: number;
+  incomePerMinute: number;
+  techs: number;
+  manpower: number;
+};
+
 export type SeasonLifecycleStatus = "active" | "ended";
 
 type SeasonVictoryPathId =

@@ -109,6 +109,7 @@ export type RuntimePlayerDebugSnapshot = Array<{
   domainIds: string[];
   strategicResources: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount: number;
+  ownedTileCount: number;
   townCount: number;
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
@@ -296,6 +297,7 @@ export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): Runtim
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
+        ownedTileCount: summary.territoryTileKeys.size,
         townCount: summary.townCount,
         incomePerMinute: input.estimatedIncomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
