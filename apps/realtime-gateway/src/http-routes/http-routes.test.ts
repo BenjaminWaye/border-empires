@@ -59,6 +59,7 @@ describe("gateway http routes", () => {
       }),
       getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
@@ -156,6 +157,7 @@ describe("gateway http routes", () => {
       }),
       getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
@@ -239,6 +241,7 @@ describe("gateway http routes", () => {
       }),
       getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
@@ -316,6 +319,7 @@ describe("gateway http routes", () => {
           replayEvents: []
         }
       ],
+      getAdminPlayers: async () => [],
       startNextSeason: async (force) => {
         startNextSeasonCalls.push(force === true);
         return { seasonId: force ? "season-11" : "season-10" };
@@ -349,6 +353,98 @@ describe("gateway http routes", () => {
     expect(forcedResponse.statusCode).toBe(200);
     expect(forcedResponse.json()).toEqual({ ok: true, seasonId: "season-11" });
     expect(startNextSeasonCalls).toEqual([false, true]);
+
+    await app.close();
+  });
+
+  it("gates /admin/players behind the admin token and returns gold + tile counts", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, {
+      startupStartedAt: 1_000,
+      simulationAddress: "127.0.0.1:50051",
+      simulationSeedProfile: "default",
+      health: () => ({ ok: true, simulation: { connected: true } }),
+      supportedMessageTypes: ["ATTACK"],
+      recentEvents: () => [],
+      attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
+      attackTraces: () => [],
+      metrics: () => "",
+      adminApiToken: "secret",
+      getCurrentSeasonSummary: async () => ({
+        season: "season-1",
+        seasonId: "season-1",
+        seasonSequence: 1,
+        status: "active",
+        startedAt: 1_000,
+        worldSeed: 42,
+        rulesetId: "seasonal-default",
+        leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+        overall: [],
+        byTiles: [],
+        byIncome: [],
+        byTechs: [],
+        seasonVictory: [],
+        onlinePlayers: 0,
+        totalPlayers: 0,
+        townCount: 0,
+        updatedAt: 1_100
+      }),
+      getCurrentSeasonStatus: async () => "active",
+      listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          isAi: false,
+          gold: 1_250,
+          settledTiles: 40,
+          ownedTiles: 55,
+          incomePerMinute: 12.5,
+          techs: 6,
+          manpower: 300,
+          food: 120,
+          iron: 30,
+          crystal: 5,
+          supply: 60
+        },
+        {
+          id: "ai-1",
+          name: "ai-1",
+          isAi: true,
+          gold: 80,
+          settledTiles: 5,
+          ownedTiles: 9,
+          incomePerMinute: 2.1,
+          techs: 1,
+          manpower: 40,
+          food: 10,
+          iron: 0,
+          crystal: 0,
+          supply: 4
+        }
+      ],
+      startNextSeason: async () => ({ seasonId: "season-2" })
+    });
+
+    const unauthorizedResponse = await app.inject({ method: "GET", url: "/admin/players" });
+    expect(unauthorizedResponse.statusCode).toBe(401);
+
+    const authorizedResponse = await app.inject({
+      method: "GET",
+      url: "/admin/players",
+      headers: { authorization: "Bearer secret" }
+    });
+    expect(authorizedResponse.statusCode).toBe(200);
+    expect(authorizedResponse.json()).toEqual({
+      ok: true,
+      players: [
+        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, food: 120, iron: 30, crystal: 5, supply: 60 }),
+        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, food: 10, iron: 0, crystal: 0, supply: 4 })
+      ]
+    });
+
+    const queryTokenResponse = await app.inject({ method: "GET", url: "/admin/players?token=secret" });
+    expect(queryTokenResponse.statusCode).toBe(200);
 
     await app.close();
   });
@@ -389,6 +485,7 @@ describe("gateway http routes", () => {
       }),
       getCurrentSeasonStatus: async () => seasonStatus,
       listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" }),
       playOrigin: "https://play.example.test",
       rallyLinkStore,

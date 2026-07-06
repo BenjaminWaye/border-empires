@@ -9,6 +9,7 @@ import {
   SIMULATION_PROTO_PATH,
   measurePlayerSubscriptionSnapshot,
   summarizePlayerSubscriptionSnapshotCache,
+  type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
   type PlayerSubscriptionSnapshot,
@@ -125,6 +126,11 @@ type ProtoSeasonSummaryResponse = {
 type ProtoSeasonArchivesResponse = {
   ok: boolean;
   archives_json?: string;
+};
+type ProtoAdminPlayersRequest = Record<string, never>;
+type ProtoAdminPlayersResponse = {
+  ok: boolean;
+  players_json?: string;
 };
 type ProtoStartNextSeasonRequest = {
   force?: boolean;
@@ -2545,6 +2551,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       void readSeasonArchives()
         .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
         .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
+    },
+    GetAdminPlayers(
+      _call: { request: ProtoAdminPlayersRequest },
+      callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void
+    ) {
+      const rows: AdminPlayerRow[] = runtime.exportPlayerDebugSnapshot().map((player) => ({
+        id: player.id,
+        name: player.name ?? player.id,
+        isAi: player.isAi,
+        gold: player.points,
+        settledTiles: player.settledTileCount,
+        ownedTiles: player.ownedTileCount,
+        incomePerMinute: player.incomePerMinute,
+        techs: player.techIds.length,
+        manpower: player.manpower,
+        food: player.strategicResources.FOOD ?? 0,
+        iron: player.strategicResources.IRON ?? 0,
+        crystal: player.strategicResources.CRYSTAL ?? 0,
+        supply: player.strategicResources.SUPPLY ?? 0
+      }));
+      callback(null, { ok: true, players_json: JSON.stringify(rows) });
     },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },
