@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.05.4",
+  version: "2026.07.06.1",
   title: "What's New",
-  summary: "Season winners can now name a permanent planet in the new galaxy view.",
+  summary: "The galaxy planet launcher no longer overlaps the mobile nav bar or the minimap.",
   entries: [
+    {
+      introducedIn: "2026.07.06.1",
+      title: "Galaxy planet launcher no longer overlaps other controls",
+      why: "The new 🪐 planet launcher button was fixed to the bottom-right corner of the screen, the same corner already used by the desktop minimap and, on mobile, directly over the bottom navigation bar's rightmost tab.",
+      changes: [
+        "On mobile, the launcher now sits just above the bottom navigation bar and respects the device's safe-area inset instead of sitting under the home-indicator gesture zone.",
+        "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
+      ]
+    },
     {
       introducedIn: "2026.07.05.4",
       title: "The galaxy: your planet, permanently",
@@ -209,37 +218,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "On screens narrower than 520px, the overlay stacks the artwork above the text, centers all content, and reduces art size (120→80px) and font sizes proportionally.",
         "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
         "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.7",
-      title: "Removed confusing origin-to-target line from crystal targeting overlay",
-      why: "The connection line drawn from the origin building to the hovered/selected target tile was confusing — it looked like part of the targeting UI but didn't add useful information.",
-      changes: [
-        "Removed the origin-to-target connection line from the 3D crystal targeting overlay."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.6",
-      title: "Crystal targeting overlay and range circles are more visible in 3D",
-      why: "The 3D crystal targeting overlay (semi-transparent tiles) and the 3D range circles (airport bombard, observatory, waterworks, sweep) were too faint to see clearly.",
-      changes: [
-        "Crystal targeting overlay fill opacity increased from 12% to 30%.",
-        "Crystal targeting overlay valid target tiles now have a colored border (stroke) matching the 2D overlay style.",
-        "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
-        "Observatory range circle border increased from 35% to 55% and fill from 2% to 10%.",
-        "Waterworks and Sweep range circle fills increased from 3-4% to 10%."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.5",
-      title: "Crystal targeting overlay now renders in 3D mode",
-      why: "When entering crystal targeting mode (Sky Dock Bombard, etc.) in 3D view, the valid target tiles were only highlighted in the 2D overlay — which rendered on top of the 3D scene. You couldn't see which tiles were valid targets in 3D.",
-      changes: [
-        "Valid target tiles now show a semi-transparent colored overlay on the 3D terrain.",
-        "Hovering or selecting a valid target shows a connection line from origin to target tile.",
-        "Origin and target tiles get bold outline markers in 3D.",
-        "2D crystal targeting highlights and airport range overlay are now hidden when 3D mode is active."
       ]
     },
   ]
