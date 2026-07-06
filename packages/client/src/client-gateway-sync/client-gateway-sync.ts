@@ -104,10 +104,9 @@ const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownS
   );
 };
 
-// Minimum population that any real town in this game has. Values below this
-// indicate the town summary is partial (server hasn't sent a real population
-// yet, or the field is a zero-default placeholder) and the renderer should
-// show a "loading" state instead of acting on bogus numbers.
+// Minimum population that any real town has. Below this, the summary is partial
+// (no real population sent yet, or a zero-default) — the renderer should show
+// a "loading" state instead of acting on bogus numbers.
 export const MIN_RENDERABLE_TOWN_POPULATION = 500;
 
 const isValidTownType = (value: unknown): value is NonNullable<TownSummary["type"]> =>
@@ -452,15 +451,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
-  // Bootstrap tiles no longer carry yieldRate/yieldCap (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
-  // Derive them client-side from townJson / resource / economicStructure / dockId.
-  // Only apply the viewer's income modifier when the tile is owned by the
-  // viewer — enemy-tile yields must not be inflated by our tech bonuses.
-  // Cast: Tile.yieldRate has optional inner fields; TileYieldRate requires them.
-  // ensureTileYield only writes the field when it can derive a complete value.
-  // A structure/resource/dock change without a fresh server yieldRate/yieldCap
-  // clears the stale cached value first, so removal re-derives instead of
-  // stranding the old boosted value (docs/plans/2026-07-06-radius-yield-delivery.md Phase 4).
+  // Structure/resource/dock change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
   const staleYieldInputsChanged =
     ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
