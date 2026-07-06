@@ -138,8 +138,8 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
 
 export const strategicProductionPerMinuteForResource = (resource: string | undefined): number => {
   switch (resource) {
-    case "FARM": return 72 / 1440;
-    case "FISH": return 48 / 1440;
+    case "FARM": return 48 / 1440;
+    case "FISH": return 72 / 1440;
     case "IRON": return 60 / 1440;
     case "WOOD":
     case "FUR": return 60 / 1440;

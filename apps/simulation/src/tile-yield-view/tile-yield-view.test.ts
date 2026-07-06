@@ -133,7 +133,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldCap.strategicEach).toBe(0);
   });
 
-  it("farm tile yield cap is unchanged (72/3 = 24)", () => {
+  it("farm tile yield cap is unchanged (48/3 = 16)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -143,10 +143,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", farmTile]]);
     const view = buildTileYieldView(farmTile, 0, 60_000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldCap.strategicEach).toBe(24);
+    expect(view?.yieldCap.strategicEach).toBe(16);
   });
 
-  it("farmstead on a farm tile gives 108/day (72 base + 36 bonus), not 36", () => {
+  it("farmstead on a farm tile gives 72/day (48 base + 24 bonus), not 24", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -157,12 +157,12 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    // 108/day for one day = 108 food in the buffer (below cap of 108/3 = 36, but 1 day ≫ cap)
-    // The rate is 108/day. Check the yield rate's strategic per day.
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
+    // 72/day for one day = 72 food in the buffer (below cap of 72/3 = 24, but 1 day ≫ cap)
+    // The rate is 72/day. Check the yield rate's strategic per day.
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(72);
   });
 
-  it("farmstead on a fish tile gives no food bonus (48/day base only)", () => {
+  it("farmstead on a fish tile gives no food bonus (72/day base only)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -173,10 +173,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(48);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(72);
   });
 
-  it("waterworks within 10 tiles boosts farmstead food to 162/day ((72+36)×1.5)", () => {
+  it("waterworks within 10 tiles boosts farmstead food to 108/day ((48+24)×1.5)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -202,7 +202,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["10,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(162);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
   });
 
 });

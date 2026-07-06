@@ -131,8 +131,8 @@ describe("client gateway sync", () => {
           ownerId: "me",
           ownershipState: "SETTLED",
           yield: { gold: 2.5, strategic: { FOOD: 1.25 } },
-          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-          yieldCap: { gold: 480, strategicEach: 24 }
+          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+          yieldCap: { gold: 480, strategicEach: 16 }
         }
       ]
     });
@@ -140,8 +140,8 @@ describe("client gateway sync", () => {
     expect(deps.state.tiles.get("10,12")).toEqual(
       expect.objectContaining({
         yield: { gold: 2.5, strategic: { FOOD: 1.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-        yieldCap: { gold: 480, strategicEach: 24 }
+        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+        yieldCap: { gold: 480, strategicEach: 16 }
       })
     );
 
@@ -150,16 +150,16 @@ describe("client gateway sync", () => {
         x: 10,
         y: 12,
         yield: { gold: 0.75, strategic: { FOOD: 0.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-        yieldCap: { gold: 480, strategicEach: 24 }
+        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+        yieldCap: { gold: 480, strategicEach: 16 }
       }
     ]);
 
     expect(deps.state.tiles.get("10,12")).toEqual(
       expect.objectContaining({
         yield: { gold: 0.75, strategic: { FOOD: 0.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-        yieldCap: { gold: 480, strategicEach: 24 }
+        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+        yieldCap: { gold: 480, strategicEach: 16 }
       })
     );
   });
