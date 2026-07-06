@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.1",
+  version: "2026.07.06.2",
   title: "What's New",
-  summary: "The galaxy planet launcher no longer overlaps the mobile nav bar or the minimap.",
+  summary: "Your galaxy planet now looks like a real place, and never hides the login screen.",
   entries: [
+    {
+      introducedIn: "2026.07.06.2",
+      title: "Galaxy planet is now an animated world, and never blocks the login screen",
+      why: "The planet was a single flat gradient circle with no motion, and the launcher/overlay were mounted as siblings of #hud instead of inside it — #hud's position:fixed makes it its own CSS stacking context, so anything outside it with an explicit z-index always painted above #hud's entire contents, including the login screen, no matter what number was used.",
+      changes: [
+        "Your planet is now a slowly rotating gas-giant-style sphere with cloud bands, shading, and a tilted ring, instead of a flat circle.",
+        "The launcher button uses the same rotating-planet look instead of relying on an emoji glyph, and no longer picks up default browser button styling.",
+        "The launcher and its overlay are now mounted inside the game's HUD layer so their stacking order is correctly computed against the rest of the UI — the login screen (and any other overlay) can never be hidden behind them again."
+      ]
+    },
     {
       introducedIn: "2026.07.06.1",
       title: "Galaxy planet launcher no longer overlaps other controls",
