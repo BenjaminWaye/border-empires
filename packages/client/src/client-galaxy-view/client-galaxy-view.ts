@@ -7,8 +7,17 @@ type GalaxyMeResponse = { planets?: GalaxyViewPlanet[] };
 type GalaxyNameResponse = { ok?: boolean; error?: string; planet?: { planetName: string } };
 
 const galaxyStyle = `
-  .gx-launcher{position:fixed;right:16px;bottom:16px;z-index:28;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:radial-gradient(circle at 35% 30%,#334155,#0b1220);color:#f8fafc;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}
-  .gx-overlay{position:fixed;inset:0;z-index:30;display:grid;place-items:center}
+  /* Positioned to clear the always-on chrome that already owns the bottom-right
+     corner: the desktop minimap (right:12px/bottom:12px, ~292px tall including
+     its toolbar+label) and, on mobile, the fixed bottom nav bar (~68px + the
+     safe-area inset). Also nudges left when the desktop side panel is open,
+     mirroring how #mini-map-wrap itself avoids the side panel. */
+  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:19;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:radial-gradient(circle at 35% 30%,#334155,#0b1220);color:#f8fafc;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  #hud.desktop-side-panel-open ~ .gx-launcher{right:464px}
+  @media (max-width: 900px) {
+    .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:44px;height:44px;font-size:20px}
+  }
+  .gx-overlay{position:fixed;inset:0;z-index:35;display:grid;place-items:center}
   .gx-overlay[hidden]{display:none}
   .gx-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.82)}
   .gx-panel{position:relative;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 64px);overflow:auto;background:rgba(8,12,24,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:24px}
