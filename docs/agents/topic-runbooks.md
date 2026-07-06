@@ -21,6 +21,7 @@ Use one topic per recurring work area, for example:
 | File | Covers |
 |---|---|
 | `docs/agents/topics/staging-access.md` | Reading logs/metrics from staging inside a remote session; proxy constraints; freeze diagnosis |
+| `docs/agents/topics/load-harness.md` | Nightly load harness: why it runs against a local DB fixture instead of staging, how to publish a fresher fixture snapshot |
 
 ## Template
 

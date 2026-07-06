@@ -28,7 +28,8 @@ jobs:
     # It never touches staging or production — no Fly secrets, no Firebase
     # auth, no risk of the synthetic soak client expanding a live player's
     # territory. See docs/load-results/ for historical run output and
-    # docs/agents/testing-and-debugging.md for the fixture rationale.
+    # docs/agents/topics/load-harness.md for the fixture rationale and how
+    # to publish a fresher snapshot.
     env:
       WS_URL: "ws://127.0.0.1:13101/ws"
       GATEWAY_METRICS_URL: "http://127.0.0.1:13101/metrics"
