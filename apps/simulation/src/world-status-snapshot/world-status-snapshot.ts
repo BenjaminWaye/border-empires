@@ -219,7 +219,7 @@ const buildSeasonVictoryObjectives = (
   const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
 
   for (const tile of worldTiles) {
-    if (tile.ownerId && tile.townType && competitivePlayerIds.has(tile.ownerId)) {
+    if (tile.ownerId && tile.ownershipState === "SETTLED" && tile.townType && competitivePlayerIds.has(tile.ownerId)) {
       townCountByPlayerId.set(tile.ownerId, (townCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
     }
     if (
