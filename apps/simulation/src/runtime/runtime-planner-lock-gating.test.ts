@@ -150,6 +150,13 @@ describe("debug snapshot lock fields", () => {
     expect(aiTwo?.plannerBlocked).toBe(true);
     expect(aiTwo?.hasAnyLock).toBe(true);
   });
+
+  it("distinguishes settledTileCount (SETTLED only) from ownedTileCount (SETTLED + FRONTIER)", () => {
+    const snapshot = runtimeWithLock("automation").exportPlayerDebugSnapshot();
+    const aiTwo = snapshot.find((p) => p.id === "ai-2");
+    expect(aiTwo?.settledTileCount).toBe(1);
+    expect(aiTwo?.ownedTileCount).toBe(2);
+  });
 });
 
 // Producer-side contract: territory-automation must emit (a) a session id

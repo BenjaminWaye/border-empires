@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type {
+  AdminPlayerRow,
   CurrentSeasonSummary,
   SeasonArchiveRow,
   SeasonLifecycleStatus
@@ -77,6 +78,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
@@ -219,6 +221,19 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
     reply.header("Content-Type", "text/html; charset=utf-8");
     return RUNTIME_DASHBOARD_HTML;
+  });
+
+  app.get("/admin/players", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      return { ok: true, players: await deps.getAdminPlayers() };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
   });
 
   app.get("/hq/summary", async (_request, reply) => {
