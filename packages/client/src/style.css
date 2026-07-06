@@ -5403,7 +5403,6 @@ button:disabled,
     padding: 8px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.18);
-    background: linear-gradient(145deg, rgba(11, 19, 32, 0.92), rgba(3, 7, 14, 0.92));
     max-height: min(28dvh, 248px);
     overflow: auto;
   }
