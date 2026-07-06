@@ -24,9 +24,23 @@ const escapeHtml = (value: string): string =>
 const crownedDateLabel = (crownedAt: number): string =>
   new Date(crownedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
+// Purely decorative rotating planet figure (bands spin via CSS animation;
+// the ring and shading layers stay static for a simple "gas giant" look).
+// Shared by both the unnamed and named states so a world always feels like a
+// real place, even before it has a name.
+const planetFigureHtml = (): string => `
+  <div class="gx-planet-figure" aria-hidden="true">
+    <div class="gx-ring"></div>
+    <div class="gx-orb">
+      <div class="gx-orb-bands"></div>
+      <div class="gx-orb-shade"></div>
+    </div>
+  </div>`;
+
 const christenFormHtml = (planet: GalaxyViewPlanet): string => `
   <div class="gx-christen" data-galaxy-christen data-season-id="${escapeHtml(planet.seasonId)}">
     <p class="gx-kicker">Unnamed World</p>
+    ${planetFigureHtml()}
     <p class="gx-christen-copy">You won this season's crown. Name your planet — this cannot be changed later.</p>
     <form data-galaxy-christen-form>
       <input
@@ -46,7 +60,7 @@ const christenFormHtml = (planet: GalaxyViewPlanet): string => `
 const namedMedallionHtml = (planet: GalaxyViewPlanet): string => `
   <div class="gx-planet" data-galaxy-planet>
     <p class="gx-kicker">Your World</p>
-    <div class="gx-orb" aria-hidden="true"></div>
+    ${planetFigureHtml()}
     <p class="gx-planet-name">${escapeHtml(planet.planetName ?? "")}</p>
     <p class="gx-planet-meta">Crowned via ${escapeHtml(planet.objectiveName)} · ${crownedDateLabel(planet.crownedAt)}</p>
   </div>`;
