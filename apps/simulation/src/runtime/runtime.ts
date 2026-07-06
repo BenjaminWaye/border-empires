@@ -115,7 +115,8 @@ import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
-import { buildTileYieldView } from "../tile-yield-view/tile-yield-view.js";
+import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
+import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -1752,6 +1753,7 @@ export class SimulationRuntime {
         fedTownKeys: economyContext.fedTownKeys,
         firstThreeTownKeys: economyContext.firstThreeTownKeys,
         waterworksKeys: economyContext.waterworksKeys,
+        foundryKeys: economyContext.foundryKeys,
         tiles: this.tiles,
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
@@ -1932,6 +1934,7 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
+    flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -2666,12 +2669,7 @@ export class SimulationRuntime {
     if (cached) return cached;
     const rebuild = (): RuntimeTileYieldEconomyContext => {
       const settledTiles = this.settledTilesForPlayer(player.id);
-      const waterworksKeys = new Set<string>();
-      for (const tile of settledTiles) {
-        if (tile.economicStructure?.type === "WATERWORKS" && tile.economicStructure.status === "active") {
-          waterworksKeys.add(`${tile.x},${tile.y}`);
-        }
-      }
+      const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
       const context: RuntimeTileYieldEconomyContext = {
         player,
         townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
@@ -2682,7 +2680,8 @@ export class SimulationRuntime {
         firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
           ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
           : new Set<string>(),
-        waterworksKeys
+        waterworksKeys,
+        foundryKeys
       };
       this.tileYieldContextCacheByPlayer.set(player.id, context);
       return context;
@@ -3741,17 +3740,21 @@ export class SimulationRuntime {
     });
   }
 
+  // Shared arg-builder for buildTileYieldView's economyContext param (tileDeltaFromState + collectTileYield).
+  private yieldViewEconomyContext(player: RuntimePlayer | undefined, ctx: RuntimeTileYieldEconomyContext | undefined) {
+    return {
+      ...(player ? { player } : {}),
+      ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    };
+  }
+
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), {
-      ...(player ? { player } : {}),
-      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
-      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys, waterworksKeys: resolvedContext.waterworksKeys } : {}),
-      tiles: this.tiles,
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), this.yieldViewEconomyContext(player, resolvedContext));
     const tileKey = simulationTileKey(tile.x, tile.y);
     const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
     const fullDelta: SimulationTileWireDelta = {
@@ -3778,8 +3781,9 @@ export class SimulationRuntime {
       economicStructureJson: cached.economicStructureJson,
       sabotageJson: cached.sabotageJson,
       musterJson: cached.musterJson,
-      ...(yieldView?.yield ? { yield: yieldView.yield } : {})
-      // yieldRate and yieldCap are derived client-side from townJson goldPerMinute/cap.
+      ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
+      // yieldRate/yieldCap scoped emission: see tileYieldNeedsServerAuthority.
+      ...(yieldView && tileYieldNeedsServerAuthority(tile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
     };
     return this.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
   }
@@ -3804,13 +3808,7 @@ export class SimulationRuntime {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, {
-      ...(player ? { player } : {}),
-      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
-      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys, waterworksKeys: resolvedContext.waterworksKeys } : {}),
-      tiles: this.tiles,
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
     const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
