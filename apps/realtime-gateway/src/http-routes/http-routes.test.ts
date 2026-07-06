@@ -401,7 +401,11 @@ describe("gateway http routes", () => {
           ownedTiles: 55,
           incomePerMinute: 12.5,
           techs: 6,
-          manpower: 300
+          manpower: 300,
+          food: 120,
+          iron: 30,
+          crystal: 5,
+          supply: 60
         },
         {
           id: "ai-1",
@@ -412,7 +416,11 @@ describe("gateway http routes", () => {
           ownedTiles: 9,
           incomePerMinute: 2.1,
           techs: 1,
-          manpower: 40
+          manpower: 40,
+          food: 10,
+          iron: 0,
+          crystal: 0,
+          supply: 4
         }
       ],
       startNextSeason: async () => ({ seasonId: "season-2" })
@@ -430,8 +438,8 @@ describe("gateway http routes", () => {
     expect(authorizedResponse.json()).toEqual({
       ok: true,
       players: [
-        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55 }),
-        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9 })
+        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, food: 120, iron: 30, crystal: 5, supply: 60 }),
+        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, food: 10, iron: 0, crystal: 0, supply: 4 })
       ]
     });
 

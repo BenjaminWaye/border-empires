@@ -2565,7 +2565,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ownedTiles: player.ownedTileCount,
         incomePerMinute: player.incomePerMinute,
         techs: player.techIds.length,
-        manpower: player.manpower
+        manpower: player.manpower,
+        food: player.strategicResources.FOOD ?? 0,
+        iron: player.strategicResources.IRON ?? 0,
+        crystal: player.strategicResources.CRYSTAL ?? 0,
+        supply: player.strategicResources.SUPPLY ?? 0
       }));
       callback(null, { ok: true, players_json: JSON.stringify(rows) });
     },
