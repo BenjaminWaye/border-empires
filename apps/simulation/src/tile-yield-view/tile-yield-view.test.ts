@@ -205,6 +205,34 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
   });
 
+  it("waterworks boost wraps around the world edge (Chebyshev distance, not raw coordinate difference)", () => {
+    // WORLD_WIDTH is 450 (see @border-empires/shared) — a farm at x=448 and a
+    // waterworks at x=1 are only 3 tiles apart via wraparound, well within
+    // WATERWORKS_RADIUS (10), even though the raw |448-1| = 447 is not.
+    const farmTile: DomainTileState = {
+      x: 448, y: 5,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      resource: "FARM",
+      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: player.id }
+    };
+    const waterworksTile: DomainTileState = {
+      x: 1, y: 5,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      economicStructure: { type: "WATERWORKS", status: "active", ownerId: player.id }
+    };
+    const view = buildTileYieldView(farmTile, 0, 1440 * 60000, {
+      player,
+      tiles: new Map([["448,5", farmTile], ["1,5", waterworksTile]]),
+      dockLinksByDockTileKey: new Map(),
+      waterworksKeys: new Set(["1,5"])
+    });
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
+  });
+
   it("Q1: farmstead built on a farm already in waterworks range emits 108 FOOD immediately, no neighbor scan needed", () => {
     // Waterworks was already active and in range BEFORE the farmstead is built
     // (e.g. this tile just finished a farmstead build-completion command) — the

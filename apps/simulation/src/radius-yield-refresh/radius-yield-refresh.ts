@@ -118,23 +118,40 @@ export const radiusYieldRefreshBeneficiaryTiles = (input: {
   const isSource = isActiveProjectingSource(next);
   const wasDock = isActiveOwnedDock(previous);
   const isDock = isActiveOwnedDock(next);
+  const prevSourceType = wasSource ? previous?.economicStructure?.type : undefined;
+  const nextSourceType = isSource ? next.economicStructure?.type : undefined;
+  // A direct type swap between two projecting types in one mutation (e.g. a
+  // future "convert structure" command turning a WATERWORKS straight into a
+  // FOUNDRY with no intermediate removal) leaves wasSource === isSource
+  // (both true), so it must be treated as its own change — otherwise neither
+  // the old type's beneficiaries (which should lose the bonus) nor the new
+  // type's beneficiaries (which should gain one) get refreshed.
+  const sourceTypeChanged = wasSource && isSource && prevSourceType !== nextSourceType;
   // An active source/dock whose owner changed (rare, but possible if a future
   // ability transfers ownership without clearing the structure) still needs a
   // beneficiary refresh for both the old and new owner's neighbor tiles.
-  const sourceOwnerChanged = wasSource && isSource && previous?.ownerId !== next.ownerId;
+  const sourceOwnerChanged = wasSource && isSource && !sourceTypeChanged && previous?.ownerId !== next.ownerId;
   const dockOwnerChanged = wasDock && isDock && previous?.ownerId !== next.ownerId;
 
-  if (wasSource === isSource && wasDock === isDock && !sourceOwnerChanged && !dockOwnerChanged) return [];
+  if (
+    wasSource === isSource &&
+    !sourceTypeChanged &&
+    wasDock === isDock &&
+    !sourceOwnerChanged &&
+    !dockOwnerChanged
+  ) {
+    return [];
+  }
 
   const beneficiaries = new Map<string, DomainTileState>();
   const addAll = (list: readonly DomainTileState[]): void => {
     for (const tile of list) beneficiaries.set(`${tile.x},${tile.y}`, tile);
   };
 
-  const structureType = (previous?.economicStructure?.type ?? next.economicStructure?.type) as string | undefined;
   const ownerIds = new Set([previous?.ownerId, next.ownerId].filter((id): id is string => Boolean(id)));
 
-  if ((wasSource !== isSource || sourceOwnerChanged) && structureType) {
+  const refreshForSourceType = (structureType: string | undefined): void => {
+    if (!structureType) return;
     for (const ownerId of ownerIds) {
       if (structureType === "WATERWORKS") {
         addAll(beneficiaryTilesWithinRadius(ownerId, next.x, next.y, WATERWORKS_RADIUS, "FARMSTEAD", settledTilesForPlayer));
@@ -144,6 +161,14 @@ export const radiusYieldRefreshBeneficiaryTiles = (input: {
         addAll(adjacentOwnedDockTiles(ownerId, next.x, next.y, tiles));
       }
     }
+  };
+
+  if (sourceTypeChanged) {
+    // Refresh beneficiaries of both the departing and arriving source types.
+    refreshForSourceType(prevSourceType);
+    refreshForSourceType(nextSourceType);
+  } else if (wasSource !== isSource || sourceOwnerChanged) {
+    refreshForSourceType(prevSourceType ?? nextSourceType);
   }
 
   if (wasDock !== isDock || dockOwnerChanged) {

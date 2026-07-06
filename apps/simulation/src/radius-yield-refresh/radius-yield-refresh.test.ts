@@ -181,6 +181,44 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
     expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["1,1"]);
   });
 
+  it("refreshes both old and new beneficiaries when a tile's structure type swaps directly between two projecting types", () => {
+    // A direct WATERWORKS -> FOUNDRY swap in one mutation (no intermediate
+    // removal) must not be treated as a no-op just because both are
+    // "some active projecting source" -- the Farmstead should lose its
+    // boost and the Mine should gain one, in the same refresh.
+    const farmstead = settledTile(5, 5, {
+      resource: "FARM",
+      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
+    });
+    const mine = settledTile(8, 5, {
+      resource: "IRON",
+      economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
+    });
+    const previousWaterworks = settledTile(6, 5, {
+      economicStructure: { type: "WATERWORKS", status: "active", ownerId: PLAYER_ID }
+    });
+    const nextFoundry = settledTile(6, 5, {
+      economicStructure: { type: "FOUNDRY", status: "active", ownerId: PLAYER_ID }
+    });
+    const tiles = new Map<string, DomainTileState>([
+      ["5,5", farmstead],
+      ["8,5", mine],
+      ["6,5", nextFoundry]
+    ]);
+
+    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
+      tileKey: "6,5",
+      previous: previousWaterworks,
+      next: nextFoundry,
+      tiles,
+      dockLinksByDockTileKey: new Map(),
+      settledTilesForPlayer: settledTilesForPlayerFrom([farmstead, mine, nextFoundry])
+    });
+
+    const keys = beneficiaries.map((t) => `${t.x},${t.y}`).sort();
+    expect(keys).toEqual(["5,5", "8,5"]);
+  });
+
   it("returns an empty array (fast no-op) for an unrelated mutation with no projecting source or dock change", () => {
     const previous = settledTile(1, 1, { resource: "FARM" });
     const next = settledTile(1, 1, { resource: "FARM" });

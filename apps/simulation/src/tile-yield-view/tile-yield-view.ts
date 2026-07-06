@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
@@ -151,13 +152,21 @@ const roundPositive = (value: number, digits: number): number => {
 };
 
 /** True when (x,y) is within `radius` (Chebyshev) of any "x,y" key in `candidateKeys`. */
+// World-wrapping Chebyshev distance — matches coordsInChebyshevRadius
+// (territory-automation.ts) so a source near one map edge still boosts a
+// beneficiary near the opposite edge instead of appearing out of range.
+const wrappedAxisDistance = (a: number, b: number, span: number): number => {
+  const raw = Math.abs(a - b);
+  return Math.min(raw, span - raw);
+};
+
 const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
   for (const candidateKey of candidateKeys) {
     const comma = candidateKey.indexOf(",");
     if (comma < 0) continue;
     const cx = Number(candidateKey.slice(0, comma));
     const cy = Number(candidateKey.slice(comma + 1));
-    if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) <= radius) return true;
+    if (Math.max(wrappedAxisDistance(x, cx, WORLD_WIDTH), wrappedAxisDistance(y, cy, WORLD_HEIGHT)) <= radius) return true;
   }
   return false;
 };

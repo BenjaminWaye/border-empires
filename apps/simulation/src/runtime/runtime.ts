@@ -3522,7 +3522,11 @@ export class SimulationRuntime {
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      setTileState: (tileKey, tile) => { this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile)); },
+      setTileState: (tileKey, tile) => {
+        const previous = this.tiles.get(tileKey);
+        this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile));
+        flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+      },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
@@ -3740,14 +3744,9 @@ export class SimulationRuntime {
     });
   }
 
-  // Shared arg-builder for buildTileYieldView's economyContext param (tileDeltaFromState + collectTileYield).
+  // Shared arg-builder for buildTileYieldView's economyContext param.
   private yieldViewEconomyContext(player: RuntimePlayer | undefined, ctx: RuntimeTileYieldEconomyContext | undefined) {
-    return {
-      ...(player ? { player } : {}),
-      ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}),
-      tiles: this.tiles,
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    };
+    return { ...(player ? { player } : {}), ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}), tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey };
   }
 
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
