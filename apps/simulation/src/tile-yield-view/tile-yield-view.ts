@@ -41,9 +41,9 @@ export type TileYieldView = {
 const strategicDailyFromResource = (resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => {
   switch (resource) {
     case "FARM":
-      return { FOOD: 72 };
-    case "FISH":
       return { FOOD: 48 };
+    case "FISH":
+      return { FOOD: 72 };
     case "IRON":
       return { IRON: 60 };
     case "WOOD":
@@ -73,7 +73,7 @@ const converterDailyOutput = (
     // (Waterworks is a radius-support building like Foundry — it boosts nearby
     //  Farmsteads rather than producing food itself.)
     case "FARMSTEAD":
-      return { FOOD: 72 * 0.5 };
+      return { FOOD: 48 * 0.5 };
     default:
       return {};
   }
@@ -138,7 +138,7 @@ export const buildTileYieldView = (
     delete converterDaily.FOOD;
   }
   // Merge resource and converter output additively so a farmstead on a
-  // FARM tile gives 72 + 36 = 108/day, not 36/day (overwrite).
+  // FARM tile gives 48 + 24 = 72/day, not 24/day (overwrite).
   const strategicPerDay = { ...resourceDaily };
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;

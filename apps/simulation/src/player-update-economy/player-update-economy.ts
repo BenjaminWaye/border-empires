@@ -110,9 +110,9 @@ const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
 const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | undefined): number => {
   switch (resource) {
     case "FARM":
-      return 72 / 1440;
-    case "FISH":
       return 48 / 1440;
+    case "FISH":
+      return 72 / 1440;
     case "IRON":
       return 60 / 1440;
     case "WOOD":
