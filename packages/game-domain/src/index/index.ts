@@ -4,6 +4,7 @@ export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
+export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";

@@ -5,6 +5,7 @@ import {
   WORLD_WIDTH,
   grassShadeAt,
   landBiomeAt,
+  overrideTerrainAt,
   regionTypeAt,
   setWorldSeed,
   terrainAt,
@@ -34,6 +35,7 @@ import {
   type TownDefinition,
   createServerWorldgenClusters,
   createServerWorldgenDocks,
+  createServerWorldgenIslandConnectivity,
   createServerWorldgenShards,
   createServerWorldgenTerrain,
   createServerWorldgenTowns,
@@ -352,6 +354,14 @@ export const createSeasonSeedWorld = (
     key,
     clusterResourceType: terrainRuntime.clusterResourceType
   });
+  const islandConnectivityRuntime = createServerWorldgenIslandConnectivity({
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    wrapX,
+    wrapY,
+    terrainAt,
+    overrideTerrainAt
+  });
   const docksRuntime = createServerWorldgenDocks({
     seeded01: terrainRuntime.seeded01,
     WORLD_WIDTH,
@@ -433,6 +443,7 @@ export const createSeasonSeedWorld = (
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style);
+    islandConnectivityRuntime.ensureLandMassesReachSea();
     clustersRuntime.generateClusters(worldSeed);
     docksRuntime.generateDocks(worldSeed);
     townsRuntime.generateTowns(worldSeed);
@@ -453,6 +464,7 @@ export const createSeasonSeedWorld = (
   }
   activeSeason.worldSeed = worldSeed;
   setWorldSeed(worldSeed, style);
+  islandConnectivityRuntime.ensureLandMassesReachSea();
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]
