@@ -21,8 +21,8 @@ const galaxyStyle = `
      stacking context, so a sibling of #hud with any explicit z-index would
      otherwise paint above everything inside #hud regardless of the number
      used, including the login screen. */
-  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:44px;height:44px;padding:0;margin:0;appearance:none;border-radius:50%;border:0;background:transparent;cursor:pointer;pointer-events:auto;font-size:28px;line-height:1;display:grid;place-items:center;color:#94a3b8;transition:color .15s,transform .15s}
-  .gx-launcher:hover{color:#f1f5f9;transform:scale(1.15)}
+  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:44px;height:44px;padding:0;margin:0;appearance:none;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(3,7,14,.85);cursor:pointer;pointer-events:auto;font-size:28px;line-height:1;display:grid;place-items:center;color:#94a3b8;transition:color .15s,transform .15s,background .15s}
+  .gx-launcher:hover{color:#f1f5f9;background:rgba(11,19,32,.9);transform:scale(1.15)}
   #hud.desktop-side-panel-open ~ .gx-launcher{right:464px}
   @media (max-width: 900px) {
     .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:40px;height:40px;font-size:24px}
