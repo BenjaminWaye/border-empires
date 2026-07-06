@@ -18,6 +18,18 @@ export const FRONTIER_CLAIM_MS = 1_250;
 export const FOREST_FRONTIER_CLAIM_MULT = 4;
 export const SETTLE_COST = 4;
 export const SETTLE_MS = 60_000;
+/**
+ * AI-only reserve: the automatic per-tick frontier auto-claim (see
+ * runtime-territory-automation-tick.ts) stops spending gold on new claims
+ * once an AI player's gold would drop below this floor. Without a reserve,
+ * auto-claim (which fires every tick, unconditionally, well before the AI's
+ * own deliberate SETTLE decision ever runs) drains gold down to near-zero
+ * every tick, permanently starving the AI of the SETTLE_COST needed to
+ * convert any of its claimed FRONTIER tiles into an income-producing town.
+ * Human players are unaffected — this only gates the automated claim loop
+ * for isAi players.
+ */
+export const AI_AUTO_CLAIM_GOLD_RESERVE = 10;
 export const DEVELOPMENT_PROCESS_LIMIT = 3;
 
 export const DEF_MULT_MIN = 0.0;
