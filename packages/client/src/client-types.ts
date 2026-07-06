@@ -345,7 +345,6 @@ export type ActiveTruceView = {
 };
 
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
-
 export type PlayerRespawnNotice = {
   id: string;
   at: number;
@@ -646,6 +645,7 @@ export type TileActionDef = {
     | "create_mountain"
     | "remove_mountain"
     | "cancel_waypoint"
+    | "clear_waypoint_and_expand_here"
     | "expand_here";
   label: string;
   cost?: string;

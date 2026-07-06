@@ -367,8 +367,8 @@ describe("simulation event stream supervisor", () => {
               town_name: "Nauticus",
               town_population_tier: "SETTLEMENT",
               yield: { gold: 0.5, strategic: { FOOD: 4 } },
-              yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-              yieldCap: { gold: 480, strategicEach: 24 }
+              yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+              yieldCap: { gold: 480, strategicEach: 16 }
             }
           ]
         })
@@ -402,8 +402,8 @@ describe("simulation event stream supervisor", () => {
           townName: "Nauticus",
           townPopulationTier: "SETTLEMENT",
           yield: { gold: 0.5, strategic: { FOOD: 4 } },
-          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
-          yieldCap: { gold: 480, strategicEach: 24 }
+          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
+          yieldCap: { gold: 480, strategicEach: 16 }
         }
       ]
     });
