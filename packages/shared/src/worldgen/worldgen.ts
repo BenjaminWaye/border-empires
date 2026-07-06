@@ -499,6 +499,15 @@ export const terrainAt = (x: number, y: number): Terrain => {
   return decodeTerrain(terrainCode);
 };
 
+// Forces a tile's terrain, bypassing procedural generation. Used to carve a
+// sea channel through a mountain ring that would otherwise fully enclose a
+// land mass, since such a mass could never receive a dock.
+export const overrideTerrainAt = (x: number, y: number, terrain: Terrain): void => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  terrainCache[worldIndex(wx, wy)] = encodeTerrain(terrain);
+};
+
 export const isCoastalLandAt = (x: number, y: number): boolean => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
