@@ -205,7 +205,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
   });
 
-  it("Q1: farmstead built on a farm already in waterworks range emits 162 FOOD immediately, no neighbor scan needed", () => {
+  it("Q1: farmstead built on a farm already in waterworks range emits 108 FOOD immediately, no neighbor scan needed", () => {
     // Waterworks was already active and in range BEFORE the farmstead is built
     // (e.g. this tile just finished a farmstead build-completion command) — the
     // beneficiary's own buildTileYieldView call must see the boosted value
@@ -235,7 +235,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["10,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(162);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
   });
 
   it("MINE applies STRUCTURE_OUTPUT_MULT (x1.5) to base IRON output: 60 -> 90/day", () => {

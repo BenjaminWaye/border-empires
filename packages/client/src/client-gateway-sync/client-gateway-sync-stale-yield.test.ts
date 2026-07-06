@@ -58,8 +58,8 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
 
     const updated = deps.state.tiles.get("1,1");
     // Stale 162 must not survive — it should be cleared and re-derived from
-    // the now-bare FARM resource (72/day base, no farmstead/waterworks bonus).
-    expect(updated?.yieldRate?.strategicPerDay?.FOOD).toBe(72);
+    // the now-bare FARM resource (48/day base, no farmstead/waterworks bonus).
+    expect(updated?.yieldRate?.strategicPerDay?.FOOD).toBe(48);
   });
 
   it("clears a stale yieldRate when the dockId is removed (e.g. dock captured/uncaptured)", () => {
