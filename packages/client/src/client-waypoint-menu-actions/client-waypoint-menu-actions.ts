@@ -38,7 +38,7 @@ export const injectWaypointActions = (
   // tile (initial open + HUD re-render on every server tick), and we
   // must not stack duplicate waypoint actions on the view each time.
   const firstActionId = view.actions[0]?.id;
-  if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint") return;
+  if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint" || firstActionId === "clear_waypoint_and_expand_here") return;
   const waypoint = state.waypoint;
   if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
     view.actions = [
@@ -48,7 +48,21 @@ export const injectWaypointActions = (
     view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
     return;
   }
-  if (waypoint) return;
+  if (waypoint) {
+    if (tile.terrain !== "LAND" || tile.fogged || tile.ownerId === state.me) return;
+    const adjacentOrigin =
+      deps.pickOriginForTarget(tile.x, tile.y, false) ??
+      deps.pickOriginForTarget(tile.x, tile.y, false, true);
+    if (adjacentOrigin) return;
+    const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
+    if (!plan.reachable) return;
+    view.actions = [
+      { id: "clear_waypoint_and_expand_here", label: "Clear Waypoint and Expand Here", detail: formatWaypointSummary(plan) },
+      ...view.actions
+    ];
+    view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
+    return;
+  }
   if (tile.terrain !== "LAND" || tile.fogged || tile.ownerId === state.me) return;
   const adjacentOrigin =
     deps.pickOriginForTarget(tile.x, tile.y, false) ??

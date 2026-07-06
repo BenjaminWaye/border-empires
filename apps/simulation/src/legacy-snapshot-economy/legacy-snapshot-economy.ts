@@ -175,8 +175,8 @@ const toStrategicResource = (resource: string | undefined): StrategicResource | 
 };
 
 const strategicDailyFromResource = (resource: string | undefined): number => {
-  if (resource === "FARM") return 72;
-  if (resource === "FISH") return 48;
+  if (resource === "FARM") return 48;
+  if (resource === "FISH") return 72;
   if (resource === "IRON") return 60;
   if (resource === "FUR") return 60;
   if (resource === "WOOD") return 60;
