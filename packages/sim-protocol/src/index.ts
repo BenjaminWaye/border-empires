@@ -93,6 +93,10 @@ export type AdminPlayerRow = {
   incomePerMinute: number;
   techs: number;
   manpower: number;
+  food: number;
+  iron: number;
+  crystal: number;
+  supply: number;
 };
 
 export type SeasonLifecycleStatus = "active" | "ended";

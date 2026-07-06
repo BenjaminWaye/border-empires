@@ -26,12 +26,14 @@ Those apps no longer exist; everything below targets the combined app.
 - `GET /admin/runtime/dashboard` — HTML view of the same data.
 - `GET /admin/players` — per-player stats including gold, which
   `/hq/summary` doesn't expose: `{ id, name, isAi, gold, settledTiles,
-  ownedTiles, incomePerMinute, techs, manpower }`, for every player
-  (including barbarians, not just competitive players). `settledTiles`
-  counts `SETTLED`-state tiles only; `ownedTiles` also counts
-  `FRONTIER`-state tiles. Source: `runtime.exportPlayerDebugSnapshot()`,
-  the same cheap per-player summary path `/hq/summary` uses — no full
-  tile export.
+  ownedTiles, incomePerMinute, techs, manpower, food, iron, crystal,
+  supply }`, for every player (including barbarians, not just competitive
+  players). `settledTiles` counts `SETTLED`-state tiles only; `ownedTiles`
+  also counts `FRONTIER`-state tiles. `food`/`iron`/`crystal`/`supply` are
+  current strategic-resource stockpiles (SHARD is tracked separately and
+  not included here). Source: `runtime.exportPlayerDebugSnapshot()`, the
+  same cheap per-player summary path `/hq/summary` uses — no full tile
+  export.
 
 All three require either:
 
