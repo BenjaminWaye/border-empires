@@ -75,6 +75,7 @@ export const buildGatewayHttpRoutesDeps = (ctx: BuildGatewayHttpRoutesDepsContex
   getCurrentSeasonStatus: () => ctx.simulationClient.getCurrentSeasonSummary().then((s) => s.status),
   listSeasonArchives: async () =>
     hydrateSeasonArchiveDisplayNames(await ctx.simulationClient.listSeasonArchives(), ctx.profileStore),
+  getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
   startNextSeason: (force?: boolean) => ctx.simulationClient.startNextSeason(force),
   seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
   ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
