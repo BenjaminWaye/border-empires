@@ -11,13 +11,23 @@ const galaxyStyle = `
      corner: the desktop minimap (right:12px/bottom:12px, ~292px tall including
      its toolbar+label) and, on mobile, the fixed bottom nav bar (~68px + the
      safe-area inset). Also nudges left when the desktop side panel is open,
-     mirroring how #mini-map-wrap itself avoids the side panel. */
-  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:19;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:radial-gradient(circle at 35% 30%,#334155,#0b1220);color:#f8fafc;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+     mirroring how #mini-map-wrap itself avoids the side panel.
+     z-index is chosen relative to #hud's own stacking order (mini-map-wrap:20,
+     mobile-sheet:21, mobile-nav:22, side-panel:25, targeting-overlay:27,
+     auth-overlay:30) — the launcher sits above regular HUD chrome, and the
+     modal below auth-overlay so a re-auth prompt is never hidden behind it.
+     These elements are mounted as children of #hud (see ensureMounted below),
+     not document.body: #hud has position:fixed, which always creates its own
+     stacking context, so a sibling of #hud with any explicit z-index would
+     otherwise paint above everything inside #hud regardless of the number
+     used, including the login screen. */
+  .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:48px;height:48px;padding:0;margin:0;appearance:none;border-radius:50%;overflow:hidden;display:grid;place-items:center;border:1px solid rgba(255,255,255,.28);background:radial-gradient(circle at 30% 26%,#a9ecff 0%,#38bdf8 35%,#0d6ab0 68%,#062a45 100%);cursor:pointer;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 16px rgba(56,189,248,.45)}
+  .gx-launcher-bands{position:absolute;inset:-25%;background:repeating-linear-gradient(98deg, transparent 0 10%, rgba(255,255,255,.2) 10% 14%, transparent 14% 26%, rgba(4,20,34,.3) 26% 30%, transparent 30% 42%);animation:gx-spin 9s linear infinite;mix-blend-mode:overlay}
   #hud.desktop-side-panel-open ~ .gx-launcher{right:464px}
   @media (max-width: 900px) {
-    .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:44px;height:44px;font-size:20px}
+    .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:44px;height:44px}
   }
-  .gx-overlay{position:fixed;inset:0;z-index:35;display:grid;place-items:center}
+  .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto}
   .gx-overlay[hidden]{display:none}
   .gx-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.82)}
   .gx-panel{position:relative;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 64px);overflow:auto;background:rgba(8,12,24,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:24px}
@@ -25,7 +35,12 @@ const galaxyStyle = `
   .gx-starfield{position:relative;border-radius:10px;padding:32px 16px;text-align:center;background:radial-gradient(ellipse at center,#0f172a 0%,#020617 70%);overflow:hidden}
   .gx-stars{position:absolute;inset:0;background-image:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 65% 15%,#fff,transparent),radial-gradient(1.5px 1.5px at 80% 60%,#fff,transparent),radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1px 1px at 90% 40%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 65%,#fff,transparent);opacity:.6}
   .gx-kicker{position:relative;margin:0 0 8px;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-  .gx-orb{position:relative;width:120px;height:120px;margin:0 auto 16px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#7dd3fc,#0369a1 60%,#0c4a6e);box-shadow:0 0 40px rgba(56,189,248,.45)}
+  .gx-planet-figure{position:relative;width:132px;height:132px;margin:0 auto 18px;display:grid;place-items:center}
+  .gx-ring{position:absolute;width:224px;height:72px;border-radius:50%;border:9px solid transparent;border-top-color:rgba(148,197,255,.55);border-bottom-color:rgba(56,110,168,.32);transform:rotate(-12deg);pointer-events:none}
+  .gx-orb{position:relative;width:132px;height:132px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 30% 26%,#a9ecff 0%,#38bdf8 32%,#0d6ab0 62%,#062a45 100%);box-shadow:0 0 46px rgba(56,189,248,.5)}
+  .gx-orb-bands{position:absolute;inset:-20%;background:repeating-linear-gradient(98deg, transparent 0 8%, rgba(255,255,255,.18) 8% 11%, transparent 11% 22%, rgba(6,30,50,.34) 22% 27%, transparent 27% 38%);animation:gx-spin 18s linear infinite;mix-blend-mode:overlay}
+  .gx-orb-shade{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.4), transparent 42%),radial-gradient(circle at 78% 82%, rgba(2,8,16,.6), transparent 55%);pointer-events:none}
+  @keyframes gx-spin{to{transform:rotate(360deg)}}
   .gx-planet-name{position:relative;margin:0 0 4px;font-size:24px;font-weight:700;color:#f8fafc}
   .gx-planet-meta{position:relative;margin:0;color:#94a3b8;font-size:13px}
   .gx-christen-copy{position:relative;margin:0 0 16px;color:#cbd5e1;font-size:14px}
@@ -39,13 +54,26 @@ const galaxyStyle = `
   .gx-switcher-item.is-active{background:#38bdf8;color:#082f49;border-color:#38bdf8}
 `;
 
+// #hud is `position:fixed` with no explicit z-index, which per the CSS
+// stacking rules still makes it its own stacking context — so anything
+// mounted as a *sibling* of #hud (e.g. document.body) with an explicit
+// z-index would always paint above #hud's entire subtree (including the
+// auth/login overlay), no matter what number is used. Mounting inside #hud
+// instead makes the launcher/overlay's z-index compare correctly against the
+// real overlays declared there. #hud has `pointer-events: none`, so — like
+// the other overlays nested inside it (#structure-info-overlay etc.) — our
+// elements opt back in via `pointer-events: auto` in the CSS above.
+const galaxyMountRoot = (): HTMLElement => document.getElementById("hud") ?? document.body;
+
 const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTMLButtonElement } => {
+  const root = galaxyMountRoot();
+
   const launcher = document.createElement("button");
   launcher.type = "button";
   launcher.className = "gx-launcher";
-  launcher.textContent = "\u{1FA90}";
+  launcher.innerHTML = `<span class="gx-launcher-bands" aria-hidden="true"></span>`;
   launcher.setAttribute("aria-label", "Open your galaxy");
-  document.body.append(launcher);
+  root.append(launcher);
 
   const overlay = document.createElement("section");
   overlay.className = "gx-overlay";
@@ -56,7 +84,7 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
       <button type="button" class="gx-close" data-galaxy-close aria-label="Close">\u00d7</button>
       <div data-galaxy-body></div>
     </div>`;
-  document.body.append(overlay);
+  root.append(overlay);
 
   const style = document.createElement("style");
   style.textContent = galaxyStyle;
