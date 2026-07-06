@@ -458,20 +458,15 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   // viewer — enemy-tile yields must not be inflated by our tech bonuses.
   // Cast: Tile.yieldRate has optional inner fields; TileYieldRate requires them.
   // ensureTileYield only writes the field when it can derive a complete value.
-  //
-  // A delta that changes economicStructureJson/resource/dockId invalidates any
-  // previously-derived (or server-authoritative) yieldRate/yieldCap on this
-  // tile — e.g. a structure being removed/destroyed must re-derive from the
-  // now-bare tile rather than stranding the old boosted value. Only clear when
-  // the server delta didn't itself provide a fresh yieldRate/yieldCap (those
-  // take priority — see tileYieldNeedsServerAuthority on the sim side).
-  const structureResourceOrDockChanged =
-    ("economicStructure" in normalizedGateway &&
-      JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
+  // A structure/resource/dock change without a fresh server yieldRate/yieldCap
+  // clears the stale cached value first, so removal re-derives instead of
+  // stranding the old boosted value (docs/plans/2026-07-06-radius-yield-delivery.md Phase 4).
+  const staleYieldInputsChanged =
+    ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
     ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId);
-  if (structureResourceOrDockChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
-  if (structureResourceOrDockChanged && !("yieldCap" in normalizedGateway)) delete resolved.yieldCap;
+  if (staleYieldInputsChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
+  if (staleYieldInputsChanged && !("yieldCap" in normalizedGateway)) delete resolved.yieldCap;
   const ownIncomeMultiplier =
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
       ? deps.state.mods?.income ?? 1.0

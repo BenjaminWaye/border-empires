@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { buildConnectedTownNetworkForPlayer } from "./economy-network.js";
+import { DOCK_INCOME_PER_MIN } from "@border-empires/game-domain";
+import {
+  buildConnectedTownNetworkForPlayer,
+  dockBaseGoldPerMinuteForPlayer,
+  dockSupportedByCustomsHouse,
+  HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
+  type EconomyPlayer
+} from "./economy-network.js";
 
 const townTile = (x: number, y: number, name: string): DomainTileState => ({
   x,
@@ -184,5 +191,105 @@ describe("connected town network", () => {
 
     // Should complete in well under 500ms — old O(K^2) was multiple seconds.
     expect(durationMs).toBeLessThan(500);
+  });
+});
+
+describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
+  const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
+
+  const dockTile = (x: number, y: number, dockId: string): DomainTileState => ({
+    x, y, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", dockId
+  });
+
+  it("dockSupportedByCustomsHouse is false with no adjacent CUSTOMS_HOUSE", () => {
+    const tiles = new Map<string, DomainTileState>([["10,10", dockTile(10, 10, "dock-a")]]);
+    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(false);
+  });
+
+  it("dockSupportedByCustomsHouse is true when an adjacent tile has an active owned CUSTOMS_HOUSE", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", dockTile(10, 10, "dock-a")],
+      ["11,10", {
+        x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
+        economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+      }]
+    ]);
+    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(true);
+  });
+
+  it("dockSupportedByCustomsHouse ignores an inactive (under-construction) CUSTOMS_HOUSE", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", dockTile(10, 10, "dock-a")],
+      ["11,10", {
+        x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
+        economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: player.id }
+      }]
+    ]);
+    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(false);
+  });
+
+  it("dockBaseGoldPerMinuteForPlayer grants base income only when not supported by a Harbor Exchange", () => {
+    const dockA = dockTile(10, 10, "dock-a");
+    const dockB = dockTile(50, 50, "dock-b");
+    const tiles = new Map<string, DomainTileState>([["10,10", dockA], ["50,50", dockB]]);
+    const dockLinksByDockTileKey = new Map([["10,10", ["50,50"]], ["50,50", ["10,10"]]]);
+
+    const income = dockBaseGoldPerMinuteForPlayer(dockA, player, { tiles, dockLinksByDockTileKey });
+    // Base DOCK_INCOME_PER_MIN * (1 + 0.5 per connected dock) with 1 connected dock, no Harbor Exchange bonus.
+    expect(income).toBeCloseTo(DOCK_INCOME_PER_MIN * 1.5, 6);
+  });
+
+  it("dockBaseGoldPerMinuteForPlayer adds +1 gold/min per connected owned dock when supported by an active Harbor Exchange", () => {
+    const dockA = dockTile(10, 10, "dock-a");
+    const dockB = dockTile(50, 50, "dock-b");
+    const customsHouse: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
+      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+    };
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", dockA],
+      ["50,50", dockB],
+      ["11,10", customsHouse]
+    ]);
+    const dockLinksByDockTileKey = new Map([["10,10", ["50,50"]], ["50,50", ["10,10"]]]);
+
+    const incomeWithoutExchange = dockBaseGoldPerMinuteForPlayer(dockA, player, {
+      tiles: new Map([["10,10", dockA], ["50,50", dockB]]),
+      dockLinksByDockTileKey
+    });
+    const incomeWithExchange = dockBaseGoldPerMinuteForPlayer(dockA, player, { tiles, dockLinksByDockTileKey });
+
+    // +1 gold/min * 1 connected owned dock, additive on top of the base income.
+    expect(incomeWithExchange - incomeWithoutExchange).toBeCloseTo(HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * 1, 6);
+  });
+
+  it("dockBaseGoldPerMinuteForPlayer's Harbor Exchange bonus scales with connectedOwnedDockCount", () => {
+    const dockA = dockTile(10, 10, "dock-a");
+    const dockB = dockTile(50, 50, "dock-b");
+    const dockC = dockTile(60, 60, "dock-c");
+    const customsHouse: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
+      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+    };
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", dockA],
+      ["50,50", dockB],
+      ["60,60", dockC],
+      ["11,10", customsHouse]
+    ]);
+    // dock-a is linked to both dock-b and dock-c (2 connected owned docks).
+    const dockLinksByDockTileKey = new Map([
+      ["10,10", ["50,50", "60,60"]],
+      ["50,50", ["10,10"]],
+      ["60,60", ["10,10"]]
+    ]);
+
+    const incomeWithoutExchange = dockBaseGoldPerMinuteForPlayer(dockA, player, {
+      tiles: new Map([["10,10", dockA], ["50,50", dockB], ["60,60", dockC]]),
+      dockLinksByDockTileKey
+    });
+    const incomeWithExchange = dockBaseGoldPerMinuteForPlayer(dockA, player, { tiles, dockLinksByDockTileKey });
+
+    expect(incomeWithExchange - incomeWithoutExchange).toBeCloseTo(HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * 2, 6);
   });
 });
