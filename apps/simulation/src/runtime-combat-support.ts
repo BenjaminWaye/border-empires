@@ -288,18 +288,25 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
   });
 };
 
+export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
+
 export const previewSettledCapturePlunder = (input: {
   defender: DomainPlayer;
   defenderTileCountBeforeCapture: number;
   target: DomainTileState;
 }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } => {
+  const strategic: Partial<Record<StrategicResourceKey, number>> = {};
+  const strategicResource = strategicResourceForTile(input.target.resource);
+  if (strategicResource) strategic[strategicResource] = 1;
+
+  if (input.defender.id === "barbarian-1") {
+    return { gold: BARBARIAN_CAPTURE_PLUNDER_GOLD, share: 0, defenderGoldLoss: BARBARIAN_CAPTURE_PLUNDER_GOLD, strategic };
+  }
+
   const share = 1 / Math.max(1, input.defenderTileCountBeforeCapture);
   const defenderGoldShare = Math.max(0, input.defender.points * share);
   const storedYieldGold = input.target.town ? 1 : 0;
   const gold = Math.round((defenderGoldShare + storedYieldGold) * 100) / 100;
-  const strategic: Partial<Record<StrategicResourceKey, number>> = {};
-  const strategicResource = strategicResourceForTile(input.target.resource);
-  if (strategicResource) strategic[strategicResource] = 1;
   return { gold, share, defenderGoldLoss: defenderGoldShare, strategic };
 };
 
