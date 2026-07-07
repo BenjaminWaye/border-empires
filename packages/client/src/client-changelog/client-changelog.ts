@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.4",
+  version: "2026.07.06.5",
   title: "What's New",
-  summary: "Fish and grain production rates swapped, waypoint UX improvements, and barbarian plunder capped.",
+  summary: "AI empires expand and settle more sensibly instead of stalling out; barbarian plunder capped.",
   entries: [
+    {
+      introducedIn: "2026.07.06.5",
+      title: "AI empires no longer get stuck permanently broke",
+      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
+      changes: [
+        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
+        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
+        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
+      ]
+    },
     {
       introducedIn: "2026.07.06.0",
       title: "Barbarian plunder capped to prevent gold inflation",
@@ -32,7 +42,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
       ]
     },
-
     {
       introducedIn: "2026.07.06.4",
       title: "Galaxy launcher button is simpler and no longer spins",
