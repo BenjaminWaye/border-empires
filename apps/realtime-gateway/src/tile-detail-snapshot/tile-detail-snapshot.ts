@@ -22,6 +22,7 @@ import {
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
+  SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
@@ -178,7 +179,7 @@ const townPopulationGrowthPerMinute = (input: {
   const growth =
     input.population *
     POPULATION_GROWTH_BASE_RATE *
-    (input.populationTier === "SETTLEMENT" ? 4 : 1) *
+    (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
     (input.hasGranary ? 1.15 : 1) *
     logisticFactor;
   return Number(growth.toFixed(4));
