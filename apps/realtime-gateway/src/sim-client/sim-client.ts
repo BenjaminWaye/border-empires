@@ -77,6 +77,8 @@ type ProtoTileDelta = {
   shardSiteJson?: string;
   muster_json?: string;
   musterJson?: string;
+  ownership_clear_only?: boolean;
+  ownershipClearOnly?: boolean;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };
@@ -310,6 +312,7 @@ export type SimulationClientEvent =
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
+        ownershipClearOnly?: boolean;
       }>;
     }
   | {
@@ -410,6 +413,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("sabotage_json" in tile || "sabotageJson" in tile) normalized.sabotageJson = tile.sabotage_json || tile.sabotageJson || undefined;
   if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
   if ("muster_json" in tile || "musterJson" in tile) normalized.musterJson = tile.muster_json || tile.musterJson || undefined;
+  if (tile.ownership_clear_only === true || tile.ownershipClearOnly === true) normalized.ownershipClearOnly = true;
   if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
     normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
   } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {

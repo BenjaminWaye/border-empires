@@ -253,4 +253,5 @@ export type SimulationTileWireDelta = {
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };
+  ownershipClearOnly?: boolean;
 };

@@ -1126,4 +1126,46 @@ describe("client gateway sync", () => {
     const enemyTile = deps.state.tiles.get("2,2");
     expect(enemyTile?.yieldRate?.goldPerMinute).toBe(1.0);
   });
+
+  it("does not discover or reveal a never-seen tile from a broadcast-only ownership-clear delta", () => {
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 9, y: 9, ownershipClearOnly: true }]);
+
+    expect(deps.state.tiles.has("9,9")).toBe(false);
+    expect(deps.state.discoveredTiles.has("9,9")).toBe(false);
+  });
+
+  it("clears stale ownership on an already-known fogged tile without discovering or unfogging it", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("3,3", {
+      x: 3,
+      y: 3,
+      terrain: "LAND",
+      ownerId: "barbarian-1",
+      ownershipState: "BARBARIAN",
+      fogged: true
+    });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 3, y: 3, ownershipClearOnly: true }]);
+
+    const tile = deps.state.tiles.get("3,3");
+    expect(tile?.ownerId).toBeUndefined();
+    expect(tile?.ownershipState).toBeUndefined();
+    expect(tile?.fogged).toBe(true);
+    expect(deps.state.discoveredTiles.has("3,3")).toBe(false);
+  });
+
+  it("still discovers and unfogs a tile from a normal (non-clear-only) delta", () => {
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]);
+
+    const tile = deps.state.tiles.get("5,5");
+    expect(tile?.ownerId).toBe("rival-1");
+    expect(tile?.ownershipState).toBe("SETTLED");
+    expect(tile?.fogged).toBe(false);
+    expect(deps.state.discoveredTiles.has("5,5")).toBe(true);
+  });
 });
