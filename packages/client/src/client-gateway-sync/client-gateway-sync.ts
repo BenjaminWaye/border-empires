@@ -301,13 +301,42 @@ export const refreshGatewayDerivedTownSummariesAroundTile = (
   _y: number
 ): void => {};
 
+// The exact shape of the minimal ownership-clear broadcast the server sends
+// for tiles whose owner cleared (e.g. a barbarian walking off a tile) — see
+// tile-delta-visibility-filter.ts's `includeOwnershipClears` passthrough. It
+// is deliberately sent to EVERY client regardless of whether that client can
+// actually see the tile, so stale ghost ownership never lingers in any
+// client's cache. It must never be treated as "I can see this tile now".
+const OWNERSHIP_CLEAR_ONLY_KEYS = new Set(["x", "y", "ownerId", "ownershipState"]);
+const isOwnershipClearOnlyUpdate = (update: GatewayTileUpdate): boolean =>
+  !update.ownerId && Object.keys(update).every((key) => OWNERSHIP_CLEAR_ONLY_KEYS.has(key));
+
 const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate, skipRevision = false): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
   deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
-  deps.state.discoveredTiles.add(tileKey);
 
   const existing = deps.state.tiles.get(tileKey);
+
+  // Broadcast-only ghost-ownership cleanup, not a genuine visibility signal.
+  // Previously this fell through to the normal path below, which unconditionally
+  // marked the tile as discovered/unfogged — silently lifting fog-of-war on random
+  // unrelated map cells every time any barbarian tile changed hands anywhere on
+  // the map. Apply the clear to a tile we already know about (without touching its
+  // fogged state or any structure fields, since the server intentionally omits
+  // those for tiles it knows we can't see); ignore it entirely for tiles we've
+  // never actually discovered — there is nothing local to correct.
+  if (isOwnershipClearOnlyUpdate(update)) {
+    if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) return false;
+    const cleared: Tile = { ...existing };
+    delete cleared.ownerId;
+    delete cleared.ownershipState;
+    deps.state.tiles.set(tileKey, cleared);
+    if (!skipRevision) deps.state.tilesRevision += 1;
+    return false;
+  }
+
+  deps.state.discoveredTiles.add(tileKey);
   const previousTerrain = existing?.terrain;
   const previousLandBiome = existing?.landBiome;
   const previousRegionType = existing?.regionType;

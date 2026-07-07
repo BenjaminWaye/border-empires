@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.4",
+  version: "2026.07.06.5",
   title: "What's New",
-  summary: "Fish and grain production rates swapped, waypoint UX improvements, and barbarian plunder capped.",
+  summary: "Fixed fog-of-war incorrectly lifting on unrelated tiles, plus fish and grain production, waypoint UX, and barbarian plunder fixes.",
   entries: [
+    {
+      introducedIn: "2026.07.06.5",
+      title: "Fixed fog-of-war lifting on unrelated map tiles",
+      why: "The server broadcasts a small ownership-cleared signal to every player whenever any tile's owner clears anywhere on the map (e.g. a barbarian wandering off a tile), so no client is left with stale ghost ownership. The client was treating receipt of that signal as proof it could see the tile, permanently clearing fog-of-war on random, often distant, map cells.",
+      changes: [
+        "Ownership-cleared broadcasts no longer lift fog-of-war or mark a tile as discovered unless you already had prior knowledge of it."
+      ]
+    },
     {
       introducedIn: "2026.07.06.0",
       title: "Barbarian plunder capped to prevent gold inflation",
