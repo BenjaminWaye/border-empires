@@ -163,6 +163,16 @@ export type SimulationRuntimeOptions = {
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
+  onOwnershipChange?: (sample: {
+    tileKey: string;
+    x: number;
+    y: number;
+    previousOwnerId: string | undefined;
+    nextOwnerId: string | undefined;
+    commandId: string;
+    hadTown: boolean;
+    hadOwnershipState: string | undefined;
+  }) => void;
   onQueueDrain?: (sample: {
     durationMs: number;
     processedJobs: number;
