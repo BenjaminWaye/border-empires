@@ -1,8 +1,14 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { createRequire } from "node:module";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { describe, expect, it, afterEach } from "vitest";
+
+// node:sqlite is not in vite-node's hardcoded built-in list (vite-node 2.1.x),
+// so Vite strips the "node:" prefix and fails to resolve bare "sqlite".
+// Using createRequire bypasses Vite entirely and loads the built-in directly.
+const _require = createRequire(import.meta.url);
+const { DatabaseSync } = _require("node:sqlite") as typeof import("node:sqlite");
 
 import { SqliteWriterChannel } from "./sqlite-writer-channel.js";
 
