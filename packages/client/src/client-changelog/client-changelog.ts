@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.0",
+  version: "2026.07.07.2",
   title: "What's New",
-  summary: "Warbands tech now boosts combat attack and defense by 5%.",
+  summary: "AI empires can actually earn gold again; Warbands tech boosts combat.",
   entries: [
+    {
+      introducedIn: "2026.07.07.2",
+      title: "AI empires stopped earning gold entirely once inactive for too long",
+      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
+      changes: [
+        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
+      ]
+    },
     {
       introducedIn: "2026.07.07.0",
       title: "Warbands tech grants +5% attack and defense",

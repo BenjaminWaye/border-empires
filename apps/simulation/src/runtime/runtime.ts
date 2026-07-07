@@ -336,6 +336,12 @@ import {
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
+import {
+  applyPassiveIncome as applyPassiveIncomeImpl,
+  applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
+  applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
+  type RuntimePassiveIncomeContext
+} from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
@@ -969,10 +975,21 @@ export class SimulationRuntime {
     this.lastActiveAtMsByPlayer.set(playerId, nowMs);
   }
 
+  private passiveIncomeContext(): RuntimePassiveIncomeContext {
+    return {
+      players: this.players,
+      lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
+      lastIncomeTickAtMsByPlayer: this.lastIncomeTickAtMsByPlayer,
+      cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
+      emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
+    };
+  }
+
   applyPassiveIncome(nowMs: number, inactivityCapMs: number): void {
-    for (const player of this.players.values()) {
-      this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
-    }
+    applyPassiveIncomeImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs);
   }
 
   async applyPassiveIncomeAsync(
@@ -980,70 +997,11 @@ export class SimulationRuntime {
     inactivityCapMs: number,
     yieldToEventLoop: () => Promise<void>
   ): Promise<void> {
-    const ts = this.trackSyncMainThreadTask;
-    for (const player of this.players.values()) {
-      const apply = () => this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
-      if (ts) {
-        ts("apply_passive_income_for_player", { playerId: player.id }, apply);
-      } else {
-        apply();
-      }
-      await yieldToEventLoop();
-    }
+    await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs, yieldToEventLoop);
   }
 
   private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void {
-    const lastActiveAt = this.lastActiveAtMsByPlayer.get(player.id) ?? 0;
-    if (nowMs - lastActiveAt > inactivityCapMs) return;
-
-    const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
-    if (lastTickAt === undefined) {
-      this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
-      return;
-    }
-
-    const elapsedMs = nowMs - lastTickAt;
-    if (elapsedMs <= 0) return;
-    const elapsedMinutes = elapsedMs / 60_000;
-
-    const economy = this.cachedEconomySnapshot(player);
-    const goldPerMinute = economy.incomePerMinute;
-    const summary = this.summaryForPlayer(player.id);
-    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
-
-    // Credit gold and strategic resources
-    let anyCredited = false;
-    const goldEarned = goldPerMinute * elapsedMinutes;
-    if (goldEarned > 0) {
-      const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
-      const creditedGold = Math.min(goldEarned, availableGoldCap);
-      if (creditedGold > 0) {
-        player.points += creditedGold;
-        anyCredited = true;
-      }
-    }
-
-    const sp = economy.strategicProductionPerMinute;
-    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
-    for (const resource of strategicKeys) {
-      const ratePerMinute = sp[resource] ?? 0;
-      if (ratePerMinute <= 0) continue;
-      const earned = ratePerMinute * elapsedMinutes;
-      const cap = storageCap[resource as keyof typeof storageCap] ?? 0;
-      const current = (player.strategicResources ?? {})[resource] ?? 0;
-      const available = Math.max(0, cap - current);
-      const credited = Math.min(earned, available);
-      if (credited > 0) {
-        this.addStrategicResource(player, resource, credited);
-        anyCredited = true;
-      }
-    }
-
-    this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
-
-    if (anyCredited) {
-      this.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
-    }
+    applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs);
   }
 
   welcomeBackSummary(
