@@ -85,7 +85,9 @@ describe("findEnclosedRegion", () => {
     expect(region!.size).toBe(4);
   });
 
-  it("treats sea tiles as natural walls (tile enclosed by sea + player tiles)", () => {
+  it("returns null when the region touches the sea (natural barriers no longer wall)", () => {
+    // Sea is a leak, not a seal: a pocket touching the coast is "open", so the
+    // player must ring it with their own settled tiles to claim it.
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -93,9 +95,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "SEA" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
-    expect(region).not.toBeNull();
-    expect(region!.size).toBe(1);
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
   it("returns null when an enemy tile forms part of the boundary", () => {
@@ -112,11 +112,11 @@ describe("findEnclosedRegion", () => {
     expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
-  it("returns null when the player's own FRONTIER tile forms part of the boundary", () => {
-    // Three sides are player-1 SETTLED tiles, the fourth is player-1's own
-    // FRONTIER tile. FRONTIER can still decay back to unowned, so it isn't a
-    // permanent wall — the pocket must not be auto-claimed until the frontier
-    // tile itself settles.
+  it("treats the player's own FRONTIER as transparent interior, not a wall", () => {
+    // FRONTIER can still decay back to unowned, so it isn't a permanent seal.
+    // Instead of walling the pocket, the flood traverses *through* the frontier
+    // tile — and here it leaks past it (the frontier's far neighbors are open),
+    // so the region is not sealed by settled territory and returns null.
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
       [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })],
@@ -127,7 +127,28 @@ describe("findEnclosedRegion", () => {
     expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
-  it("treats mountain tiles as natural walls (tile enclosed by mountain + player tiles)", () => {
+  it("traverses through an interior FRONTIER tile when the region is still sealed by SETTLED", () => {
+    // (1,1) unowned land and (2,1) our own FRONTIER form the interior; the whole
+    // thing is ringed by our SETTLED tiles. The frontier is walked through (and
+    // included in the region set) but the region still resolves because settled
+    // territory seals every outer edge.
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
+      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
+      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })]
+    ]);
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    expect(region).not.toBeNull();
+    expect(region!.size).toBe(2);
+    expect(region!.has(simulationTileKey(2, 1))).toBe(true);
+  });
+
+  it("returns null when the region touches a mountain (natural barriers no longer wall)", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -135,9 +156,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "MOUNTAIN" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
-    expect(region).not.toBeNull();
-    expect(region!.size).toBe(1);
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
   it("returns null when the region reaches the map boundary through unowned land", () => {

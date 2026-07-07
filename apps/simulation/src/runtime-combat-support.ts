@@ -118,6 +118,34 @@ export const buildCaptureRevealTileDeltas = (
   return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
 };
 
+/**
+ * Reveal-only deltas around many centers at once, deduped into a single sorted
+ * batch. Used by auto-fill, which can settle a cluster of tiles in one shot:
+ * revealing the fog around each newly-settled tile the way a single capture does
+ * (see buildCaptureRevealTileDeltas), but without emitting overlapping deltas for
+ * the shared fog between adjacent centers.
+ */
+export const buildRevealTileDeltasForCenters = (
+  ctx: RuntimeCombatSupportContext,
+  playerId: string,
+  centers: Iterable<{ x: number; y: number }>
+): SimulationTileWireDelta[] => {
+  const radius = visibleRadiusForPlayer(ctx.players, playerId);
+  const deltas = new Map<string, SimulationTileWireDelta>();
+  for (const center of centers) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        const key = simulationTileKey(center.x + dx, center.y + dy);
+        if (deltas.has(key)) continue;
+        const tile = ctx.tiles.get(key);
+        if (!tile) continue;
+        deltas.set(key, ctx.tileDeltaRevealOnly(tile));
+      }
+    }
+  }
+  return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
+};
+
 export const originTileHeldByActiveFort = (
   tiles: ReadonlyMap<string, DomainTileState>,
   now: () => number,

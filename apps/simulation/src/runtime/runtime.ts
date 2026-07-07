@@ -201,6 +201,7 @@ import {
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
   buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  buildRevealTileDeltasForCenters as buildRevealTileDeltasForCentersImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -209,6 +210,7 @@ import {
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
 import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
+import { isAiControlledActor } from "../runtime-player-factory.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -1341,7 +1343,17 @@ export class SimulationRuntime {
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) }); }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) { this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) });
+    // Auto-filled tiles are freshly claimed land the owner may never have seen —
+    // reveal the fog around each one to the owner (deduped) the way a capture
+    // does, so the client isn't left with owned-but-fogged tiles. Skipped for
+    // AI-controlled actors, which have no client to reveal to (mirrors the
+    // capture-reveal guard in runtime-lock-resolution.ts).
+    if (!isAiControlledActor(ownerId, this.players.get(ownerId)?.isAi)) {
+      const revealDeltas = buildRevealTileDeltasForCentersImpl(this.combatSupportContext(), ownerId, f);
+      if (revealDeltas.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill-reveal:${tileKey}:${this.now()}`, playerId: ownerId, tileDeltas: revealDeltas });
+    }
+  } }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
