@@ -14,16 +14,13 @@ import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-ht
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
+import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
-import {
-  RENDERER_PROMPT_FPS_THRESHOLD,
-  RENDERER_PROMPT_LOW_FPS_MS,
-  shouldShowRendererPrompt
-} from "../client-renderer-prompt/client-renderer-prompt.js";
+import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "../client-social-suggestions/client-social-suggestions.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
@@ -1049,12 +1046,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerCap: state.manpowerCap,
       manpowerRegenPerMinute: state.manpowerRegenPerMinute,
       manpowerBreakdown: state.manpowerBreakdown,
+      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me),
       formatManpowerAmount,
       rateToneClass
     })
   );
   dom.panelManpowerEl.innerHTML = manpowerPanelHtml;
   dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
+  wireMusterFocusButtons(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
   dom.leaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
