@@ -850,6 +850,57 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onOwnershipChange: (sample) => {
+      const lostTown = sample.hadTown;
+      const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
+      if (!lostTown && !lostSettled) return;
+      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK;
+      if (lostTown) {
+        const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
+        log.warn(
+          {
+            tileKey: sample.tileKey,
+            x: sample.x,
+            y: sample.y,
+            previousOwnerId: sample.previousOwnerId,
+            nextOwnerId: sample.nextOwnerId,
+            commandId: sample.commandId,
+            hadTown: sample.hadTown
+          },
+          message
+        );
+        if (webhookUrl) {
+          const body = JSON.stringify({
+            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"}:* ${message}`,
+            blocks: [
+              { type: "header", text: { type: "plain_text", text: "🏚️ Town Lost" } },
+              {
+                type: "section",
+                fields: [
+                  { type: "mrkdwn", text: `*Tile:* ${sample.tileKey} (${sample.x},${sample.y})` },
+                  { type: "mrkdwn", text: `*Previous Owner:* ${sample.previousOwnerId}` },
+                  { type: "mrkdwn", text: `*Command:* \`${sample.commandId}\`` }
+                ]
+              }
+            ]
+          });
+          fetch(webhookUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(5_000) }).catch(() => {});
+        }
+      } else {
+        log.warn(
+          {
+            tileKey: sample.tileKey,
+            x: sample.x,
+            y: sample.y,
+            previousOwnerId: sample.previousOwnerId,
+            nextOwnerId: sample.nextOwnerId,
+            commandId: sample.commandId,
+            hadTown: sample.hadTown
+          },
+          `[ownership_audit] SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+        );
+      }
+    },
     onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
@@ -2922,10 +2973,31 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 1_000);
       const recoveredAiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
+      const recoveredPlayersMap = new Map(effectiveStartupRecovery.initialState.players?.map((p) => [p.id, p]));
+      const territoryByPlayer = new Map<string, { tiles: number; towns: number; gold: number | undefined }>();
+      for (const tile of effectiveStartupRecovery.initialState.tiles) {
+        if (!tile.ownerId) continue;
+        let entry = territoryByPlayer.get(tile.ownerId);
+        if (!entry) {
+          entry = { tiles: 0, towns: 0, gold: recoveredPlayersMap.get(tile.ownerId)?.points };
+          territoryByPlayer.set(tile.ownerId, entry);
+        }
+        entry.tiles++;
+        if (tile.town) entry.towns++;
+      }
+      const territoryManifest = [...territoryByPlayer.entries()].map(([id, e]) => ({
+        playerId: id,
+        tiles: e.tiles,
+        towns: e.towns,
+        gold: e.gold
+      }));
       log.info(
         {
           envAiPlayerCountHint: options.aiPlayerCount,
-          recoveredAiPlayerCount
+          recoveredAiPlayerCount,
+          totalRecoveredTiles: effectiveStartupRecovery.initialState.tiles.length,
+          territoryManifest,
+          playerCount: recoveredPlayersMap.size
         },
         `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log; ${recoveredAiPlayerCount} AI players locked in at season start`
       );
