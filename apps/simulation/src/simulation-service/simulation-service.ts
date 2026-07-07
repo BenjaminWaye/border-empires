@@ -855,7 +855,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const lostTown = sample.hadTown;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
-      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK;
+      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
       if (lostTown) {
         const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
         log.warn(

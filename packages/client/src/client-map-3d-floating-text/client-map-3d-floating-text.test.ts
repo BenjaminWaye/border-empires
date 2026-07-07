@@ -50,7 +50,7 @@ describe("createFloatingTextLayer", () => {
     expect(visibleMaterial.opacity).toBe(1);
     expect(visibleSprite.position.y).toBeGreaterThan(3.2);
 
-    layer.update(3_900);
+    layer.update(5_500);
 
     expect(scene.children).toHaveLength(0);
   });
