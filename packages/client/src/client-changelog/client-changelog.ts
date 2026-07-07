@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.5",
+  version: "2026.07.07.0",
   title: "What's New",
-  summary: "AI empires expand and settle more sensibly instead of stalling out; barbarian plunder capped.",
+  summary: "Warbands tech now boosts combat attack and defense by 5%; Aegis Lock and Astral Dock Launch are durable commands.",
   entries: [
+    {
+      introducedIn: "2026.07.07.0",
+      title: "Warbands tech grants +5% attack and defense",
+      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
+      changes: [
+        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
+      ]
+    },
     {
       introducedIn: "2026.07.06.5",
       title: "AI empires no longer get stuck permanently broke",
