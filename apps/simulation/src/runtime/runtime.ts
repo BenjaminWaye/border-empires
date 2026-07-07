@@ -200,8 +200,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
-  buildRevealTileDeltasForCenters as buildRevealTileDeltasForCentersImpl,
+  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl, buildAutoFillRevealTileDeltas as buildAutoFillRevealTileDeltasImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -210,7 +209,6 @@ import {
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
 import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
-import { isAiControlledActor } from "../runtime-player-factory.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -396,13 +394,6 @@ const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive",
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const RESPAWN_MINIMUM_GOLD = 100;
-// 8-neighbor offsets used to decide whether an auto-filled tile sits on the
-// boundary of owned territory (and can therefore expose new fog to reveal).
-const AUTO_FILL_REVEAL_NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
-  [-1, -1], [0, -1], [1, -1],
-  [-1,  0],          [1,  0],
-  [-1,  1], [0,  1], [1,  1],
-];
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
 // Grace beyond resolvesAt before the sweep drops a lock (60s).
 // Normal locks resolve inside their setTimeout window; anything still present
@@ -1350,25 +1341,7 @@ export class SimulationRuntime {
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) { this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) });
-    // Reveal the fog around freshly-filled tiles so the client isn't left with
-    // owned-but-fogged land. Only tiles on the *boundary* of owned territory
-    // (bordering fog/terrain/another owner) can expose new fog — an interior
-    // tile whose every neighbor we already own reveals nothing new. This bounds
-    // the O(centers × VISION_RADIUS²) reveal cost to the region's perimeter and,
-    // for a pocket sealed purely by our own settled ring, drops it to zero (the
-    // ring already grants that vision). Skipped for AI actors (no client).
-    if (!isAiControlledActor(ownerId, this.players.get(ownerId)?.isAi)) {
-      const revealCenters = f.filter((t) => AUTO_FILL_REVEAL_NEIGHBOR_OFFSETS.some(([dx, dy]) => {
-        const n = this.tiles.get(simulationTileKey(t.x + dx, t.y + dy));
-        return !n || n.ownerId !== ownerId;
-      }));
-      if (revealCenters.length > 0) {
-        const revealDeltas = buildRevealTileDeltasForCentersImpl(this.combatSupportContext(), ownerId, revealCenters);
-        if (revealDeltas.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill-reveal:${tileKey}:${this.now()}`, playerId: ownerId, tileDeltas: revealDeltas });
-      }
-    }
-  } }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) { this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) }); const revealDeltas = buildAutoFillRevealTileDeltasImpl(this.combatSupportContext(), ownerId, f, this.players.get(ownerId)?.isAi); if (revealDeltas.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill-reveal:${tileKey}:${this.now()}`, playerId: ownerId, tileDeltas: revealDeltas }); } }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
