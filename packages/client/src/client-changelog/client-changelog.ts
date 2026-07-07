@@ -19,16 +19,24 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.6",
+  version: "2026.07.07.7",
   title: "What's New",
-  summary: "Fixed forts, observatories, and other structures randomly disappearing from the map view.",
+  summary: "Fixed forts, observatories, and other structures randomly disappearing from the map view; Frontier Doctrine and similar research now actually grant the extra development slot they promise.",
   entries: [
     {
-      introducedIn: "2026.07.07.6",
+      introducedIn: "2026.07.07.7",
       title: "Structures no longer randomly vanish from tiles",
       why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
       changes: [
         "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.6",
+      title: "Fixed development slot bonuses not applying",
+      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
+      changes: [
+        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
       ]
     },
     {
