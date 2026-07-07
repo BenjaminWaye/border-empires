@@ -20,6 +20,7 @@ import {
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -1976,24 +1977,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
             }
             if (filteredDeltas.length === 0) continue;
-            // Build a cheap group key: "x:y" per tile (optionally suffixed
-            // ":r"), joined by "|". The ":r" suffix marks terrain-only
-            // redacted stubs (lock targets owned by another player) so full
-            // and redacted content never collide in the cache. Redaction only
-            // fires when the original delta had a truthy ownerId (see
-            // tile-delta-visibility-filter.ts), so a delta that never carried
-            // ownerId always serializes identically for every viewer — safe
-            // to key the same way even though the ":r" label is technically
-            // inexact for that case. Use for-of to avoid index-access
-            // narrowing issues.
-            let groupKey = "";
-            let groupKeyFirst = true;
-            for (const d of filteredDeltas) {
-              if (!groupKeyFirst) groupKey += "|";
-              groupKeyFirst = false;
-              groupKey += `${d.x}:${d.y}`;
-              if (!("ownerId" in d)) groupKey += ":r";
-            }
+            // Group subscribers whose filtered delta set serializes identically
+            // so the proto pass runs once per unique set. The key must separate
+            // variants that share coordinates but differ on the wire (redacted
+            // ":r" stubs, ownership-clear ":c" stubs, full deltas) — see
+            // buildTileDeltaGroupKey.
+            const groupKey = buildTileDeltaGroupKey(filteredDeltas);
             const cachedProto = protoCache.get(groupKey);
             if (cachedProto) {
               const perPlayerEvent = { ...cachedProto, player_id: subscribedPlayerId };
