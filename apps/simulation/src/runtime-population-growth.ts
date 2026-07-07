@@ -6,6 +6,7 @@ import {
   NEARBY_WAR_RADIUS,
   POPULATION_GROWTH_BASE_RATE,
   SEED_GRANARY_GROWTH_MULT,
+  SETTLEMENT_GROWTH_RATE_MULT,
   type DomainTileState
 } from "@border-empires/game-domain";
 import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy/player-update-economy.js";
@@ -122,7 +123,6 @@ export function tickPopulationGrowth(input: {
       const tile = input.tiles.get(tileKey);
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
       const town = tile.town;
-      if (town.populationTier === "SETTLEMENT") continue;
       pDiag.totalTowns += 1;
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;
@@ -179,6 +179,7 @@ export function tickPopulationGrowth(input: {
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
+      const settlementRateMult = town.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1;
       const lastTick = input.townLastGrowthTickAtByKey.get(tileKey) ?? input.nowMs;
       const elapsedMinutes = (input.nowMs - lastTick) / 60_000;
       if (elapsedMinutes <= 0) {
@@ -189,6 +190,7 @@ export function tickPopulationGrowth(input: {
       const growthPerMinute =
         town.population *
         POPULATION_GROWTH_BASE_RATE *
+        settlementRateMult *
         granaryGrowthMult *
         firstThreeMult *
         longPeaceMult *
