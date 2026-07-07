@@ -19,17 +19,34 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.1",
+  version: "2026.07.07.4",
   title: "What's New",
-  summary: "Active muster flags now get edge-of-screen locator markers and a list in the manpower panel, so you can always find them.",
+  summary: "Active muster flags now get edge-of-screen locator markers and a list in the manpower panel; fog-of-war no longer lifts on tiles you haven't seen; AI empires can earn gold again.",
   entries: [
     {
-      introducedIn: "2026.07.07.1",
+      introducedIn: "2026.07.07.4",
       title: "Muster flags are now easier to find",
       why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
       changes: [
         "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
         "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.3",
+      title: "Fixed fog-of-war lifting on unrelated map tiles",
+      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
+      changes: [
+        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
+        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.2",
+      title: "AI empires stopped earning gold entirely once inactive for too long",
+      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
+      changes: [
+        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
       ]
     },
     {
@@ -238,7 +255,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The World Engine tooltip and Actions tab description now match the real cooldown (60m), cost, and effect instead of the old text.",
         "World Engine Strike, Imperial Exchange Levy, and Astral Dock Launch all have new activation FX at the monument tile."
       ]
-    },
+    }
   ]
 };
 
