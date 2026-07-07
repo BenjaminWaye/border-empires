@@ -5,6 +5,57 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 
 describe("buildSnapshotTileDetail", () => {
+  it("emits explicit null ownerId/ownershipState for a neutral (unowned) tile", () => {
+    // Regression: a neutral snapshot tile has no ownerId/ownershipState keys at
+    // all, so the naive `{ ...tile, detailLevel: "full" }` spread omitted them
+    // entirely. The client's sparse-delta merge treats an omitted key as
+    // "unchanged", so a client holding stale ownership from a prior owned
+    // state never cleared it -- attacks on that tile then failed forever with
+    // ATTACK_TARGET_INVALID. A full-detail response must be authoritative, so
+    // absent ownership must round-trip as explicit null, not omission.
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 5, 5);
+
+    expect(detail).toBeDefined();
+    expect(detail && "ownerId" in detail).toBe(true);
+    expect(detail?.ownerId).toBeNull();
+    expect(detail && "ownershipState" in detail).toBe(true);
+    expect(detail?.ownershipState).toBeNull();
+  });
+
+  it("still returns real ownerId/ownershipState for an owned settled tile", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 6,
+          y: 6,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED"
+        }
+      ]
+    };
+
+    // Query as a different player than the owner, so the function takes the
+    // early-return branch (not the owner-detail-enrichment branch), and we
+    // confirm ownerId/ownershipState are still the real values, not nulled.
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 6, 6);
+
+    expect(detail?.ownerId).toBe("player-2");
+    expect(detail?.ownershipState).toBe("SETTLED");
+  });
+
   it("adds tile upkeep detail for owned settled tiles", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
