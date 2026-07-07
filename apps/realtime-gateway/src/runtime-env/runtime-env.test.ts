@@ -135,6 +135,36 @@ describe("realtime gateway runtime env", () => {
     });
   });
 
+  it("ignores GATEWAY_DEFAULT_HUMAN_PLAYER_ID in managed runtime without explicit opt-in", () => {
+    // Regression test: staging previously had GATEWAY_DEFAULT_HUMAN_PLAYER_ID=player-1
+    // set as a stray secret, which silently collapsed every distinct Firebase user
+    // without an existing binding onto the same "player-1" account. The default
+    // fallback must never activate in a managed runtime unless a second, explicit
+    // flag confirms the operator intends it.
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        NODE_ENV: "production",
+        SQLITE_PATH: "/data/gateway.db",
+        SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        GATEWAY_DEFAULT_HUMAN_PLAYER_ID: "player-1"
+      }).defaultHumanPlayerId
+    ).toBeUndefined();
+  });
+
+  it("honors GATEWAY_DEFAULT_HUMAN_PLAYER_ID in managed runtime when explicitly opted in", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        NODE_ENV: "production",
+        SQLITE_PATH: "/data/gateway.db",
+        SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        GATEWAY_DEFAULT_HUMAN_PLAYER_ID: "player-1",
+        GATEWAY_ALLOW_DEFAULT_HUMAN_PLAYER_ID_IN_MANAGED_RUNTIME: "1"
+      }).defaultHumanPlayerId
+    ).toBe("player-1");
+  });
+
   it("parses gameplay email alert settings", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({
