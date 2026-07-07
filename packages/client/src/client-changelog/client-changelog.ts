@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.07.07.0",
   title: "What's New",
-  summary: "Warbands tech now boosts combat attack and defense by 5%; Aegis Lock and Astral Dock Launch are durable commands.",
+  summary: "Warbands tech now boosts combat attack and defense by 5%.",
   entries: [
     {
       introducedIn: "2026.07.07.0",
@@ -228,62 +228,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Worldbreaker Shot now costs 15,000 gold in addition to its existing 500 crystal.",
         "The World Engine tooltip and Actions tab description now match the real cooldown (60m), cost, and effect instead of the old text.",
         "World Engine Strike, Imperial Exchange Levy, and Astral Dock Launch all have new activation FX at the monument tile."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.3",
-      title: "Start New Season no longer shows as unavailable",
-      why: "The gateway accepted START_NEW_SEASON but did not advertise it in the rewrite capability list, so the client blocked the season-end button before sending the command.",
-      changes: [
-        "The rewrite gateway now includes START_NEW_SEASON in its supported client message list.",
-        "The client can send the season rollover request from the season-end overlay instead of showing Action unavailable."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.2",
-      title: "Sky Dock Bombard shows which tiles hit and which missed",
-      why: "Bombarding a target with the airport's Sky Dock gave no indication of why some tiles in the blast radius didn't flip to neutral — players couldn't tell a random miss (forts reduce hit chance) from a bug.",
-      changes: [
-        "The bombardment explosion FX is now driven by the actual server result instead of firing identically on every tile: tiles that hit get the orange ring/flash explosion, tiles that missed get a gray smoke fizzle instead.",
-        "The feed also shows a summary message after each bombardment with the hit/miss counts.",
-        "If no enemy tiles were in range, the feed says so instead of leaving the result ambiguous."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.1",
-      title: "Capture pop indicator floats once and slower",
-      why: "When capturing a city, the floating \"-XXX pop\" indicator re-fired on every camera move instead of floating up once and fading. The 3.2s animation was also too fast to read.",
-      changes: [
-        "The floating text and its guard map are no longer cleared during terrain rebuild, so the indicator fires only once per capture event.",
-        "Floating duration increased from 3.2s to 5s for easier readability."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.1",
-      title: "Sky Dock Bombard target overlay no longer persists after execution",
-      why: "After executing a Sky Dock Bombard, the red target tile overlay remained visible until browser refresh — the fill mesh and tile borders were only hidden during terrain rebuild, not on every render frame.",
-      changes: [
-        "The crystal targeting overlay now hides its fill mesh and tile borders every frame when targeting mode is inactive, not just during rebuild."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
-      title: "Dock-based 'Launch Attack' no longer silently fails",
-      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
-      changes: [
-        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
-        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
-        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
-      title: "Shard collection animation overlay adapts to mobile screen sizes",
-      why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
-      changes: [
-        "On screens narrower than 520px, the overlay stacks the artwork above the text, centers all content, and reduces art size (120→80px) and font sizes proportionally.",
-        "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
-        "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
       ]
     }
   ]
