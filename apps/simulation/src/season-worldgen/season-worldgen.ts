@@ -56,7 +56,7 @@ const createRuntimePlayer = (id: string): DomainPlayer => ({
   id,
   isAi: false,
   name: seasonalPlayerNameForId(id),
-  points: id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : 100,
+  points: id === "barbarian-1" ? 100 : 100,
   manpower: id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : MANPOWER_BASE_CAP,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),
