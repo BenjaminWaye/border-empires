@@ -47,6 +47,25 @@ const unfedTownTile = (overrides: TileOverrides = {}): Tile => {
   }
 };
 
+const musterTile = (overrides: Omit<Partial<Tile>, "muster"> & { muster?: Partial<NonNullable<Tile["muster"]>> } = {}): Tile => {
+  const { muster: musterOverrides, ...tileOverrides } = overrides;
+  return {
+    x: 30,
+    y: 40,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    ...tileOverrides,
+    muster: {
+      ownerId: "me",
+      amount: 120,
+      mode: "HOLD",
+      updatedAt: 0,
+      ...musterOverrides
+    }
+  };
+};
+
 describe("persistent alerts", () => {
   it("classifies ongoing town food failures as persistent alerts", () => {
     expect(notificationCategoryForServerError("TOWN_UNFED")).toBe("persistent_alert");
@@ -73,6 +92,45 @@ describe("persistent alerts", () => {
         y: 18
       })
     ]);
+  });
+
+  it("creates a persistent alert for an owned active muster flag", () => {
+    const state = {
+      me: "me",
+      tiles: new Map<string, Tile>([["30,40", musterTile()]])
+    };
+
+    expect(persistentAlertsForState(state)).toEqual([
+      expect.objectContaining({
+        id: "muster_active:30,40",
+        kind: "muster_active",
+        title: "Muster flag active",
+        x: 30,
+        y: 40
+      })
+    ]);
+  });
+
+  it("ignores a muster flag owned by another player even on our own tile", () => {
+    const state = {
+      me: "me",
+      tiles: new Map<string, Tile>([["30,40", musterTile({ muster: { ownerId: "enemy" } })]])
+    };
+
+    expect(persistentAlertsForState(state)).toEqual([]);
+  });
+
+  it("shows both HOLD and ADVANCE muster flags", () => {
+    const state = {
+      me: "me",
+      tiles: new Map<string, Tile>([
+        ["30,40", musterTile({ x: 30, y: 40, muster: { mode: "HOLD" } })],
+        ["31,40", musterTile({ x: 31, y: 40, muster: { mode: "ADVANCE", targetX: 35, targetY: 40 } })]
+      ])
+    };
+
+    const alerts = persistentAlertsForState(state);
+    expect(alerts.map((alert) => alert.id).sort()).toEqual(["muster_active:30,40", "muster_active:31,40"]);
   });
 
   it("orders locator candidates by distance from the camera", () => {

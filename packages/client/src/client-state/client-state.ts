@@ -273,7 +273,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed";
+    kind: "town_unfed" | "muster_active";
     x: number;
     y: number;
     screenX: number;
