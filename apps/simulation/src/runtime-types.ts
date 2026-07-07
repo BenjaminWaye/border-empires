@@ -8,6 +8,7 @@ import type { SimulationSeedProfile } from "./seed-state/seed-state.js";
 import type { QueueLane } from "./command-lane/command-lane.js";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import type { buildConnectedTownNetworkForPlayer } from "./economy-network/economy-network.js";
+import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thread-task-tracker.js";
 
 export type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
@@ -16,6 +17,8 @@ export type RuntimeTileYieldEconomyContext = {
   firstThreeTownKeys: Set<string>;
   /** Precomputed tile keys of active WATERWORKS structures owned by this player. */
   waterworksKeys: Set<string>;
+  /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
+  foundryKeys: Set<string>;
 };
 
 export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;
@@ -110,6 +113,7 @@ export type SimulationJob = {
   run: () => void;
   enqueuedAt: number;
   commandType?: CommandEnvelope["type"];
+  commandId?: string;
   scheduling?: "immediate" | "background";
 };
 
@@ -186,10 +190,19 @@ export type SimulationRuntimeOptions = {
     lane: QueueLane;
     durationMs: number;
     commandType?: CommandEnvelope["type"];
+    commandId?: string;
   }) => void;
+  wrapJobRun?: (
+    run: () => void,
+    meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }
+  ) => () => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+  // Wraps the exact synchronous blocks worth attributing on an event_loop_blocked
+  // stall (currently: classifyVisibilityForPlayer's vision-expansion-cache-miss
+  // path). Optional so tests/other callers can omit it; falls back to a plain call.
+  trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   onCaptureRevealBuilt?: (sample: {
     commandId: string;
     playerId: string;
@@ -209,6 +222,10 @@ export type SimulationRuntimeOptions = {
   onMusterRemoteBlocked?: () => void;
   onMusterRemoteBlockedBarbarian?: () => void;
   onAutoFillTiles?: (count: number) => void;
+  /** Fires each time the tile-shedding tick skips emitPlayerStateUpdate for an
+   *  AI player (no WS subscribers — see PR #732 for the same rationale
+   *  applied to lock resolution). Zero forever means the skip never engages. */
+  onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
 };
 
 export type SimulationTileWireDelta = {

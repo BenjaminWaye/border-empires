@@ -18,6 +18,18 @@ export const FRONTIER_CLAIM_MS = 1_250;
 export const FOREST_FRONTIER_CLAIM_MULT = 4;
 export const SETTLE_COST = 4;
 export const SETTLE_MS = 60_000;
+/**
+ * AI-only reserve: the automatic per-tick frontier auto-claim (see
+ * runtime-territory-automation-tick.ts) stops spending gold on new claims
+ * once an AI player's gold would drop below this floor. Without a reserve,
+ * auto-claim (which fires every tick, unconditionally, well before the AI's
+ * own deliberate SETTLE decision ever runs) drains gold down to near-zero
+ * every tick, permanently starving the AI of the SETTLE_COST needed to
+ * convert any of its claimed FRONTIER tiles into an income-producing town.
+ * Human players are unaffected — this only gates the automated claim loop
+ * for isAi players.
+ */
+export const AI_AUTO_CLAIM_GOLD_RESERVE = 10;
 export const DEVELOPMENT_PROCESS_LIMIT = 3;
 
 export const DEF_MULT_MIN = 0.0;
@@ -125,6 +137,12 @@ export const MUSTER_SYSTEM_ENABLED =
 // How much mustered manpower one ordinary attack costs (placeholder).
 // Also used as the fill-ratio reference for the muster flag animation.
 export const MUSTER_ATTACK_COST = 60;
+// Attacking a FRONTIER-owned target (claimed but not settled) — these have
+// zero effective defense (see defenseMultiplierForTile in frontier-combat.ts,
+// which returns 0 for ownershipState === "FRONTIER" regardless of any fort
+// built on the tile — forts only grant their defense bonus once the tile is
+// SETTLED). Cheap like a barbarian raid, not the full settled-attack floor.
+export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
 // Maximum manpower a single muster tile can hold.

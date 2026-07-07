@@ -1,6 +1,7 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  AI_AUTO_CLAIM_GOLD_RESERVE,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -10,6 +11,12 @@ import {
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+
+type TrackSync = <T>(
+  phase: string,
+  details: Record<string, string | number | boolean | null> | undefined,
+  task: () => T
+) => T;
 
 export type TickTerritoryAutomationInput = {
   nowMs: number;
@@ -30,12 +37,12 @@ export type TickTerritoryAutomationInput = {
   /** When provided, yields the event loop between major phases and between
    *  players so the 30s watchdog never fires on a busy tick. */
   yieldToEventLoop?: () => Promise<void>;
+  trackSync?: TrackSync;
 };
 
 export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInput): Promise<void> => {
-  // Use a no-op so every call site can unconditionally `await yield_()` without
-  // an `if (yield_)` guard cluttering each phase boundary.
   const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
+  const track = input.trackSync;
   const _ttaStart = Date.now();
   const autoClaimedKeys = new Set<string>();
   let _claimSummaryForPlayerMs = 0;
@@ -46,9 +53,6 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
   let _anchorsIterated = 0;
   let _claimCandidatesEvaluated = 0;
   let _tilesActuallyClaimed = 0;
-  // Cap claims per player per tick to bound replaceTileState cascade cost.
-  // Each claim triggers topology dirty + event emission; uncapped this is
-  // O(anchors × candidates) replaceTileState calls per tick.
   const MAX_CLAIMS_PER_PLAYER = 8;
 
   for (const playerId of input.players.keys()) {
@@ -64,63 +68,83 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
     const claimDeltas: Array<ReturnType<TickTerritoryAutomationInput["tileDeltaFromState"]>> = [];
     let claimsThisPlayer = 0;
     let claimCommandId: string | undefined;
-    const fortAnchorMap = input.activeFortAnchorsByOwner.get(playerId);
-    for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
-      _anchorsIterated++;
-      const _tAnchor = Date.now();
-      const anchor = input.tiles.get(anchorKey);
-      if (!anchor) {
+
+    const scanAnchors = () => {
+      const fortAnchorMap = input.activeFortAnchorsByOwner.get(playerId);
+      for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
+        _anchorsIterated++;
+        const _tAnchor = Date.now();
+        const anchor = input.tiles.get(anchorKey);
+        if (!anchor) {
+          _claimAnchorScanMs += Date.now() - _tAnchor;
+          continue;
+        }
+        const radius = isSettledTownAnchor(anchor, playerId)
+          ? TOWN_AUTO_FRONTIER_RADIUS
+          : 0;
+        if (radius <= 0) {
+          _claimAnchorScanMs += Date.now() - _tAnchor;
+          continue;
+        }
+        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold so auto-claim
+        // (which runs every tick, unconditionally) can never outpace the AI's
+        // own income and starve it of the SETTLE_COST needed to convert a
+        // claimed FRONTIER tile into an income-producing town. Human players
+        // keep the original FRONTIER_CLAIM_COST-only floor.
+        const claimGoldFloor = actor.isAi ? AI_AUTO_CLAIM_GOLD_RESERVE : FRONTIER_CLAIM_COST;
+        for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
+          _claimCandidatesEvaluated++;
+          if (actor.points < claimGoldFloor) break;
+          if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
+          if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
+          const target = input.tiles.get(targetKey);
+          if (!isAutoClaimTarget(target)) continue;
+          autoClaimedKeys.add(targetKey);
+          actor.points -= FRONTIER_CLAIM_COST;
+          claimCommandId ??= input.nextTerritoryAutomationCommandId("frontier", playerId, "batch", input.nowMs);
+          const claimedTile: DomainTileState = {
+            ...target,
+            ownerId: playerId,
+            ownershipState: "FRONTIER"
+          };
+          const _tReplace = Date.now();
+          input.replaceTileState(targetKey, claimedTile, claimCommandId);
+          const _replaceDuration = Date.now() - _tReplace;
+          _claimReplaceTileStateMs += _replaceDuration;
+          _claimAnchorScanMs -= _replaceDuration;
+          claimDeltas.push(input.tileDeltaFromState(claimedTile));
+          _tilesActuallyClaimed++;
+          claimsThisPlayer++;
+        }
         _claimAnchorScanMs += Date.now() - _tAnchor;
-        continue;
       }
-      const radius = isSettledTownAnchor(anchor, playerId)
-        ? TOWN_AUTO_FRONTIER_RADIUS
-        : 0;
-      if (radius <= 0) {
-        _claimAnchorScanMs += Date.now() - _tAnchor;
-        continue;
-      }
-      for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
-        _claimCandidatesEvaluated++;
-        if (actor.points < FRONTIER_CLAIM_COST) break;
-        if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
-        if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
-        const target = input.tiles.get(targetKey);
-        if (!isAutoClaimTarget(target)) continue;
-        autoClaimedKeys.add(targetKey);
-        actor.points -= FRONTIER_CLAIM_COST;
-        claimCommandId ??= input.nextTerritoryAutomationCommandId("frontier", playerId, "batch", input.nowMs);
-        const claimedTile: DomainTileState = {
-          ...target,
-          ownerId: playerId,
-          ownershipState: "FRONTIER"
-        };
-        const _tReplace = Date.now();
-        input.replaceTileState(targetKey, claimedTile, claimCommandId);
-        const _replaceDuration = Date.now() - _tReplace;
-        _claimReplaceTileStateMs += _replaceDuration;
-        _claimAnchorScanMs -= _replaceDuration;
-        claimDeltas.push(input.tileDeltaFromState(claimedTile));
-        _tilesActuallyClaimed++;
-        claimsThisPlayer++;
-      }
-      _claimAnchorScanMs += Date.now() - _tAnchor;
+    };
+    if (track) {
+      track("tick_territory_automation_anchor_scan", { playerId }, scanAnchors);
+    } else {
+      scanAnchors();
     }
 
     if (claimCommandId && claimDeltas.length > 0) {
-      const _tEmit = Date.now();
-      input.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: claimCommandId,
-        playerId,
-        goldCost: FRONTIER_CLAIM_COST * claimDeltas.length,
-        tileDeltas: claimDeltas
-      });
-      input.emitPlayerStateUpdate({ commandId: claimCommandId, playerId });
-      _claimEmitMs += Date.now() - _tEmit;
+      const cmdId: string = claimCommandId;
+      const emitClaims = () => {
+        const _tEmit = Date.now();
+        input.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: cmdId,
+          playerId,
+          goldCost: FRONTIER_CLAIM_COST * claimDeltas.length,
+          tileDeltas: claimDeltas
+        });
+        input.emitPlayerStateUpdate({ commandId: cmdId, playerId });
+        _claimEmitMs += Date.now() - _tEmit;
+      };
+      if (track) {
+        track("tick_territory_automation_emit", { playerId }, emitClaims);
+      } else {
+        emitClaims();
+      }
     }
-    // Yield between players so AI commands and gRPC dispatch can run, preventing
-    // the claim loop from blocking the event loop for the full tick duration.
     await yield_();
   }
 
@@ -130,14 +154,20 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
 
   for (const playerId of input.players.keys()) {
     if (!playerId.startsWith("barbarian-") && input.autoSettlementQueueLengthForPlayer(playerId) > 0) {
-      const _tSettle = Date.now();
-      input.emitPlayerStateUpdate({
-        commandId: input.nextTerritoryAutomationCommandId("settle-queue", playerId, "batch", input.nowMs),
-        playerId
-      });
-      _settleQueueNotifyMs += Date.now() - _tSettle;
-      _settleQueueNotifications++;
-      // Yield between settlement-queue notifications (each triggers cachedEconomySnapshot).
+      const notify = () => {
+        const _tSettle = Date.now();
+        input.emitPlayerStateUpdate({
+          commandId: input.nextTerritoryAutomationCommandId("settle-queue", playerId, "batch", input.nowMs),
+          playerId
+        });
+        _settleQueueNotifyMs += Date.now() - _tSettle;
+        _settleQueueNotifications++;
+      };
+      if (track) {
+        track("tick_territory_automation_settle_notify", { playerId }, notify);
+      } else {
+        notify();
+      }
       await yield_();
     }
   }

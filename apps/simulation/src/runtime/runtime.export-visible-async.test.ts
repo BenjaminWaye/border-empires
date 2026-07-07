@@ -98,4 +98,60 @@ describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
     // (2500 owned tiles crosses TILE_CHUNK=2000) = ≥3.
     expect(yields).toBeGreaterThanOrEqual(3);
   });
+
+  // Regression: the sim's event_loop_blocked diagnostic showed
+  // mainThreadTasks: [] during real >3s stalls on large-empire bootstraps
+  // because classifyVisibilityForPlayer's vision-expansion-cache-miss cost
+  // (and, on the same bootstrap path, cachedEconomySnapshot's rebuild) weren't
+  // wrapped in trackSyncMainThreadTask. Pins that both wrappers are actually
+  // invoked (with the right phase names) whenever the tracker is supplied,
+  // and that omitting it still works (backward compatible for callers/tests
+  // that don't care about instrumentation).
+  it("wraps classifyVisibilityForPlayer and cachedEconomySnapshot in trackSyncMainThreadTask when provided", async () => {
+    const territoryKeys = ["0,0", "1,0", "0,1"];
+    const tracked: Array<{ phase: string; details: unknown }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", territoryKeys)]]),
+      initialState: {
+        tiles: territoryKeys.map((key) => {
+          const [x, y] = key.split(",").map(Number);
+          return { x, y, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const };
+        }),
+        activeLocks: []
+      },
+      trackSyncMainThreadTask: (phase, details, task) => {
+        tracked.push({ phase, details });
+        return task();
+      }
+    });
+
+    await runtime.exportVisibleStateForPlayerAsync("player-1", yieldToEventLoop);
+
+    const phases = tracked.map((entry) => entry.phase);
+    expect(phases).toContain("classify_visibility_for_player");
+    expect(phases).toContain("cached_economy_snapshot_rebuild");
+    const classify = tracked.find((entry) => entry.phase === "classify_visibility_for_player");
+    expect(classify?.details).toEqual({ playerId: "player-1" });
+    const economySnapshot = tracked.find((entry) => entry.phase === "cached_economy_snapshot_rebuild");
+    expect(economySnapshot?.details).toEqual({ playerId: "player-1" });
+  });
+
+  it("still produces correct output when trackSyncMainThreadTask is not provided", async () => {
+    const territoryKeys = ["0,0", "1,0", "0,1"];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", territoryKeys)]]),
+      initialState: {
+        tiles: territoryKeys.map((key) => {
+          const [x, y] = key.split(",").map(Number);
+          return { x, y, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const };
+        }),
+        activeLocks: []
+      }
+    });
+
+    const out = await runtime.exportVisibleStateForPlayerAsync("player-1", yieldToEventLoop);
+    expect(out.tiles.length).toBeGreaterThan(0);
+  });
 });

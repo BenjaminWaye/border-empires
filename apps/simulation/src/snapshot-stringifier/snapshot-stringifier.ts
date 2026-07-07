@@ -154,7 +154,7 @@ export type WorkerMemoryMetrics = {
 };
 
 const resolveWorkerScript = (given?: string | URL): string | URL =>
-  given ?? resolveWorkerEntryUrl("./snapshot-stringify-worker.js", import.meta.url);
+  given ?? resolveWorkerEntryUrl("../snapshot-stringify-worker.js", import.meta.url);
 
 const DEFAULT_MAX_OLD_GEN_MB = 96;
 

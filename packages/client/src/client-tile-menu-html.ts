@@ -2,6 +2,7 @@ import type { TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js
 
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";
+  if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
   if (id === "settle_land") return "⌂";
   if (id === "settle_connected_frontier") return "⌂+";
