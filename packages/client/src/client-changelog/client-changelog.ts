@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.5",
+  version: "2026.07.07.6",
   title: "What's New",
-  summary: "Settlements now grow population like towns; active muster flags get locator markers; fog-of-war no longer lifts on unseen tiles; AI empires can earn gold again.",
+  summary: "Fixed forts, observatories, and other structures randomly disappearing from the map view.",
   entries: [
+    {
+      introducedIn: "2026.07.07.6",
+      title: "Structures no longer randomly vanish from tiles",
+      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
+      changes: [
+        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
+      ]
+    },
     {
       introducedIn: "2026.07.07.5",
       title: "Settlements now grow population over time",
