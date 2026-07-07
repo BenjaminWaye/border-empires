@@ -599,6 +599,16 @@ export class SimulationRuntime {
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
+  private readonly onOwnershipChange: ((sample: {
+    tileKey: string;
+    x: number;
+    y: number;
+    previousOwnerId: string | undefined;
+    nextOwnerId: string | undefined;
+    commandId: string;
+    hadTown: boolean;
+    hadOwnershipState: string | undefined;
+  }) => void) | undefined;
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly onCaptureRevealBuilt:
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
@@ -702,6 +712,7 @@ export class SimulationRuntime {
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.commandTrace = options.commandTrace;
+    this.onOwnershipChange = options.onOwnershipChange;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
     this.onVisibilityAudit = options.onVisibilityAudit;
@@ -1886,6 +1897,18 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
+    if (previous && (previous.ownerId !== tile.ownerId || (previous.town && !tile.town))) {
+      this.onOwnershipChange?.({
+        tileKey,
+        x: tile.x,
+        y: tile.y,
+        previousOwnerId: previous.ownerId,
+        nextOwnerId: tile.ownerId,
+        commandId,
+        hadTown: Boolean(previous.town),
+        hadOwnershipState: previous.ownershipState
+      });
+    }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));
@@ -2560,7 +2583,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
       cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
-      seedLastEmitted: (tileKey, tile) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile as DomainTileState)
+      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile)
     };
   }
 
