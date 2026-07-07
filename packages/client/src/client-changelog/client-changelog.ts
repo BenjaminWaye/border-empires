@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.4",
+  version: "2026.07.07.5",
   title: "What's New",
-  summary: "Active muster flags now get edge-of-screen locator markers and a list in the manpower panel; fog-of-war no longer lifts on tiles you haven't seen; AI empires can earn gold again.",
+  summary: "Settlements now grow population like towns; active muster flags get locator markers; fog-of-war no longer lifts on unseen tiles; AI empires can earn gold again.",
   entries: [
+    {
+      introducedIn: "2026.07.07.5",
+      title: "Settlements now grow population over time",
+      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
+      changes: [
+        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
+        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
+      ]
+    },
     {
       introducedIn: "2026.07.07.4",
       title: "Muster flags are now easier to find",
