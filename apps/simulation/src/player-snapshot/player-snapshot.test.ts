@@ -445,7 +445,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           activeDevelopmentProcessCount: 1,
           pendingSettlements: [{ x: 11, y: 10, startedAt: 1_000, resolvesAt: 61_000 }],
           strategicResources: expect.objectContaining({ FOOD: 3 }),
-          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0.05 })
+          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0.0333 })
         })
       })
     );
