@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.2",
+  version: "2026.07.07.3",
   title: "What's New",
-  summary: "AI empires can actually earn gold again; Warbands tech boosts combat.",
+  summary: "Fog-of-war no longer lifts on tiles you haven't seen; AI empires can earn gold again; Warbands tech boosts combat.",
   entries: [
+    {
+      introducedIn: "2026.07.07.3",
+      title: "Fixed fog-of-war lifting on unrelated map tiles",
+      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
+      changes: [
+        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
+        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
+      ]
+    },
     {
       introducedIn: "2026.07.07.2",
       title: "AI empires stopped earning gold entirely once inactive for too long",
