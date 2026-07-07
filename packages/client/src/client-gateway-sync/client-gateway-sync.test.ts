@@ -119,6 +119,51 @@ describe("client gateway sync", () => {
     expect(deps.state.pendingCollectVisibleKeys.size).toBe(0);
   });
 
+  it("does not discover/unfog a never-seen tile from a broadcast-only ownership-clear delta", () => {
+    // Reproduces the reported bug: the server broadcasts a minimal
+    // { x, y, ownerId: null, ownershipState: null } ghost-cleanup delta to
+    // every client whenever any tile's owner clears anywhere on the map
+    // (e.g. a barbarian walking off a tile), regardless of whether that
+    // client can actually see the tile. Applying this like a normal tile
+    // update was permanently lifting fog-of-war on random unrelated cells.
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 49, y: 288, ownerId: null, ownershipState: null }]);
+
+    expect(deps.state.tiles.has("49,288")).toBe(false);
+    expect(deps.state.discoveredTiles.has("49,288")).toBe(false);
+  });
+
+  it("applies a broadcast-only ownership-clear to an already-known tile without touching its fog state", () => {
+    const deps = createDeps();
+    deps.state.tiles.set("5,5", {
+      x: 5,
+      y: 5,
+      terrain: "LAND",
+      ownerId: "barbarian-1",
+      ownershipState: "SETTLED",
+      fogged: true
+    });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, ownerId: null, ownershipState: null }]);
+
+    expect(deps.state.discoveredTiles.has("5,5")).toBe(false);
+    const tile = deps.state.tiles.get("5,5");
+    expect(tile?.ownerId).toBeUndefined();
+    expect(tile?.ownershipState).toBeUndefined();
+    expect(tile?.fogged).toBe(true);
+    expect(tile?.terrain).toBe("LAND");
+  });
+
+  it("still discovers/unfogs a tile from a genuine (non-clear-only) tile delta", () => {
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 6, y: 6, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]);
+
+    expect(deps.state.discoveredTiles.has("6,6")).toBe(true);
+    expect(deps.state.tiles.get("6,6")).toEqual(expect.objectContaining({ ownerId: "rival-1", fogged: false }));
+  });
+
   it("preserves yield fields from gateway initial state and later tile deltas", () => {
     const deps = createDeps();
 
