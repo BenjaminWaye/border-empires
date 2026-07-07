@@ -24,19 +24,19 @@ const toroidDistance = (from: number, to: number, dim: number): number => {
   return Math.min(delta, dim - delta);
 };
 
+// Scoped to towns only: this sweep exists purely to pre-warm the tile-detail
+// panel's enriched economy fields (support, food coverage, connected-town
+// bonus, etc.) before the player clicks. Bare owned land, resources, docks,
+// forts and other structures don't carry that kind of enrichable data (a
+// bare settled tile's only extra fact is a fixed, client-computable upkeep
+// line), so including them meant this sweep never idled for a large empire
+// -- thousands of plain tiles expiring from the 60s freshness cache and
+// re-queuing forever. If docks/forts/etc. turn out to need the same
+// treatment (visible loading flicker on click), add their identity checks
+// back here.
 const shouldRequestVisibleTileDetail = (tile: Tile | undefined): tile is Tile => {
   if (!tile || tile.fogged || tile.detailLevel === "full" || tile.terrain !== "LAND") return false;
-  return Boolean(
-    tile.ownerId ||
-      tile.resource ||
-      tileHasTownIdentity(tile) ||
-      tile.dockId ||
-      tile.fort ||
-      tile.observatory ||
-      tile.siegeOutpost ||
-      tile.economicStructure ||
-      tile.shardSite
-  );
+  return tileHasTownIdentity(tile);
 };
 
 const visibleTilePriority = (tile: Tile, me: string, camX: number, camY: number): number => {

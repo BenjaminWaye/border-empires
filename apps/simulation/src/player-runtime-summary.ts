@@ -51,9 +51,9 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
 const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | string | undefined): number => {
   switch (resource) {
     case "FARM":
-      return 72 / 1440;
-    case "FISH":
       return 48 / 1440;
+    case "FISH":
+      return 72 / 1440;
     case "IRON":
       return 60 / 1440;
     case "WOOD":
@@ -195,7 +195,7 @@ export const applyTileToPlayerSummary = (
     if (resourceKey) summary.strategicProductionPerMinute[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
     // Track fish food separately — fish tiles fill the food cap but don't extend it
     if (tile.resource === "FISH") {
-      summary.fishFoodPerMinute += 48 / 1440;
+      summary.fishFoodPerMinute += 72 / 1440;
     }
   }
   if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
@@ -242,7 +242,7 @@ export const removeTileFromPlayerSummary = (
       );
     }
     if (tile.resource === "FISH") {
-      summary.fishFoodPerMinute = Math.max(0, summary.fishFoodPerMinute - 48 / 1440);
+      summary.fishFoodPerMinute = Math.max(0, summary.fishFoodPerMinute - 72 / 1440);
     }
   }
   if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {

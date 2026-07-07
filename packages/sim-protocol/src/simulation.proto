@@ -40,6 +40,13 @@ message SeasonSummaryResponse {
   string summary_json = 2;
 }
 
+message AdminPlayersRequest {}
+
+message AdminPlayersResponse {
+  bool ok = 1;
+  string players_json = 2;
+}
+
 message SeasonArchivesResponse {
   bool ok = 1;
   string archives_json = 2;
@@ -178,6 +185,7 @@ service SimulationService {
   rpc GetSubscriptionNamespace(SubscriptionNamespaceRequest) returns (SubscriptionNamespaceResponse);
   rpc Ping(PingRequest) returns (Ack);
   rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
+  rpc GetAdminPlayers(AdminPlayersRequest) returns (AdminPlayersResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
   rpc StartNextSeason(StartNextSeasonRequest) returns (StartNextSeasonResponse);
   rpc SeedBarbarians(SeedBarbariansRequest) returns (SeedBarbariansResponse);

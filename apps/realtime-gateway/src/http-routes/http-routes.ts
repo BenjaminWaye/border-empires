@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type {
+  AdminPlayerRow,
   CurrentSeasonSummary,
   SeasonArchiveRow,
   SeasonLifecycleStatus
@@ -16,28 +17,31 @@ import {
   type RallyLink,
   type RallyLinkStore
 } from "../rally-link-store/rally-link-store.js";
+import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
+import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 
-type GatewayDebugEvent = {
+export type GatewayDebugEvent = {
   at: number;
   level: "info" | "warn" | "error";
   event: string;
   payload: Record<string, unknown>;
 };
 
-type GatewayAttackDebug = {
+export type GatewayAttackDebug = {
   controlPath: GatewayDebugEvent[];
   hotPath: GatewayDebugEvent[];
   slowOrWarn: GatewayDebugEvent[];
 };
 
-type GatewayAttackTrace = {
+export type GatewayAttackTrace = {
   traceId: string;
   firstAt: number;
   lastAt: number;
   events: GatewayDebugEvent[];
 };
 
-type RegisterGatewayHttpRoutesDeps = {
+export type RegisterGatewayHttpRoutesDeps = {
   startupStartedAt: number;
   simulationAddress: string;
   simulationSeedProfile: string;
@@ -74,6 +78,7 @@ type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
@@ -85,6 +90,8 @@ type RegisterGatewayHttpRoutesDeps = {
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
+  galaxyPlanetStore?: GalaxyPlanetStore;
+  authBindingStore?: GatewayAuthBindingStore;
 };
 
 const addCorsHeaders = (app: FastifyInstance): void => {
@@ -214,6 +221,19 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
     reply.header("Content-Type", "text/html; charset=utf-8");
     return RUNTIME_DASHBOARD_HTML;
+  });
+
+  app.get("/admin/players", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      return { ok: true, players: await deps.getAdminPlayers() };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
   });
 
   app.get("/hq/summary", async (_request, reply) => {
@@ -429,6 +449,14 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
         error: error instanceof Error ? error.message : "failed to seed barbarians"
       };
     }
+  });
+
+  registerGalaxyRoutes(app, {
+    listSeasonArchives: deps.listSeasonArchives,
+    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
+    ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}),
+    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 };
   const forceRequested = (value: unknown): boolean =>

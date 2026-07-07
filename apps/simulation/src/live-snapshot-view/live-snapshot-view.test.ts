@@ -208,4 +208,98 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownCount).toBe(1);
     expect(town.connectedTownBonus).toBe(0.5);
   });
+
+  it("boosts a Farmstead FARM tile's FOOD yield by 1.5x when an active Waterworks is within radius", () => {
+    const farmTile = {
+      x: 5,
+      y: 5,
+      terrain: "LAND" as const,
+      resource: "FARM",
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "player-1" })
+    };
+    const waterworksTile = {
+      x: 10,
+      y: 5,
+      terrain: "LAND" as const,
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      economicStructureJson: JSON.stringify({ type: "WATERWORKS", status: "active", ownerId: "player-1" })
+    };
+    const player = {
+      id: "player-1",
+      name: "player-1",
+      points: 0,
+      manpower: 0,
+      techIds: [],
+      domainIds: [],
+      strategicResources: {},
+      allies: [],
+      vision: 1,
+      visionRadiusBonus: 0
+    };
+    const withoutWaterworks = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [farmTile],
+      players: [player],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+    const withWaterworks = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [farmTile, waterworksTile],
+      players: [player],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+    const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    expect(baseFood).toBeGreaterThan(0);
+    expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
+  });
+
+  it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {
+    const basePlayer = {
+      id: "player-2",
+      name: "player-2",
+      points: 0,
+      manpower: 0,
+      techIds: [],
+      domainIds: [],
+      strategicResources: {},
+      allies: [],
+      vision: 1,
+      visionRadiusBonus: 0
+    };
+    const tiles = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [
+        // Bare settled resource tile — no structure, no dock: predicate is false.
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" },
+        // Active MINE — strategic-affecting structure: predicate is true.
+        {
+          x: 2,
+          y: 1,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          resource: "IRON",
+          economicStructureJson: JSON.stringify({ type: "MINE", status: "active", ownerId: "player-2" })
+        },
+        // Dock tile — predicate is true regardless of structure.
+        { x: 3, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" }
+      ],
+      players: [basePlayer],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const bare = tiles.find((t) => t.x === 1 && t.y === 1);
+    const mine = tiles.find((t) => t.x === 2 && t.y === 1);
+    const dock = tiles.find((t) => t.x === 3 && t.y === 1);
+
+    expect(bare).not.toHaveProperty("yieldRate");
+    expect(bare).not.toHaveProperty("yieldCap");
+    expect(mine).toHaveProperty("yieldRate");
+    expect((mine as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.IRON).toBe(90);
+    expect(dock).toHaveProperty("yieldRate");
+  });
 });
