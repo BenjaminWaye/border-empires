@@ -39,7 +39,7 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
   };
 };
 
-const seededForestTile = { x: 194, y: 125 };
+const seededForestTile = { x: 24, y: 15 };
 
 beforeAll(async () => {
   class MockImage {
