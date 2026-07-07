@@ -71,6 +71,21 @@ export function getBarbActivationVisionSignature(input: {
   return parts.join("|");
 }
 
+// Barb activation eligibility ("is this barb-owned tile currently visible to
+// some non-barb player?") only ever gets queried against barb-owned tile keys
+// (see system-job-barbarian-planner.ts). The naive approach — dilating every
+// non-barb player's entire territory by their vision radius and unioning the
+// result — computes visibility for the whole map when only barb tiles (a tiny
+// sparse set) are ever looked up. With ~25 large empires that dilation was
+// O(total non-barb territory × radius²), observed at 5+ seconds synchronously
+// per (near-constant, since any player's tileCollectionVersion bump changes
+// the cache signature) recompute.
+//
+// Inverted here: build a cheap O(territory) map of owned-tile → owner's vision
+// radius (no dilation), then for each of the few barb-owned tiles, scan only
+// that tile's own Chebyshev neighborhood (bounded by the largest radius in
+// play) for a non-barb-owned tile whose radius covers the distance. Same
+// visibility predicate, evaluated from the sparse side.
 export function exportBarbActivationVisibleUnion(input: {
   players: ReadonlyMap<string, DomainPlayer>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -81,28 +96,61 @@ export function exportBarbActivationVisibleUnion(input: {
   if (input.cache.union && input.cache.signature === signature) {
     return { keys: [...input.cache.union], signature };
   }
-  const union = new Set<string>();
+
+  // Numeric keys (wy * WORLD_WIDTH + wx) instead of `${wx},${wy}` strings —
+  // this is the hottest loop in the function (up to (2*maxRadius+1)^2 probes
+  // per barb tile), and the string-template key was allocating hundreds of
+  // thousands of short-lived strings per recompute under a large barbarian
+  // territory (~1283 tiles observed on staging). Numeric keys are GC-free.
+  const radiusByOwnedTileNumericKey = new Map<number, number>();
+  const barbarianPlayers: DomainPlayer[] = [];
+  let maxRadius = 0;
   for (const player of input.players.values()) {
-    if (player.id.startsWith("barbarian-")) continue;
-    const summary = input.summaryForPlayer(player.id);
+    if (player.id.startsWith("barbarian-")) {
+      barbarianPlayers.push(player);
+      continue;
+    }
     const radius = Math.max(
       1,
       Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player)
     );
+    if (radius > maxRadius) maxRadius = radius;
+    const summary = input.summaryForPlayer(player.id);
     for (const tileKey of summary.territoryTileKeys) {
       const [rawX, rawY] = tileKey.split(",");
       const x = Number(rawX);
       const y = Number(rawY);
       if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          const wx = ((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius);
+    }
+  }
+
+  const union = new Set<string>();
+  if (maxRadius > 0 && radiusByOwnedTileNumericKey.size > 0) {
+    for (const barbPlayer of barbarianPlayers) {
+      const barbSummary = input.summaryForPlayer(barbPlayer.id);
+      for (const tileKey of barbSummary.territoryTileKeys) {
+        const [rawX, rawY] = tileKey.split(",");
+        const x = Number(rawX);
+        const y = Number(rawY);
+        if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+        let visible = false;
+        for (let dy = -maxRadius; dy <= maxRadius && !visible; dy += 1) {
           const wy = ((y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-          union.add(`${wx},${wy}`);
+          for (let dx = -maxRadius; dx <= maxRadius; dx += 1) {
+            const wx = ((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+            const ownerRadius = radiusByOwnedTileNumericKey.get(wy * WORLD_WIDTH + wx);
+            if (ownerRadius !== undefined && Math.max(Math.abs(dx), Math.abs(dy)) <= ownerRadius) {
+              visible = true;
+              break;
+            }
+          }
         }
+        if (visible) union.add(tileKey);
       }
     }
   }
+
   input.cache.union = union;
   input.cache.signature = signature;
   return { keys: [...union], signature };

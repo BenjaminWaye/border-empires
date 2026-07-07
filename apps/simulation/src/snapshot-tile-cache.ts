@@ -155,6 +155,8 @@ export const settledDomainTilesByPlayerIdCache: WeakMap<RuntimeState, Map<string
 export const firstThreeTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 export const strategicProductionByPlayerCache: WeakMap<RuntimeState, Map<string, Record<StrategicResourceKey, number>>> = new WeakMap();
 export const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+export const waterworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+export const foundryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 
 // Cached helper — toDomainTile calls JSON.parse(townJson) per town tile;
 // rebuilding for all 202,500 tiles on every player bootstrap is the single
@@ -241,6 +243,45 @@ export const buildFirstThreeTownKeysByPlayer = (
   }
   firstThreeTownKeysByPlayerCache.set(runtimeState, result);
   return result;
+};
+
+// Active Waterworks tile keys per owning player — mirrors
+// SimulationRuntime.tileYieldEconomyContextForPlayer's waterworksKeys so the
+// snapshot/bootstrap path applies the same +50% radius boost as live ticks.
+// Reads economicStructureJson directly off the raw wire tiles (domainTilesByKey
+// strips economicStructure), cached per runtimeState like the sibling builders above.
+export const buildWaterworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
+  const cached = waterworksKeysByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const byPlayerId = new Map<string, Set<string>>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.type !== "WATERWORKS" || structure.status !== "active") continue;
+    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
+    keys.add(keyFor(tile.x, tile.y));
+    byPlayerId.set(tile.ownerId, keys);
+  }
+  waterworksKeysByPlayerCache.set(runtimeState, byPlayerId);
+  return byPlayerId;
+};
+
+// Mirrors buildWaterworksKeysByPlayer for FOUNDRY — the radius source for the
+// Mine iron/crystal boost. See docs/plans/2026-07-06-radius-yield-delivery.md.
+export const buildFoundryKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
+  const cached = foundryKeysByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const byPlayerId = new Map<string, Set<string>>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.type !== "FOUNDRY" || structure.status !== "active") continue;
+    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
+    keys.add(keyFor(tile.x, tile.y));
+    byPlayerId.set(tile.ownerId, keys);
+  }
+  foundryKeysByPlayerCache.set(runtimeState, byPlayerId);
+  return byPlayerId;
 };
 
 const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {

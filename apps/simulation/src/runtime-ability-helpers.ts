@@ -144,6 +144,7 @@ export function observatoryCastRadiusFor(player: DomainPlayer | undefined): numb
 
 export function pickReadyOwnedObservatoryForTarget(input: {
   tiles: ReadonlyMap<string, DomainTileState>;
+  territoryTileKeys: ReadonlySet<string>;
   playerId: string;
   targetX: number;
   targetY: number;
@@ -152,8 +153,9 @@ export function pickReadyOwnedObservatoryForTarget(input: {
 }): string | undefined {
   let bestKey: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (const [tileKey, tile] of input.tiles) {
-    if (tile.ownerId !== input.playerId) continue;
+  for (const tileKey of input.territoryTileKeys) {
+    const tile = input.tiles.get(tileKey);
+    if (!tile || tile.ownerId !== input.playerId) continue;
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== input.playerId || obs.status !== "active") continue;
     const distance = wrappedChebyshev(tile.x, tile.y, input.targetX, input.targetY);
@@ -170,13 +172,15 @@ export function pickReadyOwnedObservatoryForTarget(input: {
 
 export function pickReadyOwnedObservatoryAny(
   tiles: ReadonlyMap<string, DomainTileState>,
+  territoryTileKeys: ReadonlySet<string>,
   playerId: string,
   now: number
 ): string | undefined {
   let bestKey: string | undefined;
   let bestCooldownUntil = Number.POSITIVE_INFINITY;
-  for (const [tileKey, tile] of tiles) {
-    if (tile.ownerId !== playerId) continue;
+  for (const tileKey of territoryTileKeys) {
+    const tile = tiles.get(tileKey);
+    if (!tile || tile.ownerId !== playerId) continue;
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
@@ -302,6 +306,36 @@ export function crossingBlockedByAetherWall(
     }
   }
   return false;
+}
+
+export function buildRevealEmpireStatsFromSummary(
+  target: DomainPlayer,
+  territoryTileCount: number,
+  settledTileCount: number,
+  townCount: number,
+  revealedAt: number
+): Record<string, unknown> {
+  return {
+    playerId: target.id,
+    playerName: target.name ?? target.id,
+    revealedAt,
+    tiles: territoryTileCount,
+    settledTiles: settledTileCount,
+    frontierTiles: territoryTileCount - settledTileCount,
+    controlledTowns: townCount,
+    incomePerMinute: 0,
+    techCount: target.techIds.size,
+    gold: target.points,
+    manpower: target.manpower,
+    manpowerCap: Math.max(target.manpower, 100),
+    strategicResources: {
+      FOOD: target.strategicResources?.FOOD ?? 0,
+      IRON: target.strategicResources?.IRON ?? 0,
+      CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
+      SUPPLY: target.strategicResources?.SUPPLY ?? 0,
+      SHARD: target.strategicResources?.SHARD ?? 0
+    } satisfies Record<StrategicResourceKey, number>
+  };
 }
 
 export function buildRevealEmpireStats(

@@ -35,7 +35,7 @@
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
     "test": "pnpm test:scripts && pnpm -r test",
-    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/check-file-line-limits.test.mjs scripts/prod-shape-gate-guards.test.mjs scripts/rewrite-concurrent-load.test.mjs",
+    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/check-file-line-limits.test.mjs scripts/prod-shape-gate-guards.test.mjs scripts/rewrite-concurrent-load.test.mjs scripts/firebase-token-refresh.test.mjs",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

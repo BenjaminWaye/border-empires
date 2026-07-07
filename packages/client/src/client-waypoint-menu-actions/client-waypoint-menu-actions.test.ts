@@ -142,7 +142,7 @@ describe("injectWaypointActions", () => {
     expect(v.tabs[0]).toBe("actions");
   });
 
-  it("never injects Expand Here on a different tile when a waypoint is already active", () => {
+  it("prepends Clear Waypoint and Expand Here on a different tile when a waypoint is already active", () => {
     const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7, 9, 10, 11], 3), tile(8, 3), tile(12, 3)];
     const state = stateWith(tiles, {
       waypoint: {
@@ -160,11 +160,14 @@ describe("injectWaypointActions", () => {
       }
     });
     const v = view();
-    // Open menu on a different distant tile — should be untouched.
+    // Open menu on a different distant tile with an active waypoint —
+    // should offer to clear the existing waypoint and expand here instead.
     injectWaypointActions(v, tile(12, 3), state, {
       keyFor,
       pickOriginForTarget: noAdjacentOrigin
     });
-    expect(v.actions).toHaveLength(0);
+    expect(v.actions[0]?.id).toBe("clear_waypoint_and_expand_here");
+    expect(v.actions[0]?.label).toBe("Clear Waypoint and Expand Here");
+    expect(v.tabs[0]).toBe("actions");
   });
 });

@@ -77,6 +77,19 @@ export interface ServerWorldgenDocksRuntime {
   generateDocks: (seed: number) => void;
 }
 
+export interface ServerWorldgenIslandConnectivityDeps {
+  WORLD_WIDTH: number;
+  WORLD_HEIGHT: number;
+  wrapX: (x: number, width: number) => number;
+  wrapY: (y: number, height: number) => number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  overrideTerrainAt: (x: number, y: number, terrain: Tile["terrain"]) => void;
+}
+
+export interface ServerWorldgenIslandConnectivityRuntime {
+  ensureLandMassesReachSea: () => void;
+}
+
 export interface ServerWorldgenTownsDeps {
   seeded01: (x: number, y: number, seed: number) => number;
   regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;

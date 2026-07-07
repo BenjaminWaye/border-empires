@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
 const DEFAULTS = {
   url: "wss://border-empires-combined-staging.fly.dev/ws?channel=control",
@@ -112,20 +113,6 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
-const refreshAuthToken = async (refreshToken) => {
-  const response = await fetch(
-    `https://securetoken.googleapis.com/v1/token?key=AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`
-    }
-  );
-  if (!response.ok) throw new Error(`token refresh failed: ${response.status}`);
-  const data = await response.json();
-  return data.id_token;
-};
-
 const runAttempt = async ({ url, timeoutMs, authToken }) => {
   const socket = new WebSocket(url);
   let completed = false;
@@ -195,7 +182,7 @@ const main = async () => {
 
   // Exchange refresh token for a fresh ID token if available
   if (process.env.PROBE_FIREBASE_REFRESH_TOKEN && !options.authToken) {
-    options.authToken = await refreshAuthToken(process.env.PROBE_FIREBASE_REFRESH_TOKEN);
+    options.authToken = await refreshFirebaseAuthToken(process.env.PROBE_FIREBASE_REFRESH_TOKEN);
   }
 
   const attempts = [];

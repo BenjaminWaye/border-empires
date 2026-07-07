@@ -5,6 +5,7 @@ import { loadSync } from "@grpc/proto-loader";
 
 import {
   SIMULATION_PROTO_PATH,
+  type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
   type LockedFrontierCombatResult,
@@ -20,6 +21,7 @@ type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
+type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoSeedBarbariansAck = {
   ok: boolean;
@@ -198,6 +200,10 @@ type SimulationClientLike = {
   ListSeasonArchives?: (
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoSeasonArchivesAck) => void
+  ) => void;
+  GetAdminPlayers?: (
+    request: Record<string, unknown>,
+    callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
   ) => void;
   StartNextSeason?: (
     request: { force?: boolean },
@@ -801,6 +807,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
@@ -968,6 +975,26 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+  getAdminPlayers() {
+    return new Promise<AdminPlayerRow[]>((resolve, reject) => {
+      if (typeof client.GetAdminPlayers !== "function") {
+        reject(new Error("simulation client GetAdminPlayers RPC is unavailable"));
+        return;
+      }
+      client.GetAdminPlayers({}, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.players_json ?? response.playersJson;
+        if (!payload) {
+          resolve([]);
+          return;
+        }
+        resolve(JSON.parse(payload) as AdminPlayerRow[]);
+      });
+    });
+  },
   startNextSeason(force = false) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
@@ -1020,6 +1047,7 @@ export const createSimulationClient = (address: string): {
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
