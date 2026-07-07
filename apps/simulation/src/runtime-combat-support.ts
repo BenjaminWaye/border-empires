@@ -120,10 +120,10 @@ export const buildCaptureRevealTileDeltas = (
 
 /**
  * Reveal-only deltas around many centers at once, deduped into a single sorted
- * batch. Used by auto-fill, which can settle a cluster of tiles in one shot:
- * revealing the fog around each newly-settled tile the way a single capture does
- * (see buildCaptureRevealTileDeltas), but without emitting overlapping deltas for
- * the shared fog between adjacent centers.
+ * batch. Used by auto-fill to reveal the fog around a cluster of freshly-claimed
+ * tiles the way a single capture does (see buildCaptureRevealTileDeltas), but
+ * without emitting overlapping deltas for the shared fog between adjacent
+ * centers. Callers pass only boundary tiles — interior tiles reveal nothing new.
  */
 export const buildRevealTileDeltasForCenters = (
   ctx: RuntimeCombatSupportContext,
