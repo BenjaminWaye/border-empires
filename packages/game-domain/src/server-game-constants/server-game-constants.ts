@@ -196,6 +196,9 @@ export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
+/** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
+ * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
+export const SETTLEMENT_GROWTH_RATE_MULT = 4;
 export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
   if (populationTier === "SETTLEMENT" || !populationTier) return 0;
   if (populationTier === "CITY") return 0.3;
