@@ -309,6 +309,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
+          preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
@@ -336,6 +337,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
+          preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
