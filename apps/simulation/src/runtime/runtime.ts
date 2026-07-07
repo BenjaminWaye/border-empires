@@ -3763,13 +3763,12 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-      // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
-      // own-property existence to detect clears (uncapture, structure removal).
-      ownerId: tile.ownerId ?? undefined,
-      ownershipState: tile.ownershipState ?? undefined,
-      frontierDecayAt: tile.frontierDecayAt ?? undefined,
-      frontierDecayKind: tile.frontierDecayKind ?? undefined,
-      breachShockUntil: tile.breachShockUntil ?? undefined,
+      // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.
+      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+      ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+      ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
       ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),

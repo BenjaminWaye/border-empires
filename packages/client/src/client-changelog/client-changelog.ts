@@ -21,8 +21,18 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.07.06.4",
   title: "What's New",
-  summary: "Fish and grain production rates swapped, plus waypoint UX improvements.",
+  summary: "Fish and grain production rates swapped, waypoint UX improvements, and barbarian plunder capped.",
   entries: [
+    {
+      introducedIn: "2026.07.06.0",
+      title: "Barbarian plunder capped to prevent gold inflation",
+      why: "Capturing a settled tile from Barbarians was awarding massive gold (up to 108 trillion in one capture) because barbarians were initialized with Number.MAX_SAFE_INTEGER gold and the plunder formula divided their 9-quadrillion stash by the tile count.",
+      changes: [
+        "Plunder from barbarian capture is now fixed at 10 gold per tile, down from a share of their quadrillion-gold pool.",
+        "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
+      ]
+    },
+
     {
       introducedIn: "2026.07.06.4",
       title: "Galaxy launcher button is simpler and no longer spins",
