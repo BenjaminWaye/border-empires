@@ -58,7 +58,7 @@ const roundTripTileDelta = (tile: Record<string, unknown>): Record<string, unkno
 // normalized: the expected client-side value after normalizeProtoTile.
 type TileFieldSpec = {
   protoField: string;
-  wireValue: string | number;
+  wireValue: string | number | boolean;
   camelField: string;
   normalized: unknown;
 };
@@ -86,7 +86,8 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "yield_rate_json", wireValue: "{\"goldPerMinute\":2}", camelField: "yieldRate", normalized: { goldPerMinute: 2 } },
   { protoField: "yield_cap_json", wireValue: "{\"gold\":100,\"strategicEach\":50}", camelField: "yieldCap", normalized: { gold: 100, strategicEach: 50 } },
   { protoField: "frontier_decay_at", wireValue: 1_893_456_000_000, camelField: "frontierDecayAt", normalized: 1_893_456_000_000 },
-  { protoField: "frontier_decay_kind", wireValue: "NATURAL", camelField: "frontierDecayKind", normalized: "NATURAL" }
+  { protoField: "frontier_decay_kind", wireValue: "NATURAL", camelField: "frontierDecayKind", normalized: "NATURAL" },
+  { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true }
 ];
 
 const fullyPopulatedTile = (): Record<string, unknown> =>

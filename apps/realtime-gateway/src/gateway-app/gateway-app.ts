@@ -237,7 +237,8 @@ const jsonSafeTileDeltaBatch = (
       : {}),
     ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
     ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
-    ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {})
+    ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
+    ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
   }));
 
 const optionalCommandMetadata = (message: unknown): { commandId?: string; clientSeq?: number } => {
