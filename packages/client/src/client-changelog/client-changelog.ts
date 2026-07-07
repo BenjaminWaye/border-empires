@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.07.5",
+  version: "2026.07.07.6",
   title: "What's New",
-  summary: "Settlements now grow population like towns; active muster flags get locator markers; fog-of-war no longer lifts on unseen tiles; AI empires can earn gold again.",
+  summary: "Frontier Doctrine and similar research now actually grant the extra development slot they promise; settlements now grow population like towns; active muster flags get locator markers.",
   entries: [
+    {
+      introducedIn: "2026.07.07.6",
+      title: "Fixed development slot bonuses not applying",
+      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
+      changes: [
+        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
+      ]
+    },
     {
       introducedIn: "2026.07.07.5",
       title: "Settlements now grow population over time",

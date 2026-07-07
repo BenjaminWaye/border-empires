@@ -10,6 +10,7 @@ import {
   DOMAIN_TREE_RELATIVE_CANDIDATES,
   TECH_TREE_PATH,
   TECH_TREE_RELATIVE_CANDIDATES,
+  additiveEffectForPlayer,
   buildDomainUpdatePayload,
   buildModBreakdownForPlayer,
   chooseAiDomainChoiceForPlayer,
@@ -159,6 +160,19 @@ describe("tier-1 domain effects are wired", () => {
       domainIds: new Set<string>(["mercantile-charter"])
     };
     expect(multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult")).toBeCloseTo(1.25, 6);
+  });
+
+  it("Frontier Doctrine exposes developmentProcessCapacityAdd +1 to the additive resolver", () => {
+    const withDoctrine = {
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(["frontier-doctrine"])
+    };
+    const without = {
+      techIds: new Set<string>(),
+      domainIds: new Set<string>()
+    };
+    expect(additiveEffectForPlayer(withDoctrine, "developmentProcessCapacityAdd")).toBe(1);
+    expect(additiveEffectForPlayer(without, "developmentProcessCapacityAdd")).toBe(0);
   });
 });
 
