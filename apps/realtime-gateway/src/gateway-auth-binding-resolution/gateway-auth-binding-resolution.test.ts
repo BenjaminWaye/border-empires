@@ -58,4 +58,48 @@ describe("reconcileGatewayAuthBinding", () => {
       updatedAt: 2_000
     });
   });
+
+  it("never merges two distinct new users onto the same fallback playerId", async () => {
+    // Regression test: a misconfigured GATEWAY_DEFAULT_HUMAN_PLAYER_ID previously caused
+    // resolveGatewayAuthIdentity to resolve the same fallback playerId ("player-1") for
+    // every unmapped Firebase user, and this reconciler then durably bound distinct uids
+    // to that same shared playerId. Even if that fallback leaks through again, this
+    // reconciler must never let a second, unrelated uid claim a playerId already owned
+    // by someone else.
+    const store = new InMemoryGatewayAuthBindingStore(() => 1_000);
+
+    const firstUser = await reconcileGatewayAuthBinding(
+      {
+        playerId: "player-1",
+        playerName: "Benjamin Waye",
+        authUid: "firebase-uid-a",
+        authEmail: "bw199005@gmail.com"
+      },
+      store
+    );
+    expect(firstUser).toEqual({
+      playerId: "player-1",
+      playerName: "Benjamin Waye",
+      authUid: "firebase-uid-a",
+      authEmail: "bw199005@gmail.com",
+      bindingSource: "new"
+    });
+
+    const secondUser = await reconcileGatewayAuthBinding(
+      {
+        playerId: "player-1",
+        playerName: "Benjamin Waye",
+        authUid: "firebase-uid-b",
+        authEmail: "benjamin.waye@mobileinteraction.se"
+      },
+      store
+    );
+
+    expect(secondUser.authUid).toBe("firebase-uid-b");
+    expect(secondUser.playerId).not.toBe("player-1");
+    expect(secondUser.playerId).toBe("firebase-uid-b");
+
+    await expect(store.getByUid("firebase-uid-a")).resolves.toMatchObject({ playerId: "player-1" });
+    await expect(store.getByUid("firebase-uid-b")).resolves.toMatchObject({ playerId: "firebase-uid-b" });
+  });
 });
