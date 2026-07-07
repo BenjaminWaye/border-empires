@@ -105,7 +105,7 @@ import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, fir
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
-  buildModBreakdownForPlayer,
+  additiveEffectForPlayer, buildModBreakdownForPlayer,
   chosenTrickleRateForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
@@ -2813,7 +2813,7 @@ export class SimulationRuntime {
         Es: metrics.Es,
         pendingSettlements: this.pendingSettlementsSnapshotForPlayer(playerId),
         autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
-        developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
+        developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
         activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId),
         ...(capChanged ? { storageCap } : {})
       }
@@ -2854,7 +2854,7 @@ export class SimulationRuntime {
   }
 
   private rejectIfNoDevelopmentSlot(command: CommandEnvelope, code: string, message: string): boolean {
-    if (this.activeDevelopmentProcessCountForPlayer(command.playerId) < DEVELOPMENT_PROCESS_LIMIT) return false;
+    if (this.activeDevelopmentProcessCountForPlayer(command.playerId) < DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(this.players.get(command.playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() }, "developmentProcessCapacityAdd")) return false;
     this.rejectCommand(command, code, message);
     return true;
   }
