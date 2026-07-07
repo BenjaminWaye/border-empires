@@ -43,23 +43,32 @@ const isActiveProjectingSource = (tile: DomainTileState | undefined): boolean =>
 const isActiveOwnedDock = (tile: DomainTileState | undefined): boolean =>
   Boolean(tile && tile.ownerId && tile.ownershipState === "SETTLED" && tile.dockId);
 
+// Iterates only the radius's own coordinates (O(radius^2), e.g. <=441 for
+// WATERWORKS_RADIUS=10) and looks each up directly in the tile map, rather
+// than scanning the owner's entire settled-tile array (which was O(territory)
+// and, for a large multi-thousand-tile empire, a full-empire scan run
+// synchronously inside replaceTileState on every source toggle).
 const beneficiaryTilesWithinRadius = (
   ownerId: string,
   originX: number,
   originY: number,
   radius: number,
   beneficiaryStructureType: string,
-  settledTilesForPlayer: (playerId: string) => readonly DomainTileState[]
+  tiles: ReadonlyMap<string, DomainTileState>
 ): DomainTileState[] => {
-  const radiusKeys = new Set(
-    coordsInChebyshevRadius(originX, originY, radius).map(({ x, y }) => `${x},${y}`)
-  );
-  return settledTilesForPlayer(ownerId).filter(
-    (tile) =>
-      radiusKeys.has(`${tile.x},${tile.y}`) &&
+  const out: DomainTileState[] = [];
+  for (const { x, y } of coordsInChebyshevRadius(originX, originY, radius)) {
+    const tile = tiles.get(`${x},${y}`);
+    if (
+      tile &&
+      tile.ownerId === ownerId &&
       tile.economicStructure?.status === "active" &&
       tile.economicStructure.type === beneficiaryStructureType
-  );
+    ) {
+      out.push(tile);
+    }
+  }
+  return out;
 };
 
 const adjacentOwnedDockTiles = (
@@ -69,12 +78,13 @@ const adjacentOwnedDockTiles = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): DomainTileState[] => {
   const out: DomainTileState[] = [];
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(`${originX + dx},${originY + dy}`);
-      if (neighbor && isActiveOwnedDock(neighbor) && neighbor.ownerId === ownerId) out.push(neighbor);
-    }
+  // World-wrapping 8-neighbor scan via coordsInChebyshevRadius (radius 1) —
+  // matches dockSupportedByCustomsHouse's wrap-aware keyFor lookup in
+  // economy-network.ts, so a Customs House adjacent to a dock across the
+  // map's x/y seam refreshes that dock's delta the same way it grants income.
+  for (const { x, y } of coordsInChebyshevRadius(originX, originY, 1)) {
+    const neighbor = tiles.get(`${x},${y}`);
+    if (neighbor && isActiveOwnedDock(neighbor) && neighbor.ownerId === ownerId) out.push(neighbor);
   }
   return out;
 };
@@ -112,7 +122,10 @@ export const radiusYieldRefreshBeneficiaryTiles = (input: {
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   settledTilesForPlayer: (playerId: string) => readonly DomainTileState[];
 }): DomainTileState[] => {
-  const { previous, next, tiles, dockLinksByDockTileKey, settledTilesForPlayer } = input;
+  // settledTilesForPlayer is no longer needed here (beneficiaryTilesWithinRadius
+  // now looks up radius coords directly in `tiles`) but stays part of the
+  // input contract since flushRadiusYieldRefresh's callers already build it.
+  const { previous, next, tiles, dockLinksByDockTileKey } = input;
 
   const wasSource = isActiveProjectingSource(previous);
   const isSource = isActiveProjectingSource(next);
@@ -154,9 +167,9 @@ export const radiusYieldRefreshBeneficiaryTiles = (input: {
     if (!structureType) return;
     for (const ownerId of ownerIds) {
       if (structureType === "WATERWORKS") {
-        addAll(beneficiaryTilesWithinRadius(ownerId, next.x, next.y, WATERWORKS_RADIUS, "FARMSTEAD", settledTilesForPlayer));
+        addAll(beneficiaryTilesWithinRadius(ownerId, next.x, next.y, WATERWORKS_RADIUS, "FARMSTEAD", tiles));
       } else if (structureType === "FOUNDRY") {
-        addAll(beneficiaryTilesWithinRadius(ownerId, next.x, next.y, FOUNDRY_RADIUS, "MINE", settledTilesForPlayer));
+        addAll(beneficiaryTilesWithinRadius(ownerId, next.x, next.y, FOUNDRY_RADIUS, "MINE", tiles));
       } else if (structureType === "CUSTOMS_HOUSE") {
         addAll(adjacentOwnedDockTiles(ownerId, next.x, next.y, tiles));
       }

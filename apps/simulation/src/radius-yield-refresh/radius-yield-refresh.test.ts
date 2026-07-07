@@ -156,6 +156,34 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
     expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["6,5"]);
   });
 
+  it("re-emits an adjacent owned dock across the world's x-seam (wraps like dockSupportedByCustomsHouse)", () => {
+    // WORLD_WIDTH is 450 — a dock at x=449 and a Customs House at x=0 are
+    // adjacent via wraparound (Chebyshev distance 1), even though the raw
+    // |449-0| = 449 is not.
+    const dock = settledTile(449, 5, { dockId: "dock-a" });
+    const previousCustomsHouse = settledTile(0, 5, {
+      economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: PLAYER_ID }
+    });
+    const nextCustomsHouse = settledTile(0, 5, {
+      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: PLAYER_ID }
+    });
+    const tiles = new Map<string, DomainTileState>([
+      ["449,5", dock],
+      ["0,5", nextCustomsHouse]
+    ]);
+
+    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
+      tileKey: "0,5",
+      previous: previousCustomsHouse,
+      next: nextCustomsHouse,
+      tiles,
+      dockLinksByDockTileKey: new Map(),
+      settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextCustomsHouse])
+    });
+
+    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["449,5"]);
+  });
+
   it("re-emits connected owned dock tiles when a dock's settled/owned status changes", () => {
     const dockA = settledTile(1, 1, { dockId: "dock-a" });
     const previousDockB = settledTile(20, 20, { dockId: "dock-b" });
