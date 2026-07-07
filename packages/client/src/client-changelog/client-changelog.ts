@@ -19,16 +19,178 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.04.0",
+  version: "2026.07.06.5",
   title: "What's New",
-  summary: "Barbarian ghost tiles no longer persist on the map after the barbarian territory shifts.",
+  summary: "AI empires expand and settle more sensibly instead of stalling out; barbarian plunder capped.",
   entries: [
     {
-      introducedIn: "2026.07.04.0",
+      introducedIn: "2026.07.06.5",
+      title: "AI empires no longer get stuck permanently broke",
+      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
+      changes: [
+        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
+        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
+        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.0",
+      title: "Barbarian plunder capped to prevent gold inflation",
+      why: "Capturing a settled tile from Barbarians was awarding massive gold (up to 108 trillion in one capture) because barbarians were initialized with Number.MAX_SAFE_INTEGER gold and the plunder formula divided their 9-quadrillion stash by the tile count.",
+      changes: [
+        "Plunder from barbarian capture is now fixed at 10 gold per tile, down from a share of their quadrillion-gold pool.",
+        "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.4",
+      title: "Galaxy launcher button is simpler and no longer spins",
+      why: "The rotating-planet launcher button was too visually prominent for a cosmetic feature — it competed with the game's main UI rather than quietly indicating access to the galaxy view.",
+      changes: [
+        "The launcher button is now a simple 🪐 emoji on a transparent background instead of a full rotating gas giant, making it much less obtrusive on the game screen.",
+        "The button still opens the full planet-view starfield overlay when clicked."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.3",
+      title: "Fish tiles now produce more food than grain",
+      why: "Fish was strictly worse than grain — lower production, can't be improved, can't be banked. Swapping the production rates gives fish a clear strategic niche: high flow for immediate population feeding, but still perishable and unimprovable. Grain is now the lower-rate option but bankable and improvable with Farmsteads and Waterworks.",
+      changes: [
+        "Fish tile production increased from 48 to 72 FOOD/day; farm tile production reduced from 72 to 48 FOOD/day.",
+        "Farmstead bonus on farm tiles updated accordingly (48 + 24 = 72/day with Farmstead).",
+        "All structures and techs that reference food rates have been updated to match."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.3",
+      title: "Waypoint replacement from any neutral tile",
+      why: "Setting a waypoint locked you into it — tapping another neutral tile while a waypoint was active did nothing. You had to manually cancel the old waypoint first, then tap the new tile again to set a new one, which was frustrating in fast-paced expansion.",
+      changes: [
+        "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
+        "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.2",
+      title: "Galaxy planet is now an animated world, and never blocks the login screen",
+      why: "The planet was a single flat gradient circle with no motion, and the launcher/overlay were mounted as siblings of #hud instead of inside it — #hud's position:fixed makes it its own CSS stacking context, so anything outside it with an explicit z-index always painted above #hud's entire contents, including the login screen, no matter what number was used.",
+      changes: [
+        "Your planet is now a slowly rotating gas-giant-style sphere with cloud bands, shading, and a tilted ring, instead of a flat circle.",
+        "The launcher and its overlay are now mounted inside the game's HUD layer so their stacking order is correctly computed against the rest of the UI — the login screen (and any other overlay) can never be hidden behind them again."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.1",
+      title: "Galaxy planet launcher no longer overlaps other controls",
+      why: "The new 🪐 planet launcher button was fixed to the bottom-right corner of the screen, the same corner already used by the desktop minimap and, on mobile, directly over the bottom navigation bar's rightmost tab.",
+      changes: [
+        "On mobile, the launcher now sits just above the bottom navigation bar and respects the device's safe-area inset instead of sitting under the home-indicator gesture zone.",
+        "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.4",
+      title: "The galaxy: your planet, permanently",
+      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
+      changes: [
+        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
+        "Planet names are permanent and can only be set once.",
+        "Accounts with multiple season wins can switch between their planets in the same view."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.0",
+      title: "Waterworks, Foundry, and Harbor Exchange bonuses now display correctly",
+      why: "Waterworks/Foundry radius bonuses and the advanced synthesizer upgrades were computed correctly on the server but never sent to the client, so the map under-reported a boosted Farmstead's food (108 instead of 162) or a boosted Mine's iron. Mine and Camp were also missing their own output bonus entirely, and Harbor Exchange charged upkeep with no income to offset it.",
+      changes: [
+        "Farmsteads within range of an active Waterworks now show their true boosted food rate (162/day) immediately, including the moment the Farmstead itself is built.",
+        "Mines within range of an active Foundry now show their true boosted iron/crystal rate, and Mine/Camp now correctly get their own +50% output bonus.",
+        "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
+        "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
+        "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.3",
       title: "Barbarian ghost tiles cleaned up on territory movement",
       why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
       changes: [
-        "The simulation's visibility filter now lets ownership-clearing deltas through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
+        "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Captured tiles no longer flash neutral when they carried an enemy muster flag",
+      why: "Capturing a tile that had an enemy muster flag on it sent a follow-up 'clear the flag' update that omitted the tile's owner fields entirely, instead of including the new owner like every other muster-clearing update in the codebase does. Depending on how a client merged that update, the freshly captured tile could render unowned right after the correct capture update.",
+      changes: [
+        "The muster-flag-clear update fired on capture (and on losing your own origin tile in a counter-attack) now always includes the tile's current owner and ownership state, matching the two other call sites that already did this correctly."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Waterworks food bonus now applies to live tile collection and tile updates, not just background income ticks",
+      why: "The Waterworks +50% Farmstead food radius bonus was correctly modeled and applied during periodic background income accrual, but the code path used when a player actually clicks Collect on a tile, and the code path used to build the live tile-update broadcast, both built their own copy of the yield context and forgot to forward the Waterworks tile set into it -- silently dropping the bonus for anything except the background tick. The initial map snapshot/bootstrap view had the same gap.",
+      changes: [
+        "Collecting a Farmstead tile's yield, the live tile-update broadcast, and the initial map snapshot all now apply the Waterworks +50% food bonus consistently with background income ticks."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.2",
+      title: "Attacking undefended frontier land now costs much less mustered manpower",
+      why: "Frontier-owned tiles (claimed but not yet settled) have zero effective defense in combat -- they always fall to any attack, fort or no fort, until the tile is actually settled. Despite that, attacking one under the mustering system still charged the full settled-attack manpower floor (60), the same cost as attacking a heavily fortified settled town.",
+      changes: [
+        "Attacking a frontier (un-settled) target now costs a low flat mustered-manpower amount, similar to a barbarian raid, regardless of any fort built on that tile -- forts only raise the attack cost once their tile is actually settled."
+      ]
+    },
+    {
+      introducedIn: "2026.07.05.1",
+      title: "Cut-off frontier tiles now update the map immediately",
+      why: "A tile ownership change delivered outside the main batched tile-sync path (a single-tile detail refresh, or an attack/encirclement result) updated the client's tile data correctly, but never signaled the 3D map's render loop to redraw. The tile silently stayed owned/frontier on screen until an unrelated camera move or a full page refresh forced a redraw.",
+      changes: [
+        "Any tile update that clears or changes ownership -- including a frontier tile cut off by an encirclement -- now immediately triggers a map redraw, matching the correct data the client already had."
+      ]
+    },
+    {
+      introducedIn: "2026.07.02.5",
+      title: "Reduced background network traffic for large empires",
+      why: "A background sweep continuously pre-fetched enriched tile-detail data for any visible owned tile, including bare settled land with nothing to enrich. For a large empire made mostly of plain settled tiles, this sweep never idled -- it just kept cycling through thousands of tiles as their 60-second freshness window expired, generating constant traffic even with the camera still.",
+      changes: [
+        "The background sweep now only pre-fetches detail for tiles with a town, since those are the only tiles with real enrichable data (support, food coverage, connected-town bonus). Docks, forts, and other structures still show full detail instantly when clicked -- just via the normal on-demand fetch instead of a continuous background sweep."
+      ]
+    },
+    {
+      introducedIn: "2026.07.02.4",
+      title: "Owned tiles no longer flash unowned on sparse server updates",
+      why: "A tile update from the server that omitted owner fields (because they hadn't changed) was being treated by the client as an explicit signal to clear ownership -- a workaround for a narrow stale-barbarian-ownership case that instead wiped correct ownership on any update missing those fields, including tile-detail responses built from an incomplete server-side cache entry.",
+      changes: [
+        "The client now correctly treats missing owner fields on an update as \"unchanged\" rather than \"cleared\", matching how the server actually emits these updates.",
+        "Owned tiles (including docks and towns) stay correctly marked as yours instead of intermittently appearing neutral."
+      ]
+    },
+    {
+      introducedIn: "2026.07.02.3",
+      title: "Frozen AI empires are active again",
+      why: "A repair pass that runs on startup to fix player records with zero gross income always rebuilt missing records as human players, even for AI ids. Once an AI record got mislabeled this way it was permanently excluded from the AI tick loop (which only acts on players flagged isAi), so that empire froze forever at its starting settlement with no growth, combat, or expansion.",
+      changes: [
+        "The startup repair now recognizes the \"ai-<n>\" id convention and rebuilds or self-heals those records as AI players instead of human, without resetting any accumulated progress.",
+        "Newly repaired AI ids are fed back into the autopilot's active player list immediately, so they resume playing on the same startup instead of staying frozen until a full restart."
+      ]
+    },
+    {
+      introducedIn: "2026.07.02.2",
+      title: "Frontier territory is easier to see on the map",
+      why: "Frontier tiles were tinted at only 32% opacity, which on grass terrain was nearly indistinguishable from unowned land — owned frontier claims (including the tiles supporting farms, docks, and towns) could look neutral even though they were correctly yours.",
+      changes: [
+        "Frontier ownership tint raised from 32% to 50% opacity so owned-but-unsettled tiles read clearly across all terrain types."
+      ]
+    },
+    {
+      introducedIn: "2026.07.02.1",
+      title: "Fewer \"Simulation unavailable\" errors for large empires",
+      why: "Every tile change (including ones that only touched frontier tiles — territory expansion, muster, population growth) force-rebuilt a large empire's full income/upkeep breakdown before the next Settle. On empires with a couple thousand owned tiles this rebuild could take over two seconds, occasionally blowing past the server's command timeout and surfacing as \"Simulation unavailable.\"",
+      changes: [
+        "The server now only rebuilds an empire's income/upkeep breakdown when a settled tile actually changes, not on every frontier tile update.",
+        "Settle commands in large empires resolve without the added rebuild delay, reducing \"Simulation unavailable\" errors during busy expansion turns."
       ]
     },
     {
@@ -108,16 +270,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.06.30.0",
-      title: "Dock-based 'Launch Attack' no longer silently fails",
-      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
-      changes: [
-        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
-        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
-        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
       title: "Shard collection animation overlay adapts to mobile screen sizes",
       why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
       changes: [
@@ -125,219 +277,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
         "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
       ]
-    },
-    {
-      introducedIn: "2026.06.29.7",
-      title: "Removed confusing origin-to-target line from crystal targeting overlay",
-      why: "The connection line drawn from the origin building to the hovered/selected target tile was confusing — it looked like part of the targeting UI but didn't add useful information.",
-      changes: [
-        "Removed the origin-to-target connection line from the 3D crystal targeting overlay."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.6",
-      title: "Crystal targeting overlay and range circles are more visible in 3D",
-      why: "The 3D crystal targeting overlay (semi-transparent tiles) and the 3D range circles (airport bombard, observatory, waterworks, sweep) were too faint to see clearly.",
-      changes: [
-        "Crystal targeting overlay fill opacity increased from 12% to 30%.",
-        "Crystal targeting overlay valid target tiles now have a colored border (stroke) matching the 2D overlay style.",
-        "Airport Bombard range circle border increased from 40% to 55% and fill from 2.5% to 10%.",
-        "Observatory range circle border increased from 35% to 55% and fill from 2% to 10%.",
-        "Waterworks and Sweep range circle fills increased from 3-4% to 10%."
-      ]
-    },
-    {
-      introducedIn: "2026.06.29.5",
-      title: "Crystal targeting overlay now renders in 3D mode",
-      why: "When entering crystal targeting mode (Sky Dock Bombard, etc.) in 3D view, the valid target tiles were only highlighted in the 2D overlay — which rendered on top of the 3D scene. You couldn't see which tiles were valid targets in 3D.",
-      changes: [
-        "Valid target tiles now show a semi-transparent colored overlay on the 3D terrain.",
-        "Hovering or selecting a valid target shows a connection line from origin to target tile.",
-        "Origin and target tiles get bold outline markers in 3D.",
-        "2D crystal targeting highlights and airport range overlay are now hidden when 3D mode is active."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.3",
-      title: "Sky Dock Bombard range now visible in 3D",
-      why: "After selecting a Sky Dock and choosing the bombard action, you could not see which tiles were in range — the crystal targeting mode highlighted targets but there was no range overlay on the dock itself.",
-      changes: [
-        "Selecting an active, owned Sky Dock now shows a red 3D range circle (radius 30 tiles) around it, matching the Observatory and Waterworks range overlays."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.3",
-      title: "Hit animations for Sky Dock Bombard",
-      why: "Sending a bombard gave no visual feedback — the targeted 3x3 area just disappeared with no impact effect.",
-      changes: [
-        "When bombard strikes land, the targeted tiles now show a brief orange flash and expanding ring animation lasting 1.5 seconds."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.2",
-      title: "Sky Dock Bombard moved to Actions tab (was in Crystal tab)",
-      why: "Sky Dock Bombard is tied to a specific tile (Sky Dock) — the same pattern as Worldbreaker Shot. Putting it in the Crystal tab (reserved for global abilities like Aether Bridge or Siphon) was confusing.",
-      changes: [
-        "Sky Dock Bombard now appears in the Actions tab of the tile menu, not the Crystal tab.",
-        "Icon and tooltip description added for the action."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.1",
-      title: "Sky Dock Bombard targeting works",
-      why: "Clicking an owned Sky Dock tile showed no bombard action — the tile action generator, crystal targeting type, isCrystal filter, and action-flow handler were all missing the airport_bombard case, even though the server's command handler was complete.",
-      changes: [
-        "Clicking your Sky Dock now shows a 'Sky Dock Bombard' action in the tile menu (costs 1 CRYSTAL, requires active Sky Dock and nearby Aether Tower).",
-        "Selecting the action enters crystal targeting mode, highlighting enemy land tiles within 30 tiles as valid targets.",
-        "Tapping a highlighted target sends AIRPORT_BOMBARD to the server, clearing the 3×3 area around the target."
-      ]
-    },
-    {
-      introducedIn: "2026.06.28.0",
-      title: "Season-end overlay — scrolling finally works",
-      why: "The .se-scroll-body and .se-scroll-footer elements existed in HTML markup but had zero CSS rules, so the scrollable list never actually scrolled. The overlay also inherited pointer-events: none from #hud, letting wheel events zoom the hidden map underneath.",
-      changes: [
-        "Added CSS for .se-scroll-body (flex: 1; overflow-y: auto; min-height: 0) and .se-scroll-footer (flex-shrink: 0) — .se-scroll is now a flex column so the body scrolls while the action buttons stay sticky at the bottom",
-        "Added pointer-events: auto to #season-end-overlay so wheel/touch events are captured by the overlay instead of passing through to the map",
-        "Added touch-action: pan-y to .se-scroll-body so mobile touch scrolling works natively",
-        "Added tab bar styling (.se-tab-bar, .se-tab, .se-tab-panel) with brass accents matching the overlay theme",
-        "Fixed wheel listener accumulation — guarded by dataset.seWheelReady so the listener is only ever attached once; re-queries .se-scroll-body inside the handler to survive innerHTML rebuilds"
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.3",
-      title: "Dock-pair attacks now validate the dock connection as a valid attack path",
-      why: "Launching an attack from a dock tile to its paired dock on the other side of the water showed the Launch Attack button (via the dockId fallback) but the server rejected it with NOT_ADJACENT because it only checked geometric adjacency and the dockId property on the tile data.",
-      changes: [
-        "The server's attack validation now checks the authoritative dock link map when deciding if the origin can reach the target. If the origin tile is dock-paired with the target tile, the adjacency requirement is satisfied.",
-        "This fixes attacks that were visible in the UI but silently rejected by the server."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.4",
-      title: "Season-end overlay gets tabs and sticky buttons",
-      why: "The season-end screen was too tall — action buttons scrolled off-screen and you couldn't scroll the leaderboard list in the available space.",
-      changes: [
-        "Final Standings and Victory Paths are now switchable tabs, keeping the overlay compact.",
-        "Start New Season and Look Around buttons are sticky at the bottom and always visible."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.4",
-      title: "Stop scroll/zoom leaking to the map behind the overlay",
-      why: "Wheel and scroll gestures on the season-end screen were zooming the hidden map underneath, causing disorienting camera jumps when the overlay was dismissed.",
-      changes: [
-        "The overlay now captures wheel events outside its scrollable area so they no longer reach the map."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.2",
-      title: "Season-end overlay no longer stuck invisible",
-      why: "The season-end overlay was always present in the DOM but never visible after a season ended — only the initial snapshot carried the season winner, so the overlay stayed hidden.",
-      changes: [
-        "Live world-status updates now broadcast the season winner too, so the overlay appears the moment a season ends."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.2",
-      title: "'You' marker restored in victory conditions",
-      why: "The victory condition summary stopped showing the 'You' prefix next to your own empire after a refactor, making it impossible to tell at a glance whether you were leading a given victory path.",
-      changes: [
-        "The season-end overlay now correctly shows 'You' on the objective gauge you are leading.",
-        "When you are not the leader, your personal progress still appears on a separate 'You:' line."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.2",
-      title: "Crown now awarded to the season winner, not rank 1",
-      why: "The standings table was putting the crown glyph on the row with rank 1 instead of the actual declared season winner — when the winner finished outside first place the crown appeared on the wrong player.",
-      changes: [
-        "The ♔ crown now appears beside the season winner's name in the final standings, regardless of their leaderboard rank."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.2",
-      title: "Muster-advance attacks now consume the correct manpower pool",
-      why: "Advance-mode barbarian raids were drawing from the player's global manpower pool instead of the muster flag's staged manpower. The waypoint planner always showed a flat 60 MP cost even when the actual cost differed for barbarian raids (10 MP) or fort targets (garrison-dependent). Activity feed entries were missing entirely for advance-mode attacks.",
-      changes: [
-        "Advance-mode barbarian attacks now drain the muster flag's staged manpower instead of the player's global pool.",
-        "Manual barbarian raids (no muster flag) still draw from the global pool as before.",
-        "Waypoint planner manpower cost now shows the correct amount: 10 for barbarian tiles, the fort garrison for fort targets (minimum 60), or 60 for other enemy tiles.",
-        "Advance-mode combat results now appear in the activity feed as expected."
-      ]
-    },
-    {
-      introducedIn: "2026.06.27.2",
-      title: "Food upkeep in economy panel now accurate",
-      why: "The economy panel showed lower food upkeep than the server actually deducted (e.g. 0.2/m per City instead of 0.3/m), making it seem like food was inexplicably draining.",
-      changes: [
-        "Town food upkeep rates in the economy panel now match the actual server-side deduction: City 0.3/m, Great City 0.6/m, Metropolis 1.0/m.",
-        "The food net rate in the HUD ribbon and economy cards now correctly reflects what your stockpile will actually lose each tick."
-      ]
-    },
-    {
-      introducedIn: "2026.06.26.4",
-      title: "Shards no longer vanish when you expand onto a shard tile",
-      why: "Expanding to a tile that had a shard silently deleted the shard — the server returned COLLECT_EMPTY even though the client still showed the shard overlay.",
-      changes: [
-        "Expanding onto a tile with a shard now preserves the shard so you can collect it afterward."
-      ]
-    },
-    {
-      introducedIn: "2026.06.26.4",
-      title: "Shard rain avoids re-using the same tiles",
-      why: "When the eligible tile pool was small, the same tiles got shards dropped on them every rain cycle. This made collection too predictable and rewarded camping known shard spawns.",
-      changes: [
-        "Tiles that have hosted a shard fall site are no longer eligible for future shard rain events.",
-        "Over time the rain spreads to fresh tiles instead of concentrating on the same spots."
-      ]
-    },
-    {
-      introducedIn: "2026.06.26.3",
-      title: "Muster flags now supply attacks through connected territory up to 10 tiles away",
-      why: "Setting a muster flag to advance and letting it capture tiles pushed the front forward, but auto-attacks from distant frontier tiles failed with 'Attack blocked: stage manpower' even though the flag had plenty of manpower.",
-      changes: [
-        "Muster-advance auto-attacks now correctly use the flag's manpower regardless of distance from the attack source tile.",
-        "Manual attacks (Launch Attack) can draw from flags within 10 tiles of the origin instead of the previous 4-tile limit.",
-        "The 'Attack blocked: stage manpower on this tile first' error no longer appears when attacking through connected owned territory with a mustered flag in range."
-      ]
-    },
-    {
-      introducedIn: "2026.06.26.2",
-      title: "No more 'Combat result delayed' spam from auto-attacks",
-      why: "Setting a muster flag to advance and leaving it caused a 'Combat result delayed locally; continuing queue.' error after every attack, even though the result was delivered.",
-      changes: [
-        "Muster-advance auto-attacks now resolve cleanly without showing the 'Combat result delayed' warning.",
-        "Combat results from server-initiated attacks appear in the activity feed as expected."
-      ]
-    },
-    {
-      introducedIn: "2026.06.26.1",
-      title: "No more fake range circle on muster flags",
-      why: "Selecting a muster flag showed a small red radius box, implying attacks are limited to that range — but muster attacks have unlimited reach from any flag.",
-      changes: [
-        "The red reach indicator no longer appears when you tap a muster flag, since the flag can attack any tile regardless of distance."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.2",
-      title: "Season-end screen",
-      why: "When a season ended there was no real wrap-up — you were just left on a frozen map with a small leaderboard panel.",
-      changes: [
-        "A full season-end screen now appears when a winner is crowned: the victor, final standings, and how every path to victory played out.",
-        "\"Start New Season\" begins a fresh season for everyone (only available once the current season has ended).",
-        "\"Look Around\" dismisses the screen so you can roam the final map."
-      ]
-    },
-    {
-      introducedIn: "2026.06.25.1",
-      title: "Clearer reconnect message",
-      why: "If the server restarted mid-session, clicking the map showed 'Finish sign-in before interacting with the map.' — confusing, since you were already signed in.",
-      changes: [
-        "During a mid-game server reconnect, the map now says 'Server is reconnecting. Please wait a moment.' instead of asking you to sign in again.",
-        "The original sign-in prompt still appears only when you genuinely are not signed in yet."
-      ]
-    },
+    }
   ]
 };
 

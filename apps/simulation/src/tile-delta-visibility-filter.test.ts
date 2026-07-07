@@ -39,13 +39,19 @@ describe("filterTileDeltasForPlayer ownership-clearing passthrough", () => {
       { x: 70, y: 70, terrain: "LAND" as const, ownerId: "player-2" as const, ownershipState: "SETTLED" as const }
     ];
 
-    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1", { includeOwnershipClears: true });
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0].x).toBe(50);
     expect(filtered[0].y).toBe(50);
     expect("ownerId" in filtered[0]).toBe(true);
     expect(filtered[0].ownerId).toBeUndefined();
+
+    // Without the opt-in flag (e.g. survey sweep's "is this tile visible?"
+    // check, or the bootstrap visible-state exporter), the original strict
+    // "empty result == not visible" contract must be preserved.
+    const filteredWithoutOptIn = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+    expect(filteredWithoutOptIn).toHaveLength(0);
   });
 
   it("still drops ownerId-having deltas for non-visible tiles", () => {

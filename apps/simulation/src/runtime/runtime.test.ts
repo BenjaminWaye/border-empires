@@ -2078,13 +2078,13 @@ describe("simulation runtime", () => {
       }
     });
     // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
-    // tiles produce 72/day = 0.05/min each (6 food total). Yield exactly
-    // covers upkeep, so FOOD stockpile stays at 100.
+    // tiles produce 48/day = 0.0333/min each (4 food total). Net -2 food,
+    // so FOOD stockpile drops from 100 to 98.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeCloseTo(100, 1);
+    expect(player?.strategicResources.FOOD).toBeCloseTo(98, 0);
   });
 
   it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
@@ -2198,8 +2198,8 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // The mixed-yield tile (5,5) produces 10 gold/min AND 72 FOOD/day
-    // (~3.05 FOOD over 61 minutes since the anchor was never set).
+    // The mixed-yield tile (5,5) produces 10 gold/min AND 48 FOOD/day
+    // (~2.03 FOOD over 61 minutes since the anchor was never set).
     // GARRISON_HALL draws gold but no food, so accrual consumes gold
     // only — yet the single shared anchor advances, so a later collect
     // sees less than the full 61-minute window of FOOD. This pins the
@@ -2218,8 +2218,8 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeGreaterThan(2);
-    expect(player?.strategicResources.FOOD).toBeLessThan(3);
+    expect(player?.strategicResources.FOOD).toBeGreaterThan(1);
+    expect(player?.strategicResources.FOOD).toBeLessThan(2);
   });
 
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
@@ -5626,6 +5626,103 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("emits only the captured tile delta for barbarian captures despite isAi:false", async () => {
+    // Barbarians carry isAi:false by design (they stay out of AI-respawn /
+    // income-repair), so a bare `attacker.isAi` check would route them through
+    // the human vision-radius capture-reveal path — dozens of ownerId:null
+    // wilderness deltas that the broadcast forwards to every client as
+    // ownership-clears. This asserts the isAiControlledActor guard keeps
+    // barbarian captures to a single-tile delta. Regression for the mid-map
+    // neutral-tile flood.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "barbarian-1",
+            {
+              id: "barbarian-1",
+              isAi: false,
+              points: Number.MAX_SAFE_INTEGER,
+              manpower: Number.MAX_SAFE_INTEGER,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1_000, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: false,
+              points: 100,
+              manpower: 1,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          // Dense neutral neighbourhood around the target so a regressed
+          // (reveal-square) path would balloon to ~VISION_RADIUS² deltas —
+          // this is what makes the assertion able to tell the two paths apart.
+          tiles: (() => {
+            const t: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" | "FRONTIER" }> = [];
+            for (let x = 6; x <= 14; x += 1) {
+              for (let y = 7; y <= 15; y += 1) t.push({ x, y, terrain: "LAND" });
+            }
+            const at = (x: number, y: number) => t.find((tile) => tile.x === x && tile.y === y)!;
+            Object.assign(at(10, 10), { ownerId: "barbarian-1", ownershipState: "SETTLED" });
+            Object.assign(at(10, 11), { ownerId: "player-2", ownershipState: "SETTLED" });
+            return t;
+          })(),
+          activeLocks: []
+        }
+      });
+      const barbBatches: Array<Array<{ x: number; y: number; ownerId?: string }>> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "barb-attack-1") {
+          barbBatches.push(event.tileDeltas);
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "barb-attack-1",
+        sessionId: "system-runtime:barbarian-1",
+        playerId: "barbarian-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      // Resolution batch must contain the captured tile and stay small (a few
+      // coalesced breach/walk tiles) — NOT the ~81-tile vision-radius reveal
+      // square that the human capture-reveal path would emit. The 81-tile
+      // neighbourhood above is fully populated, so a regression would blow the
+      // batch well past this bound.
+      expect(barbBatches.length).toBeGreaterThanOrEqual(1);
+      expect(barbBatches[0]).toEqual(
+        expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
+      );
+      expect(barbBatches[0].length).toBeLessThan(9);
+      // No distant neutral reveal tile (only the reveal square would surface one).
+      expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("settles an owned frontier tile without inventing a town", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({
@@ -6126,7 +6223,7 @@ describe("simulation runtime", () => {
         ]
       }
     });
-    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"])).toBe(1);
+    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"]).repaired).toBe(1);
 
     const recoveredState = runtime.exportState();
     const originalTown = recoveredState.tiles.find((tile) => tile.x === 12 && tile.y === 18);
@@ -9636,5 +9733,99 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
     // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
+  });
+
+  it("keeps ownerId/ownershipState in a tile delta even when an unrelated later event re-touches the same tile (#774/#777/#779 regression)", async () => {
+    // Reproduces the real-world bug end-to-end through the actual runtime
+    // wiring, not just the cache class in isolation: a tile gets its FIRST
+    // real broadcast (which seeds TileDeltaStringifyCache's global
+    // "last emitted" baseline for it: fort under_construction), then a
+    // SECOND, later event re-touches the SAME tile (fort construction
+    // completing) without ownerId/ownershipState changing at all between
+    // the two. Any consumer who only ever sees the SECOND event (a fresh
+    // subscriber, a reconnect, the gateway's own snapshot cache) must still
+    // be able to tell who owns this tile from that delta alone -- it must
+    // not rely on "ownerId didn't change since some other emission" to skip it.
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 60_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 5_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Regression Town", type: "MARKET", populationTier: "TOWN" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      type SeenTileDelta = { x: number; y: number; ownerId?: string; ownershipState?: string; fortJson?: string };
+      const tileDeltaBatches: SeenTileDelta[][] = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "TILE_DELTA_BATCH") {
+          tileDeltaBatches.push(event.tileDeltas.map((delta) => ({ ...delta })) as SeenTileDelta[]);
+        }
+      });
+
+      // First real broadcast for (10,10): fort construction starting. This
+      // is what seeds the cache's "last emitted" baseline for this tile.
+      runtime.submitCommand({
+        commandId: "fort-cmd-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 60_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+
+      const firstBatch = tileDeltaBatches.find((batch) => batch.some((delta) => delta.x === 10 && delta.y === 10));
+      expect(firstBatch).toBeDefined();
+      const firstDelta = firstBatch!.find((delta) => delta.x === 10 && delta.y === 10)!;
+      expect(firstDelta.ownerId).toBe("player-1");
+      expect(firstDelta.ownershipState).toBe("SETTLED");
+      expect(firstDelta.fortJson).toContain("under_construction");
+
+      // Second, later event on the SAME tile: fort construction completes,
+      // changing `fort` from under_construction to active -- not ownerId or
+      // ownershipState. Under the pre-fix sparse diff, this delta would have
+      // omitted ownerId/ownershipState entirely because they "hadn't
+      // changed" since the fort-start emission above.
+      tileDeltaBatches.length = 0;
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+
+      const secondBatch = tileDeltaBatches.find((batch) => batch.some((delta) => delta.x === 10 && delta.y === 10));
+      expect(secondBatch).toBeDefined();
+      const secondDelta = secondBatch!.find((delta) => delta.x === 10 && delta.y === 10)!;
+      expect(secondDelta.fortJson).toContain("\"status\":\"active\"");
+      expect(secondDelta.ownerId).toBe("player-1");
+      expect(secondDelta.ownershipState).toBe("SETTLED");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

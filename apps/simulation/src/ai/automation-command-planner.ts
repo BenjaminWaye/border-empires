@@ -167,9 +167,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
     input.points >= SETTLE_COST;
   const settlementStartedAt = Date.now();
-  const ownedFrontierTiles = input.ownedTiles.filter(
-    (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
-  ) as readonly TTile[];
   // Restrict per-AI candidate sets to the spatial focus front when present.
   // Without this, large empires made per-tick selectors (settle priority,
   // structure build) iterate the full owned/frontier set every tick — the
@@ -185,6 +182,21 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     const filtered = tiles.filter((tile) => focusFront.has(`${tile.x},${tile.y}`));
     return filtered.length > 0 ? (filtered as readonly T[]) : tiles;
   };
+  // Last-resort fallback for when frontierTiles/hotFrontierTiles/
+  // strategicFrontierTiles are ALL empty. At steady state for any real
+  // empire this is never reached, so it must be lazy — this used to scan
+  // every owned tile unconditionally on every single plan regardless of
+  // empire size (a 20k-tile empire re-scanned 20k tiles for a value
+  // discarded on nearly every call).
+  let ownedFrontierTilesCache: readonly TTile[] | undefined;
+  const ownedFrontierTiles = (): readonly TTile[] => {
+    if (!ownedFrontierTilesCache) {
+      ownedFrontierTilesCache = restrictToFocus(input.ownedTiles).filter(
+        (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
+      ) as readonly TTile[];
+    }
+    return ownedFrontierTilesCache;
+  };
   const settlementSources = (restrictToFocus(
     input.strategicFrontierTiles?.length
       ? input.strategicFrontierTiles
@@ -192,14 +204,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         ? input.hotFrontierTiles
         : input.frontierTiles.length > 0
           ? input.frontierTiles
-          : ownedFrontierTiles
+          : ownedFrontierTiles()
   ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
   const fallbackSettlementSources = (restrictToFocus(
     input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
       : input.frontierTiles.length > 0
         ? input.frontierTiles
-        : ownedFrontierTiles
+        : ownedFrontierTiles()
   ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
@@ -230,12 +242,19 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         : input.frontierTiles.length > 0
           ? input.frontierTiles
           : input.ownedTiles) as readonly TTile[];
-  const dockOrigins = input.ownedTiles.filter(
-    (tile) =>
-      Boolean(tile.dockId) &&
-      !baseFrontierOrigins.some((candidate) => candidate.x === tile.x && candidate.y === tile.y)
+  const baseFrontierOriginKeys = new Set(baseFrontierOrigins.map((tile) => `${tile.x},${tile.y}`));
+  // Source dock/town-support origins from the incrementally-maintained
+  // buildCandidateTiles set instead of scanning every owned tile.
+  // isBuildCandidateTile (planner-candidate-index.ts) already includes any
+  // tile with its own dockId/town, so buildCandidateTiles is a safe
+  // superset here — bounded by resource/dock/town/hostile-border tile
+  // count, not total empire size. Only fall back to a full owned-tile scan
+  // when the incremental set isn't supplied (e.g. direct unit-test calls).
+  const dockTownScanSource = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
+  const dockOrigins = dockTownScanSource.filter(
+    (tile) => Boolean(tile.dockId) && !baseFrontierOriginKeys.has(`${tile.x},${tile.y}`)
   );
-  const townSupportOrigins = input.ownedTiles.filter((tile) => {
+  const townSupportOrigins = dockTownScanSource.filter((tile) => {
     if (tile.ownerId !== input.playerId || tile.ownershipState !== "SETTLED" || !tile.town) return false;
     if (tile.town.populationTier === "SETTLEMENT") return false;
     const storedMax = tile.town.supportMax;
@@ -251,25 +270,34 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
   const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins);
-  // Fold the per-state counts into a single owned-tiles sweep. Previously
-  // three separate `.filter(...)` walks ran per plan (settled, controlled,
-  // towns); at 1000+ owned tiles per AI × 5 AIs that allocated three
-  // throwaway arrays per AI tick — pure GC pressure on a hot path.
-  const needSettledCount = input.settledTileCount === undefined;
-  const needTownCount = input.townCount === undefined;
-  let computedSettledTileCount = 0;
-  let computedTownCount = 0;
-  let computedControlledTileCount = 0;
-  for (const tile of input.ownedTiles) {
-    const isSettled = tile.ownershipState === "SETTLED";
-    const isFrontier = tile.ownershipState === "FRONTIER";
-    if (isSettled || isFrontier) computedControlledTileCount += 1;
-    if (needSettledCount && isSettled) computedSettledTileCount += 1;
-    if (needTownCount && isSettled && tile.town) computedTownCount += 1;
+  // settledTileCount/townCount are already incrementally maintained per
+  // player (player-runtime-summary.ts) and supplied on every real call
+  // path. controlledTileCount is just settled + frontier tile counts
+  // (mutually exclusive ownershipState values) — no scan needed. Only fall
+  // back to a full owned-tile sweep when a caller doesn't supply both
+  // counts (e.g. direct unit-test calls); this used to run unconditionally
+  // on every plan regardless of empire size.
+  let settledTileCount = input.settledTileCount;
+  let townCount = input.townCount;
+  let controlledTileCount: number;
+  if (settledTileCount !== undefined && townCount !== undefined) {
+    controlledTileCount =
+      settledTileCount + (input.frontierTiles.length > 0 ? input.frontierTiles.length : ownedFrontierTiles().length);
+  } else {
+    let computedSettledTileCount = 0;
+    let computedTownCount = 0;
+    let computedControlledTileCount = 0;
+    for (const tile of input.ownedTiles) {
+      const isSettled = tile.ownershipState === "SETTLED";
+      const isFrontier = tile.ownershipState === "FRONTIER";
+      if (isSettled || isFrontier) computedControlledTileCount += 1;
+      if (settledTileCount === undefined && isSettled) computedSettledTileCount += 1;
+      if (townCount === undefined && isSettled && tile.town) computedTownCount += 1;
+    }
+    settledTileCount = settledTileCount ?? computedSettledTileCount;
+    townCount = townCount ?? computedTownCount;
+    controlledTileCount = computedControlledTileCount;
   }
-  const settledTileCount = input.settledTileCount ?? computedSettledTileCount;
-  const controlledTileCount = computedControlledTileCount;
-  const townCount = input.townCount ?? computedTownCount;
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
@@ -281,6 +309,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
+          preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
@@ -298,7 +327,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       const broadFrontierOriginsAll = dedupeTiles([
         ...narrowFrontierOrigins,
         ...input.frontierTiles,
-        ...ownedFrontierTiles
+        ...ownedFrontierTiles()
       ]);
       // The broad fallback also respects the spatial focus front so a large
       // empire cannot blow up planner CPU through the fallback path.
@@ -308,6 +337,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
+          preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
@@ -340,7 +370,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     canAttack,
     canExpand,
     ownedTileCount: input.ownedTiles.length,
-    ownedFrontierTileCount: ownedFrontierTiles.length,
+    // Diagnostic-only: report the cached count without forcing computation
+    // (0 means the lazy fallback was never needed this tick, which is the
+    // common/healthy case for any empire with populated frontier sets).
+    ownedFrontierTileCount: ownedFrontierTilesCache?.length ?? 0,
     broadFallbackSkipped: broadFallbackSkipped || undefined,
     narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
@@ -409,6 +442,12 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
+  // buildAutomationStrategicSnapshot only ever needs settled tiles carrying
+  // a resource/dockId/town (for victory-path scoring) — every such tile is
+  // already guaranteed to be in buildCandidateTiles (isBuildCandidateTile in
+  // planner-candidate-index.ts includes resource || dockId || town), so this
+  // is a lossless substitution that avoids yet another O(owned) scan.
+  const strategicOwnedTiles = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
   const strategic = buildAutomationStrategicSnapshot({
     playerId: input.playerId,
     points: input.points,
@@ -418,7 +457,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     townCount,
     incomePerMinute,
     ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
-    ownedTiles: input.ownedTiles,
+    ownedTiles: strategicOwnedTiles,
     tilesByKey: input.tilesByKey,
     frontierAnalysis,
     ...(settlementCandidate ? { settlementCandidate: settlementCandidate as TTile } : {}),

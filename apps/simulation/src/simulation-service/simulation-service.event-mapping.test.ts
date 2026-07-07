@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isWireInternalEvent, toProtoEvent } from "./simulation-service.js";
+import { isWireInternalEvent, toProtoEvent } from "./proto-serialization.js";
 
 describe("toProtoEvent", () => {
   it("serializes cancelled frontier command ids on COMBAT_CANCELLED events", () => {

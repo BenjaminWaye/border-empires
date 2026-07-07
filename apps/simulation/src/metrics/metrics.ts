@@ -84,6 +84,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
+  let simAiQueueBacklogMs = 0;
+  let simSystemQueueBacklogMs = 0;
+  let simHumanNoninteractiveQueueBacklogMs = 0;
+  let simCommandApplyTrackEvictedTotal = 0;
   // Empire-size gauges: total owned tiles across player empires, and the
   // single largest empire's tile count. The largest empire drives the
   // per-player O(territory) cost of the planner sync / per-cycle work, so it
@@ -106,6 +110,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simWriterQueueDepth = 0;
+  let simWriterQueueBackpressureWaitTotal = 0;
+  let simBarbVisionUnionRecomputeThrottledTotal = 0;
+  let simPlayerStateUpdateSkippedAiTotal = 0;
   let simReplayRecordedCommandHistory = 0;
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
@@ -157,12 +165,20 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       spawn: quantileSample(simPreparePlayerLatencyMs.get("spawn") ?? [])
     },
     simHumanInteractiveBacklogMs,
+    simAiQueueBacklogMs,
+    simSystemQueueBacklogMs,
+    simHumanNoninteractiveQueueBacklogMs,
+    simCommandApplyTrackEvictedTotal,
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simWriterQueueDepth,
+    simWriterQueueBackpressureWaitTotal,
+    simBarbVisionUnionRecomputeThrottledTotal,
+    simPlayerStateUpdateSkippedAiTotal,
     simReplayRecordedCommandHistory,
     simReplayHistoryEvictedTotal,
     simReplayServerEventsSkippedTotal,
@@ -270,6 +286,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     setSimHumanInteractiveBacklogMs(value: number): void {
       simHumanInteractiveBacklogMs = clampMetric(value);
     },
+    setSimBackgroundQueueBacklogMs(values: { ai: number; system: number; humanNoninteractive: number }): void {
+      simAiQueueBacklogMs = clampMetric(values.ai);
+      simSystemQueueBacklogMs = clampMetric(values.system);
+      simHumanNoninteractiveQueueBacklogMs = clampMetric(values.humanNoninteractive);
+    },
+    setSimCommandApplyTrackEvictedTotal(value: number): void {
+      simCommandApplyTrackEvictedTotal = clampMetric(value);
+    },
     setSimAiAutopilotState(values: { enabled: boolean; playerCount: number }): void {
       simAiAutopilotEnabled = values.enabled ? 1 : 0;
       simAiAutopilotPlayerCount = clampMetric(values.playerCount);
@@ -285,6 +309,30 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    // Live gauge of in-flight writer-channel messages; set on every post()/ack
+    // so a growing queue is visible in /metrics before it becomes a heap
+    // incident. See SqliteWriterChannel — pending has no depth cap, so this
+    // is the only signal that the queue is backing up, not just individual
+    // writes being slow.
+    setSimWriterQueueDepth(value: number): void {
+      simWriterQueueDepth = clampMetric(value);
+    },
+    // Fires each time post() had to await drain because the queue hit its
+    // cap — zero forever means backpressure never engages under normal load.
+    incrementSimWriterQueueBackpressureWait(): void {
+      simWriterQueueBackpressureWaitTotal += 1;
+    },
+    // Fires each time ensureVisionUnionFresh skips a recompute because the
+    // signature changed before the min-interval floor elapsed — zero forever
+    // means the throttle never actually engages under real load.
+    incrementSimBarbVisionUnionRecomputeThrottled(): void {
+      simBarbVisionUnionRecomputeThrottledTotal += 1;
+    },
+    // Fires each time the tile-shedding tick skips emitPlayerStateUpdate for
+    // an AI player — zero forever means the skip never engages.
+    incrementSimPlayerStateUpdateSkippedAi(): void {
+      simPlayerStateUpdateSkippedAiTotal += 1;
     },
     setReplayCacheStats(stats: {
       recordedCommandHistorySize: number;

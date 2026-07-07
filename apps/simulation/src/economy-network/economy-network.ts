@@ -8,8 +8,65 @@ export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | 
 export type ConnectedTownNetworkEntry = {
   connectedTownCount: number;
   connectedTownBonus: number;
-  connectedTownKeys?: string[];
+  // Subset of directly-connected towns that have an active Clearing House —
+  // precomputed once per connectivity group (see buildConnectedTownNetworkForPlayer),
+  // not by having every consumer re-scan a full connectedTownKeys list. Bounded
+  // by the actual number of Clearing Houses nearby, not by connectedTownCount.
+  connectedClearingHouseKeys?: string[];
   connectedTownNames?: string[];
+};
+
+// Moved from player-update-economy.ts so buildConnectedTownNetworkForPlayer can
+// precompute per-group Clearing House membership without a circular import
+// (player-update-economy.ts already imports from this module). Re-exported
+// there for existing call sites/tests.
+const supportTileBelongsToTown = (
+  playerId: string,
+  supportTile: DomainTileState,
+  townTile: DomainTileState,
+  tiles: ReadonlyMap<string, DomainTileState>
+): boolean => {
+  let assignedTown: DomainTileState | undefined;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const candidate = tiles.get(`${supportTile.x + dx},${supportTile.y + dy}`);
+      if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
+      if (candidate.town.populationTier === "SETTLEMENT") continue;
+      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+        assignedTown = candidate;
+      }
+    }
+  }
+  return assignedTown?.x === townTile.x && assignedTown.y === townTile.y;
+};
+
+export const hasSupportedStructure = (
+  playerId: string,
+  tile: DomainTileState,
+  structureType: string,
+  tiles: ReadonlyMap<string, DomainTileState>
+): boolean => {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
+      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+      if (neighbor.economicStructure?.ownerId === playerId && neighbor.economicStructure.status === "active" && neighbor.economicStructure.type === structureType) return true;
+    }
+  }
+  return false;
+};
+
+export { supportTileBelongsToTown };
+
+type TownConnectivityGroup = {
+  // Sorted, shared across every town touching this component/group — building
+  // it once per group (not once per pair) is what keeps this O(component
+  // size) instead of O(towns_in_component²).
+  members: string[];
+  clearingHouseKeys: string[];
 };
 
 export type DockEconomyContext = {
@@ -60,15 +117,18 @@ export const buildConnectedTownNetworkForPlayer = (
     }
   }
 
-  // directConnectionsByTown[A] = Set of towns B such that A and B are directly
-  // connected (reachable from each other without passing through another town).
-  const directConnectionsByTown = new Map<string, Set<string>>();
-  for (const townKey of ownedTownKeys) {
-    directConnectionsByTown.set(townKey, new Set());
-  }
+  const hasClearingHouseAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
+  };
 
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
-  // These are connected regardless of the corridor graph.
+  // These are connected regardless of the corridor graph. O(towns) — each
+  // town has at most 8 neighbors, so this step alone can never be quadratic.
+  const directNeighborsByTown = new Map<string, Set<string>>();
+  for (const townKey of ownedTownKeys) {
+    directNeighborsByTown.set(townKey, new Set());
+  }
   for (const townKey of ownedTownKeys) {
     const [rawX, rawY] = townKey.split(",");
     const cx = Number(rawX), cy = Number(rawY);
@@ -78,19 +138,28 @@ export const buildConnectedTownNetworkForPlayer = (
         if (dx === 0 && dy === 0) continue;
         const nextKey = keyFor(cx + dx, cy + dy);
         if (ownedTownKeys.has(nextKey)) {
-          directConnectionsByTown.get(townKey)?.add(nextKey);
+          directNeighborsByTown.get(townKey)?.add(nextKey);
         }
       }
     }
   }
 
-  // Step 2: single BFS pass over connected components of non-town settled tiles.
-  // Replaces K separate per-town BFS runs (O(K×N)) with O(N + K²) total work.
-  // For each component, every town 8-adjacent to any tile in that component can
-  // reach every other such town through the corridor — they are all directly
-  // connected to each other.
+  // Step 2: single BFS pass over connected components of non-town settled
+  // tiles (unchanged — O(N) total). Every town 8-adjacent to any tile in a
+  // component is directly connected to every other such town through that
+  // corridor. The previous implementation materialized this as O(K^2)
+  // explicit pairs per component (a real 3+ second event-loop block was
+  // traced to this on a large contiguous empire — see runtime.ts comment at
+  // the tileYieldEconomyContextForPlayer call site). Instead, every town
+  // touching a component gets a REFERENCE to one shared group descriptor
+  // (built once, O(component's town count)), and each group's Clearing House
+  // membership is precomputed once per group rather than re-scanned by every
+  // downstream consumer for every connected town (which was a second,
+  // separate O(K^2) cost layered on top, in player-update-economy.ts /
+  // live-town-summary.ts).
   const visited = new Set<string>();
   const queue: string[] = [];
+  const groupsByTown = new Map<string, TownConnectivityGroup[]>();
 
   for (const startKey of nonTownSettledKeys) {
     if (visited.has(startKey)) continue;
@@ -122,39 +191,84 @@ export const buildConnectedTownNetworkForPlayer = (
       }
     }
 
-    // All towns adjacent to this component are directly connected to each other.
-    const adjacentTownList = [...adjacentTownKeys];
-    for (let i = 0; i < adjacentTownList.length; i++) {
-      for (let j = i + 1; j < adjacentTownList.length; j++) {
-        const a = adjacentTownList[i]!;
-        const b = adjacentTownList[j]!;
-        directConnectionsByTown.get(a)?.add(b);
-        directConnectionsByTown.get(b)?.add(a);
+    if (adjacentTownKeys.size === 0) continue;
+    const members = [...adjacentTownKeys].sort((l, r) => l.localeCompare(r));
+    const group: TownConnectivityGroup = {
+      members,
+      clearingHouseKeys: members.filter(hasClearingHouseAt)
+    };
+    for (const townKey of members) {
+      let list = groupsByTown.get(townKey);
+      if (!list) {
+        list = [];
+        groupsByTown.set(townKey, list);
       }
+      list.push(group);
     }
   }
 
-  // Build output entries.
+  // Build output entries. Fast path (no direct-adjacency towns, exactly one
+  // corridor group) is O(1) per town — this is the common shape for one
+  // large contiguous empire, and is exactly what previously cost O(K) per
+  // town (O(K^2) total across the empire). The union path below only runs
+  // for towns with genuinely more complex local connectivity (a direct
+  // 8-adjacent neighbor town, and/or bridging more than one corridor group —
+  // see the "does not count a town as connected when only reachable through
+  // another town" test), bounded by that specific town's own connections.
   const out = new Map<string, ConnectedTownNetworkEntry>();
-  for (const [startTownKey, directTownKeySet] of directConnectionsByTown) {
-    const directTownKeys = [...directTownKeySet].sort((l, r) => l.localeCompare(r));
-    const townNameByKey = new Map<string, string>();
-    for (const townKey of directTownKeys) {
-      const name = tiles.get(townKey)?.town?.name;
-      if (typeof name === "string" && name.length > 0) townNameByKey.set(townKey, name);
+  for (const townKey of ownedTownKeys) {
+    const direct = directNeighborsByTown.get(townKey) ?? new Set<string>();
+    const groups = groupsByTown.get(townKey);
+
+    let connectedTownCount: number;
+    let clearingHouseKeys: string[];
+    let memberKeysForNames: string[] | undefined;
+
+    if (direct.size === 0 && groups && groups.length === 1) {
+      const group = groups[0]!;
+      connectedTownCount = group.members.length - 1;
+      clearingHouseKeys = group.clearingHouseKeys.includes(townKey)
+        ? group.clearingHouseKeys.filter((k) => k !== townKey)
+        : group.clearingHouseKeys;
+      memberKeysForNames =
+        connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
+          ? group.members.filter((k) => k !== townKey)
+          : undefined;
+    } else if (direct.size === 0 && (!groups || groups.length === 0)) {
+      connectedTownCount = 0;
+      clearingHouseKeys = [];
+      memberKeysForNames = undefined;
+    } else {
+      const unionSet = new Set<string>(direct);
+      for (const group of groups ?? []) {
+        for (const member of group.members) {
+          if (member !== townKey) unionSet.add(member);
+        }
+      }
+      connectedTownCount = unionSet.size;
+      const clearingHouseSet = new Set<string>();
+      for (const key of direct) if (hasClearingHouseAt(key)) clearingHouseSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.clearingHouseKeys) if (key !== townKey) clearingHouseSet.add(key);
+      }
+      clearingHouseKeys = [...clearingHouseSet];
+      memberKeysForNames =
+        connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
+          ? [...unionSet].sort((l, r) => l.localeCompare(r))
+          : undefined;
     }
-    const connectedTownCount = directTownKeys.length;
-    const connectedTownNames =
-      maxConnectedTownNames > 0 && connectedTownCount <= maxConnectedTownNames
-        ? directTownKeys
-            .map((k) => townNameByKey.get(k))
-            .filter((n): n is string => typeof n === "string" && n.length > 0)
-            .sort((l, r) => l.localeCompare(r))
-        : [];
-    out.set(startTownKey, {
+
+    const connectedTownNames = memberKeysForNames
+      ? memberKeysForNames
+          .map((k) => tiles.get(k)?.town?.name)
+          .filter((n): n is string => typeof n === "string" && n.length > 0)
+          .sort((l, r) => l.localeCompare(r))
+      : [];
+
+    out.set(townKey, {
       connectedTownCount,
       connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
-      ...(directTownKeys.length ? { connectedTownKeys: directTownKeys } : {}),
+      ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {})
     });
   }
@@ -228,6 +342,48 @@ export const dockConnectedOwnedSettledCount = (
   return connectedCount;
 };
 
+/**
+ * Additive gold/min granted per connected owned dock when a dock is
+ * "supported" by an adjacent (8-neighbor) owned, active CUSTOMS_HOUSE
+ * (Harbor Exchange). This was previously all-cost/no-benefit in the
+ * rewrite — CUSTOMS_HOUSE_GOLD_UPKEEP was charged with no matching income.
+ * See docs/plans/2026-07-06-radius-yield-delivery.md Phase 5.
+ */
+export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1;
+
+/**
+ * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by
+ * `playerId`, SETTLED, with an active CUSTOMS_HOUSE — i.e. the dock is
+ * "supported" by a Harbor Exchange. Mirrors legacy `supportedStructureAtDock`
+ * adjacency semantics (legacy-snapshot-economy.ts:342-350) but scoped to
+ * CUSTOMS_HOUSE only.
+ */
+export const dockSupportedByCustomsHouse = (
+  dockTileKey: string,
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>
+): boolean => {
+  const [rawX, rawY] = dockTileKey.split(",");
+  const cx = Number(rawX);
+  const cy = Number(rawY);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return false;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighbor = tiles.get(keyFor(cx + dx, cy + dy));
+      if (
+        neighbor?.ownerId === playerId &&
+        neighbor.ownershipState === "SETTLED" &&
+        neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
+        neighbor.economicStructure.status === "active"
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 export const dockBaseGoldPerMinuteForPlayer = (
   tile: DomainTileState,
   player: EconomyPlayer,
@@ -235,9 +391,13 @@ export const dockBaseGoldPerMinuteForPlayer = (
 ): number => {
   if (!tile.dockId || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") return 0;
   const connectedDockCount = context ? dockConnectedOwnedSettledCount(keyFor(tile.x, tile.y), player.id, context) : 0;
-  return (
+  const base =
     DOCK_INCOME_PER_MIN *
     dockGoldOutputMultiplierForPlayer(player) *
-    (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount)
-  );
+    (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
+  const harborExchangeBonus =
+    context && dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles)
+      ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
+      : 0;
+  return base + harborExchangeBonus;
 };

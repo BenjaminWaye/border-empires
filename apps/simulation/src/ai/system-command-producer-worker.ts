@@ -65,6 +65,13 @@ type WorkerSystemCommandProducerOptions = {
   workerScriptPath?: string;
   maxOldGenerationSizeMb?: number;
   onTick?: (sample: { durationMs: number }) => void;
+  /** Minimum ms between exportBarbActivationVisibleUnion recomputes, regardless
+   *  of signature churn. See ensureVisionUnionFresh for why this is needed. */
+  visionUnionMinRecomputeIntervalMs?: number;
+  /** Fires each time ensureVisionUnionFresh skips a recompute because the
+   *  signature changed before the throttle interval elapsed. Zero forever
+   *  means the throttle never actually engages under real load. */
+  onVisionUnionRecomputeThrottled?: () => void;
 };
 
 const resolveWorkerScript = (given?: string): string | URL =>
@@ -111,6 +118,16 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   // the union from here. Signature compare is cheap; the full key array is
   // only allocated + posted when something actually moved.
   let lastSentVisionSignature: string | null = null;
+  // The signature includes every non-barb player's tileCollectionVersion, so
+  // with ~25 concurrently-mutating empires it changes on essentially every
+  // system tick — without a time floor, exportBarbActivationVisibleUnion
+  // (an O(barb_tiles * radius^2) scan) recomputes back-to-back every tick.
+  // Barb activation doesn't need sub-second freshness, so bound recompute
+  // frequency independent of signature churn. Confirmed on staging
+  // 2026-07-05: this recompute alone measured 2879ms in a single
+  // event_loop_blocked capture with a ~1283-tile barbarian territory.
+  const visionUnionMinRecomputeIntervalMs = Math.max(0, options.visionUnionMinRecomputeIntervalMs ?? 3000);
+  let lastVisionUnionComputedAtMs = 0;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
   let worker!: Worker;
@@ -205,6 +222,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     // Force a fresh vision_union push after (re)spawn — the new worker has
     // an empty default and the cached signature must not gate the first send.
     lastSentVisionSignature = null;
+    lastVisionUnionComputedAtMs = 0;
     const worldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
     for (const player of worldView.players) plannerPlayersById.set(player.id, player);
     for (const tile of worldView.tiles) {
@@ -329,9 +347,17 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const ensureVisionUnionFresh = (): void => {
     const sig = options.runtime.getBarbActivationVisionSignature();
     if (sig === lastSentVisionSignature) return;
+    // Signature changed, but don't recompute more often than the floor —
+    // leave lastSentVisionSignature untouched so the next tick still sees a
+    // mismatch and retries once the interval has elapsed.
+    if (now() - lastVisionUnionComputedAtMs < visionUnionMinRecomputeIntervalMs) {
+      options.onVisionUnionRecomputeThrottled?.();
+      return;
+    }
     const { keys, signature } = options.runtime.exportBarbActivationVisibleUnion();
     worker.postMessage({ type: "vision_union", keys, version: signature });
     lastSentVisionSignature = signature;
+    lastVisionUnionComputedAtMs = now();
   };
 
   const requestPlan = (

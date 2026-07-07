@@ -207,7 +207,7 @@ const consumeUpkeepFromTileYield = (
       ? (() => {
           const networkTown = enrichTownWithConnectedNetwork(tile, economyContext!.townNetwork);
           const refreshedTown = networkTown
-            ? refreshTownEconomyFields(networkTown, tile, player, ctx.tiles, economyContext!.fedTownKeys, economyContext!.firstThreeTownKeys, economyContext!.townNetwork?.get(tileKey)?.connectedTownKeys)
+            ? refreshTownEconomyFields(networkTown, tile, player, ctx.tiles, economyContext!.fedTownKeys, economyContext!.firstThreeTownKeys, economyContext!.townNetwork?.get(tileKey)?.connectedClearingHouseKeys)
             : networkTown;
           return { ...tile, town: refreshedTown };
         })()
@@ -218,6 +218,7 @@ const consumeUpkeepFromTileYield = (
       fedTownKeys: economyContext.fedTownKeys,
       firstThreeTownKeys: economyContext.firstThreeTownKeys,
       waterworksKeys: economyContext.waterworksKeys,
+      foundryKeys: economyContext.foundryKeys,
       tiles: ctx.tiles,
       dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
     });
