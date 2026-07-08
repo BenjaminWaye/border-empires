@@ -1104,6 +1104,15 @@ export class SimulationRuntime {
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
+    // AI has no client, so it gets no equivalent of the human client-side
+    // auto-settle dispatcher — settle it here unconditionally instead.
+    // See runAiAutoSettleForPlayer for why this replaced the AI utility
+    // policy's SETTLE decision class.
+    for (const [playerId, player] of this.players) {
+      if (!player.isAi) continue;
+      this.runAiAutoSettleForPlayer(playerId, nowMs);
+      if (yieldToEventLoop) await yieldToEventLoop();
+    }
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
   }
@@ -2853,8 +2862,19 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
   }
 
+  private hasAvailableDevelopmentSlot(playerId: string): boolean {
+    return (
+      this.activeDevelopmentProcessCountForPlayer(playerId) <
+      DEVELOPMENT_PROCESS_LIMIT +
+        additiveEffectForPlayer(
+          this.players.get(playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() },
+          "developmentProcessCapacityAdd"
+        )
+    );
+  }
+
   private rejectIfNoDevelopmentSlot(command: CommandEnvelope, code: string, message: string): boolean {
-    if (this.activeDevelopmentProcessCountForPlayer(command.playerId) < DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(this.players.get(command.playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() }, "developmentProcessCapacityAdd")) return false;
+    if (this.hasAvailableDevelopmentSlot(command.playerId)) return false;
     this.rejectCommand(command, code, message);
     return true;
   }
@@ -3112,6 +3132,43 @@ export class SimulationRuntime {
       target,
       startedAt: this.now()
     });
+  }
+
+  /**
+   * Server-side auto-settle for AI players. AI has no client, so unlike
+   * humans (who get automatic SETTLE dispatch from the client-side
+   * autoSettlementQueue consumer — see client-development-queue.ts) it has
+   * no unconditional path to converting a claimed FRONTIER tile into a town.
+   * SETTLE was previously a scored decision in the AI utility policy, but
+   * that made settlement contend with (and lose to) ATTACK/EXPAND/WAIT —
+   * this mirrors the client's unconditional behavior instead: any due
+   * FRONTIER tile gets settled, gold/dev-slot permitting, independent of
+   * utility scoring. Called once per territory-automation tick.
+   */
+  private runAiAutoSettleForPlayer(playerId: string, nowMs: number): number {
+    const actor = this.players.get(playerId);
+    if (!actor?.isAi) return 0;
+    let settledCount = 0;
+    for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
+      if (actor.points < SETTLE_COST) break;
+      if (!this.hasAvailableDevelopmentSlot(playerId)) break;
+      const targetKey = simulationTileKey(x, y);
+      const target = this.tiles.get(targetKey);
+      if (!target || target.ownerId !== playerId || target.ownershipState !== "FRONTIER") continue;
+      if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
+      if (target.terrain !== "LAND") continue;
+      if (this.pendingSettlementsByTile.has(targetKey)) continue;
+      const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
+      this.startSettlementProcess({
+        commandId,
+        playerId,
+        targetKey,
+        target,
+        startedAt: nowMs
+      });
+      settledCount++;
+    }
+    return settledCount;
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
