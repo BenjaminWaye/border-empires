@@ -35,30 +35,7 @@ const makeTile = (
 });
 
 describe("automation command planner — utility AI path", () => {
-  // ── Basic settle / idle ──────────────────────────────────────────────────
-
-  it("returns a settle command for a frontier dock tile", () => {
-    const frontier = makeTile(1, 1, {
-      ownerId: "ai-1",
-      ownershipState: "FRONTIER",
-      dockId: "dock-1"
-    });
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 500,
-      manpower: 10,
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [frontier],
-      ownedTiles: [frontier],
-      tilesByKey: new Map([["1,1", frontier]]),
-      clientSeq: 1,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command?.type).toBe("SETTLE");
-  });
+  // ── Basic idle ────────────────────────────────────────────────────────────
 
   it("falls back to wait_and_recover when no opportunities exist", () => {
     const result = planAutomationCommand({

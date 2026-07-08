@@ -413,10 +413,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     diagnosticBase.settleDecisionReason = settleDecisionForDiagnostic.reason;
     diagnosticBase.settleDecisionTopScore = settleDecisionForDiagnostic.topScore;
   }
-  const actionableFallbackSettlementCandidate = fallbackSettleDecision?.shouldSettle
-    ? (fallbackSettlementCandidate as TTile)
-    : undefined;
-  const canSettleNow = Boolean(primarySettleDecision?.shouldSettle);
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
   const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
@@ -481,9 +477,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     strategic,
     canAttack,
     canExpand,
-    canSettleNow,
     devSlotAvailable: effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT,
-    actionableFallbackSettlementCandidate,
     preferredEnemyAttack,
     economicBuild,
     fortBuild,
