@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.0",
+  version: "2026.07.08.1",
   title: "What's New",
-  summary: "Added a Development tab so you can see exactly what's using up your development slots and what's queued behind them.",
+  summary: "The Season Victory leaderboard now shows how your own progress compares to the leader on objectives you're not leading.",
   entries: [
+    {
+      introducedIn: "2026.07.08.1",
+      title: "Season Victory cards now show your progress, not just the leader's",
+      why: "The leaderboard's Season Victory cards always showed the current leader's progress on each objective, but the server never actually sent your own comparison numbers unless you were the leader, so the \"You: ...\" line under a non-led objective silently never appeared, even though the client already had code to render it.",
+      changes: [
+        "When you're not leading a Season Victory objective, the leaderboard now shows a \"You: ...\" line with your own progress alongside the leader's, so you can see how far behind (or close) you are."
+      ]
+    },
     {
       introducedIn: "2026.07.08.0",
       title: "New Development tab shows what's using your build slots",
