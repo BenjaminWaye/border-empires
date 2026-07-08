@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.1",
+  version: "2026.07.08.2",
   title: "What's New",
-  summary: "The Season Victory leaderboard now shows how your own progress compares to the leader on objectives you're not leading.",
+  summary: "Fixed mustered attacks on a dock-connected enemy dock getting stuck forever once the muster flag filled up.",
   entries: [
+    {
+      introducedIn: "2026.07.08.2",
+      title: "Fixed mustered attacks on a connected dock never firing",
+      why: "Launching an attack on an enemy dock reachable only via your own connected dock's sea route would stage a muster flag and wait for it to fill, but once it reached full strength the attack would silently re-stage instead of launching — the range check that decides whether a muster flag is close enough measured raw grid distance, which a sea crossing between two docks can never satisfy no matter how much muster was staged.",
+      changes: [
+        "A muster flag on a dock tile that is sea-linked to the target now counts as in range once full, so the attack launches instead of getting stuck in an endless staging loop."
+      ]
+    },
     {
       introducedIn: "2026.07.08.1",
       title: "Season Victory cards now show your progress, not just the leader's",

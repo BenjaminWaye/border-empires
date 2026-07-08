@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, MUSTER_ATTACK_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -9,6 +9,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
+import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -939,36 +940,6 @@ export const reconcileActionQueue = (
   state.actionQueue = nextQueue;
   if (state.actionInFlight && state.actionTargetKey) nextQueuedKeys.add(state.actionTargetKey);
   state.queuedTargetKeys = nextQueuedKeys;
-};
-
-// Chebyshev distance with world wrapping on both axes.
-const chebyshevDist = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
-  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
-  return Math.max(dx, dy);
-};
-
-// Find the muster tile owned by the player closest to (targetX, targetY) that
-// has at least MUSTER_ATTACK_COST staged. No distance cap — any owned flag
-// qualifies. state.tiles only contains visible + owned tiles (not all 202k)
-// and MUSTER_MAX_TILES = 5, so iterating it is cheap in practice.
-export const findClosestMuster = (
-  state: ClientState,
-  targetX: number,
-  targetY: number
-): { tile: Tile; dist: number } | undefined => {
-  let bestTile: Tile | undefined;
-  let bestDist = Infinity;
-  for (const tile of state.tiles.values()) {
-    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
-    if (tile.muster.amount < MUSTER_ATTACK_COST) continue;
-    const dist = chebyshevDist(tile.x, tile.y, targetX, targetY);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestTile = tile;
-    }
-  }
-  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
 // Check all pending muster attacks; promote those whose muster tile has reached
