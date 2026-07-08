@@ -597,16 +597,7 @@ export class SimulationRuntime {
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
-  private readonly onOwnershipChange: ((sample: {
-    tileKey: string;
-    x: number;
-    y: number;
-    previousOwnerId: string | undefined;
-    nextOwnerId: string | undefined;
-    commandId: string;
-    hadTown: boolean;
-    hadOwnershipState: string | undefined;
-  }) => void) | undefined;
+  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"];
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly trackSyncMainThreadTask: SimulationRuntimeOptions["trackSyncMainThreadTask"];
   private readonly onCaptureRevealBuilt:
@@ -1848,7 +1839,10 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    if (previous && (previous.ownerId !== tile.ownerId || (previous.town && !tile.town))) {
+    // A town of any tier existed and is now gone (e.g. razed on capture) —
+    // distinct from ownerId changing, since a captured town often survives.
+    const townLost = Boolean(previous?.town) && !tile.town;
+    if (previous && (previous.ownerId !== tile.ownerId || townLost)) {
       this.onOwnershipChange?.({
         tileKey,
         x: tile.x,
@@ -1857,6 +1851,7 @@ export class SimulationRuntime {
         nextOwnerId: tile.ownerId,
         commandId,
         hadTown: Boolean(previous.town),
+        townLost,
         hadOwnershipState: previous.ownershipState
       });
     }
