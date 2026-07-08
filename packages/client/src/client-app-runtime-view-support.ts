@@ -79,6 +79,7 @@ export const createClientViewSupport = (deps: {
       mobilePanelDefensibilityEl: dom.mobilePanelDefensibilityEl,
       mobilePanelEconomyEl: dom.mobilePanelEconomyEl,
       mobilePanelManpowerEl: dom.mobilePanelManpowerEl,
+      mobilePanelDevelopmentEl: dom.mobilePanelDevelopmentEl,
       mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
       mobilePanelFeedEl: dom.mobilePanelFeedEl,
       mobileSheetHeadEl: dom.mobileSheetHeadEl
