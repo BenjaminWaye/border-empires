@@ -12,6 +12,7 @@ import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibi
 import type { initClientDom } from "../client-dom.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
+import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
@@ -449,10 +450,10 @@ export const renderClientHud = (deps: HudDeps): void => {
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
-    <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
+    <button class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" type="button" data-panel="development" title="Development slots limit how many settles and constructions can run at once. Tap for breakdown.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
-    </div>
+    </button>
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
     ${strategicRibbonHtml(
       state.strategicResources,
@@ -1038,8 +1039,10 @@ export const renderClientHud = (deps: HudDeps): void => {
       economicStructureName
     })
   );
-  dom.panelEconomyEl.innerHTML = economyPanelHtml;
-  dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
+  dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
+  dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
+    renderDevelopmentPanelHtml(deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, development.busy, development.limit))
+  );
   const manpowerPanelHtml = safeValue("renderManpowerPanelHtml", fallbackCard("Manpower"), () =>
     deps.renderManpowerPanelHtml({
       manpower: state.manpower,
@@ -1051,23 +1054,20 @@ export const renderClientHud = (deps: HudDeps): void => {
       rateToneClass
     })
   );
-  dom.panelManpowerEl.innerHTML = manpowerPanelHtml;
-  dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
+  dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
   wireMusterFocusButtons(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
-  dom.leaderboardEl.innerHTML = safeValue(
+  dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
     () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors)
   );
-  dom.mobileLeaderboardEl.innerHTML = dom.leaderboardEl.innerHTML;
-  dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () =>
+  dom.feedEl.innerHTML = dom.mobileFeedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () =>
     feedHtml(state.feed, {
       visible: debugEnabledForAccount(),
       enabled: debugTileLoggingEnabled(),
       selectedTileKey: state.selected ? `${state.selected.x},${state.selected.y}` : undefined
     })
   );
-  dom.mobileFeedEl.innerHTML = dom.feedEl.innerHTML;
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
   feedFocusButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {

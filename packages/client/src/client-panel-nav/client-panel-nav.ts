@@ -14,6 +14,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
+  if (panel === "development") return "Development";
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
@@ -28,6 +29,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
   if (panel === "defensibility") return "defensibility";
   if (panel === "economy") return "economy";
   if (panel === "manpower") return "manpower";
+  if (panel === "development") return "development";
   if (panel === "leaderboard") return "leaderboard";
   return "feed";
 };
@@ -116,6 +118,7 @@ export const renderMobilePanels = (
     mobilePanelDefensibilityEl: HTMLElement;
     mobilePanelEconomyEl: HTMLElement;
     mobilePanelManpowerEl: HTMLElement;
+    mobilePanelDevelopmentEl: HTMLElement;
     mobilePanelLeaderboardEl: HTMLElement;
     mobilePanelFeedEl: HTMLElement;
     mobileSheetHeadEl: HTMLElement;
@@ -160,6 +163,7 @@ export const renderMobilePanels = (
     [deps.mobilePanelDefensibilityEl, "defensibility"],
     [deps.mobilePanelEconomyEl, "economy"],
     [deps.mobilePanelManpowerEl, "manpower"],
+    [deps.mobilePanelDevelopmentEl, "development"],
     [deps.mobilePanelLeaderboardEl, "leaderboard"],
     [deps.mobilePanelFeedEl, "feed"]
   ];
@@ -174,6 +178,7 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Empire Integrity";
   else if (state.mobilePanel === "economy") deps.mobileSheetHeadEl.textContent = "Economy";
   else if (state.mobilePanel === "manpower") deps.mobileSheetHeadEl.textContent = "Manpower";
+  else if (state.mobilePanel === "development") deps.mobileSheetHeadEl.textContent = "Development";
   else if (state.mobilePanel === "leaderboard") deps.mobileSheetHeadEl.textContent = "Leaderboard";
   else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Activity Feed";
   else deps.mobileSheetHeadEl.textContent = "Core";
