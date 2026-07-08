@@ -175,6 +175,7 @@ export type SimulationRuntimeOptions = {
     nextOwnerId: string | undefined;
     commandId: string;
     hadTown: boolean;
+    townLost: boolean;
     hadOwnershipState: string | undefined;
   }) => void;
   onQueueDrain?: (sample: {
