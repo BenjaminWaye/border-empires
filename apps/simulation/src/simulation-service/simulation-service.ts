@@ -48,9 +48,10 @@ import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subs
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildLeaderboardFromPlayers } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
-import { personalizeSeasonVictoryObjectives } from "../personalized-season-victory/personalized-season-victory.js";
+import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
+import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createAiBudgetTracker } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
@@ -1205,6 +1206,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let lastSimulationMetricsLogAt = 0;
   let currentSummary = bootstrappedCurrentSummary;
   let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
+  // Bounded by competitive player count (same lifecycle as currentSummary.overall);
+  // replaced wholesale on every recompute below, never persisted, never appended to.
+  let currentSummaryPlayerSelfProgress: ReturnType<typeof buildWorldStatusSnapshot>["allPlayerSelfProgressLabels"] = new Map();
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
   let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
   let seasonRolloverInFlight = false;
@@ -1386,13 +1390,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Use the async chunked path when no snapshot is provided — avoids blocking the
     // main thread for the full 202k-tile synchronous scan (season victory timer, cold start).
     const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
+    // One tile scan feeds the leaderboard, base objectives, AND every player's
+    // self-progress label — reused below so tracker re-summarization doesn't rescan.
+    const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+    });
+    currentSummaryPlayerSelfProgress = worldStatus.allPlayerSelfProgressLabels;
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+      worldStatus
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1408,8 +1418,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-            ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+            worldStatus
           })
         : {
             ...baseSummary,
@@ -1424,29 +1433,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
     return finalSummary;
-  };
-  const parseSubscribeOptions = (
-    subscriptionJson: string | undefined
-  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string; fullVisibility: boolean; trigger?: string } => {
-    if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
-    try {
-      const parsed = JSON.parse(subscriptionJson) as {
-        mode?: unknown;
-        emitBootstrapEvent?: unknown;
-        subscriptionKey?: unknown;
-        fullVisibility?: unknown;
-        trigger?: unknown;
-      };
-      return {
-        mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
-        emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true,
-        ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {}),
-        fullVisibility: parsed.fullVisibility === true,
-        ...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})
-      };
-    } catch {
-      return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
-    }
   };
   let nextSubscriptionNamespace = 0;
   const performGlobalStatusBroadcast = async (commandId: string | undefined): Promise<void> => {
@@ -1485,7 +1471,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = personalizeSeasonVictoryObjectives(currentSummary?.seasonVictory ?? [], []);
+      const seasonVictory = mergeSelfProgress(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId));
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
@@ -2102,12 +2088,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         },
         onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
       });
+      const nextRuntimeState = nextRuntime.exportState();
+      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, undefined, {
+        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
-        runtimeState: nextRuntime.exportState(),
+        runtimeState: nextRuntimeState,
         onlinePlayers: 0,
         updatedAt: bootstrap.seasonState.startedAt,
-        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+        worldStatus: nextWorldStatus
       });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
@@ -2126,6 +2116,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
+      currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       clearSeasonVictoryTimer();
       for (const stream of eventStreams) {
