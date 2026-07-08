@@ -400,19 +400,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(input.preplanProgressState ? { preplanProgressState: input.preplanProgressState } : {})
   };
   const summarizeStartedAt = Date.now();
-  // Prefer the primary candidate's decision for diagnostics (it's the highest-
-  // scoring candidate). Fall back to the fallback candidate if no primary.
-  const primarySettleDecision = settlementCandidate
-    ? evaluateSettleCandidateDecision(context, settlementCandidate as TTile)
-    : undefined;
-  const fallbackSettleDecision = fallbackSettlementCandidate
-    ? evaluateSettleCandidateDecision(context, fallbackSettlementCandidate as TTile)
-    : undefined;
-  const settleDecisionForDiagnostic = primarySettleDecision ?? fallbackSettleDecision;
-  if (settleDecisionForDiagnostic) {
-    diagnosticBase.settleDecisionReason = settleDecisionForDiagnostic.reason;
-    diagnosticBase.settleDecisionTopScore = settleDecisionForDiagnostic.topScore;
-  }
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
   const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
