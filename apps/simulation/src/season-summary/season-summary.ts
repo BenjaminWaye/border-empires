@@ -3,6 +3,8 @@ import type { CurrentSeasonSummary, SeasonArchiveRow, SimulationSeasonState } fr
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
 
+type WorldStatus = ReturnType<typeof buildWorldStatusSnapshot>;
+
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
 const topEntries = (
@@ -33,7 +35,8 @@ export const buildCurrentSeasonSummary = ({
   onlinePlayers,
   updatedAt,
   acceptLatencyP95Ms,
-  nonCompetitivePlayerIds
+  nonCompetitivePlayerIds,
+  worldStatus: providedWorldStatus
 }: {
   seasonState: SimulationSeasonState;
   runtimeState: RuntimeState;
@@ -41,11 +44,16 @@ export const buildCurrentSeasonSummary = ({
   updatedAt: number;
   acceptLatencyP95Ms?: number;
   nonCompetitivePlayerIds?: ReadonlySet<string>;
+  /** Pass an already-built snapshot (e.g. from the caller's own tile scan) to
+   *  avoid a redundant O(n_tiles) season-victory scan on the same runtime state. */
+  worldStatus?: WorldStatus;
 }): CurrentSeasonSummary => {
-  const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
-    ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {}),
-    ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
-  });
+  const worldStatus =
+    providedWorldStatus ??
+    buildWorldStatusSnapshot("", runtimeState, undefined, {
+      ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+    });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
   const totalPlayers = worldStatus.leaderboard.overall.length;
 
