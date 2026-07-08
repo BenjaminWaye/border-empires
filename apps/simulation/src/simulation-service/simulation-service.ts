@@ -853,7 +853,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
     onOwnershipChange: (sample) => {
-      const lostTown = sample.hadTown;
+      const lostTown = sample.townLost;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
       const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
