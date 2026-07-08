@@ -60,6 +60,8 @@ import { supportedClientMessageTypes } from "../supported-client-messages/suppor
 import { createRequestTracer } from "../request-tracer.js";
 import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
+import { pushAuthoritativeTileDetail } from "../tile-detail-push/tile-detail-push.js";
+import { selfHealTargetFromRejection } from "../tile-detail-self-heal/tile-detail-self-heal.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "../live-world-status-recovery.js";
 import {
   hydrateCurrentSeasonSummaryDisplayNames,
@@ -1857,6 +1859,49 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             code: event.code,
             message: event.message
           });
+          // Self-heal: ATTACK_TARGET_INVALID / EXPAND_TARGET_OWNED rejections
+          // mean the client's ownership belief about the target tile was
+          // stale. Recover the target coords from the stored command and
+          // proactively push a fresh authoritative tile detail so the user
+          // doesn't have to manually re-press the tile to clear it (see
+          // tile-detail-self-heal.ts for the exact code allowlist). Never let
+          // a failure here interfere with the rejection flow above.
+          void (async () => {
+            try {
+              const storedCommand = await commandStore.get(event.commandId);
+              if (!storedCommand) return;
+              const healTarget = selfHealTargetFromRejection(event.code, storedCommand.payloadJson);
+              if (!healTarget) return;
+              const healSession = sessionsBySocket.get(socket);
+              gatewayMetrics.incrementTileDetailSelfHealTotal();
+              recordGatewayEvent("info", "gateway_tile_detail_self_heal", {
+                playerId: event.playerId,
+                code: event.code,
+                x: healTarget.x,
+                y: healTarget.y
+              });
+              pushAuthoritativeTileDetail({
+                socket,
+                playerId: event.playerId,
+                x: healTarget.x,
+                y: healTarget.y,
+                fogDisabled: healSession?.fogDisabled === true,
+                snapshotForPlayer: (id) => playerSubscriptions.snapshotForPlayer(id),
+                fetchTileDetailFromSim,
+                simulationConnected: simulationHealth.connected,
+                sendJson,
+                recordGatewayEvent,
+                sendErrorsOnMiss: false
+              });
+            } catch (error) {
+              recordGatewayEvent("warn", "gateway_tile_detail_self_heal_failed", {
+                playerId: event.playerId,
+                commandId: event.commandId,
+                code: event.code,
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+          })();
           continue;
         }
         if (event.eventType === "COMBAT_CANCELLED") {
@@ -2757,48 +2802,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "REQUEST_TILE_DETAIL") {
             const playerId = session.playerId;
-            const cachedSnapshot = playerSubscriptions.snapshotForPlayer(playerId);
-            const cachedTileDetail = buildSnapshotTileDetail(cachedSnapshot, playerId, message.x, message.y);
-            if (cachedTileDetail) {
-              sendJson(socket, {
-                type: "TILE_DELTA",
-                updates: [cachedTileDetail]
-              });
-            }
-            if (simulationHealth.connected) {
-              void fetchTileDetailFromSim(playerId, message.x, message.y, session.fogDisabled)
-                .then((snapshot) => {
-                  if (!snapshot) return;
-                  const freshTileDetail = buildSnapshotTileDetail(snapshot, playerId, message.x, message.y);
-                  if (freshTileDetail) {
-                    sendJson(socket, {
-                      type: "TILE_DELTA",
-                      updates: [freshTileDetail]
-                    });
-                  }
-                })
-                .catch((error) => {
-                  recordGatewayEvent("warn", "gateway_tile_detail_fetch_failed", {
-                    playerId,
-                    x: message.x,
-                    y: message.y,
-                    error: error instanceof Error ? error.message : String(error)
-                  });
-                  if (!cachedTileDetail) {
-                    sendJson(socket, {
-                      type: "ERROR",
-                      code: "TILE_DETAIL_UNAVAILABLE",
-                      message: "Tile detail is temporarily unavailable."
-                    });
-                  }
-                });
-            } else if (!cachedTileDetail) {
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
-            }
+            pushAuthoritativeTileDetail({
+              socket,
+              playerId,
+              x: message.x,
+              y: message.y,
+              fogDisabled: session.fogDisabled,
+              snapshotForPlayer: (id) => playerSubscriptions.snapshotForPlayer(id),
+              fetchTileDetailFromSim,
+              simulationConnected: simulationHealth.connected,
+              sendJson,
+              recordGatewayEvent,
+              sendErrorsOnMiss: true
+            });
             return;
           }
 
