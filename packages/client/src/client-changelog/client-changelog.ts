@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.5",
+  version: "2026.07.09.6",
   title: "What's New",
-  summary: "Fogged tiles now show who last held them instead of losing their ownership tint entirely.",
+  summary: "Season-end tab panels now scroll independently so you can reach every entry without the header/tabs disappearing.",
   entries: [
+    {
+      introducedIn: "2026.07.09.6",
+      title: "Season-end tab panels scroll properly",
+      why: "The Final Standings and Victory Paths panels in the season-end overlay shared the modal's outer scroll container, so the whole dialog (header, medallion, tab bar, and panel content) scrolled as one block. As the panel content grew, the header and tabs would scroll out of view, making it impossible to switch tabs without first scrolling back up — or worse, the panel would appear stuck because its own overflow wasn't wired for touch scrolling.",
+      changes: [
+        "The tab panel area now scrolls independently from the dialog header, medallion, and tab bar, keeping the tab switcher always visible.",
+        "Panels use touch-action, momentum scrolling, and overscroll-behavior CSS so they respond to normal finger swipes and mouse wheel gestures."
+      ]
+    },
     {
       introducedIn: "2026.07.09.5",
       title: "Fogged tiles keep a dim ownership tint",
