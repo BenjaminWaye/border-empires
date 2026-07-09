@@ -247,8 +247,9 @@ export const filterTileDeltasForPlayer = <
         x: delta.x,
         y: delta.y,
         ownerId: undefined,
-        ...("ownershipState" in delta ? { ownershipState: undefined } : {})
-      } as TDelta);
+        ...("ownershipState" in delta ? { ownershipState: undefined } : {}),
+        ownershipClearOnly: true
+      } as unknown as TDelta);
       continue;
     }
 

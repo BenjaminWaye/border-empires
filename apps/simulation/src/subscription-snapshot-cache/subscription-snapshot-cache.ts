@@ -56,7 +56,13 @@ export const applyTileDeltasToSnapshot = (
     if (idx >= 0) {
       if (!updatedTiles) updatedTiles = snapshot.tiles.slice();
       updatedTiles[idx] = { ...updatedTiles[idx]!, ...delta };
-    } else {
+    } else if (!delta.ownershipClearOnly) {
+      // A clear-only delta is a broadcast-only ghost-ownership cleanup for a
+      // tile the player cannot see (see tile-delta-visibility-filter.ts). It
+      // may update an already-visible snapshot tile (handled above), but must
+      // NEVER insert a new one — inserting accumulates phantom non-visible
+      // tiles that leak fog-of-war when the cached snapshot is served on a
+      // later reconnect.
       (inserts ??= []).push(delta);
     }
   }

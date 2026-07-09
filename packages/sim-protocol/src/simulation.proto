@@ -92,23 +92,24 @@ message TileDelta {
   string town_name = 8;
   string town_population_tier = 9;
   string dock_id = 10;
-  string town_json = 11;
-  string fort_json = 12;
-  string observatory_json = 13;
-  string siege_outpost_json = 14;
-  string economic_structure_json = 15;
-  string sabotage_json = 16;
-  string shard_site_json = 17;
+  optional string town_json = 11;
+  optional string fort_json = 12;
+  optional string observatory_json = 13;
+  optional string siege_outpost_json = 14;
+  optional string economic_structure_json = 15;
+  optional string sabotage_json = 16;
+  optional string shard_site_json = 17;
   string yield_json = 18;
   string yield_rate_json = 19;
   string yield_cap_json = 20;
   uint64 frontier_decay_at = 21;
   string frontier_decay_kind = 22;
-  string muster_json = 23;
+  optional string muster_json = 23;
+  bool ownership_clear_only = 24;
   // Fog-of-war authority tag: "VISIBLE" | "FOG" | "UNEXPLORED". Follows the
   // existing convention of plain restricted-value strings (see
   // ownership_state, terrain) rather than a proto enum.
-  string visibility_state = 24;
+  string visibility_state = 25;
 }
 
 message DockRoute {

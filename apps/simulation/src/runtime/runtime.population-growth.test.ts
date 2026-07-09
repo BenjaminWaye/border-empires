@@ -6,7 +6,8 @@ import {
   POPULATION_MAX,
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
-  NEARBY_WAR_PAUSE_MS
+  NEARBY_WAR_PAUSE_MS,
+  SETTLEMENT_GROWTH_RATE_MULT
 } from "@border-empires/game-domain";
 
 const TOWN_POP = 50_000;
@@ -273,7 +274,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     expect(town.nearbyWarPausedUntil).toBeUndefined();
   });
 
-  it("skips settlement-tier towns", () => {
+  it("grows settlement-tier towns just like other tiers (regression: settlements were previously frozen)", () => {
     const settlementTile = {
       x: 11,
       y: 11,
@@ -298,12 +299,25 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       }
     });
 
+    // Seed the growth timer first (zero elapsed on the first tick).
+    runtime.tickPopulationGrowth(now);
     now += 60 * 60_000;
     runtime.tickPopulationGrowth(now);
     const exported = runtime.exportState();
     const settlement = exported.tiles.find((t) => t.x === 11 && t.y === 11);
     expect(settlement).toBeDefined();
-    expect(townPop(settlement!)).toBe(5000);
+    const pop = townPop(settlement!)!;
+    expect(pop).toBeGreaterThan(5000);
+
+    // Settlements grow at SETTLEMENT_GROWTH_RATE_MULT times the base rate
+    // (no long-peace bonus here — nearbyWarLastAt unset means long-peace
+    // is actually active, so include it to match the tick's own logic).
+    const settlementLogistic = 1 - 5000 / POPULATION_MAX;
+    const expectedPerMin =
+      5000 * POPULATION_GROWTH_BASE_RATE * SETTLEMENT_GROWTH_RATE_MULT * LONG_PEACE_GROWTH_MULT * settlementLogistic;
+    const expectedGrowth = expectedPerMin * 60;
+    expect(pop).toBeLessThanOrEqual(5000 + expectedGrowth * 1.01);
+    expect(pop).toBeGreaterThan(5000 + expectedGrowth * 0.99);
   });
 
   it("skips towns in capture shock", () => {

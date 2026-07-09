@@ -5,6 +5,7 @@ import {
   POPULATION_GROWTH_BASE_RATE,
   SEED_GRANARY_GROWTH_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
+  SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
 import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
@@ -200,7 +201,7 @@ export const buildTownSummary = (
       ? 0
       : population *
         POPULATION_GROWTH_BASE_RATE *
-        (populationTier === "SETTLEMENT" ? 4 : 1) *
+        (populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
         granaryGrowthMult *
         firstThreeTownPopGrowthMult *
         (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *

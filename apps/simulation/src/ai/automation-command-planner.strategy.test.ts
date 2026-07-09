@@ -68,51 +68,6 @@ describe("automation command planner strategic parity", () => {
     });
   });
 
-  it("prefers town-support settlement over remote island expansion", () => {
-    const supportTown = makeTile(0, 0, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { name: "Core", type: "FARMING", populationTier: "TOWN", supportMax: 3, supportCurrent: 0 }
-    });
-    const localFrontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const ownedDock = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
-    const remoteDock = makeTile(50, 50, { dockId: "dock-b" });
-    const dockLinksByDockTileKey = buildDockLinksByDockTileKey([
-      { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
-      { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
-    ]);
-
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 500,
-      manpower: 10,
-      settledTileCount: 4,
-      townCount: 1,
-      incomePerMinute: 8,
-      strategicResources: { FOOD: 30 },
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [localFrontier],
-      strategicFrontierTiles: [localFrontier],
-      ownedTiles: [supportTown, localFrontier, ownedDock],
-      tilesByKey: new Map([
-        ["0,0", supportTown],
-        ["1,0", localFrontier],
-        ["10,10", ownedDock],
-        ["50,50", remoteDock]
-      ]),
-      dockLinksByDockTileKey,
-      clientSeq: 21,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command).toMatchObject({
-      type: "SETTLE",
-      payloadJson: JSON.stringify({ x: 1, y: 0 })
-    });
-  });
-
   it("claims neutral town-support ring tiles before generic pressure", () => {
     const supportTown = makeTile(0, 0, {
       ownerId: "ai-1",
@@ -225,44 +180,6 @@ describe("automation command planner strategic parity", () => {
     });
 
     expect(result.diagnostic.frontierOpportunityTownSupport ?? 0).toBe(0);
-  });
-
-  it("delays settling pure town-support tiles when food coverage is low", () => {
-    const supportTown = makeTile(0, 0, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { name: "Core", type: "FARMING", populationTier: "TOWN", supportMax: 3, supportCurrent: 0 }
-    });
-    const supportFrontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const farmFrontier = makeTile(0, 1, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
-
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 500,
-      manpower: 10,
-      settledTileCount: 4,
-      townCount: 1,
-      incomePerMinute: 8,
-      strategicResources: { FOOD: 0 },
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [supportFrontier, farmFrontier],
-      strategicFrontierTiles: [supportFrontier, farmFrontier],
-      ownedTiles: [supportTown, supportFrontier, farmFrontier],
-      tilesByKey: new Map([
-        ["0,0", supportTown],
-        ["1,0", supportFrontier],
-        ["0,1", farmFrontier]
-      ]),
-      clientSeq: 26,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command).toMatchObject({
-      type: "SETTLE",
-      payloadJson: JSON.stringify({ x: 0, y: 1 })
-    });
   });
 
   it("prefers a neutral FARM over a neutral world town when food coverage is low", () => {

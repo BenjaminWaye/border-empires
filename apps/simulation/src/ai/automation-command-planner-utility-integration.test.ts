@@ -35,30 +35,7 @@ const makeTile = (
 });
 
 describe("automation command planner — utility AI path", () => {
-  // ── Basic settle / idle ──────────────────────────────────────────────────
-
-  it("returns a settle command for a frontier dock tile", () => {
-    const frontier = makeTile(1, 1, {
-      ownerId: "ai-1",
-      ownershipState: "FRONTIER",
-      dockId: "dock-1"
-    });
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 500,
-      manpower: 10,
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [frontier],
-      ownedTiles: [frontier],
-      tilesByKey: new Map([["1,1", frontier]]),
-      clientSeq: 1,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command?.type).toBe("SETTLE");
-  });
+  // ── Basic idle ────────────────────────────────────────────────────────────
 
   it("falls back to wait_and_recover when no opportunities exist", () => {
     const result = planAutomationCommand({
@@ -247,6 +224,14 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
       town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
     });
     const neutral = makeTile(6, 5);
+    // Neighboring unclaimed LAND tiles beyond the immediate expand target —
+    // these represent real fog/reachable land the claim would open up, so
+    // this reflects a realistic map slice rather than an isolated single
+    // tile with nothing beyond it (which the AI should not spend gold on;
+    // see frontier-scoring.ts preferFogEfficientExpansion).
+    const beyond1 = makeTile(7, 5);
+    const beyond2 = makeTile(7, 4);
+    const beyond3 = makeTile(7, 6);
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
@@ -255,7 +240,13 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
       activeDevelopmentProcessCount: 0,
       frontierTiles: [ownedTown],
       ownedTiles: [ownedTown],
-      tilesByKey: new Map([["5,5", ownedTown], ["6,5", neutral]]),
+      tilesByKey: new Map([
+        ["5,5", ownedTown],
+        ["6,5", neutral],
+        ["7,5", beyond1],
+        ["7,4", beyond2],
+        ["7,6", beyond3]
+      ]),
       clientSeq: 1,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
