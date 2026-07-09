@@ -19,17 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.6",
+  version: "2026.07.09.7",
   title: "What's New",
   summary: "Fog of war now actually renders in the 3D map — fogged tiles were previously indistinguishable from unexplored black.",
   entries: [
     {
-      introducedIn: "2026.07.09.6",
+      introducedIn: "2026.07.09.7",
       title: "Fog of war now renders in the 3D map",
       why: "All the fog-of-war work so far (server FOG stamping, discoveredTiles fixes, dim ownership tint) only ever touched the 2D canvas renderer. The 3D renderer (the default view) simply skipped drawing any tile that wasn't currently visible, so fogged and unexplored tiles both rendered as empty black — fog never actually appeared for most players.",
       changes: [
         "Fogged tiles in the 3D map now render their frozen terrain, darkened, with a dim tint of their last-witnessed owner — matching the 2D canvas renderer's fog visuals.",
         "No structures, units, roads, or effects are shown on fogged tiles, since that live detail isn't known once a tile leaves your vision."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.6",
+      title: "Season-end tab panels scroll properly",
+      why: "The Final Standings and Victory Paths panels in the season-end overlay shared the modal's outer scroll container, so the whole dialog (header, medallion, tab bar, and panel content) scrolled as one block. As the panel content grew, the header and tabs would scroll out of view, making it impossible to switch tabs without first scrolling back up — or worse, the panel would appear stuck because its own overflow wasn't wired for touch scrolling.",
+      changes: [
+        "The tab panel area now scrolls independently from the dialog header, medallion, and tab bar, keeping the tab switcher always visible.",
+        "Panels use touch-action, momentum scrolling, and overscroll-behavior CSS so they respond to normal finger swipes and mouse wheel gestures."
       ]
     },
     {
