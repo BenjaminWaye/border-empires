@@ -2904,7 +2904,7 @@ body {
 }
 
 #side-panel-body {
-  overflow: auto;
+  overflow: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 12px;
 }
 
@@ -5472,7 +5472,7 @@ button:disabled,
     align-content: start;
     gap: 8px;
     padding: 10px;
-    overflow: auto;
+    overflow: auto; min-height: 0; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   }
 
   .tech-tree-shell-head {
