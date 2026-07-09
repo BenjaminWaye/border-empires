@@ -799,46 +799,8 @@ export const drawAetherWallSegment = (
   ctx.restore();
 };
 
-const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
-  if (!neighbor || neighbor.fogged || neighbor.ownerId !== tile.ownerId) return false;
-  return neighbor.ownershipState === tile.ownershipState;
-};
-
-export const drawExposedTileBorder = (
-  ctx: CanvasRenderingContext2D,
-  tile: Tile,
-  px: number,
-  py: number,
-  size: number,
-  deps: { tiles: TileMap; keyFor: (x: number, y: number) => string; wrapX: (value: number) => number; wrapY: (value: number) => number }
-): void => {
-  const top = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x), deps.wrapY(tile.y - 1)));
-  const right = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + 1), deps.wrapY(tile.y)));
-  const bottom = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x), deps.wrapY(tile.y + 1)));
-  const left = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x - 1), deps.wrapY(tile.y)));
-  const x1 = px + 1;
-  const y1 = py + 1;
-  const x2 = px + size - 2;
-  const y2 = py + size - 2;
-  ctx.beginPath();
-  if (!sharesBorderTerritory(tile, top)) {
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y1);
-  }
-  if (!sharesBorderTerritory(tile, right)) {
-    ctx.moveTo(x2, y1);
-    ctx.lineTo(x2, y2);
-  }
-  if (!sharesBorderTerritory(tile, bottom)) {
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x1, y2);
-  }
-  if (!sharesBorderTerritory(tile, left)) {
-    ctx.moveTo(x1, y2);
-    ctx.lineTo(x1, y1);
-  }
-  ctx.stroke();
-};
+// Ownership border + Breakthrough Momentum breach edge rendering now lives
+// in client-tile-borders.ts (shared by both render-loop passes).
 
 export const drawCenteredOverlay = (
   ctx: CanvasRenderingContext2D,

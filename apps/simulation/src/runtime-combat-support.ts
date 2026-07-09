@@ -7,6 +7,10 @@ import {
   MUSTER_SYSTEM_ENABLED,
   rollFrontierCombat,
   targetOutpostMult,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  wrapX,
+  wrapY,
   type OutpostPosition
 } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -426,7 +430,7 @@ export const applyBreachToNeighbors = (input: {
   const breachUntil = nowMs + BREAKTHROUGH_DURATION_MS;
   const updated: DomainTileState[] = [];
   for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
-    const key = simulationTileKey(capturedTile.x + dx, capturedTile.y + dy);
+    const key = simulationTileKey(wrapX(capturedTile.x + dx, WORLD_WIDTH), wrapY(capturedTile.y + dy, WORLD_HEIGHT));
     const neighbor = tiles.get(key);
     if (!neighbor?.ownerId || neighbor.ownerId === attackerId) continue;
     if ((neighbor.breachShockUntil ?? 0) >= breachUntil) continue;
