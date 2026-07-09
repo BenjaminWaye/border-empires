@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.4",
+  version: "2026.07.08.6",
   title: "What's New",
-  summary: "Breakthrough Momentum's breach visuals and wire delivery finished, plus fog of war for lost territory.",
+  summary: "Fixed fogged tiles rendering as pitch-black unexplored terrain instead of dimmed fog.",
   entries: [
+    {
+      introducedIn: "2026.07.08.6",
+      title: "Fixed fogged tiles looking unexplored",
+      why: "A tile only rendered as fog (dimmed, last-known state) if its key was in the client's discoveredTiles set — but several code paths (the login chunk-stream, live TILE_DELTA updates, and optimistic-action reverts) only added a tile to that set when it wasn't fogged, a leftover check from before fog-of-war existed. So any tile whose first-ever appearance was already fogged, or that got reverted while fogged, rendered solid black exactly like terrain you'd never seen — fog and unexplored were visually indistinguishable.",
+      changes: [
+        "Fogged tiles are now always marked as discovered, regardless of which code path first delivers them, so they correctly render dimmed instead of pitch black."
+      ]
+    },
     {
       introducedIn: "2026.07.08.4",
       title: "Breakthrough Momentum: a captured tile's neighbours are briefly weaker",
