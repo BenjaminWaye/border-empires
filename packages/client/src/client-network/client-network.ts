@@ -923,7 +923,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
-      if (!mergedTile.fogged) state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
+      state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me) sawOwnedTile = true;
         if (detailRequests < 4) {
           const tileKey = keyFor(mergedTile.x, mergedTile.y);
@@ -2432,7 +2432,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
-        if (!resolved.fogged) state.discoveredTiles.add(updateKey);
+        state.discoveredTiles.add(updateKey);
         // Stamp receivedAt whenever a full-detail tile lands so the action-flow
         // sender's 60s freshness check and in-flight dedupe can short-circuit
         // duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
