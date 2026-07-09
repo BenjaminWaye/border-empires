@@ -25,8 +25,9 @@ export const hideTileActionMenu = (
 };
 
 export const buildFortOnSelected = (
-  state: Pick<ClientState, "selected">,
+  state: Pick<ClientState, "selected" | "tiles">,
   deps: SelectedActionDepsBase & {
+    keyFor: (x: number, y: number) => string;
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
@@ -34,6 +35,11 @@ export const buildFortOnSelected = (
   const selected = state.selected;
   if (!selected) {
     notifySelectedActionBlocked(deps, "Action blocked", "Select an owned border/dock tile first.");
+    deps.renderHud();
+    return;
+  }
+  if (state.tiles.get(deps.keyFor(selected.x, selected.y))?.fogged) {
+    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not currently visible.");
     deps.renderHud();
     return;
   }
@@ -55,7 +61,7 @@ export const settleSelected = (
     return;
   }
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
+  if (!tile || tile.fogged || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
     notifySelectedActionBlocked(deps, "Settlement blocked", "Selected tile is not one of your frontier tiles.");
     deps.renderHud();
     return;
@@ -64,8 +70,9 @@ export const settleSelected = (
 };
 
 export const buildSiegeOutpostOnSelected = (
-  state: Pick<ClientState, "selected">,
+  state: Pick<ClientState, "selected" | "tiles">,
   deps: SelectedActionDepsBase & {
+    keyFor: (x: number, y: number) => string;
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
@@ -73,6 +80,11 @@ export const buildSiegeOutpostOnSelected = (
   const selected = state.selected;
   if (!selected) {
     notifySelectedActionBlocked(deps, "Action blocked", "Select an owned border tile first.");
+    deps.renderHud();
+    return;
+  }
+  if (state.tiles.get(deps.keyFor(selected.x, selected.y))?.fogged) {
+    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not currently visible.");
     deps.renderHud();
     return;
   }
@@ -94,8 +106,8 @@ export const uncaptureSelected = (
     return;
   }
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
-  if (!tile || tile.ownerId !== state.me) {
-    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not owned by you.");
+  if (!tile || tile.fogged || tile.ownerId !== state.me) {
+    notifySelectedActionBlocked(deps, "Action blocked", tile?.fogged ? "Selected tile is not currently visible." : "Selected tile is not owned by you.");
     deps.renderHud();
     return;
   }
@@ -149,7 +161,7 @@ export const collectVisibleYield = (
 
 export const collectSelectedYield = (
   state: Pick<ClientState, "selected" | "tiles" | "me">,
-  deps: {
+  deps: SelectedActionDepsBase & {
     keyFor: (x: number, y: number) => string;
     renderHud: () => void;
     applyOptimisticTileCollect: (tile: Tile) => boolean;
@@ -159,6 +171,11 @@ export const collectSelectedYield = (
   const selected = state.selected;
   if (!selected) return;
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
+  if (tile?.fogged) {
+    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not currently visible.");
+    deps.renderHud();
+    return;
+  }
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") return;
   deps.applyOptimisticTileCollect(tile);
   deps.renderHud();

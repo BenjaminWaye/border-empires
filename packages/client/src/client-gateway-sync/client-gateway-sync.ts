@@ -1,3 +1,4 @@
+import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
@@ -63,6 +64,7 @@ export type GatewayTileUpdate = {
   history?: Tile["history"];
   landBiome?: Tile["landBiome"];
   regionType?: Tile["regionType"];
+  visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean;
 };
 
@@ -339,7 +341,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         detailLevel: "summary",
         fogged: false
       };
-  merged.fogged = false;
+  merged.fogged = update.visibilityState === "FOG"; // freezes at this delta's post-mutation fields (e.g. a witnessed ownership flip); VISIBLE/omitted clears fogged
 
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
     existing,

@@ -106,6 +106,10 @@ message TileDelta {
   string frontier_decay_kind = 22;
   optional string muster_json = 23;
   bool ownership_clear_only = 24;
+  // Fog-of-war authority tag: "VISIBLE" | "FOG" | "UNEXPLORED". Follows the
+  // existing convention of plain restricted-value strings (see
+  // ownership_state, terrain) rather than a proto enum.
+  string visibility_state = 25;
 }
 
 message DockRoute {

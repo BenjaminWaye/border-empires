@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
+import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 
 // Integration coverage for the incremental VisibilityCoverageTracker wired
 // into SimulationRuntime (see ../visibility-coverage-cache.ts): alliance
@@ -248,5 +250,84 @@ describe("simulation runtime — incremental visibility coverage", () => {
     // A single un-ally must fully clear visibility — no phantom refcount
     // left over from the duplicate "allied:true" delivery.
     expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([]);
+  });
+});
+
+// Fog-of-war v1: regression coverage for the "witness-flip-then-fog"
+// mechanism (VisionTransitionAccumulator + tile-delta-visibility-stamp.ts).
+// Reproduces the bug-report shape (player loses their only tile while it
+// simultaneously leaves their own vision coverage on the same tick — e.g.
+// the reported player-2/(32,91) case): the tracker must surface a
+// leave-vision transition for the losing viewer, and the wire delta built
+// from current tile state must carry the NEW owner, not silence.
+//
+// Exercised directly against VisibilityCoverageTracker (the actual hook —
+// see runtime.ts's live tileOwnershipChanged call site) rather than through
+// full SimulationRuntime combat commands: a minimal 2-tile test world
+// triggers unrelated auto-respawn/elimination side effects in the runtime
+// (no legitimate unowned land for the loser to respawn onto), which is a
+// test-fixture artifact, not part of the mechanism under test.
+describe("fog-of-war — vision-leave transitions carry the post-mutation tile state", () => {
+  it("emits exactly one leave-vision transition for the previous owner when they lose their sole covering tile", () => {
+    const territoryByPlayer = new Map<string, Set<string>>([
+      ["player-1", new Set(["10,10"])],
+      ["player-2", new Set(["10,11"])]
+    ]);
+    const tracker = new VisibilityCoverageTracker(450, 450, {
+      visionRadiusForPlayer: () => 4,
+      getPlayer: (id) => ({ id, allies: new Set() }),
+      territoryTileKeysForPlayer: (id) => territoryByPlayer.get(id) ?? new Set()
+    });
+    tracker.tileOwnershipChanged(undefined, "player-1", 10, 10);
+    tracker.tileOwnershipChanged(undefined, "player-2", 10, 11);
+    expect(tracker.isVisible("player-2", "10,11")).toBe(true);
+
+    // player-1 captures player-2's sole tile — player-2's coverage of it
+    // (their only source) must drop to zero this same call.
+    const left = new Map<string, Set<string>>();
+    const entered = new Map<string, Set<string>>();
+    territoryByPlayer.set("player-2", new Set());
+    territoryByPlayer.set("player-1", new Set(["10,10", "10,11"]));
+    tracker.tileOwnershipChanged("player-2", "player-1", 10, 11, {
+      onEnter: (viewerId, tileKey) => (entered.get(viewerId) ?? entered.set(viewerId, new Set()).get(viewerId)!).add(tileKey),
+      onLeave: (viewerId, tileKey) => (left.get(viewerId) ?? left.set(viewerId, new Set()).get(viewerId)!).add(tileKey)
+    });
+
+    expect(left.get("player-2")?.has("10,11")).toBe(true);
+    // player-1 already had (10,11) itself covered (their own territory's
+    // dilation from (10,10) already reaches it), so their new-owner
+    // footprint there just bumps an existing refcount at that cell — no
+    // 0→1 edge, hence no onEnter for (10,11) specifically (their footprint
+    // does newly reach further perimeter cells, which is expected).
+    expect(entered.get("player-1")?.has("10,11") ?? false).toBe(false);
+    expect(tracker.isVisible("player-2", "10,11")).toBe(false);
+    // player-1 already had this cell covered from their own territory — no
+    // spurious leave for the winner.
+    expect(left.get("player-1")).toBeUndefined();
+  });
+});
+
+describe("stampVisibilityAndMergeFogDeltas", () => {
+  it("stamps VISIBLE on normal deltas and merges a full FOG delta for a tile that left vision but has no delta in the batch", () => {
+    const wireByKey = new Map([["5,5", { x: 5, y: 5, ownerId: "player-1", ownershipState: "SETTLED" as const }]]);
+    const result = stampVisibilityAndMergeFogDeltas([{ x: 1, y: 1, ownerId: "player-2" }], {
+      leftVisionTileKeys: new Set(["5,5"]),
+      wireDeltaForTileKey: (key) => wireByKey.get(key),
+      tileKeyFor: (x, y) => `${x},${y}`
+    });
+    expect(result).toEqual([
+      { x: 1, y: 1, ownerId: "player-2", visibilityState: "VISIBLE" },
+      { x: 5, y: 5, ownerId: "player-1", ownershipState: "SETTLED", visibilityState: "FOG" }
+    ]);
+  });
+
+  it("prefers the full FOG-stamped delta over a redacted stub already present in the filtered batch for the same tile", () => {
+    const wireByKey = new Map([["2,2", { x: 2, y: 2, ownerId: "player-3", ownershipState: "SETTLED" as const, fortJson: "{}" }]]);
+    const result = stampVisibilityAndMergeFogDeltas([{ x: 2, y: 2 }], {
+      leftVisionTileKeys: new Set(["2,2"]),
+      wireDeltaForTileKey: (key) => wireByKey.get(key),
+      tileKeyFor: (x, y) => `${x},${y}`
+    });
+    expect(result).toEqual([{ x: 2, y: 2, ownerId: "player-3", ownershipState: "SETTLED", fortJson: "{}", visibilityState: "FOG" }]);
   });
 });
