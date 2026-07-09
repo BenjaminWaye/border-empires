@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.5",
+  version: "2026.07.09.6",
   title: "What's New",
-  summary: "Fogged tiles now show who last held them instead of losing their ownership tint entirely.",
+  summary: "Fog of war now actually renders in the 3D map — fogged tiles were previously indistinguishable from unexplored black.",
   entries: [
+    {
+      introducedIn: "2026.07.09.6",
+      title: "Fog of war now renders in the 3D map",
+      why: "All the fog-of-war work so far (server FOG stamping, discoveredTiles fixes, dim ownership tint) only ever touched the 2D canvas renderer. The 3D renderer (the default view) simply skipped drawing any tile that wasn't currently visible, so fogged and unexplored tiles both rendered as empty black — fog never actually appeared for most players.",
+      changes: [
+        "Fogged tiles in the 3D map now render their frozen terrain, darkened, with a dim tint of their last-witnessed owner — matching the 2D canvas renderer's fog visuals.",
+        "No structures, units, roads, or effects are shown on fogged tiles, since that live detail isn't known once a tile leaves your vision."
+      ]
+    },
     {
       introducedIn: "2026.07.09.5",
       title: "Fogged tiles keep a dim ownership tint",
