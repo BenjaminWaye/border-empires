@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
-export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
+export const SHARD_RAIN_SCHEDULE_HOURS = [12] as const;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 export const SHARD_RAIN_WARNING_LEAD_MS = 60 * 60 * 1000;
 export const SHARD_RAIN_SITE_MIN = 3;
