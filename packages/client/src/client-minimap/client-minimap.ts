@@ -223,9 +223,7 @@ export const drawMiniMap = (options: {
   }
   const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
   options.miniMapCtx.lineWidth = 1.2;
-  for (const [tileKey, ping] of options.state.shardRainPingsByTile) {
-    const tile = options.state.tiles.get(tileKey);
-    if (!ping && tile?.shardSite?.kind !== "FALL") continue;
+  for (const [, ping] of options.state.shardRainPingsByTile) {
     if (!shardRainPingActiveAt(ping, options.nowMs)) continue;
     if (!inBox(ping.x, ping.y)) continue;
     const tx = Math.floor(wxToPx(ping.x));
