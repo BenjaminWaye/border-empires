@@ -841,6 +841,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.globalAlpha = 1;
         }
 
+        // Fogged tiles show the last-witnessed owner at a fixed dim tint —
+        // no blink/breach-shock animation, since that's live state we no
+        // longer have. This is the frozen-ownership half of "witness the
+        // flip, then it fogs": the delta already updated t.ownerId to the
+        // new owner before freezing, so a captured-then-fogged tile reads
+        // as the new owner's color, not the player's own.
+        if (!isTrue3DRendererActive() && t && vis === "fogged" && t.terrain === "LAND" && t.ownerId) {
+          deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
+          deps.ctx.globalAlpha = t.ownershipState === "SETTLED" ? 0.4 : 0.12;
+          if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
+          else deps.ctx.fillRect(px, py, size - 1, size - 1);
+          deps.ctx.globalAlpha = 1;
+        }
+
         overlayTiles.push({ wx, wy, wk, px, py, vis, t, settlementProgress });
         if (
           isTrue3DRendererActive() &&
