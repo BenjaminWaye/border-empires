@@ -1,3 +1,4 @@
+import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
@@ -62,7 +63,8 @@ export type GatewayTileUpdate = {
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
   landBiome?: Tile["landBiome"];
-  regionType?: Tile["regionType"]; visibilityState?: "VISIBLE" | "FOG" | "UNEXPLORED";
+  regionType?: Tile["regionType"];
+  visibilityState?: VisibilityState;
 };
 
 type GatewayTileSyncDeps = {

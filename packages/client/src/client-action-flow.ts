@@ -654,9 +654,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const attackPreviewPendingForTarget = (to: Tile): boolean =>
     attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
-  const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { pushFeed, showCaptureAlert, renderHud, sendGameMessage });
+  const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
-  const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { pushFeed, showCaptureAlert, renderHud, sendGameMessage });
+  const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
   const collectVisibleYield = (): void =>
@@ -669,7 +669,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
   const collectSelectedYield = (): void =>
-    collectSelectedYieldFromModule(state, { keyFor, renderHud, applyOptimisticTileCollect: deps.applyOptimisticTileCollect, sendGameMessage });
+    collectSelectedYieldFromModule(state, {
+      keyFor,
+      pushFeed,
+      showCaptureAlert,
+      renderHud,
+      applyOptimisticTileCollect: deps.applyOptimisticTileCollect,
+      sendGameMessage
+    });
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 

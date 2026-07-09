@@ -194,7 +194,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The server now only rebuilds an empire's income/upkeep breakdown when a settled tile actually changes, not on every frontier tile update.",
         "Settle commands in large empires resolve without the added rebuild delay, reducing \"Simulation unavailable\" errors during busy expansion turns."
       ]
-    }
+    },
   ]
 };
 
