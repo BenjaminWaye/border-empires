@@ -13,7 +13,11 @@ import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteF
 import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer } from "../live-snapshot-view/live-snapshot-view.js";
 import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "../dock-network/dock-network.js";
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
-import { buildModBreakdownForPlayer, recomputeMods } from "../tech-domain-bridge/tech-domain-bridge.js";
+import {
+  additiveEffectForPlayer,
+  buildModBreakdownForPlayer,
+  recomputeMods
+} from "../tech-domain-bridge/tech-domain-bridge.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -267,7 +271,11 @@ export const buildPlayerSubscriptionSnapshot = (
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,
-            developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
+            developmentProcessLimit:
+              DEVELOPMENT_PROCESS_LIMIT +
+              (liveProgressionPlayer
+                ? additiveEffectForPlayer(liveProgressionPlayer, "developmentProcessCapacityAdd")
+                : 0),
             activeDevelopmentProcessCount,
             pendingSettlements,
             autoSettlementQueue,

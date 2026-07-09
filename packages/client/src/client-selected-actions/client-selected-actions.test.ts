@@ -8,8 +8,9 @@ describe("selected action helpers", () => {
     const sendGameMessage = vi.fn(() => true);
 
     buildFortOnSelected(
-      { selected: undefined },
+      { selected: undefined, tiles: new Map() },
       {
+        keyFor: (x, y) => `${x},${y}`,
         pushFeed,
         showCaptureAlert,
         renderHud: vi.fn(),
@@ -26,8 +27,9 @@ describe("selected action helpers", () => {
     const sendGameMessage = vi.fn(() => true);
 
     buildFortOnSelected(
-      { selected: { x: 10, y: 11 } },
+      { selected: { x: 10, y: 11 }, tiles: new Map() },
       {
+        keyFor: (x, y) => `${x},${y}`,
         pushFeed: vi.fn(),
         renderHud: vi.fn(),
         sendGameMessage
@@ -41,8 +43,9 @@ describe("selected action helpers", () => {
     const sendGameMessage = vi.fn(() => true);
 
     buildSiegeOutpostOnSelected(
-      { selected: { x: 12, y: 13 } },
+      { selected: { x: 12, y: 13 }, tiles: new Map() },
       {
+        keyFor: (x, y) => `${x},${y}`,
         pushFeed: vi.fn(),
         renderHud: vi.fn(),
         sendGameMessage

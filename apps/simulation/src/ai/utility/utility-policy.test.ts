@@ -20,7 +20,6 @@ const BASE: DecisionInputs = {
   hasOnlyScoutExpand: false,
   hasWeakEnemyBorder: false,
   hasBarbTarget: false,
-  hasSettlementCandidate: false,
   devSlotAvailable: true,
   attackReady: false,
   musterReady: false,
@@ -113,46 +112,6 @@ describe("scoreConsiderations", () => {
 });
 
 // ── Decision scoring tests ───────────────────────────────────────────────────
-
-describe("SETTLE decision", () => {
-  it("vetoed when no settlement candidate", () => {
-    const s = scoreDecision("SETTLE", { ...BASE, hasSettlementCandidate: false });
-    expect(s).toBe(0);
-  });
-  it("vetoed when dev slot full", () => {
-    const s = scoreDecision("SETTLE", {
-      ...BASE,
-      hasSettlementCandidate: true,
-      devSlotAvailable: false
-    });
-    expect(s).toBe(0);
-  });
-  it("vetoed when core is threatened", () => {
-    const s = scoreDecision("SETTLE", {
-      ...BASE,
-      hasSettlementCandidate: true,
-      pressureThreatensCore: true
-    });
-    expect(s).toBe(0);
-  });
-  it("scores > 0 with candidate, slot, no threat, enough gold", () => {
-    const s = scoreDecision("SETTLE", {
-      ...BASE,
-      hasSettlementCandidate: true,
-      points: 350
-    });
-    expect(s).toBeGreaterThan(0);
-  });
-  it("cooldown → 0", () => {
-    const s = scoreDecision("SETTLE", {
-      ...BASE,
-      hasSettlementCandidate: true,
-      points: 350,
-      cooldown: { SETTLE: true }
-    });
-    expect(s).toBe(0);
-  });
-});
 
 describe("EXPAND decision", () => {
   it("vetoed when can't expand (no gold)", () => {
@@ -372,21 +331,27 @@ describe("evaluateUtilityPolicy", () => {
   it("momentum ticks boost a class but cannot rescue a vetoed one", () => {
     const vetoed = evaluateUtilityPolicy({
       ...BASE,
-      momentumTicks: { SETTLE: 10 } // lots of momentum, but no candidate
+      canExpand: false,
+      momentumTicks: { EXPAND: 10 } // lots of momentum, but can't expand
     });
-    expect(vetoed.scores["SETTLE"]).toBe(0);
+    expect(vetoed.scores["EXPAND"]).toBe(0);
 
-    // points: 80 keeps linear(80, 4, 254) < 1 so there's headroom for momentum
+    // expansionOpportunityCount: 1 (not 3) keeps the base score under the
+    // [0,1] ceiling so there's headroom left for momentum to actually boost it.
     const boosted = evaluateUtilityPolicy({
       ...BASE,
-      hasSettlementCandidate: true,
-      momentumTicks: { SETTLE: 5 }
+      canExpand: true,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 1,
+      momentumTicks: { EXPAND: 5 }
     });
     const unboosted = evaluateUtilityPolicy({
       ...BASE,
-      hasSettlementCandidate: true,
+      canExpand: true,
+      hasActionableNonWasteExpand: true,
+      expansionOpportunityCount: 1,
       momentumTicks: {}
     });
-    expect(boosted.scores["SETTLE"]).toBeGreaterThan(unboosted.scores["SETTLE"]);
+    expect(boosted.scores["EXPAND"]).toBeGreaterThan(unboosted.scores["EXPAND"]);
   });
 });

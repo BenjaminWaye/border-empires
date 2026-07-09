@@ -19,19 +19,124 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.1",
+  version: "2026.07.08.4",
   title: "What's New",
-  summary: "Breakthrough Momentum's breach visuals and wire delivery finished, plus fish/grain and waypoint UX fixes.",
+  summary: "Breakthrough Momentum's breach visuals and wire delivery finished, plus fog of war for lost territory.",
   entries: [
     {
-      introducedIn: "2026.07.08.1",
+      introducedIn: "2026.07.08.4",
       title: "Breakthrough Momentum: a captured tile's neighbours are briefly weaker",
       why: "For 60 seconds after you lose a tile to an attacker, its still-held cardinal neighbours were meant to show a 30% defence penalty (Breakthrough Momentum) — but the breach timer never actually reached the client over the network (the field was missing from the wire schema), the attack preview never accounted for it, and neighbours breached across the world's east/west or north/south seam were missed entirely.",
       changes: [
         "The breach timer now reliably reaches the client, so weakened neighbouring tiles show a torn, paper-like amber border for the full 60-second window instead of never appearing.",
+        "The torn edge only appears on the side of the tile actually missing a friendly neighbour, not the whole tile perimeter.",
         "The attack preview's win chance now reflects a target's active breach penalty before you commit to an attack.",
         "Breaching now correctly wraps across the world's edge, so a capture near the map seam weakens neighbours on the far side too.",
         "This mechanic remains behind the BREAKTHROUGH_ENABLED flag (off by default) until it's enabled for a season."
+      ]
+    },
+    {
+      introducedIn: "2026.07.08.3",
+      title: "Fog of war (session-only)",
+      why: "Losing a tile you could no longer see previously either left it looking like you still owned it (stale data) or silently disappeared from the map, because the server had no way to tell the client exactly which tiles left vision and what they looked like the instant before.",
+      changes: [
+        "Tiles that leave your vision now freeze at their last-witnessed state (including who captured them) and render fogged, instead of going stale or vanishing.",
+        "Tiles you've never seen render as unexplored; tiles you can currently see render normally.",
+        "Actions that require live vision (build, settle, collect, expand, uncapture) are blocked on fogged/unexplored tiles with a clear notice.",
+        "Fog memory is session-only for this release — it resets on reconnect and re-reveals from your current vision."
+      ]
+    },
+    {
+      introducedIn: "2026.07.08.2",
+      title: "Fixed mustered attacks on a connected dock never firing",
+      why: "Launching an attack on an enemy dock reachable only via your own connected dock's sea route would stage a muster flag and wait for it to fill, but once it reached full strength the attack would silently re-stage instead of launching — the range check that decides whether a muster flag is close enough measured raw grid distance, which a sea crossing between two docks can never satisfy no matter how much muster was staged.",
+      changes: [
+        "A muster flag on a dock tile that is sea-linked to the target now counts as in range once full, so the attack launches instead of getting stuck in an endless staging loop."
+      ]
+    },
+    {
+      introducedIn: "2026.07.08.1",
+      title: "Season Victory cards now show your progress, not just the leader's",
+      why: "The leaderboard's Season Victory cards always showed the current leader's progress on each objective, but the server never actually sent your own comparison numbers unless you were the leader, so the \"You: ...\" line under a non-led objective silently never appeared, even though the client already had code to render it.",
+      changes: [
+        "When you're not leading a Season Victory objective, the leaderboard now shows a \"You: ...\" line with your own progress alongside the leader's, so you can see how far behind (or close) you are."
+      ]
+    },
+    {
+      introducedIn: "2026.07.08.0",
+      title: "New Development tab shows what's using your build slots",
+      why: "The HUD already showed a \"Development X/3\" counter for the shared slot limit on simultaneous settles and constructions, but there was no way to see what was actually occupying those slots or what was queued waiting for one to free up — you had to remember or hunt across the map.",
+      changes: [
+        "Tap the Development counter in the top HUD bar to open a new panel listing every active slot (settlement or structure, its location, and time remaining) plus everything queued behind the cap."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.7",
+      title: "Structures no longer randomly vanish from tiles",
+      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
+      changes: [
+        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.6",
+      title: "Fixed development slot bonuses not applying",
+      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
+      changes: [
+        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.5",
+      title: "Settlements now grow population over time",
+      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
+      changes: [
+        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
+        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.4",
+      title: "Muster flags are now easier to find",
+      why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
+      changes: [
+        "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
+        "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.3",
+      title: "Fixed fog-of-war lifting on unrelated map tiles",
+      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
+      changes: [
+        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
+        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.2",
+      title: "AI empires stopped earning gold entirely once inactive for too long",
+      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
+      changes: [
+        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.0",
+      title: "Warbands tech grants +5% attack and defense",
+      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
+      changes: [
+        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
+      ]
+    },
+    {
+      introducedIn: "2026.07.06.5",
+      title: "AI empires no longer get stuck permanently broke",
+      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
+      changes: [
+        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
+        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
+        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
       ]
     },
     {
@@ -43,7 +148,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
       ]
     },
-
     {
       introducedIn: "2026.07.06.4",
       title: "Galaxy launcher button is simpler and no longer spins",

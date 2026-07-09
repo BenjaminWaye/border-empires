@@ -1,5 +1,5 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
-import type { Terrain } from "@border-empires/shared";
+import type { Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
@@ -167,6 +167,17 @@ export type SimulationRuntimeOptions = {
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
+  onOwnershipChange?: (sample: {
+    tileKey: string;
+    x: number;
+    y: number;
+    previousOwnerId: string | undefined;
+    nextOwnerId: string | undefined;
+    commandId: string;
+    hadTown: boolean;
+    townLost: boolean;
+    hadOwnershipState: string | undefined;
+  }) => void;
   onQueueDrain?: (sample: {
     durationMs: number;
     processedJobs: number;
@@ -243,4 +254,7 @@ export type SimulationTileWireDelta = {
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };
+  /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
+  visibilityState?: VisibilityState;
+  ownershipClearOnly?: boolean;
 };

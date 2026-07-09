@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAiBudgetTracker } from "./ai-time-budget-tracker.js";
+import { createAiBudgetTracker, createPerPlayerAiBudgetTrackers } from "./ai-time-budget-tracker.js";
 
 describe("aiBudgetTracker", () => {
   beforeEach(() => {
@@ -101,5 +101,70 @@ describe("aiBudgetTracker", () => {
 
     tracker.recordWork(7);
     expect(tracker.usedMs()).toBe(67);
+  });
+});
+
+describe("perPlayerAiBudgetTrackers", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("tracks each player independently", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1", "ai-2", "ai-3"]);
+
+    expect(trackers.available("ai-1")).toBe(true);
+    expect(trackers.available("ai-2")).toBe(true);
+    expect(trackers.available("ai-3")).toBe(true);
+    expect(trackers.totalUsedMs()).toBe(0);
+  });
+
+  it("records per-player work without affecting other players", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1", "ai-2"]);
+
+    trackers.recordWork("ai-1", 190);
+    expect(trackers.available("ai-1")).toBe(true);
+    expect(trackers.available("ai-2")).toBe(true);
+
+    trackers.recordWork("ai-1", 20); // ai-1 now at 210ms → exhausted
+    expect(trackers.available("ai-1")).toBe(false);
+    expect(trackers.available("ai-2")).toBe(true); // ai-2 unaffected
+  });
+
+  it("returns false for unknown player", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1"]);
+    expect(trackers.available("ai-99")).toBe(false);
+  });
+
+  it("silently ignores work for unknown player", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1"]);
+    trackers.recordWork("ai-99", 999);
+    expect(trackers.totalUsedMs()).toBe(0);
+  });
+
+  it("computes totalUsedMs across all players", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1", "ai-2", "ai-3"]);
+
+    trackers.recordWork("ai-1", 50);
+    trackers.recordWork("ai-2", 30);
+    trackers.recordWork("ai-3", 20);
+    expect(trackers.totalUsedMs()).toBe(100);
+  });
+
+  it("a slow player does not starve other players", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-slow", "ai-fast"], 1_000, 200);
+
+    // Slow player uses all its budget
+    trackers.recordWork("ai-slow", 200);
+    expect(trackers.available("ai-slow")).toBe(false);
+
+    // Fast player still has full budget available
+    expect(trackers.available("ai-fast")).toBe(true);
+    trackers.recordWork("ai-fast", 199);
+    expect(trackers.available("ai-fast")).toBe(true);
   });
 });

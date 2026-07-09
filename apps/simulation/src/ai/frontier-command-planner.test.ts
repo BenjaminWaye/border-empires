@@ -259,4 +259,35 @@ describe("frontier command planner", () => {
     expect(analysis.expand).toBeDefined();
     expect(analysis.frontierNeutralTargetCount).toBeGreaterThan(0);
   });
+
+  it("does not expand into a tile with no resource/dock/town and no new frontier to reveal when preferFogEfficientExpansion is set", () => {
+    // Origin's only neutral neighbor has nothing beyond it in the map — no
+    // resource/dock/town, and no unowned land past it to reveal any new fog.
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1" }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const }]
+    ]);
+
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(tiles, [tiles.get("10,10")!], "ai-1", {
+      preferFogEfficientExpansion: true
+    });
+
+    expect(analysis.frontierOpportunityWaste).toBe(1);
+    expect(analysis.expand).toBeUndefined();
+  });
+
+  it("still expands into a valueless tile when preferFogEfficientExpansion is not set (barbarian/system-job default)", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1" }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const }]
+    ]);
+
+    // No preferFogEfficientExpansion flag — matches the barbarian planner
+    // and system-job-worker call sites, which must keep their historical
+    // "always pick something" behavior unchanged.
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(tiles, [tiles.get("10,10")!], "ai-1");
+
+    expect(analysis.frontierOpportunityWaste).toBe(1);
+    expect(analysis.expand?.target).toMatchObject({ x: 11, y: 10 });
+  });
 });

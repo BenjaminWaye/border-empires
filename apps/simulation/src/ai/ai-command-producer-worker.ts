@@ -110,8 +110,15 @@ type WorkerAiCommandProducerOptions = {
   workerFactory?: (path: string | URL, opts: { resourceLimits: { maxOldGenerationSizeMb: number } }) => Worker;
   maxOldGenerationSizeMb?: number;
   plannerBreachThresholdMs?: number;
+  /**
+   * Optional per-player budget gate.  Called after per-player gates
+   * (pending command, interval, latch) and before planning.  Return
+   * false to skip this player's tick (the loop advances to the next
+   * player).  When omitted all players are allowed to plan.
+   */
+  playerBudgetCheck?: (playerId: string) => boolean;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
-  onTick?: (sample: { durationMs: number }) => void;
+  onTick?: (sample: { durationMs: number; playerId: string | undefined }) => void;
   onThrottle?: (reason: "adaptive" | "plan_timeout") => void;
   onIntervalChange?: (intervalMs: number) => void;
   // Fires when a single ai tick exceeds slowTickThresholdMs. The histograms
@@ -940,6 +947,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (minCommandIntervalMs > 0 && lastAt !== undefined && now() - lastAt < minCommandIntervalMs) continue;
         const playerTerritoryVersion = territoryVersionForPlayer(playerId);
         if (probeAiLatchedIntent(intentLatchState, { playerId, nowMs: now(), territoryVersion: playerTerritoryVersion }).status === "waiting") continue;
+        if (options.playerBudgetCheck && !options.playerBudgetCheck(playerId)) continue;
 
         lastPlayerId = playerId;
         let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
@@ -1010,7 +1018,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     } finally {
       tickInFlight = false;
       const tickDurationMs = Math.max(0, now() - tickStartedAt);
-      options.onTick?.({ durationMs: tickDurationMs });
+      options.onTick?.({ durationMs: tickDurationMs, playerId: lastPlayerId });
       if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
         options.onSlowTick({
           durationMs: tickDurationMs,

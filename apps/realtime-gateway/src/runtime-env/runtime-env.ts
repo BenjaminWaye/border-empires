@@ -61,6 +61,22 @@ export const parseRealtimeGatewayRuntimeEnv = (
   const emailAlertsFrom = env.GATEWAY_EMAIL_ALERTS_FROM ?? DEFAULT_EMAIL_ALERTS_FROM;
   const emailAlertsAppUrl = env.GATEWAY_EMAIL_ALERTS_APP_URL ?? env.PUBLIC_APP_URL ?? DEFAULT_EMAIL_ALERTS_APP_URL;
 
+  // GATEWAY_DEFAULT_HUMAN_PLAYER_ID collapses every distinct authenticated Firebase
+  // uid without an explicit binding onto a single shared playerId. That is only ever
+  // safe for local single-player dev, where there is one real user. In a managed
+  // runtime (staging/production) with multiple real accounts, honoring a stray/leaked
+  // secret here silently merges unrelated users' identities onto the same player.
+  // Require a second, explicit opt-in flag before this can take effect in a managed
+  // runtime, so a lone misconfigured secret can never reproduce that collision again.
+  const allowDefaultHumanPlayerIdInManagedRuntime =
+    parseBinaryFlag(env.GATEWAY_ALLOW_DEFAULT_HUMAN_PLAYER_ID_IN_MANAGED_RUNTIME) === true;
+  if (isManagedRuntime && env.GATEWAY_DEFAULT_HUMAN_PLAYER_ID && !allowDefaultHumanPlayerIdInManagedRuntime) {
+    console.warn(
+      "[runtime-env] ignoring GATEWAY_DEFAULT_HUMAN_PLAYER_ID in managed runtime: set " +
+        "GATEWAY_ALLOW_DEFAULT_HUMAN_PLAYER_ID_IN_MANAGED_RUNTIME=1 if this is intentional"
+    );
+  }
+
   if (isManagedRuntime && !sqlitePath) {
     throw new Error("realtime gateway requires GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime");
   }
@@ -79,7 +95,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     ...(sqlitePath ? { sqlitePath } : {}),
     ...(snapshotDir ? { snapshotDir } : {}),
     applySchema: env.GATEWAY_DB_APPLY_SCHEMA === "1",
-    ...(env.GATEWAY_DEFAULT_HUMAN_PLAYER_ID
+    ...(env.GATEWAY_DEFAULT_HUMAN_PLAYER_ID && (!isManagedRuntime || allowDefaultHumanPlayerIdInManagedRuntime)
       ? { defaultHumanPlayerId: env.GATEWAY_DEFAULT_HUMAN_PLAYER_ID }
       : !isManagedRuntime
         ? { defaultHumanPlayerId: "player-1" }

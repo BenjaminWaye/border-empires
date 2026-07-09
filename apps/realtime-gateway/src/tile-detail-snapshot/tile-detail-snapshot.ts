@@ -22,6 +22,7 @@ import {
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
+  SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
   WOODEN_FORT_GOLD_UPKEEP
@@ -178,7 +179,7 @@ const townPopulationGrowthPerMinute = (input: {
   const growth =
     input.population *
     POPULATION_GROWTH_BASE_RATE *
-    (input.populationTier === "SETTLEMENT" ? 4 : 1) *
+    (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
     (input.hasGranary ? 1.15 : 1) *
     logisticFactor;
   return Number(growth.toFixed(4));
@@ -218,7 +219,20 @@ export const buildSnapshotTileDetail = (
 ): TileUpdate | undefined => {
   const tile = snapshot?.tiles.find((candidate: PlayerSubscriptionSnapshot["tiles"][number]) => candidate.x === x && candidate.y === y);
   if (!tile) return undefined;
-  const update: TileUpdate = { ...tile, detailLevel: "full" };
+  // A full-detail TILE_DELTA is authoritative, unlike the sparse deltas the
+  // client otherwise merges (client-network.ts treats an OMITTED field as
+  // "unchanged", only clearing ownership when the key is present but falsy).
+  // If ownerId/ownershipState are absent on the snapshot tile (neutral tile),
+  // the object spread below would omit them entirely, so a client holding
+  // stale ownership from a prior owned state would never see it cleared.
+  // Emit explicit null so the field survives JSON.stringify and the client's
+  // `"ownerId" in update` branch fires to clear stale ownership.
+  const update: TileUpdate = {
+    ...tile,
+    ownerId: tile.ownerId ?? null,
+    ownershipState: tile.ownershipState ?? null,
+    detailLevel: "full"
+  };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;
 
   const tilesByKey = new Map((snapshot?.tiles ?? []).map((entry: PlayerSubscriptionSnapshot["tiles"][number]) => [keyFor(entry.x, entry.y), entry] as const));

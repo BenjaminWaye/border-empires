@@ -16,7 +16,6 @@ import type { AutomationFrontPosture } from "../automation-strategic-snapshot.js
 import { boolVeto, linear, logistic, scoreConsiderations } from "./considerations.js";
 
 export const DECISION_CLASSES = [
-  "SETTLE",
   "EXPAND",
   "ATTACK",
   "MUSTER",
@@ -55,8 +54,6 @@ export type DecisionInputs = {
   hasOnlyScoutExpand: boolean;
   hasWeakEnemyBorder: boolean;
   hasBarbTarget: boolean;
-  // Settlement
-  hasSettlementCandidate: boolean;
   devSlotAvailable: boolean;
   // Strategic snapshot outputs
   attackReady: boolean;
@@ -95,16 +92,6 @@ const momentumBonus = (cls: DecisionClass, inp: DecisionInputs): number =>
   Math.min(MOMENTUM_MAX, (inp.momentumTicks[cls] ?? 0) * MOMENTUM_PER_TICK);
 
 // ── Per-decision consideration sets ─────────────────────────────────────────
-
-const scoreSettle = (inp: DecisionInputs): number =>
-  scoreConsiderations([
-    boolVeto(inp.hasSettlementCandidate),
-    boolVeto(inp.devSlotAvailable),
-    // Settling into core pressure is wasteful — fall through to attack/expand
-    boolVeto(!inp.pressureThreatensCore),
-    // Comfortable gold cushion above the settle cost raises confidence
-    linear(inp.points, SETTLE_COST, SETTLE_COST + 250),
-  ]);
 
 const scoreExpand = (inp: DecisionInputs): number =>
   scoreConsiderations([
@@ -192,7 +179,6 @@ const scoreChooseTech = (inp: DecisionInputs): number =>
 // ── Public API ───────────────────────────────────────────────────────────────
 
 const CORE_SCORERS: Record<Exclude<DecisionClass, "WAIT">, (inp: DecisionInputs) => number> = {
-  SETTLE: scoreSettle,
   EXPAND: scoreExpand,
   ATTACK: scoreAttack,
   MUSTER: scoreMuster,

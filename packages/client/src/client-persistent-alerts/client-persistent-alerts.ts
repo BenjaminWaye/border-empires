@@ -5,7 +5,7 @@ import type { Tile } from "../client-types.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed";
+export type PersistentAlertKind = "town_unfed" | "muster_active";
 
 export type PersistentAlert = {
   id: string;
@@ -31,6 +31,13 @@ type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "persistentAlertL
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
 
+const musterLabel = (tile: Tile): string => {
+  const muster = tile.muster;
+  if (!muster) return "";
+  if (muster.mode === "ADVANCE") return `Advancing ${muster.amount} manpower toward (${muster.targetX ?? "?"}, ${muster.targetY ?? "?"}).`;
+  return `Holding ${muster.amount} manpower at (${tile.x}, ${tile.y}).`;
+};
+
 export const notificationCategoryForServerError = (code: string): NotificationCategory => {
   if (code === "TOWN_UNFED") return "persistent_alert";
   if (code === "SIMULATION_UNAVAILABLE" || code === "SERVER_STARTING") return "debug";
@@ -42,17 +49,28 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
 export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles">): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
   for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me) continue;
-    if (!shouldShowTownUnfedWarning(tile)) continue;
-    alerts.push({
-      id: `town_unfed:${tile.x},${tile.y}`,
-      kind: "town_unfed",
-      title: "Town unfed",
-      detail: `${townLabel(tile)} needs FOOD upkeep.`,
-      x: tile.x,
-      y: tile.y,
-      severity: "warn"
-    });
+    if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile)) {
+      alerts.push({
+        id: `town_unfed:${tile.x},${tile.y}`,
+        kind: "town_unfed",
+        title: "Town unfed",
+        detail: `${townLabel(tile)} needs FOOD upkeep.`,
+        x: tile.x,
+        y: tile.y,
+        severity: "warn"
+      });
+    }
+    if (tile.muster && tile.muster.ownerId === state.me) {
+      alerts.push({
+        id: `muster_active:${tile.x},${tile.y}`,
+        kind: "muster_active",
+        title: "Muster flag active",
+        detail: musterLabel(tile),
+        x: tile.x,
+        y: tile.y,
+        severity: "warn"
+      });
+    }
   }
   return alerts;
 };

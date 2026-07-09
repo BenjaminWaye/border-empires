@@ -19,7 +19,8 @@ import {
 } from "@border-empires/sim-protocol";
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
-import { type ProtoSimulationEvent, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -39,19 +40,21 @@ import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.j
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, simulationTileKey, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
+import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildLeaderboardFromPlayers } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
-import { personalizeSeasonVictoryObjectives } from "../personalized-season-victory/personalized-season-victory.js";
+import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
+import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
-import { createAiBudgetTracker } from "../ai/ai-time-budget-tracker.js";
+import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
@@ -850,6 +853,57 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onOwnershipChange: (sample) => {
+      const lostTown = sample.townLost;
+      const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
+      if (!lostTown && !lostSettled) return;
+      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+      if (lostTown) {
+        const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
+        log.warn(
+          {
+            tileKey: sample.tileKey,
+            x: sample.x,
+            y: sample.y,
+            previousOwnerId: sample.previousOwnerId,
+            nextOwnerId: sample.nextOwnerId,
+            commandId: sample.commandId,
+            hadTown: sample.hadTown
+          },
+          message
+        );
+        if (webhookUrl) {
+          const body = JSON.stringify({
+            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"}:* ${message}`,
+            blocks: [
+              { type: "header", text: { type: "plain_text", text: "🏚️ Town Lost" } },
+              {
+                type: "section",
+                fields: [
+                  { type: "mrkdwn", text: `*Tile:* ${sample.tileKey} (${sample.x},${sample.y})` },
+                  { type: "mrkdwn", text: `*Previous Owner:* ${sample.previousOwnerId}` },
+                  { type: "mrkdwn", text: `*Command:* \`${sample.commandId}\`` }
+                ]
+              }
+            ]
+          });
+          fetch(webhookUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(5_000) }).catch(() => {});
+        }
+      } else {
+        log.warn(
+          {
+            tileKey: sample.tileKey,
+            x: sample.x,
+            y: sample.y,
+            previousOwnerId: sample.previousOwnerId,
+            nextOwnerId: sample.nextOwnerId,
+            commandId: sample.commandId,
+            hadTown: sample.hadTown
+          },
+          `[ownership_audit] SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+        );
+      }
+    },
     onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
@@ -1153,6 +1207,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let lastSimulationMetricsLogAt = 0;
   let currentSummary = bootstrappedCurrentSummary;
   let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
+  // Bounded by competitive player count (same lifecycle as currentSummary.overall);
+  // replaced wholesale on every recompute below, never persisted, never appended to.
+  let currentSummaryPlayerSelfProgress: ReturnType<typeof buildWorldStatusSnapshot>["allPlayerSelfProgressLabels"] = new Map();
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
   let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
   let seasonRolloverInFlight = false;
@@ -1334,13 +1391,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Use the async chunked path when no snapshot is provided — avoids blocking the
     // main thread for the full 202k-tile synchronous scan (season victory timer, cold start).
     const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
+    // One tile scan feeds the leaderboard, base objectives, AND every player's
+    // self-progress label — reused below so tracker re-summarization doesn't rescan.
+    const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+    });
+    currentSummaryPlayerSelfProgress = worldStatus.allPlayerSelfProgressLabels;
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+      worldStatus
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1356,8 +1419,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-            ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
+            worldStatus
           })
         : {
             ...baseSummary,
@@ -1372,29 +1434,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
     return finalSummary;
-  };
-  const parseSubscribeOptions = (
-    subscriptionJson: string | undefined
-  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string; fullVisibility: boolean; trigger?: string } => {
-    if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
-    try {
-      const parsed = JSON.parse(subscriptionJson) as {
-        mode?: unknown;
-        emitBootstrapEvent?: unknown;
-        subscriptionKey?: unknown;
-        fullVisibility?: unknown;
-        trigger?: unknown;
-      };
-      return {
-        mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
-        emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true,
-        ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {}),
-        fullVisibility: parsed.fullVisibility === true,
-        ...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})
-      };
-    } catch {
-      return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
-    }
   };
   let nextSubscriptionNamespace = 0;
   const performGlobalStatusBroadcast = async (commandId: string | undefined): Promise<void> => {
@@ -1433,7 +1472,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = personalizeSeasonVictoryObjectives(currentSummary?.seasonVictory ?? [], []);
+      const seasonVictory = mergeSelfProgress(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId));
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
@@ -1507,10 +1546,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
-  // Layer 2: rolling time-budget tracker — caps AI work to 200ms per 1s window.
-  const aiBudgetTracker = createAiBudgetTracker();
-
-  // Layer 3: event-loop-lag observer. Uses hrtime to detect when the sim
+  // Event-loop-lag observer. Uses hrtime to detect when the sim
   // main thread is too busy to run AI on schedule.
   let lastAiShouldRunHr = process.hrtime.bigint();
   let aiShouldRunFirstCall = true;
@@ -1535,11 +1571,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         simulationMetrics.incrementSimAiTickThrottled("loop_lag");
         return false;
       }
-    }
-
-    if (!aiBudgetTracker.available()) {
-      simulationMetrics.incrementSimAiTickThrottled("budget");
-      return false;
     }
 
     return (
@@ -1592,6 +1623,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const startAutopilots = (): void => {
     closeAutopilots();
     const aiPlayerIds = resolveAutopilotAiPlayerIds();
+    // Per-player rolling time-budget trackers — each AI gets its own
+    // 200ms-per-1s-window budget so one large/expensive AI cannot exhaust
+    // a shared pool and starve smaller AIs of planning time.
+    const aiBudgetTrackers = createPerPlayerAiBudgetTrackers(aiPlayerIds);
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
     emitLog("info", "simulation autopilot startup", {
       enableAiAutopilot: aiAutopilotEnabled,
@@ -1642,6 +1677,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
+            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
@@ -1682,10 +1718,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
             },
-            onTick: ({ durationMs }) => {
+            onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
-              aiBudgetTracker.recordWork(durationMs);
-              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTracker.usedMs());
+              if (playerId) aiBudgetTrackers.recordWork(playerId, durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTrackers.totalUsedMs());
             },
             onThrottle: (reason) => {
               simulationMetrics.incrementSimAiTickThrottled(reason);
@@ -1770,8 +1806,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
             },
-            onTick: ({ durationMs }) => {
+            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
+            onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+              if (playerId) aiBudgetTrackers.recordWork(playerId, durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTrackers.totalUsedMs());
             },
             onNoCommand: (diagnostic) => {
               if (diagnostic.noCommandReason) {
@@ -1909,9 +1948,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // Cache proto events keyed by the filtered delta set so subscribers
           // with identical visible tiles share one serialization pass.
           const protoCache = new Map<string, ProtoSimulationEvent>();
+          const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true });
+            const filteredDeltas = stampVisibilityAndMergeFogDeltas(runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true }), {
+              leftVisionTileKeys: visionTransitions.left.get(subscribedPlayerId),
+              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined,
+              tileKeyFor: simulationTileKey
+            });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
               subscriberCount += 1;
@@ -1925,24 +1969,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
             }
             if (filteredDeltas.length === 0) continue;
-            // Build a cheap group key: "x:y" per tile (optionally suffixed
-            // ":r"), joined by "|". The ":r" suffix marks terrain-only
-            // redacted stubs (lock targets owned by another player) so full
-            // and redacted content never collide in the cache. Redaction only
-            // fires when the original delta had a truthy ownerId (see
-            // tile-delta-visibility-filter.ts), so a delta that never carried
-            // ownerId always serializes identically for every viewer — safe
-            // to key the same way even though the ":r" label is technically
-            // inexact for that case. Use for-of to avoid index-access
-            // narrowing issues.
-            let groupKey = "";
-            let groupKeyFirst = true;
-            for (const d of filteredDeltas) {
-              if (!groupKeyFirst) groupKey += "|";
-              groupKeyFirst = false;
-              groupKey += `${d.x}:${d.y}`;
-              if (!("ownerId" in d)) groupKey += ":r";
-            }
+            // Group subscribers whose filtered delta set serializes identically
+            // so the proto pass runs once per unique set. The key must separate
+            // variants that share coordinates but differ on the wire (redacted
+            // ":r" stubs, ownership-clear ":c" stubs, FOG-stamped ":F" deltas,
+            // full deltas) — see buildTileDeltaGroupKey.
+            const groupKey = buildTileDeltaGroupKey(filteredDeltas);
             const cachedProto = protoCache.get(groupKey);
             if (cachedProto) {
               const perPlayerEvent = { ...cachedProto, player_id: subscribedPlayerId };
@@ -2062,12 +2094,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         },
         onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
       });
+      const nextRuntimeState = nextRuntime.exportState();
+      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, undefined, {
+        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
-        runtimeState: nextRuntime.exportState(),
+        runtimeState: nextRuntimeState,
         onlinePlayers: 0,
         updatedAt: bootstrap.seasonState.startedAt,
-        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+        worldStatus: nextWorldStatus
       });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
@@ -2086,6 +2122,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
+      currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       clearSeasonVictoryTimer();
       for (const stream of eventStreams) {
@@ -2923,10 +2960,31 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 1_000);
       const recoveredAiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
+      const recoveredPlayersMap = new Map(effectiveStartupRecovery.initialState.players?.map((p) => [p.id, p]));
+      const territoryByPlayer = new Map<string, { tiles: number; towns: number; gold: number | undefined }>();
+      for (const tile of effectiveStartupRecovery.initialState.tiles) {
+        if (!tile.ownerId) continue;
+        let entry = territoryByPlayer.get(tile.ownerId);
+        if (!entry) {
+          entry = { tiles: 0, towns: 0, gold: recoveredPlayersMap.get(tile.ownerId)?.points };
+          territoryByPlayer.set(tile.ownerId, entry);
+        }
+        entry.tiles++;
+        if (tile.town) entry.towns++;
+      }
+      const territoryManifest = [...territoryByPlayer.entries()].map(([id, e]) => ({
+        playerId: id,
+        tiles: e.tiles,
+        towns: e.towns,
+        gold: e.gold
+      }));
       log.info(
         {
           envAiPlayerCountHint: options.aiPlayerCount,
-          recoveredAiPlayerCount
+          recoveredAiPlayerCount,
+          totalRecoveredTiles: effectiveStartupRecovery.initialState.tiles.length,
+          territoryManifest,
+          playerCount: recoveredPlayersMap.size
         },
         `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log; ${recoveredAiPlayerCount} AI players locked in at season start`
       );

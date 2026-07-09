@@ -105,7 +105,7 @@ import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, fir
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
-  buildModBreakdownForPlayer,
+  additiveEffectForPlayer, buildModBreakdownForPlayer,
   chosenTrickleRateForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
@@ -119,6 +119,7 @@ import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsS
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
@@ -200,7 +201,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl, buildAutoFillRevealTileDeltas as buildAutoFillRevealTileDeltasImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -336,6 +337,12 @@ import {
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
+import {
+  applyPassiveIncome as applyPassiveIncomeImpl,
+  applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
+  applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
+  type RuntimePassiveIncomeContext
+} from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
@@ -426,6 +433,7 @@ export class SimulationRuntime {
     getPlayer: (id) => this.players.get(id),
     territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
   });
+  private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -591,6 +599,7 @@ export class SimulationRuntime {
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
+  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"];
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly trackSyncMainThreadTask: SimulationRuntimeOptions["trackSyncMainThreadTask"];
   private readonly onCaptureRevealBuilt:
@@ -688,6 +697,7 @@ export class SimulationRuntime {
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.commandTrace = options.commandTrace;
+    this.onOwnershipChange = options.onOwnershipChange;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
     this.wrapJobRun = options.wrapJobRun;
@@ -926,6 +936,15 @@ export class SimulationRuntime {
     return () => this.events.off("event", listener);
   }
 
+  takeVisionTransitions(): { entered: ReadonlyMap<string, ReadonlySet<string>>; left: ReadonlyMap<string, ReadonlySet<string>> } {
+    return this.visionTransitions.take();
+  }
+
+  wireDeltaForTileKey(tileKey: string): SimulationTileWireDelta | undefined {
+    const tile = this.tiles.get(tileKey);
+    return tile ? this.tileDeltaRevealOnly(tile) : undefined;
+  }
+
   async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     await tickTileSheddingImpl({
       nowMs,
@@ -958,10 +977,21 @@ export class SimulationRuntime {
     this.lastActiveAtMsByPlayer.set(playerId, nowMs);
   }
 
+  private passiveIncomeContext(): RuntimePassiveIncomeContext {
+    return {
+      players: this.players,
+      lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
+      lastIncomeTickAtMsByPlayer: this.lastIncomeTickAtMsByPlayer,
+      cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
+      emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
+    };
+  }
+
   applyPassiveIncome(nowMs: number, inactivityCapMs: number): void {
-    for (const player of this.players.values()) {
-      this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
-    }
+    applyPassiveIncomeImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs);
   }
 
   async applyPassiveIncomeAsync(
@@ -969,70 +999,11 @@ export class SimulationRuntime {
     inactivityCapMs: number,
     yieldToEventLoop: () => Promise<void>
   ): Promise<void> {
-    const ts = this.trackSyncMainThreadTask;
-    for (const player of this.players.values()) {
-      const apply = () => this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
-      if (ts) {
-        ts("apply_passive_income_for_player", { playerId: player.id }, apply);
-      } else {
-        apply();
-      }
-      await yieldToEventLoop();
-    }
+    await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs, yieldToEventLoop);
   }
 
   private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void {
-    const lastActiveAt = this.lastActiveAtMsByPlayer.get(player.id) ?? 0;
-    if (nowMs - lastActiveAt > inactivityCapMs) return;
-
-    const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
-    if (lastTickAt === undefined) {
-      this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
-      return;
-    }
-
-    const elapsedMs = nowMs - lastTickAt;
-    if (elapsedMs <= 0) return;
-    const elapsedMinutes = elapsedMs / 60_000;
-
-    const economy = this.cachedEconomySnapshot(player);
-    const goldPerMinute = economy.incomePerMinute;
-    const summary = this.summaryForPlayer(player.id);
-    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
-
-    // Credit gold and strategic resources
-    let anyCredited = false;
-    const goldEarned = goldPerMinute * elapsedMinutes;
-    if (goldEarned > 0) {
-      const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
-      const creditedGold = Math.min(goldEarned, availableGoldCap);
-      if (creditedGold > 0) {
-        player.points += creditedGold;
-        anyCredited = true;
-      }
-    }
-
-    const sp = economy.strategicProductionPerMinute;
-    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
-    for (const resource of strategicKeys) {
-      const ratePerMinute = sp[resource] ?? 0;
-      if (ratePerMinute <= 0) continue;
-      const earned = ratePerMinute * elapsedMinutes;
-      const cap = storageCap[resource as keyof typeof storageCap] ?? 0;
-      const current = (player.strategicResources ?? {})[resource] ?? 0;
-      const available = Math.max(0, cap - current);
-      const credited = Math.min(earned, available);
-      if (credited > 0) {
-        this.addStrategicResource(player, resource, credited);
-        anyCredited = true;
-      }
-    }
-
-    this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
-
-    if (anyCredited) {
-      this.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
-    }
+    applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs);
   }
 
   welcomeBackSummary(
@@ -1135,6 +1106,15 @@ export class SimulationRuntime {
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
+    // AI has no client, so it gets no equivalent of the human client-side
+    // auto-settle dispatcher — settle it here unconditionally instead.
+    // See runAiAutoSettleForPlayer for why this replaced the AI utility
+    // policy's SETTLE decision class.
+    for (const [playerId, player] of this.players) {
+      if (!player.isAi) continue;
+      this.runAiAutoSettleForPlayer(playerId, nowMs);
+      if (yieldToEventLoop) await yieldToEventLoop();
+    }
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
   }
@@ -1330,7 +1310,7 @@ export class SimulationRuntime {
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) }); }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) { this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) }); const revealDeltas = buildAutoFillRevealTileDeltasImpl(this.combatSupportContext(), ownerId, f, this.players.get(ownerId)?.isAi); if (revealDeltas.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill-reveal:${tileKey}:${this.now()}`, playerId: ownerId, tileDeltas: revealDeltas }); } }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -1870,6 +1850,22 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
+    // A town of any tier existed and is now gone (e.g. razed on capture) —
+    // distinct from ownerId changing, since a captured town often survives.
+    const townLost = Boolean(previous?.town) && !tile.town;
+    if (previous && (previous.ownerId !== tile.ownerId || townLost)) {
+      this.onOwnershipChange?.({
+        tileKey,
+        x: tile.x,
+        y: tile.y,
+        previousOwnerId: previous.ownerId,
+        nextOwnerId: tile.ownerId,
+        commandId,
+        hadTown: Boolean(previous.town),
+        townLost,
+        hadOwnershipState: previous.ownershipState
+      });
+    }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));
@@ -1880,13 +1876,9 @@ export class SimulationRuntime {
       // Ownership changed → bump the territory version so VisionExpansionCache
       // knows to recompute. Same-owner mutations (muster, pop growth, income)
       // leave this counter unchanged so the O(territory×r²) expansion stays warm.
-      if (previous?.ownerId) {
-        this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
-      }
-      if (tile.ownerId) {
-        this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
-      }
-      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y);
+      if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
+      if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
+      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks);
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
@@ -2832,7 +2824,7 @@ export class SimulationRuntime {
         Es: metrics.Es,
         pendingSettlements: this.pendingSettlementsSnapshotForPlayer(playerId),
         autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
-        developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
+        developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
         activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId),
         ...(capChanged ? { storageCap } : {})
       }
@@ -2855,7 +2847,7 @@ export class SimulationRuntime {
       actor.allies.delete(target.id);
       target.allies.delete(actor.id);
     }
-    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied);
+    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, this.visionTransitions.callbacks);
 
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId: actor.id },
@@ -2872,8 +2864,19 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
   }
 
+  private hasAvailableDevelopmentSlot(playerId: string): boolean {
+    return (
+      this.activeDevelopmentProcessCountForPlayer(playerId) <
+      DEVELOPMENT_PROCESS_LIMIT +
+        additiveEffectForPlayer(
+          this.players.get(playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() },
+          "developmentProcessCapacityAdd"
+        )
+    );
+  }
+
   private rejectIfNoDevelopmentSlot(command: CommandEnvelope, code: string, message: string): boolean {
-    if (this.activeDevelopmentProcessCountForPlayer(command.playerId) < DEVELOPMENT_PROCESS_LIMIT) return false;
+    if (this.hasAvailableDevelopmentSlot(command.playerId)) return false;
     this.rejectCommand(command, code, message);
     return true;
   }
@@ -3131,6 +3134,43 @@ export class SimulationRuntime {
       target,
       startedAt: this.now()
     });
+  }
+
+  /**
+   * Server-side auto-settle for AI players. AI has no client, so unlike
+   * humans (who get automatic SETTLE dispatch from the client-side
+   * autoSettlementQueue consumer — see client-development-queue.ts) it has
+   * no unconditional path to converting a claimed FRONTIER tile into a town.
+   * SETTLE was previously a scored decision in the AI utility policy, but
+   * that made settlement contend with (and lose to) ATTACK/EXPAND/WAIT —
+   * this mirrors the client's unconditional behavior instead: any due
+   * FRONTIER tile gets settled, gold/dev-slot permitting, independent of
+   * utility scoring. Called once per territory-automation tick.
+   */
+  private runAiAutoSettleForPlayer(playerId: string, nowMs: number): number {
+    const actor = this.players.get(playerId);
+    if (!actor?.isAi) return 0;
+    let settledCount = 0;
+    for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
+      if (actor.points < SETTLE_COST) break;
+      if (!this.hasAvailableDevelopmentSlot(playerId)) break;
+      const targetKey = simulationTileKey(x, y);
+      const target = this.tiles.get(targetKey);
+      if (!target || target.ownerId !== playerId || target.ownershipState !== "FRONTIER") continue;
+      if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
+      if (target.terrain !== "LAND") continue;
+      if (this.pendingSettlementsByTile.has(targetKey)) continue;
+      const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
+      this.startSettlementProcess({
+        commandId,
+        playerId,
+        targetKey,
+        target,
+        startedAt: nowMs
+      });
+      settledCount++;
+    }
+    return settledCount;
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
@@ -3532,7 +3572,7 @@ export class SimulationRuntime {
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
       invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId),
+      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
