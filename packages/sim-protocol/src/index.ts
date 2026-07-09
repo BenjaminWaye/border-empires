@@ -290,6 +290,7 @@ export type SimulationEvent =
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
+        ownershipClearOnly?: boolean | undefined;
       }>;
     }
   | {
@@ -446,6 +447,11 @@ export type PlayerSubscriptionSnapshot = {
     yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
+    // Broadcast-only ghost-ownership cleanup marker (see
+    // tile-delta-visibility-filter.ts). Rides on a delta only; never a
+    // persisted tile field. applyTileDeltasToSnapshot uses it to avoid
+    // inserting phantom non-visible tiles into the cached snapshot.
+    ownershipClearOnly?: boolean | undefined;
   }>;
 };
 

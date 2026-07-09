@@ -13,8 +13,7 @@ import type { AutomationPlannerResult, AutomationPlannerTile } from "../automati
 import type { AutomationPlannerDecisionContext } from "../automation-command-planner-helpers.js";
 import {
   buildPlannerCommand,
-  buildPlannerFrontierCommand,
-  buildPlannerSettleCommand
+  buildPlannerFrontierCommand
 } from "../automation-command-planner-helpers.js";
 import type { AutomationStrategicSnapshot } from "../automation-strategic-snapshot.js";
 import type { FrontierAnalysis } from "../frontier-command-planner.js";
@@ -35,9 +34,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   strategic: AutomationStrategicSnapshot;
   canAttack: boolean;
   canExpand: boolean;
-  canSettleNow: boolean;
   devSlotAvailable: boolean;
-  actionableFallbackSettlementCandidate: TTile | undefined;
   preferredEnemyAttack: FrontierAnalysis["attack"] | undefined;
   economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
@@ -96,8 +93,6 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       !(fa.frontierOpportunityEconomic > 0 ||
         fa.frontierOpportunityTownSupport > 0 ||
         fa.frontierOpportunityScaffold > 0),
-    hasSettlementCandidate:
-      state.canSettleNow || Boolean(state.actionableFallbackSettlementCandidate),
     devSlotAvailable: state.devSlotAvailable,
     attackReady: strategic.attackReady,
     musterReady: strategic.musterReady,
@@ -130,15 +125,6 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     !targetStalemated(sel, state);
 
   switch (cls) {
-    case "SETTLE":
-      if (state.canSettleNow && context.settlementCandidate) {
-        return buildPlannerSettleCommand(context, context.settlementCandidate);
-      }
-      if (state.actionableFallbackSettlementCandidate) {
-        return buildPlannerSettleCommand(context, state.actionableFallbackSettlementCandidate);
-      }
-      return undefined;
-
     case "EXPAND":
       // Priority order mirrors the existing waterfall
       if (fa.economicExpand && canExpand) return buildPlannerFrontierCommand(context, fa.economicExpand, "EXPAND");

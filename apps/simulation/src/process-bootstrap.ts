@@ -184,6 +184,28 @@ export const bootstrapSimulationProcess = async (
       response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
       return;
     }
+    if (request.url && request.url.startsWith("/debug/ai-diagnostics")) {
+      // Surfaces the per-player recent-decision ring buffers (utility winner,
+      // noop reason, preplan reason) that simulationMetrics already tracks
+      // per-tick but which /metrics can't expose (Prometheus text has no way
+      // to carry the tagged "playerId:reason" string samples). This is the
+      // fastest way to see *why* a specific AI is stuck on WAIT rather than
+      // inferring it from aggregate counters.
+      const snapshot = service.metricsSnapshot();
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.end(
+        `${JSON.stringify({
+          simAiUtilityDecisionRecent: snapshot.simAiUtilityDecisionRecent,
+          simAiNoopRecent: snapshot.simAiNoopRecent,
+          simAiPreplanRecent: snapshot.simAiPreplanRecent,
+          simAiPreplanProgressRecent: snapshot.simAiPreplanProgressRecent,
+          simAiCommandRecent: snapshot.simAiCommandRecent,
+          simAiSettleDecisionRecent: snapshot.simAiSettleDecisionRecent,
+          simAiLastCommandAcceptedAtMs: snapshot.simAiLastCommandAcceptedAtMs
+        })}\n`
+      );
+      return;
+    }
     if (request.url && request.url.startsWith("/debug/heap-snapshot")) {
       // Ops-only: capture a .heapsnapshot to /data for offline retention analysis
       // (see event_loop_blocked entries with heapUsedMb near --max-old-space-size

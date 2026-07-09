@@ -69,6 +69,7 @@ export type GatewayMetricsSnapshot = {
   loginQueueRejectedTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
+  tileDetailSelfHealTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -103,6 +104,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let loginQueueRejectedTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
+  let tileDetailSelfHealTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -139,7 +141,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     loginQueuedTotal,
     loginQueueRejectedTotal,
     simulationSubmitTimeoutToleratedTotal,
-    simulationSubmitTimeoutFlippedTotal
+    simulationSubmitTimeoutFlippedTotal,
+    tileDetailSelfHealTotal
   });
 
   return {
@@ -217,6 +220,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementSimulationSubmitTimeoutFlipped(count = 1): void {
       simulationSubmitTimeoutFlippedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementTileDetailSelfHealTotal(count = 1): void {
+      tileDetailSelfHealTotal += Math.max(0, Math.floor(count));
     },
     snapshot,
     renderPrometheus(): string {
@@ -297,7 +303,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",
-        `gateway_simulation_submit_timeout_flipped_total ${formatMetricValue(sample.simulationSubmitTimeoutFlippedTotal)}`
+        `gateway_simulation_submit_timeout_flipped_total ${formatMetricValue(sample.simulationSubmitTimeoutFlippedTotal)}`,
+        "# TYPE gateway_tile_detail_self_heal_total counter",
+        `gateway_tile_detail_self_heal_total ${formatMetricValue(sample.tileDetailSelfHealTotal)}`
       ].join("\n");
     }
   };

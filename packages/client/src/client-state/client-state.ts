@@ -273,7 +273,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed";
+    kind: "town_unfed" | "muster_active";
     x: number;
     y: number;
     screenX: number;
@@ -345,8 +345,8 @@ export const createInitialState = () => ({
   seasonEndDismissed: false,
   seasonEndStarting: false,
   missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
-  activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
+  mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development",
+  activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | null,
   showWeakDefensibility: false,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,

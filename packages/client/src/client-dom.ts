@@ -267,6 +267,7 @@ const hudMarkup = `
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
       <section id="panel-manpower" class="panel-body"></section>
+      <section id="panel-development" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
       </section>
@@ -311,6 +312,7 @@ const hudMarkup = `
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>
     <section id="mobile-panel-economy" class="mobile-panel"></section>
     <section id="mobile-panel-manpower" class="mobile-panel"></section>
+    <section id="mobile-panel-development" class="mobile-panel"></section>
     <section id="mobile-panel-leaderboard" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
     </section>
@@ -391,14 +393,9 @@ export const initClientDom = () => {
   const panelTitleEl = requireElement<HTMLHeadingElement>("#panel-title");
   const panelCloseBtn = requireElement<HTMLButtonElement>("#panel-close");
   const panelActionButtons = document.querySelectorAll<HTMLButtonElement>("#panel-actions button[data-panel]");
-  const panelMissionsEl = requireElement<HTMLDivElement>("#panel-missions");
-  const panelTechEl = requireElement<HTMLDivElement>("#panel-tech");
-  const panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance");
-  const panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility");
-  const panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy");
-  const panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower");
-  const panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard");
-  const panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
+  const panelMissionsEl = requireElement<HTMLDivElement>("#panel-missions"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"), panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance"),
+    panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
+    panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
   const panelDomainsContentEl = requireElement<HTMLDivElement>("#panel-domains-content");
   const feedEl = requireElement<HTMLDivElement>("#feed");
@@ -423,15 +420,10 @@ export const initClientDom = () => {
   const mobileSheetHeadEl = requireElement<HTMLDivElement>("#mobile-sheet-head");
   const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
   const mobilePanelCoreEl = requireElement<HTMLDivElement>("#mobile-panel-core");
-  const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions");
-  const mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech");
-  const mobilePanelDomainsEl = requireElement<HTMLDivElement>("#mobile-panel-domains");
-  const mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social");
-  const mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility");
-  const mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy");
-  const mobilePanelManpowerEl = requireElement<HTMLDivElement>("#mobile-panel-manpower");
-  const mobilePanelLeaderboardEl = requireElement<HTMLDivElement>("#mobile-panel-leaderboard");
-  const mobilePanelFeedEl = requireElement<HTMLDivElement>("#mobile-panel-feed");
+  const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions"), mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech"), mobilePanelDomainsEl = requireElement<HTMLDivElement>("#mobile-panel-domains"),
+    mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social"), mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility"), mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy"),
+    mobilePanelManpowerEl = requireElement<HTMLDivElement>("#mobile-panel-manpower"), mobilePanelDevelopmentEl = requireElement<HTMLDivElement>("#mobile-panel-development"), mobilePanelLeaderboardEl = requireElement<HTMLDivElement>("#mobile-panel-leaderboard"),
+    mobilePanelFeedEl = requireElement<HTMLDivElement>("#mobile-panel-feed");
   const mobileFeedEl = requireElement<HTMLDivElement>("#mobile-feed");
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
   const mobileTechPickEl = requireElement<HTMLSelectElement>("#mobile-tech-pick");
@@ -545,6 +537,7 @@ export const initClientDom = () => {
     mobileLeaderboardEl,
     mobilePanelCoreEl,
     mobilePanelEconomyEl,
+    mobilePanelDevelopmentEl,
     mobilePanelLeaderboardEl,
     mobilePanelManpowerEl,
     mobilePanelMissionsEl,
@@ -567,6 +560,7 @@ export const initClientDom = () => {
     panelDefensibilityEl,
     panelEconomyEl,
     panelManpowerEl,
+    panelDevelopmentEl,
     panelFeedEl,
     panelLeaderboardEl,
     panelDomainsContentEl,

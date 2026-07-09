@@ -40,7 +40,7 @@ describe("silent waypoint capture flow", () => {
   it("COMBAT_START-late capture rewrite preserves the silent flag", () => {
     const source = clientSource("../client-network/client-network.ts");
     expect(source).toContain("const preservedSilent = Boolean(existingCapture?.silent);");
-    expect(source).toMatch(/\.\.\.\(preservedSilent \|\| isMusterAdvance \? \{ silent: true/);
+    expect(source).toMatch(/\.\.\.\(preservedSilent \? \{ silent: true/);
   });
 
   it("renderCaptureProgress hides the big overlay when state.capture.silent is set", () => {

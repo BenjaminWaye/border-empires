@@ -74,6 +74,27 @@ describe("applyTileDeltasToSnapshot", () => {
     expect(keys).toEqual(["1,1", "2,2", "3,3"]);
   });
 
+  it("does NOT insert a phantom tile for a clear-only delta the snapshot has never seen", () => {
+    // Regression: broadcast-only ghost-ownership clears reach every player
+    // regardless of visibility; inserting them accumulated phantom neutral
+    // tiles that leaked fog-of-war on reconnect.
+    const result = applyTileDeltasToSnapshot(baseSnapshot(), [
+      { x: 49, y: 288, ownerId: undefined, ownershipState: undefined, ownershipClearOnly: true }
+    ]);
+    expect(result.tiles).toHaveLength(3);
+    expect(result.tiles.some(t => t.x === 49 && t.y === 288)).toBe(false);
+  });
+
+  it("still applies a clear-only delta to a tile already in the snapshot", () => {
+    const result = applyTileDeltasToSnapshot(baseSnapshot(), [
+      { x: 1, y: 1, ownerId: undefined, ownershipState: undefined, ownershipClearOnly: true }
+    ]);
+    const tile = result.tiles.find(t => t.x === 1 && t.y === 1);
+    expect(tile?.ownerId).toBeUndefined();
+    expect(tile?.ownershipState).toBeUndefined();
+    expect(tile?.terrain).toBe("LAND");
+  });
+
   it("handles large snapshot with small delta efficiently (all updates, no insertions)", () => {
     const largeTiles: PlayerSubscriptionSnapshot["tiles"] = Array.from({ length: 12_000 }, (_, i) => ({
       x: i,

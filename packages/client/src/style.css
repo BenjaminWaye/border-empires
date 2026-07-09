@@ -211,9 +211,7 @@ body {
   }
 }
 
-#auth-card input::placeholder {
-  color: #6e7788;
-}
+#auth-card input::placeholder { color: #6e7788; }
 
 #auth-card input:focus {
   outline: none;
@@ -251,9 +249,7 @@ body {
   stroke-linejoin: round;
 }
 
-.auth-brand-text {
-  font-weight: 600;
-}
+.auth-brand-text { font-weight: 600; }
 
 .auth-panel-emblem {
   width: 88px;
@@ -302,17 +298,11 @@ body {
   justify-items: center;
 }
 
-.auth-onboarding-state {
-  display: none;
-}
+.auth-onboarding-state { display: none; }
 
-.auth-panel[data-mode="sent"] .auth-login-state {
-  display: none;
-}
+.auth-panel[data-mode="sent"] .auth-login-state { display: none; }
 
-.auth-panel[data-mode="sent"] .auth-confirmation-state {
-  display: grid;
-}
+.auth-panel[data-mode="sent"] .auth-confirmation-state { display: grid; }
 
 .auth-panel[data-mode="setup"] .auth-login-state,
 .auth-panel[data-mode="setup"] .auth-confirmation-state,
@@ -320,9 +310,7 @@ body {
   display: none;
 }
 
-.auth-panel[data-mode="setup"] .auth-onboarding-state {
-  display: grid;
-}
+.auth-panel[data-mode="setup"] .auth-onboarding-state { display: grid; }
 
 .auth-divider {
   display: grid;
@@ -549,9 +537,7 @@ body {
   transition: color 0.18s ease, transform 0.14s ease;
 }
 
-#auth-email-reset:hover {
-  color: #fff;
-}
+#auth-email-reset:hover { color: #fff; }
 
 .auth-legal {
   padding-top: 8px;
@@ -3220,6 +3206,20 @@ body {
 .economy-line.muted {
   justify-content: flex-start;
   color: rgba(181, 196, 218, 0.62);
+}
+
+.economy-line.muster-flag-row.panel-btn {
+  width: 100%;
+  border: 0;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 236, 248, 0.86);
+}
+
+.economy-line.muster-flag-row.panel-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .economy-footnote {

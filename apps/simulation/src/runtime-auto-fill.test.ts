@@ -85,7 +85,7 @@ describe("findEnclosedRegion", () => {
     expect(region!.size).toBe(4);
   });
 
-  it("treats sea tiles as natural walls (tile enclosed by sea + player tiles)", () => {
+  it("treats sea tiles as walls for a small pocket (sea + player tiles)", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -112,14 +112,16 @@ describe("findEnclosedRegion", () => {
     expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
-  it("returns null when the player's own FRONTIER tile forms part of the boundary", () => {
-    // Three sides are player-1 SETTLED tiles, the fourth is player-1's own
-    // FRONTIER tile. FRONTIER can still decay back to unowned, so it isn't a
-    // permanent wall — the pocket must not be auto-claimed until the frontier
-    // tile itself settles.
+  it("treats the player's own FRONTIER as transparent interior, not a wall", () => {
+    // FRONTIER can still decay back to unowned, so it isn't a permanent seal.
+    // The flood traverses *through* the frontier tile at (2,1) rather than
+    // stopping at it — and beyond it lies an enemy tile at (3,1), so the region
+    // leaks into enemy territory and returns null. If frontier were a wall the
+    // enemy tile would never be reached and a 1-tile region would resolve.
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
       [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "enemy-1")],
       [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
@@ -127,7 +129,28 @@ describe("findEnclosedRegion", () => {
     expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
   });
 
-  it("treats mountain tiles as natural walls (tile enclosed by mountain + player tiles)", () => {
+  it("traverses through an interior FRONTIER tile when the region is still sealed by SETTLED", () => {
+    // (1,1) unowned land and (2,1) our own FRONTIER form the interior; the whole
+    // thing is ringed by our SETTLED tiles. The frontier is walked through (and
+    // included in the region set) but the region still resolves because settled
+    // territory seals every outer edge.
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
+      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
+      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })]
+    ]);
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    expect(region).not.toBeNull();
+    expect(region!.size).toBe(2);
+    expect(region!.has(simulationTileKey(2, 1))).toBe(true);
+  });
+
+  it("treats mountain tiles as walls for a small pocket (mountain + player tiles)", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -138,6 +161,40 @@ describe("findEnclosedRegion", () => {
     const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
+  });
+
+  it("caps a natural-barrier-sealed pocket at 50 tiles (51-tile sea-walled corridor returns null)", () => {
+    // A 1-wide corridor of unowned land x=1..51 at y=1, capped by player tiles
+    // at both ends and walled top/bottom by sea. 51 unowned tiles lean on the
+    // sea to seal, exceeding the natural-barrier cap → not auto-claimed.
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(52, 1), ownedTile(52, 1, "player-1")]
+    ]);
+    for (let x = 1; x <= 51; x += 1) {
+      tiles.set(simulationTileKey(x, 1), landTile(x, 1));
+      tiles.set(simulationTileKey(x, 0), { x, y: 0, terrain: "SEA" });
+      tiles.set(simulationTileKey(x, 2), { x, y: 2, terrain: "SEA" });
+    }
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+  });
+
+  it("allows a pocket larger than 50 when sealed purely by the player's own SETTLED tiles", () => {
+    // Same 1-wide corridor of 51 unowned tiles, but walled top/bottom by the
+    // player's own settled tiles instead of sea — no natural barrier, so the
+    // larger AUTO_FILL_MAX_REGION_SIZE cap applies and the region resolves.
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(52, 1), ownedTile(52, 1, "player-1")]
+    ]);
+    for (let x = 1; x <= 51; x += 1) {
+      tiles.set(simulationTileKey(x, 1), landTile(x, 1));
+      tiles.set(simulationTileKey(x, 0), ownedTile(x, 0, "player-1"));
+      tiles.set(simulationTileKey(x, 2), ownedTile(x, 2, "player-1"));
+    }
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    expect(region).not.toBeNull();
+    expect(region!.size).toBe(51);
   });
 
   it("returns null when the region reaches the map boundary through unowned land", () => {

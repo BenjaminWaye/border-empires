@@ -65,6 +65,7 @@ export type GatewayTileUpdate = {
   landBiome?: Tile["landBiome"];
   regionType?: Tile["regionType"];
   visibilityState?: VisibilityState;
+  ownershipClearOnly?: boolean;
 };
 
 type GatewayTileSyncDeps = {
@@ -307,9 +308,27 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   const tileKey = deps.keyFor(update.x, update.y);
   deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
-  deps.state.discoveredTiles.add(tileKey); // FOG is still "discovered" (frozen last-witnessed state); server never emits UNEXPLORED as an update
 
   const existing = deps.state.tiles.get(tileKey);
+
+  // Broadcast-only ghost-ownership cleanup: the sim sends this to every player
+  // regardless of visibility (see tile-delta-visibility-filter.ts). It must
+  // update stale ownership on a tile we already know about, but must NEVER
+  // discover or unfog a tile — that would lift fog-of-war on tiles we can't see.
+  if (update.ownershipClearOnly === true) {
+    // Nothing to correct if we've never seen the tile, or it's already
+    // unowned — return without a revision bump so a flood of distant
+    // barbarian clears can't churn re-renders.
+    if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) return false;
+    const cleared: Tile = { ...existing };
+    delete cleared.ownerId;
+    delete cleared.ownershipState;
+    deps.state.tiles.set(tileKey, cleared);
+    if (!skipRevision) deps.state.tilesRevision += 1;
+    return false;
+  }
+
+  deps.state.discoveredTiles.add(tileKey);
   const previousTerrain = existing?.terrain;
   const previousLandBiome = existing?.landBiome;
   const previousRegionType = existing?.regionType;
