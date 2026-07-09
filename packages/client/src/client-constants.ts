@@ -30,23 +30,27 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Expand Your Territory",
-    body: "Tap nearby land to open expansion actions. Territory grows from unowned to frontier to settled, and settled land is what strengthens your empire."
+    body: "Tap a neutral tile next to your border to claim it as frontier (1 gold). Settle it (4 gold, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once."
   },
   {
     title: "Manage Resources",
-    body: "Gold funds expansion and building. Iron supports war, Crystal fuels advanced actions, Supply supports outposts, and Food keeps towns productive."
+    body: "Gold and resources trickle in passively from settled tiles, but each resource has a cap — increase the cap by expanding production. Gold funds expansion and building. Manpower regenerates from your settlements and is spent on attacks and forts. Food grows towns, Iron/Crystal/Supply build military structures and fuel abilities. Shards appear during the season for building wonders. Structures and settled tiles cost gold upkeep — overbuilding drains your treasury."
   },
   {
-    title: "Build Structures",
-    body: "Open the Actions menu on your land to build forts, siege outposts, observatories, and economic structures on the tiles that matter most."
+    title: "Build Structures & Fight",
+    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, camps, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs gold + manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
-    title: "Use Abilities",
-    body: "Technologies unlock powerful Crystal-based actions like Siphon, Reveal Empire, and Aether Bridge to pressure exposed economies and open sea lanes."
+    title: "Research & Abilities",
+    body: "Research technologies in the Tech panel for permanent bonuses. Abilities cost Crystal and have cooldowns: Reveal Empire (see enemy territory), Aether Bridge (cross water), Aether Lance (destroy a structure), Siphon (steal tile income), Survey Sweep (find resources). After key techs, choose a domain for passive bonuses."
+  },
+  {
+    title: "Towns & Expansion",
+    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Market enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Gold powers your empire; population increases your manpower cap for war. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
   },
   {
     title: "Win the Season",
-    body: "Track victory races in the Victory panel. Town control, economy, resources, dock control, and diplomatic dominance can all decide the season if held for 24 hours."
+    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead by 33% at 200+ gold/min), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, World Engine, Aegis Dome, Astral Dock) for powerful end-game abilities."
   }
 ];
 
