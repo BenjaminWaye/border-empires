@@ -555,7 +555,9 @@ export const createSocialState = (options: {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
       const target = resolveByName(targetPlayerName);
-      if (!target || target.id === fromPlayerId) return { ok: false, code: "TRUCE_TARGET", message: "target not found" };
+      if (!target || target.id === fromPlayerId || target.id.startsWith("barbarian")) {
+        return { ok: false, code: "TRUCE_TARGET", message: "target not found" };
+      }
       if (playerIsTruceLockedOut(actor.id, truceLockoutUntilByPlayerId, now())) {
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "you broke a truce recently and cannot request a new truce yet" };
       }

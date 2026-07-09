@@ -281,6 +281,22 @@ describe("social state", () => {
     expect(social.requestTruce("player-1", "Draymoor", 12).ok).toBe(true);
   });
 
+  it("rejects a truce request targeting a barbarian player id, even if somehow registered", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "barbarian-1", name: "Barbarians" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Barbarians", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_TARGET",
+      message: "target not found"
+    });
+  });
+
   it("rejects additional outgoing truce requests while one is already pending", () => {
     const social = createSocialState({
       now: () => 1_000,

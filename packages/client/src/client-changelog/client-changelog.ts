@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.1",
+  version: "2026.07.09.2",
   title: "What's New",
-  summary: "Breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
   entries: [
+    {
+      introducedIn: "2026.07.09.2",
+      title: "Fixed truce offers appearing on barbarian tiles",
+      why: "Settled barbarian territory is owned by the id \"barbarian-1\", but the truce menu only excluded the literal id \"barbarian\", so the Offer Truce/Break Truce actions incorrectly showed up on barbarian-controlled tiles.",
+      changes: [
+        "Offer Truce and Break Truce no longer appear on any barbarian-owned tile.",
+        "The gateway now also rejects a TRUCE_REQUEST targeting a barbarian player id server-side, as defense in depth."
+      ]
+    },
     {
       introducedIn: "2026.07.09.1",
       title: "Truce-break lockout",

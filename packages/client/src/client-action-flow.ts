@@ -1571,7 +1571,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
-    if (actionId === "offer_truce_12h" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    if (actionId === "offer_truce_12h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
       if (pendingTruce || hasOutgoingPendingTruce()) {
         pushFeed(
@@ -1586,7 +1586,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const targetName = playerNameForOwner(selected.ownerId);
       if (targetName) sendTruceRequest(targetName, 12);
     }
-    if (actionId === "offer_truce_24h" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    if (actionId === "offer_truce_24h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
       if (pendingTruce || hasOutgoingPendingTruce()) {
         pushFeed(
@@ -1601,7 +1601,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const targetName = playerNameForOwner(selected.ownerId);
       if (targetName) sendTruceRequest(targetName, 24);
     }
-    if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       breakTruce(selected.ownerId);
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
