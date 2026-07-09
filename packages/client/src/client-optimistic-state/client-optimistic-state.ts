@@ -63,7 +63,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const next = { ...current };
     mutate(next);
     state.tiles.set(tileKey, next);
-    if (!next.fogged) state.discoveredTiles.add(tileKey);
+    state.discoveredTiles.add(tileKey);
     debugTileTimeline("frontier-optimistic-applied", {
       x,
       y,
@@ -102,8 +102,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     }
     if (previous) {
       state.tiles.set(tileKey, previous);
-      if (!previous.fogged) state.discoveredTiles.add(tileKey);
-      else state.discoveredTiles.delete(tileKey);
+      state.discoveredTiles.add(tileKey);
       debugTileTimeline("frontier-optimistic-reverted", {
         x: previous.x,
         y: previous.y,
