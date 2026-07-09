@@ -45,8 +45,14 @@ type AiCommandProducerOptions = {
   tickIntervalMs?: number;
   pendingCommandTimeoutMs?: number;
   plannerBreachThresholdMs?: number;
+  /**
+   * Optional per-player budget gate.  Called after per-player gates
+   * (pending command, latch) and before planning.  Return false to
+   * skip this player's tick.  When omitted all players are allowed.
+   */
+  playerBudgetCheck?: (playerId: string) => boolean;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
-  onTick?: (sample: { durationMs: number }) => void;
+  onTick?: (sample: { durationMs: number; playerId: string | undefined }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
@@ -179,6 +185,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     if (hasHumanInteractiveBacklog(options.runtime.queueDepths())) return;
     tickInFlight = true;
     const tickStartedAt = now();
+    let lastPlayerId: string | undefined;
     try {
       if (options.aiPlayerIds.length === 0) return;
       clearExpiredPendingCommands();
@@ -215,6 +222,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           });
           if (probe.status === "waiting") continue;
         }
+        if (options.playerBudgetCheck && !options.playerBudgetCheck(playerId)) continue;
+        lastPlayerId = playerId;
         let nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         let skipPreplan = false;
         let advancedWithoutPending = false;
@@ -336,7 +345,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         }
       }
     } finally {
-      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt), playerId: lastPlayerId });
       tickInFlight = false;
     }
   };
