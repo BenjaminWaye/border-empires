@@ -2530,8 +2530,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;
-            muster_json?: string;
-            breach_shock_until?: number;
+            muster_json?: string; breach_shock_until?: number;
             yield_json?: string;
             yield_rate_json?: string;
             yield_cap_json?: string;

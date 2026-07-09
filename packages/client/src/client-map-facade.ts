@@ -18,8 +18,6 @@ import {
   drawBarbarianSkullOverlay as drawBarbarianSkullOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
-  drawExposedTileBorder as drawExposedTileBorderOnCanvas,
-  exposedBorderSides as exposedBorderSidesOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
   drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
   drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
@@ -35,7 +33,6 @@ import {
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render/client-map-render.js";
-import type { ExposedBorderSides } from "./client-map-render/client-map-render.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -275,15 +272,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     kind: FortificationOverlayKind,
     opening: FortificationOpening
   ): HTMLImageElement | undefined => fortificationOverlayImageFromModule(kind, opening);
-  const drawExposedTileBorder = (
-    tile: Tile,
-    px: number,
-    py: number,
-    size: number,
-    omit?: Partial<ExposedBorderSides>
-  ): void => drawExposedTileBorderOnCanvas(ctx, tile, px, py, size, { tiles: state.tiles, keyFor, wrapX, wrapY }, omit);
-  const exposedTileBorderSides = (tile: Tile): ExposedBorderSides =>
-    exposedBorderSidesOnCanvas(tile, { tiles: state.tiles, keyFor, wrapX, wrapY });
   const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
   const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
     drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
@@ -410,8 +398,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawResourceCornerMarker,
     drawRoadOverlay,
     fortificationOverlayImageFor,
-    drawExposedTileBorder,
-    exposedTileBorderSides,
     drawShardFallback,
     drawOwnershipSignature,
     computeDockSeaRoute,

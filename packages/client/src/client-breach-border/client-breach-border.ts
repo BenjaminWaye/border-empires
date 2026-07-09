@@ -1,5 +1,5 @@
 import type { Tile } from "../client-types.js";
-import type { ExposedBorderSides } from "../client-map-render/client-map-render.js";
+import type { ExposedBorderSides } from "../client-tile-borders/client-tile-borders.js";
 
 // Deterministic pseudo-random jitter seeded by tile coordinates + side +
 // segment index (classic GLSL-style hash). This keeps each tile's torn

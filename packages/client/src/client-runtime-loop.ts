@@ -19,11 +19,9 @@ import {
 } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { structureAreaPreviewForTile } from "./client-structure-effects/client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
-import { clampOwnershipBorderWidth } from "./client-ownership-borders/client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
-import { drawBreachTornBorder } from "./client-breach-border/client-breach-border.js";
-import type { ExposedBorderSides } from "./client-map-render/client-map-render.js";
+import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -103,8 +101,6 @@ type StartClientRuntimeLoopDeps = {
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   borderLineWidthForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => number;
-  drawExposedTileBorder: (tile: Tile, px: number, py: number, size: number, omit?: Partial<ExposedBorderSides>) => void;
-  exposedTileBorderSides: (tile: Tile) => ExposedBorderSides;
   isTownSupportNeighbor: (tx: number, ty: number, sx: number, sy: number) => boolean;
   isTownSupportHighlightableTile: (tile: Tile | undefined) => boolean;
   drawIncomingAttackOverlay: (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number) => void;
@@ -615,27 +611,19 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
 
-      const breached = !!(t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId);
-      const breachSides = breached ? deps.exposedTileBorderSides(t!) : undefined;
-
-      if (!isTrue3DRendererActive() && t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
-        const ownerId = t.ownerId!;
-        deps.ctx.strokeStyle =
-          ownerId === "barbarian"
-            ? "rgba(214, 222, 232, 0.45)"
-            : ownerId === state.me
-              ? deps.borderColorForOwner(ownerId, t.ownershipState)
-              : deps.isTileOwnedByAlly(t)
-                ? "rgba(255, 205, 92, 0.82)"
-                : deps.borderColorForOwner(ownerId, t.ownershipState);
-        deps.ctx.lineWidth = clampOwnershipBorderWidth(deps.borderLineWidthForOwner(ownerId, t.ownershipState), size);
-        deps.ctx.lineDashOffset = 0;
-        deps.ctx.setLineDash([]);
-        deps.drawExposedTileBorder(t, px, py, size, breachSides);
-        deps.ctx.setLineDash([]);
-        deps.ctx.lineDashOffset = 0;
-        deps.ctx.lineWidth = 1;
-      }
+      drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
+        ctx: deps.ctx,
+        me: state.me,
+        is3D: isTrue3DRendererActive(),
+        shouldDrawOwnershipBorder: deps.shouldDrawOwnershipBorder,
+        borderColorForOwner: deps.borderColorForOwner,
+        isTileOwnedByAlly: deps.isTileOwnedByAlly,
+        borderLineWidthForOwner: deps.borderLineWidthForOwner,
+        tiles: state.tiles,
+        keyFor: deps.keyFor,
+        wrapX: deps.wrapX,
+        wrapY: deps.wrapY
+      });
       if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
         const exposedSides = exposedSidesForTile(t, {
           tiles: state.tiles,
@@ -678,10 +666,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
           deps.ctx.lineWidth = 1;
         }
-      }
-
-      if (breached && breachSides) {
-        drawBreachTornBorder(deps.ctx, t!, px, py, size, breachSides);
       }
 
       if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
@@ -1132,27 +1116,19 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
 
-        const breached = !!(t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId);
-        const breachSides = breached ? deps.exposedTileBorderSides(t!) : undefined;
-
-        if (!isTrue3DRendererActive() && t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
-          const ownerId = t.ownerId!;
-          deps.ctx.strokeStyle =
-            ownerId === "barbarian"
-              ? "rgba(214, 222, 232, 0.45)"
-              : ownerId === state.me
-                ? deps.borderColorForOwner(ownerId, t.ownershipState)
-                : deps.isTileOwnedByAlly(t)
-                  ? "rgba(255, 205, 92, 0.82)"
-                  : deps.borderColorForOwner(ownerId, t.ownershipState);
-          deps.ctx.lineWidth = clampOwnershipBorderWidth(deps.borderLineWidthForOwner(ownerId, t.ownershipState), size);
-          deps.ctx.lineDashOffset = 0;
-          deps.ctx.setLineDash([]);
-          deps.drawExposedTileBorder(t, px, py, size, breachSides);
-          deps.ctx.setLineDash([]);
-          deps.ctx.lineDashOffset = 0;
-          deps.ctx.lineWidth = 1;
-        }
+        drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
+          ctx: deps.ctx,
+          me: state.me,
+          is3D: isTrue3DRendererActive(),
+          shouldDrawOwnershipBorder: deps.shouldDrawOwnershipBorder,
+          borderColorForOwner: deps.borderColorForOwner,
+          isTileOwnedByAlly: deps.isTileOwnedByAlly,
+          borderLineWidthForOwner: deps.borderLineWidthForOwner,
+          tiles: state.tiles,
+          keyFor: deps.keyFor,
+          wrapX: deps.wrapX,
+          wrapY: deps.wrapY
+        });
         if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
           const exposedSides = exposedSidesForTile(t, {
             tiles: state.tiles,
@@ -1195,10 +1171,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             }
             deps.ctx.lineWidth = 1;
           }
-        }
-
-        if (breached && breachSides) {
-          drawBreachTornBorder(deps.ctx, t!, px, py, size, breachSides);
         }
 
         if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {

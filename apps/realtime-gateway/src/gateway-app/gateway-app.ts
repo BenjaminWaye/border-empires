@@ -319,8 +319,7 @@ type PreviewTile = {
   dockId?: string | undefined;
   townType?: string | undefined;
   economicStructureJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  breachShockUntil?: number | undefined;
+  siegeOutpostJson?: string | undefined; breachShockUntil?: number | undefined;
 };
 
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
@@ -409,8 +408,7 @@ const attackPreviewResult = (
     : undefined;
   const preview = buildFrontierCombatPreview(target, {
     attackerOutpostMult,
-    ...(techModifiers ?? {}),
-    ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
+    ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
   });
   return {
     ...responseBase,
