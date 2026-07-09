@@ -85,6 +85,20 @@ describe("tile action truce state", () => {
     });
   });
 
+  it("never offers a truce on a barbarian-owned tile, including the settled barbarian-1 id", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    for (const ownerId of ["barbarian", "barbarian-1"]) {
+      const tile: Tile = { x: 4, y: 5, terrain: "LAND", ownerId, ownershipState: "SETTLED" };
+      const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+
+      expect(actions.find((action) => action.id === "offer_truce_12h")).toBeUndefined();
+      expect(actions.find((action) => action.id === "offer_truce_24h")).toBeUndefined();
+      expect(actions.find((action) => action.id === "break_truce")).toBeUndefined();
+    }
+  });
+
   it("disables truce offers to other empires when any outgoing truce is pending", () => {
     const state = createInitialState();
     state.me = "me";

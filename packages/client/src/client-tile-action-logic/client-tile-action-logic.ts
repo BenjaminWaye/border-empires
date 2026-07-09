@@ -1960,14 +1960,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
   out.push(...crystalCoreActions());
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
-    const activeTruce = deps.activeTruceWithPlayer(tile.ownerId);
-    const pendingTruce = deps.pendingTruceWithPlayer(tile.ownerId);
+    const isBarbarianOwner = tile.ownerId.startsWith("barbarian");
+    const activeTruce = isBarbarianOwner ? undefined : deps.activeTruceWithPlayer(tile.ownerId);
+    const pendingTruce = isBarbarianOwner ? undefined : deps.pendingTruceWithPlayer(tile.ownerId);
     const hasOutgoingPendingTruce = state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
-    if (activeTruce) {
+    if (isBarbarianOwner) {
+      // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
+    } else if (activeTruce) {
       out.push({
         id: "break_truce",
         label: "Break Truce",
-        ...tileActionAvailability(true, "", "Break current truce")
+        ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
       });
     } else {
       const pendingTruceReason =

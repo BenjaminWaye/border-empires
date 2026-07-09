@@ -230,6 +230,73 @@ describe("social state", () => {
     expect(social.snapshotForPlayer("player-2").incomingTruceRequests).toHaveLength(1);
   });
 
+  it("locks the breaker out of new truces for 24h after breaking one early, but not the target", () => {
+    let currentTime = 1_000;
+    const social = createSocialState({
+      now: () => currentTime,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" },
+        { id: "player-3", name: "Beejac" },
+        { id: "player-4", name: "Draymoor" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const requestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-2", requestId!).ok).toBe(true);
+
+    const breakResult = social.breakTruce("player-1", "player-2");
+    expect(breakResult.ok).toBe(true);
+    expect(breakResult.ok && breakResult.payloadsByPlayerId.get("player-1")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "TRUCE_UPDATE",
+          announcement: "Nauticus broke the truce with Valka early and is locked out of new truces for 24h."
+        })
+      ])
+    );
+
+    // Breaker is locked out of requesting a new truce with anyone.
+    expect(social.requestTruce("player-1", "Beejac", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_LOCKED_OUT",
+      message: "you broke a truce recently and cannot request a new truce yet"
+    });
+
+    // Breaker is also locked out of accepting an incoming truce offer.
+    expect(social.requestTruce("player-3", "Nauticus", 12).ok).toBe(true);
+    const incomingId = social.snapshotForPlayer("player-1").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-1", incomingId!)).toEqual({
+      ok: false,
+      code: "TRUCE_LOCKED_OUT",
+      message: "one player broke a truce recently and is locked out"
+    });
+
+    // The target of the break is not penalized and can truce freely.
+    expect(social.requestTruce("player-2", "Beejac", 12).ok).toBe(true);
+
+    // After 24h the lockout expires.
+    currentTime += 24 * 60 * 60_000 + 1;
+    expect(social.requestTruce("player-1", "Draymoor", 12).ok).toBe(true);
+  });
+
+  it("rejects a truce request targeting a barbarian player id, even if somehow registered", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "barbarian-1", name: "Barbarians" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Barbarians", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_TARGET",
+      message: "target not found"
+    });
+  });
+
   it("rejects additional outgoing truce requests while one is already pending", () => {
     const social = createSocialState({
       now: () => 1_000,

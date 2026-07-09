@@ -257,7 +257,12 @@ const buildModBreakdown = (techIds: readonly string[], domainIds: readonly strin
   return breakdown;
 };
 
-const hexColorForPlayerId = (playerId: string): string => {
+// Matches the client's barbarian fallback color (client-map-facade.ts) so a
+// hashed per-player hue never overrides the intended dark grey for barbarians.
+const BARBARIAN_TILE_COLOR = "#2f3842";
+
+export const hexColorForPlayerId = (playerId: string): string => {
+  if (playerId.startsWith("barbarian")) return BARBARIAN_TILE_COLOR;
   let hash = 0;
   for (let index = 0; index < playerId.length; index += 1) hash = ((hash << 5) - hash + playerId.charCodeAt(index)) | 0;
   const hue = Math.abs(hash) % 360;

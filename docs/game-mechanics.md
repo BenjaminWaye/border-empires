@@ -82,7 +82,7 @@ Strategic phases that emerge from the AI planner: opening expansion, mid-game ec
 
 ## 8. Diplomacy
 
-- **Truces**: two-player non-aggression pacts. 12h or 24h duration. Breaking a truce inflicts a 0.75× attack multiplier and a 60-minute cooldown penalty. Tracked in `ActiveTruce` (start/end, creator). Seasonal AI truce targets exist (recent commit `fee1f72`). `packages/game-domain/src/server-game-constants/server-game-constants.ts:13-16`, `packages/shared/src/types.ts:129-147, 50-67`
+- **Truces**: two-player non-aggression pacts. 12h or 24h duration. Tracked in `SocialActiveTruce` (start/end, creator) in the realtime gateway's social state, not the simulation. Breaking a truce early (`TRUCE_BREAK`) locks the breaker out of requesting or accepting any new truce for `TRUCE_BREAK_LOCKOUT_MS` (24h); the other party is unaffected. Seasonal AI truce targets exist (recent commit `fee1f72`). `apps/realtime-gateway/src/social-state/social-state.ts`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:26-27`, `packages/shared/src/types.ts:129-147, 50-67`
 - **Alliances**: mutual `allies` membership on each player. Frontier validation rejects attacks against allies.
 - **War declarations**: implicit — any frontier action against a non-allied, non-truced player is hostile. No formal declaration step.
 - **AI negotiation today**: reactive only. The planner respects truces and alliances; it does not initiate offers. Front posture (`BREAK` / `CONTAIN` / `TRUCE`) modulates aggression but does not generate truce requests. `apps/simulation/src/ai/automation-strategic-snapshot.ts:368-381`

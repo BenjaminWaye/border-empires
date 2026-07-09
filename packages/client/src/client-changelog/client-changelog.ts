@@ -19,10 +19,38 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.0",
+  version: "2026.07.09.3",
   title: "What's New",
-  summary: "Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Barbarian tiles are dark grey again, truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
   entries: [
+    {
+      introducedIn: "2026.07.09.3",
+      title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
+      why: "The gateway assigns every player a color by hashing their id, but barbarian-1 was never excluded from that hashing, so it got a hashed hue (turquoise) that overrode the client's intended dark-grey barbarian fallback.",
+      changes: [
+        "Barbarian territory now always renders with the fixed dark grey (#2f3842) fill, regardless of any color the server sends for that id.",
+        "The gateway now assigns barbarian ids a fixed color instead of a hashed one, so this can't drift again."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.2",
+      title: "Fixed truce offers appearing on barbarian tiles",
+      why: "Settled barbarian territory is owned by the id \"barbarian-1\", but the truce menu only excluded the literal id \"barbarian\", so the Offer Truce/Break Truce actions incorrectly showed up on barbarian-controlled tiles.",
+      changes: [
+        "Offer Truce and Break Truce no longer appear on any barbarian-owned tile.",
+        "The gateway now also rejects a TRUCE_REQUEST targeting a barbarian player id server-side, as defense in depth."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.1",
+      title: "Truce-break lockout",
+      why: "Breaking a truce before its 12h/24h window ended had no consequence, so players could use truces as a free, revocable shield with no downside for reneging.",
+      changes: [
+        "Breaking an active truce early now locks you out of requesting or accepting any new truce for 24 hours.",
+        "The player you broke the truce with is not penalized and can offer or accept truces normally.",
+        "The Break Truce action tooltip now warns about the lockout before you confirm."
+      ]
+    },
     {
       introducedIn: "2026.07.09.0",
       title: "Leaderboard scrolling works normally on mobile",
