@@ -14,6 +14,7 @@ export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
+export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
 export type TownType = "MARKET" | "FARMING";
 export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
 export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";

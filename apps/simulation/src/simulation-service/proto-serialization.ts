@@ -48,6 +48,7 @@ export type ProtoSimulationEvent = {
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
     muster_json?: string | undefined;
+    visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
   }>;
   tileDeltas?: Array<{
@@ -80,6 +81,7 @@ export type ProtoSimulationEvent = {
       strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
+    visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
   }>;
   count?: number;
@@ -184,6 +186,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
           ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
           ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
+          ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -214,6 +217,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
           ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
           ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
+          ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),

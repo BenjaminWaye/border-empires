@@ -49,39 +49,66 @@ export class VisibilityCoverageCache {
     return new Set(this.coverage.get(viewerId)?.keys() ?? []);
   }
 
-  addFootprint(viewerId: string, x: number, y: number, radius: number): void {
+  /**
+   * `onEnter`, if supplied, fires exactly once per cell whose refcount
+   * crosses 0→1 for this viewer (a genuine "this tile just entered vision"
+   * edge, not every refcount increment). Kept allocation-free on the hot
+   * O(radius²) path — no per-cell closures beyond the one passed in.
+   */
+  addFootprint(viewerId: string, x: number, y: number, radius: number, onEnter?: (viewerId: string, tileKey: string) => void): void {
+    const map = this.mapFor(viewerId);
     this.forEachDilatedCell(x, y, radius, (key) => {
-      const map = this.mapFor(viewerId);
-      map.set(key, (map.get(key) ?? 0) + 1);
+      const next = (map.get(key) ?? 0) + 1;
+      map.set(key, next);
+      if (next === 1 && onEnter) onEnter(viewerId, key);
     });
   }
 
-  removeFootprint(viewerId: string, x: number, y: number, radius: number): void {
+  /**
+   * `onLeave`, if supplied, fires exactly once per cell whose refcount
+   * crosses 1→0 for this viewer (a genuine "this tile just left vision"
+   * edge).
+   */
+  removeFootprint(viewerId: string, x: number, y: number, radius: number, onLeave?: (viewerId: string, tileKey: string) => void): void {
     const map = this.coverage.get(viewerId);
     if (!map) return;
     this.forEachDilatedCell(x, y, radius, (key) => {
       const next = (map.get(key) ?? 0) - 1;
-      if (next <= 0) map.delete(key);
-      else map.set(key, next);
+      if (next <= 0) {
+        map.delete(key);
+        if (onLeave) onLeave(viewerId, key);
+      } else {
+        map.set(key, next);
+      }
     });
     if (map.size === 0) this.coverage.delete(viewerId);
   }
 
   /** Bulk add — used for alliance formation and vision-radius resync. */
-  addSourceContribution(viewerId: string, territoryTileKeys: Iterable<string>, radius: number): void {
+  addSourceContribution(
+    viewerId: string,
+    territoryTileKeys: Iterable<string>,
+    radius: number,
+    onEnter?: (viewerId: string, tileKey: string) => void
+  ): void {
     for (const tileKey of territoryTileKeys) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      this.addFootprint(viewerId, parsed.x, parsed.y, radius);
+      this.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter);
     }
   }
 
   /** Bulk remove — used for alliance breakage and vision-radius resync. */
-  removeSourceContribution(viewerId: string, territoryTileKeys: Iterable<string>, radius: number): void {
+  removeSourceContribution(
+    viewerId: string,
+    territoryTileKeys: Iterable<string>,
+    radius: number,
+    onLeave?: (viewerId: string, tileKey: string) => void
+  ): void {
     for (const tileKey of territoryTileKeys) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      this.removeFootprint(viewerId, parsed.x, parsed.y, radius);
+      this.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave);
     }
   }
 
@@ -110,6 +137,21 @@ export class VisibilityCoverageCache {
 export interface VisibilitySourcePlayer {
   readonly id: string;
   readonly allies: ReadonlySet<string>;
+}
+
+/**
+ * Optional per-call transition collector. Threaded through the tracker's
+ * mutating methods so a caller can observe exactly which (viewerId,
+ * tileKey) pairs entered/left coverage as a *result of that specific call*
+ * — used by the fog-of-war FOG delta mechanism (see runtime-vision-transition.ts)
+ * to know which tiles just left/entered a player's vision this tick. Not a
+ * global listener: deliberately opt-in per call so bulk operations that
+ * don't represent a meaningful "this tick" boundary (e.g. initial world
+ * seeding) can omit it.
+ */
+export interface VisibilityTransitionCallbacks {
+  readonly onEnter?: (viewerId: string, tileKey: string) => void;
+  readonly onLeave?: (viewerId: string, tileKey: string) => void;
 }
 
 export interface VisibilityCoverageTrackerDeps {
@@ -165,14 +207,20 @@ export class VisibilityCoverageTracker {
    * cancels the previous owner's footprint at that cell and applies the new
    * owner's — O(radius²) total, the hot path this class exists to protect.
    */
-  tileOwnershipChanged(previousOwnerId: string | undefined, nextOwnerId: string | undefined, x: number, y: number): void {
+  tileOwnershipChanged(
+    previousOwnerId: string | undefined,
+    nextOwnerId: string | undefined,
+    x: number,
+    y: number,
+    callbacks?: VisibilityTransitionCallbacks
+  ): void {
     if (previousOwnerId && !this.isBarbarian(previousOwnerId)) {
       const radius = this.radiusForSource(previousOwnerId);
-      for (const viewerId of this.viewersForSource(previousOwnerId)) this.cache.removeFootprint(viewerId, x, y, radius);
+      for (const viewerId of this.viewersForSource(previousOwnerId)) this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave);
     }
     if (nextOwnerId && !this.isBarbarian(nextOwnerId)) {
       const radius = this.radiusForSource(nextOwnerId);
-      for (const viewerId of this.viewersForSource(nextOwnerId)) this.cache.addFootprint(viewerId, x, y, radius);
+      for (const viewerId of this.viewersForSource(nextOwnerId)) this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter);
     }
   }
 
@@ -183,7 +231,7 @@ export class VisibilityCoverageTracker {
    * once, which is fine given tech/domain choices are rare (unlike the O(1)
    * per-tile hot path this class exists to protect).
    */
-  resyncVisionRadius(playerId: string): void {
+  resyncVisionRadius(playerId: string, callbacks?: VisibilityTransitionCallbacks): void {
     const newRadius = this.deps.visionRadiusForPlayer(playerId);
     const oldRadius = this.radiusBySource.get(playerId);
     if (oldRadius === newRadius) return;
@@ -191,9 +239,9 @@ export class VisibilityCoverageTracker {
     if (viewers.length > 0) {
       const territoryTileKeys = this.deps.territoryTileKeysForPlayer(playerId);
       if (oldRadius !== undefined) {
-        for (const viewerId of viewers) this.cache.removeSourceContribution(viewerId, territoryTileKeys, oldRadius);
+        for (const viewerId of viewers) this.cache.removeSourceContribution(viewerId, territoryTileKeys, oldRadius, callbacks?.onLeave);
       }
-      for (const viewerId of viewers) this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius);
+      for (const viewerId of viewers) this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius, callbacks?.onEnter);
     }
     this.radiusBySource.set(playerId, newRadius);
   }
@@ -204,18 +252,18 @@ export class VisibilityCoverageTracker {
    * O(territory × radius²) once per alliance change (rare), instead of any
    * per-tile cost on the hot capture/loss path.
    */
-  syncAllianceChange(actorId: string, targetId: string, allied: boolean): void {
+  syncAllianceChange(actorId: string, targetId: string, allied: boolean, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(actorId) || this.isBarbarian(targetId)) return;
     const actorRadius = this.radiusForSource(actorId);
     const targetRadius = this.radiusForSource(targetId);
     const actorTerritory = this.deps.territoryTileKeysForPlayer(actorId);
     const targetTerritory = this.deps.territoryTileKeysForPlayer(targetId);
     if (allied) {
-      this.cache.addSourceContribution(targetId, actorTerritory, actorRadius);
-      this.cache.addSourceContribution(actorId, targetTerritory, targetRadius);
+      this.cache.addSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onEnter);
+      this.cache.addSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onEnter);
     } else {
-      this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius);
-      this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius);
+      this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onLeave);
+      this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onLeave);
     }
   }
 }

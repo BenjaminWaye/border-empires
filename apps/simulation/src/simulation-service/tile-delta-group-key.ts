@@ -12,8 +12,20 @@
 //           subscriber's clear stub collides with a visible subscriber's full
 //           delta and gets served the full content — leaking fog and dropping
 //           the ownershipClearOnly flag.
+//   - ":F"  FOG-stamped delta: this subscriber's tile just left their vision
+//           this batch, so the content is a frozen last-known snapshot, not
+//           the live delta. Stamped per-subscriber, so two subscribers can
+//           share identical field content but disagree on FOG vs VISIBLE —
+//           without ":F" one subscriber's FOG freeze would get cached and
+//           served to a subscriber who should see the live VISIBLE version.
 //   - (none) full delta.
-export type GroupKeyTileDelta = { x: number; y: number; ownerId?: unknown; ownershipClearOnly?: boolean | undefined };
+export type GroupKeyTileDelta = {
+  x: number;
+  y: number;
+  ownerId?: unknown;
+  ownershipClearOnly?: boolean | undefined;
+  visibilityState?: string | undefined;
+};
 
 export const buildTileDeltaGroupKey = (deltas: ReadonlyArray<GroupKeyTileDelta>): string => {
   let key = "";
@@ -24,6 +36,7 @@ export const buildTileDeltaGroupKey = (deltas: ReadonlyArray<GroupKeyTileDelta>)
     key += `${d.x}:${d.y}`;
     if (!("ownerId" in d)) key += ":r";
     else if (d.ownershipClearOnly) key += ":c";
+    if (d.visibilityState === "FOG") key += ":F";
   }
   return key;
 };

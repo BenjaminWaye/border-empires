@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.2",
+  version: "2026.07.08.3",
   title: "What's New",
-  summary: "Fixed mustered attacks on a dock-connected enemy dock getting stuck forever once the muster flag filled up.",
+  summary: "Fog of war: lost territory now freezes at its last-known state instead of vanishing or showing stale ownership.",
   entries: [
+    {
+      introducedIn: "2026.07.08.3",
+      title: "Fog of war (session-only)",
+      why: "Losing a tile you could no longer see previously either left it looking like you still owned it (stale data) or silently disappeared from the map, because the server had no way to tell the client exactly which tiles left vision and what they looked like the instant before.",
+      changes: [
+        "Tiles that leave your vision now freeze at their last-witnessed state (including who captured them) and render fogged, instead of going stale or vanishing.",
+        "Tiles you've never seen render as unexplored; tiles you can currently see render normally.",
+        "Actions that require live vision (build, settle, collect, expand, uncapture) are blocked on fogged/unexplored tiles with a clear notice.",
+        "Fog memory is session-only for this release — it resets on reconnect and re-reveals from your current vision."
+      ]
+    },
     {
       introducedIn: "2026.07.08.2",
       title: "Fixed mustered attacks on a connected dock never firing",

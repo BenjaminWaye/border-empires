@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, PlayerRespawnNotice, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, PlayerRespawnNotice, VisibilityState, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -285,6 +285,8 @@ export type SimulationEvent =
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
         musterJson?: string | undefined;
+        /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
+        visibilityState?: VisibilityState | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
@@ -440,6 +442,8 @@ export type PlayerSubscriptionSnapshot = {
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
     musterJson?: string | undefined;
+    /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
+    visibilityState?: VisibilityState | undefined;
     yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;

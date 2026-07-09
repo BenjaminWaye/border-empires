@@ -119,6 +119,7 @@ import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsS
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
@@ -432,6 +433,7 @@ export class SimulationRuntime {
     getPlayer: (id) => this.players.get(id),
     territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
   });
+  private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -932,6 +934,15 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  takeVisionTransitions(): { entered: ReadonlyMap<string, ReadonlySet<string>>; left: ReadonlyMap<string, ReadonlySet<string>> } {
+    return this.visionTransitions.take();
+  }
+
+  wireDeltaForTileKey(tileKey: string): SimulationTileWireDelta | undefined {
+    const tile = this.tiles.get(tileKey);
+    return tile ? this.tileDeltaRevealOnly(tile) : undefined;
   }
 
   async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
@@ -1865,13 +1876,9 @@ export class SimulationRuntime {
       // Ownership changed → bump the territory version so VisionExpansionCache
       // knows to recompute. Same-owner mutations (muster, pop growth, income)
       // leave this counter unchanged so the O(territory×r²) expansion stays warm.
-      if (previous?.ownerId) {
-        this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
-      }
-      if (tile.ownerId) {
-        this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
-      }
-      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y);
+      if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
+      if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
+      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks);
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
@@ -2840,7 +2847,7 @@ export class SimulationRuntime {
       actor.allies.delete(target.id);
       target.allies.delete(actor.id);
     }
-    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied);
+    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, this.visionTransitions.callbacks);
 
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId: actor.id },
@@ -3565,7 +3572,7 @@ export class SimulationRuntime {
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
       invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId),
+      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
