@@ -86,7 +86,8 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "yield_rate_json", wireValue: "{\"goldPerMinute\":2}", camelField: "yieldRate", normalized: { goldPerMinute: 2 } },
   { protoField: "yield_cap_json", wireValue: "{\"gold\":100,\"strategicEach\":50}", camelField: "yieldCap", normalized: { gold: 100, strategicEach: 50 } },
   { protoField: "frontier_decay_at", wireValue: 1_893_456_000_000, camelField: "frontierDecayAt", normalized: 1_893_456_000_000 },
-  { protoField: "frontier_decay_kind", wireValue: "NATURAL", camelField: "frontierDecayKind", normalized: "NATURAL" }
+  { protoField: "frontier_decay_kind", wireValue: "NATURAL", camelField: "frontierDecayKind", normalized: "NATURAL" },
+  { protoField: "breach_shock_until", wireValue: 1_893_456_060_000, camelField: "breachShockUntil", normalized: 1_893_456_060_000 }
 ];
 
 const fullyPopulatedTile = (): Record<string, unknown> =>

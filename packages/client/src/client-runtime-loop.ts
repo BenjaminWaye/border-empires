@@ -22,6 +22,7 @@ import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders/client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
+import { drawBreachTornBorder } from "./client-breach-border/client-breach-border.js";
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -675,10 +676,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId) {
-        deps.ctx.strokeStyle = "rgba(255,255,255,0.52)";
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        deps.ctx.lineWidth = 1;
+        drawBreachTornBorder(deps.ctx, t, px, py, size);
       }
 
       if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
@@ -1192,10 +1190,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         if (t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId) {
-          deps.ctx.strokeStyle = "rgba(255,255,255,0.52)";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          deps.ctx.lineWidth = 1;
+          drawBreachTornBorder(deps.ctx, t, px, py, size);
         }
 
         if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {

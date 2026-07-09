@@ -105,6 +105,7 @@ message TileDelta {
   uint64 frontier_decay_at = 21;
   string frontier_decay_kind = 22;
   string muster_json = 23;
+  uint64 breach_shock_until = 24;
 }
 
 message DockRoute {

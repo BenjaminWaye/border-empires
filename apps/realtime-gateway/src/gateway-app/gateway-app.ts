@@ -2,7 +2,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import { ClientMessageSchema } from "@border-empires/shared";
 
@@ -316,7 +316,7 @@ type PreviewTile = {
   dockId?: string | undefined;
   townType?: string | undefined;
   economicStructureJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeOutpostJson?: string | undefined; breachShockUntil?: number | undefined;
 };
 
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
@@ -405,7 +405,7 @@ const attackPreviewResult = (
     : undefined;
   const preview = buildFrontierCombatPreview(target, {
     attackerOutpostMult,
-    ...(techModifiers ?? {}),
+    ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
   });
   return {
     ...responseBase,
