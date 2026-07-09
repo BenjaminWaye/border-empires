@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.0",
+  version: "2026.07.09.1",
   title: "What's New",
-  summary: "Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
   entries: [
+    {
+      introducedIn: "2026.07.09.1",
+      title: "Truce-break lockout",
+      why: "Breaking a truce before its 12h/24h window ended had no consequence, so players could use truces as a free, revocable shield with no downside for reneging.",
+      changes: [
+        "Breaking an active truce early now locks you out of requesting or accepting any new truce for 24 hours.",
+        "The player you broke the truce with is not penalized and can offer or accept truces normally.",
+        "The Break Truce action tooltip now warns about the lockout before you confirm."
+      ]
+    },
     {
       introducedIn: "2026.07.09.0",
       title: "Leaderboard scrolling works normally on mobile",

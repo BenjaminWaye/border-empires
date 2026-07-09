@@ -60,7 +60,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
-- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce inflicts an attack penalty and cooldown.
+- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected.
 - **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
 
 ### Victory Conditions

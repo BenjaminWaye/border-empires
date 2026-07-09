@@ -1967,7 +1967,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       out.push({
         id: "break_truce",
         label: "Break Truce",
-        ...tileActionAvailability(true, "", "Break current truce")
+        ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
       });
     } else {
       const pendingTruceReason =
