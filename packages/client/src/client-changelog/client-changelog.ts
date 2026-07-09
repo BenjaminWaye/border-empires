@@ -19,17 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.6",
+  version: "2026.07.09.7",
   title: "What's New",
-  summary: "Season-end tab panels now scroll independently so you can reach every entry without the header/tabs disappearing.",
+  summary: "Season-end tab panels scroll independently and the outer dialog area also responds to wheel/touch so you can scroll from anywhere.",
   entries: [
     {
-      introducedIn: "2026.07.09.6",
-      title: "Season-end tab panels scroll properly",
-      why: "The Final Standings and Victory Paths panels in the season-end overlay shared the modal's outer scroll container, so the whole dialog (header, medallion, tab bar, and panel content) scrolled as one block. As the panel content grew, the header and tabs would scroll out of view, making it impossible to switch tabs without first scrolling back up — or worse, the panel would appear stuck because its own overflow wasn't wired for touch scrolling.",
+      introducedIn: "2026.07.09.7",
+      title: "Season-end overlay scrolling works everywhere, not just in the tab panel area",
+      why: "The first attempt at independent tab-panel scroll (2026.07.09.6) removed the outer scroll container entirely, which meant scrolling over the tab buttons or the header did nothing — the whole dialog felt stuck. The tab panel area scrolled by itself, but anywhere else was inert.",
       changes: [
-        "The tab panel area now scrolls independently from the dialog header, medallion, and tab bar, keeping the tab switcher always visible.",
-        "Panels use touch-action, momentum scrolling, and overscroll-behavior CSS so they respond to normal finger swipes and mouse wheel gestures."
+        "The outer dialog area (header, tab bar) now keeps its own scroll so hovering over the tab buttons and scrolling works normally.",
+        "The tab panel area still scrolls independently for long leaderboards and victory-path content.",
+        "Both layers use touch-action, momentum scrolling, and overscroll-behavior so touch and mouse-wheel gestures work consistently everywhere."
       ]
     },
     {
