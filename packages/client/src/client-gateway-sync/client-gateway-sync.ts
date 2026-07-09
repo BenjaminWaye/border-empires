@@ -62,7 +62,7 @@ export type GatewayTileUpdate = {
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
   landBiome?: Tile["landBiome"];
-  regionType?: Tile["regionType"];
+  regionType?: Tile["regionType"]; visibilityState?: "VISIBLE" | "FOG" | "UNEXPLORED";
 };
 
 type GatewayTileSyncDeps = {
@@ -305,7 +305,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   const tileKey = deps.keyFor(update.x, update.y);
   deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
-  deps.state.discoveredTiles.add(tileKey);
+  deps.state.discoveredTiles.add(tileKey); // FOG is still "discovered" (frozen last-witnessed state); server never emits UNEXPLORED as an update
 
   const existing = deps.state.tiles.get(tileKey);
   const previousTerrain = existing?.terrain;
@@ -320,7 +320,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         detailLevel: "summary",
         fogged: false
       };
-  merged.fogged = false;
+  merged.fogged = update.visibilityState === "FOG"; // freezes at this delta's post-mutation fields (e.g. a witnessed ownership flip); VISIBLE/omitted clears fogged
 
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
     existing,

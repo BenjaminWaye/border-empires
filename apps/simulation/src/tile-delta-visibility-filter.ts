@@ -231,6 +231,15 @@ export const filterTileDeltasForPlayer = <
       // genuine clear transitions. We also forward only the minimal
       // ownership-state fields, never the rest of the delta's substructure
       // (fort/muster/sabotage/yield/etc.), for a tile the player can't see.
+      //
+      // Fog-of-war interaction: a tile that just left this player's vision
+      // this same tick (refcount already hit 0 by the time this filter
+      // runs — see visibility-coverage-cache.ts) reaches this branch. If it
+      // also happens to be a genuine ownership-clear, the minimal stub
+      // pushed below is superseded downstream by stampVisibilityAndMergeFogDeltas
+      // (tile-delta-visibility-stamp.ts), which replaces/merges it with a
+      // full FOG-stamped delta built from current tile state — no double
+      // delta for the same tile reaches the wire.
       if (!options?.includeOwnershipClears) continue;
       const ownerIdCleared = "ownerId" in delta && !delta.ownerId;
       if (!ownerIdCleared) continue;

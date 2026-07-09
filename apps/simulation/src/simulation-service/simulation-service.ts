@@ -19,7 +19,7 @@ import {
 } from "@border-empires/sim-protocol";
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
-import { type ProtoSimulationEvent, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -39,12 +39,13 @@ import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.j
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, simulationTileKey, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
+import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildLeaderboardFromPlayers } from "../world-status-snapshot/world-status-snapshot.js";
@@ -1909,9 +1910,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // Cache proto events keyed by the filtered delta set so subscribers
           // with identical visible tiles share one serialization pass.
           const protoCache = new Map<string, ProtoSimulationEvent>();
+          const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true });
+            const filteredDeltas = stampVisibilityAndMergeFogDeltas(runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true }), {
+              leftVisionTileKeys: visionTransitions.left.get(subscribedPlayerId),
+              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined,
+              tileKeyFor: simulationTileKey
+            });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
               subscriberCount += 1;
@@ -1925,16 +1931,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
             }
             if (filteredDeltas.length === 0) continue;
-            // Build a cheap group key: "x:y" per tile (optionally suffixed
-            // ":r"), joined by "|". The ":r" suffix marks terrain-only
-            // redacted stubs (lock targets owned by another player) so full
-            // and redacted content never collide in the cache. Redaction only
-            // fires when the original delta had a truthy ownerId (see
-            // tile-delta-visibility-filter.ts), so a delta that never carried
-            // ownerId always serializes identically for every viewer — safe
-            // to key the same way even though the ":r" label is technically
-            // inexact for that case. Use for-of to avoid index-access
-            // narrowing issues.
+            // Group key: "x:y" per tile (":r" = redacted stub, ":F" = FOG-stamped — stamped per-player, so two players can share identical content but disagree on FOG vs VISIBLE), joined by "|".
             let groupKey = "";
             let groupKeyFirst = true;
             for (const d of filteredDeltas) {
@@ -1942,6 +1939,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               groupKeyFirst = false;
               groupKey += `${d.x}:${d.y}`;
               if (!("ownerId" in d)) groupKey += ":r";
+              if (d.visibilityState === "FOG") groupKey += ":F";
             }
             const cachedProto = protoCache.get(groupKey);
             if (cachedProto) {
