@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.06.4",
+  version: "2026.07.08.0",
   title: "What's New",
-  summary: "Fish and grain production rates swapped, waypoint UX improvements, and barbarian plunder capped.",
+  summary: "Fog of war: lost territory now freezes at its last-known state instead of vanishing or showing stale ownership.",
   entries: [
+    {
+      introducedIn: "2026.07.08.0",
+      title: "Fog of war (session-only)",
+      why: "Losing a tile you could no longer see previously either left it looking like you still owned it (stale data) or silently disappeared from the map, because the server had no way to tell the client exactly which tiles left vision and what they looked like the instant before.",
+      changes: [
+        "Tiles that leave your vision now freeze at their last-witnessed state (including who captured them) and render fogged, instead of going stale or vanishing.",
+        "Tiles you've never seen render as unexplored; tiles you can currently see render normally.",
+        "Actions that require live vision (build, settle, collect, expand, uncapture) are blocked on fogged/unexplored tiles with a clear notice.",
+        "Fog memory is session-only for this release — it resets on reconnect and re-reveals from your current vision."
+      ]
+    },
     {
       introducedIn: "2026.07.06.0",
       title: "Barbarian plunder capped to prevent gold inflation",
@@ -182,91 +193,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "The server now only rebuilds an empire's income/upkeep breakdown when a settled tile actually changes, not on every frontier tile update.",
         "Settle commands in large empires resolve without the added rebuild delay, reducing \"Simulation unavailable\" errors during busy expansion turns."
-      ]
-    },
-    {
-      introducedIn: "2026.07.01.2",
-      title: "Census Hall has a new building model",
-      why: "Census Hall previously reused the Governor's Office icon and had no 3D model, so it was invisible/generic on the map.",
-      changes: [
-        "3D map: Census Hall now renders as a modest stone records office with a small brass tally drum on the facade, scaled like the other minor support structures.",
-        "2D map: Census Hall has its own icon instead of borrowing the Governor's Office icon."
-      ]
-    },
-    {
-      introducedIn: "2026.07.01.1",
-      title: "Aegis Lock and Launch Satellite are live",
-      why: "Both abilities showed a working button in the tile menu, but the gateway silently rejected the command with 'not yet migrated to gateway' because the server-side handler was never built — clicking either button did nothing.",
-      changes: [
-        "Aegis Lock now actually locks: while active, hostile attacks inside the dome's 30-tile radius can no longer flip ownership of tiles there.",
-        "Launch Satellite now actually reveals: while active, your empire sees the whole map instead of only your usual territory/vision radius, for the full 24 hours.",
-        "Both abilities have new activation FX: Aegis Lock gets a glowing stasis-field ring (not a solid dome, so it doesn't block your view), and Launch Satellite reuses the beacon-launch effect."
-      ]
-    },
-    {
-      introducedIn: "2026.07.01.1",
-      title: "Worldbreaker Cannon costs more per shot",
-      why: "The Worldbreaker Shot tooltip described a different cost, cooldown, and effect than what the server actually did, and the ability was underpriced for what it does (destroy a structure and cut a town's population 30%, from anywhere on the map, with no miss chance).",
-      changes: [
-        "Worldbreaker Shot now costs 15,000 gold in addition to its existing 500 crystal.",
-        "The World Engine tooltip and Actions tab description now match the real cooldown (60m), cost, and effect instead of the old text.",
-        "World Engine Strike, Imperial Exchange Levy, and Astral Dock Launch all have new activation FX at the monument tile."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.3",
-      title: "Start New Season no longer shows as unavailable",
-      why: "The gateway accepted START_NEW_SEASON but did not advertise it in the rewrite capability list, so the client blocked the season-end button before sending the command.",
-      changes: [
-        "The rewrite gateway now includes START_NEW_SEASON in its supported client message list.",
-        "The client can send the season rollover request from the season-end overlay instead of showing Action unavailable."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.2",
-      title: "Sky Dock Bombard shows which tiles hit and which missed",
-      why: "Bombarding a target with the airport's Sky Dock gave no indication of why some tiles in the blast radius didn't flip to neutral — players couldn't tell a random miss (forts reduce hit chance) from a bug.",
-      changes: [
-        "The bombardment explosion FX is now driven by the actual server result instead of firing identically on every tile: tiles that hit get the orange ring/flash explosion, tiles that missed get a gray smoke fizzle instead.",
-        "The feed also shows a summary message after each bombardment with the hit/miss counts.",
-        "If no enemy tiles were in range, the feed says so instead of leaving the result ambiguous."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.1",
-      title: "Capture pop indicator floats once and slower",
-      why: "When capturing a city, the floating \"-XXX pop\" indicator re-fired on every camera move instead of floating up once and fading. The 3.2s animation was also too fast to read.",
-      changes: [
-        "The floating text and its guard map are no longer cleared during terrain rebuild, so the indicator fires only once per capture event.",
-        "Floating duration increased from 3.2s to 5s for easier readability."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.1",
-      title: "Sky Dock Bombard target overlay no longer persists after execution",
-      why: "After executing a Sky Dock Bombard, the red target tile overlay remained visible until browser refresh — the fill mesh and tile borders were only hidden during terrain rebuild, not on every render frame.",
-      changes: [
-        "The crystal targeting overlay now hides its fill mesh and tile borders every frame when targeting mode is inactive, not just during rebuild."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
-      title: "Dock-based 'Launch Attack' no longer silently fails",
-      why: "Attacking an enemy dock tile with a connected dock showed 'Queued 1 attacks' in the feed but never resolved — the UI accepted the target because the tile had a dockId, but the action queue couldn't find a valid owned origin and silently used the enemy tile instead, causing muster flag creation to target enemy land and server validation to reject the command.",
-      changes: [
-        "The 'Launch Attack' button now verifies dock network connectivity before showing — if the client can't resolve a valid owned dock origin linked to the target, the button stays hidden.",
-        "The action queue no longer accepts dock targets without a valid reachable origin (previously the dockId property alone was sufficient to bypass the origin check).",
-        "The processActionQueue fallback that set the origin to the enemy tile (from=to) is replaced with a clean action drop and log entry."
-      ]
-    },
-    {
-      introducedIn: "2026.06.30.0",
-      title: "Shard collection animation overlay adapts to mobile screen sizes",
-      why: "The shard collection overlay (the brief animation when you collect a shard) used a fixed side-by-side layout with large text and art that overflowed or looked cramped on small phone screens.",
-      changes: [
-        "On screens narrower than 520px, the overlay stacks the artwork above the text, centers all content, and reduces art size (120→80px) and font sizes proportionally.",
-        "The SVG artwork now scales with its container instead of being fixed at 120×120px.",
-        "Overlay padding and border-radius reduced on all screen sizes for a tighter fit."
       ]
     }
   ]

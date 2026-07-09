@@ -285,6 +285,8 @@ export type SimulationEvent =
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
         musterJson?: string | undefined;
+        /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
+        visibilityState?: "VISIBLE" | "FOG" | "UNEXPLORED" | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
@@ -439,6 +441,8 @@ export type PlayerSubscriptionSnapshot = {
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
     musterJson?: string | undefined;
+    /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
+    visibilityState?: "VISIBLE" | "FOG" | "UNEXPLORED" | undefined;
     yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
