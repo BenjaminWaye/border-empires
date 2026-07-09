@@ -5834,6 +5834,10 @@ button:disabled,
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 26px clamp(16px, 4vw, 40px) 0;
 }
 .se-tab-panels {
