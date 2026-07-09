@@ -1165,6 +1165,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     removeCompletedAllianceBreak: (playerAId, playerBId) => socialStore.removeCompletedAllianceBreak(playerAId, playerBId),
     saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
     removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
+    saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
     pruneExpired: (now) => socialStore.pruneExpired(now)
   };
   const socialState = createSocialState({

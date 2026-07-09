@@ -9,6 +9,7 @@ export type SocialStoreSnapshot = {
   completedAllianceBreaks: SocialCompletedAllianceBreak[];
   truceRequests: SocialTruceRequest[];
   activeTruces: SocialActiveTruce[];
+  truceLockouts: Array<{ playerId: string; lockoutUntil: number }>;
 };
 
 export type GatewaySocialStore = {
@@ -26,6 +27,7 @@ export type GatewaySocialStore = {
   removeAlliance(playerAId: string, playerBId: string): void;
   saveActiveTruce(truce: SocialActiveTruce): void;
   removeActiveTruce(playerAId: string, playerBId: string): void;
+  saveTruceLockout(playerId: string, lockoutUntil: number): void;
   pruneExpired(now: number): void;
 };
 
@@ -44,6 +46,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly completedAllianceBreaks = new Map<string, SocialCompletedAllianceBreak>();
   private readonly truceRequests = new Map<string, SocialTruceRequest>();
   private readonly activeTruces = new Map<string, SocialActiveTruce>();
+  private readonly truceLockouts = new Map<string, number>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -65,7 +68,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       activeAllianceBreaks: [...this.activeAllianceBreaks.values()].map((notice) => ({ ...notice })),
       completedAllianceBreaks: [...this.completedAllianceBreaks.values()].map((notice) => ({ ...notice })),
       truceRequests: [...this.truceRequests.values()].map((r) => ({ ...r })),
-      activeTruces: [...this.activeTruces.values()].map((t) => ({ ...t }))
+      activeTruces: [...this.activeTruces.values()].map((t) => ({ ...t })),
+      truceLockouts: [...this.truceLockouts.entries()].map(([playerId, lockoutUntil]) => ({ playerId, lockoutUntil }))
     };
   }
 
@@ -122,6 +126,10 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.activeTruces.delete(pairKey(playerAId, playerBId));
   }
 
+  saveTruceLockout(playerId: string, lockoutUntil: number): void {
+    this.truceLockouts.set(playerId, lockoutUntil);
+  }
+
   pruneExpired(now: number): void {
     for (const [id, request] of this.truceRequests) {
       if (request.expiresAt <= now) this.truceRequests.delete(id);
@@ -131,6 +139,9 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     }
     for (const [key, notice] of this.completedAllianceBreaks) {
       if (notice.notificationExpiresAt <= now) this.completedAllianceBreaks.delete(key);
+    }
+    for (const [playerId, lockoutUntil] of this.truceLockouts) {
+      if (lockoutUntil <= now) this.truceLockouts.delete(playerId);
     }
   }
 }
@@ -175,6 +186,7 @@ type ActiveTruceRow = {
   ends_at: number;
   created_by_player_id: string;
 };
+type TruceLockoutRow = { player_id: string; lockout_until: number };
 
 const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest => ({
   id: row.id,
@@ -284,6 +296,11 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         created_by_player_id TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS social_active_truces_ends_idx ON social_active_truces (ends_at);
+      CREATE TABLE IF NOT EXISTS social_truce_lockouts (
+        player_id TEXT PRIMARY KEY,
+        lockout_until INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS social_truce_lockouts_until_idx ON social_truce_lockouts (lockout_until);
     `);
   }
 
@@ -317,6 +334,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         `SELECT pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id FROM social_active_truces`
       )
       .all() as ActiveTruceRow[];
+    const truceLockoutRows = this.db
+      .prepare(`SELECT player_id, lockout_until FROM social_truce_lockouts`)
+      .all() as TruceLockoutRow[];
 
     const alliesByPlayer = new Map<string, Set<string>>();
     for (const row of allianceRows) {
@@ -336,7 +356,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       activeAllianceBreaks: allianceBreakRows.map(allianceBreakFromRow),
       completedAllianceBreaks: completedAllianceBreakRows.map(completedAllianceBreakFromRow),
       truceRequests: truceRequestRows.map(truceRequestFromRow),
-      activeTruces: activeTruceRows.map(activeTruceFromRow)
+      activeTruces: activeTruceRows.map(activeTruceFromRow),
+      truceLockouts: truceLockoutRows.map((row) => ({ playerId: row.player_id, lockoutUntil: row.lockout_until }))
     };
   }
 
@@ -508,9 +529,20 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.prepare(`DELETE FROM social_active_truces WHERE pair_key = ?`).run(pairKey(playerAId, playerBId));
   }
 
+  saveTruceLockout(playerId: string, lockoutUntil: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO social_truce_lockouts (player_id, lockout_until)
+         VALUES (?, ?)
+         ON CONFLICT(player_id) DO UPDATE SET lockout_until = excluded.lockout_until`
+      )
+      .run(playerId, lockoutUntil);
+  }
+
   pruneExpired(now: number): void {
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
+    this.db.prepare(`DELETE FROM social_truce_lockouts WHERE lockout_until <= ?`).run(now);
   }
 }

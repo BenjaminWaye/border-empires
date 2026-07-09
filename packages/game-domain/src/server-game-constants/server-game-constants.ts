@@ -24,7 +24,7 @@ export const BARBARIAN_TICK_MS = 5_000;
 export const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 export const now = (): number => Date.now();
 export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
-export const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
+export const TRUCE_BREAK_LOCKOUT_MS = 24 * 60 * 60_000;
 export const TRUCE_BREAK_ATTACK_MULT = 0.75;
 export const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 export const PASSIVE_INCOME_MULT = 1.0;
