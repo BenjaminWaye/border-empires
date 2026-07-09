@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.3",
+  version: "2026.07.09.4",
   title: "What's New",
-  summary: "Barbarian tiles are dark grey again, truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Minimap shard-rain pings now animate correctly regardless of fog or exploration state. Barbarian tiles are dark grey again, truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
   entries: [
+    {
+      introducedIn: "2026.07.09.4",
+      title: "Fixed minimap shard-rain pings not rendering on fogged tiles",
+      why: "The minimap ping loop skipped any tile that wasn't a currently-visible FALL shard site, so pings on fogged or unexplored tiles never animated even though the ping itself was active.",
+      changes: [
+        "Minimap shard-rain pings now render for the duration they're active, regardless of the tile's fog or exploration state."
+      ]
+    },
     {
       introducedIn: "2026.07.09.3",
       title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
