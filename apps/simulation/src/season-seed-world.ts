@@ -447,7 +447,7 @@ export const createSeasonSeedWorld = (
     clustersRuntime.generateClusters(worldSeed);
     docksRuntime.generateDocks(worldSeed);
     townsRuntime.generateTowns(worldSeed);
-    shardsRuntime.seedInitialShardScatter(worldSeed);
+    // shardsRuntime.seedInitialShardScatter(worldSeed);
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();

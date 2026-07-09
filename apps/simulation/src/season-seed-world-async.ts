@@ -228,7 +228,7 @@ export const createSeasonSeedWorldAsync = async (
     docksRuntime.generateDocks(worldSeed);
     await onYield?.();
     townsRuntime.generateTowns(worldSeed);
-    shardsRuntime.seedInitialShardScatter(worldSeed);
+    // shardsRuntime.seedInitialShardScatter(worldSeed);
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
     await onYield?.();
     townsRuntime.ensureInterestCoverage(worldSeed);
