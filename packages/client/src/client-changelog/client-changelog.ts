@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.4",
+  version: "2026.07.09.5",
   title: "What's New",
-  summary: "Minimap shard-rain pings now animate correctly regardless of fog or exploration state. Barbarian tiles are dark grey again, truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Fogged tiles now show who last held them instead of losing their ownership tint entirely.",
   entries: [
+    {
+      introducedIn: "2026.07.09.5",
+      title: "Fogged tiles keep a dim ownership tint",
+      why: "Fog-of-war rendering dropped ownership color entirely once a tile went fogged, so a captured-then-fogged tile just looked neutral instead of showing who actually held it last — you couldn't tell at a glance whether a lost tile went to a rival or a barbarian.",
+      changes: [
+        "Fogged tiles now render a dim, static tint of their last-witnessed owner (no live blink/breach-shock animation, since that state is frozen)."
+      ]
+    },
     {
       introducedIn: "2026.07.09.4",
       title: "Fixed minimap shard-rain pings not rendering on fogged tiles",
@@ -73,14 +81,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Health-check login probes that briefly connect to verify the server is alive were creating game-world empires with no tiles, income, or techs — and counting toward the 'N empires vied for the crown' tally at season end, making empty seasons look busier than they were.",
       changes: [
         "Players with zero settled tiles, zero income, and zero techs are now excluded from leaderboard rankings and the seasonal empire-count display, automatically filtering out login probes and other zero-activity empires."
-      ]
-    },
-    {
-      introducedIn: "2026.07.08.6",
-      title: "Fixed fogged tiles looking unexplored",
-      why: "A tile only rendered as fog (dimmed, last-known state) if its key was in the client's discoveredTiles set — but several code paths (the login chunk-stream, live TILE_DELTA updates, and optimistic-action reverts) only added a tile to that set when it wasn't fogged, a leftover check from before fog-of-war existed. So any tile whose first-ever appearance was already fogged, or that got reverted while fogged, rendered solid black exactly like terrain you'd never seen — fog and unexplored were visually indistinguishable.",
-      changes: [
-        "Fogged tiles are now always marked as discovered, regardless of which code path first delivers them, so they correctly render dimmed instead of pitch black."
       ]
     },
     {
