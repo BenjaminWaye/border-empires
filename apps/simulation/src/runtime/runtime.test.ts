@@ -7778,6 +7778,29 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
+    it("preserves the town on the source tile when a barbarian walks off it", () => {
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles: [
+          { x: 10, y: 10, town: true },
+          { x: 10, y: 9 }
+        ],
+        targetTile: { x: 10, y: 11 },
+        lockOrigin: { x: 10, y: 10 },
+        lockTarget: { x: 10, y: 11 },
+        attackerId: "barbarian-1"
+      });
+
+      runResolve();
+
+      const state = runtime.exportState();
+      const origin = state.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(origin?.ownerId).toBeUndefined();
+      expect(origin?.townJson).toBeDefined();
+      expect(origin?.townPopulationTier).toBe("SETTLEMENT");
+
+      randomSpy.mockRestore();
+    });
+
     it("does not multiply when walking into neutral land at threshold-equivalent progress", () => {
       // Even with the source carrying threshold-or-above progress, a walk
       // into neutral land does not multiply — capture of a player tile is

@@ -265,7 +265,10 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
         y: defenderTile.y,
         terrain: defenderTile.terrain,
         ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
-        ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {})
+        ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
+        ...(defenderTile.town ? { town: defenderTile.town } : {}),
+        ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
+        ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
       };
       context.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
       context.barbarianTileProgress.delete(lock.targetKey);
