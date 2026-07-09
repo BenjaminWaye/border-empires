@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.2",
+  version: "2026.07.09.3",
   title: "What's New",
-  summary: "Truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
+  summary: "Barbarian tiles are dark grey again, truce offers are no longer possible on barbarian tiles, and breaking a truce early now locks you out of new truces for 24 hours. Leaderboard scrolling fixed on mobile; season-end empire count now excludes login probes and inactive players.",
   entries: [
+    {
+      introducedIn: "2026.07.09.3",
+      title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
+      why: "The gateway assigns every player a color by hashing their id, but barbarian-1 was never excluded from that hashing, so it got a hashed hue (turquoise) that overrode the client's intended dark-grey barbarian fallback.",
+      changes: [
+        "Barbarian territory now always renders with the fixed dark grey (#2f3842) fill, regardless of any color the server sends for that id.",
+        "The gateway now assigns barbarian ids a fixed color instead of a hashed one, so this can't drift again."
+      ]
+    },
     {
       introducedIn: "2026.07.09.2",
       title: "Fixed truce offers appearing on barbarian tiles",
