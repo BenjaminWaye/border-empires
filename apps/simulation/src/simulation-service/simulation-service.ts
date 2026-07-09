@@ -54,7 +54,7 @@ import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast
 import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
-import { createAiBudgetTracker } from "../ai/ai-time-budget-tracker.js";
+import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
@@ -1546,10 +1546,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
-  // Layer 2: rolling time-budget tracker — caps AI work to 200ms per 1s window.
-  const aiBudgetTracker = createAiBudgetTracker();
-
-  // Layer 3: event-loop-lag observer. Uses hrtime to detect when the sim
+  // Event-loop-lag observer. Uses hrtime to detect when the sim
   // main thread is too busy to run AI on schedule.
   let lastAiShouldRunHr = process.hrtime.bigint();
   let aiShouldRunFirstCall = true;
@@ -1574,11 +1571,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         simulationMetrics.incrementSimAiTickThrottled("loop_lag");
         return false;
       }
-    }
-
-    if (!aiBudgetTracker.available()) {
-      simulationMetrics.incrementSimAiTickThrottled("budget");
-      return false;
     }
 
     return (
@@ -1631,6 +1623,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const startAutopilots = (): void => {
     closeAutopilots();
     const aiPlayerIds = resolveAutopilotAiPlayerIds();
+    // Per-player rolling time-budget trackers — each AI gets its own
+    // 200ms-per-1s-window budget so one large/expensive AI cannot exhaust
+    // a shared pool and starve smaller AIs of planning time.
+    const aiBudgetTrackers = createPerPlayerAiBudgetTrackers(aiPlayerIds);
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
     emitLog("info", "simulation autopilot startup", {
       enableAiAutopilot: aiAutopilotEnabled,
@@ -1681,6 +1677,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
+            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
@@ -1721,10 +1718,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
             },
-            onTick: ({ durationMs }) => {
+            onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
-              aiBudgetTracker.recordWork(durationMs);
-              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTracker.usedMs());
+              if (playerId) aiBudgetTrackers.recordWork(playerId, durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTrackers.totalUsedMs());
             },
             onThrottle: (reason) => {
               simulationMetrics.incrementSimAiTickThrottled(reason);
@@ -1809,8 +1806,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
             },
-            onTick: ({ durationMs }) => {
+            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
+            onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+              if (playerId) aiBudgetTrackers.recordWork(playerId, durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTrackers.totalUsedMs());
             },
             onNoCommand: (diagnostic) => {
               if (diagnostic.noCommandReason) {
