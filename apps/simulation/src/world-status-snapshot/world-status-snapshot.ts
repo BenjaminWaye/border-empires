@@ -13,6 +13,9 @@ const BARBARIAN_PLAYER_ID = "barbarian-1";
 
 const isCompetitivePlayer = (playerId: string, excludedIds?: ReadonlySet<string>): boolean =>
   playerId !== BARBARIAN_PLAYER_ID && !(excludedIds?.has(playerId) ?? false);
+
+const hasZeroActivity = (entry: { tiles: number; incomePerMinute: number; techs: number }): boolean =>
+  entry.tiles === 0 && entry.incomePerMinute === 0 && entry.techs === 0;
 const leaderboardScoreFor = (settledTileCount: number, incomePerMinute: number, techCount: number): number =>
   Math.round((settledTileCount + incomePerMinute * 3 + techCount * 8) * 10) / 10;
 
@@ -77,6 +80,7 @@ export const buildWorldStatusSnapshot = (
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })
+    .filter((entry) => !hasZeroActivity(entry))
     .sort(
       (left, right) =>
         right.score - left.score ||
@@ -140,6 +144,7 @@ export const buildLeaderboardFromPlayers = (
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })
+    .filter((entry) => !hasZeroActivity(entry))
     .sort(
       (l, r) =>
         r.score - l.score || r.tiles - l.tiles || r.incomePerMinute - l.incomePerMinute ||
@@ -151,3 +156,4 @@ export const buildLeaderboardFromPlayers = (
   const byTechs = rankMetric(overall.map((e) => ({ id: e.id, name: e.name, value: e.techs })));
   return { overall, byTiles, byIncome, byTechs };
 };
+
