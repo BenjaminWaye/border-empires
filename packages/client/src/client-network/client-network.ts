@@ -2255,8 +2255,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const terrainChanged = "terrain" in normalizedUpdate;
         if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
         if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
-        if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
-        const clearRuntimeLandContext = merged.terrain !== "LAND" || normalizedUpdate.fogged === true;
+        // REQUEST_TILE_DETAIL responses (this TILE_DELTA path) carry
+        // visibilityState, not a bare `fogged` boolean -- the batch path
+        // (TILE_DELTA_BATCH / client-gateway-sync.ts) already derives fogged
+        // this way. Without this, a tile-detail push for a tile that left
+        // vision arrives with no fog signal at all and renders as live/visible.
+        const resolvedFogged =
+          "visibilityState" in normalizedUpdate ? normalizedUpdate.visibilityState === "FOG" : normalizedUpdate.fogged;
+        if (resolvedFogged !== undefined) merged.fogged = resolvedFogged;
+        const clearRuntimeLandContext = merged.terrain !== "LAND" || resolvedFogged === true;
         if (clearRuntimeLandContext) {
           delete merged.landBiome;
           delete merged.regionType;
