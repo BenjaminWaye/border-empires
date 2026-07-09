@@ -118,7 +118,8 @@ import {
 import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
-import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js"; import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
+import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
@@ -927,8 +928,15 @@ export class SimulationRuntime {
     return () => this.events.off("event", listener);
   }
 
-  takeVisionTransitions(): { entered: ReadonlyMap<string, ReadonlySet<string>>; left: ReadonlyMap<string, ReadonlySet<string>> } { return this.visionTransitions.take(); }
-  wireDeltaForTileKey(tileKey: string): SimulationTileWireDelta | undefined { const tile = this.tiles.get(tileKey); return tile ? this.tileDeltaRevealOnly(tile) : undefined; }
+  takeVisionTransitions(): { entered: ReadonlyMap<string, ReadonlySet<string>>; left: ReadonlyMap<string, ReadonlySet<string>> } {
+    return this.visionTransitions.take();
+  }
+
+  wireDeltaForTileKey(tileKey: string): SimulationTileWireDelta | undefined {
+    const tile = this.tiles.get(tileKey);
+    return tile ? this.tileDeltaRevealOnly(tile) : undefined;
+  }
+
   async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     await tickTileSheddingImpl({
       nowMs,
