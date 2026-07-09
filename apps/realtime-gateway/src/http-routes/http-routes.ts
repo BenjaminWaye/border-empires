@@ -103,7 +103,11 @@ const addCorsHeaders = (app: FastifyInstance): void => {
   });
 
   app.options("/*", async (_request, reply) => {
-    reply.code(204);
+    reply
+      .header("Access-Control-Allow-Origin", "*")
+      .header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+      .header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
+      .code(204);
     return "";
   });
 };
