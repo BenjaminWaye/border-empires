@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.3",
+  version: "2026.07.08.4",
   title: "What's New",
-  summary: "Fog of war: lost territory now freezes at its last-known state instead of vanishing or showing stale ownership.",
+  summary: "Breakthrough Momentum's breach visuals and wire delivery finished, plus fog of war for lost territory.",
   entries: [
+    {
+      introducedIn: "2026.07.08.4",
+      title: "Breakthrough Momentum: a captured tile's neighbours are briefly weaker",
+      why: "For 60 seconds after you lose a tile to an attacker, its still-held cardinal neighbours were meant to show a 30% defence penalty (Breakthrough Momentum) — but the breach timer never actually reached the client over the network (the field was missing from the wire schema), the attack preview never accounted for it, and neighbours breached across the world's east/west or north/south seam were missed entirely.",
+      changes: [
+        "The breach timer now reliably reaches the client, so weakened neighbouring tiles show a torn, paper-like amber border for the full 60-second window instead of never appearing.",
+        "The torn edge only appears on the side of the tile actually missing a friendly neighbour, not the whole tile perimeter.",
+        "The attack preview's win chance now reflects a target's active breach penalty before you commit to an attack.",
+        "Breaching now correctly wraps across the world's edge, so a capture near the map seam weakens neighbours on the far side too.",
+        "This mechanic remains behind the BREAKTHROUGH_ENABLED flag (off by default) until it's enabled for a season."
+      ]
+    },
     {
       introducedIn: "2026.07.08.3",
       title: "Fog of war (session-only)",
@@ -286,7 +298,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The server now only rebuilds an empire's income/upkeep breakdown when a settled tile actually changes, not on every frontier tile update.",
         "Settle commands in large empires resolve without the added rebuild delay, reducing \"Simulation unavailable\" errors during busy expansion turns."
       ]
-    },
+    }
   ]
 };
 

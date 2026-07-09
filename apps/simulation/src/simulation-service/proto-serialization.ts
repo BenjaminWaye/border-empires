@@ -48,6 +48,7 @@ export type ProtoSimulationEvent = {
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
     muster_json?: string | undefined;
+    breach_shock_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
   }>;
@@ -72,6 +73,7 @@ export type ProtoSimulationEvent = {
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
     musterJson?: string | undefined;
+    breachShockUntil?: number | null | undefined;
     yield?: {
       gold?: number;
       strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
@@ -186,6 +188,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
           ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
           ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
+          ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
@@ -217,6 +220,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
           ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
           ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
+          ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
@@ -241,6 +245,7 @@ export const toFullSnapshotProtoTile = (tile: {
   fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
   economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
   musterJson?: string | undefined;
+  breachShockUntil?: number | undefined;
   yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
 }) => ({
   x: tile.x,
@@ -263,6 +268,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
   ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
   ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
+  ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
   ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
   ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
