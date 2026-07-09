@@ -2,6 +2,7 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
+import { debugTileLog, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 
 type TownSummary = NonNullable<Tile["town"]>;
 type PartialTownSummary = Partial<TownSummary>;
@@ -319,10 +320,28 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     // Nothing to correct if we've never seen the tile, or it's already
     // unowned — return without a revision bump so a flood of distant
     // barbarian clears can't churn re-renders.
-    if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) return false;
+    if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) {
+      if (tileMatchesDebugKey(update.x, update.y, 1)) {
+        debugTileLog("ownership-clear-only-skip", {
+          x: update.x,
+          y: update.y,
+          reason: !existing ? "tile-not-known" : "already-unowned",
+          existing: debugTileSnapshot(existing)
+        });
+      }
+      return false;
+    }
     const cleared: Tile = { ...existing };
     delete cleared.ownerId;
     delete cleared.ownershipState;
+    if (tileMatchesDebugKey(update.x, update.y, 1)) {
+      debugTileLog("ownership-clear-only-applied", {
+        x: update.x,
+        y: update.y,
+        before: debugTileSnapshot(existing),
+        after: debugTileSnapshot(cleared)
+      });
+    }
     deps.state.tiles.set(tileKey, cleared);
     if (!skipRevision) deps.state.tilesRevision += 1;
     return false;
@@ -471,7 +490,20 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
   if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
-  const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
+  const detailMerged = deps.mergeIncomingTileDetail(existing, merged);
+  const resolved = deps.mergeServerTileWithOptimisticState(detailMerged);
+  if (tileMatchesDebugKey(update.x, update.y, 1)) {
+    debugTileLog("apply-gateway-tile-update", {
+      x: update.x,
+      y: update.y,
+      wireOwnerId: update.ownerId,
+      wireOwnershipState: update.ownershipState,
+      existing: debugTileSnapshot(existing),
+      merged: debugTileSnapshot(merged),
+      detailMerged: debugTileSnapshot(detailMerged),
+      resolved: debugTileSnapshot(resolved)
+    });
+  }
   // Structure/resource/dock change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
   const staleYieldInputsChanged =
     ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
