@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.08.3",
+  version: "2026.07.08.4",
   title: "What's New",
-  summary: "Fog of war: lost territory now freezes at its last-known state instead of vanishing or showing stale ownership.",
+  summary: "Fogged tiles now show who last held them instead of losing their ownership tint entirely.",
   entries: [
+    {
+      introducedIn: "2026.07.08.4",
+      title: "Fogged tiles keep a dim ownership tint",
+      why: "Fog-of-war rendering dropped ownership color entirely once a tile went fogged, so a captured-then-fogged tile just looked neutral instead of showing who actually held it last — you couldn't tell at a glance whether a lost tile went to a rival or a barbarian.",
+      changes: [
+        "Fogged tiles now render a dim, static tint of their last-witnessed owner (no live blink/breach-shock animation, since that state is frozen)."
+      ]
+    },
     {
       introducedIn: "2026.07.08.3",
       title: "Fog of war (session-only)",
