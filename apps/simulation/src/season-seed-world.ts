@@ -19,7 +19,6 @@ import {
 } from "@border-empires/shared";
 
 import {
-  INITIAL_SHARD_SCATTER_COUNT,
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   PLAYER_MOUNTAIN_DENSITY_LIMIT,
   PLAYER_MOUNTAIN_DENSITY_RADIUS,
@@ -36,7 +35,6 @@ import {
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
-  createServerWorldgenShards,
   createServerWorldgenTerrain,
   createServerWorldgenTowns,
   assignMissingTownNames
@@ -407,37 +405,6 @@ export const createSeasonSeedWorld = (
     clustersById,
     clusterResourceType: terrainRuntime.clusterResourceType
   });
-  const shardsRuntime = createServerWorldgenShards({
-    terrainAt,
-    key,
-    docksByTile: docksByTile as Map<TileKey, never>,
-    clusterByTile,
-    townsByTile,
-    shardSitesByTile,
-    now: () => 0,
-    INITIAL_SHARD_SCATTER_COUNT,
-    seeded01: terrainRuntime.seeded01,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    currentShardRainNotice: () => undefined,
-    SHARD_RAIN_TTL_MS: 0,
-    nextShardRainStartAt: () => 0,
-    getLastShardRainWarningSlotKey: () => undefined,
-    setLastShardRainWarningSlotKey: noOp,
-    broadcast: noOp,
-    hasOnlinePlayers: () => false,
-    SHARD_RAIN_SITE_MIN: 0,
-    SHARD_RAIN_SITE_MAX: 0,
-    broadcastLocalVisionDelta: noOp,
-    SHARD_RAIN_SCHEDULE_HOURS: [],
-    getLastShardRainSlotKey: () => undefined,
-    setLastShardRainSlotKey: noOp,
-    parseKey,
-    markSummaryChunkDirtyAtTile: noOp,
-    visible: () => false,
-    getOrInitStrategicStocks: () => ({ SHARD: 0 })
-  });
-
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
@@ -447,7 +414,6 @@ export const createSeasonSeedWorld = (
     clustersRuntime.generateClusters(worldSeed);
     docksRuntime.generateDocks(worldSeed);
     townsRuntime.generateTowns(worldSeed);
-    // shardsRuntime.seedInitialShardScatter(worldSeed);
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
