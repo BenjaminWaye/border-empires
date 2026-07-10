@@ -282,8 +282,12 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
     overlayEl.dataset.seWheelReady = "1";
     const preventOutsideScroll = (e: Event) => {
       const body = overlayEl.querySelector(".se-scroll-body");
-      if (body && body.contains(e.target as Node)) return;
+      if (body && body.contains(e.target as Node)) {
+        e.stopPropagation();
+        return;
+      }
       e.preventDefault();
+      e.stopPropagation();
     };
     overlayEl.addEventListener("wheel", preventOutsideScroll as EventListener, { passive: false });
     overlayEl.addEventListener("touchmove", preventOutsideScroll as EventListener, { passive: false });

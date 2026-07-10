@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.8",
+  version: "2026.07.09.9",
   title: "What's New",
-  summary: "Fog of war now actually renders in the 3D map — fogged tiles were previously indistinguishable from unexplored black.",
+  summary: "Season-end overlay now scrolls properly on macOS trackpad — nested scroll containers no longer fight each other.",
   entries: [
+    {
+      introducedIn: "2026.07.09.9",
+      title: "Season-end overlay now scrolls on macOS trackpad",
+      why: "Two bugs: (1) #season-end-overlay was missing from the pointer-events: auto list that every other overlay has, so wheel events passed right through to the #game canvas and zoomed the map instead of scrolling the overlay. (2) Even when events stayed inside the overlay, two nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither one scrolled.",
+      changes: [
+        "Added #season-end-overlay to the pointer-events: auto list so wheel and click events target the overlay instead of falling through to the map canvas behind it.",
+        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container — the header, medallion, and tab bar stay fixed at the top.",
+        "The wheel/touch event handler now calls stopPropagation() as defense-in-depth to prevent any bubbling to the game's zoom handler."
+      ]
+    },
     {
       introducedIn: "2026.07.09.8",
       title: "Fog of war now renders in the 3D map",
