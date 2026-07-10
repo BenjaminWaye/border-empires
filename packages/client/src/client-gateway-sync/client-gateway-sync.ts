@@ -2,22 +2,21 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
-import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, setDebugTileKey, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 
-// Auto-pins the debug-tile watch to whatever tile just lost barbarian
-// ownership, so a human doesn't have to catch the moment live and type
-// coordinates in — see debugTileLoggingEnabled/tileMatchesDebugKey. Only
-// active when tile-debug logging is already turned on for the account.
-const autoDetectBarbarianVacate = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
+// Logs every real ownerId/ownershipState change, for any tile, the moment it
+// happens — no coordinates to pin or guess in advance. Gated only by the
+// account-level debugTileLoggingEnabled flag (not a specific watched tile),
+// so it's low-volume (ownership changes are rare) but never misses one.
+const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
   if (!debugTileLoggingEnabled()) return;
-  if (before?.ownerId !== "barbarian-1" || after?.ownerId === "barbarian-1") return;
-  debugTileLog(`${scope}:barb-vacate-auto-detected`, {
+  if (before?.ownerId === after?.ownerId && before?.ownershipState === after?.ownershipState) return;
+  debugTileLog(`${scope}:ownership-changed`, {
     x,
     y,
     before: debugTileSnapshot(before),
     after: debugTileSnapshot(after)
   });
-  setDebugTileKey(`${x},${y}`);
 };
 
 type TownSummary = NonNullable<Tile["town"]>;
@@ -358,7 +357,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         after: debugTileSnapshot(cleared)
       });
     }
-    autoDetectBarbarianVacate(update.x, update.y, existing, cleared, "ownership-clear-only");
+    logOwnershipChangeIfAny(update.x, update.y, existing, cleared, "ownership-clear-only");
     deps.state.tiles.set(tileKey, cleared);
     if (!skipRevision) deps.state.tilesRevision += 1;
     return false;
@@ -521,7 +520,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
       resolved: debugTileSnapshot(resolved)
     });
   }
-  autoDetectBarbarianVacate(update.x, update.y, existing, resolved, "apply-gateway-tile-update");
+  logOwnershipChangeIfAny(update.x, update.y, existing, resolved, "apply-gateway-tile-update");
   // Structure/resource/dock change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
   const staleYieldInputsChanged =
     ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
