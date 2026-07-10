@@ -805,6 +805,7 @@ body {
 #hud #guide-overlay,
 #hud #respawn-overlay,
 #hud #intel-overlay,
+#hud #season-end-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay {
   pointer-events: auto;

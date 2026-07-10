@@ -26,11 +26,11 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     {
       introducedIn: "2026.07.09.9",
       title: "Season-end overlay now scrolls on macOS trackpad",
-      why: "The season-end overlay had two nested scroll containers (.se-scroll-body wrapping .se-tab-panels). On macOS trackpad, the browser couldn't reliably determine which should capture the scroll gesture, so the tab panel content appeared stuck — nothing scrolled.",
+      why: "Two bugs: (1) #season-end-overlay was missing from the pointer-events: auto list that every other overlay has, so wheel events passed right through to the #game canvas and zoomed the map instead of scrolling the overlay. (2) Even when events stayed inside the overlay, two nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither one scrolled.",
       changes: [
-        "Removed the outer scroll layer (.se-scroll-body overflow-y: auto); only the tab panel area (.se-tab-panels) scrolls now.",
-        "The header, medallion, and tab bar stay fixed at the top while tab content scrolls naturally underneath.",
-        "The wheel/touch event handler now calls stopPropagation() to prevent events from bubbling to the map canvas zoom handler — the map was zooming instead of the overlay scrolling."
+        "Added #season-end-overlay to the pointer-events: auto list so wheel and click events target the overlay instead of falling through to the map canvas behind it.",
+        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container — the header, medallion, and tab bar stay fixed at the top.",
+        "The wheel/touch event handler now calls stopPropagation() as defense-in-depth to prevent any bubbling to the game's zoom handler."
       ]
     },
     {
