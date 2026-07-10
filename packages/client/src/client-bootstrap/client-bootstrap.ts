@@ -667,7 +667,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  (window as Record<string, unknown>).__debugSeasonEndOverlay = () => {
+  (window as unknown as Record<string, unknown>).__debugSeasonEndOverlay = () => {
     const winner: import("../client-types.js").SeasonWinnerView = {
       playerId: "player-1",
       playerName: "Debug Winner",
