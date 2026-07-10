@@ -19,11 +19,26 @@ export class VisionTransitionAccumulator {
   private left = new Map<string, Set<string>>();
 
   readonly callbacks: VisibilityTransitionCallbacks = {
-    onEnter: (viewerId, tileKey) => this.record(this.entered, viewerId, tileKey),
-    onLeave: (viewerId, tileKey) => this.record(this.left, viewerId, tileKey)
+    // A tile can get both edges in the same window -- most notably
+    // resyncVisionRadius (tech/domain pick changing vision radius) calls
+    // onLeave for a player's whole OLD-radius territory then onEnter for
+    // their whole NEW-radius territory, synchronously. Since the radii
+    // overlap almost entirely, nearly every owned tile gets both calls even
+    // though it was visible the whole time. Tracking enter/leave as
+    // independent sets left those tiles wrongly classified as "left vision"
+    // (see tile-delta-visibility-stamp.ts, which stamps any leftVisionTileKeys
+    // member as FOG with no entered-set check) -- fog-freezing a player's
+    // entire territory right after any vision-radius-changing pick.
+    // Cancelling a same-tick opposite edge here, order-independent, makes
+    // the net-zero case structurally impossible instead of relying on every
+    // downstream consumer to reconcile the two sets itself.
+    onEnter: (viewerId, tileKey) => this.recordEdge(this.entered, this.left, viewerId, tileKey),
+    onLeave: (viewerId, tileKey) => this.recordEdge(this.left, this.entered, viewerId, tileKey)
   };
 
-  private record(target: Map<string, Set<string>>, viewerId: string, tileKey: string): void {
+  private recordEdge(target: Map<string, Set<string>>, opposite: Map<string, Set<string>>, viewerId: string, tileKey: string): void {
+    const oppositeSet = opposite.get(viewerId);
+    if (oppositeSet?.delete(tileKey)) return;
     let set = target.get(viewerId);
     if (!set) {
       set = new Set();
