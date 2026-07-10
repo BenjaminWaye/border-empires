@@ -156,7 +156,24 @@ export class TileDeltaStringifyCache {
     fullDelta: SimulationTileWireDelta
   ): SimulationTileWireDelta {
     const last = this.entries.get(tileKey)?.lastEmitted;
-    if (!last) return fullDelta;
+    if (!last) {
+      // Same guarantee as the sparse-diff path below (ownerId/ownershipState/
+      // dockId always present, even when the value is falsy/absent) applied
+      // to the no-baseline bypass. Callers build fullDelta with a conditional
+      // spread (`...(tile.ownerId ? { ownerId: tile.ownerId } : {})`), which
+      // OMITS the key entirely for an unowned tile -- e.g. a tile a
+      // barbarian just vacated, emitted for the first time after a sim
+      // restart wipes this cache. Without the key present,
+      // tile-delta-visibility-filter.ts's `"ownerId" in delta` check for
+      // non-visible-tile ownership-clears fails, and the clear is silently
+      // dropped -- a player out of vision at that moment never learns the
+      // tile went neutral and keeps rendering stale ownership indefinitely.
+      const seededFullDelta: SimulationTileWireDelta = { ...fullDelta };
+      (seededFullDelta as Record<string, unknown>).ownerId = tile.ownerId;
+      (seededFullDelta as Record<string, unknown>).ownershipState = tile.ownershipState;
+      (seededFullDelta as Record<string, unknown>).dockId = tile.dockId;
+      return seededFullDelta;
+    }
 
     const delta: SimulationTileWireDelta = { x: fullDelta.x, y: fullDelta.y };
     let hasFieldChanges = false;
