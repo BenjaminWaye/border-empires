@@ -69,10 +69,14 @@ const createMesh = (maxTiles: number, opacity: number): {
   return { geometry, positions, colors, indices, mesh, material };
 };
 
-export const createOwnershipOverlay = (scene: Scene, maxTiles: number): OwnershipOverlay => {
-  const settled = createMesh(maxTiles, SETTLED_OPACITY);
+export const createOwnershipOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  opacities?: { settled: number; frontier: number }
+): OwnershipOverlay => {
+  const settled = createMesh(maxTiles, opacities?.settled ?? SETTLED_OPACITY);
   settled.mesh.renderOrder = 6;
-  const frontier = createMesh(maxTiles, FRONTIER_OPACITY);
+  const frontier = createMesh(maxTiles, opacities?.frontier ?? FRONTIER_OPACITY);
   frontier.mesh.renderOrder = 7;
   scene.add(settled.mesh, frontier.mesh);
 

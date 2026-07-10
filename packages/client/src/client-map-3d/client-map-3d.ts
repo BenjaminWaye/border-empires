@@ -124,6 +124,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const lastSeenCaptureShockByTile = new Map<string, number>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
+  // Fogged tiles get a black darkening quad (always full opacity 0.65,
+  // regardless of frontier/settled -- reuses both mesh buckets identically)
+  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept
+  // as distinct overlay instances from `ownershipOverlay` so the live
+  // SETTLED_OPACITY (0.85) constant is never touched by fog rendering.
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 });
+  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
@@ -1378,6 +1385,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
   const tmpWhite = new Color("#ffffff");
+  const tmpBlack = new Color("#000000");
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (): void => {
@@ -1389,7 +1397,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
       if (revealWholeMapInTrue3DMode) return true;
       const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-      return deps.tileVisibilityStateAt(wx, wy, tile) === "visible";
+      const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
+      return visibility === "visible" || visibility === "fogged";
     };
     heightfield.rebuild({
       camX: deps.state.camX,
@@ -1407,6 +1416,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     villageEffects.clear();
     forest.clear();
     ownershipOverlay.clear();
+    fogDarkenOverlay.clear();
+    fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
     const roadNetwork = buildRoadNetwork({
@@ -1455,14 +1466,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             ownerId: tile?.ownerId ?? null,
             ownershipState: tile?.ownershipState ?? null,
             fogged: tile?.fogged ?? null,
-            skipped: visibility !== "visible" && !revealWholeMapInTrue3DMode,
+            skipped: visibility === "unexplored" && !revealWholeMapInTrue3DMode,
             tilesRevision: deps.state.tilesRevision
           }, { throttleKey: `vis:${wx},${wy}`, minIntervalMs: 500 });
         }
-        // Skip tiles outside the player's vision unless ?reveal=1 is set.
-        // The reveal flag is the developer-facing whole-map mode used by
-        // the 2D path's `syntheticOverlayTileAt`.
-        if (visibility !== "visible" && !revealWholeMapInTrue3DMode) continue;
+        // Skip tiles never explored unless ?reveal=1 is set. Fogged tiles
+        // fall through -- the heightfield already drew their frozen terrain
+        // (isExploredForHeightfield above), and the fog branch below adds a
+        // darkened + last-known-owner tint before its own `continue`, so
+        // fogged tiles never reach the live overlay code (roads,
+        // structures, units, FX) further down this loop.
+        if (visibility === "unexplored" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
@@ -1504,6 +1518,33 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           heightfield.cornerYAt(wx, wyNext),
           heightfield.cornerYAt(wxNext, wyNext)
         ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+        if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
+          // Fogged tiles show only a darkened terrain quad plus a dim tint
+          // of their last-witnessed owner -- no roads, structures, units,
+          // or FX, since we no longer have live data for any of that. This
+          // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
+          const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const fogCorner01Y = heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const fogCorner11Y = heightfield.cornerYAt(wxNext, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const fx0 = x - 0.5;
+          const fx1 = x + 0.5;
+          const fz0 = z - 0.5;
+          const fz1 = z + 0.5;
+          fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+          if (terrain === "LAND" && ownerId) {
+            const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));
+            fogOwnershipOverlay.addTile(
+              fx0, fogCorner00Y, fz0,
+              fx1, fogCorner10Y, fz0,
+              fx0, fogCorner01Y, fz1,
+              fx1, fogCorner11Y, fz1,
+              fogOwnerColor,
+              ownershipState === "FRONTIER"
+            );
+          }
+          continue;
+        }
         if (terrain === "LAND") {
           const roadDirs = roadNetwork.get(deps.keyFor(wx, wy));
           if (roadDirs) {
@@ -1770,6 +1811,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     villageEffects.commit();
     forest.commit();
     ownershipOverlay.commit();
+    fogDarkenOverlay.commit();
+    fogOwnershipOverlay.commit();
     townOverlay.commit();
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
@@ -1894,6 +1937,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
     ownershipOverlay.dispose();
+    fogDarkenOverlay.dispose();
+    fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();
     hoverMarker.geometry.dispose();
     observatoryRangeMarker.geometry.dispose();
