@@ -34,7 +34,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
-import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
@@ -122,6 +122,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
   // (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
+  // Per-tile last-seen ownerId, used only to auto-detect and log ownership
+  // changes as they render (debug-tile logging) without needing a manually
+  // pinned coordinate — any tile whose rendered ownerId flips gets logged.
+  const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   // Fogged tiles get a black darkening quad (always full opacity 0.65,
@@ -1457,18 +1461,24 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const wy = deps.wrapY(deps.state.camY + dy);
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
-        if (tileMatchesDebugKey(wx, wy, 0)) {
-          debugTileLog("3d-render-visibility-check", {
-            x: wx,
-            y: wy,
-            visibility,
-            revealWholeMapInTrue3DMode,
-            ownerId: tile?.ownerId ?? null,
-            ownershipState: tile?.ownershipState ?? null,
-            fogged: tile?.fogged ?? null,
-            skipped: visibility === "unexplored" && !revealWholeMapInTrue3DMode,
-            tilesRevision: deps.state.tilesRevision
-          }, { throttleKey: `vis:${wx},${wy}`, minIntervalMs: 500 });
+        if (debugTileLoggingEnabled()) {
+          const tileKey = deps.keyFor(wx, wy);
+          const lastOwnerId = lastRenderedOwnerIdByTile.get(tileKey);
+          if (lastOwnerId !== tile?.ownerId) {
+            debugTileLog("3d-render-ownership-changed", {
+              x: wx,
+              y: wy,
+              visibility,
+              revealWholeMapInTrue3DMode,
+              fromOwnerId: lastOwnerId ?? null,
+              toOwnerId: tile?.ownerId ?? null,
+              ownershipState: tile?.ownershipState ?? null,
+              fogged: tile?.fogged ?? null,
+              skipped: visibility === "unexplored" && !revealWholeMapInTrue3DMode,
+              tilesRevision: deps.state.tilesRevision
+            });
+            lastRenderedOwnerIdByTile.set(tileKey, tile?.ownerId);
+          }
         }
         // Skip tiles never explored unless ?reveal=1 is set. Fogged tiles
         // fall through -- the heightfield already drew their frozen terrain
@@ -1484,9 +1494,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
-        if (tileMatchesDebugKey(wx, wy, 0)) {
-          debugTileLog("3d-render-pass", { x: wx, y: wy, terrain, isOwnedLand }, { throttleKey: `pass:${wx},${wy}`, minIntervalMs: 500 });
-        }
         if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y) {
           const playerColor = ownerId ? deps.state.playerColors.get(ownerId) : undefined;
           const effectiveColor = ownerId ? deps.effectiveOverlayColor(ownerId) : undefined;
