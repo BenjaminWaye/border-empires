@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.8",
+  version: "2026.07.09.9",
   title: "What's New",
-  summary: "Fog of war now actually renders in the 3D map — fogged tiles were previously indistinguishable from unexplored black.",
+  summary: "Season-end overlay now scrolls properly on macOS trackpad — nested scroll containers no longer fight each other.",
   entries: [
+    {
+      introducedIn: "2026.07.09.9",
+      title: "Season-end overlay now scrolls on macOS trackpad",
+      why: "The season-end overlay had two nested scroll containers (.se-scroll-body wrapping .se-tab-panels). On macOS trackpad, the browser couldn't reliably determine which should capture the scroll gesture, so the tab panel content appeared stuck — nothing scrolled.",
+      changes: [
+        "Removed the outer scroll layer (.se-scroll-body overflow-y: auto); only the tab panel area (.se-tab-panels) scrolls now.",
+        "The header, medallion, and tab bar stay fixed at the top while tab content scrolls naturally underneath.",
+        "The wheel/touch event handler that prevents the map behind the overlay from scrolling is unchanged — it already allowed events inside the scroll body."
+      ]
+    },
     {
       introducedIn: "2026.07.09.8",
       title: "Fog of war now renders in the 3D map",
