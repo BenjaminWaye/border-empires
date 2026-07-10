@@ -30,7 +30,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Removed the outer scroll layer (.se-scroll-body overflow-y: auto); only the tab panel area (.se-tab-panels) scrolls now.",
         "The header, medallion, and tab bar stay fixed at the top while tab content scrolls naturally underneath.",
-        "The wheel/touch event handler that prevents the map behind the overlay from scrolling is unchanged — it already allowed events inside the scroll body."
+        "The wheel/touch event handler now calls stopPropagation() to prevent events from bubbling to the map canvas zoom handler — the map was zooming instead of the overlay scrolling."
       ]
     },
     {
