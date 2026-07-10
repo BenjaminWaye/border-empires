@@ -5788,6 +5788,7 @@ button:disabled,
   flex-direction: column;
   width: min(880px, calc(100vw - 32px));
   max-height: calc(100dvh - 40px);
+  overflow: hidden;
   border-radius: 18px;
   padding: 6px;
   background:
@@ -5823,6 +5824,7 @@ button:disabled,
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   border-radius: 12px;
   background:
     radial-gradient(circle at 50% -10%, rgba(120, 84, 30, 0.4), transparent 45%),
@@ -5832,17 +5834,11 @@ button:disabled,
 .se-scroll-body {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 26px clamp(16px, 4vw, 40px) 0;
-}
-.se-tab-panels {
-  flex: 1;
-  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+  padding: 26px clamp(16px, 4vw, 40px) 0;
 }
 .se-scroll-footer {
   flex-shrink: 0;
