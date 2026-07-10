@@ -231,4 +231,47 @@ describe("TileDeltaStringifyCache", () => {
     expect(second.ownershipState).toBe("SETTLED");
     expect(second.dockId).toBe("dock-1");
   });
+
+  it("first-ever emission of a now-unowned tile still includes an explicit ownerId key", () => {
+    // Regression for the barbarian phantom-trail bug: a tile that a
+    // barbarian just vacated (ownerId now undefined) is emitted for the
+    // FIRST TIME to the stringify cache (e.g. right after a sim restart,
+    // when the in-memory cache is empty for every tile on the map, even
+    // ones already seen by connected players before the restart).
+    //
+    // buildSparseDelta's `if (!last) return fullDelta` bypass means the
+    // guarantee tested above ("ownerId always included, even unchanged")
+    // does NOT apply on this first-emission path -- it returns whatever
+    // fullDelta the caller built. Runtime.tileDeltaFromState conditionally
+    // spreads ownerId only `...(tile.ownerId ? { ownerId: tile.ownerId } : {})`,
+    // which OMITS the key entirely for an unowned tile. This exact shape
+    // (fullDelta built the same way tileDeltaFromState builds it) is
+    // reproduced here rather than importing the private runtime method.
+    //
+    // Downstream, tile-delta-visibility-filter.ts's ownership-clear
+    // passthrough for non-visible tiles checks `"ownerId" in delta` to
+    // decide whether a delta is a genuine ownership-clear worth forwarding
+    // even to a player who can't currently see the tile. If the key is
+    // missing, that check fails silently and the clear is dropped --
+    // the client never learns the barbarian left, and keeps rendering
+    // stale ownership indefinitely (until a manual REQUEST_TILE_DETAIL
+    // forces a fresh, unfiltered read).
+    const cache = new TileDeltaStringifyCache();
+    const vacatedTile: DomainTileState = { ...makeBaseTile() }; // no ownerId: barbarian walked off
+    const cached = cache.getOrComputeAll("1,1", vacatedTile);
+    const fullDeltaAsRuntimeBuildsIt = {
+      x: vacatedTile.x,
+      y: vacatedTile.y,
+      ...(vacatedTile.terrain ? { terrain: vacatedTile.terrain } : {}),
+      ...(vacatedTile.ownerId ? { ownerId: vacatedTile.ownerId } : {}),
+      ...(vacatedTile.ownershipState ? { ownershipState: vacatedTile.ownershipState } : {})
+    };
+
+    const first = cache.sparseEmit("1,1", vacatedTile, cached, fullDeltaAsRuntimeBuildsIt);
+
+    expect("ownerId" in first).toBe(true);
+    expect(first.ownerId).toBeUndefined();
+    expect("ownershipState" in first).toBe(true);
+    expect(first.ownershipState).toBeUndefined();
+  });
 });
