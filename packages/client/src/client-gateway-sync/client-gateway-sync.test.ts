@@ -1214,4 +1214,86 @@ describe("client gateway sync", () => {
     expect(tile?.fogged).toBe(false);
     expect(deps.state.discoveredTiles.has("5,5")).toBe(true);
   });
+
+  it("derives fogged unconditionally from visibilityState, clearing it when visibilityState is omitted (VISIBLE)", () => {
+    // Divergence pin: unlike the TILE_DELTA path (which only sets `fogged`
+    // when the update explicitly carries a `fogged` key), the gateway path
+    // always recomputes `merged.fogged = update.visibilityState === "FOG"`,
+    // so a delta with no visibilityState at all still clears a previously
+    // fogged tile back to false.
+    const deps = createDeps();
+    deps.state.tiles.set("6,6", {
+      x: 6,
+      y: 6,
+      terrain: "LAND",
+      ownerId: "rival-1",
+      ownershipState: "SETTLED",
+      fogged: true
+    });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 6, y: 6, ownerId: "rival-1", ownershipState: "SETTLED" }]);
+
+    expect(deps.state.tiles.get("6,6")?.fogged).toBe(false);
+  });
+
+  it("sets fogged true when visibilityState is FOG on a normal (non-clear-only) delta", () => {
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [
+      { x: 7, y: 7, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED", visibilityState: "FOG" as never }
+    ]);
+
+    expect(deps.state.tiles.get("7,7")?.fogged).toBe(true);
+  });
+
+  it("does not merge capital, breachShockUntil, clusterId, clusterType, or the dock object field (client-network-only fields)", () => {
+    // Divergence pin: these fields exist only on the TILE_DELTA path in
+    // client-network.ts. The gateway's GatewayTileUpdate type has no such
+    // fields and applyGatewayTileUpdate never reads or writes them, so even
+    // if a caller stuffed them onto the raw update object they must not
+    // appear on the resolved tile.
+    const deps = createDeps();
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 8,
+        y: 8,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        ...({ capital: true, breachShockUntil: 12345, clusterId: "c1", clusterType: "ISLAND", dock: { ownerId: "me" } } as any)
+      }
+    ]);
+
+    const tile = deps.state.tiles.get("8,8") as any;
+    expect(tile.capital).toBeUndefined();
+    expect(tile.breachShockUntil).toBeUndefined();
+    expect(tile.clusterId).toBeUndefined();
+    expect(tile.clusterType).toBeUndefined();
+    expect(tile.dock).toBeUndefined();
+  });
+
+  it("clears resource and dockId (via delete) when the delta sends an explicit falsy value (divergence from TILE_DELTA path)", () => {
+    // Divergence pin, counterpart to the client-network test of the same
+    // name: applyGatewayTileUpdate's resource/dockId merges DO delete on a
+    // falsy value, unlike the TILE_DELTA handler which only ever sets
+    // (never deletes) these two fields.
+    const deps = createDeps();
+    deps.state.tiles.set("9,1", {
+      x: 9,
+      y: 1,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false,
+      resource: "FARM",
+      dockId: "dock-a"
+    });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 9, y: 1, resource: "", dockId: "" }]);
+
+    const tile = deps.state.tiles.get("9,1");
+    expect(tile?.resource).toBeUndefined();
+    expect(tile?.dockId).toBeUndefined();
+  });
 });
