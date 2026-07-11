@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.2",
+  version: "2026.07.11.3",
   title: "What's New",
-  summary: "Shard Network panel now shows a live shard rain countdown; the Missions tab is hidden.",
+  summary: "Added a Settings tab — debug info, logout, and display name changes moved out of Sharding into their own home.",
   entries: [
+    {
+      introducedIn: "2026.07.11.3",
+      title: "New Settings tab",
+      why: "Account controls (logout, debug info) were bolted onto the bottom of the Sharding panel, which had nothing to do with account settings. There was also no way to change your display name after initial setup.",
+      changes: [
+        "Added a Settings tab (gear icon) after Sharding in both the desktop panel bar and mobile nav.",
+        "Moved sign-in status, client build version, bridge/auth debug info, map reveal, and Log Out into the new Settings tab.",
+        "Added a Display Name field in Settings so you can change your name at any time, not just during initial profile setup."
+      ]
+    },
     {
       introducedIn: "2026.07.11.2",
       title: "Shard rain countdown on the domain panel",
@@ -326,14 +336,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
         "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
         "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.3",
-      title: "Barbarian ghost tiles cleaned up on territory movement",
-      why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
-      changes: [
-        "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
       ]
     }
   ]
