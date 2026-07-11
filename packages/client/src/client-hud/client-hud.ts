@@ -1,4 +1,4 @@
-import { signOut, updateProfile, type Auth } from "firebase/auth";
+import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
@@ -22,6 +22,7 @@ import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from ".
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
+import { updateSettingsDisplayName, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "../client-social-suggestions/client-social-suggestions.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
@@ -952,24 +953,30 @@ export const renderClientHud = (deps: HudDeps): void => {
   `;
   dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
 
-  dom.panelSettingsEl.innerHTML = `
-    <div class="card auth-settings-card">
-      <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
-      <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
-      ${bridgeStatusHtml(state, wsUrl)}
-      ${mapRevealCardHtml()}
-      <div class="profile-display-name-form">
-        <label for="settings-display-name">Display Name</label>
-        <div class="row settings-display-name-row">
-          <input id="settings-display-name" type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authReady ? "" : "disabled"} />
-          <button type="button" class="panel-btn" data-settings-update-display-name ${state.authReady ? "" : "disabled"}>Update</button>
+  // Skip the rebuild while the player is typing a new name, or a background
+  // re-render would wipe unsaved keystrokes and reset focus/cursor position.
+  if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
+    dom.panelSettingsEl.innerHTML = `
+      <div class="card auth-settings-card">
+        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
+        ${bridgeStatusHtml(state, wsUrl)}
+        ${mapRevealCardHtml()}
+        <div class="auth-map-reveal">
+          <label>
+            <p>Display Name</p>
+            <div class="row settings-display-name-row">
+              <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authReady ? "" : "disabled"} data-settings-display-name />
+              <button type="button" class="panel-btn" data-settings-update-display-name ${state.authReady ? "" : "disabled"}>Update</button>
+            </div>
+          </label>
         </div>
+        <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
+        ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
       </div>
-      <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
-      ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
-    </div>
-  `;
-  dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
+    `;
+    dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
+  }
 
   const acceptButtons = dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>;
   acceptButtons.forEach((btn: HTMLButtonElement) => {
@@ -1039,26 +1046,17 @@ export const renderClientHud = (deps: HudDeps): void => {
   const settingsUpdateNameButtons = dom.hud.querySelectorAll("[data-settings-update-display-name]") as NodeListOf<HTMLButtonElement>;
   settingsUpdateNameButtons.forEach((updateBtn: HTMLButtonElement) => {
     updateBtn.onclick = async () => {
-      const input = dom.hud.querySelector<HTMLInputElement>("#settings-display-name");
+      // Scope to this button's own row: the card renders twice (desktop + mobile), so a
+      // global "#id" query would always read the first copy's value instead of this one's.
+      const input = updateBtn.closest(".settings-display-name-row")?.querySelector<HTMLInputElement>("[data-settings-display-name]");
       if (!input) return;
-      const newName = input.value.trim();
-      if (newName.length < 2) {
-        pushFeed("Display name must be at least 2 characters.", "error", "warn");
-        return;
-      }
-      if (newName === state.meName) {
-        pushFeed("Display name is unchanged.", "info", "info");
-        return;
-      }
-      sendGameMessage({ type: "SET_PROFILE", displayName: newName });
-      if (firebaseAuth?.currentUser && firebaseAuth.currentUser.displayName !== newName) {
-        try {
-          await updateProfile(firebaseAuth.currentUser, { displayName: newName });
-        } catch {
-          // Firebase profile update is best-effort.
-        }
-      }
-      pushFeed("Display name updated.", "info", "success");
+      await updateSettingsDisplayName(input.value, {
+        currentName: state.meName,
+        currentColor: dom.authProfileColorEl.value,
+        sendGameMessage,
+        updateFirebaseDisplayName: (name) => updateFirebaseDisplayNameBestEffort(firebaseAuth, name),
+        pushFeed
+      });
     };
   });
   const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
