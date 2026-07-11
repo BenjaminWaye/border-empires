@@ -19,10 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.1",
+  version: "2026.07.11.2",
   title: "What's New",
-  summary: "Truce offers to AI empires in seasonal games no longer fail with 'target not found'.",
+  summary: "Shard Network panel now shows a live shard rain countdown; the Missions tab is hidden.",
   entries: [
+    {
+      introducedIn: "2026.07.11.2",
+      title: "Shard rain countdown on the domain panel",
+      why: "There was no persistent way to see when the next shard rain was coming — only a one-time dismissible alert.",
+      changes: [
+        "The Shard Network card now shows 'Next shard rain in Xh Ym' while waiting, or 'Shard rain active — N sites — X left' while it's underway."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.2",
+      title: "Missions tab hidden",
+      why: "Missions are paused for rebalance; the tab was showing stale placeholder content.",
+      changes: [
+        "The Missions button and panel are hidden from desktop and mobile navigation. Mission state is untouched so the feature can return later."
+      ]
+    },
     {
       introducedIn: "2026.07.11.1",
       title: "Fixed truce offers to AI empires in seasonal default games",
@@ -318,38 +334,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
       changes: [
         "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.2",
-      title: "Captured tiles no longer flash neutral when they carried an enemy muster flag",
-      why: "Capturing a tile that had an enemy muster flag on it sent a follow-up 'clear the flag' update that omitted the tile's owner fields entirely, instead of including the new owner like every other muster-clearing update in the codebase does. Depending on how a client merged that update, the freshly captured tile could render unowned right after the correct capture update.",
-      changes: [
-        "The muster-flag-clear update fired on capture (and on losing your own origin tile in a counter-attack) now always includes the tile's current owner and ownership state, matching the two other call sites that already did this correctly."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.2",
-      title: "Waterworks food bonus now applies to live tile collection and tile updates, not just background income ticks",
-      why: "The Waterworks +50% Farmstead food radius bonus was correctly modeled and applied during periodic background income accrual, but the code path used when a player actually clicks Collect on a tile, and the code path used to build the live tile-update broadcast, both built their own copy of the yield context and forgot to forward the Waterworks tile set into it -- silently dropping the bonus for anything except the background tick. The initial map snapshot/bootstrap view had the same gap.",
-      changes: [
-        "Collecting a Farmstead tile's yield, the live tile-update broadcast, and the initial map snapshot all now apply the Waterworks +50% food bonus consistently with background income ticks."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.2",
-      title: "Attacking undefended frontier land now costs much less mustered manpower",
-      why: "Frontier-owned tiles (claimed but not yet settled) have zero effective defense in combat -- they always fall to any attack, fort or no fort, until the tile is actually settled. Despite that, attacking one under the mustering system still charged the full settled-attack manpower floor (60), the same cost as attacking a heavily fortified settled town.",
-      changes: [
-        "Attacking a frontier (un-settled) target now costs a low flat mustered-manpower amount, similar to a barbarian raid, regardless of any fort built on that tile -- forts only raise the attack cost once their tile is actually settled."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.1",
-      title: "Cut-off frontier tiles now update the map immediately",
-      why: "A tile ownership change delivered outside the main batched tile-sync path (a single-tile detail refresh, or an attack/encirclement result) updated the client's tile data correctly, but never signaled the 3D map's render loop to redraw. The tile silently stayed owned/frontier on screen until an unrelated camera move or a full page refresh forced a redraw.",
-      changes: [
-        "Any tile update that clears or changes ownership -- including a frontier tile cut off by an encirclement -- now immediately triggers a map redraw, matching the correct data the client already had."
       ]
     }
   ]

@@ -8,7 +8,6 @@ export const isMobileDevice = (): boolean =>
   (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
-  if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";
   if (panel === "domains") return "Sharding";
   if (panel === "alliance") return "Alliances";
@@ -22,7 +21,6 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
 };
 
 export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): ClientState["mobilePanel"] => {
-  if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
   if (panel === "domains") return "domains";
   if (panel === "alliance") return "social";
@@ -39,7 +37,6 @@ export const mobileNavLabelHtml = (
   opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
 ): string => {
   if (panel === "core") return '<span class="tab-icon">⌂</span>';
-  if (panel === "missions") return '<span class="tab-icon">◎</span>';
   if (panel === "tech") {
     return opts?.techReady
       ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
@@ -156,7 +153,6 @@ export const renderMobilePanels = (
 
   const mobileSections: Array<[HTMLElement, ClientState["mobilePanel"]]> = [
     [deps.mobilePanelCoreEl, "core"],
-    [deps.mobilePanelMissionsEl, "missions"],
     [deps.mobilePanelTechEl, "tech"],
     [deps.mobilePanelDomainsEl, "domains"],
     [deps.mobilePanelSocialEl, "social"],
@@ -171,8 +167,7 @@ export const renderMobilePanels = (
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
   }
 
-  if (state.mobilePanel === "missions") deps.mobileSheetHeadEl.textContent = "Missions";
-  else if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = "Technology Tree";
+  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = "Technology Tree";
   else if (state.mobilePanel === "domains") deps.mobileSheetHeadEl.textContent = "Sharding";
   else if (state.mobilePanel === "social") deps.mobileSheetHeadEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Empire Integrity";
