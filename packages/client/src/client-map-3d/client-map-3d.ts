@@ -112,6 +112,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const camera = createPerspectiveCamera(deps.canvas);
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
+  scene.add(heightfield.skirtMesh);
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);

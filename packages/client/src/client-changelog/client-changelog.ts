@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.2",
+  version: "2026.07.11.3",
   title: "What's New",
-  summary: "Shard Network panel now shows a live shard rain countdown; the Missions tab is hidden.",
+  summary: "Fixed a black gap at the coastline; shard rain countdown; Missions tab hidden.",
   entries: [
+    {
+      introducedIn: "2026.07.11.3",
+      title: "Fixed black gap at the shoreline",
+      why: "At low camera angles you could see a black crack where the land met the water — the terrain surface had no thickness and stopped exactly at the coast.",
+      changes: [
+        "Coastal land tiles now drop a solid wall down to below the waterline so grazing camera angles never show through to empty space at the shore."
+      ]
+    },
     {
       introducedIn: "2026.07.11.2",
       title: "Shard rain countdown on the domain panel",
