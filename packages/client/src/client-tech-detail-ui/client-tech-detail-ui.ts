@@ -9,7 +9,6 @@ import {
   ownedDomainByTier,
   renderDomainChoiceGridHtml,
   renderDomainDetailCardHtml,
-  renderDomainProgressCardHtml,
   renderTechDetailCardHtml
 } from "../client-tech-html/client-tech-html.js";
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "../client-tech-tree-html/client-tech-tree-html.js";
@@ -492,23 +491,6 @@ export const renderDomainChoiceGrid = (deps: {
     ownedByTier: ownedDomainByTier(deps.domainCatalog, deps.domainIds),
     currentTier: currentDomainChoiceTier(deps.domainCatalog, deps.domainChoices),
     requiresTechNames: Object.fromEntries(deps.domainCatalog.map((domain) => [domain.id, deps.techNameList([domain.requiresTechId])]))
-  });
-
-export const visibleShardCacheCount = (tiles: Iterable<{ fogged?: boolean; shardSite?: { kind: string } | null }>): number =>
-  [...tiles].filter((tile) => !tile.fogged && tile.shardSite?.kind === "CACHE").length;
-
-export const renderDomainProgressCard = (deps: {
-  tiles: Iterable<{ fogged?: boolean; shardSite?: { kind: string } | null }>;
-  shardStock: number;
-  domainCatalog: DomainInfo[];
-  domainChoices: string[];
-  domainIds: string[];
-}): string =>
-  renderDomainProgressCardHtml({
-    visibleShardCacheCount: visibleShardCacheCount(deps.tiles),
-    shardStock: deps.shardStock,
-    currentTier: currentDomainChoiceTier(deps.domainCatalog, deps.domainChoices),
-    chosenDomainCount: deps.domainIds.length
   });
 
 export const renderDomainDetailCard = (deps: {

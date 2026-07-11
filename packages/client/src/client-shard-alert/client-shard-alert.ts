@@ -19,3 +19,18 @@ export const shardRainAlertDetail = (alert: ClientShardRainAlert, nowMs: number)
   }
   return `Shard rain has begun. ${alert.siteCount} impact site${alert.siteCount === 1 ? "" : "s"} will remain for ${formatShardRainRemaining(alert.expiresAt - nowMs)}.`;
 };
+
+// Compact countdown line for a persistent panel (as opposed to the one-time
+// alert overlay above). Returns "" when there is nothing to show so callers
+// can omit the note line entirely.
+export const formatShardRainCountdown = (alert: ClientShardRainAlert | undefined, nowMs: number): string => {
+  if (!alert) return "";
+  if (alert.phase === "started") {
+    const remaining = alert.expiresAt - nowMs;
+    if (remaining <= 0) return "";
+    return `Shard rain active — ${alert.siteCount} site${alert.siteCount === 1 ? "" : "s"} — ${formatShardRainRemaining(remaining)} left`;
+  }
+  const remaining = alert.startsAt - nowMs;
+  if (remaining <= 0) return "";
+  return `Next shard rain in ${formatShardRainRemaining(remaining)}`;
+};

@@ -511,40 +511,6 @@ export const formatDomainCost = (domain: DomainInfo): string => {
   return fallbackCostBits.length > 0 ? fallbackCostBits.join(" · ") : "Cost not listed";
 };
 
-export const renderDomainProgressCardHtml = (args: {
-  visibleShardCacheCount: number;
-  shardStock: number;
-  currentTier: number | undefined;
-  chosenDomainCount: number;
-}): string => {
-  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount } = args;
-  const statusLine =
-    currentTier !== undefined
-      ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches to build toward your next doctrine pick.`
-      : "All open domain tiers are currently committed. Keep hunting shards to afford the next doctrine window.";
-  const scoutingLine =
-    visibleShardCacheCount > 0
-      ? `${visibleShardCacheCount} shard cache${visibleShardCacheCount === 1 ? "" : "s"} visible in explored territory.`
-      : "No shard caches in view yet. Push exploration to uncover more shard income.";
-  return `<article class="card domain-progress-card">
-    <div class="domain-progress-head">
-      <div>
-        <div class="domain-summary-kicker">Shard Network</div>
-        <strong>Shards fuel your doctrine path</strong>
-      </div>
-      <span class="domain-progress-badge">${currentTier !== undefined ? `Tier ${currentTier} live` : `${chosenDomainCount} chosen`}</span>
-    </div>
-    <p>${statusLine}</p>
-    <div class="domain-progress-metrics">
-      <div class="domain-progress-metric">
-        <span>Shard stock</span>
-        <strong>${shardStock.toFixed(1)}</strong>
-      </div>
-    </div>
-    <p class="domain-progress-note">${scoutingLine}</p>
-  </article>`;
-};
-
 export const ownedDomainByTier = (domainCatalog: DomainInfo[], domainIds: string[]): Map<number, DomainInfo> => {
   const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
   const out = new Map<number, DomainInfo>();

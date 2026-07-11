@@ -1,10 +1,10 @@
 import { defensivenessMultiplier } from "@border-empires/shared";
 import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech-html/client-tech-html.js";
+import { renderDomainProgressCard as renderDomainProgressCardFromModule } from "./client-domain-progress-card.js";
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
   renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
-  renderDomainProgressCard as renderDomainProgressCardFromModule,
   renderStructureInfoOverlay as renderStructureInfoOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
   renderTechDetailCard as renderTechDetailCardFromModule,
@@ -252,7 +252,9 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       shardStock: state.strategicResources.SHARD ?? 0,
       domainCatalog: state.domainCatalog,
       domainChoices: state.domainChoices,
-      domainIds: state.domainIds
+      domainIds: state.domainIds,
+      shardAlert: state.shardAlert,
+      nowMs: Date.now()
     });
 
   const renderTechDetailOverlay = (): string => {
