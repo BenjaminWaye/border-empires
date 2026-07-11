@@ -19,45 +19,48 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.09.9",
+  version: "2026.07.11.1",
   title: "What's New",
-  summary: "Season-end overlay now scrolls properly on macOS trackpad — nested scroll containers no longer fight each other.",
+  summary: "Truce offers to AI empires in seasonal games no longer fail with 'target not found'.",
   entries: [
+    {
+      introducedIn: "2026.07.11.1",
+      title: "Fixed truce offers to AI empires in seasonal default games",
+      why: "Social state used seasonal names (e.g. \"Freja Sund\") while client sent \"AI N\" format for truce target names, causing all truce offers to AI empires to fail with \"target not found\".",
+      changes: [
+        "Aligned gateway social state AI names to \"AI N\" format matching client display names."
+      ]
+    },
     {
       introducedIn: "2026.07.09.9",
       title: "Season-end overlay now scrolls on macOS trackpad",
-      why: "Two bugs: (1) #season-end-overlay was missing from the pointer-events: auto list that every other overlay has, so wheel events passed right through to the #game canvas and zoomed the map instead of scrolling the overlay. (2) Even when events stayed inside the overlay, two nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither one scrolled.",
+      why: "Nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither scrolled.",
       changes: [
-        "Added #season-end-overlay to the pointer-events: auto list so wheel and click events target the overlay instead of falling through to the map canvas behind it.",
-        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container — the header, medallion, and tab bar stay fixed at the top.",
-        "The wheel/touch event handler now calls stopPropagation() as defense-in-depth to prevent any bubbling to the game's zoom handler."
+        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container.",
       ]
     },
     {
       introducedIn: "2026.07.09.8",
       title: "Fog of war now renders in the 3D map",
-      why: "All the fog-of-war work so far (server FOG stamping, discoveredTiles fixes, dim ownership tint) only ever touched the 2D canvas renderer. The 3D renderer (the default view) simply skipped drawing any tile that wasn't currently visible, so fogged and unexplored tiles both rendered as empty black — fog never actually appeared for most players.",
+      why: "3D renderer skipped drawing any tile not currently visible, so fogged tiles were empty black.",
       changes: [
-        "Fogged tiles in the 3D map now render their frozen terrain, darkened, with a dim tint of their last-witnessed owner — matching the 2D canvas renderer's fog visuals.",
-        "No structures, units, roads, or effects are shown on fogged tiles, since that live detail isn't known once a tile leaves your vision."
+        "Fogged 3D tiles now render frozen terrain, darkened, with dim owner tint."
       ]
     },
     {
       introducedIn: "2026.07.09.7",
       title: "Season-end overlay scrolling works everywhere, not just in the tab panel area",
-      why: "The first attempt at independent tab-panel scroll (2026.07.09.6) removed the outer scroll container entirely, which meant scrolling over the tab buttons or the header did nothing — the whole dialog felt stuck. The tab panel area scrolled by itself, but anywhere else was inert.",
+      why: "Removing the outer scroll container (2026.07.09.6) fixed the tab panels but made scrolling over the header/tabs do nothing.",
       changes: [
-        "The outer dialog area (header, tab bar) now keeps its own scroll so hovering over the tab buttons and scrolling works normally.",
-        "The tab panel area still scrolls independently for long leaderboards and victory-path content.",
-        "Both layers use touch-action, momentum scrolling, and overscroll-behavior so touch and mouse-wheel gestures work consistently everywhere."
+        "Kept outer scroll on header/tab bar while tab panels scroll independently."
       ]
     },
     {
       introducedIn: "2026.07.09.5",
       title: "Fogged tiles keep a dim ownership tint",
-      why: "Fog-of-war rendering dropped ownership color entirely once a tile went fogged, so a captured-then-fogged tile just looked neutral instead of showing who actually held it last — you couldn't tell at a glance whether a lost tile went to a rival or a barbarian.",
+      why: "Fog-of-war dropped ownership color once a tile went fogged, so you couldn't tell who held it last.",
       changes: [
-        "Fogged tiles now render a dim, static tint of their last-witnessed owner (no live blink/breach-shock animation, since that state is frozen)."
+        "Fogged tiles now render a dim, static tint of their last-witnessed owner."
       ]
     },
     {
@@ -71,29 +74,25 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     {
       introducedIn: "2026.07.09.3",
       title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
-      why: "The gateway assigns every player a color by hashing their id, but barbarian-1 was never excluded from that hashing, so it got a hashed hue (turquoise) that overrode the client's intended dark-grey barbarian fallback.",
+      why: "The gateway hashed barbarian-1 for a color, overriding the client's intended dark-grey fallback with a bright hue.",
       changes: [
-        "Barbarian territory now always renders with the fixed dark grey (#2f3842) fill, regardless of any color the server sends for that id.",
-        "The gateway now assigns barbarian ids a fixed color instead of a hashed one, so this can't drift again."
+        "Barbarian territory now always renders dark grey (#2f3842), regardless of server color."
       ]
     },
     {
       introducedIn: "2026.07.09.2",
       title: "Fixed truce offers appearing on barbarian tiles",
-      why: "Settled barbarian territory is owned by the id \"barbarian-1\", but the truce menu only excluded the literal id \"barbarian\", so the Offer Truce/Break Truce actions incorrectly showed up on barbarian-controlled tiles.",
+      why: "Truce menu only excluded id \"barbarian\", not \"barbarian-1\", so truce actions appeared on barbarian territory.",
       changes: [
-        "Offer Truce and Break Truce no longer appear on any barbarian-owned tile.",
-        "The gateway now also rejects a TRUCE_REQUEST targeting a barbarian player id server-side, as defense in depth."
+        "Offer/Break Truce no longer appear on any barbarian-owned tile."
       ]
     },
     {
       introducedIn: "2026.07.09.1",
       title: "Truce-break lockout",
-      why: "Breaking a truce before its 12h/24h window ended had no consequence, so players could use truces as a free, revocable shield with no downside for reneging.",
+      why: "Breaking a truce early had no consequence, so players used truces as free, revocable shields.",
       changes: [
-        "Breaking an active truce early now locks you out of requesting or accepting any new truce for 24 hours.",
-        "The player you broke the truce with is not penalized and can offer or accept truces normally.",
-        "The Break Truce action tooltip now warns about the lockout before you confirm."
+        "Breaking an active truce now locks you out of new truces for 24 hours."
       ]
     },
     {
