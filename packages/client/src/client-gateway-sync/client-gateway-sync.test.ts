@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
+import { createClientOptimisticStateController } from "../client-optimistic-state/client-optimistic-state.js";
 import type { Tile } from "../client-types.js";
 
-const createDeps = (overrides?: { me?: string; mods?: { income?: number } }) => {
+const createDeps = (overrides?: { me?: string; mods?: { income?: number }; realMergeIncomingTileDetail?: boolean }) => {
   const state = {
       me: "",
       tiles: new Map<string, Tile>(),
@@ -14,21 +15,35 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number } }) => 
       upkeepLastTick: { foodCoverage: 1 },
       mods: overrides?.mods ?? { income: 1.0 }
     };
+  const resolvedState = {
+    ...state,
+    me: overrides?.me ?? "me",
+    upkeepLastTick: {
+      food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      foodCoverage: 1
+    }
+  };
+  const keyFor = (x: number, y: number) => `${x},${y}`;
+  // Most tests isolate applyGatewayTileUpdate's own field logic, so the merge
+  // hook is a cheap identity stub. Opt into the REAL mergeIncomingTileDetail to
+  // exercise the full delta -> merge path (needed to catch the ownership
+  // resurrection bug, which lives in that downstream merge, not here).
+  const mergeIncomingTileDetail = overrides?.realMergeIncomingTileDetail
+    ? createClientOptimisticStateController({
+        state: resolvedState as never,
+        keyFor,
+        terrainAt: () => "LAND",
+        tileVisibilityStateAt: () => "visible"
+      }).mergeIncomingTileDetail
+    : (_existing: Tile | undefined, incoming: Tile) => incoming;
   return {
-    state: {
-      ...state,
-      me: overrides?.me ?? "me",
-      upkeepLastTick: {
-        food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-        iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-        supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-        crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-        gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-        foodCoverage: 1
-      }
-    },
-    keyFor: (x: number, y: number) => `${x},${y}`,
-    mergeIncomingTileDetail: (_existing: Tile | undefined, incoming: Tile) => incoming,
+    state: resolvedState,
+    keyFor,
+    mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState: (tile: Tile) => tile
   };
 };
@@ -933,6 +948,37 @@ describe("client gateway sync", () => {
     );
     expect(deps.state.tiles.get("10,12")?.ownerId).toBeUndefined();
     expect(deps.state.tiles.get("10,12")?.ownershipState).toBeUndefined();
+  });
+
+  it("clears ownership through the REAL detail-merge when a barbarian vacates a known tile", () => {
+    // Regression: the delta path deletes ownerId/ownershipState to signal a
+    // clear, then hands the tile to mergeIncomingTileDetail. With the real
+    // merge (not the identity stub), a naive { ...existing, ...incoming } spread
+    // resurrects the barbarian owner. Exercise the full path so that bug stays
+    // fixed end-to-end, not just in the merge unit test.
+    const deps = createDeps({ realMergeIncomingTileDetail: true });
+
+    deps.state.tiles.set("195,296", {
+      x: 195,
+      y: 296,
+      terrain: "LAND",
+      ownerId: "barbarian-1",
+      ownershipState: "SETTLED",
+      detailLevel: "summary",
+      fogged: false
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 195,
+        y: 296,
+        ownerId: null,
+        ownershipState: null
+      }
+    ]);
+
+    expect(deps.state.tiles.get("195,296")?.ownerId).toBeUndefined();
+    expect(deps.state.tiles.get("195,296")?.ownershipState).toBeUndefined();
   });
 
   it("preserves shard sites when a frontier claim delta explicitly carries an empty shard field", () => {
