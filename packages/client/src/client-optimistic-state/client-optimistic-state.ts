@@ -425,6 +425,24 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       ...incoming,
       ...(preservePriorDetail ? { detailLevel: "full" as const } : {})
     };
+    // Ownership is authoritative in `incoming`, NOT a detail field to preserve.
+    // The delta callers (applyGatewayTileUpdate / the TILE_DELTA handler)
+    // resolve an ownership CLEAR by `delete`-ing ownerId/ownershipState from the
+    // object they pass in here -- but the `{ ...existing, ...incoming }` spread
+    // above cannot distinguish "key deleted (cleared)" from "key never present
+    // (unchanged)", so it silently resurrects existing's stale owner. That is
+    // exactly how a barbarian vacating a tile (ownerId -> null on the wire) left
+    // the client rendering permanent ghost ownership. Re-assert the clear.
+    //
+    // Safe because the sim ALWAYS emits ownerId/ownershipState on every tile
+    // delta (see tile-delta-stringify-cache.ts sparseEmit) -- an incoming that
+    // lacks the key never means "unchanged, keep existing" for these two fields;
+    // it only ever means the caller cleared them. Other presence-significant
+    // fields (frontierDecayAt/Kind, breachShockUntil, dockId) are CONDITIONALLY
+    // emitted, so their absence here is genuinely ambiguous and must keep the
+    // detail-preserve (absent = keep) behavior -- do NOT add them below.
+    if (!("ownerId" in incoming)) delete merged.ownerId;
+    if (!("ownershipState" in incoming)) delete merged.ownershipState;
     if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
     if (!preservePriorDetail) return merged;
     if (!("town" in incoming) && existing.town) merged.town = existing.town;
