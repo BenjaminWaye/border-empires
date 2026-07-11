@@ -2,7 +2,7 @@ const hudMarkup = `
   <div id="top-strip">
     <div id="stats-chips"></div>
     <div id="panel-actions">
-      <button class="icon-btn icon-only" data-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
+      <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
       <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
@@ -203,7 +203,7 @@ const hudMarkup = `
 
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
-    <button data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
+    <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
     <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
     <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard"><span class="tab-icon">🏆</span></button>
@@ -231,7 +231,7 @@ const hudMarkup = `
       <button id="panel-close">Close</button>
     </div>
     <div id="side-panel-body">
-      <section id="panel-missions" class="panel-body"></section>
+      <section id="panel-missions" class="panel-body" hidden></section>
       <section id="panel-tech" class="panel-body">
         <div class="tech-section-tabs tech-section-tabs-single">
           <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
@@ -279,7 +279,7 @@ const hudMarkup = `
 
   <div id="mobile-sheet">
     <div id="mobile-sheet-head">Panel</div>
-    <section id="mobile-panel-missions" class="mobile-panel"></section>
+    <section id="mobile-panel-missions" class="mobile-panel" hidden></section>
     <section id="mobile-panel-tech" class="mobile-panel">
       <div class="tech-section-tabs tech-section-tabs-single">
         <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
