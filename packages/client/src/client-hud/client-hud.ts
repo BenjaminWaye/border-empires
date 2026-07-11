@@ -513,8 +513,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   const coreMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='core']") as HTMLButtonElement | null;
   if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
-  const missionsMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='missions']") as HTMLButtonElement | null;
-  if (missionsMobileBtn) missionsMobileBtn.innerHTML = mobileNavLabelHtml("missions");
   const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
   if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
   const leaderboardMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='leaderboard']") as HTMLButtonElement | null;
@@ -967,8 +965,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
   dom.mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
-  dom.missionsEl.innerHTML = safeValue("missionCardsHtml", fallbackCard("Missions"), () => deps.missionCardsHtml(state.missions));
-  dom.mobilePanelMissionsEl.innerHTML = dom.missionsEl.innerHTML;
+  dom.missionsEl.innerHTML = "";
+  dom.mobilePanelMissionsEl.innerHTML = "";
   const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Empire Integrity"), () =>
     renderDefensibilityPanelHtml({
       tiles: state.tiles,
