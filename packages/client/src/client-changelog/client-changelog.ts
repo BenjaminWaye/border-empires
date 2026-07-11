@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.3",
+  version: "2026.07.11.4",
   title: "What's New",
-  summary: "Fixed a black gap at the coastline; shard rain countdown; Missions tab hidden.",
+  summary: "Fixed tiles that stayed painted with an old owner's color after a barbarian moved off them.",
   entries: [
+    {
+      introducedIn: "2026.07.11.4",
+      title: "Fixed lingering ghost ownership after barbarians move",
+      why: "When a barbarian vacated a tile, the server correctly told the client the tile was now neutral, but a tile-merge bug quietly restored the barbarian's old ownership — so the map kept showing the tile as owned indefinitely.",
+      changes: [
+        "Tiles that lose their owner (e.g. a barbarian walking away) now clear their ownership color immediately instead of staying stuck on the previous owner."
+      ]
+    },
     {
       introducedIn: "2026.07.11.3",
       title: "Fixed black gap at the shoreline",
