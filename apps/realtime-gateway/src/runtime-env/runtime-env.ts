@@ -16,6 +16,7 @@ export type RealtimeGatewayRuntimeEnv = {
   allowNonAuthoritativeInitialState: boolean;
   adminApiToken?: string;
   fogAdminEmail?: string;
+  aiPlayerCount?: number;
   emailAlerts: {
     resendApiKey?: string;
     from?: string;
@@ -42,6 +43,13 @@ const parseBinaryFlag = (value: string | undefined): boolean | undefined => {
   if (value === "1") return true;
   if (value === "0") return false;
   return undefined;
+};
+
+const parseOptionalAiPlayerCount = (value: string | undefined): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return parsed;
 };
 
 export const parseRealtimeGatewayRuntimeEnv = (
@@ -104,6 +112,10 @@ export const parseRealtimeGatewayRuntimeEnv = (
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
     fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "bw199005@gmail.com").trim().toLowerCase(),
+    ...(() => {
+      const count = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
+      return count !== undefined ? { aiPlayerCount: count } : {};
+    })(),
     emailAlerts: {
       ...(env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY ? { resendApiKey: env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY } : {}),
       from: emailAlertsFrom,

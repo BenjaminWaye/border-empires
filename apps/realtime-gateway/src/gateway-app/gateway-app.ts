@@ -70,7 +70,7 @@ import {
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
-import { seasonalPlayerNameForId } from "../../../simulation/src/season-worldgen/season-worldgen.js";
+
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionDock, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
@@ -101,6 +101,7 @@ type RealtimeGatewayAppOptions = {
   defaultHumanPlayerId?: string;
   simulationSeedProfile?: SimulationSeedProfile;
   allowNonAuthoritativeInitialState?: boolean;
+  aiPlayerCount?: number;
   snapshotDir?: string;
   createCommandId?: () => string;
   now?: () => number;
@@ -139,7 +140,7 @@ const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | und
   return seedName ?? playerId;
 };
 
-const seasonalDefaultAiPlayerIds = (): string[] => Array.from({ length: 20 }, (_, index) => `ai-${index + 1}`);
+const seasonalDefaultAiPlayerIds = (aiPlayerCount?: number): string[] => Array.from({ length: aiPlayerCount ?? 20 }, (_, index) => `ai-${index + 1}`);
 
 const adjacentKeysForTile = (x: number, y: number): string[] => [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`];
 
@@ -1090,7 +1091,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const profileOverrides = createPlayerProfileOverrides();
   const seedPlayers = createSeedPlayers(simulationSeedProfile);
   const seedWorld = createSeedWorld(simulationSeedProfile);
-  const seasonalAiPlayerIds = simulationSeedProfile === "default" ? seasonalDefaultAiPlayerIds() : [];
+  const seasonalAiPlayerIds = simulationSeedProfile === "default" ? seasonalDefaultAiPlayerIds(options.aiPlayerCount) : [];
   const seededAiPlayerIds = new Set([
     ...[...seedPlayers.values()]
       .filter((player) => player.isAi)
@@ -1137,7 +1138,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       initialSocialPlayerNamesById.set(player.id, initialSocialNameForSeedPlayer(player.id, player.name));
     }
     for (const playerId of seasonalAiPlayerIds) {
-      initialSocialPlayerNamesById.set(playerId, seasonalPlayerNameForId(playerId));
+      initialSocialPlayerNamesById.set(playerId, initialSocialNameForSeedPlayer(playerId, undefined));
     }
   }
   for (const profile of await profileStore.listAllNamed()) {
