@@ -35,6 +35,17 @@ export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
 export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
 export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
 
+// The heightfield surface has zero thickness, and sea tiles are skipped
+// entirely so the water plane can sit on top of the hole. At grazing camera
+// angles that leaves a vertical riser between the coast bevel (coastEdgeY,
+// below) and the water/void with no geometry covering it, which reads as a
+// black crack at the shoreline. SKIRT_BOTTOM_Y is a "wall" every coastal
+// land edge drops to, well below the lowest water displacement, so that
+// riser is always covered by solid (if unlit) geometry instead of empty
+// canvas.
+const SKIRT_BOTTOM_Y = -0.6;
+const SKIRT_SHADE = 0.55;
+
 export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): number => {
   switch (kind) {
     case "MOUNTAIN":
@@ -117,6 +128,7 @@ export type Heightfield = {
   readonly material: MeshStandardMaterial;
   readonly geometry: BufferGeometry;
   readonly gridlines: LineSegments;
+  readonly skirtMesh: Mesh;
   readonly detailMaps: TerrainDetailMaps;
   readonly rebuild: (inputs: HeightfieldRebuildInputs) => void;
   readonly elevationAt: (wx: number, wy: number) => number;
@@ -277,6 +289,39 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   mesh.frustumCulled = false;
   mesh.receiveShadow = false;
   mesh.castShadow = false;
+
+  // Skirt: a vertical wall dropped from every coastal land edge (where a
+  // drawn land tile borders a skipped sea/unexplored tile) down to
+  // SKIRT_BOTTOM_Y. Plain vertex-colored material — no biome textures — it
+  // is only ever glimpsed edge-on as a thin sliver beneath the coast bevel.
+  // Sized for the worst case (every tile edge is a coastline) so the typed
+  // arrays never need to grow at runtime.
+  const MAX_SKIRT_EDGES = QUAD_COUNT * 4;
+  const skirtPositions = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
+  const skirtColors = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
+  // Written directly per edge (flat quad normal) rather than via
+  // geometry.computeVertexNormals() — that method loops over the buffer's
+  // full preallocated index/position count, not the draw range, so on a
+  // MAX_SKIRT_EDGES-sized buffer it would rescan up to ~1M entries every
+  // rebuild() regardless of how few skirt edges are actually active.
+  const skirtNormals = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
+  const skirtIndices = new Uint32Array(MAX_SKIRT_EDGES * 6);
+  const skirtGeometry = new BufferGeometry();
+  skirtGeometry.setAttribute("position", new BufferAttribute(skirtPositions, 3));
+  skirtGeometry.setAttribute("color", new BufferAttribute(skirtColors, 3));
+  skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
+  skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
+  skirtGeometry.setDrawRange(0, 0);
+  const skirtMaterial = new MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 1,
+    metalness: 0,
+    side: DoubleSide
+  });
+  const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
+  skirtMesh.frustumCulled = false;
+  skirtMesh.receiveShadow = false;
+  skirtMesh.castShadow = false;
 
   // Gridlines: a LineSegments that reuses the heightfield's position buffer,
   // with a precomputed index that draws only the horizontal and vertical
@@ -528,6 +573,93 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       if (indexAttr) indexAttr.needsUpdate = true;
     }
 
+    // Skirt pass: for every drawn (land) tile, drop a vertical wall along
+    // any edge shared with a skipped (sea/unexplored) neighbour tile so
+    // there is solid geometry under the coast bevel at grazing angles.
+    {
+      let skirtVertCount = 0;
+      let skirtIdxCount = 0;
+      // sampleTile wraps its (di, dj) offsets toroidally, so this reads the
+      // real neighbour even just past the current rebuild window — the
+      // window edge itself is not a coastline and must not grow a skirt.
+      const isHole = (i: number, j: number): boolean => {
+        const s = sampleTile(i, j);
+        return s.isSea || !s.isExplored;
+      };
+      const emitSkirtEdge = (
+        ax: number, az: number, ay: number, ar: number, ag: number, ab: number,
+        bx: number, bz: number, by: number, br: number, bg: number, bb: number
+      ): void => {
+        if (skirtVertCount + 4 > MAX_SKIRT_EDGES * 4) return;
+        const base = skirtVertCount;
+        const p = base * 3;
+        skirtPositions[p + 0] = ax; skirtPositions[p + 1] = ay; skirtPositions[p + 2] = az;
+        skirtPositions[p + 3] = bx; skirtPositions[p + 4] = by; skirtPositions[p + 5] = bz;
+        skirtPositions[p + 6] = ax; skirtPositions[p + 7] = SKIRT_BOTTOM_Y; skirtPositions[p + 8] = az;
+        skirtPositions[p + 9] = bx; skirtPositions[p + 10] = SKIRT_BOTTOM_Y; skirtPositions[p + 11] = bz;
+        const c = base * 3;
+        skirtColors[c + 0] = ar; skirtColors[c + 1] = ag; skirtColors[c + 2] = ab;
+        skirtColors[c + 3] = br; skirtColors[c + 4] = bg; skirtColors[c + 5] = bb;
+        skirtColors[c + 6] = ar * SKIRT_SHADE; skirtColors[c + 7] = ag * SKIRT_SHADE; skirtColors[c + 8] = ab * SKIRT_SHADE;
+        skirtColors[c + 9] = br * SKIRT_SHADE; skirtColors[c + 10] = bg * SKIRT_SHADE; skirtColors[c + 11] = bb * SKIRT_SHADE;
+        // Flat quad normal: perpendicular to the top edge in the XZ plane.
+        // The skirt is a vertical wall, so this is a fair approximation even
+        // without accounting for the (usually tiny) top-edge Y slope — good
+        // enough for a face that's only ever seen edge-on as a thin sliver.
+        const dx = bx - ax;
+        const dz = bz - az;
+        const len = Math.hypot(dx, dz) || 1;
+        const nx = dz / len;
+        const nz = -dx / len;
+        skirtNormals[p + 0] = nx; skirtNormals[p + 1] = 0; skirtNormals[p + 2] = nz;
+        skirtNormals[p + 3] = nx; skirtNormals[p + 4] = 0; skirtNormals[p + 5] = nz;
+        skirtNormals[p + 6] = nx; skirtNormals[p + 7] = 0; skirtNormals[p + 8] = nz;
+        skirtNormals[p + 9] = nx; skirtNormals[p + 10] = 0; skirtNormals[p + 11] = nz;
+        skirtIndices[skirtIdxCount++] = base + 0;
+        skirtIndices[skirtIdxCount++] = base + 2;
+        skirtIndices[skirtIdxCount++] = base + 1;
+        skirtIndices[skirtIdxCount++] = base + 1;
+        skirtIndices[skirtIdxCount++] = base + 2;
+        skirtIndices[skirtIdxCount++] = base + 3;
+        skirtVertCount += 4;
+      };
+      const cornerAt = (i: number, j: number): { x: number; y: number; z: number; r: number; g: number; b: number } => {
+        const idx = j * VERT_DIM + i;
+        return {
+          x: positions[idx * 3 + 0] as number,
+          y: positions[idx * 3 + 1] as number,
+          z: positions[idx * 3 + 2] as number,
+          r: colors[idx * 3 + 0] as number,
+          g: colors[idx * 3 + 1] as number,
+          b: colors[idx * 3 + 2] as number
+        };
+      };
+      for (let j = 0; j < tileSpanY; j += 1) {
+        for (let i = 0; i < tileSpanX; i += 1) {
+          const sample = sampleTile(i, j);
+          if (sample.isSea || !sample.isExplored) continue;
+          // Corner grid indices for this tile: a=TL, b=TR, c=BL, d=BR.
+          const a = cornerAt(i, j);
+          const b = cornerAt(i + 1, j);
+          const c = cornerAt(i, j + 1);
+          const d = cornerAt(i + 1, j + 1);
+          if (isHole(i, j - 1)) emitSkirtEdge(a.x, a.z, a.y, a.r, a.g, a.b, b.x, b.z, b.y, b.r, b.g, b.b);
+          if (isHole(i, j + 1)) emitSkirtEdge(c.x, c.z, c.y, c.r, c.g, c.b, d.x, d.z, d.y, d.r, d.g, d.b);
+          if (isHole(i - 1, j)) emitSkirtEdge(c.x, c.z, c.y, c.r, c.g, c.b, a.x, a.z, a.y, a.r, a.g, a.b);
+          if (isHole(i + 1, j)) emitSkirtEdge(b.x, b.z, b.y, b.r, b.g, b.b, d.x, d.z, d.y, d.r, d.g, d.b);
+        }
+      }
+      const skirtPosAttr = skirtGeometry.getAttribute("position");
+      const skirtColorAttr = skirtGeometry.getAttribute("color");
+      const skirtNormalAttr = skirtGeometry.getAttribute("normal");
+      const skirtIndexAttr = skirtGeometry.index;
+      if (skirtPosAttr) (skirtPosAttr as BufferAttribute).needsUpdate = true;
+      if (skirtColorAttr) (skirtColorAttr as BufferAttribute).needsUpdate = true;
+      if (skirtNormalAttr) (skirtNormalAttr as BufferAttribute).needsUpdate = true;
+      if (skirtIndexAttr) skirtIndexAttr.needsUpdate = true;
+      skirtGeometry.setDrawRange(0, skirtIdxCount);
+    }
+
     const positionAttr = geometry.attributes.position;
     const colorAttr = geometry.attributes.color;
     const uvAttr = geometry.attributes.uv;
@@ -619,6 +751,8 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
     detailMaps.dispose();
     gridGeometry.dispose();
     gridMaterial.dispose();
+    skirtGeometry.dispose();
+    skirtMaterial.dispose();
   };
 
   return {
@@ -626,6 +760,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
     material,
     geometry,
     gridlines,
+    skirtMesh,
     detailMaps,
     rebuild,
     elevationAt,
