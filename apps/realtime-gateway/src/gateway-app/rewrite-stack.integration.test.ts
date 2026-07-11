@@ -783,7 +783,7 @@ describe("rewrite stack integration", () => {
     playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
 
-    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "Freja Sund", durationHours: 12 }));
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 4", durationHours: 12 }));
 
     expect(
       await nextMatchingMessage(
@@ -804,26 +804,26 @@ describe("rewrite stack integration", () => {
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-4", toName: "Freja Sund", durationHours: 12 })]
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-4", toName: "AI 4", durationHours: 12 })]
       })
     );
     expect(await nextTypedMessage(playerOne, "seasonal ai truce requested", "TRUCE_REQUESTED")).toEqual(
       expect.objectContaining({
         type: "TRUCE_REQUESTED",
-        targetName: "Freja Sund"
+        targetName: "AI 4"
       })
     );
     expect(
       await nextMatchingMessage(
         playerOne,
         "seasonal ai truce declined",
-        (message) => message.type === "TRUCE_UPDATE" && message.announcement === "Freja Sund declined your truce offer."
+        (message) => message.type === "TRUCE_UPDATE" && message.announcement === "AI 4 declined your truce offer."
       )
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
         outgoingTruceRequests: [],
-        announcement: "Freja Sund declined your truce offer."
+        announcement: "AI 4 declined your truce offer."
       })
     );
   });
