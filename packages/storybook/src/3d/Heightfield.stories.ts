@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type TerrainPattern = "all-grass" | "all-sand" | "checker" | "coastline" | "mountain-ridge" | "mixed";
@@ -8,7 +9,9 @@ type Args = {
   pattern: TerrainPattern;
   showGridlines: boolean;
   withFog: boolean;
+  withWater: boolean;
   cameraDistance: number;
+  cameraTilt: number;
 };
 
 const tileKindForPattern = (pattern: TerrainPattern) => (wx: number, wy: number): HeightfieldTerrainKind => {
@@ -39,11 +42,19 @@ const tileKindForPattern = (pattern: TerrainPattern) => (wx: number, wy: number)
 };
 
 const render = (args: Args): HTMLElement => {
-  const stage = createStage({ cameraDistance: args.cameraDistance, background: args.withFog ? "#0e1218" : "#1a2030" });
+  const stage = createStage({
+    cameraDistance: args.cameraDistance,
+    cameraTilt: args.cameraTilt,
+    background: args.withFog ? "#0e1218" : "#1a2030"
+  });
   const hf = createHeightfield();
-  stage.scene.add(hf.mesh, hf.gridlines);
+  // skirtMesh is the vertical wall dropped along every land/sea boundary
+  // edge — without it, grazing camera angles at the coastline show empty
+  // canvas (a black crack) instead of solid ground under the coast bevel.
+  stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.setGridlinesVisible(args.showGridlines);
 
+  const tileKindAt = tileKindForPattern(args.pattern);
   hf.rebuild({
     camX: 0,
     camY: 0,
@@ -51,11 +62,33 @@ const render = (args: Args): HTMLElement => {
     halfH: 12,
     worldWidth: 240,
     worldHeight: 240,
-    tileKindAt: tileKindForPattern(args.pattern)
+    tileKindAt
   });
 
+  const water = args.withWater ? createWaterSurface(stage.scene, 25 * 25) : null;
+  let rafId = 0;
+  if (water) {
+    for (let dz = -12; dz <= 12; dz += 1) {
+      for (let dx = -12; dx <= 12; dx += 1) {
+        const kind = tileKindAt(dx, dz);
+        if (kind === "SEA" || kind === "COASTAL_SEA") {
+          water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA");
+        }
+      }
+    }
+    water.commit();
+    const start = performance.now();
+    const tickWater = (): void => {
+      water.tick(performance.now() - start);
+      rafId = requestAnimationFrame(tickWater);
+    };
+    tickWater();
+  }
+
   return wrapWithCleanup(stage, [
-    () => { stage.scene.remove(hf.mesh, hf.gridlines); },
+    () => { stage.scene.remove(hf.mesh, hf.skirtMesh, hf.gridlines); },
+    () => { if (water) cancelAnimationFrame(rafId); },
+    () => { water?.dispose(); },
     hf.dispose
   ]);
 };
@@ -69,17 +102,27 @@ const meta: Meta<Args> = {
     pattern: { control: "inline-radio", options: ["all-grass", "all-sand", "checker", "coastline", "mountain-ridge", "mixed"] },
     showGridlines: { control: "boolean" },
     withFog: { control: "boolean" },
-    cameraDistance: { control: { type: "range", min: 10, max: 60, step: 2 } }
+    withWater: { control: "boolean" },
+    cameraDistance: { control: { type: "range", min: 10, max: 60, step: 2 } },
+    cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
   },
-  args: { pattern: "mixed", showGridlines: false, withFog: false, cameraDistance: 24 },
+  args: { pattern: "mixed", showGridlines: false, withFog: false, withWater: false, cameraDistance: 24, cameraTilt: 0.6 },
   render
 };
 
 export default meta;
 type Story = StoryObj<Args>;
 export const Mixed: Story = {};
-export const Coastline: Story = { args: { pattern: "coastline" } };
+export const Coastline: Story = { args: { pattern: "coastline", withWater: true } };
 export const MountainRidge: Story = { args: { pattern: "mountain-ridge" } };
 export const Checker: Story = { args: { pattern: "checker", showGridlines: true } };
 export const AllGrass: Story = { args: { pattern: "all-grass" } };
 export const AllSand: Story = { args: { pattern: "all-sand" } };
+
+// Low, near-horizontal camera tilt at the shoreline — the angle that used
+// to expose the black crack between the coast bevel and the water plane
+// before the skirt wall was added. Compare against `withWater: false` /
+// no-skirt manually if you need to see the bug reproduced.
+export const GrazingCoastline: Story = {
+  args: { pattern: "coastline", withWater: true, cameraTilt: 1.3, cameraDistance: 18 }
+};
