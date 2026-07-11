@@ -17,6 +17,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
+  if (panel === "settings") return "Settings";
   return "Player Identity";
 };
 
@@ -29,6 +30,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
   if (panel === "manpower") return "manpower";
   if (panel === "development") return "development";
   if (panel === "leaderboard") return "leaderboard";
+  if (panel === "settings") return "settings";
   return "feed";
 };
 
@@ -45,6 +47,7 @@ export const mobileNavLabelHtml = (
   if (panel === "domains") return '<span class="tab-icon">✦</span>';
   if (panel === "social") return '<span class="tab-icon">👥</span>';
   if (panel === "leaderboard") return '<span class="tab-icon">🏆</span>';
+  if (panel === "settings") return '<span class="tab-icon">⚙</span>';
   const feedUnreadCount = opts?.feedUnreadCount ?? 0;
   return opts?.attackAlertUnread || feedUnreadCount > 0
     ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${opts?.attackAlertUnread ? "under attack" : "new activity"}">${opts?.attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
@@ -118,6 +121,7 @@ export const renderMobilePanels = (
     mobilePanelDevelopmentEl: HTMLElement;
     mobilePanelLeaderboardEl: HTMLElement;
     mobilePanelFeedEl: HTMLElement;
+    mobilePanelSettingsEl: HTMLElement;
     mobileSheetHeadEl: HTMLElement;
   }
 ): void => {
@@ -161,7 +165,8 @@ export const renderMobilePanels = (
     [deps.mobilePanelManpowerEl, "manpower"],
     [deps.mobilePanelDevelopmentEl, "development"],
     [deps.mobilePanelLeaderboardEl, "leaderboard"],
-    [deps.mobilePanelFeedEl, "feed"]
+    [deps.mobilePanelFeedEl, "feed"],
+    [deps.mobilePanelSettingsEl, "settings"]
   ];
   for (const [element, panel] of mobileSections) {
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
@@ -176,6 +181,7 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "development") deps.mobileSheetHeadEl.textContent = "Development";
   else if (state.mobilePanel === "leaderboard") deps.mobileSheetHeadEl.textContent = "Leaderboard";
   else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Activity Feed";
+  else if (state.mobilePanel === "settings") deps.mobileSheetHeadEl.textContent = "Settings";
   else deps.mobileSheetHeadEl.textContent = "Core";
 
   const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
