@@ -962,12 +962,12 @@ export const renderClientHud = (deps: HudDeps): void => {
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml(state, wsUrl)}
         ${mapRevealCardHtml()}
-        <div class="auth-map-reveal">
+        <div class="settings-display-name-field">
           <label>
             <p>Display Name</p>
             <div class="row settings-display-name-row">
-              <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authReady ? "" : "disabled"} data-settings-display-name />
-              <button type="button" class="panel-btn" data-settings-update-display-name ${state.authReady ? "" : "disabled"}>Update</button>
+              <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authSessionReady ? "" : "disabled"} data-settings-display-name />
+              <button type="button" class="panel-btn" data-settings-update-display-name ${state.authSessionReady ? "" : "disabled"}>Update</button>
             </div>
           </label>
         </div>
