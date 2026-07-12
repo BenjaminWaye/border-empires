@@ -3,25 +3,10 @@ import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-em
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
-import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
-
-const testRuntimePlayer = (id: string) => ({
-  id,
-  isAi: false,
-  points: 100,
-  manpower: 150,
-  techIds: new Set<string>(),
-  domainIds: new Set<string>(),
-  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-  techRootId: "rewrite-local",
-  allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-});
-
-const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
 
 describe("simulation runtime", () => {
   it("applyPassiveIncome credits gold proportional to elapsed time for active players", () => {
@@ -111,8 +96,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
     runtime.submitCommand({
       commandId: "collect-visible-gone",
       sessionId: "session-1",
@@ -130,34 +114,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1")],
+        ["player-2", buildPlayer("player-2")]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -168,10 +126,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "sync-alliance-1",
@@ -212,20 +167,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1")]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -264,20 +206,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1")]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -332,20 +261,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: true,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { isAi: true })]
       ]),
       seedTiles: new Map([
         ["10,10", { x: 10, y: 10, terrain: "LAND" }],
@@ -380,20 +296,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: true,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { isAi: true })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -423,22 +326,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 0,
-            manpowerUpdatedAt: 0,
-            manpowerCapSnapshot: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
       ]),
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
@@ -453,22 +341,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 0,
-            manpowerUpdatedAt: 0,
-            manpowerCapSnapshot: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -493,10 +366,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "collect-1",
@@ -556,22 +426,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 0,
-            manpowerUpdatedAt: 0,
-            manpowerCapSnapshot: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -604,22 +459,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 0,
-            manpowerUpdatedAt: 0,
-            manpowerCapSnapshot: 6_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 6_000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -660,10 +500,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "collect-1",
@@ -692,34 +529,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -767,34 +578,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -847,34 +632,8 @@ describe("simulation runtime", () => {
       onVisibilityAudit: (sample) =>
         audits.push({ playerId: sample.playerId, tileKey: sample.tileKey, reasons: sample.reasons, redacted: sample.redacted }),
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -920,34 +679,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1003,34 +736,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1188,34 +895,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1259,20 +940,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       seedDocks: [
@@ -1315,34 +983,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       seedDocks: [
@@ -1367,20 +1009,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100 })]
       ]),
       seedTiles: new Map(),
       seedDocks: [
@@ -1405,34 +1034,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(["player-2"])
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(["player-1"])
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { manpower: 100, allies: new Set<string>(["player-2"]) })],
+        ["player-2", buildPlayer("player-2", { manpower: 100, allies: new Set<string>(["player-1"]) })]
       ]),
       seedTiles: new Map(),
       seedDocks: [
@@ -1461,20 +1064,7 @@ describe("simulation runtime", () => {
         scheduledTasks.push(task);
       },
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 1_000,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1498,10 +1088,7 @@ describe("simulation runtime", () => {
       }
     });
 
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "settle-dock",
@@ -1565,34 +1152,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 10_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 10_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })],
+        ["player-2", buildPlayer("player-2", { isAi: true, points: 10_000, manpower: 10_000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1633,34 +1194,8 @@ describe("simulation runtime", () => {
           scheduled.push({ delayMs, task });
         },
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 1_000,
-              manpower: 1_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: false,
-              points: 200,
-              manpower: 1_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000 })],
+          ["player-2", buildPlayer("player-2", { points: 200, manpower: 1_000 })]
         ]),
         seedTiles: new Map(),
         initialState: {
@@ -1735,20 +1270,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 10_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]
       ]),
       initialState: {
         tiles: [
@@ -1786,20 +1308,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 0,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 0 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1816,10 +1325,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "collect-1",
@@ -1853,21 +1359,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1884,10 +1376,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     currentNow += 5 * 60_000;
 
@@ -1920,21 +1409,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 8000,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", testRuntimePlayer("player-1", { points: 8000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1974,21 +1449,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 1000,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", testRuntimePlayer("player-1", { points: 1000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2030,21 +1491,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 0,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2092,21 +1539,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 0,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2158,21 +1591,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 0,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2226,22 +1645,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "ai-1",
-          {
-            id: "ai-1",
-            isAi: true,
-            points: 0,
-            manpower: 0,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2264,22 +1668,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "ai-1",
-          {
-            id: "ai-1",
-            isAi: true,
-            points: 100,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2301,22 +1690,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       initialPlayers: new Map([
-        [
-          "ai-1",
-          {
-            id: "ai-1",
-            isAi: true,
-            points: 100,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [
@@ -2483,10 +1857,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "expand-cancelled-1",
@@ -2544,10 +1915,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     const expandCommand = {
       commandId: "expand-terminal-1",
@@ -2624,10 +1992,7 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      const seen: SimulationRuntimeEventShape[] = [];
-      runtime.onEvent((event) => {
-        seen.push(event);
-      });
+      const seen = collectEvents(runtime);
 
       runtime.submitCommand({
         commandId: "expand-stale-origin-1",
@@ -2679,34 +2044,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 300,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: true,
-              points: 100,
-              manpower: 300,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { manpower: 300 })],
+          ["player-2", buildPlayer("player-2", { isAi: true, manpower: 300 })]
         ]),
         seedTiles: new Map(),
         initialState: {
@@ -2718,10 +2057,7 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      const seen: SimulationRuntimeEventShape[] = [];
-      runtime.onEvent((event) => {
-        seen.push(event);
-      });
+      const seen = collectEvents(runtime);
 
       runtime.submitCommand({
         commandId: "lose-attack-1",
@@ -2778,21 +2114,7 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 150,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-            }
-          ]
+          ["player-1", testRuntimePlayer("player-1")]
         ]),
         initialState: {
           tiles: [
@@ -2829,20 +2151,7 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 150,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1")]
         ]),
         initialState: {
           tiles: [
@@ -2885,34 +2194,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: true,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -2923,10 +2206,7 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      const seen: SimulationRuntimeEventShape[] = [];
-      runtime.onEvent((event) => {
-        seen.push(event);
-      });
+      const seen = collectEvents(runtime);
 
       runtime.submitCommand({
         commandId: "lose-origin-1",
@@ -2978,34 +2258,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: true,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -3072,34 +2326,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "captor",
-            {
-              id: "captor",
-              isAi: true,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "reclaimer",
-            {
-              id: "reclaimer",
-              isAi: false,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["captor", buildPlayer("captor", { isAi: true, points: 1_000, manpower: 10_000 })],
+          ["reclaimer", buildPlayer("reclaimer", { points: 1_000, manpower: 10_000 })]
         ]),
         initialState: {
           tiles: [
@@ -3163,34 +2391,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: true,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -3207,10 +2409,7 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      const seen: SimulationRuntimeEventShape[] = [];
-      runtime.onEvent((event) => {
-        seen.push(event);
-      });
+      const seen = collectEvents(runtime);
 
       runtime.submitCommand({
         commandId: "lose-origin-fort-1",
@@ -3256,34 +2455,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 1_000,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: true,
-              points: 900,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
+          ["player-2", buildAiOpponent({ points: 900 })]
         ]),
         initialState: {
           tiles: [
@@ -3340,18 +2513,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 100 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
           ]
         ]),
         initialState: {
@@ -3413,18 +2575,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry", "fortified-walls"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
@@ -3468,18 +2619,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry", "fortified-walls"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
@@ -3527,18 +2667,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
@@ -3581,18 +2710,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
@@ -3635,18 +2753,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
@@ -3692,18 +2799,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 300,
-              techIds: new Set<string>(["masonry"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 100 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 300, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
           ]
         ]),
         initialState: {
@@ -3759,18 +2855,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 100 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
           ]
         ]),
         initialState: {
@@ -3838,18 +2923,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["cartography"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { CRYSTAL: 100 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["cartography"]), strategicResources: { CRYSTAL: 100 } })
           ]
         ]),
         initialState: {
@@ -3903,18 +2977,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 100 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { SUPPLY: 100 } })
           ]
         ]),
         initialState: {
@@ -3968,18 +3031,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking", "siegecraft"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 500, IRON: 200 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
           ]
         ]),
         initialState: {
@@ -4017,18 +3069,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking", "siegecraft"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 500, IRON: 200 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
           ]
         ]),
         initialState: {
@@ -4069,18 +3110,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 500, IRON: 200 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
           ]
         ]),
         initialState: {
@@ -4123,18 +3153,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 500, IRON: 200 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
           ]
         ]),
         initialState: {
@@ -4177,18 +3196,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 500, IRON: 200 }
-            }
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
           ]
         ]),
         initialState: {
@@ -4232,18 +3240,8 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 10_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["leatherworking", "siegecraft"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { SUPPLY: 100, IRON: 10 } // enough SUPPLY, not enough IRON
-            }
+            // enough SUPPLY, not enough IRON
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 100, IRON: 10 } })
           ]
         ]),
         initialState: {
@@ -4289,18 +3287,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["trade"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: {}
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
           ]
         ]),
         initialState: {
@@ -4360,18 +3347,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 5_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["trade"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: {}
-          }
+          buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
         ]
       ]),
       initialState: {
@@ -4432,18 +3408,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["organized-supply"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { CRYSTAL: 200 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["organized-supply"]), strategicResources: { CRYSTAL: 200 } })
           ]
         ]),
         initialState: {
@@ -4493,21 +3458,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 5_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 200 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 5_000, manpower: 10_000, strategicResources: { CRYSTAL: 200 } })]
       ]),
       initialState: {
         tiles: [
@@ -4706,18 +3657,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["overload-protocols"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { SUPPLY: 0 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["overload-protocols"]), strategicResources: { SUPPLY: 0 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -4761,21 +3701,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: {}
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: {} })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -5430,20 +4356,7 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "ai-1",
-            {
-              id: "ai-1",
-              isAi: true,
-              points: 100,
-              manpower: 150,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["ai-1", buildPlayer("ai-1", { isAi: true })]
         ]),
         initialState: {
           tiles: [
@@ -5501,32 +4414,9 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "barbarian-1",
-            {
-              id: "barbarian-1",
-              isAi: false,
-              points: Number.MAX_SAFE_INTEGER,
-              manpower: Number.MAX_SAFE_INTEGER,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1_000, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
+            buildPlayer("barbarian-1", { points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER, mods: { attack: 1_000, defense: 1, income: 1, vision: 1 } })
           ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: false,
-              points: 100,
-              manpower: 1,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+                      ["player-2", buildPlayer("player-2", { manpower: 1 })]
         ]),
         initialState: {
           // Dense neutral neighbourhood around the target so a regressed
@@ -5654,17 +4544,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 100,
-            techIds: new Set(["toolmaking"]),
-            domainIds: new Set(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            allies: new Set(),
-            missions: []
-          }
+          buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
         ]
       ]),
       initialState: {
@@ -5718,17 +4598,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 100,
-              techIds: new Set(["toolmaking"]),
-              domainIds: new Set(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              allies: new Set(),
-              missions: []
-            }
+            buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
           ]
         ]),
         initialState: {
@@ -5764,34 +4634,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "ai-1",
-            {
-              id: "ai-1",
-              isAi: true,
-              points: 100,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { manpower: 10_000 })],
+          ["ai-1", buildPlayer("ai-1", { isAi: true, manpower: 10_000 })]
         ]),
         seedTiles: new Map(),
         initialState: {
@@ -5871,34 +4715,8 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => now,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "ai-1",
-            {
-              id: "ai-1",
-              isAi: true,
-              points: 100,
-              manpower: 10_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { manpower: 10_000 })],
+          ["ai-1", buildPlayer("ai-1", { isAi: true, manpower: 10_000 })]
         ]),
         seedTiles: new Map(),
         initialState: {
@@ -6203,20 +5021,7 @@ describe("simulation runtime", () => {
         ]
       ]),
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1")]
       ]),
       initialState: {
         tiles: [
@@ -6275,19 +5080,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            name: "Nauticus",
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
+          testRuntimePlayer("player-1", { name: "Nauticus" })
         ]
       ])
     });
@@ -6460,23 +5253,7 @@ describe("simulation runtime", () => {
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
     const runtime = new SimulationRuntime({
       initialPlayers: new Map([
-        [
-          "ai-1",
-          {
-            id: "ai-1",
-            isAi: true,
-            name: "ai-1",
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
@@ -6508,33 +5285,11 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 10_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["cryptography", "surveying"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 1_000 }
-          }
+          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying"]), strategicResources: { CRYSTAL: 1_000 } })
         ],
         [
           "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 900,
-            manpower: 700,
-            techIds: new Set<string>(["cartography"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 }
-          }
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["cartography"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -6590,14 +5345,13 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            ...testRuntimePlayer("player-1"),
+          testRuntimePlayer("player-1", {
             points: 20_000,
             techIds: new Set<string>(["logistics"]),
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 }
-          }
+          })
         ],
-        ["player-2", { ...testRuntimePlayer("player-2"), isAi: true }]
+        ["player-2", testRuntimePlayer("player-2", { isAi: true })]
       ]),
       initialState: {
         tiles: [
@@ -6619,8 +5373,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "siphon-radius",
@@ -6664,33 +5417,9 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["logistics", "terrain-engineering"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 2_000, SHARD: 0 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["logistics", "terrain-engineering"]), strategicResources: { CRYSTAL: 2_000, SHARD: 0 } })
         ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 1_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -6793,21 +5522,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 1_000,
-            manpower: 1_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000, strategicResources: { SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -6818,10 +5533,7 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event);
-    });
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "collect-unowned",
@@ -6852,21 +5564,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 1_000,
-            manpower: 1_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000, strategicResources: { SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [
@@ -6909,33 +5607,9 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["navigation", "harborcraft"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 2_000 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
         ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 1_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -7017,18 +5691,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["navigation", "harborcraft"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 2_000 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
         ]
       ]),
       initialState: {
@@ -7097,18 +5760,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["navigation", "harborcraft"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 2_000 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
         ]
       ]),
       initialState: {
@@ -7200,18 +5852,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(["navigation", "harborcraft"]),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 2_000 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
         ]
       ]),
       initialState: {
@@ -7280,35 +5921,8 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { CRYSTAL: 200 }
-          }
-        ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 1_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: { CRYSTAL: 200 } })],
+        ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -7419,33 +6033,9 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 20_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: options.resources ?? { CRYSTAL: 10 }
-          }
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
         ],
-        [
-          "player-2",
-          {
-            id: "player-2",
-            isAi: true,
-            points: 1_000,
-            manpower: 10_000,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: { tiles: tiles as never, activeLocks: [] }
     });
@@ -7531,34 +6121,8 @@ describe("simulation runtime", () => {
       new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          [
-            "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 100,
-              manpower: 5_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ],
-          [
-            "player-2",
-            {
-              id: "player-2",
-              isAi: false,
-              points: 100,
-              manpower: 5_000,
-              techIds: new Set<string>(),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>()
-            }
-          ]
+          ["player-1", buildPlayer("player-1", { manpower: 5_000 })],
+          ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
         ]),
         seedTiles: new Map(),
         initialState: {
@@ -7600,8 +6164,7 @@ describe("simulation runtime", () => {
       });
 
     const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
-      const seen: SimulationEvent[] = [];
-      runtime.onEvent((event) => seen.push(event));
+      const seen = collectEvents(runtime);
       runtime.submitCommand({
         commandId: "atk-1",
         sessionId: "session-1",
@@ -7637,34 +6200,8 @@ describe("simulation runtime", () => {
       const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
       const players = new Map([
-        [
-          "barbarian-1",
-          {
-            id: "barbarian-1",
-            isAi: true,
-            points: Number.MAX_SAFE_INTEGER,
-            manpower: Number.MAX_SAFE_INTEGER,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ],
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 1_000,
-            manpower: 200,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["barbarian-1", buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })],
+        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 200 })]
       ]);
       const tiles = [
         ...input.barbTiles.map((tile) => ({
@@ -7898,17 +6435,7 @@ describe("simulation runtime", () => {
             ["player-1", testRuntimePlayer("player-1")],
             [
               "barbarian-1",
-              {
-                id: "barbarian-1",
-                isAi: true,
-                points: Number.MAX_SAFE_INTEGER,
-                manpower: Number.MAX_SAFE_INTEGER,
-                techIds: new Set<string>(),
-                domainIds: new Set<string>(),
-                mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-                techRootId: "rewrite-local",
-                allies: new Set<string>()
-              }
+              buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })
             ]
           ]),
           seedTiles: new Map(),
@@ -7920,8 +6447,7 @@ describe("simulation runtime", () => {
             activeLocks: []
           }
         });
-        const seen: SimulationRuntimeEventShape[] = [];
-        runtime.onEvent((event) => seen.push(event));
+        const seen = collectEvents(runtime);
 
         runtime.submitCommand({
           commandId: "failed-attack-barb-counter",
@@ -8002,11 +6528,9 @@ describe("simulation runtime", () => {
     // snapshot, so Clockwork Stipend trickle was lost after sim restart.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
-      initialPlayers: new Map([["player-1", {
-        ...testRuntimePlayer("player-1"),
-        domainIds: new Set(["clockwork-stipend"]),
-        chosenTrickleResource: "IRON" as const
-      }]]),
+      initialPlayers: new Map([
+        ["player-1", testRuntimePlayer("player-1", { domainIds: new Set(["clockwork-stipend"]), chosenTrickleResource: "IRON" as const })]
+      ]),
       seedTiles: new Map(),
       initialState: {
         tiles: [
@@ -8080,8 +6604,7 @@ describe("simulation runtime — shard rain", () => {
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.tickShardRain(localTime(11, 0));
 
@@ -8112,8 +6635,7 @@ describe("simulation runtime — shard rain", () => {
       seedTiles: new Map(),
       initialState: { tiles, activeLocks: [] }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     // count = SHARD_RAIN_SITE_MIN + floor(random*4); 0 -> 3 sites.
     // Per attempt: x random, y random, amount random.
@@ -8176,8 +6698,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -8209,8 +6730,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.tickShardRain(expiresAt + 1_000);
 
@@ -8238,8 +6758,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -8270,8 +6789,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
 
@@ -8321,8 +6839,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.submitCommand({
       commandId: "collect-rain-1",
@@ -8362,8 +6879,7 @@ describe("simulation runtime — shard rain", () => {
         activeLocks: []
       }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
     runtime.emitShardRainHelloFor("human-1", localTime(12, 20));
@@ -8381,8 +6897,7 @@ describe("simulation runtime — shard rain", () => {
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     runtime.emitShardRainHelloFor("human-1", localTime(9, 0));
 
@@ -8405,8 +6920,7 @@ describe("simulation runtime — shard rain", () => {
       seedTiles: new Map(),
       initialState: { tiles, activeLocks: [] }
     });
-    const seen: SimulationEvent[] = [];
-    runtime.onEvent((event) => seen.push(event));
+    const seen = collectEvents(runtime);
 
     const randomValues = [
       0, // count -> SHARD_RAIN_SITE_MIN + 0 = 3
@@ -8693,20 +7207,7 @@ describe("simulation runtime — tile shedding", () => {
     const runtime = new SimulationRuntime({
       now: () => now,
       initialPlayers: new Map([
-        [
-          "ai-1",
-          {
-            id: "ai-1",
-            isAi: true,
-            points: 10_000,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 10_000, manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -8730,20 +7231,7 @@ describe("simulation runtime — tile shedding", () => {
     const runtime = new SimulationRuntime({
       now: () => now,
       initialPlayers: new Map([
-        [
-          "barbarian-1",
-          {
-            id: "barbarian-1",
-            isAi: false,
-            points: 0,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
+        ["barbarian-1", buildPlayer("barbarian-1", { points: 0, manpower: 100 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -8791,18 +7279,7 @@ describe("imperial exchange levy", () => {
       });
     }
     const players = new Map<string, Record<string, unknown>>();
-    players.set("player-1", {
-      id: "player-1",
-      isAi: false,
-      points: 10_000,
-      manpower: 10_000,
-      techIds: new Set<string>(options.techIds ?? ["exchange-levy"]),
-      domainIds: new Set<string>(),
-      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-      techRootId: "rewrite-local",
-      allies: new Set<string>(options.allies ?? []),
-      strategicResources: { CRYSTAL: options.crystal ?? 1_000 }
-    });
+    players.set("player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(options.techIds ?? ["exchange-levy"]), allies: new Set<string>(options.allies ?? []), strategicResources: { CRYSTAL: options.crystal ?? 1_000 } }));
     for (const [pid, stocks] of Object.entries(options.rivalStocks ?? {})) {
       players.set(pid, {
         id: pid,
@@ -8992,29 +7469,8 @@ describe("aether purge", () => {
     return new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", {
-          id: "player-1",
-          isAi: false,
-          points: options.points ?? 5_000,
-          manpower: 10_000,
-          techIds: new Set<string>(["signal-fires"]),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          techRootId: "rewrite-local",
-          allies: new Set<string>(),
-          strategicResources: { CRYSTAL: options.crystal ?? 500 }
-        }],
-        ["player-2", {
-          id: "player-2",
-          isAi: true,
-          points: 100,
-          manpower: 100,
-          techIds: new Set<string>(),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          techRootId: "rewrite-local",
-          allies: new Set<string>()
-        }]
+        ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["signal-fires"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
       ]) as never,
       initialState: { tiles: tiles as never, activeLocks: [] }
     });
@@ -9161,29 +7617,8 @@ describe("worldbreaker shot", () => {
     return new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", {
-          id: "player-1",
-          isAi: false,
-          points: options.points ?? 20_000,
-          manpower: 10_000,
-          techIds: new Set<string>(options.techIds ?? ["worldbreaker-fire"]),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          techRootId: "rewrite-local",
-          allies: new Set<string>(),
-          strategicResources: { CRYSTAL: options.crystal ?? 1_000 }
-        }],
-        ["player-2", {
-          id: "player-2",
-          isAi: true,
-          points: 100,
-          manpower: 100,
-          techIds: new Set<string>(),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          techRootId: "rewrite-local",
-          allies: new Set<string>()
-        }]
+        ["player-1", buildPlayer("player-1", { points: options.points ?? 20_000, manpower: 10_000, techIds: new Set<string>(options.techIds ?? ["worldbreaker-fire"]), strategicResources: { CRYSTAL: options.crystal ?? 1_000 } })],
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
       ]) as never,
       initialState: { tiles: tiles as never, activeLocks: [] }
     });
@@ -9435,21 +7870,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -9521,21 +7942,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100,
-            manpower: 150,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>(),
-            strategicResources: { FOOD: 1000, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-          }
-        ]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 1000, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -9635,18 +8042,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            {
-              id: "player-1",
-              isAi: false,
-              points: 5_000,
-              manpower: 10_000,
-              techIds: new Set<string>(["masonry"]),
-              domainIds: new Set<string>(),
-              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-              techRootId: "rewrite-local",
-              allies: new Set<string>(),
-              strategicResources: { IRON: 500 }
-            }
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 500 } })
           ]
         ]),
         initialState: {
