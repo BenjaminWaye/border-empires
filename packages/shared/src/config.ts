@@ -151,10 +151,18 @@ export const MUSTER_TILE_CAP = 150;
 export const MUSTER_MAX_TILES = 5;
 // Auto-clear stale musters after this many milliseconds since the flag was set.
 export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
-// Multiplier to muster inflow when the tile is inside an outpost depot zone.
-export const MUSTER_DEPOT_SPEED_MULT = 2.0;
-// Chebyshev radius of an outpost depot's effect (5x5 => radius 2).
-export const OUTPOST_DEPOT_RADIUS = 2;
+// Multiplier to muster inflow when the tile is inside an outpost depot zone
+// but NOT boosted by a nearby Rail Depot (base outpost speed).
+export const MUSTER_DEPOT_SPEED_MULT = 1.25;
+// Chebyshev radius of an outpost's mustering effect (matches attack aura).
+export const OUTPOST_DEPOT_RADIUS = 5;
+
+// --- Rail Depot mustering hub ---
+// Global manpower regen bonus per Rail Depot built.
+export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5;
+// Chebyshev radius within which a Rail Depot boosts outpost muster speed.
+// Outposts inside this radius of a depot provide 2x muster speed instead of 1.25x.
+export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up

@@ -5,7 +5,8 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
-  OUTPOST_DEPOT_RADIUS
+  OUTPOST_DEPOT_RADIUS,
+  RAIL_DEPOT_MUSTER_RADIUS
 } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
@@ -20,6 +21,8 @@ const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
+type Position = { x: number; y: number };
+
 export type MusterTickInput = {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -27,6 +30,7 @@ export type MusterTickInput = {
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  railDepotPositionsByOwner: ReadonlyMap<string, ReadonlyArray<Position>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
@@ -62,6 +66,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     input.applyManpowerRegen(player, input.nowMs);
 
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
+    const depotPositions = input.railDepotPositionsByOwner.get(playerId) ?? [];
 
     // Count non-stale flags so throughput is split evenly across them.
     let activeMusterCount = 0;
@@ -93,7 +98,7 @@ export const tickMuster = (input: MusterTickInput): void => {
       }
 
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
-      const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
+      const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * elapsedMin,
@@ -139,6 +144,66 @@ export const tickMuster = (input: MusterTickInput): void => {
       });
     }
   }
+};
+
+/**
+ * Returns the muster speed multiplier for a tile:
+ *   - 2.0 if an outpost is within OUTPOST_DEPOT_RADIUS and backed by a Rail Depot
+ *   - 1.25 if an outpost is within OUTPOST_DEPOT_RADIUS but no depot nearby
+ *   - 1.0 if no outpost is nearby
+ *
+ * The depot check is O(outposts × depots), both typically < 10.
+ */
+const musterSpeedMultiplier = (
+  tile: DomainTileState,
+  outpostKeys: Set<string>,
+  depotPositions: ReadonlyArray<Position>
+): number => {
+  if (outpostKeys.size === 0) return 1;
+  // Check if any outpost is within OUTPOST_DEPOT_RADIUS of this tile.
+  let hasNearbyOutpost = false;
+  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) {
+    hasNearbyOutpost = true;
+  } else {
+    for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
+      if (outpostKeys.has(simulationTileKey(x, y))) {
+        hasNearbyOutpost = true;
+        break;
+      }
+    }
+  }
+  if (!hasNearbyOutpost) return 1;
+
+  // Outpost found — check if any depot boosts it.
+  if (depotPositions.length === 0) return MUSTER_DEPOT_SPEED_MULT;
+
+  // Find the nearest outpost to the tile, then check if it's near a depot.
+  // We already know an outpost is nearby — now find which one and check depot proximity.
+  const nearestOutpost = findNearestOutpost(tile, outpostKeys);
+  if (!nearestOutpost) return MUSTER_DEPOT_SPEED_MULT;
+
+  for (const depot of depotPositions) {
+    if (chebyshevDistanceSimple(nearestOutpost.x, nearestOutpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
+      return 2.0; // depot-backed outpost: full boost
+    }
+  }
+  return MUSTER_DEPOT_SPEED_MULT;
+};
+
+/** Find the nearest active outpost tile to the given tile. */
+const findNearestOutpost = (tile: DomainTileState, outpostKeys: Set<string>): Position | undefined => {
+  // Check the tile itself first.
+  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) return { x: tile.x, y: tile.y };
+  // Scan outward from radius 1 to OUTPOST_DEPOT_RADIUS.
+  for (let r = 1; r <= OUTPOST_DEPOT_RADIUS; r++) {
+    for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, r)) {
+      // Only check the perimeter (distance === r) for efficiency.
+      if (chebyshevDistanceSimple(tile.x, tile.y, x, y) === r && outpostKeys.has(simulationTileKey(x, y))) {
+        return { x, y };
+      }
+    }
+  }
+  return undefined;
 };
 
 /**
@@ -244,13 +309,4 @@ const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set
   const light = input.activeLightOutpostsByOwner.get(playerId);
   if (light) for (const key of light) keys.add(key);
   return keys;
-};
-
-const isInsideDepotZone = (tile: DomainTileState, outpostKeys: Set<string>): boolean => {
-  if (outpostKeys.size === 0) return false;
-  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) return true;
-  for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
-    if (outpostKeys.has(simulationTileKey(x, y))) return true;
-  }
-  return false;
 };

@@ -96,7 +96,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_rail_depot") return "Build on a town support tile. Every 10 minutes it settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across the linked town network.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts manpower regen and speeds up outpost muster within 50 tiles. Also settles the nearest owned frontier tile within 20 tiles every 10 minutes and adds +10 connected-town income points across the linked town network.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Monumental City.";
   if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";
