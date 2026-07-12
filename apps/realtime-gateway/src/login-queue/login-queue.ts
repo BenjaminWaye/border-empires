@@ -11,7 +11,16 @@ export type LoginQueueDeps = {
 
 type LoginQueueEntry = { socket: import("ws").WebSocket; resolve: (granted: boolean) => void; enqueuedAt: number };
 
-export const createLoginQueue = (deps: LoginQueueDeps) => {
+export type LoginQueue = {
+  size: () => number;
+  estimatedWaitMs: (positionFromEnd: number) => number;
+  drain: () => void;
+  // Resolves true once a bootstrap slot is granted, or false if the socket
+  // closes while still waiting.
+  enqueueAndWait: (socket: import("ws").WebSocket) => Promise<boolean>;
+};
+
+export const createLoginQueue = (deps: LoginQueueDeps): LoginQueue => {
   const entries: LoginQueueEntry[] = [];
 
   const estimatedWaitMs = (positionFromEnd: number): number =>
@@ -42,8 +51,6 @@ export const createLoginQueue = (deps: LoginQueueDeps) => {
       notifyPositions();
       next.resolve(true);
     },
-    // Resolves true once a bootstrap slot is granted, or false if the socket
-    // closes while still waiting.
     enqueueAndWait: (socket: import("ws").WebSocket): Promise<boolean> =>
       new Promise<boolean>((resolve) => {
         const entry: LoginQueueEntry = { socket, resolve, enqueuedAt: Date.now() };

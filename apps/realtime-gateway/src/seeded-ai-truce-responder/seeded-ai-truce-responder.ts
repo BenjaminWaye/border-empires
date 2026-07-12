@@ -82,7 +82,7 @@ const playerSubscriptionSnapshotFromSeedWorld = (
 });
 
 type SocialTruceActionResult =
-  | { ok: true; payloadsByPlayerId: Map<string, unknown[]> }
+  | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
   | { ok: false; code: string; message: string };
 
 export type SeededAiTruceResponderDeps = {
@@ -101,7 +101,11 @@ export type SeededAiTruceResponderDeps = {
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
 };
 
-export const createSeededAiTruceResponder = (deps: SeededAiTruceResponderDeps) => ({
+export type SeededAiTruceResponder = {
+  maybeAutoRespondToSeededAiTruce: (request: SocialTruceRequest | undefined) => Promise<void>;
+};
+
+export const createSeededAiTruceResponder = (deps: SeededAiTruceResponderDeps): SeededAiTruceResponder => ({
   maybeAutoRespondToSeededAiTruce: async (request: SocialTruceRequest | undefined): Promise<void> => {
     if (!request || !deps.seededAiPlayerIds.has(request.toPlayerId)) return;
     const decisionSnapshot = deps.snapshotForPlayer(request.fromPlayerId);
