@@ -32,6 +32,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Testing and debugging
 
+- There is no GitHub Actions CI on pull requests or pushes. `.github/workflows/nightly-load-harness.yml` is the only workflow and it only triggers on `schedule`/`workflow_dispatch` — PR check-run/status queries will always come back empty. Local `pnpm lint`, `pnpm test`, and `pnpm check:file-lines` are the verification gate before merging; run them yourself instead of waiting on CI.
 - For every bug fix, add or update a regression test that fails before the fix and passes after.
 - Failing regression tests are merge blockers, even if the feature seems unrelated.
 - Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`.
