@@ -210,7 +210,7 @@ type SimulationClientLike = {
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
   ) => void;
   StartNextSeason?: (
-    request: { force?: boolean },
+    request: { force?: boolean; imperial_ward_json?: string | undefined },
     callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
   ) => void;
   SeedBarbarians?: (
@@ -817,7 +817,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
-  startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
@@ -1004,13 +1004,13 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
-  startNextSeason(force = false) {
+  startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
         reject(new Error("simulation client StartNextSeason RPC is unavailable"));
         return;
       }
-      client.StartNextSeason({ force }, (error, response) => {
+      client.StartNextSeason({ force, imperial_ward_json: imperialWard ? JSON.stringify(imperialWard) : undefined }, (error, response) => {
         if (error) {
           reject(error);
           return;
@@ -1057,7 +1057,7 @@ export const createSimulationClient = (address: string): {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
-  startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,

@@ -166,6 +166,10 @@ export type SimulationRuntimeOptions = {
   seedDocks?: DockRouteDefinition[];
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
+  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): granted once, the
+  // first time this playerId spawns territory in the new season (see
+  // ensurePlayerHasSpawnTerritory in runtime.ts).
+  pendingImperialWard?: { playerId: string; charges: number };
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: {
     tileKey: string;

@@ -185,11 +185,11 @@ export const createInitialState = () => ({
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],
-  // Locked sub-choice for Clockwork Stipend (or any future domain that asks
-  // the player to pick a resource on confirm). Undefined when not picked.
-  // The narrow type comes from @border-empires/shared so client and sim
-  // can't drift on which resources are valid trickle picks.
+  // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
+  // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
+  imperialWardCharges: undefined as number | undefined,
+  imperialWardActiveUntil: undefined as number | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
   currentResearch: undefined as PendingResearch | undefined,

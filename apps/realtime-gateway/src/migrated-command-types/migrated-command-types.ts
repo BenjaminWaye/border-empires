@@ -47,6 +47,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "WORLD_ENGINE_STRIKE",
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
+  "ACTIVATE_IMPERIAL_WARD",
   "UPGRADE_TOWN_TIER",
   "COLLECT_SHARD",
   "SET_MUSTER",
