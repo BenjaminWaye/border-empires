@@ -6,6 +6,7 @@ import type { DomainInfo, Tile } from "../client-types.js";
 const FOUNDRY_RADIUS = 5;
 const GOVERNORS_OFFICE_RADIUS = 10;
 const GARRISON_HALL_RADIUS = 10;
+const WATERWORKS_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;
 const RADAR_SYSTEM_RADIUS = 30;
 
@@ -193,7 +194,41 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
       lineDash: [12, 9]
     };
   }
+  if (structure.type === "WATERWORKS") {
+    return {
+      radius: WATERWORKS_RADIUS,
+      strokeStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.56)" : "rgba(72, 212, 180, 0.28)",
+      fillStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.07)" : "rgba(72, 212, 180, 0.03)",
+      lineDash: [10, 8]
+    };
+  }
   return undefined;
+};
+
+export type PlacementStructureType = "WATERWORKS" | "FOUNDRY";
+
+export type PlacementPreviewResult = StructureAreaPreview & { valid: boolean };
+
+export const placementPreviewForStructure = (
+  structureType: PlacementStructureType,
+  valid: boolean
+): PlacementPreviewResult => {
+  if (structureType === "WATERWORKS") {
+    return {
+      radius: WATERWORKS_RADIUS,
+      strokeStyle: valid ? "rgba(72, 212, 180, 0.7)" : "rgba(220, 80, 80, 0.6)",
+      fillStyle: valid ? "rgba(72, 212, 180, 0.12)" : "rgba(220, 80, 80, 0.08)",
+      lineDash: [10, 8],
+      valid
+    };
+  }
+  return {
+    radius: FOUNDRY_RADIUS,
+    strokeStyle: valid ? "rgba(255, 169, 77, 0.7)" : "rgba(220, 80, 80, 0.6)",
+    fillStyle: valid ? "rgba(255, 169, 77, 0.12)" : "rgba(220, 80, 80, 0.08)",
+    lineDash: [10, 8],
+    valid
+  };
 };
 
 export const tileAreaEffectModifiersForTile = (

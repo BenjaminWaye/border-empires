@@ -87,6 +87,7 @@ type ClientThreeTerrainRendererDeps = {
   effectiveOverlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
+  isPlacementValidForTile: (tile: Tile | undefined) => boolean;
 };
 
 const MAX_VISIBLE_TILES = 14000;
@@ -505,8 +506,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const WATERWORKS_RANGE_RADIUS = 10;
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
+  const FOUNDRY_RANGE_RADIUS = 5;
   const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RANGE_RADIUS);
   const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RANGE_RADIUS);
+  const foundryRangeMaxSegments = observatoryRangeBorderSegmentCount(FOUNDRY_RANGE_RADIUS);
+  const foundryRangeMaxFillVertices = observatoryRangeFillVertexCount(FOUNDRY_RANGE_RADIUS);
   const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
   const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
@@ -601,6 +605,47 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(airportRangeMaxFillVertices),
     airportRangeFillMaterial
   );
+  const placementRangeMaterial = new LineBasicMaterial({
+    color: "#f5d742",
+    transparent: true,
+    opacity: 0.65,
+    depthTest: false,
+    depthWrite: false
+  });
+  const placementRangeFillMaterial = new MeshBasicMaterial({
+    color: "#f5d742",
+    transparent: true,
+    opacity: 0.12,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const placementRangeInvalidMaterial = new LineBasicMaterial({
+    color: "#dc5050",
+    transparent: true,
+    opacity: 0.65,
+    depthTest: false,
+    depthWrite: false
+  });
+  const placementRangeInvalidFillMaterial = new MeshBasicMaterial({
+    color: "#dc5050",
+    transparent: true,
+    opacity: 0.10,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const placementRangeMaxRadius = Math.max(WATERWORKS_RANGE_RADIUS, FOUNDRY_RANGE_RADIUS);
+  const placementRangeMaxSegments = observatoryRangeBorderSegmentCount(placementRangeMaxRadius);
+  const placementRangeMaxFillVertices = observatoryRangeFillVertexCount(placementRangeMaxRadius);
+  const placementRangeMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(placementRangeMaxSegments),
+    placementRangeMaterial
+  );
+  const placementRangeFill = new Mesh(
+    createObservatoryRangeFillGeometry(placementRangeMaxFillVertices),
+    placementRangeFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
@@ -611,6 +656,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   waterworksRangeFill.visible = false;
   airportRangeMarker.visible = false;
   airportRangeFill.visible = false;
+  placementRangeMarker.visible = false;
+  placementRangeFill.visible = false;
   const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
@@ -622,6 +669,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   waterworksRangeFill.renderOrder = 18;
   airportRangeMarker.renderOrder = 17;
   airportRangeFill.renderOrder = 16;
+  placementRangeMarker.renderOrder = 15;
+  placementRangeFill.renderOrder = 14;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -680,6 +729,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     sweepRangeMarker,
     observatoryRangeFill,
     observatoryRangeMarker,
+    placementRangeFill,
+    placementRangeMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
@@ -1369,6 +1420,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
+  const syncPlacementRangeMarker = (): void => {
+    placementRangeMarker.visible = false;
+    placementRangeFill.visible = false;
+    if (!deps.state.buildingPlacement.active) return;
+    const { x, y, structureType } = deps.state.buildingPlacement;
+    const tile = deps.state.tiles.get(deps.keyFor(x, y));
+    if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
+    const valid = deps.isPlacementValidForTile(tile);
+    const radius = structureType === "WATERWORKS" ? WATERWORKS_RANGE_RADIUS : FOUNDRY_RANGE_RADIUS;
+    if (valid) {
+      placementRangeMarker.material = placementRangeMaterial;
+      placementRangeFill.material = placementRangeFillMaterial;
+    } else {
+      placementRangeMarker.material = placementRangeInvalidMaterial;
+      placementRangeFill.material = placementRangeInvalidFillMaterial;
+    }
+    const mockTile = { x, y, terrain: "LAND" as const, fogged: false };
+    writeObservatoryRangeGeometry(placementRangeMarker, placementRangeFill, mockTile, radius);
+  };
+
   const applyCamera = (): void => {
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
@@ -1888,6 +1959,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
     syncAirportRangeMarker();
+    syncPlacementRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();

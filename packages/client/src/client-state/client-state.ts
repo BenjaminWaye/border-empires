@@ -496,6 +496,12 @@ export const createInitialState = () => ({
     scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>,
     renderSignature: ""
   },
+  buildingPlacement: {
+    active: false,
+    structureType: "" as "WATERWORKS" | "FOUNDRY" | "",
+    x: 0,
+    y: 0
+  },
   crystalTargeting: {
     active: false,
     ability: "aether_bridge" as CrystalTargetingAbility,

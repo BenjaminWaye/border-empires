@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, structureShowsOnTile } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -98,7 +98,8 @@ import {
 } from "./client-tile-action-support/client-tile-action-support.js";
 import {
   settledDefenseNearFortDomainModifiers,
-  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
+  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule,
+  type PlacementStructureType
 } from "./client-structure-effects/client-structure-effects.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
@@ -1301,12 +1302,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"),
         { x: selected.x, y: selected.y, label: `Farmstead at (${selected.x}, ${selected.y})`, optimisticKind: "FARMSTEAD" }
       );
-    if (actionId === "build_waterworks")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WATERWORKS" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "WATERWORKS"),
-        { x: selected.x, y: selected.y, label: `Waterworks at (${selected.x}, ${selected.y})`, optimisticKind: "WATERWORKS" }
-      );
+    if (actionId === "build_waterworks") {
+      state.buildingPlacement = { active: true, structureType: "WATERWORKS", x: selected.x, y: selected.y };
+      hideTileActionMenu();
+      renderPlacementOverlay(state);
+      renderHud();
+      return;
+    }
     if (actionId === "build_camp")
       sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
         x: selected.x,
@@ -1415,13 +1417,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
-    if (actionId === "build_foundry")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Foundry at (${selected.x}, ${selected.y})`,
-        optimisticKind: "FOUNDRY"
-      });
+    if (actionId === "build_foundry") {
+      state.buildingPlacement = { active: true, structureType: "FOUNDRY", x: selected.x, y: selected.y };
+      hideTileActionMenu();
+      renderPlacementOverlay(state);
+      renderHud();
+      return;
+    }
     if (actionId === "build_garrison_hall")
       sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"), {
         x: selected.x,
@@ -1691,6 +1693,79 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
+  const isPlacementValidForTile = (tile: Tile | undefined): boolean => {
+    if (!tile || !state.buildingPlacement.active) return false;
+    const st = state.buildingPlacement.structureType;
+    const supportedTowns = supportedOwnedTownsForTile(tile);
+    const supportedDocks = supportedOwnedDocksForTile(tile);
+    const tileSupportsBuild = structureShowsOnTile(st, {
+      ownershipState: tile.ownershipState,
+      resource: tile.resource as "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | undefined,
+      dockId: tile.dockId,
+      townPopulationTier: tile.town?.populationTier,
+      supportedTownCount: supportedTowns.length,
+      supportedDockCount: supportedDocks.length
+    });
+    if (!tileSupportsBuild) return false;
+    if (tile.fort || tile.siegeOutpost || tile.observatory) return false;
+    if (tile.economicStructure) return false;
+    if (tile.ownerId !== state.me) return false;
+    if (st === "WATERWORKS") {
+      if (!state.techIds.includes("irrigation")) return false;
+      if (state.gold < 600) return false;
+      if ((state.strategicResources?.FOOD ?? 0) < 20) return false;
+    }
+    if (st === "FOUNDRY") {
+      if (!state.techIds.includes("industrial-extraction")) return false;
+      if (state.gold < 4500) return false;
+    }
+    return true;
+  };
+
+  const cancelBuildingPlacement = (): void => {
+    state.buildingPlacement.active = false;
+    state.buildingPlacement.structureType = "";
+    removePlacementOverlay();
+    renderHud();
+  };
+
+  const confirmBuildingPlacement = (): void => {
+    if (!state.buildingPlacement.active) return;
+    const { structureType, x, y } = state.buildingPlacement;
+    const tile = state.tiles.get(keyFor(x, y));
+    if (!isPlacementValidForTile(tile)) {
+      pushFeed("Cannot build here. The tile is no longer valid.", "combat", "warn");
+      cancelBuildingPlacement();
+      return;
+    }
+    const actionId = structureType === "WATERWORKS" ? "build_waterworks" : "build_foundry";
+    const optimisticKind = structureType as OptimisticStructureKind;
+    sendDevelopmentBuild(
+      { type: "BUILD_STRUCTURE", x, y, structureType },
+      () => applyOptimisticStructureBuild(x, y, structureType),
+      { x, y, label: `${structureType} at (${x}, ${y})`, optimisticKind }
+    );
+    cancelBuildingPlacement();
+  };
+
+  const renderPlacementOverlay = (state: ClientState): void => {
+    const overlay = document.getElementById("placement-overlay");
+    const label = document.getElementById("placement-label");
+    if (!overlay || !label) return;
+    if (!state.buildingPlacement.active) {
+      overlay.style.display = "none";
+      return;
+    }
+    const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Foundry";
+    label.textContent = `Placing ${name} — click a tile to move, then confirm`;
+    overlay.style.display = "flex";
+  };
+
+  const removePlacementOverlay = (): void => {
+    const overlay = document.getElementById("placement-overlay");
+    if (overlay) overlay.style.display = "none";
+  };
+
   const mapInteractionFlags = {
     suppressNextClick: false
   };
@@ -1773,6 +1848,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (clicked && vis === "visible") {
         pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
       }
+      renderHud();
+      return;
+    }
+    if (state.buildingPlacement.active) {
+      state.buildingPlacement.x = wx;
+      state.buildingPlacement.y = wy;
+      state.selected = { x: wx, y: wy };
       renderHud();
       return;
     }
@@ -1934,6 +2016,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     mapInteractionFlags,
     handleTileSelection,
     worldTileRawFromPointer,
-    computeDragPreview
+    computeDragPreview,
+    confirmBuildingPlacement,
+    cancelBuildingPlacement,
+    isPlacementValidForTile,
+    renderPlacementOverlay,
+    removePlacementOverlay
   };
 };

@@ -226,7 +226,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         terrainAt,
         effectiveOverlayColor,
         tileVisibilityStateAt,
-        settlementProgressForTile: actionFlow.settlementProgressForTile
+        settlementProgressForTile: actionFlow.settlementProgressForTile,
+        isPlacementValidForTile: actionFlow.isPlacementValidForTile
       });
       setTrue3DRendererActive(true);
     } catch (error) {
@@ -462,6 +463,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureCloseBtn,
     captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
     captureTimeEl,
+    placementCancelBtn: dom.placementCancelBtn,
+    placementConfirmBtn: dom.placementConfirmBtn,
     shardAlertCloseBtn,
     panelCloseBtn,
     panelActionButtons,
@@ -479,6 +482,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestViewRefresh,
     collectVisibleYield: actionFlow.collectVisibleYield,
     cancelOngoingCapture: actionFlow.cancelOngoingCapture,
+    confirmBuildingPlacement: actionFlow.confirmBuildingPlacement,
+    cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
@@ -633,7 +638,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestViewRefresh,
     reconcileActionQueue: actionFlow.reconcileActionQueue,
     sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq }))
+      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+    isPlacementValidForTile: actionFlow.isPlacementValidForTile
   });
 
   bindClientMapInput(state, {
@@ -651,6 +657,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     cancelOngoingCapture: actionFlow.cancelOngoingCapture,
     hideTileActionMenu: actionFlow.hideTileActionMenu,
     clearCrystalTargeting: actionFlow.clearCrystalTargeting,
+    cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     renderMobilePanels,
     queueSpecificTargets: actionFlow.queueSpecificTargets,
     processActionQueue: actionFlow.processActionQueue,

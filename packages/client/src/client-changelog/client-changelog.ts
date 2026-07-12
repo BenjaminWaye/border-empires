@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.3",
+  version: "2026.07.12.4",
   title: "What's New",
-  summary: "New Emperor's Endorsement system: the winner of each season can endorse a player for next season, granting them the Imperial Ward — three activatable shields of total invulnerability.",
+  summary: "Building placement preview: when constructing a Waterworks or Foundry, you can now preview the area-of-effect radius on the map, move the building to any valid tile, and confirm or cancel before committing.",
   entries: [
+    {
+      introducedIn: "2026.07.12.4",
+      title: "Building placement mode for Waterworks and Foundry",
+      why: "Placing a radius-based structure like Waterworks or Foundry was a blind commitment — you tapped Build and hoped the tile you picked was valid, with no visibility into the actual affected area or whether the location was strategically optimal.",
+      changes: [
+        "Tapping Build on a Waterworks or Foundry now enters placement mode instead of immediately building — a radius preview appears on the map showing the affected area.",
+        "Click any valid tile to move the building there; the preview updates in real time with the correct radius for each structure.",
+        "Valid placements show the structure's color; invalid placements (wrong surface type, conflicts, missing tech) show red.",
+        "Confirm to finalize, press Escape or right-click to cancel — no commitment until you're satisfied."
+      ]
+    },
     {
       introducedIn: "2026.07.12.3",
       title: "Emperor's Endorsement and the Imperial Ward",
@@ -284,44 +295,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
       changes: [
         "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.5",
-      title: "AI empires no longer get stuck permanently broke",
-      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
-      changes: [
-        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
-        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
-        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.0",
-      title: "Barbarian plunder capped to prevent gold inflation",
-      why: "Capturing a settled tile from Barbarians was awarding massive gold (up to 108 trillion in one capture) because barbarians were initialized with Number.MAX_SAFE_INTEGER gold and the plunder formula divided their 9-quadrillion stash by the tile count.",
-      changes: [
-        "Plunder from barbarian capture is now fixed at 10 gold per tile, down from a share of their quadrillion-gold pool.",
-        "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.4",
-      title: "Galaxy launcher button is simpler and no longer spins",
-      why: "The rotating-planet launcher button was too visually prominent for a cosmetic feature — it competed with the game's main UI rather than quietly indicating access to the galaxy view.",
-      changes: [
-        "The launcher button is now a simple 🪐 emoji on a transparent background instead of a full rotating gas giant, making it much less obtrusive on the game screen.",
-        "The button still opens the full planet-view starfield overlay when clicked."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Fish tiles now produce more food than grain",
-      why: "Fish was strictly worse than grain — lower production, can't be improved, can't be banked. Swapping the production rates gives fish a clear strategic niche: high flow for immediate population feeding, but still perishable and unimprovable. Grain is now the lower-rate option but bankable and improvable with Farmsteads and Waterworks.",
-      changes: [
-        "Fish tile production increased from 48 to 72 FOOD/day; farm tile production reduced from 72 to 48 FOOD/day.",
-        "Farmstead bonus on farm tiles updated accordingly (48 + 24 = 72/day with Farmstead).",
-        "All structures and techs that reference food rates have been updated to match."
       ]
     },
     {

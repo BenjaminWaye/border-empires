@@ -23,6 +23,8 @@ type UiControlsDeps = {
   captureCloseBtn: ClientDom["captureCloseBtn"];
   captureDownloadDebugBtn: ClientDom["captureDownloadDebugBtn"];
   captureTimeEl: ClientDom["captureTimeEl"];
+  placementCancelBtn: ClientDom["placementCancelBtn"];
+  placementConfirmBtn: ClientDom["placementConfirmBtn"];
   shardAlertCloseBtn: ClientDom["shardAlertCloseBtn"];
   panelCloseBtn: ClientDom["panelCloseBtn"];
   panelActionButtons: ClientDom["panelActionButtons"];
@@ -40,6 +42,8 @@ type UiControlsDeps = {
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
   collectVisibleYield: () => void;
   cancelOngoingCapture: () => void;
+  confirmBuildingPlacement: () => void;
+  cancelBuildingPlacement: () => void;
   hideShardAlert: () => void;
   renderShardAlert: () => void;
   renderCaptureProgress: () => void;
@@ -68,6 +72,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     captureCloseBtn,
     captureDownloadDebugBtn,
     captureTimeEl,
+    placementCancelBtn,
+    placementConfirmBtn,
     shardAlertCloseBtn,
     panelCloseBtn,
     panelActionButtons,
@@ -84,6 +90,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     requestViewRefresh,
     collectVisibleYield,
     cancelOngoingCapture,
+    confirmBuildingPlacement,
+    cancelBuildingPlacement,
     hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
@@ -129,6 +137,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     collectVisibleYield();
   };
   captureCancelBtn.onclick = () => cancelOngoingCapture();
+  placementCancelBtn.onclick = () => cancelBuildingPlacement();
+  placementConfirmBtn.onclick = () => confirmBuildingPlacement();
   captureCloseBtn.onclick = () => {
     state.captureAlert = undefined;
     captureTimeEl.classList.remove("capture-loss");

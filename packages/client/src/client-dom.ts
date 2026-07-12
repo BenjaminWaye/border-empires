@@ -51,6 +51,12 @@ const hudMarkup = `
     </div>
   </div>
 
+  <div id="placement-overlay" style="display:none">
+    <span id="placement-label"></span>
+    <button id="placement-cancel" class="placement-btn placement-cancel-btn" type="button">Cancel</button>
+    <button id="placement-confirm" class="placement-btn placement-confirm-btn" type="button">Confirm</button>
+  </div>
+
   <div id="shard-alert-overlay">
     <div id="shard-alert-card">
       <div id="shard-alert-head">
@@ -352,6 +358,10 @@ export const initClientDom = () => {
   const captureTitleEl = requireElement<HTMLDivElement>("#capture-title");
   const captureTimeEl = requireElement<HTMLDivElement>("#capture-time");
   const captureTargetEl = requireElement<HTMLDivElement>("#capture-target");
+  const placementOverlayEl = requireElement<HTMLDivElement>("#placement-overlay");
+  const placementLabelEl = requireElement<HTMLDivElement>("#placement-label");
+  const placementCancelBtn = requireElement<HTMLButtonElement>("#placement-cancel");
+  const placementConfirmBtn = requireElement<HTMLButtonElement>("#placement-confirm");
   const shardAlertOverlayEl = requireElement<HTMLDivElement>("#shard-alert-overlay");
   const shardAlertCardEl = requireElement<HTMLDivElement>("#shard-alert-card");
   const shardAlertTitleEl = requireElement<HTMLDivElement>("#shard-alert-title");
@@ -495,6 +505,10 @@ export const initClientDom = () => {
     captureTimeEl,
     captureTitleEl,
     captureWrapEl,
+    placementOverlayEl,
+    placementLabelEl,
+    placementCancelBtn,
+    placementConfirmBtn,
     centerMeBtn,
     centerMeDesktopBtn,
     changelogOverlayEl,
