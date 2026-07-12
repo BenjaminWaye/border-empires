@@ -326,6 +326,40 @@ describe("applyAutoFill yield-anchor stamping", () => {
     expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
   });
 
+  it("promotes the player's own FRONTIER tiles inside a sealed pocket to SETTLED", async () => {
+    vi.stubEnv("AUTO_FILL_ENABLED", "true");
+    vi.resetModules();
+    const { applyAutoFill } = await import("./runtime-auto-fill.js");
+
+    // (1,1) unowned land and (2,1) our own FRONTIER tile form the interior of a
+    // pocket sealed on every outer edge by player-1's SETTLED territory plus the
+    // just-captured tile (1,2). Both interior tiles should end up SETTLED.
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
+      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })]
+    ]);
+
+    const replacedTiles = new Map<string, DomainTileState>();
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: (k, tile) => replacedTiles.set(k, tile)
+    });
+
+    const settledKeys = settled.map((t) => simulationTileKey(t.x, t.y)).sort();
+    expect(settledKeys).toEqual([simulationTileKey(1, 1), simulationTileKey(2, 1)].sort());
+    expect(replacedTiles.get(simulationTileKey(2, 1))?.ownershipState).toBe("SETTLED");
+    expect(replacedTiles.get(simulationTileKey(2, 1))?.ownerId).toBe("player-1");
+  });
+
   it("does nothing when AUTO_FILL_ENABLED is false", async () => {
     vi.stubEnv("AUTO_FILL_ENABLED", "false");
     vi.resetModules();
