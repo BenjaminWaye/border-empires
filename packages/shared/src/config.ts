@@ -161,8 +161,11 @@ export const OUTPOST_DEPOT_RADIUS = 5;
 // Global manpower regen bonus per Rail Depot built.
 export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5;
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
-// Outposts inside this radius of a depot provide 2x muster speed instead of 1.25x.
+// Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
+// muster speed instead of MUSTER_DEPOT_SPEED_MULT.
 export const RAIL_DEPOT_MUSTER_RADIUS = 50;
+// Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
+export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
 
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
