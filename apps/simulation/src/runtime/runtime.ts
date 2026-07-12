@@ -272,6 +272,7 @@ import {
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
+  isTileWardedByImperialWard as isTileWardedByImperialWardImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
   pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
@@ -303,6 +304,7 @@ import {
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
+import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
@@ -526,6 +528,7 @@ export class SimulationRuntime {
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
+  private pendingImperialWard: { playerId: string; charges: number } | undefined;
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
@@ -712,6 +715,7 @@ export class SimulationRuntime {
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
+    this.pendingImperialWard = options.pendingImperialWard;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1248,6 +1252,7 @@ export class SimulationRuntime {
       isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
+      isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock)
@@ -1385,7 +1390,13 @@ export class SimulationRuntime {
   }
 
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    return ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    if (spawned && this.pendingImperialWard?.playerId === playerId) {
+      const player = this.players.get(playerId);
+      if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
+      this.pendingImperialWard = undefined;
+    }
+    return spawned;
   }
 
   enqueueBackgroundJob(job: () => void): void {
@@ -3284,17 +3295,11 @@ export class SimulationRuntime {
     };
   }
 
-  private handleCreateMountainCommand(command: CommandEnvelope): void {
-    handleCreateMountainCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleCreateMountainCommand(command: CommandEnvelope): void { handleCreateMountainCommandImpl(this.mapCommandContext(), command); }
 
-  private handleRemoveMountainCommand(command: CommandEnvelope): void {
-    handleRemoveMountainCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleRemoveMountainCommand(command: CommandEnvelope): void { handleRemoveMountainCommandImpl(this.mapCommandContext(), command); }
 
-  private handleAirportBombardCommand(command: CommandEnvelope): void {
-    handleAirportBombardCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleAirportBombardCommand(command: CommandEnvelope): void { handleAirportBombardCommandImpl(this.mapCommandContext(), command); }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
     return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
@@ -3304,21 +3309,15 @@ export class SimulationRuntime {
     setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs);
   }
 
-  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
-    handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void { handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command); }
 
-  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
-    handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void { handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command); }
 
-  private handleAegisLockCommand(command: CommandEnvelope): void {
-    handleAegisLockCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleAegisLockCommand(command: CommandEnvelope): void { handleAegisLockCommandImpl(this.mapCommandContext(), command); }
 
-  private handleAstralDockLaunchCommand(command: CommandEnvelope): void {
-    handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command);
-  }
+  private handleAstralDockLaunchCommand(command: CommandEnvelope): void { handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command); }
+
+  private handleActivateImperialWardCommand(command: CommandEnvelope): void { handleActivateImperialWardCommandImpl(this.mapCommandContext(), command); }
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
     return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY);
@@ -4179,6 +4178,7 @@ export class SimulationRuntime {
       handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
       handleAegisLockCommand: (command) => this.handleAegisLockCommand(command),
       handleAstralDockLaunchCommand: (command) => this.handleAstralDockLaunchCommand(command),
+      handleActivateImperialWardCommand: (command) => this.handleActivateImperialWardCommand(command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),

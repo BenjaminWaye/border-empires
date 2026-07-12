@@ -54,6 +54,10 @@ message SeasonArchivesResponse {
 
 message StartNextSeasonRequest {
   bool force = 1;
+  // Optional JSON: { "playerId": string, "charges": number }. When present,
+  // the named player is granted N Imperial Ward charges the first time they
+  // spawn territory in the newly-started season (Emperor endorsement bonus).
+  string imperial_ward_json = 2;
 }
 
 message StartNextSeasonResponse {

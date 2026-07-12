@@ -260,6 +260,7 @@ export const buildPlayerSubscriptionSnapshot = (
               regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
             },
             incomePerMinute,
+            imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               IRON: livePlayer.strategicResources.IRON ?? 0,

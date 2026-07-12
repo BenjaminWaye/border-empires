@@ -413,6 +413,11 @@ export type PlayerSubscriptionSnapshot = {
     // @border-empires/shared so client and sim can't drift on which keys
     // count as valid trickle picks.
     chosenTrickleResource?: ChosenTrickleResource;
+    // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining
+    // Imperial Ward activations. The active 10-minute invulnerability window
+    // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
+    // message, not this snapshot field (same convention as Aegis Lock).
+    imperialWardCharges?: number;
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };

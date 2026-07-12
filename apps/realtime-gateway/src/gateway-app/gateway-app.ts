@@ -38,6 +38,9 @@ import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
+import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
+import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import {
@@ -98,6 +101,7 @@ type RealtimeGatewayAppOptions = {
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
   galaxyPlanetStore?: GalaxyPlanetStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -667,6 +671,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
+  const galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
   const emailAlerts = createEmailAlertService({
     authBindingStore,
     ...(options.emailAlerts ?? {}),
@@ -1134,6 +1139,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       resolveHttpBearerIdentity,
       rallyLinkStore,
       galaxyPlanetStore,
+      galaxyEndorsementStore,
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
     })
@@ -1819,6 +1825,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   void finalizeExpiredAllianceBreaks();
   allianceBreakFinalizeTimer = setInterval(() => void finalizeExpiredAllianceBreaks(), 60_000);
   if (typeof allianceBreakFinalizeTimer.unref === "function") allianceBreakFinalizeTimer.unref();
+  const imperialWardAutoStart = startImperialWardAutoStartTimer({
+    getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
+    startNextSeason: (force, imperialWard) => simulationClient.startNextSeason(force, imperialWard),
+    endorsementStore: galaxyEndorsementStore,
+    onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
+  });
 
   const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
   const pingDatabaseKeepAlive = (): void => {
@@ -1916,6 +1928,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     if (allianceBreakFinalizeTimer) clearInterval(allianceBreakFinalizeTimer);
+    imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     if (slackAlertLatencyTimer) clearInterval(slackAlertLatencyTimer);
@@ -3101,6 +3114,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
+          } else if (message.type === "ACTIVATE_IMPERIAL_WARD") {
+            // Emperor-endorsement bonus (galaxy meta-layer Phase 1). No
+            // anchor tile — zero-field payload, unlike AEGIS_LOCK.
+            await dispatchDurableCommand("ACTIVATE_IMPERIAL_WARD", {}, true);
           } else if (message.type === "UPGRADE_TOWN_TIER") {
             await dispatchDurableCommand("UPGRADE_TOWN_TIER", { x: message.x, y: message.y }, true);
           } else if (message.type === "COLLECT_SHARD") {
