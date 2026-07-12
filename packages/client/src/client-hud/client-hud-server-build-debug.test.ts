@@ -9,12 +9,12 @@ describe("client HUD server-build debug regression", () => {
   // — and a stale-server-vs-fresh-client mismatch goes back to being
   // invisible (the bug that motivated this card).
   it("reads serverBuildSha from state and renders a Server build line in the debug card", () => {
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+    const hudDebugSource = readFileSync(new URL("./client-hud-debug.ts", import.meta.url), "utf8");
 
-    expect(hudSource).toContain("state.bridgeDebugServerBuildSha");
-    expect(hudSource).toContain("<strong>Server build</strong>");
-    expect(hudSource).toContain("Server build ${serverBuildLabel}");
-    expect(hudSource).toContain("⚠ mismatch");
+    expect(hudDebugSource).toContain("state.bridgeDebugServerBuildSha");
+    expect(hudDebugSource).toContain("<strong>Server build</strong>");
+    expect(hudDebugSource).toContain("Server build ${serverBuildLabel}");
+    expect(hudDebugSource).toContain("⚠ mismatch");
   });
 
   it("ingests serverBuildSha from the INIT message into client state", () => {
