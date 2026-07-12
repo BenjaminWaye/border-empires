@@ -73,6 +73,7 @@ export type RuntimeExportState = {
     incomePerMinute?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
+    imperialWardCharges?: number;
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
   activeLocks: Array<{
@@ -190,7 +191,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

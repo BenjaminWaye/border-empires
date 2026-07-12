@@ -33,6 +33,7 @@ export type RuntimeState = {
     techIds: string[];
     domainIds: string[];
     chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    imperialWardCharges?: number;
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     vision: number;

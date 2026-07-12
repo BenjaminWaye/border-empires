@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { combatResolutionAlert, notifyInsufficientGoldForFrontierAction, pushFeed } from "./client-alerts.js";
+import { combatResolutionAlert, hideShardAlert, notifyInsufficientGoldForFrontierAction, pushFeed, showShardAlert } from "./client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -216,5 +216,40 @@ describe("feed attention state", () => {
 
     expect(state.captureAlert?.title).toBe("Insufficient gold");
     expect(state.feed).toEqual([]);
+  });
+});
+
+describe("shard rain status persistence", () => {
+  it("keeps shardRainStatus set after the one-time toast alert is dismissed", () => {
+    const state = {
+      dismissedShardAlertKeys: new Set<string>(),
+      shardAlert: undefined as ClientState["shardAlert"],
+      shardRainStatus: undefined as ClientState["shardRainStatus"],
+      shardRainFxUntil: 0
+    };
+
+    showShardAlert(state, { key: "started:1", phase: "started", startsAt: 1, expiresAt: 2, siteCount: 3 });
+    expect(state.shardAlert).toBeDefined();
+    expect(state.shardRainStatus).toBeDefined();
+
+    hideShardAlert(state);
+
+    expect(state.shardAlert).toBeUndefined();
+    expect(state.shardRainStatus).toBeDefined();
+    expect(state.shardRainStatus?.key).toBe("started:1");
+  });
+
+  it("still updates shardRainStatus for an alert key the player already dismissed", () => {
+    const state = {
+      dismissedShardAlertKeys: new Set<string>(["upcoming:1"]),
+      shardAlert: undefined as ClientState["shardAlert"],
+      shardRainStatus: undefined as ClientState["shardRainStatus"],
+      shardRainFxUntil: 0
+    };
+
+    showShardAlert(state, { key: "upcoming:1", phase: "upcoming", startsAt: 1 });
+
+    expect(state.shardAlert).toBeUndefined();
+    expect(state.shardRainStatus).toBeDefined();
   });
 });

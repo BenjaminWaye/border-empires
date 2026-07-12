@@ -253,7 +253,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainCatalog: state.domainCatalog,
       domainChoices: state.domainChoices,
       domainIds: state.domainIds,
-      shardAlert: state.shardAlert,
+      shardAlert: state.shardRainStatus,
       nowMs: Date.now()
     });
 

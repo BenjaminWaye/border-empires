@@ -61,6 +61,13 @@ export type DomainPlayer = {
   // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD and SHARD
   // are intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
+  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial
+  // Ward activations. Granted once when an endorsed player first spawns
+  // territory in the season they were endorsed for; undefined/0 means none
+  // remaining. The *active* 10-minute invulnerability window itself is
+  // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
+  // same convention as Aegis Lock.
+  imperialWardCharges?: number;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;

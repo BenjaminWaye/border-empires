@@ -70,6 +70,7 @@ export const createPlayersFromRecoveredState = (
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
+          ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
         }
       ] as const;

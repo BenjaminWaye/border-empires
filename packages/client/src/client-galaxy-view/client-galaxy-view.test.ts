@@ -86,4 +86,91 @@ describe("mountGalaxyView", () => {
 
     expect(hud.querySelector(".gx-launcher")).toBeNull();
   });
+
+  it("fetches /hq/galaxy/emperor on mount", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/hq/galaxy/emperor")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, emperor: null, windowOpenUntil: null, endorsement: null, isEmperor: false })
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          planets: [
+            { seasonId: "season-1", seasonSequence: 1, objectiveName: "Conquest", crownedAt: 1_700_000_000_000, planetName: "Aethelgard", named: true }
+          ]
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    mountGalaxyView({ firebaseAuth: fakeAuth(), wsUrl: "ws://127.0.0.1:3101/ws" });
+    await flushAsync();
+
+    const emperorCalls = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/hq/galaxy/emperor"));
+    expect(emperorCalls.length).toBeGreaterThan(0);
+  });
+
+  it("renders the Emperor endorsement form and posts to /hq/galaxy/endorse on submit", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    const windowOpenUntil = Date.now() + 30 * 60_000;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/hq/galaxy/emperor")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            emperor: { playerId: "player-1", endedSeasonId: "season-1", crownedAt: 1_700_000_000_000 },
+            windowOpenUntil,
+            endorsement: null,
+            isEmperor: true
+          })
+        };
+      }
+      if (url.endsWith("/hq/galaxy/endorse")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        expect(body).toEqual({ targetEmail: "friend@example.com" });
+        return {
+          ok: true,
+          json: async () => ({ ok: true, endorsement: { targetPlayerId: "player-2", createdAt: Date.now() } })
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          planets: [
+            { seasonId: "season-1", seasonSequence: 1, objectiveName: "Conquest", crownedAt: 1_700_000_000_000, planetName: "Aethelgard", named: true }
+          ]
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    mountGalaxyView({ firebaseAuth: fakeAuth(), wsUrl: "ws://127.0.0.1:3101/ws" });
+    await flushAsync();
+
+    const launcher = hud.querySelector<HTMLButtonElement>(".gx-launcher");
+    launcher?.click();
+
+    const form = hud.querySelector<HTMLFormElement>("[data-galaxy-endorse-form]");
+    expect(form).not.toBeNull();
+    const input = hud.querySelector<HTMLInputElement>("[data-galaxy-endorse-target]");
+    expect(input).not.toBeNull();
+    input!.value = "friend@example.com";
+
+    form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flushAsync();
+
+    const endorseCalls = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/hq/galaxy/endorse"));
+    expect(endorseCalls.length).toBe(1);
+  });
 });

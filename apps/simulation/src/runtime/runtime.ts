@@ -106,7 +106,6 @@ import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js"
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
   additiveEffectForPlayer, buildModBreakdownForPlayer,
-  chosenTrickleRateForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   recomputeMods
@@ -144,8 +143,6 @@ import {
 import {
   InMemorySimulationPersistence,
   TERRITORY_AUTO_COMMAND_PREFIX,
-  UPKEEP_STRATEGIC_KEYS,
-  hasOutstandingUpkeepNeed,
   type ActiveAetherBridgeView,
   type ActiveAetherWallView,
   type AetherWallDirection,
@@ -157,9 +154,19 @@ import {
   type SimulationPersistence,
   type SimulationRuntimeOptions,
   type SimulationTileWireDelta,
-  type StrategicResourceKey,
-  type UpkeepNeed
+  type StrategicResourceKey
 } from "../runtime-types.js";
+import {
+  applyEconomyAccrual as applyEconomyAccrualImpl,
+  type RuntimeUpkeepAccrualContext
+} from "../runtime-upkeep-accrual.js";
+import {
+  drainQueues as drainQueuesImpl,
+  enqueueJob as enqueueJobImpl,
+  scheduleDrain as scheduleDrainImpl,
+  type RuntimeJobQueueContext,
+  type RuntimeJobQueueMutableState
+} from "../runtime-job-queue.js";
 import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
@@ -265,6 +272,7 @@ import {
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
+  isTileWardedByImperialWard as isTileWardedByImperialWardImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
   pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
@@ -296,6 +304,7 @@ import {
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
+import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
@@ -538,6 +547,7 @@ export class SimulationRuntime {
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
+  private pendingImperialWard: { playerId: string; charges: number } | undefined;
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
@@ -724,6 +734,7 @@ export class SimulationRuntime {
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
+    this.pendingImperialWard = options.pendingImperialWard;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1267,6 +1278,7 @@ export class SimulationRuntime {
       isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
+      isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock)
@@ -1336,7 +1348,41 @@ export class SimulationRuntime {
     };
   }
 
-  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void { const f = applyAutoFillImpl({ capturedTile: settledTile, ownerId, tiles: this.tiles, replaceTileState: (k, t) => this.replaceTileState(k, t), onAutoFillTiles: this.onAutoFillTiles, recordYieldAnchors: (keys) => { const t = this.now(); for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t); this.emitEvent({ eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: `auto-fill:${ownerId}:${t}`, playerId: ownerId, anchors: keys.map((k) => ({ tileKey: k, collectedAt: t })) }); } }); if (f.length > 0) { this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill:${tileKey}:${this.now()}`, playerId: "__broadcast__", tileDeltas: f.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined })) }); const revealDeltas = buildAutoFillRevealTileDeltasImpl(this.combatSupportContext(), ownerId, f, this.players.get(ownerId)?.isAi); if (revealDeltas.length > 0) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `auto-fill-reveal:${tileKey}:${this.now()}`, playerId: ownerId, tileDeltas: revealDeltas }); } }
+  private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
+    const filled = applyAutoFillImpl({
+      capturedTile: settledTile,
+      ownerId,
+      tiles: this.tiles,
+      replaceTileState: (k, t) => this.replaceTileState(k, t),
+      onAutoFillTiles: this.onAutoFillTiles,
+      recordYieldAnchors: (keys) => {
+        const t = this.now();
+        for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t);
+        this.emitEvent({
+          eventType: "TILE_YIELD_ANCHOR_BATCH",
+          commandId: `auto-fill:${ownerId}:${t}`,
+          playerId: ownerId,
+          anchors: keys.map((k) => ({ tileKey: k, collectedAt: t }))
+        });
+      }
+    });
+    if (filled.length === 0) return;
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `auto-fill:${tileKey}:${this.now()}`,
+      playerId: "__broadcast__",
+      tileDeltas: filled.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined }))
+    });
+    const revealDeltas = buildAutoFillRevealTileDeltasImpl(this.combatSupportContext(), ownerId, filled, this.players.get(ownerId)?.isAi);
+    if (revealDeltas.length > 0) {
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `auto-fill-reveal:${tileKey}:${this.now()}`,
+        playerId: ownerId,
+        tileDeltas: revealDeltas
+      });
+    }
+  }
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -1370,7 +1416,13 @@ export class SimulationRuntime {
   }
 
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    return ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    if (spawned && this.pendingImperialWard?.playerId === playerId) {
+      const player = this.players.get(playerId);
+      if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
+      this.pendingImperialWard = undefined;
+    }
+    return spawned;
   }
 
   enqueueBackgroundJob(job: () => void): void {
@@ -1616,205 +1668,28 @@ export class SimulationRuntime {
     return metrics;
   }
 
-  private applyEconomyAccrual(player: RuntimePlayer, nowMs = this.now()): void {
-    const last = this.lastEconomyAccrualAtByPlayer.get(player.id);
-    if (last === undefined) {
-      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
-      return;
-    }
-    const elapsedMs = nowMs - last;
-    if (elapsedMs <= 0) return;
-    // Rate-limit to once per 15s. consumeUpkeepFromTileYield is O(yield_bearing_tiles)
-    // and was being triggered on every AI command (~1/s), causing untracked
-    // 8-17s main-thread stalls. The passive income tick (also 15s) handles
-    // income; upkeep drain on the same cadence keeps the two in sync.
-    if (elapsedMs < 15_000) return;
-    if (!this.playerSummaries.has(player.id)) {
-      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
-      return;
-    }
-    const run = (): void => {
-      // Incremental upkeep cache (O(1) via replaceTileState); NOT the full
-      // cachedEconomySnapshot, which would rebuild O(settled-tiles) per mutation.
-      const upkeep = this.cachedUpkeepAccrual(player);
-      // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
-      // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
-      if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
-        const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
-          dockLinksByDockTileKey: this.dockLinksByDockTileKey
-        });
-        // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
-        // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
-        // rounding noise below the gameplay-significant precision.
-        const round4 = (n: number): number => Number(n.toFixed(4));
-        const mismatches: string[] = [];
-        for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
-          const inc = round4(upkeep[key]);
-          const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
-          if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
-        }
-        if (mismatches.length > 0) {
-          // eslint-disable-next-line no-console
-          console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
-        }
-      }
-      const summary = this.summaryForPlayer(player.id);
-      const elapsedMinutes = elapsedMs / 60_000;
-      // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
-      // upkeep drain, so the trickle helps cover upkeep on a starved empire
-      // instead of being instantly clawed back.
-      const trickle = chosenTrickleRateForPlayer(player);
-      if (trickle && trickle.ratePerMinute > 0) {
-        const credit = trickle.ratePerMinute * elapsedMinutes;
-        if (credit > 0) {
-          const current = player.strategicResources ?? {};
-          player.strategicResources = {
-            ...current,
-            [trickle.resource]: (current[trickle.resource] ?? 0) + credit
-          };
-        }
-      }
-      const need: UpkeepNeed = {
-        gold: Math.max(0, upkeep.gold) * elapsedMinutes,
-        FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
-        IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
-        CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-        SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
-      };
-      // Towns pay their own upkeep from accumulated yield before raiding the
-      // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
-      // so an offline player whose tile income covers upkeep keeps the
-      // stockpile they logged out with.
-      this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
-      if (need.gold > 0) {
-        player.points = Math.max(0, (player.points ?? 0) - need.gold);
-      }
-      const stock = {
-        FOOD: player.strategicResources?.FOOD ?? 0,
-        IRON: player.strategicResources?.IRON ?? 0,
-        CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-        SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-        SHARD: player.strategicResources?.SHARD ?? 0
-      };
-      let mutated = false;
-      for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
-        if (need[res] > 0) {
-          stock[res] = Math.max(0, stock[res] - need[res]);
-          mutated = true;
-        }
-      }
-      if (mutated) player.strategicResources = stock;
-      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
+  private upkeepAccrualContext(): RuntimeUpkeepAccrualContext {
+    return {
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      lastEconomyAccrualAtByPlayer: this.lastEconomyAccrualAtByPlayer,
+      playerSummaries: this.playerSummaries,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      cachedUpkeepAccrual: (player) => this.cachedUpkeepAccrual(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
+      enrichTileWithTownContext: (tile, player, context) => this.enrichTileWithTownContext(tile, player, context),
+      tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
+      emitEvent: (event) => this.emitEvent(event),
+      forgetReplayedCommand: (commandId) => this.replayCache.recordedEventsByCommandId.delete(commandId),
+      trackSyncMainThreadTask: this.trackSyncMainThreadTask
     };
-    // Attribution for event_loop_blocked (was empty mainThreadTasks): hit from
-    // tick functions AND command handlers (via applyManpowerRegen); 15s/player
-    // rate limit still allows it to land mid-command on the hot path.
-    if (this.trackSyncMainThreadTask) {
-      this.trackSyncMainThreadTask("apply_economy_accrual", { playerId: player.id }, run);
-    } else {
-      run();
-    }
   }
 
-  private consumeUpkeepFromTileYield(
-    player: RuntimePlayer,
-    summary: PlayerRuntimeSummary,
-    need: UpkeepNeed,
-    nowMs: number
-  ): void {
-    if (!hasOutstandingUpkeepNeed(need)) return;
-    if (summary.territoryTileKeys.size <= 0) return;
-    let economyContext: RuntimeTileYieldEconomyContext | undefined;
-    // Use yield-bearing index to skip plain settled tiles that produce nothing.
-    // Sort for deterministic drain order — same as the old full-territory sort.
-    // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
-    // only when the underlying set changes, avoiding O(n log n) spread+sort
-    // on every tick for players whose yield-bearing set is stable.
-    const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
-    let tileKeys: readonly string[];
-    if (!yieldBearingSet || yieldBearingSet.size === 0) {
-      tileKeys = [];
-    } else {
-      let cached = this.sortedYieldBearingKeysByOwner.get(player.id);
-      if (!cached) {
-        cached = [...yieldBearingSet].sort();
-        this.sortedYieldBearingKeysByOwner.set(player.id, cached);
-      }
-      tileKeys = cached;
-    }
-    const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
-    // Collect anchor updates locally and emit ONE batch event at the end of
-    // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
-    // event → separate SQLite appendEvent each. At ~2,000 owned tiles staging
-    // observed 84 pending appendEvents from a single upkeep tick, blocking
-    // the main event loop for 25s+. One batch event = one appendEvent.
-    const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
-    for (const tileKey of tileKeys) {
-      if (!hasOutstandingUpkeepNeed(need)) return;
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-      if (!economyContext) economyContext = this.tileYieldEconomyContextForPlayer(player);
-      const enrichedTile = tile.town ? this.enrichTileWithTownContext(tile, player, economyContext!) : tile;
-      const lastCollectedAt = this.tileYieldCollectedAt(tileKey, player.id);
-      const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
-        player,
-        fedTownKeys: economyContext.fedTownKeys,
-        firstThreeTownKeys: economyContext.firstThreeTownKeys,
-        waterworksKeys: economyContext.waterworksKeys,
-        foundryKeys: economyContext.foundryKeys,
-        tiles: this.tiles,
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      });
-      if (!yieldView?.yield) continue;
-      const anchorWas = lastCollectedAt ?? 0;
-      // The single per-tile anchor is shared across every resource the tile
-      // produces: compute a per-resource candidate anchor from the remaining
-      // buffer (newAnchor = now - remaining/rate) and pick the latest, so no
-      // resource is over-credited. Trade-off: consuming one resource on a
-      // mixed-yield tile drains the unconsumed resource's remaining yield too
-      // (lost, not banked) — rare, and fixing it needs a snapshot-schema change.
-      let candidateAnchorMs = anchorWas;
-      const updateCandidate = (remaining: number, ratePerMs: number): void => {
-        if (ratePerMs <= 0) return;
-        const resourceAnchor = nowMs - remaining / ratePerMs;
-        if (resourceAnchor > candidateAnchorMs) candidateAnchorMs = resourceAnchor;
-      };
-      const availableGold = yieldView.yield.gold ?? 0;
-      if (availableGold > 0 && need.gold > 0) {
-        const consumed = Math.min(availableGold, need.gold);
-        need.gold -= consumed;
-        updateCandidate(availableGold - consumed, yieldView.yieldRate.goldPerMinute / 60_000);
-      }
-      for (const resource of UPKEEP_STRATEGIC_KEYS) {
-        const available = yieldView.yield.strategic[resource] ?? 0;
-        if (available > 0 && need[resource] > 0) {
-          const consumed = Math.min(available, need[resource]);
-          need[resource] -= consumed;
-          const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
-          updateCandidate(available - consumed, ratePerMs);
-        }
-      }
-      if (candidateAnchorMs > anchorWas) {
-        const collectedAt = Math.min(nowMs, candidateAnchorMs);
-        // Update the in-memory map immediately so subsequent tiles in this
-        // loop see fresh anchor state. Defer the event emission until after
-        // the loop so we can emit one batch event instead of N singletons.
-        this.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
-        batchedAnchors.push({ tileKey, collectedAt });
-      }
-    }
-    if (batchedAnchors.length > 0) {
-      this.emitEvent({
-        eventType: "TILE_YIELD_ANCHOR_BATCH",
-        commandId: syntheticCommandId,
-        playerId: player.id,
-        anchors: batchedAnchors
-      });
-    }
-    // Drop the synthetic commandId from replay cache — already durably
-    // persisted via emitEvent; accrual never emits terminal events so this
-    // would otherwise accumulate forever.
-    this.replayCache.recordedEventsByCommandId.delete(syntheticCommandId);
+  private applyEconomyAccrual(player: RuntimePlayer, nowMs = this.now()): void {
+    applyEconomyAccrualImpl(this.upkeepAccrualContext(), player, nowMs);
   }
 
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
@@ -2910,6 +2785,39 @@ export class SimulationRuntime {
     return true;
   }
 
+  private jobQueueContext(): RuntimeJobQueueContext {
+    return {
+      jobsByLane: this.jobsByLane,
+      priorityOrder,
+      backgroundBatchSize: this.backgroundBatchSize,
+      now: () => this.now(),
+      scheduleSoon: this.scheduleSoon,
+      scheduleAfter: this.scheduleAfter,
+      queueDepths: () => this.queueDepths(),
+      shouldPauseBackground: this.shouldPauseBackground,
+      wrapJobRun: this.wrapJobRun,
+      onQueueDrain: this.onQueueDrain,
+      onJobApplied: this.onJobApplied
+    };
+  }
+
+  private jobQueueMutableState(): RuntimeJobQueueMutableState {
+    return {
+      getDraining: () => this.draining,
+      setDraining: (value) => {
+        this.draining = value;
+      },
+      getDrainScheduled: () => this.drainScheduled,
+      setDrainScheduled: (value) => {
+        this.drainScheduled = value;
+      },
+      getImmediateDrainScheduled: () => this.immediateDrainScheduled,
+      setImmediateDrainScheduled: (value) => {
+        this.immediateDrainScheduled = value;
+      }
+    };
+  }
+
   private enqueueJob(
     lane: QueueLane,
     run: () => void,
@@ -2917,140 +2825,15 @@ export class SimulationRuntime {
     scheduling: "immediate" | "background" = "immediate",
     commandId?: string
   ): void {
-    const job: SimulationJob = { lane, run, enqueuedAt: this.now(), scheduling };
-    if (commandType !== undefined) job.commandType = commandType;
-    if (commandId !== undefined) job.commandId = commandId;
-    this.jobsByLane[lane].push(job);
-    this.scheduleDrain(scheduling);
+    enqueueJobImpl(this.jobQueueContext(), this.jobQueueMutableState(), lane, run, commandType, scheduling, commandId);
   }
 
   private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void {
-    if (this.draining) return;
-    if (scheduling === "immediate") {
-      if (this.immediateDrainScheduled) return;
-      this.immediateDrainScheduled = true;
-      this.scheduleSoon(() => {
-        this.immediateDrainScheduled = false;
-        this.drainQueues();
-      });
-      return;
-    }
-    if (this.drainScheduled || this.immediateDrainScheduled) return;
-    this.drainScheduled = true;
-    this.scheduleAfter(0, () => {
-      this.drainScheduled = false;
-      this.drainQueues();
-    });
+    scheduleDrainImpl(this.jobQueueContext(), this.jobQueueMutableState(), scheduling);
   }
 
   private drainQueues(): void {
-    if (this.draining) return;
-    this.draining = true;
-    const drainStartedAt = this.now();
-    const queueDepthsBefore = this.queueDepths();
-    const processedByLane: Record<QueueLane, number> = {
-      human_interactive: 0,
-      human_noninteractive: 0,
-      system: 0,
-      ai: 0
-    };
-    let processedJobs = 0;
-    let shouldYieldForBackground = false;
-    let backgroundJobsProcessed = 0;
-    let currentDrainScheduling: "immediate" | "background" = "immediate";
-    try {
-      let next = this.shiftNextJob();
-      while (next) {
-        currentDrainScheduling = next.scheduling ?? "immediate";
-        if (currentDrainScheduling === "background") {
-          const hasImmediateWork =
-            this.jobsByLane.human_interactive.some((job) => (job.scheduling ?? "immediate") === "immediate") ||
-            this.jobsByLane.human_noninteractive.some((job) => (job.scheduling ?? "immediate") === "immediate");
-          if (hasImmediateWork) {
-            this.jobsByLane[next.lane].unshift(next);
-            shouldYieldForBackground = true;
-            break;
-          }
-        }
-        if (next.lane === "ai" && this.shouldPauseBackground?.()) {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-        if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-        const jobStartedAt = this.now();
-        const jobMeta = {
-          lane: next.lane,
-          ...(next.commandType ? { commandType: next.commandType } : {}),
-          ...(next.commandId ? { commandId: next.commandId } : {})
-        };
-        (this.wrapJobRun ? this.wrapJobRun(next.run, jobMeta) : next.run)();
-        if (this.onJobApplied) {
-          const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
-          this.onJobApplied({
-            lane: next.lane,
-            durationMs: jobDurationMs,
-            ...(next.commandType ? { commandType: next.commandType } : {}),
-            ...(next.commandId ? { commandId: next.commandId } : {})
-          });
-        }
-        processedJobs += 1;
-        processedByLane[next.lane] += 1;
-        if (next.lane === "system" || next.lane === "ai") {
-          backgroundJobsProcessed += 1;
-        }
-        next = this.shiftNextJob();
-        if (currentDrainScheduling === "immediate" && next && (next.scheduling ?? "immediate") === "background") {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-      }
-    } finally {
-      this.draining = false;
-      if (processedJobs > 0) {
-        this.onQueueDrain?.({
-          durationMs: Math.max(0, this.now() - drainStartedAt),
-          processedJobs,
-          backgroundJobsProcessed,
-          yieldedForBackground: shouldYieldForBackground,
-          processedByLane,
-          queueDepthsBefore,
-          queueDepthsAfter: this.queueDepths()
-        });
-      }
-      if (this.hasQueuedJobs()) {
-        if (shouldYieldForBackground) {
-          this.scheduleAfter(0, () => this.drainQueues());
-        } else {
-          this.scheduleDrain(this.nextQueuedScheduling());
-        }
-      }
-    }
-  }
-
-  private nextQueuedScheduling(): "immediate" | "background" {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane][0];
-      if (next) return next.scheduling ?? "immediate";
-    }
-    return "immediate";
-  }
-
-  private shiftNextJob(): SimulationJob | undefined {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane].shift();
-      if (next) return next;
-    }
-    return undefined;
-  }
-
-  private hasQueuedJobs(): boolean {
-    return priorityOrder.some((lane) => this.jobsByLane[lane].length > 0);
+    drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState());
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
@@ -3541,40 +3324,12 @@ export class SimulationRuntime {
     };
   }
 
-  private handleCreateMountainCommand(command: CommandEnvelope): void {
-    handleCreateMountainCommandImpl(this.mapCommandContext(), command);
-  }
-
-  private handleRemoveMountainCommand(command: CommandEnvelope): void {
-    handleRemoveMountainCommandImpl(this.mapCommandContext(), command);
-  }
-
-  private handleAirportBombardCommand(command: CommandEnvelope): void {
-    handleAirportBombardCommandImpl(this.mapCommandContext(), command);
-  }
-
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
     return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
   }
 
   private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
     setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs);
-  }
-
-  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
-    handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command);
-  }
-
-  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
-    handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command);
-  }
-
-  private handleAegisLockCommand(command: CommandEnvelope): void {
-    handleAegisLockCommandImpl(this.mapCommandContext(), command);
-  }
-
-  private handleAstralDockLaunchCommand(command: CommandEnvelope): void {
-    handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command);
   }
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
@@ -4429,13 +4184,14 @@ export class SimulationRuntime {
       handleCastAetherWallCommand: (command) => this.handleCastAetherWallCommand(command),
       handleSiphonTileCommand: (command) => this.handleSiphonTileCommand(command),
       handlePurgeSiphonCommand: (command) => this.handlePurgeSiphonCommand(command),
-      handleCreateMountainCommand: (command) => this.handleCreateMountainCommand(command),
-      handleRemoveMountainCommand: (command) => this.handleRemoveMountainCommand(command),
-      handleAirportBombardCommand: (command) => this.handleAirportBombardCommand(command),
-      handleImperialExchangeLevyCommand: (command) => this.handleImperialExchangeLevyCommand(command),
-      handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
-      handleAegisLockCommand: (command) => this.handleAegisLockCommand(command),
-      handleAstralDockLaunchCommand: (command) => this.handleAstralDockLaunchCommand(command),
+      handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
+      handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
+      handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
+      handleImperialExchangeLevyCommand: (command) => handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command),
+      handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
+      handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
+      handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
+      handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
