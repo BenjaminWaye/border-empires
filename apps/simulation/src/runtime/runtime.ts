@@ -3295,12 +3295,6 @@ export class SimulationRuntime {
     };
   }
 
-  private handleCreateMountainCommand(command: CommandEnvelope): void { handleCreateMountainCommandImpl(this.mapCommandContext(), command); }
-
-  private handleRemoveMountainCommand(command: CommandEnvelope): void { handleRemoveMountainCommandImpl(this.mapCommandContext(), command); }
-
-  private handleAirportBombardCommand(command: CommandEnvelope): void { handleAirportBombardCommandImpl(this.mapCommandContext(), command); }
-
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
     return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
   }
@@ -3308,16 +3302,6 @@ export class SimulationRuntime {
   private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
     setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs);
   }
-
-  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void { handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command); }
-
-  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void { handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command); }
-
-  private handleAegisLockCommand(command: CommandEnvelope): void { handleAegisLockCommandImpl(this.mapCommandContext(), command); }
-
-  private handleAstralDockLaunchCommand(command: CommandEnvelope): void { handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command); }
-
-  private handleActivateImperialWardCommand(command: CommandEnvelope): void { handleActivateImperialWardCommandImpl(this.mapCommandContext(), command); }
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
     return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY);
@@ -4171,14 +4155,14 @@ export class SimulationRuntime {
       handleCastAetherWallCommand: (command) => this.handleCastAetherWallCommand(command),
       handleSiphonTileCommand: (command) => this.handleSiphonTileCommand(command),
       handlePurgeSiphonCommand: (command) => this.handlePurgeSiphonCommand(command),
-      handleCreateMountainCommand: (command) => this.handleCreateMountainCommand(command),
-      handleRemoveMountainCommand: (command) => this.handleRemoveMountainCommand(command),
-      handleAirportBombardCommand: (command) => this.handleAirportBombardCommand(command),
-      handleImperialExchangeLevyCommand: (command) => this.handleImperialExchangeLevyCommand(command),
-      handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
-      handleAegisLockCommand: (command) => this.handleAegisLockCommand(command),
-      handleAstralDockLaunchCommand: (command) => this.handleAstralDockLaunchCommand(command),
-      handleActivateImperialWardCommand: (command) => this.handleActivateImperialWardCommand(command),
+      handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
+      handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
+      handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
+      handleImperialExchangeLevyCommand: (command) => handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command),
+      handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
+      handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
+      handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
+      handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
