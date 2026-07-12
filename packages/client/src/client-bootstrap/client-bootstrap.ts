@@ -301,7 +301,9 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     economicStructureName,
     populationPerMinuteLabel,
     townNextGrowthEtaLabel,
-    tileVisibilityStateAt
+    tileVisibilityStateAt,
+    placementOverlayEl: dom.placementOverlayEl,
+    placementLabelEl: dom.placementLabelEl
   });
 
   const renderCaptureProgress = (): void =>

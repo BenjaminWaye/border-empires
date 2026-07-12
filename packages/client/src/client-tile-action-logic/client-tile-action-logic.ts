@@ -49,6 +49,7 @@ import { ownedActiveObservatoryWithinRange } from "../client-tile-action-support
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
+import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -1371,21 +1372,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
       if (buildShowsOnTile("FOUNDRY", tile, supportedTowns.length, supportedDocks.length)) {
+        const foundryAvail = canBuildPlacementStructure("FOUNDRY", tile, state.me, state.gold, state.techIds);
         out.push({
           id: "build_foundry",
           label: "Build Foundry",
           detail: deps.buildDetailTextForAction("build_foundry", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("industrial-extraction") &&
-              state.gold >= 4500 &&
-              !tile.fort &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("industrial-extraction")
-              ? "Requires Industrial Extraction"
-              : tile.fort || tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : "Need 4500 gold",
+            foundryAvail.available,
+            foundryAvail.available ? "" : foundryAvail.reason,
             `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap • 5 gold/min`,
             slots,
             deps
@@ -1393,24 +1387,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
       if (buildShowsOnTile("WATERWORKS", tile, supportedTowns.length, supportedDocks.length)) {
+        const waterworksAvail = canBuildPlacementStructure("WATERWORKS", tile, state.me, state.gold, state.techIds, state.strategicResources);
         out.push({
           id: "build_waterworks",
           label: "Build Waterworks",
           detail: deps.buildDetailTextForAction("build_waterworks", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("irrigation") &&
-              state.gold >= 600 &&
-              (state.strategicResources?.FOOD ?? 0) >= 20 &&
-              !tile.fort &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("irrigation")
-              ? "Requires Irrigation"
-              : tile.fort || tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < 600
-                  ? "Need 600 gold"
-                  : "Need 20 FOOD",
+            waterworksAvail.available,
+            waterworksAvail.available ? "" : waterworksAvail.reason,
             `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +50% farmstead food within 10 tiles; boosted production raises food cap`,
             slots,
             deps

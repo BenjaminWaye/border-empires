@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, structureShowsOnTile } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -99,7 +99,9 @@ import {
 import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule,
-  type PlacementStructureType
+  type PlacementStructureType,
+  canBuildPlacementStructure,
+  placementRadius
 } from "./client-structure-effects/client-structure-effects.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
@@ -140,6 +142,8 @@ type ActionFlowDeps = Record<string, any> & {
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
+  placementOverlayEl: HTMLDivElement;
+  placementLabelEl: HTMLDivElement;
 };
 type TileDetailRequestOptions = {
   force?: boolean;
@@ -1305,7 +1309,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "build_waterworks") {
       state.buildingPlacement = { active: true, structureType: "WATERWORKS", x: selected.x, y: selected.y };
       hideTileActionMenu();
-      renderPlacementOverlay(state);
+      renderPlacementOverlay();
       renderHud();
       return;
     }
@@ -1420,7 +1424,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "build_foundry") {
       state.buildingPlacement = { active: true, structureType: "FOUNDRY", x: selected.x, y: selected.y };
       hideTileActionMenu();
-      renderPlacementOverlay(state);
+      renderPlacementOverlay();
       renderHud();
       return;
     }
@@ -1696,30 +1700,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const isPlacementValidForTile = (tile: Tile | undefined): boolean => {
     if (!tile || !state.buildingPlacement.active) return false;
     const st = state.buildingPlacement.structureType;
-    const supportedTowns = supportedOwnedTownsForTile(tile);
-    const supportedDocks = supportedOwnedDocksForTile(tile);
-    const tileSupportsBuild = structureShowsOnTile(st, {
-      ownershipState: tile.ownershipState,
-      resource: tile.resource as "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | undefined,
-      dockId: tile.dockId,
-      townPopulationTier: tile.town?.populationTier,
-      supportedTownCount: supportedTowns.length,
-      supportedDockCount: supportedDocks.length
-    });
-    if (!tileSupportsBuild) return false;
-    if (tile.fort || tile.siegeOutpost || tile.observatory) return false;
-    if (tile.economicStructure) return false;
-    if (tile.ownerId !== state.me) return false;
-    if (st === "WATERWORKS") {
-      if (!state.techIds.includes("irrigation")) return false;
-      if (state.gold < 600) return false;
-      if ((state.strategicResources?.FOOD ?? 0) < 20) return false;
-    }
-    if (st === "FOUNDRY") {
-      if (!state.techIds.includes("industrial-extraction")) return false;
-      if (state.gold < 4500) return false;
-    }
-    return true;
+    if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
+    return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.strategicResources).available;
   };
 
   const cancelBuildingPlacement = (): void => {
@@ -1732,38 +1714,36 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const confirmBuildingPlacement = (): void => {
     if (!state.buildingPlacement.active) return;
     const { structureType, x, y } = state.buildingPlacement;
+    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") {
+      cancelBuildingPlacement();
+      return;
+    }
     const tile = state.tiles.get(keyFor(x, y));
     if (!isPlacementValidForTile(tile)) {
       pushFeed("Cannot build here. The tile is no longer valid.", "combat", "warn");
       cancelBuildingPlacement();
       return;
     }
-    const actionId = structureType === "WATERWORKS" ? "build_waterworks" : "build_foundry";
-    const optimisticKind = structureType as OptimisticStructureKind;
     sendDevelopmentBuild(
       { type: "BUILD_STRUCTURE", x, y, structureType },
       () => applyOptimisticStructureBuild(x, y, structureType),
-      { x, y, label: `${structureType} at (${x}, ${y})`, optimisticKind }
+      { x, y, label: `${structureType} at (${x}, ${y})`, optimisticKind: structureType }
     );
     cancelBuildingPlacement();
   };
 
-  const renderPlacementOverlay = (state: ClientState): void => {
-    const overlay = document.getElementById("placement-overlay");
-    const label = document.getElementById("placement-label");
-    if (!overlay || !label) return;
+  const renderPlacementOverlay = (): void => {
     if (!state.buildingPlacement.active) {
-      overlay.style.display = "none";
+      deps.placementOverlayEl.style.display = "none";
       return;
     }
     const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Foundry";
-    label.textContent = `Placing ${name} — click a tile to move, then confirm`;
-    overlay.style.display = "flex";
+    deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
+    deps.placementOverlayEl.style.display = "flex";
   };
 
   const removePlacementOverlay = (): void => {
-    const overlay = document.getElementById("placement-overlay");
-    if (overlay) overlay.style.display = "none";
+    deps.placementOverlayEl.style.display = "none";
   };
 
   const mapInteractionFlags = {

@@ -20,6 +20,7 @@ import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_A
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
+import { FOUNDRY_RADIUS, WATERWORKS_RADIUS, placementRadius } from "../client-structure-effects/client-structure-effects.js";
 
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -503,14 +504,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_RANGE_MAX);
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
   const SWEEP_RANGE_RADIUS = 5;
-  const WATERWORKS_RANGE_RADIUS = 10;
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
-  const FOUNDRY_RANGE_RADIUS = 5;
-  const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RANGE_RADIUS);
-  const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RANGE_RADIUS);
-  const foundryRangeMaxSegments = observatoryRangeBorderSegmentCount(FOUNDRY_RANGE_RADIUS);
-  const foundryRangeMaxFillVertices = observatoryRangeFillVertexCount(FOUNDRY_RANGE_RADIUS);
+  const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RADIUS);
+  const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RADIUS);
+  const foundryRangeMaxSegments = observatoryRangeBorderSegmentCount(FOUNDRY_RADIUS);
+  const foundryRangeMaxFillVertices = observatoryRangeFillVertexCount(FOUNDRY_RADIUS);
   const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
   const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
@@ -630,12 +629,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const placementRangeInvalidFillMaterial = new MeshBasicMaterial({
     color: "#dc5050",
     transparent: true,
-    opacity: 0.10,
+    opacity: 0.12,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
   });
-  const placementRangeMaxRadius = Math.max(WATERWORKS_RANGE_RADIUS, FOUNDRY_RANGE_RADIUS);
+  const placementRangeMaxRadius = Math.max(WATERWORKS_RADIUS, FOUNDRY_RADIUS);
   const placementRangeMaxSegments = observatoryRangeBorderSegmentCount(placementRangeMaxRadius);
   const placementRangeMaxFillVertices = observatoryRangeFillVertexCount(placementRangeMaxRadius);
   const placementRangeMarker = new LineSegments(
@@ -1378,7 +1377,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedTile.economicStructure.status !== "active") return;
     if (selectedTile.ownerId !== deps.state.me) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RANGE_RADIUS);
+    writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RADIUS);
   };
 
   const writeAirportRangeGeometry = (
@@ -1425,10 +1424,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     placementRangeFill.visible = false;
     if (!deps.state.buildingPlacement.active) return;
     const { x, y, structureType } = deps.state.buildingPlacement;
+    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") return;
     const tile = deps.state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
     const valid = deps.isPlacementValidForTile(tile);
-    const radius = structureType === "WATERWORKS" ? WATERWORKS_RANGE_RADIUS : FOUNDRY_RANGE_RADIUS;
+    const radius = placementRadius(structureType);
     if (valid) {
       placementRangeMarker.material = placementRangeMaterial;
       placementRangeFill.material = placementRangeFillMaterial;

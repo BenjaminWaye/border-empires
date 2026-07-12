@@ -1,12 +1,12 @@
-import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance } from "@border-empires/shared";
+import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance, TECH_REQUIREMENTS_BY_STRUCTURE, structureCostDefinition } from "@border-empires/shared";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
 
-const FOUNDRY_RADIUS = 5;
+export const FOUNDRY_RADIUS = 5;
+export const WATERWORKS_RADIUS = 10;
 const GOVERNORS_OFFICE_RADIUS = 10;
 const GARRISON_HALL_RADIUS = 10;
-const WATERWORKS_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;
 const RADAR_SYSTEM_RADIUS = 30;
 
@@ -229,6 +229,40 @@ export const placementPreviewForStructure = (
     lineDash: [10, 8],
     valid
   };
+};
+
+export const placementRadius = (structureType: PlacementStructureType): number =>
+  structureType === "WATERWORKS" ? WATERWORKS_RADIUS : FOUNDRY_RADIUS;
+
+export type PlacementAvailability = { available: true } | { available: false; reason: string };
+
+export const canBuildPlacementStructure = (
+  structureType: PlacementStructureType,
+  tile: Tile,
+  me: string,
+  gold: number,
+  techIds: string[],
+  strategicResources?: Partial<Record<string, number>>
+): PlacementAvailability => {
+  if (tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure)
+    return { available: false, reason: "Tile already has structure" };
+  if (tile.ownerId !== me) return { available: false, reason: "Not your tile" };
+
+  const requiredTech = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
+  if (requiredTech && !techIds.includes(requiredTech))
+    return { available: false, reason: `Requires ${requiredTech}` };
+
+  const costDef = structureCostDefinition(structureType);
+  if (gold < costDef.baseGoldCost)
+    return { available: false, reason: `Need ${costDef.baseGoldCost} gold` };
+
+  if (costDef.resourceCost) {
+    const have = strategicResources?.[costDef.resourceCost.resource] ?? 0;
+    if (have < costDef.resourceCost.amount)
+      return { available: false, reason: `Need ${costDef.resourceCost.amount} ${costDef.resourceCost.resource}` };
+  }
+
+  return { available: true };
 };
 
 export const tileAreaEffectModifiersForTile = (
