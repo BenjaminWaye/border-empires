@@ -6,6 +6,7 @@ import {
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS,
+  RAIL_DEPOT_BOOSTED_MUSTER_MULT,
   RAIL_DEPOT_MUSTER_RADIUS
 } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
@@ -148,11 +149,14 @@ export const tickMuster = (input: MusterTickInput): void => {
 
 /**
  * Returns the muster speed multiplier for a tile:
- *   - 2.0 if an outpost is within OUTPOST_DEPOT_RADIUS and backed by a Rail Depot
- *   - 1.25 if an outpost is within OUTPOST_DEPOT_RADIUS but no depot nearby
+ *   - RAIL_DEPOT_BOOSTED_MUSTER_MULT if an outpost within OUTPOST_DEPOT_RADIUS
+ *     is itself within RAIL_DEPOT_MUSTER_RADIUS of a Rail Depot
+ *   - MUSTER_DEPOT_SPEED_MULT if an outpost is within OUTPOST_DEPOT_RADIUS but
+ *     none of the nearby outposts are depot-backed
  *   - 1.0 if no outpost is nearby
  *
- * The depot check is O(outposts × depots), both typically < 10.
+ * Checks every outpost within range (not just the closest one) because the
+ * closest outpost to this tile isn't necessarily the one nearest a depot.
  */
 const musterSpeedMultiplier = (
   tile: DomainTileState,
@@ -160,50 +164,29 @@ const musterSpeedMultiplier = (
   depotPositions: ReadonlyArray<Position>
 ): number => {
   if (outpostKeys.size === 0) return 1;
-  // Check if any outpost is within OUTPOST_DEPOT_RADIUS of this tile.
-  let hasNearbyOutpost = false;
-  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) {
-    hasNearbyOutpost = true;
-  } else {
-    for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
-      if (outpostKeys.has(simulationTileKey(x, y))) {
-        hasNearbyOutpost = true;
-        break;
-      }
-    }
-  }
-  if (!hasNearbyOutpost) return 1;
 
-  // Outpost found — check if any depot boosts it.
+  const nearbyOutposts = outpostsWithinRadius(tile, outpostKeys);
+  if (nearbyOutposts.length === 0) return 1;
   if (depotPositions.length === 0) return MUSTER_DEPOT_SPEED_MULT;
 
-  // Find the nearest outpost to the tile, then check if it's near a depot.
-  // We already know an outpost is nearby — now find which one and check depot proximity.
-  const nearestOutpost = findNearestOutpost(tile, outpostKeys);
-  if (!nearestOutpost) return MUSTER_DEPOT_SPEED_MULT;
-
-  for (const depot of depotPositions) {
-    if (chebyshevDistanceSimple(nearestOutpost.x, nearestOutpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
-      return 2.0; // depot-backed outpost: full boost
+  for (const outpost of nearbyOutposts) {
+    for (const depot of depotPositions) {
+      if (chebyshevDistanceSimple(outpost.x, outpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
+        return RAIL_DEPOT_BOOSTED_MUSTER_MULT;
+      }
     }
   }
   return MUSTER_DEPOT_SPEED_MULT;
 };
 
-/** Find the nearest active outpost tile to the given tile. */
-const findNearestOutpost = (tile: DomainTileState, outpostKeys: Set<string>): Position | undefined => {
-  // Check the tile itself first.
-  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) return { x: tile.x, y: tile.y };
-  // Scan outward from radius 1 to OUTPOST_DEPOT_RADIUS.
-  for (let r = 1; r <= OUTPOST_DEPOT_RADIUS; r++) {
-    for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, r)) {
-      // Only check the perimeter (distance === r) for efficiency.
-      if (chebyshevDistanceSimple(tile.x, tile.y, x, y) === r && outpostKeys.has(simulationTileKey(x, y))) {
-        return { x, y };
-      }
-    }
+/** All active outpost tiles within OUTPOST_DEPOT_RADIUS of the given tile. */
+const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): Position[] => {
+  const found: Position[] = [];
+  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) found.push({ x: tile.x, y: tile.y });
+  for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
+    if (outpostKeys.has(simulationTileKey(x, y))) found.push({ x, y });
   }
-  return undefined;
+  return found;
 };
 
 /**
