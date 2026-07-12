@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.3",
+  version: "2026.07.12.4",
   title: "What's New",
-  summary: "New Emperor's Endorsement system: the winner of each season can endorse a player for next season, granting them the Imperial Ward — three activatable shields of total invulnerability.",
+  summary: "Fixed auto-fill so it settles your own frontier tiles too, not just unclaimed land, when it closes off a pocket.",
   entries: [
+    {
+      introducedIn: "2026.07.12.4",
+      title: "Auto-fill now settles enclosed frontier tiles",
+      why: "When territory sealed off a pocket of land, auto-fill was only claiming unowned tiles inside it — any of your own frontier tiles trapped in the same pocket stayed frontier and could still decay back to unowned, even though the pocket was fully enclosed by your own settled territory.",
+      changes: [
+        "Frontier tiles inside a pocket sealed off by your territory are now promoted to settled along with the unowned tiles, instead of being left as decay-vulnerable frontier."
+      ]
+    },
     {
       introducedIn: "2026.07.12.3",
       title: "Emperor's Endorsement and the Imperial Ward",
