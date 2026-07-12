@@ -1079,7 +1079,7 @@ body {
   display: grid;
   place-items: center;
   padding: 0;
-}
+} .icon-btn.icon-only[hidden] { display: none; }
 .tab-icon {
   font-size: 18px;
   line-height: 1;
