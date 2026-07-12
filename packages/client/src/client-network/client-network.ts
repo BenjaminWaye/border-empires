@@ -1,4 +1,5 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
+import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
@@ -138,6 +139,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
+  type ShardRainNoticeLike = { phase?: string | undefined; startsAt?: number | undefined; expiresAt?: number | undefined; siteCount?: number | undefined; sites?: { x: number; y: number }[] | undefined };
+  const applyShardRainNotice = (notice: ShardRainNoticeLike | undefined): void => {
+    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
+      showShardAlert({ key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt });
+      return;
+    }
+    if (notice?.phase === "started" && typeof notice.startsAt === "number" && typeof notice.expiresAt === "number") {
+      const startedAlert = {
+        key: shardAlertKeyForPayload("started", notice.startsAt),
+        phase: "started" as const,
+        startsAt: notice.startsAt,
+        expiresAt: notice.expiresAt,
+        siteCount: Number(notice.siteCount ?? 0),
+        ...(notice.sites ? { sites: notice.sites } : {})
+      };
+      showShardAlert(startedAlert);
+      registerShardRainPingsFromAlert(state, startedAlert);
+    }
+  };
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -1295,6 +1315,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.domainIds = (player.domainIds as string[]) ?? [];
       const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
       state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
+      state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
       state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
@@ -1463,28 +1484,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         pushFeed,
         showCaptureAlert: showCaptureAlertSafely
       });
-      if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
-        showShardAlert({
-          key: shardAlertKeyForPayload("upcoming", shardRainNotice.startsAt),
-          phase: "upcoming",
-          startsAt: shardRainNotice.startsAt
-        });
-      } else if (
-        shardRainNotice?.phase === "started" &&
-        typeof shardRainNotice.startsAt === "number" &&
-        typeof shardRainNotice.expiresAt === "number"
-      ) {
-        const startedAlert = {
-          key: shardAlertKeyForPayload("started", shardRainNotice.startsAt),
-          phase: "started" as const,
-          startsAt: shardRainNotice.startsAt,
-          expiresAt: shardRainNotice.expiresAt,
-          siteCount: Number(shardRainNotice.siteCount ?? 0),
-          ...(shardRainNotice.sites ? { sites: shardRainNotice.sites } : {})
-        };
-        showShardAlert(startedAlert);
-        registerShardRainPingsFromAlert(state, startedAlert);
-      }
+      applyShardRainNotice(shardRainNotice);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       syncAuthOverlay();
       renderHud();
@@ -1619,6 +1619,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
       if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
+      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -3230,30 +3231,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "SHARD_RAIN_EVENT") {
-      if ((msg.phase as string | undefined) === "upcoming" && typeof (msg.startsAt as number | undefined) === "number") {
-        showShardAlert({
-          key: shardAlertKeyForPayload("upcoming", msg.startsAt as number),
-          phase: "upcoming",
-          startsAt: msg.startsAt as number
-        });
-      }
       if (
         (msg.phase as string | undefined) === "started" &&
         typeof (msg.startsAt as number | undefined) === "number" &&
         typeof (msg.expiresAt as number | undefined) === "number"
       ) {
         state.shardRainFxUntil = Date.now() + 8_000;
-        const startedAlert = {
-          key: shardAlertKeyForPayload("started", msg.startsAt as number),
-          phase: "started" as const,
-          startsAt: msg.startsAt as number,
-          expiresAt: msg.expiresAt as number,
-          siteCount: Number(msg.siteCount ?? 0),
-          ...(Array.isArray(msg.sites) ? { sites: msg.sites as { x: number; y: number }[] } : {})
-        };
-        showShardAlert(startedAlert);
-        registerShardRainPingsFromAlert(state, startedAlert);
       }
+      applyShardRainNotice({
+        phase: msg.phase as string | undefined,
+        startsAt: msg.startsAt as number | undefined,
+        expiresAt: msg.expiresAt as number | undefined,
+        siteCount: msg.siteCount as number | undefined,
+        sites: Array.isArray(msg.sites) ? (msg.sites as { x: number; y: number }[]) : undefined
+      });
+      renderHud();
+    }
+    if (msg.type === "IMPERIAL_WARD_ACTIVATED") {
+      applyImperialWardActivatedMessage(state, msg);
       renderHud();
     }
   });

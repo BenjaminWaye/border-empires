@@ -8,6 +8,7 @@ import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolut
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { SimulationSeedProfile } from "../seed-fallback.js";
 import type { createSimulationClient } from "../sim-client/sim-client.js";
@@ -38,6 +39,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
+  galaxyEndorsementStore: GalaxyEndorsementStore;
   authBindingStore: GatewayAuthBindingStore;
   adminApiToken?: string;
 };
@@ -89,5 +91,6 @@ export const buildGatewayHttpRoutesDeps = (ctx: BuildGatewayHttpRoutesDepsContex
     ),
   ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
   galaxyPlanetStore: ctx.galaxyPlanetStore,
+  galaxyEndorsementStore: ctx.galaxyEndorsementStore,
   authBindingStore: ctx.authBindingStore
 });

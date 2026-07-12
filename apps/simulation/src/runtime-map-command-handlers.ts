@@ -61,7 +61,7 @@ export type RuntimeMapCommandContext = {
   addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
 };
 
-function rejectCommand(
+export function rejectCommand(
   context: RuntimeMapCommandContext,
   command: CommandEnvelope,
   code: string,

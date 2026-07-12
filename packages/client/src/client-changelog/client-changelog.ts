@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.5",
+  version: "2026.07.12.4",
   title: "What's New",
   summary: "Rail Depot is now a mustering hub: boosts manpower regen and speeds up nearby outpost muster. Siege outpost attack multiplier descriptions corrected.",
   entries: [
     {
-      introducedIn: "2026.07.11.5",
+      introducedIn: "2026.07.12.4",
       title: "Rail Depot reworked into a mustering hub",
       why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.07.11.5",
+      introducedIn: "2026.07.12.4",
       title: "Fixed inaccurate siege outpost attack multiplier text",
       why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
       changes: [
@@ -42,6 +42,35 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
         "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
         "Tile overview badges now show the correct attack multiplier per siege variant."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.3",
+      title: "Emperor's Endorsement and the Imperial Ward",
+      why: "Phase 1 of the galactic meta-layer crowns the winner of the most recently ended season as \"Emperor\" for a one-hour window, letting them endorse another player who then gets Imperial Ward charges next season — a real bonus with teeth, not just a resource head start.",
+      changes: [
+        "If you're the reigning Emperor, opening your galaxy view now shows an endorsement form with a live countdown to when the window closes.",
+        "You can endorse a player by email or player ID, and change your pick as many times as you like before the window closes. If you don't act, the next season starts automatically after the hour anyway — nothing is ever blocked on the Emperor.",
+        "The endorsed player starts next season with 3 Imperial Ward charges. Activating one (from the new shield chip in your stat bar) makes every tile you own completely un-attackable for 10 minutes — you can still attack out, and there's no cooldown between charges.",
+        "The endorsement section is only visible to the Emperor — everyone else's galaxy view is unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.2",
+      title: "New Settings tab",
+      why: "Account controls (logout, debug info) were bolted onto the bottom of the Sharding panel, which had nothing to do with account settings. There was also no way to change your display name after initial setup.",
+      changes: [
+        "Added a Settings tab (gear icon) after Sharding in both the desktop panel bar and mobile nav.",
+        "Moved sign-in status, client build version, bridge/auth debug info, map reveal, and Log Out into the new Settings tab.",
+        "Added a Display Name field in Settings so you can change your name at any time, not just during initial profile setup."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.1",
+      title: "Fixed Aegis Lock and Astral Dock Launch not doing anything",
+      why: "The gateway kept two separate lists of which commands it forwards to the simulation. The two lists had drifted apart, so Aegis Lock and Astral Dock Launch actions were quietly discarded before they ever reached the simulation — no error, just nothing happened.",
+      changes: [
+        "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
       ]
     },
     {
@@ -324,55 +353,10 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
         "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
       ]
-    },
-    {
-      introducedIn: "2026.07.06.2",
-      title: "Galaxy planet is now an animated world, and never blocks the login screen",
-      why: "The planet was a single flat gradient circle with no motion, and the launcher/overlay were mounted as siblings of #hud instead of inside it — #hud's position:fixed makes it its own CSS stacking context, so anything outside it with an explicit z-index always painted above #hud's entire contents, including the login screen, no matter what number was used.",
-      changes: [
-        "Your planet is now a slowly rotating gas-giant-style sphere with cloud bands, shading, and a tilted ring, instead of a flat circle.",
-        "The launcher and its overlay are now mounted inside the game's HUD layer so their stacking order is correctly computed against the rest of the UI — the login screen (and any other overlay) can never be hidden behind them again."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.1",
-      title: "Galaxy planet launcher no longer overlaps other controls",
-      why: "The new 🪐 planet launcher button was fixed to the bottom-right corner of the screen, the same corner already used by the desktop minimap and, on mobile, directly over the bottom navigation bar's rightmost tab.",
-      changes: [
-        "On mobile, the launcher now sits just above the bottom navigation bar and respects the device's safe-area inset instead of sitting under the home-indicator gesture zone.",
-        "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.4",
-      title: "The galaxy: your planet, permanently",
-      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
-      changes: [
-        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
-        "Planet names are permanent and can only be set once.",
-        "Accounts with multiple season wins can switch between their planets in the same view."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.0",
-      title: "Waterworks, Foundry, and Harbor Exchange bonuses now display correctly",
-      why: "Waterworks/Foundry radius bonuses and the advanced synthesizer upgrades were computed correctly on the server but never sent to the client, so the map under-reported a boosted Farmstead's food (108 instead of 162) or a boosted Mine's iron. Mine and Camp were also missing their own output bonus entirely, and Harbor Exchange charged upkeep with no income to offset it.",
-      changes: [
-        "Farmsteads within range of an active Waterworks now show their true boosted food rate (162/day) immediately, including the moment the Farmstead itself is built.",
-        "Mines within range of an active Foundry now show their true boosted iron/crystal rate, and Mine/Camp now correctly get their own +50% output bonus.",
-        "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
-        "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
-        "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.3",
-      title: "Barbarian ghost tiles cleaned up on territory movement",
-      why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
-      changes: [
-        "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
-      ]
     }
+    // Older entries (2026.07.06.2 and earlier) trimmed: the release-day
+    // window test only keeps entries within the latest 6 days of
+    // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
 };
 

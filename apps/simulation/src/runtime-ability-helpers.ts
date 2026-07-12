@@ -102,6 +102,20 @@ export function isTileShieldedByEnemyAegisDome(
 
 export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";
 export const ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY = "astral_dock_launch_active_until";
+export const IMPERIAL_WARD_ACTIVE_UNTIL_KEY = "imperial_ward_active_until";
+
+// Emperor-endorsement bonus (galaxy meta-layer Phase 1): while active, no
+// ATTACK lock may be created against any tile owned by `targetOwnerId` — a
+// creation-time full-invulnerability block, unlike Aegis Lock's
+// resolution-time "attack always loses" mechanism.
+export function isTileWardedByImperialWard(
+  abilityCooldowns: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  now: number,
+  targetOwnerId: string | undefined
+): boolean {
+  if (!targetOwnerId) return false;
+  return getAbilityCooldownUntil(abilityCooldowns, targetOwnerId, IMPERIAL_WARD_ACTIVE_UNTIL_KEY) > now;
+}
 
 export function isTileShieldedByAegisLock(
   tiles: ReadonlyMap<string, DomainTileState>,

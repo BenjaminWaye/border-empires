@@ -82,6 +82,7 @@ export const createClientViewSupport = (deps: {
       mobilePanelDevelopmentEl: dom.mobilePanelDevelopmentEl,
       mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
       mobilePanelFeedEl: dom.mobilePanelFeedEl,
+      mobilePanelSettingsEl: dom.mobilePanelSettingsEl,
       mobileSheetHeadEl: dom.mobileSheetHeadEl
     });
   const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderMobilePanels });

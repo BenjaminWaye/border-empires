@@ -11,6 +11,7 @@ import { renderDefensibilityPanelHtml } from "../client-defensibility-html/clien
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
+import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
@@ -20,7 +21,9 @@ import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { getCurrentFps, hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
+import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
+import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
+import { updateSettingsDisplayName, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "../client-social-suggestions/client-social-suggestions.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
@@ -235,168 +238,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     `;
   };
 
-  const bridgeStatusHtml = (): string => {
-    const modeLabel =
-      state.bridgeDebugMode === "rewrite-gateway"
-        ? "rewrite-gateway"
-        : state.bridgeDebugMode === "legacy-server"
-          ? "legacy-server"
-          : "unknown";
-    const bootstrapLabel =
-      state.bridgeDebugBootstrap === "rewrite-init"
-        ? "rewrite-init"
-        : state.bridgeDebugBootstrap === "legacy-init"
-          ? "legacy-init"
-          : "pending";
-    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
-    const seasonLabel = state.bridgeDebugSeasonId || "unknown";
-    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "unknown";
-    const snapshotLabel = state.bridgeDebugSnapshotLabel || "n/a";
-    const backendLabel = state.activeBackend;
-    const acceptLatencyLabel =
-      state.bridgeDebugAcceptLatencyP95Ms > 0 ? `${Math.round(state.bridgeDebugAcceptLatencyP95Ms)}ms` : "n/a";
-    // Show the first 8 chars of the gateway/sim build SHA next to the
-    // client's so the user can verify both ends shipped from the same commit.
-    // Empty server SHA (gateway started without BUILD_SHA in its env, e.g.
-    // local dev or an ad-hoc machine start without a deploy) renders as
-    // "dev". A non-empty SHA that does not match the client's prefix gets
-    // a ⚠ marker so a stale-server-vs-fresh-client deploy is obvious.
-    const clientBuildShortLabel = CLIENT_BUILD_VERSION.slice(0, 8);
-    const serverBuildLabel = state.bridgeDebugServerBuildSha ? state.bridgeDebugServerBuildSha.slice(0, 8) : "dev";
-    const buildMatch =
-      state.bridgeDebugServerBuildSha.length > 0 &&
-      state.bridgeDebugServerBuildSha.startsWith(CLIENT_BUILD_VERSION);
-    const buildMismatchLabel =
-      state.bridgeDebugServerBuildSha.length > 0 && !buildMatch ? " ⚠ mismatch" : "";
-    const copyPayload = encodeURIComponent(
-      [
-        `Backend ${backendLabel}`,
-        `Bridge ${modeLabel}`,
-        `Bootstrap ${bootstrapLabel}`,
-        `Accept p95 ${acceptLatencyLabel}`,
-        `Season ${seasonLabel}`,
-        `Runtime ${runtimeFingerprint}`,
-        `Snapshot ${snapshotLabel}`,
-        `Tiles ${state.bridgeDebugInitialTileCount}`,
-        `Msgs ${state.bridgeDebugSupportedMessageCount}`,
-        `Client build ${clientBuildShortLabel}`,
-        `Server build ${serverBuildLabel}${buildMismatchLabel}`,
-        wsLabel
-      ].join("\n")
-    );
-    return `
-      <div class="bridge-debug-status" title="${wsLabel}">
-        <button type="button" class="bridge-debug-copy-btn" data-copy-bridge-debug="${copyPayload}">Copy</button>
-        <div><strong>Backend</strong> ${backendLabel}</div>
-        <div><strong>Bridge</strong> ${modeLabel}</div>
-        <div><strong>Bootstrap</strong> ${bootstrapLabel}</div>
-        <div><strong>Accept p95</strong> ${acceptLatencyLabel}</div>
-        <div><strong>Season</strong> ${seasonLabel}</div>
-        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
-        <div><strong>Snapshot</strong> ${snapshotLabel}</div>
-        <div><strong>Tiles</strong> ${state.bridgeDebugInitialTileCount} · <strong>Msgs</strong> ${state.bridgeDebugSupportedMessageCount}</div>
-        <div><strong>Server build</strong> ${serverBuildLabel}${buildMismatchLabel}</div>
-        <div class="bridge-debug-ws">${wsLabel}</div>
-      </div>
-    `;
-  };
-
-  const authDebugSnapshot = (): {
-    firebaseProjectId: string;
-    firebaseAuthDomain: string;
-    authUid: string;
-    authEmail: string;
-    providerLabel: string;
-    playerId: string;
-    playerName: string;
-    runtimeFingerprint: string;
-    seasonId: string;
-    bootstrapLabel: string;
-    wsLabel: string;
-    fpsLabel: string;
-  } => {
-    const currentUser = firebaseAuth?.currentUser;
-    const firebaseProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
-    const firebaseAuthDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
-    const authUid = currentUser?.uid ?? "none";
-    const authEmail = currentUser?.email?.trim() || "none";
-    const authProviders = currentUser?.providerData
-      ?.map((entry) => entry.providerId)
-      .filter((entry): entry is string => Boolean(entry)) ?? [];
-    const providerLabel = authProviders.length > 0 ? authProviders.join(", ") : "none";
-    const playerId = state.me || "pending";
-    const playerName = state.meName || "pending";
-    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "pending";
-    const seasonId = state.bridgeDebugSeasonId || "pending";
-    const bootstrapLabel =
-      state.bridgeDebugBootstrap === "rewrite-init"
-        ? "rewrite-init"
-        : state.bridgeDebugBootstrap === "legacy-init"
-          ? "legacy-init"
-          : "pending";
-    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
-    const fps = getCurrentFps();
-    const fpsLabel = fps === undefined ? "—" : Math.round(fps).toString();
-    return {
-      firebaseProjectId,
-      firebaseAuthDomain,
-      authUid,
-      authEmail,
-      providerLabel,
-      playerId,
-      playerName,
-      runtimeFingerprint,
-      seasonId,
-      bootstrapLabel,
-      wsLabel,
-      fpsLabel
-    };
-  };
-
-  const authDebugCopyPayload = (): string => {
-    const details = authDebugSnapshot();
-    return encodeURIComponent(
-      [
-        `Client build ${CLIENT_BUILD_VERSION}`,
-        `Host ${window.location.host}`,
-        `Path ${window.location.pathname}${window.location.search}`,
-        `Firebase project ${details.firebaseProjectId}`,
-        `Firebase auth domain ${details.firebaseAuthDomain}`,
-        `Auth uid ${details.authUid}`,
-        `Auth email ${details.authEmail}`,
-        `Providers ${details.providerLabel}`,
-        `Game playerId ${details.playerId}`,
-        `Game playerName ${details.playerName}`,
-        `Auth ready ${state.authReady}`,
-        `Auth session ready ${state.authSessionReady}`,
-        `Profile setup required ${state.profileSetupRequired}`,
-        `Backend ${state.activeBackend}`,
-        `Bridge ${state.bridgeDebugMode || "unknown"}`,
-        `Bootstrap ${details.bootstrapLabel}`,
-        `Render FPS ${details.fpsLabel}`,
-        `Season ${details.seasonId}`,
-        `Runtime ${details.runtimeFingerprint}`,
-        `WS ${details.wsLabel}`,
-        `UA ${navigator.userAgent}`
-      ].join("\n")
-    );
-  };
-
-  const authDebugHtml = (): string => {
-    const details = authDebugSnapshot();
-    return `
-      <div class="bridge-debug-status auth-debug-status" title="${details.authUid}">
-        <button type="button" class="bridge-debug-copy-btn" data-copy-auth-debug>Copy Auth Debug</button>
-        <div><strong>Firebase</strong> ${details.firebaseProjectId}</div>
-        <div><strong>UID</strong> ${details.authUid}</div>
-        <div><strong>Email</strong> ${details.authEmail}</div>
-        <div><strong>Providers</strong> ${details.providerLabel}</div>
-        <div><strong>Player</strong> ${details.playerId} · ${details.playerName}</div>
-        <div><strong>Render FPS</strong> <span data-fps-readout>${details.fpsLabel}</span></div>
-      </div>
-    `;
-  };
-
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
       <span>Minimap (${state.camX}, ${state.camY})</span>
@@ -450,11 +291,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
-    <button class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" type="button" data-panel="development" title="Development slots limit how many settles and constructions can run at once. Tap for breakdown.">
-      <span>${mobile ? "Dev" : "Development"}</span>
-      <strong>${development.busy}/${development.limit}</strong>
-    </button>
+    <button class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" type="button" data-panel="development" title="Development slots limit how many settles and constructions can run at once. Tap for breakdown."><span>${mobile ? "Dev" : "Development"}</span><strong>${development.busy}/${development.limit}</strong></button>
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
+    ${imperialWardChipHtml(state)}
     ${strategicRibbonHtml(
       state.strategicResources,
       state.strategicProductionPerMinute,
@@ -479,6 +318,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
+  bindImperialWardChip(dom.statsChipsEl, sendGameMessage);
   const defensibilityButtons = dom.statsChipsEl.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>;
   defensibilityButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -946,7 +786,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   authDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = async () => {
       try {
-        await navigator.clipboard.writeText(decodeURIComponent(authDebugCopyPayload()));
+        await navigator.clipboard.writeText(decodeURIComponent(authDebugCopyPayload(state, authDebugSnapshot(state, wsUrl, firebaseAuth))));
         pushFeed("Auth debug copied.", "info", "success");
       } catch {
         pushFeed("Could not copy auth debug.", "error", "warn");
@@ -1106,20 +946,37 @@ export const renderClientHud = (deps: HudDeps): void => {
       ${safeValue("renderDomainProgressCard", fallbackCard("Sharding progress"), () => deps.renderDomainProgressCard())}
       ${safeValue("renderDomainChoiceGrid", fallbackCard("Sharding choices"), () => deps.renderDomainChoiceGrid())}
       ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds, state.chosenTrickleResource))}
-      <div class="card auth-settings-card">
-        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
-        <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
-        ${bridgeStatusHtml()}
-        ${mapRevealCardHtml()}
-        <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
-        ${authDebugHtml()}
-      </div>
     </div>
     <div id="domains-detail-content">
       ${safeValue("renderDomainDetailCard", fallbackCard("Shard detail"), () => deps.renderDomainDetailCard())}
     </div>
   `;
   dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
+
+  // Skip the rebuild while the player is typing a new name, or a background
+  // re-render would wipe unsaved keystrokes and reset focus/cursor position.
+  if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
+    dom.panelSettingsEl.innerHTML = `
+      <div class="card auth-settings-card">
+        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
+        ${bridgeStatusHtml(state, wsUrl)}
+        ${mapRevealCardHtml()}
+        <div class="settings-display-name-field">
+          <label>
+            <p>Display Name</p>
+            <div class="row settings-display-name-row">
+              <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authSessionReady ? "" : "disabled"} data-settings-display-name />
+              <button type="button" class="panel-btn" data-settings-update-display-name ${state.authSessionReady ? "" : "disabled"}>Update</button>
+            </div>
+          </label>
+        </div>
+        <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
+        ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
+      </div>
+    `;
+    dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
+  }
 
   const acceptButtons = dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>;
   acceptButtons.forEach((btn: HTMLButtonElement) => {
@@ -1184,6 +1041,22 @@ export const renderClientHud = (deps: HudDeps): void => {
       if (!firebaseAuth) return;
       await signOut(firebaseAuth);
       window.location.reload();
+    };
+  });
+  const settingsUpdateNameButtons = dom.hud.querySelectorAll("[data-settings-update-display-name]") as NodeListOf<HTMLButtonElement>;
+  settingsUpdateNameButtons.forEach((updateBtn: HTMLButtonElement) => {
+    updateBtn.onclick = async () => {
+      // Scope to this button's own row: the card renders twice (desktop + mobile), so a
+      // global "#id" query would always read the first copy's value instead of this one's.
+      const input = updateBtn.closest(".settings-display-name-row")?.querySelector<HTMLInputElement>("[data-settings-display-name]");
+      if (!input) return;
+      await updateSettingsDisplayName(input.value, {
+        currentName: state.meName,
+        currentColor: dom.authProfileColorEl.value,
+        sendGameMessage,
+        updateFirebaseDisplayName: (name) => updateFirebaseDisplayNameBestEffort(firebaseAuth, name),
+        pushFeed
+      });
     };
   });
   const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;

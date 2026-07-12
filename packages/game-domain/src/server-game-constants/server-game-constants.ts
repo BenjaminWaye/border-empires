@@ -157,6 +157,10 @@ export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_CRYSTAL_COST = 300;
 export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 90 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
+// Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
+// no cooldown between charges — a player can burn all 3 back-to-back.
+export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;
+export const IMPERIAL_WARD_CHARGES_GRANTED = 3;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
 export const SURVEY_SWEEP_CRYSTAL_COST = 30;

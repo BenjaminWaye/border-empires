@@ -30,15 +30,16 @@ describe("domain panel detail layout regression guard", () => {
 
   it("keeps auth investigation details and copy support in the settings card", () => {
     const hudSource = sourceFor("../client-hud/client-hud.ts");
+    const hudDebugSource = sourceFor("../client-hud/client-hud-debug.ts");
 
-    expect(hudSource).toContain("const authDebugHtml = (): string => {");
-    expect(hudSource).toContain("Render FPS");
-    expect(hudSource).toContain("data-fps-readout");
-    expect(hudSource).toContain("data-copy-auth-debug");
-    expect(hudSource).toContain("Copy Auth Debug");
-    expect(hudSource).toContain("Auth uid ${details.authUid}");
-    expect(hudSource).toContain("Game playerId ${details.playerId}");
-    expect(hudSource).toContain("const authDebugCopyPayload = (): string => {");
+    expect(hudDebugSource).toContain("export const authDebugHtml = (details: AuthDebugSnapshot): string => {");
+    expect(hudDebugSource).toContain("Render FPS");
+    expect(hudDebugSource).toContain("data-fps-readout");
+    expect(hudDebugSource).toContain("data-copy-auth-debug");
+    expect(hudDebugSource).toContain("Copy Auth Debug");
+    expect(hudDebugSource).toContain("details.authUid");
+    expect(hudDebugSource).toContain("details.playerId");
+    expect(hudDebugSource).toContain("export const authDebugCopyPayload = (");
     expect(hudSource).toContain("const authDebugCopyButtons = dom.hud.querySelectorAll(\"[data-copy-auth-debug]\")");
   });
 
