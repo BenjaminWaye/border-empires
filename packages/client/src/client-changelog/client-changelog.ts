@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.4",
+  version: "2026.07.12.1",
   title: "What's New",
-  summary: "Fixed tiles that stayed painted with an old owner's color after a barbarian moved off them.",
+  summary: "Fixed Aegis Lock and Astral Dock Launch commands being silently dropped by the gateway.",
   entries: [
+    {
+      introducedIn: "2026.07.12.1",
+      title: "Fixed Aegis Lock and Astral Dock Launch not doing anything",
+      why: "The gateway kept two separate lists of which commands it forwards to the simulation. The two lists had drifted apart, so Aegis Lock and Astral Dock Launch actions were quietly discarded before they ever reached the simulation — no error, just nothing happened.",
+      changes: [
+        "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
+      ]
+    },
     {
       introducedIn: "2026.07.11.4",
       title: "Fixed lingering ghost ownership after barbarians move",
@@ -323,16 +331,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.07.05.4",
-      title: "The galaxy: your planet, permanently",
-      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
-      changes: [
-        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
-        "Planet names are permanent and can only be set once.",
-        "Accounts with multiple season wins can switch between their planets in the same view."
-      ]
-    },
-    {
       introducedIn: "2026.07.06.0",
       title: "Waterworks, Foundry, and Harbor Exchange bonuses now display correctly",
       why: "Waterworks/Foundry radius bonuses and the advanced synthesizer upgrades were computed correctly on the server but never sent to the client, so the map under-reported a boosted Farmstead's food (108 instead of 162) or a boosted Mine's iron. Mine and Camp were also missing their own output bonus entirely, and Harbor Exchange charged upkeep with no income to offset it.",
@@ -342,14 +340,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
         "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
         "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.3",
-      title: "Barbarian ghost tiles cleaned up on territory movement",
-      why: "When barbarians moved their territory, about 10 tiles visually remained barbarian-owned on the client forever — the ownership-clearing tile delta was filtered out by the visibility check because the tiles had fallen out of the player's visible area, so the client never learned the tiles were abandoned and showed stale barbarian owners.",
-      changes: [
-        "The simulation's visibility filter now lets an ownership-clearing signal through even for non-visible tiles, so the client always receives the signal to clear stale barbarian (or other player) ownership."
       ]
     }
   ]
