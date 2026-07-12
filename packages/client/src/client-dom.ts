@@ -7,7 +7,7 @@ const hudMarkup = `
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
       <button class="icon-btn icon-only" data-panel="feed" title="Feed" aria-label="Feed"><span class="tab-icon">🔔</span></button>
-      <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button><button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
+      <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
     </div>
   </div>
 
@@ -208,7 +208,7 @@ const hudMarkup = `
     <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard"><span class="tab-icon">🏆</span></button>
     <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
-    <button data-mobile-panel="feed" title="Log" aria-label="Log"><span class="tab-icon">🔔</span></button><button data-mobile-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
+    <button data-mobile-panel="feed" title="Log" aria-label="Log"><span class="tab-icon">🔔</span></button> <button data-mobile-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
   </div>
 
   <div id="mobile-core" class="mobile-panel">
@@ -273,7 +273,7 @@ const hudMarkup = `
       </section>
       <section id="panel-feed" class="panel-body">
         <div id="feed"></div>
-      </section><section id="panel-settings" class="panel-body"></section>
+      </section> <section id="panel-settings" class="panel-body"></section>
     </div>
   </aside>
 
@@ -318,7 +318,7 @@ const hudMarkup = `
     </section>
     <section id="mobile-panel-feed" class="mobile-panel">
       <div id="mobile-feed"></div>
-    </section><section id="mobile-panel-settings" class="mobile-panel"></section>
+    </section> <section id="mobile-panel-settings" class="mobile-panel"></section>
     <section id="mobile-panel-core" class="mobile-panel"></section>
   </div>
 `;
