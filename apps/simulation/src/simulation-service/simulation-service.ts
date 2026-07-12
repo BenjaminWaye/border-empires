@@ -46,6 +46,7 @@ import { createSimulationPersistenceQueue } from "../simulation-persistence-queu
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
+import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
@@ -135,9 +136,7 @@ type ProtoAdminPlayersResponse = {
   ok: boolean;
   players_json?: string;
 };
-type ProtoStartNextSeasonRequest = {
-  force?: boolean;
-};
+type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
@@ -2048,7 +2047,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
-  const startNextSeason = async (force = false): Promise<{ seasonId: string }> => {
+  const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
     if (currentSeasonState.status !== "ended" && !force) {
       throw new Error("cannot start next season before current season has ended");
@@ -2085,6 +2084,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: mainThreadTasks.trackSync,
         onCaptureRevealBuilt: captureRevealBuildSample,
+        ...(pendingImperialWard ? { pendingImperialWard } : {}),
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
             simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -2614,7 +2614,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
     ) {
-      void startNextSeason(call.request.force === true)
+      void startNextSeason(call.request.force === true, parsePendingImperialWard(call.request.imperial_ward_json))
         .then((result) => callback(null, { ok: true, season_id: result.seasonId }))
         .catch((error) =>
           callback(error instanceof Error ? error : new Error("failed to start next season"), {

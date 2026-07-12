@@ -18,6 +18,8 @@ import {
   type RallyLinkStore
 } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
+import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
+import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 
@@ -91,6 +93,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
   galaxyPlanetStore?: GalaxyPlanetStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore;
   authBindingStore?: GatewayAuthBindingStore;
 };
 
@@ -460,6 +463,13 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
     ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}),
+    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
+  });
+
+  registerGalaxyEndorsementRoutes(app, {
+    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
+    ...(deps.galaxyEndorsementStore ? { endorsementStore: deps.galaxyEndorsementStore } : {}),
     ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 };

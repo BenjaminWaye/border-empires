@@ -169,6 +169,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("WORLD_ENGINE_STRIKE"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AEGIS_LOCK"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("ASTRAL_DOCK_LAUNCH"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  // Emperor-endorsement bonus: burns one Imperial Ward charge, granting the
+  // player 10 minutes of total invulnerability on all owned tiles. No anchor
+  // tile — a pure per-player toggle, unlike AEGIS_LOCK.
+  z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CANCEL_SIEGE_OUTPOST_BUILD"), x: z.number().int(), y: z.number().int() }),

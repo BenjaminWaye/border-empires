@@ -16,6 +16,16 @@ export type GalaxyViewModel = {
   focusedSeasonId: string;
 };
 
+// Phase 1: the "Emperor" (winner of the most recently ended season) can
+// endorse another player during a one-hour post-season window. See
+// apps/realtime-gateway/src/galaxy-endorsement-routes for the server side.
+export type GalaxyEmperorViewModel = {
+  emperor: { playerId: string; endedSeasonId: string; crownedAt: number } | null;
+  windowOpenUntil: number | null;
+  endorsement: { targetPlayerId: string; createdAt: number } | null;
+  isEmperor: boolean;
+};
+
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (ch) =>
     ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === '"' ? "&quot;" : "&#39;"
@@ -78,6 +88,47 @@ const switcherHtml = (planets: GalaxyViewPlanet[], focusedSeasonId: string): str
     })
     .join("");
   return `<nav class="gx-switcher" role="tablist" aria-label="Your planets">${rows}</nav>`;
+};
+
+// Formats the time remaining until the endorsement window closes as m:ss.
+// Reads the current time internally (like crownedDateLabel reads locale
+// formatting internally) — callers just re-render on an interval to keep it
+// ticking.
+const endorseCountdownLabel = (windowOpenUntil: number): string => {
+  const remainingMs = Math.max(0, windowOpenUntil - Date.now());
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
+
+// Empty when there is no active Emperor window, or the viewer isn't the
+// Emperor — non-Emperors and players outside the post-season window see
+// nothing here.
+export const renderEmperorSectionHtml = (model: GalaxyEmperorViewModel): string => {
+  if (!model.emperor || !model.isEmperor) return "";
+  const countdown = model.windowOpenUntil !== null ? endorseCountdownLabel(model.windowOpenUntil) : "0:00";
+  const currentPickHtml = model.endorsement
+    ? `<p class="gx-emperor-current" data-galaxy-endorse-current>Currently endorsing: ${escapeHtml(model.endorsement.targetPlayerId)}</p>`
+    : "";
+  return `
+    <div class="gx-emperor" data-galaxy-emperor>
+      <p class="gx-kicker">Emperor's Endorsement</p>
+      <p class="gx-emperor-copy">You reign as Emperor. Endorse a player to grant them Imperial Ward charges next season.</p>
+      <p class="gx-emperor-countdown" data-galaxy-endorse-countdown>Window closes in ${escapeHtml(countdown)}</p>
+      ${currentPickHtml}
+      <form data-galaxy-endorse-form>
+        <input
+          type="text"
+          name="endorseTarget"
+          placeholder="player email or ID"
+          data-galaxy-endorse-target
+          required
+        />
+        <button type="submit" data-galaxy-endorse-submit>${model.endorsement ? "Change Endorsement" : "Endorse"}</button>
+      </form>
+      <p class="gx-emperor-error" data-galaxy-endorse-error hidden></p>
+    </div>`;
 };
 
 export const renderGalaxyViewHtml = (model: GalaxyViewModel): string => {

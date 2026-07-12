@@ -44,6 +44,11 @@ export type RuntimeFrontierCommandContext = {
   isDockCrossingTarget: (from: DomainTileState, x: number, y: number) => boolean;
   isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
+  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
+  // tile's owner has an active Imperial Ward — blocks ATTACK-lock creation
+  // outright (full invulnerability), unlike Aegis Lock's resolution-time
+  // "attack always loses" mechanism.
+  isTileWardedByImperialWard: (targetOwnerId: string | undefined) => boolean;
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
   requiredMusterForTarget: (target: DomainTileState) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
@@ -132,7 +137,9 @@ export const handleFrontierCommandImpl = (
         .includes(simulationTileKey(to.x, to.y)),
     isDockCrossing,
     isBridgeCrossing: ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
-    targetShielded: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
+    targetShielded:
+      (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
+      ctx.isTileWardedByImperialWard(to.ownerId),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
     expandClaimDurationMs,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
