@@ -40,14 +40,14 @@ import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.j
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, simulationTileKey, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
-import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
+import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
@@ -1950,10 +1950,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = stampVisibilityAndMergeFogDeltas(runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true }), {
-              leftVisionTileKeys: visionTransitions.left.get(subscribedPlayerId),
-              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined,
-              tileKeyFor: simulationTileKey
+            const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
+              filterTileDeltasForPlayer: (deltas, playerId, options) => runtime.filterTileDeltasForPlayer(deltas, playerId, options),
+              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined
             });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
