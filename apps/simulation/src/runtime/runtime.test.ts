@@ -4,7 +4,7 @@ import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST,
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
-import { buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -1409,7 +1409,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 8000, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", testRuntimePlayer("player-1", { points: 8000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1449,7 +1449,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 1000, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", testRuntimePlayer("player-1", { points: 1000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1539,7 +1539,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1591,7 +1591,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1645,10 +1645,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "ai-1",
-          buildPlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1671,10 +1668,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        [
-          "ai-1",
-          buildPlayer("ai-1", { isAi: true, manpower: 10_000, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1696,10 +1690,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       initialPlayers: new Map([
-        [
-          "ai-1",
-          buildPlayer("ai-1", { isAi: true, manpower: 10_000, strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [
@@ -2123,7 +2114,7 @@ describe("simulation runtime", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([
-          ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+          ["player-1", testRuntimePlayer("player-1")]
         ]),
         initialState: {
           tiles: [
@@ -2204,7 +2195,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialPlayers: new Map([
           ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
-          ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -2268,7 +2259,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialPlayers: new Map([
           ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
-          ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -2401,7 +2392,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialPlayers: new Map([
           ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
-          ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+          ["player-2", buildAiOpponent()]
         ]),
         initialState: {
           tiles: [
@@ -2465,7 +2456,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialPlayers: new Map([
           ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 10_000 })],
-          ["player-2", buildPlayer("player-2", { isAi: true, points: 900, manpower: 10_000 })]
+          ["player-2", buildAiOpponent({ points: 900 })]
         ]),
         initialState: {
           tiles: [
@@ -4553,7 +4544,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]), domainIds: new Set(), allies: new Set(), missions: [] })
+          buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
         ]
       ]),
       initialState: {
@@ -4607,7 +4598,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]), domainIds: new Set(), allies: new Set(), missions: [] })
+            buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
           ]
         ]),
         initialState: {
@@ -5089,7 +5080,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { name: "Nauticus", strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })
+          testRuntimePlayer("player-1", { name: "Nauticus" })
         ]
       ])
     });
@@ -5262,10 +5253,7 @@ describe("simulation runtime", () => {
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
     const runtime = new SimulationRuntime({
       initialPlayers: new Map([
-        [
-          "ai-1",
-          buildPlayer("ai-1", { isAi: true, name: "ai-1", strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })
-        ]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
@@ -5357,14 +5345,13 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          {
-            ...testRuntimePlayer("player-1"),
+          testRuntimePlayer("player-1", {
             points: 20_000,
             techIds: new Set<string>(["logistics"]),
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 }
-          }
+          })
         ],
-        ["player-2", { ...testRuntimePlayer("player-2"), isAi: true }]
+        ["player-2", testRuntimePlayer("player-2", { isAi: true })]
       ]),
       initialState: {
         tiles: [
@@ -5432,7 +5419,7 @@ describe("simulation runtime", () => {
           "player-1",
           buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["logistics", "terrain-engineering"]), strategicResources: { CRYSTAL: 2_000, SHARD: 0 } })
         ],
-                  ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -5622,7 +5609,7 @@ describe("simulation runtime", () => {
           "player-1",
           buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
         ],
-                  ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -5935,7 +5922,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialPlayers: new Map([
         ["player-1", buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: { CRYSTAL: 200 } })],
-        ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+        ["player-2", buildAiOpponent()]
       ]),
       initialState: {
         tiles: [
@@ -6048,7 +6035,7 @@ describe("simulation runtime", () => {
           "player-1",
           buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
         ],
-                  ["player-2", buildPlayer("player-2", { isAi: true, points: 1_000, manpower: 10_000 })]
+                  ["player-2", buildAiOpponent()]
       ]),
       initialState: { tiles: tiles as never, activeLocks: [] }
     });
@@ -6541,11 +6528,9 @@ describe("simulation runtime", () => {
     // snapshot, so Clockwork Stipend trickle was lost after sim restart.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
-      initialPlayers: new Map([["player-1", {
-        ...testRuntimePlayer("player-1"),
-        domainIds: new Set(["clockwork-stipend"]),
-        chosenTrickleResource: "IRON" as const
-      }]]),
+      initialPlayers: new Map([
+        ["player-1", testRuntimePlayer("player-1", { domainIds: new Set(["clockwork-stipend"]), chosenTrickleResource: "IRON" as const })]
+      ]),
       seedTiles: new Map(),
       initialState: {
         tiles: [
