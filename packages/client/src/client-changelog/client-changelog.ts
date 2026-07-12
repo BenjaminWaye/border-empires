@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.4",
+  version: "2026.07.12.5",
   title: "What's New",
-  summary: "Fixed auto-fill so it settles your own frontier tiles too, not just unclaimed land, when it closes off a pocket.",
+  summary: "Fixed occasional \"Simulation unavailable\" errors during fast expand streaks.",
   entries: [
+    {
+      introducedIn: "2026.07.12.5",
+      title: "Fixed rare \"Simulation unavailable\" errors while expanding quickly",
+      why: "Every expand was rebuilding a full vision-radius reveal square around the new tile, even though you already had vision of that whole area before you expanded into it — the scan found nothing new. With vision-boosting tech/observatories, that redundant scan could run several hundred tiles deep on every single expand. Chaining expands quickly could pile enough of these up on the server that one command's response occasionally missed its deadline, surfacing as a rolled-back move and a \"Simulation unavailable\" error.",
+      changes: [
+        "Expand now only sends the single newly-claimed tile instead of re-scanning and re-sending the whole surrounding area.",
+        "Attacking still sends the full reveal, since capturing deep enemy territory can genuinely expose land you couldn't see before."
+      ]
+    },
     {
       introducedIn: "2026.07.12.4",
       title: "Auto-fill now settles enclosed frontier tiles",
@@ -293,55 +302,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
       ]
-    },
-    {
-      introducedIn: "2026.07.06.5",
-      title: "AI empires no longer get stuck permanently broke",
-      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
-      changes: [
-        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
-        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
-        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.0",
-      title: "Barbarian plunder capped to prevent gold inflation",
-      why: "Capturing a settled tile from Barbarians was awarding massive gold (up to 108 trillion in one capture) because barbarians were initialized with Number.MAX_SAFE_INTEGER gold and the plunder formula divided their 9-quadrillion stash by the tile count.",
-      changes: [
-        "Plunder from barbarian capture is now fixed at 10 gold per tile, down from a share of their quadrillion-gold pool.",
-        "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.4",
-      title: "Galaxy launcher button is simpler and no longer spins",
-      why: "The rotating-planet launcher button was too visually prominent for a cosmetic feature — it competed with the game's main UI rather than quietly indicating access to the galaxy view.",
-      changes: [
-        "The launcher button is now a simple 🪐 emoji on a transparent background instead of a full rotating gas giant, making it much less obtrusive on the game screen.",
-        "The button still opens the full planet-view starfield overlay when clicked."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Fish tiles now produce more food than grain",
-      why: "Fish was strictly worse than grain — lower production, can't be improved, can't be banked. Swapping the production rates gives fish a clear strategic niche: high flow for immediate population feeding, but still perishable and unimprovable. Grain is now the lower-rate option but bankable and improvable with Farmsteads and Waterworks.",
-      changes: [
-        "Fish tile production increased from 48 to 72 FOOD/day; farm tile production reduced from 72 to 48 FOOD/day.",
-        "Farmstead bonus on farm tiles updated accordingly (48 + 24 = 72/day with Farmstead).",
-        "All structures and techs that reference food rates have been updated to match."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Waypoint replacement from any neutral tile",
-      why: "Setting a waypoint locked you into it — tapping another neutral tile while a waypoint was active did nothing. You had to manually cancel the old waypoint first, then tap the new tile again to set a new one, which was frustrating in fast-paced expansion.",
-      changes: [
-        "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
-        "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
-      ]
     }
-    // Older entries (2026.07.06.2 and earlier) trimmed: the release-day
+    // Older entries (2026.07.06.5 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
