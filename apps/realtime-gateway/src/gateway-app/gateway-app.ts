@@ -1190,10 +1190,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     seededAiPlayerIds,
     seedPlayers,
     seedWorld,
-    snapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
-    acceptTruce: (playerId, requestId) => socialState.acceptTruce(playerId, requestId),
-    rejectTruce: (playerId, requestId, announcementByPlayerId) => socialState.rejectTruce(playerId, requestId, announcementByPlayerId),
-    syncPlayers: (playerIds) => socialState.syncPlayers(playerIds),
+    snapshotForPlayer: playerSubscriptions.snapshotForPlayer,
+    acceptTruce: socialState.acceptTruce,
+    rejectTruce: socialState.rejectTruce,
+    syncPlayers: socialState.syncPlayers,
     fanoutPlayerPayloads,
     recordGatewayEvent
   });
