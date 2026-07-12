@@ -77,7 +77,12 @@ export const consumeUpkeepFromTileYield = (
   // the main event loop for 25s+. One batch event = one appendEvent.
   const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
   for (const tileKey of tileKeys) {
-    if (!hasOutstandingUpkeepNeed(need)) return;
+    // break (not return): tiles already processed this call may have
+    // advanced tileYieldCollectedAtByTile in memory and queued a batched
+    // anchor, which must still reach emitEvent below — an early return here
+    // would drop that anchor advance from the event log, so on a sim
+    // restart between snapshots the tile would revert to its old anchor.
+    if (!hasOutstandingUpkeepNeed(need)) break;
     const tile = ctx.tiles.get(tileKey);
     if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!economyContext) economyContext = ctx.tileYieldEconomyContextForPlayer(player);
