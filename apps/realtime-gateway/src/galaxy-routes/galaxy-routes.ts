@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonWinnerSnapshot, SeasonWinnerStats } from "@border-empires/sim-protocol";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -33,6 +33,7 @@ type GalaxyMePlanetView = {
   crownedAt: number;
   planetName: string | null;
   named: boolean;
+  stats?: SeasonWinnerStats;
 };
 
 type GalaxyPublicPlanetView = {
@@ -42,6 +43,7 @@ type GalaxyPublicPlanetView = {
   crownedAt: number;
   claimed: boolean;
   planetName: string | null;
+  stats?: SeasonWinnerStats;
 };
 
 const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
@@ -101,7 +103,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         objectiveName: season.winner.objectiveName,
         crownedAt: season.winner.crownedAt,
         planetName: record?.planetName ?? null,
-        named: Boolean(record)
+        named: Boolean(record),
+        ...(season.winner.stats ? { stats: season.winner.stats } : {})
       });
     }
     planets.sort((a, b) => b.crownedAt - a.crownedAt);
@@ -169,7 +172,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         objectiveName: season.winner.objectiveName,
         crownedAt: season.winner.crownedAt,
         claimed: Boolean(record),
-        planetName: record?.planetName ?? null
+        planetName: record?.planetName ?? null,
+        ...(season.winner.stats ? { stats: season.winner.stats } : {})
       });
     }
     return { planets };

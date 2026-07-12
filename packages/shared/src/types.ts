@@ -56,6 +56,12 @@ export type EconomicStructureType =
   | "WORLD_ENGINE"
   | "AEGIS_DOME"
   | "ASTRAL_DOCK";
+// The late-game monument family: each is built in stages (a "*_PART"
+// intermediate, then the finished structure below). Single source of truth
+// for anything that needs to identify "is this a monument" (e.g. season
+// winner stats).
+export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"] as const;
+export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type TownGrowthUpgradeTier = "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";

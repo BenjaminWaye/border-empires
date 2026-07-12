@@ -61,6 +61,7 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
+import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
@@ -1411,6 +1412,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       now: baseSummary.updatedAt
     });
     currentSeasonState = trackerResult.seasonState;
+    // Capture the winner's economy/population/monuments the moment they're
+    // crowned, while runtimeState still reflects this season's world — this
+    // is the base "planet stats" a christened planet carries forward
+    // (see galaxy-routes.ts). Guarded so a season sitting on "ended" doesn't
+    // re-scan tiles on every subsequent recompute.
+    if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
+      currentSeasonState = {
+        ...currentSeasonState,
+        winner: {
+          ...currentSeasonState.winner,
+          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId)
+        }
+      };
+    }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
     const finalSummary =
       trackerResult.changed || trackerResult.crownedWinner
