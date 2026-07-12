@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.2",
+  version: "2026.07.12.3",
   title: "What's New",
-  summary: "Added a Settings tab — debug info, logout, and display name changes moved out of Sharding into their own home.",
+  summary: "New Emperor's Endorsement system: the winner of each season can endorse a player for next season, granting them the Imperial Ward — three activatable shields of total invulnerability.",
   entries: [
+    {
+      introducedIn: "2026.07.12.3",
+      title: "Emperor's Endorsement and the Imperial Ward",
+      why: "Phase 1 of the galactic meta-layer crowns the winner of the most recently ended season as \"Emperor\" for a one-hour window, letting them endorse another player who then gets Imperial Ward charges next season — a real bonus with teeth, not just a resource head start.",
+      changes: [
+        "If you're the reigning Emperor, opening your galaxy view now shows an endorsement form with a live countdown to when the window closes.",
+        "You can endorse a player by email or player ID, and change your pick as many times as you like before the window closes. If you don't act, the next season starts automatically after the hour anyway — nothing is ever blocked on the Emperor.",
+        "The endorsed player starts next season with 3 Imperial Ward charges. Activating one (from the new shield chip in your stat bar) makes every tile you own completely un-attackable for 10 minutes — you can still attack out, and there's no cooldown between charges.",
+        "The endorsement section is only visible to the Emperor — everyone else's galaxy view is unchanged."
+      ]
+    },
     {
       introducedIn: "2026.07.12.2",
       title: "New Settings tab",
@@ -340,6 +351,9 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
       ]
     }
+    // Older entries (2026.07.05.x and earlier) trimmed: the release-day
+    // window test only keeps entries within the latest 6 days of
+    // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
 };
 

@@ -70,6 +70,7 @@ export type RecoveredSimulationState = {
     domainIds?: string[];
     strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
+    imperialWardCharges?: number;
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;

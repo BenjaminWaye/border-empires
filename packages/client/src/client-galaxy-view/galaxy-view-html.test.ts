@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderGalaxyViewHtml, type GalaxyViewPlanet } from "./galaxy-view-html.js";
+import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
 
 const unnamed: GalaxyViewPlanet = {
   seasonId: "season-1",
@@ -62,6 +62,50 @@ describe("renderGalaxyViewHtml", () => {
   it("escapes HTML in planet names", () => {
     const malicious: GalaxyViewPlanet = { ...named, planetName: '<script>alert(1)</script>' };
     const html = renderGalaxyViewHtml({ planets: [malicious], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+const baseEmperorModel: GalaxyEmperorViewModel = {
+  emperor: { playerId: "player-1", endedSeasonId: "season-1", crownedAt: 1_700_000_000_000 },
+  windowOpenUntil: Date.now() + 30 * 60_000,
+  endorsement: null,
+  isEmperor: true
+};
+
+describe("renderEmperorSectionHtml", () => {
+  it("renders an empty string when there is no active Emperor window", () => {
+    const html = renderEmperorSectionHtml({ ...baseEmperorModel, emperor: null });
+    expect(html).toBe("");
+  });
+
+  it("renders an empty string when the viewer is not the Emperor", () => {
+    const html = renderEmperorSectionHtml({ ...baseEmperorModel, isEmperor: false });
+    expect(html).toBe("");
+  });
+
+  it("renders a form and a countdown when the viewer is the Emperor", () => {
+    const html = renderEmperorSectionHtml(baseEmperorModel);
+    expect(html).toContain("data-galaxy-endorse-form");
+    expect(html).toContain("data-galaxy-endorse-target");
+    expect(html).toContain("data-galaxy-endorse-countdown");
+  });
+
+  it('renders "Currently endorsing" when an endorsement is already set', () => {
+    const html = renderEmperorSectionHtml({
+      ...baseEmperorModel,
+      endorsement: { targetPlayerId: "player-2", createdAt: Date.now() }
+    });
+    expect(html).toContain("Currently endorsing");
+    expect(html).toContain("player-2");
+  });
+
+  it("escapes HTML in the endorsed target player id", () => {
+    const html = renderEmperorSectionHtml({
+      ...baseEmperorModel,
+      endorsement: { targetPlayerId: '<script>alert(1)</script>', createdAt: Date.now() }
+    });
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
