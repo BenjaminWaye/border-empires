@@ -42,6 +42,9 @@ import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
+import { startDatabaseKeepAlive } from "./database-keepalive.js";
+import { startRecurringTask } from "./recurring-task.js";
+import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import {
   createSimSubmitHealthState,
@@ -497,7 +500,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .sort((left, right) => right.lastAt - left.lastAt);
   };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
-  let allianceBreakFinalizeTimer: ReturnType<typeof setInterval> | undefined;
   const refreshCombinedSimulationHealth = (): void => {
     simulationHealth.connected = simulationRpcConnected && simulationEventStreamConnected;
     if (simulationHealth.connected) {
@@ -1822,9 +1824,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
-  void finalizeExpiredAllianceBreaks();
-  allianceBreakFinalizeTimer = setInterval(() => void finalizeExpiredAllianceBreaks(), 60_000);
-  if (typeof allianceBreakFinalizeTimer.unref === "function") allianceBreakFinalizeTimer.unref();
+  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000);
   const imperialWardAutoStart = startImperialWardAutoStartTimer({
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
     startNextSeason: (force, imperialWard) => simulationClient.startNextSeason(force, imperialWard),
@@ -1832,22 +1832,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
 
-  const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
-  const pingDatabaseKeepAlive = (): void => {
-    void commandStore
-      .nextClientSeqForPlayer("__supabase_keepalive__")
-      .then(() => {
-        recordGatewayEvent("info", "gateway_database_keepalive_ok", {});
-      })
-      .catch((error: unknown) => {
-        recordGatewayEvent("warn", "gateway_database_keepalive_failed", {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      });
-  };
-  pingDatabaseKeepAlive();
-  const databaseKeepAliveTimer = setInterval(pingDatabaseKeepAlive, databaseKeepAliveIntervalMs);
-  if (typeof databaseKeepAliveTimer.unref === "function") databaseKeepAliveTimer.unref();
+  const databaseKeepAlive = startDatabaseKeepAlive({
+    nextClientSeqForPlayer: (playerId) => commandStore.nextClientSeqForPlayer(playerId),
+    recordGatewayEvent
+  });
   gatewayEventLoopTimer = setInterval(() => {
     const now = Date.now();
     const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -1904,35 +1892,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   }, 1_000);
 
-  // Slow-event Slack alert latency poll (every 30s)
-  let slackAlertLatencyTimer: ReturnType<typeof setInterval> | undefined;
-  let slackAlertMachineRestartFired = false;
-  slackAlertLatencyTimer = setInterval(() => {
-    if (!slackAlerter) return;
-    const snapshot = gatewayMetrics.snapshot();
-    // Machine restart detection — fire once on first poll if uptime < 2 min
-    if (!slackAlertMachineRestartFired) {
-      slackAlertMachineRestartFired = true;
-      const uptimeMs = Date.now() - startupStartedAt;
-      if (uptimeMs < 120_000) {
-        slackAlerter.alertMachineRestart(uptimeMs);
-      }
-    }
-    // Command submit latency p99 check
-    const submitP99 = snapshot.gatewayCommandSubmitLatencyMs.p99;
-    if (submitP99 > 2500) {
-      slackAlerter.alertCommandSubmitLatencyHigh(submitP99);
-    }
-  }, 30_000);
+  const slackAlertLatencyPoll = startSlackAlertLatencyPoll({
+    getSlackAlerter: () => slackAlerter,
+    snapshotMetrics: () => gatewayMetrics.snapshot(),
+    startupStartedAt
+  });
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    if (allianceBreakFinalizeTimer) clearInterval(allianceBreakFinalizeTimer);
+    allianceBreakFinalize.stop();
     imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
-    if (slackAlertLatencyTimer) clearInterval(slackAlertLatencyTimer);
-    clearInterval(databaseKeepAliveTimer);
+    slackAlertLatencyPoll.stop();
+    databaseKeepAlive.stop();
     gcObserver?.disconnect();
     stopSimulationStream();
   });

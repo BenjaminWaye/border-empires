@@ -332,26 +332,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
         "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
       ]
-    },
-    {
-      introducedIn: "2026.07.06.2",
-      title: "Galaxy planet is now an animated world, and never blocks the login screen",
-      why: "The planet was a single flat gradient circle with no motion, and the launcher/overlay were mounted as siblings of #hud instead of inside it — #hud's position:fixed makes it its own CSS stacking context, so anything outside it with an explicit z-index always painted above #hud's entire contents, including the login screen, no matter what number was used.",
-      changes: [
-        "Your planet is now a slowly rotating gas-giant-style sphere with cloud bands, shading, and a tilted ring, instead of a flat circle.",
-        "The launcher and its overlay are now mounted inside the game's HUD layer so their stacking order is correctly computed against the rest of the UI — the login screen (and any other overlay) can never be hidden behind them again."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.1",
-      title: "Galaxy planet launcher no longer overlaps other controls",
-      why: "The new 🪐 planet launcher button was fixed to the bottom-right corner of the screen, the same corner already used by the desktop minimap and, on mobile, directly over the bottom navigation bar's rightmost tab.",
-      changes: [
-        "On mobile, the launcher now sits just above the bottom navigation bar and respects the device's safe-area inset instead of sitting under the home-indicator gesture zone.",
-        "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
-      ]
     }
-    // Older entries (2026.07.05.x and earlier) trimmed: the release-day
+    // Older entries (2026.07.06.2 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
