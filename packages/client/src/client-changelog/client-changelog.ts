@@ -19,18 +19,42 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.11.3",
+  version: "2026.07.12.2",
   title: "What's New",
   summary: "Added a Settings tab — debug info, logout, and display name changes moved out of Sharding into their own home.",
   entries: [
     {
-      introducedIn: "2026.07.11.3",
+      introducedIn: "2026.07.12.2",
       title: "New Settings tab",
       why: "Account controls (logout, debug info) were bolted onto the bottom of the Sharding panel, which had nothing to do with account settings. There was also no way to change your display name after initial setup.",
       changes: [
         "Added a Settings tab (gear icon) after Sharding in both the desktop panel bar and mobile nav.",
         "Moved sign-in status, client build version, bridge/auth debug info, map reveal, and Log Out into the new Settings tab.",
         "Added a Display Name field in Settings so you can change your name at any time, not just during initial profile setup."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.1",
+      title: "Fixed Aegis Lock and Astral Dock Launch not doing anything",
+      why: "The gateway kept two separate lists of which commands it forwards to the simulation. The two lists had drifted apart, so Aegis Lock and Astral Dock Launch actions were quietly discarded before they ever reached the simulation — no error, just nothing happened.",
+      changes: [
+        "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.4",
+      title: "Fixed lingering ghost ownership after barbarians move",
+      why: "When a barbarian vacated a tile, the server correctly told the client the tile was now neutral, but a tile-merge bug quietly restored the barbarian's old ownership — so the map kept showing the tile as owned indefinitely.",
+      changes: [
+        "Tiles that lose their owner (e.g. a barbarian walking away) now clear their ownership color immediately instead of staying stuck on the previous owner."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.3",
+      title: "Fixed black gap at the shoreline",
+      why: "At low camera angles you could see a black crack where the land met the water — the terrain surface had no thickness and stopped exactly at the coast.",
+      changes: [
+        "Coastal land tiles now drop a solid wall down to below the waterline so grazing camera angles never show through to empty space at the shore."
       ]
     },
     {
@@ -314,28 +338,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "On mobile, the launcher now sits just above the bottom navigation bar and respects the device's safe-area inset instead of sitting under the home-indicator gesture zone.",
         "On desktop, the launcher now sits above the minimap instead of overlapping it, and shifts further left automatically while the side panel is open."
-      ]
-    },
-    {
-      introducedIn: "2026.07.05.4",
-      title: "The galaxy: your planet, permanently",
-      why: "Winning a season only mattered until the world reset — there was no lasting record of who won, so victories vanished the moment a new season began.",
-      changes: [
-        "Season winners can christen a permanent planet, viewable in a new starfield view via the small planet launcher (visible once your account has won at least one season).",
-        "Planet names are permanent and can only be set once.",
-        "Accounts with multiple season wins can switch between their planets in the same view."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.0",
-      title: "Waterworks, Foundry, and Harbor Exchange bonuses now display correctly",
-      why: "Waterworks/Foundry radius bonuses and the advanced synthesizer upgrades were computed correctly on the server but never sent to the client, so the map under-reported a boosted Farmstead's food (108 instead of 162) or a boosted Mine's iron. Mine and Camp were also missing their own output bonus entirely, and Harbor Exchange charged upkeep with no income to offset it.",
-      changes: [
-        "Farmsteads within range of an active Waterworks now show their true boosted food rate (162/day) immediately, including the moment the Farmstead itself is built.",
-        "Mines within range of an active Foundry now show their true boosted iron/crystal rate, and Mine/Camp now correctly get their own +50% output bonus.",
-        "Advanced Fur Synthesizer, Advanced Ironworks, and Advanced Crystal Synthesizer now show their real (higher) output instead of the same rate as the basic version.",
-        "Toggling a Waterworks, Foundry, or Harbor Exchange (build, remove, capture, or destroy) now instantly refreshes every affected nearby tile's displayed yield — no more waiting for an unrelated update to notice the change.",
-        "Harbor Exchange now grants +1 gold/minute per connected owned dock instead of costing upkeep for no benefit."
       ]
     }
   ]

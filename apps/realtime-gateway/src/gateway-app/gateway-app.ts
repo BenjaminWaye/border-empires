@@ -2,9 +2,9 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
-import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
+import { isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
+import type { DurableCommandType } from "@border-empires/client-protocol";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
@@ -53,10 +53,11 @@ import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
-import { createSocialState, type SocialStateSink, type SocialTruceRequest } from "../social-state/social-state.js";
+import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
+import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
 import { createRequestTracer } from "../request-tracer.js";
 import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
@@ -68,10 +69,12 @@ import {
   hydrateSeasonArchiveDisplayNames
 } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
+import { attackPreviewResult } from "../attack-preview/attack-preview.js";
+import { createSeededAiTruceResponder, extractTruceRequestFromPayloads } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
+import { createLoginQueue } from "../login-queue/login-queue.js";
 
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionDock, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -141,83 +144,6 @@ const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | und
 };
 
 const seasonalDefaultAiPlayerIds = (aiPlayerCount?: number): string[] => Array.from({ length: aiPlayerCount ?? 20 }, (_, index) => `ai-${index + 1}`);
-
-const adjacentKeysForTile = (x: number, y: number): string[] => [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`];
-
-const extractTruceRequestFromPayloads = (
-  payloadsByPlayerId: Map<string, unknown[]>,
-  playerId: string
-): SocialTruceRequest | undefined => {
-  for (const payload of payloadsByPlayerId.get(playerId) ?? []) {
-    if (!payload || typeof payload !== "object") continue;
-    const typed = payload as { type?: unknown; request?: unknown };
-    if (typed.type !== "TRUCE_REQUESTED" || !typed.request || typeof typed.request !== "object") continue;
-    return typed.request as SocialTruceRequest;
-  }
-  return undefined;
-};
-
-const seededAiTruceDecisionFromSnapshot = (
-  snapshot: PlayerSubscriptionSnapshot,
-  request: SocialTruceRequest,
-  economyStrained = false
-): "accept" | "reject" => {
-  const tilesByKey = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
-    snapshot.tiles.map((tile: PlayerSubscriptionSnapshot["tiles"][number]) => [`${tile.x},${tile.y}`, tile] as const)
-  );
-  let pressuredBorderTiles = 0;
-  let pressuredTownTiles = 0;
-  for (const tile of snapshot.tiles) {
-    if (tile.ownerId !== request.toPlayerId || tile.terrain !== "LAND") continue;
-    const hasRequesterNeighbor = adjacentKeysForTile(tile.x, tile.y).some((key) => tilesByKey.get(key)?.ownerId === request.fromPlayerId);
-    if (!hasRequesterNeighbor) continue;
-    pressuredBorderTiles += 1;
-    if (tile.townType || tile.townJson) pressuredTownTiles += 1;
-  }
-  const coreThreatened = pressuredTownTiles > 0;
-  if (pressuredBorderTiles <= 0) return "reject";
-  if (coreThreatened && !economyStrained) return "reject";
-  if (request.durationHours === 12) return "accept";
-  return economyStrained ? "accept" : "reject";
-};
-
-const seededAiEconomyStrained = (
-  player:
-    | PlayerSubscriptionSnapshot["player"]
-    | {
-        strategicResources?: Partial<Record<"FOOD", number>>;
-        strategicProductionPerMinute?: Partial<Record<"FOOD", number>>;
-      }
-    | undefined
-): boolean => {
-  if (!player) return false;
-  const incomePerMinute = "incomePerMinute" in player ? player.incomePerMinute : 0;
-  const foodStock = player.strategicResources?.FOOD ?? 0;
-  const foodProduction = player.strategicProductionPerMinute?.FOOD ?? 0;
-  return incomePerMinute < 40 || foodStock < 50 || foodProduction < 0;
-};
-
-const playerSubscriptionSnapshotFromSeedWorld = (
-  seedWorld: ReturnType<typeof createSeedWorld>,
-  playerId: string
-): PlayerSubscriptionSnapshot => ({
-  playerId,
-  tiles: [...seedWorld.tiles.values()].map((tile) => ({
-    x: tile.x,
-    y: tile.y,
-    terrain: tile.terrain,
-    ...(tile.resource ? { resource: tile.resource } : {}),
-    ...(tile.dockId ? { dockId: tile.dockId } : {}),
-    ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-    ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-    ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-    ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-    ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
-    ...(tile.town?.type ? { townType: tile.town.type } : {}),
-    ...(tile.town?.name ? { townName: tile.town.name } : {}),
-    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
-  }))
-});
 
 const jsonSafeTileDeltaBatch = (
   tileDeltas: Array<
@@ -309,117 +235,6 @@ export const hydrateVisibleLeaderboardProfileOverrides = async (
       ...(typeof profile.profileComplete === "boolean" ? { profileComplete: profile.profileComplete } : {})
     });
   }
-};
-
-type PreviewTile = {
-  x: number;
-  y: number;
-  terrain?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  dockId?: string | undefined;
-  townType?: string | undefined;
-  economicStructureJson?: string | undefined;
-  siegeOutpostJson?: string | undefined; breachShockUntil?: number | undefined;
-};
-
-const previewTileKey = (x: number, y: number): string => `${x},${y}`;
-
-type PreviewTileWithAura = PreviewTile & OutpostAuraTileFacts;
-
-const parseStructureJson = <T>(json: string | undefined): T | undefined => {
-  if (!json) return undefined;
-  try {
-    return JSON.parse(json) as T;
-  } catch {
-    return undefined;
-  }
-};
-
-// Builds a single tile map keyed by "x,y" that also carries each tile's
-// JSON-decoded outpost structures. Parsing happens once per preview, not
-// once per scan-cell, so the 5x5 aura sweep does only Map.get() work.
-const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
-  const map = new Map<string, PreviewTileWithAura>();
-  for (const tile of tiles) {
-    const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
-    const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
-    map.set(previewTileKey(tile.x, tile.y), {
-      ...tile,
-      ...(siegeOutpost ? { siegeOutpost } : {}),
-      ...(economicStructure ? { economicStructure } : {})
-    });
-  }
-  return map;
-};
-
-const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number, docks: PlayerSubscriptionDock[] | undefined): boolean => {
-  if (!docks) return false;
-  const dockById = new Map(docks.map((d) => [d.dockId, d] as const));
-  const dockByTileKey = new Map(docks.map((d) => [d.tileKey, d] as const));
-  const fromDock = dockByTileKey.get(`${fromX},${fromY}`);
-  if (!fromDock) return false;
-  const linkedDockIds = fromDock.connectedDockIds?.length ? fromDock.connectedDockIds : fromDock.pairedDockId ? [fromDock.pairedDockId] : [];
-  const toKey = `${toX},${toY}`;
-  return linkedDockIds.some((linkedId) => {
-    const linked = dockById.get(linkedId);
-    return linked?.tileKey === toKey;
-  });
-};
-
-const attackPreviewResult = (
-  playerId: string,
-  tiles: PreviewTile[] | undefined,
-  docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
-  attackerTechIds?: readonly string[],
-  attackerDomainIds?: readonly string[],
-  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
-): Record<string, unknown> => {
-  const from = { x: message.fromX, y: message.fromY };
-  const to = { x: message.toX, y: message.toY };
-  const responseBase = { type: "ATTACK_PREVIEW_RESULT", from, to, ...(message.requestId ? { requestId: message.requestId } : {}) };
-  if (!tiles) {
-    return { ...responseBase, valid: false, reason: "preview unavailable" };
-  }
-  const tileMap = buildPreviewTileMap(tiles);
-  const origin = tileMap.get(previewTileKey(from.x, from.y));
-  const target = tileMap.get(previewTileKey(to.x, to.y));
-  if (!origin || origin.ownerId !== playerId) {
-    return { ...responseBase, valid: false, reason: "origin not owned" };
-  }
-  if (!target) {
-    return { ...responseBase, valid: false, reason: "target not visible" };
-  }
-  if (!target.ownerId || target.ownerId === playerId) {
-    return { ...responseBase, valid: false, reason: "target not hostile" };
-  }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
-    return { ...responseBase, valid: false, reason: "target not adjacent" };
-  }
-  const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
-  const techModifiers = attackerTechIds
-    ? resolveFrontierCombatMultipliers(
-        attackerTechIds,
-        attackerDomainIds,
-        defenderPlayerData?.techIds,
-        defenderPlayerData?.domainIds,
-      )
-    : undefined;
-  const preview = buildFrontierCombatPreview(target, {
-    attackerOutpostMult,
-    ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
-  });
-  return {
-    ...responseBase,
-    valid: true,
-    winChance: preview.winChance,
-    atkEff: preview.atkEff,
-    defEff: preview.defEff,
-    defMult: preview.defMult,
-    atkMult: preview.atkMult
-  };
 };
 
 export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOptions = {}) => {
@@ -589,30 +404,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
   const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
   const lastBootstrapAtByPlayerId = new Map<string, number>();
-  // Login queue: instead of rejecting over-concurrency with SERVER_BUSY, hold
-  // the socket open and resume when a bootstrap slot becomes free. The client
-  // shows a "You are #N in queue" message while waiting.
   const maxLoginQueueSize = Math.max(0, Number(process.env.GATEWAY_MAX_LOGIN_QUEUE_SIZE ?? 50));
-  // Estimated time per bootstrap slot (ms) — used to compute wait-time hints.
   const bootstrapEstimateMs = Math.max(1000, Number(process.env.GATEWAY_BOOTSTRAP_ESTIMATE_MS ?? 6000));
-  type LoginQueueEntry = { socket: import("ws").WebSocket; resolve: (granted: boolean) => void; enqueuedAt: number };
-  const loginQueue: LoginQueueEntry[] = [];
-  const drainLoginQueue = (): void => {
-    if (loginQueue.length === 0 || bootstrapsInFlight >= maxConcurrentBootstraps) return;
-    const next = loginQueue.shift();
-    if (!next) return;
-    // Notify remaining waiters of their updated positions.
-    loginQueue.forEach((entry, i) => {
-      try {
-        sendJson(entry.socket, {
-          type: "LOGIN_QUEUE_PROGRESS",
-          position: i + 1,
-          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
-        });
-      } catch { /* socket may already be closed */ }
-    });
-    next.resolve(true);
-  };
+  const loginQueue = createLoginQueue({
+    maxConcurrentBootstraps,
+    bootstrapEstimateMs,
+    bootstrapsInFlight: () => bootstrapsInFlight,
+    sendJson
+  });
   const pendingInputToStateByCommandId = new Map<string, number>();
   const recordGatewayAuthStepTiming = (
     step: string,
@@ -1312,46 +1111,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     });
   };
   const ignoredLegacyMessageTypes = new Set<string>(
-    supportedClientMessageTypes.filter(
-      (messageType) =>
-        messageType !== "ATTACK" &&
-        messageType !== "EXPAND" &&
-        messageType !== "SETTLE" &&
-        messageType !== "BUILD_FORT" &&
-        messageType !== "BUILD_OBSERVATORY" &&
-        messageType !== "BUILD_SIEGE_OUTPOST" &&
-        messageType !== "BUILD_ECONOMIC_STRUCTURE" &&
-        messageType !== "CANCEL_FORT_BUILD" &&
-        messageType !== "CANCEL_STRUCTURE_BUILD" &&
-        messageType !== "REMOVE_STRUCTURE" &&
-        messageType !== "CANCEL_SIEGE_OUTPOST_BUILD" &&
-        messageType !== "CANCEL_CAPTURE" &&
-        messageType !== "UNCAPTURE_TILE" &&
-        messageType !== "COLLECT_TILE" &&
-        messageType !== "COLLECT_VISIBLE" &&
-        messageType !== "CHOOSE_TECH" &&
-        messageType !== "CHOOSE_DOMAIN" &&
-        messageType !== "OVERLOAD_SYNTHESIZER" &&
-        messageType !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
-        messageType !== "REVEAL_EMPIRE" &&
-        messageType !== "REVEAL_EMPIRE_STATS" &&
-        messageType !== "AETHER_LANCE" &&
-        messageType !== "CAST_AETHER_BRIDGE" &&
-        messageType !== "CAST_AETHER_WALL" &&
-        messageType !== "SIPHON_TILE" &&
-        messageType !== "PURGE_SIPHON" &&
-        messageType !== "CREATE_MOUNTAIN" &&
-        messageType !== "REMOVE_MOUNTAIN" &&
-        messageType !== "AIRPORT_BOMBARD" &&
-        messageType !== "IMPERIAL_EXCHANGE_LEVY" &&
-        messageType !== "WORLD_ENGINE_STRIKE" &&
-        messageType !== "UPGRADE_TOWN_TIER" &&
-        messageType !== "COLLECT_SHARD" &&
-        messageType !== "SET_MUSTER" &&
-        messageType !== "CLEAR_MUSTER" &&
-        messageType !== "WATCH_MUSTER" &&
-        messageType !== "UNWATCH_MUSTER"
-    )
+    supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
 
   registerGatewayHttpRoutes(
@@ -1426,51 +1186,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
-  const maybeAutoRespondToSeededAiTruce = async (request: SocialTruceRequest | undefined): Promise<void> => {
-    if (!request || !seededAiPlayerIds.has(request.toPlayerId)) return;
-    const decisionSnapshot = playerSubscriptions.snapshotForPlayer(request.fromPlayerId);
-    const targetDecisionSnapshot = playerSubscriptions.snapshotForPlayer(request.toPlayerId);
-    const economyStrained = seededAiEconomyStrained(targetDecisionSnapshot?.player ?? seedPlayers.get(request.toPlayerId));
-    const seedDecisionSnapshot = playerSubscriptionSnapshotFromSeedWorld(seedWorld, request.fromPlayerId);
-    const liveSnapshotHasTargetTiles = Boolean(decisionSnapshot?.tiles.some((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.ownerId === request.toPlayerId));
-    const liveDecision = decisionSnapshot ? seededAiTruceDecisionFromSnapshot(decisionSnapshot, request, economyStrained) : "reject";
-    const seedDecision = seededAiTruceDecisionFromSnapshot(seedDecisionSnapshot, request, economyStrained);
-    const decision = liveSnapshotHasTargetTiles ? liveDecision : seedDecision;
-    if (!decisionSnapshot) {
-      recordGatewayEvent("warn", "gateway_ai_truce_snapshot_failed", {
-        aiPlayerId: request.toPlayerId,
-        fromPlayerId: request.fromPlayerId,
-        error: "requester snapshot unavailable"
-      });
-    }
-
-    const aiName = request.toName ?? request.toPlayerId;
-    const response =
-      decision === "accept"
-        ? socialState.acceptTruce(request.toPlayerId, request.id)
-        : socialState.rejectTruce(request.toPlayerId, request.id, {
-            [request.fromPlayerId]: `${aiName} declined your truce offer.`,
-            [request.toPlayerId]: `You declined ${request.fromName ?? request.fromPlayerId}'s truce offer.`
-          });
-    if (!response.ok) {
-      recordGatewayEvent("warn", "gateway_ai_truce_response_failed", {
-        aiPlayerId: request.toPlayerId,
-        fromPlayerId: request.fromPlayerId,
-        decision,
-        code: response.code,
-        message: response.message
-      });
-      fanoutPlayerPayloads(socialState.syncPlayers([request.fromPlayerId, request.toPlayerId]).payloadsByPlayerId);
-      return;
-    }
-    recordGatewayEvent("info", "gateway_ai_truce_response", {
-      aiPlayerId: request.toPlayerId,
-      fromPlayerId: request.fromPlayerId,
-      decision,
-      durationHours: request.durationHours
-    });
-    fanoutPlayerPayloads(response.payloadsByPlayerId);
-  };
+  const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
+    seededAiPlayerIds,
+    seedPlayers,
+    seedWorld,
+    snapshotForPlayer: playerSubscriptions.snapshotForPlayer,
+    acceptTruce: socialState.acceptTruce,
+    rejectTruce: socialState.rejectTruce,
+    syncPlayers: socialState.syncPlayers,
+    fanoutPlayerPayloads,
+    recordGatewayEvent
+  });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
     fogDisabled: boolean,
@@ -2429,7 +2155,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             if (overConcurrency) {
-              if (loginQueue.length >= maxLoginQueueSize) {
+              if (loginQueue.size() >= maxLoginQueueSize) {
                 gatewayMetrics.incrementLoginQueueRejectedTotal();
                 recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
                   playerId: playerIdentity.playerId,
@@ -2437,7 +2163,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   reason: "queue_full",
                   bootstrapsInFlight,
                   maxConcurrentBootstraps,
-                  queueDepth: loginQueue.length
+                  queueDepth: loginQueue.size()
                 });
                 sendJson(socket, {
                   type: "ERROR",
@@ -2449,37 +2175,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 return;
               }
               gatewayMetrics.incrementLoginQueuedTotal();
-              const queuePosition = bootstrapsInFlight + loginQueue.length + 1;
-              const estimatedWaitMs = Math.round((loginQueue.length + 1) * bootstrapEstimateMs / maxConcurrentBootstraps);
+              const queuePosition = bootstrapsInFlight + loginQueue.size() + 1;
+              const estimatedWaitMs = loginQueue.estimatedWaitMs(loginQueue.size() + 1);
               recordGatewayEvent("info", "gateway_bootstrap_queued", {
                 playerId: playerIdentity.playerId,
                 channel,
                 position: queuePosition,
-                queueDepth: loginQueue.length
+                queueDepth: loginQueue.size()
               });
               sendJson(socket, { type: "LOGIN_QUEUED", position: queuePosition, estimatedWaitMs });
               authTrace.startStep("login_queue_wait");
-              const granted = await new Promise<boolean>((resolve) => {
-                const entry: LoginQueueEntry = { socket, resolve, enqueuedAt: Date.now() };
-                loginQueue.push(entry);
-                socket.once("close", () => {
-                  const idx = loginQueue.indexOf(entry);
-                  if (idx !== -1) {
-                    loginQueue.splice(idx, 1);
-                    // Notify remaining waiters their position improved.
-                    loginQueue.forEach((e, i) => {
-                      try {
-                        sendJson(e.socket, {
-                          type: "LOGIN_QUEUE_PROGRESS",
-                          position: i + 1,
-                          estimatedWaitMs: Math.round(((i + 1) * bootstrapEstimateMs) / maxConcurrentBootstraps)
-                        });
-                      } catch { /* socket may already be closed */ }
-                    });
-                  }
-                  resolve(false);
-                });
-              });
+              const granted = await loginQueue.enqueueAndWait(socket);
               authTrace.endStep("login_queue_wait", granted);
               if (!granted) {
                 authTrace.complete("rejected", "queue_socket_closed");
@@ -2537,7 +2243,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             } finally {
               bootstrapsInFlight -= 1;
-              drainLoginQueue();
+              loginQueue.drain();
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
@@ -3109,47 +2815,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (
-            message.type !== "ATTACK" &&
-            message.type !== "EXPAND" &&
-            message.type !== "SETTLE" &&
-            message.type !== "BUILD_FORT" &&
-            message.type !== "BUILD_OBSERVATORY" &&
-            message.type !== "BUILD_SIEGE_OUTPOST" &&
-            message.type !== "BUILD_ECONOMIC_STRUCTURE" &&
-            message.type !== "CANCEL_FORT_BUILD" &&
-            message.type !== "CANCEL_STRUCTURE_BUILD" &&
-            message.type !== "REMOVE_STRUCTURE" &&
-            message.type !== "CANCEL_SIEGE_OUTPOST_BUILD" &&
-            message.type !== "CANCEL_CAPTURE" &&
-            message.type !== "UNCAPTURE_TILE" &&
-            message.type !== "COLLECT_TILE" &&
-            message.type !== "COLLECT_VISIBLE" &&
-            message.type !== "CHOOSE_TECH" &&
-            message.type !== "CHOOSE_DOMAIN" &&
-            message.type !== "OVERLOAD_SYNTHESIZER" &&
-            message.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
-            message.type !== "REVEAL_EMPIRE" &&
-            message.type !== "REVEAL_EMPIRE_STATS" &&
-            message.type !== "AETHER_LANCE" &&
-            message.type !== "CAST_AETHER_BRIDGE" &&
-            message.type !== "CAST_AETHER_WALL" &&
-            message.type !== "SIPHON_TILE" &&
-            message.type !== "PURGE_SIPHON" &&
-            message.type !== "CREATE_MOUNTAIN" &&
-            message.type !== "REMOVE_MOUNTAIN" &&
-            message.type !== "AIRPORT_BOMBARD" &&
-            message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
-            message.type !== "WORLD_ENGINE_STRIKE" &&
-            message.type !== "AEGIS_LOCK" &&
-            message.type !== "ASTRAL_DOCK_LAUNCH" &&
-            message.type !== "UPGRADE_TOWN_TIER" &&
-            message.type !== "COLLECT_SHARD" &&
-            message.type !== "SET_MUSTER" &&
-            message.type !== "CLEAR_MUSTER" &&
-            message.type !== "WATCH_MUSTER" &&
-            message.type !== "UNWATCH_MUSTER"
-          ) {
+          if (!migratedDurableCommandTypes.has(message.type)) {
             sendJson(socket, {
               type: "ERROR",
               code: "UNSUPPORTED",
@@ -3282,95 +2948,36 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
           };
+          const dispatchDurableCommand = (
+            type: DurableCommandType,
+            payload: Record<string, unknown>,
+            withMetadata = false
+          ): Promise<void> =>
+            trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) },
+                submitDeps
+              )
+            );
           if (message.type === "SETTLE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "SETTLE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("SETTLE", { x: message.x, y: message.y }, true);
           } else if (message.type === "BUILD_FORT") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "BUILD_FORT",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y });
           } else if (message.type === "BUILD_OBSERVATORY") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "BUILD_OBSERVATORY",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("BUILD_OBSERVATORY", { x: message.x, y: message.y });
           } else if (message.type === "BUILD_SIEGE_OUTPOST") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "BUILD_SIEGE_OUTPOST",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("BUILD_SIEGE_OUTPOST", { x: message.x, y: message.y });
           } else if (message.type === "SET_MUSTER") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "SET_MUSTER",
-                  payload: {
-                    x: message.x,
-                    y: message.y,
-                    mode: message.mode,
-                    ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
-                    ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {})
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("SET_MUSTER", {
+              x: message.x,
+              y: message.y,
+              mode: message.mode,
+              ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
+              ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {})
+            });
           } else if (message.type === "CLEAR_MUSTER") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CLEAR_MUSTER",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CLEAR_MUSTER", { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {
             // Best-effort subscription — failure must not produce GATEWAY_INTERNAL_ERROR.
             // A timeout or gRPC error here just means the muster panel won't refresh
@@ -3412,452 +3019,95 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               app.log.warn({ err: error }, "gateway unwatch muster failed (best-effort)");
             }
           } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "BUILD_ECONOMIC_STRUCTURE",
-                  payload: {
-                    x: message.x,
-                    y: message.y,
-                    structureType: message.structureType
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("BUILD_ECONOMIC_STRUCTURE", {
+              x: message.x,
+              y: message.y,
+              structureType: message.structureType
+            });
           } else if (message.type === "CANCEL_FORT_BUILD") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CANCEL_FORT_BUILD",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CANCEL_STRUCTURE_BUILD",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CANCEL_STRUCTURE_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "REMOVE_STRUCTURE") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "REMOVE_STRUCTURE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CANCEL_SIEGE_OUTPOST_BUILD",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CANCEL_SIEGE_OUTPOST_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "COLLECT_VISIBLE") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "COLLECT_VISIBLE",
-                  payload: {}
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("COLLECT_VISIBLE", {});
           } else if (message.type === "COLLECT_TILE") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "COLLECT_TILE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("COLLECT_TILE", { x: message.x, y: message.y });
           } else if (message.type === "UNCAPTURE_TILE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "UNCAPTURE_TILE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("UNCAPTURE_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CHOOSE_TECH") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CHOOSE_TECH",
-                  payload: {
-                    techId: message.techId
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CHOOSE_TECH", { techId: message.techId });
           } else if (message.type === "CHOOSE_DOMAIN") {
             const trickleResource = (message as { chosenTrickleResource?: unknown }).chosenTrickleResource;
             const validTrickle = isChosenTrickleResource(trickleResource) ? trickleResource : undefined;
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CHOOSE_DOMAIN",
-                  payload: {
-                    domainId: message.domainId,
-                    ...(validTrickle ? { chosenTrickleResource: validTrickle } : {})
-                  }
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CHOOSE_DOMAIN", {
+              domainId: message.domainId,
+              ...(validTrickle ? { chosenTrickleResource: validTrickle } : {})
+            });
           } else if (message.type === "CANCEL_CAPTURE") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CANCEL_CAPTURE",
-                  payload: {}
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CANCEL_CAPTURE", {});
           } else if (message.type === "OVERLOAD_SYNTHESIZER") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "OVERLOAD_SYNTHESIZER",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("OVERLOAD_SYNTHESIZER", { x: message.x, y: message.y }, true);
           } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "SET_CONVERTER_STRUCTURE_ENABLED",
-                  payload: {
-                    x: message.x,
-                    y: message.y,
-                    enabled: message.enabled
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
+            await dispatchDurableCommand(
+              "SET_CONVERTER_STRUCTURE_ENABLED",
+              { x: message.x, y: message.y, enabled: message.enabled },
+              true
             );
           } else if (message.type === "REVEAL_EMPIRE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "REVEAL_EMPIRE",
-                  payload: {
-                    targetPlayerId: message.targetPlayerId
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
           } else if (message.type === "REVEAL_EMPIRE_STATS") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "REVEAL_EMPIRE_STATS",
-                  payload: {
-                    targetPlayerId: message.targetPlayerId
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
           } else if (message.type === "AETHER_LANCE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "AETHER_LANCE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("AETHER_LANCE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CAST_AETHER_BRIDGE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CAST_AETHER_BRIDGE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_WALL") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CAST_AETHER_WALL",
-                  payload: {
-                    x: message.x,
-                    y: message.y,
-                    direction: message.direction,
-                    length: message.length
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
+            await dispatchDurableCommand(
+              "CAST_AETHER_WALL",
+              { x: message.x, y: message.y, direction: message.direction, length: message.length },
+              true
             );
           } else if (message.type === "SIPHON_TILE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "SIPHON_TILE",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("SIPHON_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "PURGE_SIPHON") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "PURGE_SIPHON",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("PURGE_SIPHON", { x: message.x, y: message.y }, true);
           } else if (message.type === "CREATE_MOUNTAIN") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "CREATE_MOUNTAIN",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("CREATE_MOUNTAIN", { x: message.x, y: message.y }, true);
           } else if (message.type === "REMOVE_MOUNTAIN") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "REMOVE_MOUNTAIN",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("REMOVE_MOUNTAIN", { x: message.x, y: message.y }, true);
           } else if (message.type === "AIRPORT_BOMBARD") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "AIRPORT_BOMBARD",
-                  payload: {
-                    fromX: message.fromX,
-                    fromY: message.fromY,
-                    toX: message.toX,
-                    toY: message.toY
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
+            await dispatchDurableCommand(
+              "AIRPORT_BOMBARD",
+              { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
+              true
             );
           } else if (message.type === "IMPERIAL_EXCHANGE_LEVY") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "IMPERIAL_EXCHANGE_LEVY",
-                  payload: {
-                    fromX: message.fromX,
-                    fromY: message.fromY,
-                    resource: message.resource
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
+            await dispatchDurableCommand(
+              "IMPERIAL_EXCHANGE_LEVY",
+              { fromX: message.fromX, fromY: message.fromY, resource: message.resource },
+              true
             );
           } else if (message.type === "WORLD_ENGINE_STRIKE") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "WORLD_ENGINE_STRIKE",
-                  payload: {
-                    fromX: message.fromX,
-                    fromY: message.fromY,
-                    toX: message.toX,
-                    toY: message.toY
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
+            await dispatchDurableCommand(
+              "WORLD_ENGINE_STRIKE",
+              { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
+              true
             );
           } else if (message.type === "AEGIS_LOCK") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "AEGIS_LOCK",
-                  payload: {
-                    fromX: message.fromX,
-                    fromY: message.fromY
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "ASTRAL_DOCK_LAUNCH",
-                  payload: {
-                    fromX: message.fromX,
-                    fromY: message.fromY
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "UPGRADE_TOWN_TIER") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "UPGRADE_TOWN_TIER",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
+            await dispatchDurableCommand("UPGRADE_TOWN_TIER", { x: message.x, y: message.y }, true);
           } else if (message.type === "COLLECT_SHARD") {
-            const metadata = optionalCommandMetadata(message);
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "COLLECT_SHARD",
-                  payload: {
-                    x: message.x,
-                    y: message.y
-                  },
-                  ...metadata
-                },
-                submitDeps
-              )
-            );
-          } else {
+            await dispatchDurableCommand("COLLECT_SHARD", { x: message.x, y: message.y }, true);
+          } else if (message.type === "ATTACK" || message.type === "EXPAND") {
+            // The only migratedDurableCommandTypes members not already handled
+            // by name above — everything else was rejected as UNSUPPORTED earlier.
             const metadata = optionalCommandMetadata(message);
             await trackSubmitLatency(() =>
               submitFrontierCommand(

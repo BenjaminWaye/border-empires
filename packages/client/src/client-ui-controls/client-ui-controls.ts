@@ -148,6 +148,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
 
   panelActionButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
+      if (btn.hidden) return;
       const panel = btn.dataset.panel as typeof state.activePanel;
       if (!panel) return;
       setActivePanel(panel);
@@ -184,6 +185,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   const mobileNavButtons = hud.querySelectorAll<HTMLButtonElement>("#mobile-nav button[data-mobile-panel]");
   mobileNavButtons.forEach((btn) => {
     btn.onclick = () => {
+      if (btn.hidden) return;
       const panel = btn.dataset.mobilePanel as typeof state.mobilePanel | undefined;
       if (!panel) return;
       state.mobilePanel = panel;

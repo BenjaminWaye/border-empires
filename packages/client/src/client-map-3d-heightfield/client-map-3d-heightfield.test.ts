@@ -125,3 +125,41 @@ describe("heightfield mountain ridge averaging", () => {
     heightfield.dispose();
   });
 });
+
+describe("heightfield coastal skirt", () => {
+  it("emits skirt geometry along a land/sea boundary and none for all-land", () => {
+    const heightfield = createHeightfield();
+
+    const coastal: HeightfieldTerrainKind[][] = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => "GRASS" as HeightfieldTerrainKind)
+    );
+    for (let i = 0; i < 9; i += 1) coastal[8]![i] = "SEA";
+
+    heightfield.rebuild({
+      camX: 0,
+      camY: 0,
+      halfW: 3,
+      halfH: 3,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: buildKindMap(coastal)
+    });
+    expect(heightfield.skirtMesh.geometry.drawRange.count).toBeGreaterThan(0);
+
+    const allLand: HeightfieldTerrainKind[][] = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => "GRASS" as HeightfieldTerrainKind)
+    );
+    heightfield.rebuild({
+      camX: 0,
+      camY: 0,
+      halfW: 3,
+      halfH: 3,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: buildKindMap(allLand)
+    });
+    expect(heightfield.skirtMesh.geometry.drawRange.count).toBe(0);
+
+    heightfield.dispose();
+  });
+});

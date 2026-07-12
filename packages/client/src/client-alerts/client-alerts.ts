@@ -53,9 +53,13 @@ export const maybeAnnounceShardSite = (
 export const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;
 
 export const showShardAlert = (
-  state: Pick<ClientState, "dismissedShardAlertKeys" | "shardAlert">,
+  state: Pick<ClientState, "dismissedShardAlertKeys" | "shardAlert" | "shardRainStatus">,
   alert: ClientShardRainAlert
 ): void => {
+  // shardRainStatus drives the persistent domain-panel countdown and is never
+  // cleared by dismissing the one-time toast alert below, so it must be kept
+  // in sync regardless of the dismissed-key check.
+  state.shardRainStatus = alert;
   if (state.dismissedShardAlertKeys.has(alert.key)) return;
   state.shardAlert = alert;
 };

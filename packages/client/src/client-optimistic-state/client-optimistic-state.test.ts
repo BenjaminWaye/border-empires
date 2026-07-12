@@ -192,6 +192,49 @@ describe("client optimistic state", () => {
     expect(merged.shardSite).toEqual(existing.shardSite);
   });
 
+  it("clears ownership (does not resurrect it) when a delta omits the deleted ownerId/ownershipState keys", () => {
+    // Regression: a barbarian vacating a tile sends ownerId/ownershipState as
+    // null; the delta caller resolves that by DELETING both keys from the tile
+    // it hands to mergeIncomingTileDetail. The base { ...existing, ...incoming }
+    // spread must not resurrect the previous barbarian owner.
+    const existing = baseTile({
+      x: 195,
+      y: 296,
+      ownerId: "barbarian-1",
+      ownershipState: "SETTLED",
+      detailLevel: "summary"
+    });
+    const state = {
+      me: "me",
+      selected: undefined,
+      tiles: new Map<string, Tile>([["195,296", existing]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { mergeIncomingTileDetail } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    const incoming = baseTile({ x: 195, y: 296, detailLevel: "summary" }) as Tile & {
+      ownerId?: string;
+      ownershipState?: Tile["ownershipState"];
+    };
+    delete incoming.ownerId;
+    delete incoming.ownershipState;
+
+    const merged = mergeIncomingTileDetail(existing, incoming);
+
+    expect(merged.ownerId).toBeUndefined();
+    expect(merged.ownershipState).toBeUndefined();
+    expect("ownerId" in merged).toBe(false);
+    expect("ownershipState" in merged).toBe(false);
+  });
+
   it("does not preserve optimistic frontier ownership during late-ack wait windows", () => {
     const state = {
       me: "me",

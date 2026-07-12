@@ -350,7 +350,7 @@ export const createInitialState = () => ({
   showWeakDefensibility: false,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
-  shardAlert: undefined as ClientShardRainAlert | undefined,
+  shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   lastSeenRespawnNoticeId: "",
