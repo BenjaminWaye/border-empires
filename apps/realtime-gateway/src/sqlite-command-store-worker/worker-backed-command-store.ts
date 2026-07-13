@@ -14,10 +14,10 @@ export type WorkerBackedCommandStoreOptions = {
 type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void };
 
 /**
- * `GatewayCommandStore` backed by `SqliteGatewayCommandStore` running inside
- * a worker thread. `node:sqlite`'s `DatabaseSync` is synchronous, so every
- * call here is proxied to the worker over `postMessage` — the actual query
- * blocks the worker's thread, not the gateway's event loop. See
+ * `GatewayCommandStore` backed by a SQLite connection owned by a worker
+ * thread. `node:sqlite`'s `DatabaseSync` is synchronous, so every call here
+ * is proxied to the worker over `postMessage` — the actual query blocks the
+ * worker's thread, not the gateway's event loop. See
  * `command-store-worker.ts` for the rationale.
  */
 export class WorkerBackedGatewayCommandStore implements GatewayCommandStore {
