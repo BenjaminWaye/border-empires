@@ -4,6 +4,19 @@
 
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.
 
+## Authentication
+
+Admin endpoints require the `ADMIN_API_TOKEN`. Find it:
+- **Local**: `~/.zshrc` or `~/.zshenv` (if set)
+- **Staging/Prod**: `flyctl secrets list -a border-empires-combined-staging` (or prod app name)
+
+Use it as a Bearer token:
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" https://border-empires-combined-staging.fly.dev/admin/debug/ai
+```
+
+---
+
 ## Endpoints
 
 ### `/admin/players` – Player State Snapshot
