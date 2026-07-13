@@ -295,7 +295,26 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       const query = request.query as Record<string, unknown> | undefined;
       const playerId = typeof query?.playerId === "string" ? query.playerId : undefined;
       const diagnostics = await deps.getAiDecisionDiagnostics?.(playerId);
-      return { ok: true, diagnostics: diagnostics ?? [] };
+      return { ok: true, diagnostics: diagnostics ?? [], count: (diagnostics ?? []).length };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  app.get("/admin/debug/ai/recording-status", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      // Try to get diagnostics to verify recording is happening
+      const allDiagnostics = await deps.getAiDecisionDiagnostics?.();
+      return {
+        ok: true,
+        recording: (allDiagnostics?.length ?? 0) > 0,
+        totalDiagnostics: allDiagnostics?.length ?? 0
+      };
     } catch (error) {
       reply.code(503);
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
