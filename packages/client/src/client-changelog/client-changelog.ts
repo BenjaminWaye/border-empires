@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.6",
+  version: "2026.07.13.7",
   title: "What's New",
-  summary: "AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
+  summary: "Faster attack resolution — capture-reveal scan no longer re-sends already-visible tiles. AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
   entries: [
+    {
+      introducedIn: "2026.07.13.7",
+      title: "Faster attack resolution",
+      why: "Each ATTACK capture was building a (2r+1)² tile-delta batch to reveal fog-of-war, even though the target tile is always adjacent to the attacker's existing territory — meaning nearly every tile in the batch was already visible. With vision-radius tech bonuses, this batch could reach 361+ tiles and block the server event loop for 500ms+, causing action-accept-timeouts on ATTACK commands.",
+      changes: [
+        "The capture-reveal scan now skips already-visible tiles for ATTACK, matching EXPAND behavior.",
+        "Attack command acceptance is faster and more reliable."
+      ]
+    },
     {
       introducedIn: "2026.07.13.6",
       title: "Fixed AI opponents going idle for extended periods",
