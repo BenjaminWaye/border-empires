@@ -46,7 +46,12 @@ export const getAiDecisionDiagnostics = (playerId?: string): AiDecisionDiagnosti
   if (playerId) {
     return recentDiagnostics.get(playerId) ?? [];
   }
-  return Array.from(recentDiagnostics.values()).flat();
+  const all: AiDecisionDiagnostic[] = [];
+  for (const diags of recentDiagnostics.values()) {
+    all.push(...diags);
+  }
+  // Sort by timestamp descending, newest first
+  return all.sort((a, b) => b.tick - a.tick);
 };
 
 export const getLatestAiDecisionDiagnostic = (playerId: string): AiDecisionDiagnostic | undefined => {
