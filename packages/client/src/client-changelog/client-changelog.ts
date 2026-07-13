@@ -19,10 +19,29 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.1",
+  version: "2026.07.13.3",
   title: "What's New",
-  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
+  summary: "Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub.",
   entries: [
+    {
+      introducedIn: "2026.07.13.3",
+      title: "Town Captured popup now fires for neutral towns too",
+      why: "The popup only fired when the tile's previous owner was a real, different player id, to avoid firing on first-time map reveals. That over-excluded a legitimate case: claiming an already-known but unowned (neutral) town peacefully via Expand — e.g. one that decayed back to neutral, or a vacated barbarian town — never showed the popup at all.",
+      changes: [
+        "Claiming a previously-known neutral town via Expand now shows the Town Captured popup, not just combat captures from another empire.",
+        "First-time map reveals (a tile you've never seen before) still correctly don't trigger the popup, since there's no earlier state to compare against."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.2",
+      title: "Town Captured popup now fires for destroyed settlements too",
+      why: "The Town Captured popup only fired when the captured tile still had town data afterward. Combat destroys a Settlement-tier town on capture — its population disperses instead of joining the empire — so the tile legitimately ends up with no town, and the popup silently never showed for what's usually the majority of captures.",
+      changes: [
+        "Capturing a Settlement-tier town via combat now shows a 'Settlement Destroyed' variant of the popup using the town's pre-capture name, tier, and population, instead of showing nothing.",
+        "The destroyed variant explains the population dispersed rather than joining your empire, and drops the Manpower Cap/Regen stats since nothing was actually gained.",
+        "Towns that survive capture (Town tier and above) keep showing the original 'Town Captured' popup with full stats."
+      ]
+    },
     {
       introducedIn: "2026.07.13.1",
       title: "Town Captured popup",
@@ -309,35 +328,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
       ]
-    },
-    {
-      introducedIn: "2026.07.07.5",
-      title: "Settlements now grow population over time",
-      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
-      changes: [
-        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
-        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.4",
-      title: "Muster flags are now easier to find",
-      why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
-      changes: [
-        "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
-        "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.3",
-      title: "Fixed fog-of-war lifting on unrelated map tiles",
-      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
-      changes: [
-        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
-        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
-      ]
     }
-    // Older entries (2026.07.07.2 and earlier) trimmed: the release-day
+    // Older entries (2026.07.07.5 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

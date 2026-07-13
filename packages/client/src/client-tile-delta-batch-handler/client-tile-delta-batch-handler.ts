@@ -41,9 +41,16 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       updates: tileUpdates?.map((update) => ({ key: keyFor(update.x, update.y), ownerId: update.ownerId, ownershipState: update.ownershipState }))
     });
   }
-  const previousOwnerByKey = new Map<string, string | undefined>();
+  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"] } | undefined>();
   if (Array.isArray(tileUpdates)) {
-    for (const update of tileUpdates) previousOwnerByKey.set(keyFor(update.x, update.y), state.tiles.get(keyFor(update.x, update.y))?.ownerId);
+    for (const update of tileUpdates) {
+      const updateKey = keyFor(update.x, update.y);
+      const existing = state.tiles.get(updateKey);
+      previousTileByKey.set(
+        updateKey,
+        existing ? { ...(existing.ownerId ? { ownerId: existing.ownerId } : {}), ...(existing.town ? { town: existing.town } : {}) } : undefined
+      );
+    }
   }
   applyGatewayTileDeltaBatch(
     { state, keyFor, mergeIncomingTileDetail: deps.mergeIncomingTileDetail, mergeServerTileWithOptimisticState: deps.mergeServerTileWithOptimisticState, clearRenderCaches: deps.clearRenderCaches, buildMiniMapBase: deps.buildMiniMapBase },
@@ -91,7 +98,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
     emitTownCaptureIfCaptured({
       tileUpdates,
-      previousOwnerByKey,
+      previousTileByKey,
       tiles: state.tiles,
       me: state.me,
       meName: state.meName,
