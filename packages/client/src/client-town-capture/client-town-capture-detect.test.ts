@@ -148,6 +148,29 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(showOverlay).not.toHaveBeenCalled();
   });
 
+  it("shows the overlay when a previously-known but unowned (neutral) tile is claimed via EXPAND", () => {
+    // A tile can decay back to neutral (ownerId cleared) and still be cached
+    // client-side from before the decay. Claiming it peacefully via EXPAND
+    // has no "real" previous owner, but it's still a genuine capture.
+    const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
+    const tiles = new Map<string, Tile>([["10,20", townTile()]]);
+    emitTownCaptureIfCaptured(
+      {
+        tileUpdates: [{ x: 10, y: 20 }],
+        previousTileByKey: new Map<string, PreviousTileSnapshot>([["10,20", { town: townTile().town }]]),
+        tiles,
+        me: "me",
+        meName: "Iron Dominion",
+        keyFor,
+        onJumpToTown: vi.fn()
+      },
+      { showOverlay }
+    );
+    expect(showOverlay).toHaveBeenCalledTimes(1);
+    expect(showOverlay.mock.calls[0]![0].townName).toBe("Ironwick");
+    expect(showOverlay.mock.calls[0]![0].destroyed).toBe(false);
+  });
+
   it("does not trigger when the tile already belonged to the local player", () => {
     const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
     const tiles = new Map<string, Tile>([["10,20", townTile()]]);

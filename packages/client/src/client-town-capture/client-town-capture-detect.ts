@@ -7,13 +7,21 @@ export type TownCaptureUpdate = { x: number; y: number };
 export type PreviousTileSnapshot = { ownerId?: string; town?: Tile["town"] };
 
 /**
- * Scans a TILE_DELTA_BATCH for a tile that just flipped from an enemy/neutral
- * owner to the local player and carried a town, either just before or just
- * after the flip. Capturing a SETTLEMENT-tier town via combat destroys it
- * server-side (its population disperses rather than joining the empire), so
- * the tile can legitimately have no `.town` after the merge even though a
- * real capture just happened — in that case we fall back to the pre-capture
- * snapshot so the popup still fires, just with a "destroyed" presentation.
+ * Scans a TILE_DELTA_BATCH for a tile that just flipped to the local player
+ * and carried a town, either just before or just after the flip. The tile
+ * must have been previously CACHED (we saw it before, even if unowned) so
+ * first-time map reveals don't masquerade as captures — but the previous
+ * owner doesn't have to be a real player id: a known, unowned/neutral tile
+ * (e.g. one that decayed back to neutral, or a vacated barbarian tile) still
+ * counts as a genuine capture when it flips to us via EXPAND, not just an
+ * enemy-to-us flip via ATTACK.
+ *
+ * Capturing a SETTLEMENT-tier town via combat destroys it server-side (its
+ * population disperses rather than joining the empire), so the tile can
+ * legitimately have no `.town` after the merge even though a real capture
+ * just happened — in that case we fall back to the pre-capture snapshot so
+ * the popup still fires, just with a "destroyed" presentation.
+ *
  * Shows the capture hero overlay for at most one town per batch (multi-town
  * batches are rare and a single celebratory popup is preferable to several
  * stacking instantly).
@@ -35,7 +43,7 @@ export const emitTownCaptureIfCaptured = (
     const tile = input.tiles.get(key);
     if (tile?.ownerId !== input.me) continue;
     const previous = input.previousTileByKey.get(key);
-    if (!previous?.ownerId || previous.ownerId === input.me) continue;
+    if (!previous || previous.ownerId === input.me) continue;
     const survivingTown = tile.town;
     const town = survivingTown ?? previous.town;
     if (!town) continue;
