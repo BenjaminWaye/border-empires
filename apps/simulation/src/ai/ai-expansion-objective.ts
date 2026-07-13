@@ -67,7 +67,16 @@ export const selectExpansionObjective = (
     ownedCoords.push(parseCoord(allKeys[i]!));
   }
 
-  const neutralBest = nearestBeaconToTerritory(input.neutralBeaconTileKeys, ownedCoords, "neutral_value");
+  // Neutral beacons: stride-sample to MAX_BEACON_SAMPLE so large
+  // neutral-beacon sets (post-season worlds with 1000s of beacons) don't
+  // blow up the O(B×T) loop. Accuracy loss is negligible (evenly-strided).
+  const neutralKeys: string[] = [...input.neutralBeaconTileKeys];
+  const neutralStep = Math.max(1, Math.ceil(neutralKeys.length / MAX_BEACON_SAMPLE));
+  const sampledNeutralKeys: string[] = [];
+  for (let i = 0; i < neutralKeys.length; i += neutralStep) sampledNeutralKeys.push(neutralKeys[i]!);
+  const neutralBest = sampledNeutralKeys.length > 0
+    ? nearestBeaconToTerritory(sampledNeutralKeys, ownedCoords, "neutral_value")
+    : undefined;
 
   // Enemy beacons: collect all enemy yield-bearing keys (excluding self and barbarians),
   // then stride-sample to MAX_BEACON_SAMPLE so large empires don't blow up the B×T loop.
