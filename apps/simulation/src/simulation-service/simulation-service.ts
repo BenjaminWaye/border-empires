@@ -22,7 +22,7 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
-import { getAiDecisionDiagnostics } from "../ai/ai-decision-diagnostics.js";
+import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -1740,6 +1740,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.utilityWinner) {
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1784,6 +1785,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("worker", diagnostic));
                 }
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             ...(options.aiDryRun ? { experimentDryRun: true } : {}),
             ...(options.aiMaxCommandsPerTick ? { experimentMaxCommandsPerTick: options.aiMaxCommandsPerTick } : {}),
@@ -1835,6 +1837,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.utilityWinner) {
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
             onTick: ({ durationMs, playerId }) => {
@@ -1849,6 +1852,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("runtime", diagnostic));
                 }
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             }
           });
       simulationMetrics.setSimAiCurrentTickIntervalMs(options.aiTickMs ?? 250);

@@ -114,6 +114,9 @@ export type AutomationPlannerDiagnostic = {
   utilityRunnerUp?: DecisionClass;
   utilityRunnerUpScore?: number;
   utilityVetoedClasses?: readonly DecisionClass[];
+  /** Full per-class utility scores. Populated on every main-planner result so
+   *  the AI decision diagnostics endpoint can show why every class scored 0. */
+  utilityScores?: Record<string, number>;
 };
 
 export type AutomationPlannerPhase =
