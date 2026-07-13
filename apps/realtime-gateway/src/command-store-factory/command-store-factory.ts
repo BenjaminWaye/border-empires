@@ -12,13 +12,14 @@ export const createGatewayCommandStore = async (
   options: CommandStoreFactoryOptions = {}
 ): Promise<GatewayCommandStore> => {
   if (!options.sqlitePath) return new InMemoryGatewayCommandStore();
-  const [{ SqliteGatewayCommandStore }, { openSqliteDatabase }] = await Promise.all([
-    import("../sqlite-command-store/sqlite-command-store.js"),
-    import("../sqlite-db.js")
-  ]);
-  const store = new SqliteGatewayCommandStore(openSqliteDatabase(options.sqlitePath), {
+  const { WorkerBackedGatewayCommandStore } = await import("../sqlite-command-store-worker/worker-backed-command-store.js");
+  const store = new WorkerBackedGatewayCommandStore({
+    sqlitePath: options.sqlitePath,
+    applySchema: options.applySchema ?? false,
     ...(options.onSqliteBusyRetry ? { onRetry: options.onSqliteBusyRetry } : {})
   });
-  if (options.applySchema) await store.applySchema();
+  // Surface a schema-application failure at startup, same as the old
+  // `await store.applySchema()` did, instead of only on first use.
+  await store.waitUntilReady();
   return store;
 };
