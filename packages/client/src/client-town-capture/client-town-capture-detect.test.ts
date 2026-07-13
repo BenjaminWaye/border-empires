@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { emitTownCaptureIfCaptured } from "./client-town-capture-detect.js";
+import { emitTownCaptureIfCaptured, type PreviousTileSnapshot } from "./client-town-capture-detect.js";
 import type { TownCaptureInfo } from "./client-town-capture.js";
 import type { Tile } from "../client-types.js";
 
@@ -43,7 +43,7 @@ describe("emitTownCaptureIfCaptured", () => {
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "enemy-1"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -63,6 +63,7 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(info.maxPopulation).toBe(100_000);
     expect(info.empireName).toBe("Iron Dominion");
     expect(info.ownedTownCount).toBe(0);
+    expect(info.destroyed).toBe(false);
   });
 
   it("falls back to 'Your Empire' when the local player has no display name yet", () => {
@@ -71,7 +72,7 @@ describe("emitTownCaptureIfCaptured", () => {
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "enemy-1"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
         tiles,
         me: "me",
         meName: "",
@@ -90,7 +91,7 @@ describe("emitTownCaptureIfCaptured", () => {
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "enemy-1"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -117,7 +118,7 @@ describe("emitTownCaptureIfCaptured", () => {
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "enemy-1"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -129,13 +130,13 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(showOverlay.mock.calls[0]![0].ownedTownCount).toBe(2);
   });
 
-  it("does not trigger for a newly revealed tile with no previously cached owner", () => {
+  it("does not trigger for a newly revealed tile with no previously cached tile", () => {
     const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
     const tiles = new Map<string, Tile>([["10,20", townTile()]]);
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map(),
+        previousTileByKey: new Map(),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -153,7 +154,7 @@ describe("emitTownCaptureIfCaptured", () => {
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "me"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "me" }]]),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -165,14 +166,14 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(showOverlay).not.toHaveBeenCalled();
   });
 
-  it("does not trigger for a captured tile that has no town", () => {
+  it("does not trigger for a captured tile that had no town before or after", () => {
     const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
     const { town: _omitTown, ...noTownTile } = townTile();
     const tiles = new Map<string, Tile>([["10,20", noTownTile as Tile]]);
     emitTownCaptureIfCaptured(
       {
         tileUpdates: [{ x: 10, y: 20 }],
-        previousOwnerByKey: new Map([["10,20", "enemy-1"]]),
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
         tiles,
         me: "me",
         meName: "Iron Dominion",
@@ -196,9 +197,9 @@ describe("emitTownCaptureIfCaptured", () => {
           { x: 10, y: 20 },
           { x: 30, y: 40 }
         ],
-        previousOwnerByKey: new Map([
-          ["10,20", "enemy-1"],
-          ["30,40", "enemy-1"]
+        previousTileByKey: new Map([
+          ["10,20", { ownerId: "enemy-1" }],
+          ["30,40", { ownerId: "enemy-1" }]
         ]),
         tiles,
         me: "me",
@@ -210,5 +211,55 @@ describe("emitTownCaptureIfCaptured", () => {
     );
     expect(showOverlay).toHaveBeenCalledTimes(1);
     expect(showOverlay.mock.calls[0]![0].townName).toBe("Ironwick");
+  });
+
+  it("still shows a destroyed-settlement overlay when combat wipes a SETTLEMENT-tier town on capture", () => {
+    // SETTLEMENT-tier towns don't survive an ATTACK capture server-side (see
+    // apps/simulation/src/runtime-capture-aftermath.ts) — the tile ends up with
+    // no `.town` at all, even though a real capture just happened.
+    const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
+    const { town: _omitTown, ...capturedTileWithNoTown } = townTile({ ownershipState: "FRONTIER" });
+    const tiles = new Map<string, Tile>([["10,20", capturedTileWithNoTown as Tile]]);
+    const previousTown: NonNullable<Tile["town"]> = {
+      name: "Mudflat Camp",
+      type: "MARKET",
+      baseGoldPerMinute: 1,
+      supportCurrent: 0,
+      supportMax: 0,
+      goldPerMinute: 0,
+      cap: 100,
+      isFed: false,
+      population: 900,
+      maxPopulation: 1_500,
+      populationTier: "SETTLEMENT",
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      hasMarket: false,
+      marketActive: false,
+      hasGranary: false,
+      granaryActive: false,
+      hasBank: false,
+      bankActive: false
+    };
+    const previousTileByKey = new Map<string, PreviousTileSnapshot>([["10,20", { ownerId: "enemy-1", town: previousTown }]]);
+    emitTownCaptureIfCaptured(
+      {
+        tileUpdates: [{ x: 10, y: 20 }],
+        previousTileByKey,
+        tiles,
+        me: "me",
+        meName: "Iron Dominion",
+        keyFor,
+        onJumpToTown: vi.fn()
+      },
+      { showOverlay }
+    );
+
+    expect(showOverlay).toHaveBeenCalledTimes(1);
+    const info = showOverlay.mock.calls[0]![0];
+    expect(info.destroyed).toBe(true);
+    expect(info.townName).toBe("Mudflat Camp");
+    expect(info.populationTier).toBe("SETTLEMENT");
+    expect(info.population).toBe(900);
   });
 });

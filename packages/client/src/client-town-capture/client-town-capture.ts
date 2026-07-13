@@ -12,6 +12,8 @@ export type TownCaptureInfo = {
   empireName: string;
   /** Count of the player's other already-settled towns, used to estimate manpower regen weight. */
   ownedTownCount: number;
+  /** True when combat destroyed the town on capture (SETTLEMENT-tier towns don't survive an attack) — no manpower was actually gained. */
+  destroyed: boolean;
   onJumpToTown: () => void;
 };
 
@@ -52,25 +54,24 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
 
 const overlayHtml = (info: TownCaptureInfo): string => {
   const tier = tierLabel(info.populationTier);
-  const tierMeta = TOWN_MANPOWER_BY_TIER[info.populationTier];
-  const manpowerCapAdded = tierMeta.cap;
-  const manpowerRegenAdded = tierMeta.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
   const townName = info.townName || tier;
   const populationLabel = Math.round(info.population).toLocaleString();
   const maxPopulationLabel = Math.round(info.maxPopulation).toLocaleString();
 
-  return `
-    <div id="town-capture-backdrop"></div>
-    <div id="town-capture-modal">
-      <div id="town-capture-hero">${artSvg}
-        <div id="town-capture-hero-fade"></div>
-        <div id="town-capture-eyebrow">Town Captured</div>
-        <div id="town-capture-name">${escapeHtml(townName)}</div>
-        <div id="town-capture-meta">${escapeHtml(tier)} &middot; (${info.x}, ${info.y})</div>
-      </div>
-      <button id="town-capture-close" class="town-capture-close-btn" type="button" aria-label="Close">&#10005;</button>
-      <div id="town-capture-body">
-        <div id="town-capture-owner">Now belongs to <strong>${escapeHtml(info.empireName)}</strong></div>
+  const statsHtml = info.destroyed
+    ? `
+        <div id="town-capture-stats" class="town-capture-stats-single">
+          <div class="town-capture-stat">
+            <div class="town-capture-stat-label">Population Lost</div>
+            <div class="town-capture-stat-value">${populationLabel}<span class="town-capture-stat-suffix">/${maxPopulationLabel}</span></div>
+          </div>
+        </div>
+        <div id="town-capture-note">This settlement was leveled in the attack — its population dispersed rather than joining your empire. The tile is now yours to resettle.</div>`
+    : (() => {
+        const tierMeta = TOWN_MANPOWER_BY_TIER[info.populationTier];
+        const manpowerCapAdded = tierMeta.cap;
+        const manpowerRegenAdded = tierMeta.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
+        return `
         <div id="town-capture-stats">
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Population</div>
@@ -85,7 +86,26 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerRegenAdded.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
           </div>
         </div>
-        <div id="town-capture-note">Full gold production and these manpower gains begin once the town is settled and connected to supporting territory.</div>
+        <div id="town-capture-note">Full gold production and these manpower gains begin once the town is settled and connected to supporting territory.</div>`;
+      })();
+
+  return `
+    <div id="town-capture-backdrop"></div>
+    <div id="town-capture-modal">
+      <div id="town-capture-hero">${artSvg}
+        <div id="town-capture-hero-fade"></div>
+        <div id="town-capture-eyebrow">${info.destroyed ? "Settlement Destroyed" : "Town Captured"}</div>
+        <div id="town-capture-name">${escapeHtml(townName)}</div>
+        <div id="town-capture-meta">${escapeHtml(tier)} &middot; (${info.x}, ${info.y})</div>
+      </div>
+      <button id="town-capture-close" class="town-capture-close-btn" type="button" aria-label="Close">&#10005;</button>
+      <div id="town-capture-body">
+        <div id="town-capture-owner">${
+          info.destroyed
+            ? `Destroyed by <strong>${escapeHtml(info.empireName)}</strong>'s attack`
+            : `Now belongs to <strong>${escapeHtml(info.empireName)}</strong>`
+        }</div>
+        ${statsHtml}
         <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
@@ -153,6 +173,9 @@ const styles = `
 #town-capture-owner strong { color: #ffd68f; font-weight: 800; }
 #town-capture-stats {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+#town-capture-stats.town-capture-stats-single {
+  grid-template-columns: 1fr;
 }
 .town-capture-stat {
   display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px;
