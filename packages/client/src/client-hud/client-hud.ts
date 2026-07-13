@@ -1193,7 +1193,7 @@ export const renderClientHud = (deps: HudDeps): void => {
             <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
             <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
           </div>
-          <button id="renderer-prompt-download" class="panel-btn guide-secondary-btn" type="button" style="margin-top:8px">Download Diagnostics</button>
+          <button id="renderer-prompt-download" class="panel-btn guide-secondary-btn renderer-prompt-download-btn" type="button">Download Diagnostics</button>
         </div>
       </div>
     `;
