@@ -145,6 +145,13 @@ type ProtoGetRecentCommandsResponse = {
   ok: boolean;
   commands_json?: string;
 };
+type ProtoGetAiDecisionDiagnosticsRequest = {
+  player_id?: string;
+};
+type ProtoGetAiDecisionDiagnosticsResponse = {
+  ok: boolean;
+  diagnostics_json?: string;
+};
 type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
@@ -2656,6 +2663,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             commands_json: ""
           })
         );
+    },
+    GetAiDecisionDiagnostics(
+      call: { request: ProtoGetAiDecisionDiagnosticsRequest },
+      callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
+    ) {
+      const { getAiDecisionDiagnostics } = require("../ai/ai-decision-diagnostics.js");
+      try {
+        const playerId = call.request.player_id || undefined;
+        const diagnostics = getAiDecisionDiagnostics(playerId);
+        callback(null, { ok: true, diagnostics_json: JSON.stringify(diagnostics) });
+      } catch (error) {
+        callback(error instanceof Error ? error : new Error("failed to load diagnostics"), {
+          ok: false,
+          diagnostics_json: ""
+        });
+      }
     },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },
