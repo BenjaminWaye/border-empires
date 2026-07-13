@@ -47,9 +47,6 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
     info.onJumpToTown();
     dismiss();
   });
-
-  const dismissTimer = setTimeout(dismiss, 9000);
-  overlay.addEventListener("click", () => clearTimeout(dismissTimer), { once: true });
 };
 
 const overlayHtml = (info: TownCaptureInfo): string => {
