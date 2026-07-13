@@ -265,6 +265,16 @@ export const canBuildPlacementStructure = (
   return { available: true };
 };
 
+export const placementBeneficiaryStructureType = (structureType: PlacementStructureType): "MINE" | "FARMSTEAD" =>
+  structureType === "WATERWORKS" ? "FARMSTEAD" : "MINE";
+
+export const tileIsPlacementBeneficiary = (tile: Tile, structureType: PlacementStructureType, ownerId: string): boolean => {
+  const structure = tile.economicStructure;
+  if (!structure || structure.status !== "active") return false;
+  if (structure.ownerId !== ownerId) return false;
+  return structure.type === placementBeneficiaryStructureType(structureType);
+};
+
 export const tileAreaEffectModifiersForTile = (
   tile: Tile,
   tiles: Iterable<Tile>,

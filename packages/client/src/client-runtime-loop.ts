@@ -17,7 +17,8 @@ import {
   fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { structureAreaPreviewForTile, placementPreviewForStructure } from "./client-structure-effects/client-structure-effects.js";
+import { structureAreaPreviewForTile } from "./client-structure-effects/client-structure-effects.js";
+import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
@@ -1360,34 +1361,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    if (!isTrue3DRendererActive() && state.buildingPlacement.active) {
-      const st = state.buildingPlacement.structureType;
-      if (st === "WATERWORKS" || st === "FOUNDRY") {
-        const placementTile = state.tiles.get(deps.keyFor(state.buildingPlacement.x, state.buildingPlacement.y));
-        const placementVis = deps.tileVisibilityStateAt(state.buildingPlacement.x, state.buildingPlacement.y, placementTile);
-        const valid = deps.isPlacementValidForTile(placementTile);
-        const preview = placementPreviewForStructure(st, valid);
-        if (placementVis === "visible") {
-          const center = deps.worldToScreen(state.buildingPlacement.x, state.buildingPlacement.y, size, halfW, halfH);
-          const ringRadius = preview.radius + 0.5;
-          const squareSize = ringRadius * 2 * size;
-          deps.ctx.save();
-          deps.ctx.strokeStyle = preview.strokeStyle;
-          deps.ctx.fillStyle = preview.fillStyle;
-          deps.ctx.setLineDash(preview.lineDash);
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-          deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-          deps.ctx.restore();
-          deps.ctx.save();
-          deps.ctx.fillStyle = valid ? "rgba(56, 176, 60, 0.7)" : "rgba(220, 80, 80, 0.7)";
-          deps.ctx.beginPath();
-          deps.ctx.arc(center.sx, center.sy, 4, 0, Math.PI * 2);
-          deps.ctx.fill();
-          deps.ctx.restore();
-        }
-      }
-    }
+    if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
 
     if (state.aetherWallTargeting.active) {
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";

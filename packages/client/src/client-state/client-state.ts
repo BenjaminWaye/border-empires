@@ -1,5 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
@@ -52,27 +53,6 @@ type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload =
   | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
-
-const SERVER_DEPLOYING_SESSION_KEY = "be:server-deploying-at";
-const SERVER_DEPLOYING_WINDOW_MS = 180_000;
-
-export const setServerDeployingSession = (): void => {
-  try { sessionStorage.setItem(SERVER_DEPLOYING_SESSION_KEY, String(Date.now())); } catch {}
-};
-
-export const clearServerDeployingSession = (): void => {
-  try { sessionStorage.removeItem(SERVER_DEPLOYING_SESSION_KEY); } catch {}
-};
-
-const checkServerDeployingSession = (): boolean => {
-  try {
-    const ts = sessionStorage.getItem(SERVER_DEPLOYING_SESSION_KEY);
-    if (!ts) return false;
-    return Date.now() - Number(ts) < SERVER_DEPLOYING_WINDOW_MS;
-  } catch {
-    return false;
-  }
-};
 
 export const storageGet = (keyName: string): string | null => {
   try {

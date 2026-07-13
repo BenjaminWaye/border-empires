@@ -5,14 +5,9 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-c
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
-  breakAllianceFromUi,
-  breakTruceFromUi,
-  chooseDomainFromUi,
-  chooseTechFromUi,
-  explainActionFailureFromServer,
-  sendAllianceRequestFromUi,
-  sendTruceRequestFromUi
+  explainActionFailureFromServer
 } from "./client-player-actions.js";
+import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -98,11 +93,9 @@ import {
 } from "./client-tile-action-support/client-tile-action-support.js";
 import {
   settledDefenseNearFortDomainModifiers,
-  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule,
-  type PlacementStructureType,
-  canBuildPlacementStructure,
-  placementRadius
+  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
 } from "./client-structure-effects/client-structure-effects.js";
+import { createBuildingPlacementFlow } from "./client-building-placement/client-building-placement.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -359,24 +352,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state.tileDetailRequestedAt.set(tileKey, now);
   };
 
-  const playerActionDeps = () => ({
-    state,
-    techPickEl,
-    mobileTechPickEl,
-    ws,
-    wsUrl,
-    setAuthStatus,
-    syncAuthOverlay,
-    pushFeed,
-    renderHud,
-    sendGameMessage
-  });
-
-  const sendAllianceRequest = (target: string): void => sendAllianceRequestFromUi(target, playerActionDeps());
-  const sendTruceRequest = (targetPlayerName: string, durationHours: 12 | 24): void =>
-    sendTruceRequestFromUi(targetPlayerName, durationHours, playerActionDeps());
-  const breakAlliance = (target: string): void => breakAllianceFromUi(target, playerActionDeps());
-  const breakTruce = (targetPlayerId: string): void => breakTruceFromUi(targetPlayerId, playerActionDeps());
+  const { sendAllianceRequest, sendTruceRequest, breakAlliance, breakTruce, chooseTech, chooseDomain } =
+    createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
   const hasOutgoingPendingTruce = (): boolean => state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
@@ -386,8 +363,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (state.incomingTruceRequests.some((request) => request.fromPlayerId === playerId && request.expiresAt > Date.now())) return "incoming";
     return undefined;
   };
-  const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
-  const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
   const explainActionFailure = (
     code: string,
@@ -1697,54 +1672,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
-  const isPlacementValidForTile = (tile: Tile | undefined): boolean => {
-    if (!tile || !state.buildingPlacement.active) return false;
-    const st = state.buildingPlacement.structureType;
-    if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
-    return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.strategicResources).available;
-  };
-
-  const cancelBuildingPlacement = (): void => {
-    state.buildingPlacement.active = false;
-    state.buildingPlacement.structureType = "";
-    removePlacementOverlay();
-    renderHud();
-  };
-
-  const confirmBuildingPlacement = (): void => {
-    if (!state.buildingPlacement.active) return;
-    const { structureType, x, y } = state.buildingPlacement;
-    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") {
-      cancelBuildingPlacement();
-      return;
-    }
-    const tile = state.tiles.get(keyFor(x, y));
-    if (!isPlacementValidForTile(tile)) {
-      pushFeed("Cannot build here. The tile is no longer valid.", "combat", "warn");
-      cancelBuildingPlacement();
-      return;
-    }
-    sendDevelopmentBuild(
-      { type: "BUILD_STRUCTURE", x, y, structureType },
-      () => applyOptimisticStructureBuild(x, y, structureType),
-      { x, y, label: `${structureType} at (${x}, ${y})`, optimisticKind: structureType }
-    );
-    cancelBuildingPlacement();
-  };
-
-  const renderPlacementOverlay = (): void => {
-    if (!state.buildingPlacement.active) {
-      deps.placementOverlayEl.style.display = "none";
-      return;
-    }
-    const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Foundry";
-    deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
-    deps.placementOverlayEl.style.display = "flex";
-  };
-
-  const removePlacementOverlay = (): void => {
-    deps.placementOverlayEl.style.display = "none";
-  };
+  const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
+    createBuildingPlacementFlow(state, {
+      keyFor, pushFeed, renderHud, sendDevelopmentBuild, applyOptimisticStructureBuild,
+      placementOverlayEl: deps.placementOverlayEl,
+      placementLabelEl: deps.placementLabelEl
+    });
 
   const mapInteractionFlags = {
     suppressNextClick: false

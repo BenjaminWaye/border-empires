@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.4",
+  version: "2026.07.12.5",
   title: "What's New",
-  summary: "Building placement preview: when constructing a Waterworks or Foundry, you can now preview the area-of-effect radius on the map, move the building to any valid tile, and confirm or cancel before committing.",
+  summary: "Building placement preview now highlights which existing structures will actually benefit — Mines light up green for Foundry, Farmsteads for Waterworks.",
   entries: [
+    {
+      introducedIn: "2026.07.12.5",
+      title: "Placement preview highlights the structures that will actually benefit",
+      why: "The Waterworks/Foundry placement radius preview showed the affected area, but not which of your existing structures inside it would actually receive the bonus — you had to know the mechanic and count tiles yourself.",
+      changes: [
+        "While placing a Foundry, every active Mine you own within its radius now highlights green.",
+        "While placing a Waterworks, every active Farmstead you own within its radius now highlights green.",
+        "Works in both the flat map and 3D view."
+      ]
+    },
     {
       introducedIn: "2026.07.12.4",
       title: "Building placement mode for Waterworks and Foundry",

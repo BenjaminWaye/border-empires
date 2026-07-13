@@ -20,7 +20,8 @@ import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_A
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
-import { FOUNDRY_RADIUS, WATERWORKS_RADIUS, placementRadius } from "../client-structure-effects/client-structure-effects.js";
+import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
+import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -508,8 +509,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
   const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RADIUS);
   const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RADIUS);
-  const foundryRangeMaxSegments = observatoryRangeBorderSegmentCount(FOUNDRY_RADIUS);
-  const foundryRangeMaxFillVertices = observatoryRangeFillVertexCount(FOUNDRY_RADIUS);
   const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
   const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
@@ -604,47 +603,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(airportRangeMaxFillVertices),
     airportRangeFillMaterial
   );
-  const placementRangeMaterial = new LineBasicMaterial({
-    color: "#f5d742",
-    transparent: true,
-    opacity: 0.65,
-    depthTest: false,
-    depthWrite: false
-  });
-  const placementRangeFillMaterial = new MeshBasicMaterial({
-    color: "#f5d742",
-    transparent: true,
-    opacity: 0.12,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const placementRangeInvalidMaterial = new LineBasicMaterial({
-    color: "#dc5050",
-    transparent: true,
-    opacity: 0.65,
-    depthTest: false,
-    depthWrite: false
-  });
-  const placementRangeInvalidFillMaterial = new MeshBasicMaterial({
-    color: "#dc5050",
-    transparent: true,
-    opacity: 0.12,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const placementRangeMaxRadius = Math.max(WATERWORKS_RADIUS, FOUNDRY_RADIUS);
-  const placementRangeMaxSegments = observatoryRangeBorderSegmentCount(placementRangeMaxRadius);
-  const placementRangeMaxFillVertices = observatoryRangeFillVertexCount(placementRangeMaxRadius);
-  const placementRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(placementRangeMaxSegments),
-    placementRangeMaterial
-  );
-  const placementRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(placementRangeMaxFillVertices),
-    placementRangeFillMaterial
-  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
@@ -655,9 +613,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   waterworksRangeFill.visible = false;
   airportRangeMarker.visible = false;
   airportRangeFill.visible = false;
-  placementRangeMarker.visible = false;
-  placementRangeFill.visible = false;
   const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
+  const placementOverlay = createPlacementRangeOverlay(scene);
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
@@ -668,8 +625,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   waterworksRangeFill.renderOrder = 18;
   airportRangeMarker.renderOrder = 17;
   airportRangeFill.renderOrder = 16;
-  placementRangeMarker.renderOrder = 15;
-  placementRangeFill.renderOrder = 14;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -728,8 +683,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     sweepRangeMarker,
     observatoryRangeFill,
     observatoryRangeMarker,
-    placementRangeFill,
-    placementRangeMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
@@ -1419,27 +1372,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
-  const syncPlacementRangeMarker = (): void => {
-    placementRangeMarker.visible = false;
-    placementRangeFill.visible = false;
-    if (!deps.state.buildingPlacement.active) return;
-    const { x, y, structureType } = deps.state.buildingPlacement;
-    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") return;
-    const tile = deps.state.tiles.get(deps.keyFor(x, y));
-    if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
-    const valid = deps.isPlacementValidForTile(tile);
-    const radius = placementRadius(structureType);
-    if (valid) {
-      placementRangeMarker.material = placementRangeMaterial;
-      placementRangeFill.material = placementRangeFillMaterial;
-    } else {
-      placementRangeMarker.material = placementRangeInvalidMaterial;
-      placementRangeFill.material = placementRangeInvalidFillMaterial;
-    }
-    const mockTile = { x, y, terrain: "LAND" as const, fogged: false };
-    writeObservatoryRangeGeometry(placementRangeMarker, placementRangeFill, mockTile, radius);
-  };
-
   const applyCamera = (): void => {
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
@@ -1959,7 +1891,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
     syncAirportRangeMarker();
-    syncPlacementRangeMarker();
+    placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y) });
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();

@@ -10,9 +10,8 @@ import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
-import { downloadClientDebugBundle } from "../client-debug-bundle/client-debug-bundle.js";
-import { downloadRespawnBugReport } from "../client-respawn-report.js";
 import { createClientThreeTerrainRenderer } from "../client-map-3d/client-map-3d.js";
+import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
 import {
   prefersTrue3DRendererMode,
   setTrue3DRendererActive
@@ -324,18 +323,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       captureTargetEl: dom.captureTargetEl
     });
 
-  const downloadDebugBundle = (): Promise<void> =>
-    downloadClientDebugBundle({
-      state,
-      wsUrl
-    });
-
-  const downloadRespawnReportForNotice = (args: { notice: import("../client-types.js").PlayerRespawnNotice }): Promise<void> =>
-    downloadRespawnBugReport({
-      notice: args.notice,
-      state,
-      wsUrl
-    });
+  const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
 
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
