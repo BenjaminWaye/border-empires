@@ -211,6 +211,10 @@ type SimulationClientLike = {
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
   ) => void;
+  GetRecentCommands?: (
+    request: ProtoGetRecentCommandsRequest,
+    callback: (error: Error | null, response: ProtoGetRecentCommandsAck) => void
+  ) => void;
   StartNextSeason?: (
     request: { force?: boolean; imperial_ward_json?: string | undefined },
     callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
