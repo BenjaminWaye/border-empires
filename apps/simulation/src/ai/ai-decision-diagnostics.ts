@@ -32,6 +32,7 @@ export type AiDecisionDiagnostic = {
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
 const MAX_DIAGNOSTICS_PER_PLAYER = 100;
+let recordCount = 0;
 
 export const recordAiDecisionDiagnostic = (diag: AiDecisionDiagnostic): void => {
   const existing = recentDiagnostics.get(diag.playerId) ?? [];
@@ -40,7 +41,10 @@ export const recordAiDecisionDiagnostic = (diag: AiDecisionDiagnostic): void => 
     existing.shift();
   }
   recentDiagnostics.set(diag.playerId, existing);
+  recordCount++;
 };
+
+export const getRecordCount = (): number => recordCount;
 
 export const getAiDecisionDiagnostics = (playerId?: string): AiDecisionDiagnostic[] => {
   if (playerId) {
