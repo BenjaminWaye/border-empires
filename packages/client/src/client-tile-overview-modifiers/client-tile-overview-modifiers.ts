@@ -1,4 +1,4 @@
-import { FORT_DEFENSE_MULT, LIGHT_OUTPOST_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, FORT_DEFENSE_MULT, LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type TileOverviewModifier = {
@@ -12,6 +12,12 @@ const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math
 const multiplierPercentLabel = (value: number): string => percentLabel((value - 1) * 100);
 
 const connectedLabel = (count: number): string => `${count} connected ${count === 1 ? "town" : "towns"}`;
+
+const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
+  if (variant === "DREAD_TOWER") return { reason: "Dread Tower", effect: `${multiplierPercentLabel(DREAD_TOWER_ATTACK_MULT)} offense`, tone: "positive" };
+  if (variant === "SIEGE_TOWER") return { reason: "Siege Tower", effect: `${multiplierPercentLabel(SIEGE_TOWER_ATTACK_MULT)} offense`, tone: "positive" };
+  return { reason: "Siege Outpost", effect: `${multiplierPercentLabel(SIEGE_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" };
+};
 
 const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
   if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
@@ -58,6 +64,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
   if (tile.type === "LIGHT_OUTPOST") return [{ reason: "Light Outpost", effect: `${multiplierPercentLabel(LIGHT_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" }];
   if (tile.type === "CARAVANARY") return [{ reason: "Caravanary", effect: "+25% connected-town gold production", tone: "positive" }];
   if (tile.type === "CUSTOMS_HOUSE") return [{ reason: "Harbor Exchange", effect: "+1 gold / minute per connected owned dock", tone: "positive" }];
+  if (tile.type === "RAIL_DEPOT") return [{ reason: "Rail Depot", effect: "+0.5 manpower regen, boosts outpost muster", tone: "positive" }];
   return [];
 };
 
@@ -103,7 +110,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   if (tile.fort?.status === "active" && (tile.fort.disabledUntil ?? 0) <= nowMs) {
     modifiers.push(fortModifierForTile(tile.fort));
   }
-  if (tile.siegeOutpost?.status === "active") modifiers.push({ reason: "Siege Outpost", effect: "+25% offense", tone: "positive" });
+  if (tile.siegeOutpost?.status === "active") modifiers.push(siegeOutpostModifier(tile.siegeOutpost.variant));
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push({
       reason: "Mine",
