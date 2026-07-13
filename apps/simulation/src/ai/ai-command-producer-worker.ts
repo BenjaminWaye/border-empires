@@ -34,56 +34,12 @@ import {
   type DevelopmentSlotReservation
 } from "./ai-development-slot-reservations.js";
 import { buildAiTickIterationOrder, DEFAULT_STARVATION_GUARD_MS } from "./ai-tick-fairness.js";
+import { activeCooldownsForPlayer, createRejectionCooldownState, recordRejectionCooldown } from "./ai-rejection-cooldown.js";
+import { mergePlannerTileDelta, toPlannerTileDelta } from "./planner-tile-delta-merge.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
-const mergePlannerTileDelta = (
-  existing: PlannerTileView | undefined,
-  tileDelta: SimulationTileDelta
-): PlannerTileView | undefined => {
-  const terrain = tileDelta.terrain ?? existing?.terrain;
-  if (!terrain) return undefined;
-  const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
-  if (tileDelta.terrain) next.terrain = tileDelta.terrain;
-  if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
-    else delete next.resource;
-  }
-  if ("dockId" in tileDelta) {
-    if (tileDelta.dockId) next.dockId = tileDelta.dockId;
-    else delete next.dockId;
-  }
-  if ("ownerId" in tileDelta) {
-    if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
-    else delete next.ownerId;
-  }
-  if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
-    else delete next.ownershipState;
-  }
-  return next;
-};
-
-/**
- * Converts a PlannerTileView back to the SimulationTileDelta wire format so
- * backfilled tiles can be sent to the worker via the existing "tile_deltas"
- * message path.
- */
-const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta => ({
-  x: tile.x,
-  y: tile.y,
-  terrain: tile.terrain,
-  ...(tile.resource !== undefined ? { resource: tile.resource } : {}),
-  ...(tile.dockId !== undefined ? { dockId: tile.dockId } : {}),
-  ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
-  ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
-  ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
-  ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
-  ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeOutpost !== undefined ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-  ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})
-});
 
 type WorkerAiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews" | "exportTilesForKeys">;
@@ -245,6 +201,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
+  const rejectionCooldowns = createRejectionCooldownState();
   // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
   // collects). The preplan uses this to gate the 60s heartbeat — if we
   // shared this with organic collects (collect_for_unaffordable_progression,
@@ -837,6 +794,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType });
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, pending.commandType, now());
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);
@@ -897,6 +855,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
 
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
+      const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, now());
       worker.postMessage({
         type: "plan",
         playerId,
@@ -905,7 +864,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         sessionPrefix: "ai-runtime",
         ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
         ...(requestOptions?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: requestOptions.reservedDevelopmentSlots } : {}),
-        ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
+        ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {}),
+        ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
       });
     });
   };

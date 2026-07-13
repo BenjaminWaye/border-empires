@@ -35,12 +35,8 @@ import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-n
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import { resolvePlayerTiles as resolvePlayerTilesFromCache } from "./planner-tile-resolver.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import {
-  parseTownSupport,
-  parseOwnedStructure,
-  parseEconomicStructure,
-  type SimulationTileDelta
-} from "./planner-tile-delta-parse.js";
+import { applyTileDelta } from "./planner-apply-tile-delta.js";
+import type { SimulationTileDelta } from "./planner-tile-delta-parse.js";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
 
@@ -104,58 +100,7 @@ const resolvedPlayerScopeTileCount = (resolved: {
   return scopedKeys.size;
 };
 
-const applyTileDelta = (delta: SimulationTileDelta): void => {
-  const key = `${delta.x},${delta.y}`;
-  const existing = tilesByKey.get(key);
-  const terrain = delta.terrain ?? existing?.terrain;
-  if (!terrain) return;
-  const next: PlannerTileView = existing ?? { x: delta.x, y: delta.y, terrain };
-
-  if (delta.terrain) next.terrain = delta.terrain;
-  if ("resource" in delta) {
-    if (delta.resource) next.resource = delta.resource as PlannerTileView["resource"];
-    else delete next.resource;
-  }
-  if ("dockId" in delta) {
-    if (delta.dockId) next.dockId = delta.dockId;
-    else delete next.dockId;
-  }
-  if ("ownerId" in delta) {
-    if (delta.ownerId) next.ownerId = delta.ownerId;
-    else delete next.ownerId;
-  }
-  if ("ownershipState" in delta) {
-    if (delta.ownershipState) next.ownershipState = delta.ownershipState as PlannerTileView["ownershipState"];
-    else delete next.ownershipState;
-  }
-  if ("townJson" in delta) {
-    const town = parseTownSupport(delta.townJson);
-    if (town) next.town = town;
-    else delete next.town;
-  }
-  if ("fortJson" in delta) {
-    const fort = parseOwnedStructure(delta.fortJson);
-    if (fort) next.fort = fort;
-    else delete next.fort;
-  }
-  if ("observatoryJson" in delta) {
-    const observatory = parseOwnedStructure(delta.observatoryJson);
-    if (observatory) next.observatory = observatory;
-    else delete next.observatory;
-  }
-  if ("siegeOutpostJson" in delta) {
-    const siegeOutpost = parseOwnedStructure(delta.siegeOutpostJson);
-    if (siegeOutpost) next.siegeOutpost = siegeOutpost;
-    else delete next.siegeOutpost;
-  }
-  if ("economicStructureJson" in delta) {
-    const economicStructure = parseEconomicStructure(delta.economicStructureJson);
-    if (economicStructure) next.economicStructure = economicStructure;
-    else delete next.economicStructure;
-  }
-
-  tilesByKey.set(key, next);
-};
+const applyTileDeltaToMap = (delta: SimulationTileDelta): void => applyTileDelta(tilesByKey, delta);
 
 const resolvePlayerTiles = (
   player: PlannerPlayerView
@@ -204,6 +149,7 @@ const choosePlannerCommand = (
     collectVisibleOnCooldown?: boolean;
     lastHeartbeatAtMs?: number;
     attackStalemateTargetTileKeys?: ReadonlySet<string>;
+    decisionCooldowns?: Partial<Record<string, boolean>>;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
@@ -308,6 +254,7 @@ const choosePlannerCommand = (
     ...(options?.attackStalemateTargetTileKeys
       ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
       : {}),
+    ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns as Partial<Record<import("./utility/decisions.js").DecisionClass, boolean>> } : {}),
     ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
     ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
     clientSeq,
@@ -418,6 +365,10 @@ parentPort.on("message", (msg: unknown) => {
         const stalemateSet = Array.isArray(stalemateRaw)
           ? new Set<string>(stalemateRaw as string[])
           : undefined;
+        const cooldownRaw = message.decisionCooldowns;
+        const decisionCooldowns = cooldownRaw && typeof cooldownRaw === "object"
+          ? cooldownRaw as Partial<Record<string, boolean>>
+          : undefined;
         const plan = choosePlannerCommand(
           message.playerId as string,
           message.clientSeq as number,
@@ -429,7 +380,8 @@ parentPort.on("message", (msg: unknown) => {
             ...(typeof message.lastHeartbeatAtMs === "number"
               ? { lastHeartbeatAtMs: message.lastHeartbeatAtMs as number }
               : {}),
-            ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {})
+            ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {}),
+            ...(decisionCooldowns ? { decisionCooldowns } : {})
           }
         );
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });
@@ -488,7 +440,7 @@ parentPort.on("message", (msg: unknown) => {
     case "tile_deltas": {
       const tileDeltas = (message.tileDeltas as SimulationTileDelta[]) ?? [];
       for (const tileDelta of tileDeltas) {
-        applyTileDelta(tileDelta);
+        applyTileDeltaToMap(tileDelta);
       }
       break;
     }
