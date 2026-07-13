@@ -1048,7 +1048,11 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
         reject(new Error("simulation client GetAiDecisionDiagnostics RPC is unavailable"));
         return;
       }
-      client.GetAiDecisionDiagnostics({ player_id: playerId }, (error, response) => {
+      const request: ProtoGetAiDecisionDiagnosticsRequest = {};
+      if (playerId !== undefined) {
+        request.player_id = playerId;
+      }
+      client.GetAiDecisionDiagnostics(request, (error, response) => {
         if (error) {
           reject(error);
           return;
