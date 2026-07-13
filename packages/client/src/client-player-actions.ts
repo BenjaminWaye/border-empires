@@ -4,7 +4,7 @@ import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
-type PlayerActionDeps = {
+export type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
