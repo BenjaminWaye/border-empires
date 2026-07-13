@@ -56,6 +56,15 @@ message GetRecentCommandsResponse {
   string commands_json = 2;
 }
 
+message GetAiDecisionDiagnosticsRequest {
+  string player_id = 1;
+}
+
+message GetAiDecisionDiagnosticsResponse {
+  bool ok = 1;
+  string diagnostics_json = 2;
+}
+
 message SeasonArchivesResponse {
   bool ok = 1;
   string archives_json = 2;
@@ -206,6 +215,7 @@ service SimulationService {
   rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
   rpc GetAdminPlayers(AdminPlayersRequest) returns (AdminPlayersResponse);
   rpc GetRecentCommands(GetRecentCommandsRequest) returns (GetRecentCommandsResponse);
+  rpc GetAiDecisionDiagnostics(GetAiDecisionDiagnosticsRequest) returns (GetAiDecisionDiagnosticsResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
   rpc StartNextSeason(StartNextSeasonRequest) returns (StartNextSeasonResponse);
   rpc SeedBarbarians(SeedBarbariansRequest) returns (SeedBarbariansResponse);

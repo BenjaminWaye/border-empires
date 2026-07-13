@@ -111,6 +111,33 @@ export type GetRecentCommandsResponse = {
   commands: RecentCommand[];
 };
 
+export type AiDecisionDiagnostic = {
+  playerId: string;
+  tick: number;
+  canExpand: boolean;
+  canAttack: boolean;
+  scores: Record<string, number>;
+  vetoes: Record<string, string | undefined>;
+  frontierState: {
+    neutralCount: number;
+    economicCount: number;
+    townSupportCount: number;
+    scoutCount: number;
+    enemyCount: number;
+    barbarianCount: number;
+  };
+  points: number;
+  manpower: number;
+  devSlotAvailable: boolean;
+  winner: string;
+  winnerScore: number;
+};
+
+export type GetAiDecisionDiagnosticsResponse = {
+  ok: boolean;
+  diagnostics: AiDecisionDiagnostic[];
+};
+
 export type SeasonLifecycleStatus = "active" | "ended";
 
 type SeasonVictoryPathId =
