@@ -26,18 +26,18 @@ const sections = (tiles: RecoveredSimulationState["tiles"]): Parameters<typeof c
 });
 
 describe("compactSnapshotForStorage", () => {
-  it("omits tiles that match the worldgen baseline", () => {
+  it("omits tiles that match the worldgen baseline", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
-    const compact = compactSnapshotForStorage(sections([...baselineTiles]), baseline);
+    const compact = await compactSnapshotForStorage(sections([...baselineTiles]), baseline);
     expect(compact.formatVersion).toBe(SNAPSHOT_FORMAT_VERSION);
     expect(compact.tileOverlay).toEqual([]);
   });
 
-  it("includes only tiles that diverge from the baseline", () => {
+  it("includes only tiles that diverge from the baseline", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([
         baseTile({ x: 0, y: 0, terrain: "LAND" }), // unchanged
         baseTile({ x: 1, y: 0, terrain: "WATER" }), // unchanged
@@ -53,10 +53,10 @@ describe("compactSnapshotForStorage", () => {
     expect(byKey.get("3,0")).toMatchObject({ x: 3, y: 0, ownerId: null, ownershipState: null });
   });
 
-  it("strips static fields (terrain, resource) from the overlay rows", () => {
+  it("strips static fields (terrain, resource) from the overlay rows", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-7", ownershipState: "SETTLED" })]),
       baseline
     );
@@ -78,10 +78,10 @@ describe("expandSnapshotFromStorage", () => {
     expect(expandSnapshotFromStorage(v0, baselineTiles)).toEqual(v0);
   });
 
-  it("rehydrates static fields from the worldgen baseline", () => {
+  it("rehydrates static fields from the worldgen baseline", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-7", ownershipState: "SETTLED" })]),
       baseline
     );
@@ -98,10 +98,10 @@ describe("expandSnapshotFromStorage", () => {
     });
   });
 
-  it("clears fields when the overlay marks them null", () => {
+  it("clears fields when the overlay marks them null", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([baseTile({ x: 3, y: 0, terrain: "LAND" })]), // ai-1's tile cleared
       baseline
     );
@@ -113,12 +113,12 @@ describe("expandSnapshotFromStorage", () => {
     expect(tile?.terrain).toBe("LAND");
   });
 
-  it("round-trips structures (town, fort, observatory, etc.) via the overlay", () => {
+  it("round-trips structures (town, fort, observatory, etc.) via the overlay", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const town = { type: "MARKET" as const, name: "Aldenstad", populationTier: "TOWN" as const, supportMax: 100, supportCurrent: 80 };
     const fort = { ownerId: "ai-7", status: "ACTIVE", type: "WOODEN" };
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([
         baseTile({
           x: 2,
@@ -139,14 +139,14 @@ describe("expandSnapshotFromStorage", () => {
     expect(tile?.fort).toEqual(fort);
   });
 
-  it("Phase 3 dormant — round-trips future unified structure field via the overlay", () => {
+  it("Phase 3 dormant — round-trips future unified structure field via the overlay", async () => {
     // Simulates a Phase-4 snapshot being compacted and expanded by Phase-3 code
     // (rollback scenario). The structure field must survive the round-trip intact
     // because MUTABLE_TILE_FIELDS now includes "structure".
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const structure = { type: "FORT", kind: "FORT", variant: "FORT", ownerId: "ai-7", status: "active" };
-    const compact = compactSnapshotForStorage(
+    const compact = await compactSnapshotForStorage(
       sections([
         baseTile({
           x: 0,

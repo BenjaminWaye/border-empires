@@ -135,29 +135,51 @@ const structuralEquals = (left: unknown, right: unknown): boolean => {
   return true;
 };
 
+/** Yield helper injected by callers that run inside the sim main thread. */
+export type CompactionYield = () => Promise<void>;
+
+const defaultYieldToEventLoop: CompactionYield = () =>
+  new Promise<void>((resolve) => setImmediate(resolve));
+
+// Every Nth tile processed in each of the two compaction loops, cede the
+// event loop. Both loops are O(world-tile-count) (~202,500 on the 450x450
+// map) and ran fully synchronously prior to this — measured at ~100-130ms
+// of unyielded main-thread work per checkpoint on a realistic late-game
+// world (see snapshot-compaction.perf.test.ts). Every other step in the
+// checkpoint pipeline (buildRuntimeSnapshotSectionsAsync, the stringifier,
+// the event-prune loop) already yields; this closes the one gap.
+const YIELD_CHUNK_SIZE = 2_000;
+
 /**
  * Compact a v0-shaped payload into v1 storage form using the worldgen baseline.
  * The returned payload is what gets `JSON.stringify`'d for the snapshot row.
  */
-export const compactSnapshotForStorage = (
+export const compactSnapshotForStorage = async (
   sections: SimulationSnapshotSections,
-  baselineIndex: ReadonlyMap<string, RecoveredTile>
-): V1SnapshotPayload => {
+  baselineIndex: ReadonlyMap<string, RecoveredTile>,
+  yieldToEventLoop: CompactionYield = defaultYieldToEventLoop
+): Promise<V1SnapshotPayload> => {
   const { initialState, commandEvents } = sections;
   const tileOverlay: V1OverlayTile[] = [];
   const seenKeys = new Set<string>();
+  let i = 0;
   for (const tile of initialState.tiles) {
+    if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
     const key = tileKey(tile.x, tile.y);
     seenKeys.add(key);
     const overlay = buildOverlayForTile(tile, baselineIndex.get(key));
     if (overlay) tileOverlay.push(overlay);
+    i += 1;
   }
   // Tiles that exist in worldgen baseline but the runtime no longer tracks at all.
   // Treat them as "fully cleared" — emit null markers for whatever the baseline set.
+  i = 0;
   for (const [key, baselineTile] of baselineIndex) {
     if (seenKeys.has(key)) continue;
+    if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
     const overlay = buildOverlayForTile({ x: baselineTile.x, y: baselineTile.y, terrain: baselineTile.terrain }, baselineTile);
     if (overlay) tileOverlay.push(overlay);
+    i += 1;
   }
   return {
     formatVersion: SNAPSHOT_FORMAT_VERSION,

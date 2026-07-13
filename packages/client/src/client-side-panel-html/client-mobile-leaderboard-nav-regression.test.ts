@@ -10,7 +10,7 @@ const sourceFor = (name: string): string => {
 
 describe("mobile leaderboard navigation regression guard", () => {
   it("keeps leaderboard and activity feed on separate mobile buttons and sheets", () => {
-    const domSource = sourceFor("../client-dom.ts");
+    const domSource = sourceFor("../client-dom-markup/client-dom-markup.ts");
     const navSource = sourceFor("../client-panel-nav/client-panel-nav.ts");
     const styleSource = sourceFor("../style.css");
 

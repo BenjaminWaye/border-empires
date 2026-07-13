@@ -17,11 +17,12 @@ describe("development panel wiring regression guard", () => {
   });
 
   it("registers desktop and mobile development panel containers in the DOM shell", () => {
-    const source = sourceOf("../client-dom.ts");
-    expect(source).toContain('<section id="panel-development" class="panel-body"></section>');
-    expect(source).toContain('<section id="mobile-panel-development" class="mobile-panel"></section>');
-    expect(source).toContain("panelDevelopmentEl");
-    expect(source).toContain("mobilePanelDevelopmentEl");
+    const markupSource = sourceOf("../client-dom-markup/client-dom-markup.ts");
+    const domSource = sourceOf("../client-dom.ts");
+    expect(markupSource).toContain('<section id="panel-development" class="panel-body"></section>');
+    expect(markupSource).toContain('<section id="mobile-panel-development" class="mobile-panel"></section>');
+    expect(domSource).toContain("panelDevelopmentEl");
+    expect(domSource).toContain("mobilePanelDevelopmentEl");
   });
 
   it("registers the development panel title and mobile sheet header", () => {

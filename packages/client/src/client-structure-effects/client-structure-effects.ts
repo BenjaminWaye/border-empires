@@ -1,9 +1,10 @@
-import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance } from "@border-empires/shared";
+import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance, TECH_REQUIREMENTS_BY_STRUCTURE, structureCostDefinition } from "@border-empires/shared";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
 
-const FOUNDRY_RADIUS = 5;
+export const FOUNDRY_RADIUS = 5;
+export const WATERWORKS_RADIUS = 10;
 const GOVERNORS_OFFICE_RADIUS = 10;
 const GARRISON_HALL_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;
@@ -193,7 +194,85 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
       lineDash: [12, 9]
     };
   }
+  if (structure.type === "WATERWORKS") {
+    return {
+      radius: WATERWORKS_RADIUS,
+      strokeStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.56)" : "rgba(72, 212, 180, 0.28)",
+      fillStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.07)" : "rgba(72, 212, 180, 0.03)",
+      lineDash: [10, 8]
+    };
+  }
   return undefined;
+};
+
+export type PlacementStructureType = "WATERWORKS" | "FOUNDRY";
+
+export type PlacementPreviewResult = StructureAreaPreview & { valid: boolean };
+
+export const placementPreviewForStructure = (
+  structureType: PlacementStructureType,
+  valid: boolean
+): PlacementPreviewResult => {
+  if (structureType === "WATERWORKS") {
+    return {
+      radius: WATERWORKS_RADIUS,
+      strokeStyle: valid ? "rgba(72, 212, 180, 0.7)" : "rgba(220, 80, 80, 0.6)",
+      fillStyle: valid ? "rgba(72, 212, 180, 0.12)" : "rgba(220, 80, 80, 0.08)",
+      lineDash: [10, 8],
+      valid
+    };
+  }
+  return {
+    radius: FOUNDRY_RADIUS,
+    strokeStyle: valid ? "rgba(255, 169, 77, 0.7)" : "rgba(220, 80, 80, 0.6)",
+    fillStyle: valid ? "rgba(255, 169, 77, 0.12)" : "rgba(220, 80, 80, 0.08)",
+    lineDash: [10, 8],
+    valid
+  };
+};
+
+export const placementRadius = (structureType: PlacementStructureType): number =>
+  structureType === "WATERWORKS" ? WATERWORKS_RADIUS : FOUNDRY_RADIUS;
+
+export type PlacementAvailability = { available: true } | { available: false; reason: string };
+
+export const canBuildPlacementStructure = (
+  structureType: PlacementStructureType,
+  tile: Tile,
+  me: string,
+  gold: number,
+  techIds: string[],
+  strategicResources?: Partial<Record<string, number>>
+): PlacementAvailability => {
+  if (tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure)
+    return { available: false, reason: "Tile already has structure" };
+  if (tile.ownerId !== me) return { available: false, reason: "Not your tile" };
+
+  const requiredTech = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
+  if (requiredTech && !techIds.includes(requiredTech))
+    return { available: false, reason: `Requires ${requiredTech}` };
+
+  const costDef = structureCostDefinition(structureType);
+  if (gold < costDef.baseGoldCost)
+    return { available: false, reason: `Need ${costDef.baseGoldCost} gold` };
+
+  if (costDef.resourceCost) {
+    const have = strategicResources?.[costDef.resourceCost.resource] ?? 0;
+    if (have < costDef.resourceCost.amount)
+      return { available: false, reason: `Need ${costDef.resourceCost.amount} ${costDef.resourceCost.resource}` };
+  }
+
+  return { available: true };
+};
+
+export const placementBeneficiaryStructureType = (structureType: PlacementStructureType): "MINE" | "FARMSTEAD" =>
+  structureType === "WATERWORKS" ? "FARMSTEAD" : "MINE";
+
+export const tileIsPlacementBeneficiary = (tile: Tile, structureType: PlacementStructureType, ownerId: string): boolean => {
+  const structure = tile.economicStructure;
+  if (!structure || structure.status !== "active") return false;
+  if (structure.ownerId !== ownerId) return false;
+  return structure.type === placementBeneficiaryStructureType(structureType);
 };
 
 export const tileAreaEffectModifiersForTile = (

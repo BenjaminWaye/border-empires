@@ -93,6 +93,29 @@ describe("selectExpansionObjective", () => {
     expect(result).toEqual({ x: 15, y: 10, kind: "enemy" });
   });
 
+  it("stride-samples large neutral beacon sets to MAX_BEACON_SAMPLE (regression: 3.7s event-loop stall)", () => {
+    // 2000 neutral beacons — without stride-sampling this was 2000 × 300
+    // = 600k Chebyshev ops per cache miss, causing multi-second event-loop
+    // stalls and health-check restarts on staging.
+    const beacons = new Set<string>();
+    for (let i = 0; i < 2000; i++) {
+      beacons.add(`${50 + (i % 400)},${10 + Math.floor(i / 400)}`);
+    }
+    const start = Date.now();
+    const result = selectExpansionObjective({
+      territoryTileKeys: ["10,10"],
+      neutralBeaconTileKeys: beacons,
+      enemyYieldKeysByPlayerId: new Map(),
+      playerId: "ai-1"
+    });
+    const elapsed = Date.now() - start;
+    // Must complete in <50ms (was 3000ms+ before the fix)
+    expect(elapsed).toBeLessThan(50);
+    // Must still return a valid objective pointing to a neutral beacon
+    expect(result).toBeDefined();
+    expect(result!.kind).toBe("neutral_value");
+  });
+
   it("handles wrap-around distance correctly", () => {
     // World is 450x450. Beacon at x=448 vs beacon at x=5.
     // From territory at x=0: wrap dist to 448 = min(448, 2) = 2; dist to 5 = 5.

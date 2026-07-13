@@ -1,0 +1,58 @@
+#placement-overlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(219, 236, 255, 0.3);
+  background: linear-gradient(145deg, rgba(24, 68, 112, 0.88), rgba(7, 28, 48, 0.92));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(4, 18, 34, 0.5);
+  font-family: inherit;
+}
+
+#placement-label {
+  color: rgba(232, 243, 255, 0.95);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.placement-btn {
+  min-height: 32px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 236, 255, 0.35);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.placement-cancel-btn {
+  background: rgba(15, 29, 45, 0.64);
+  color: #f6f7fa;
+}
+
+.placement-confirm-btn {
+  background: rgba(56, 176, 60, 0.65);
+  color: #f6f7fa;
+  border-color: rgba(56, 176, 60, 0.5);
+}
+
+@media (max-width: 900px) {
+  #placement-overlay {
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    max-width: 460px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+}

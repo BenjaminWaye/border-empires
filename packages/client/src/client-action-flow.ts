@@ -5,14 +5,9 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-c
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
-  breakAllianceFromUi,
-  breakTruceFromUi,
-  chooseDomainFromUi,
-  chooseTechFromUi,
-  explainActionFailureFromServer,
-  sendAllianceRequestFromUi,
-  sendTruceRequestFromUi
+  explainActionFailureFromServer
 } from "./client-player-actions.js";
+import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -100,6 +95,7 @@ import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
 } from "./client-structure-effects/client-structure-effects.js";
+import { createBuildingPlacementFlow } from "./client-building-placement/client-building-placement.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -139,6 +135,8 @@ type ActionFlowDeps = Record<string, any> & {
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
+  placementOverlayEl: HTMLDivElement;
+  placementLabelEl: HTMLDivElement;
 };
 type TileDetailRequestOptions = {
   force?: boolean;
@@ -354,24 +352,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state.tileDetailRequestedAt.set(tileKey, now);
   };
 
-  const playerActionDeps = () => ({
-    state,
-    techPickEl,
-    mobileTechPickEl,
-    ws,
-    wsUrl,
-    setAuthStatus,
-    syncAuthOverlay,
-    pushFeed,
-    renderHud,
-    sendGameMessage
-  });
-
-  const sendAllianceRequest = (target: string): void => sendAllianceRequestFromUi(target, playerActionDeps());
-  const sendTruceRequest = (targetPlayerName: string, durationHours: 12 | 24): void =>
-    sendTruceRequestFromUi(targetPlayerName, durationHours, playerActionDeps());
-  const breakAlliance = (target: string): void => breakAllianceFromUi(target, playerActionDeps());
-  const breakTruce = (targetPlayerId: string): void => breakTruceFromUi(targetPlayerId, playerActionDeps());
+  const { sendAllianceRequest, sendTruceRequest, breakAlliance, breakTruce, chooseTech, chooseDomain } =
+    createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
   const hasOutgoingPendingTruce = (): boolean => state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
@@ -381,8 +363,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (state.incomingTruceRequests.some((request) => request.fromPlayerId === playerId && request.expiresAt > Date.now())) return "incoming";
     return undefined;
   };
-  const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
-  const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
   const explainActionFailure = (
     code: string,
@@ -1301,12 +1281,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"),
         { x: selected.x, y: selected.y, label: `Farmstead at (${selected.x}, ${selected.y})`, optimisticKind: "FARMSTEAD" }
       );
-    if (actionId === "build_waterworks")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WATERWORKS" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "WATERWORKS"),
-        { x: selected.x, y: selected.y, label: `Waterworks at (${selected.x}, ${selected.y})`, optimisticKind: "WATERWORKS" }
-      );
+    if (actionId === "build_waterworks") {
+      state.buildingPlacement = { active: true, structureType: "WATERWORKS", x: selected.x, y: selected.y };
+      hideTileActionMenu();
+      renderPlacementOverlay();
+      renderHud();
+      return;
+    }
     if (actionId === "build_camp")
       sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
         x: selected.x,
@@ -1415,13 +1396,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
-    if (actionId === "build_foundry")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Foundry at (${selected.x}, ${selected.y})`,
-        optimisticKind: "FOUNDRY"
-      });
+    if (actionId === "build_foundry") {
+      state.buildingPlacement = { active: true, structureType: "FOUNDRY", x: selected.x, y: selected.y };
+      hideTileActionMenu();
+      renderPlacementOverlay();
+      renderHud();
+      return;
+    }
     if (actionId === "build_garrison_hall")
       sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"), {
         x: selected.x,
@@ -1691,6 +1672,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
+  const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
+    createBuildingPlacementFlow(state, {
+      keyFor, pushFeed, renderHud, sendDevelopmentBuild, applyOptimisticStructureBuild,
+      placementOverlayEl: deps.placementOverlayEl,
+      placementLabelEl: deps.placementLabelEl
+    });
+
   const mapInteractionFlags = {
     suppressNextClick: false
   };
@@ -1773,6 +1761,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (clicked && vis === "visible") {
         pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
       }
+      renderHud();
+      return;
+    }
+    if (state.buildingPlacement.active) {
+      state.buildingPlacement.x = wx;
+      state.buildingPlacement.y = wy;
+      state.selected = { x: wx, y: wy };
       renderHud();
       return;
     }
@@ -1934,6 +1929,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     mapInteractionFlags,
     handleTileSelection,
     worldTileRawFromPointer,
-    computeDragPreview
+    computeDragPreview,
+    confirmBuildingPlacement,
+    cancelBuildingPlacement,
+    isPlacementValidForTile,
+    renderPlacementOverlay,
+    removePlacementOverlay
   };
 };
