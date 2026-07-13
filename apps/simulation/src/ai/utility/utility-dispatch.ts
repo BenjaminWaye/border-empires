@@ -211,7 +211,7 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
   const fa = state.context.frontierAnalysis;
   recordAiDecisionDiagnostic({
     playerId: state.context.playerId,
-    tick: state.context.tick,
+    tick: Math.floor(state.context.issuedAt / 1000), // Use issued timestamp as tick proxy
     canExpand: inputs.canExpand,
     canAttack: inputs.canAttack,
     scores: policy.scores,
