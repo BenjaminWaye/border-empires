@@ -740,7 +740,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     }
     lastCommandAtByPlayer.set(playerId, issuedAt);
     options.onCommand?.({ playerId, commandType: command.type });
-    if (command.type === "ATTACK" && targetTileKey) attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
+    // NOTE: stalemate attempts are counted on a *resolved combat loss* (see the
+    // COMBAT_RESOLVED handler below), NOT here at submit time. Counting submits
+    // conflated "issued an attack" with "fought and lost" — rejected, aegis-
+    // blocked, or never-resolved attacks inflated the counter and falsely
+    // stalemated winnable targets (at ~43% barb flip, 20 real losses is
+    // effectively impossible, but 20 unresolved submits is routine).
     options.onDiagnostic?.({ phase: "submit_command", durationMs: Math.max(0, now() - submitStart), playerId });
   };
 
@@ -774,6 +779,20 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       // updates (yield ticks, building placements), which would defeat the
       // stalemate counter by resetting it constantly.
       attackStalemate.clearTarget(`${event.targetX},${event.targetY}`);
+    }
+    if (
+      event.eventType === "COMBAT_RESOLVED" &&
+      !event.attackerWon &&
+      event.actionType === "ATTACK" &&
+      aiPlayerIdSet.has(event.playerId)
+    ) {
+      // A *resolved* combat loss is the only thing that counts toward a
+      // stalemate. This is the authoritative "fought and lost" signal —
+      // rejected / aegis-blocked / cancelled / never-resolved attacks emit no
+      // such event, so they no longer inflate the counter. Combined with the
+      // win-clears-target branch above, a target only trips the stalemate
+      // threshold after a genuinely improbable run of real losses.
+      attackStalemate.recordAttempt(event.playerId, `${event.targetX},${event.targetY}`, now());
     }
     if (
       event.eventType === "COMBAT_RESOLVED" &&

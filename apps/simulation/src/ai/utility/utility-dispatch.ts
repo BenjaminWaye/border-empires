@@ -218,6 +218,15 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
     utilityRunnerUp: policy.runnerUp,
     utilityRunnerUpScore: policy.runnerUpScore,
     utilityScores: policy.scores,
+    utilityGates: {
+      attackReady: state.strategic.attackReady,
+      musterReady: state.strategic.musterReady,
+      frontPosture: state.strategic.frontPosture,
+      hasBarbTarget: inputs.hasBarbTarget,
+      hasWeakEnemyBorder: inputs.hasWeakEnemyBorder,
+      stalemated: inputs.stalemated,
+      pressureAttackScore: inputs.pressureAttackScore
+    },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };
 

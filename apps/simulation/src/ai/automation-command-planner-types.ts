@@ -117,6 +117,17 @@ export type AutomationPlannerDiagnostic = {
   /** Full per-class utility scores. Populated on every main-planner result so
    *  the AI decision diagnostics endpoint can show why every class scored 0. */
   utilityScores?: Record<string, number>;
+  /** The gate inputs that veto ATTACK/MUSTER, surfaced so the diagnostics
+   *  endpoint shows *why* a class scored 0 (stalemate vs readiness vs posture). */
+  utilityGates?: {
+    attackReady: boolean;
+    musterReady: boolean;
+    frontPosture: string;
+    hasBarbTarget: boolean;
+    hasWeakEnemyBorder: boolean;
+    stalemated: boolean;
+    pressureAttackScore: number;
+  };
 };
 
 export type AutomationPlannerPhase =
