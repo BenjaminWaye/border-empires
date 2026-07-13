@@ -8,6 +8,7 @@ import {
   type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
+  type GetRecentCommandsResponse,
   type LockedFrontierCombatResult,
   type PlayerSubscriptionDock,
   type PlayerSubscriptionSnapshot,
@@ -22,6 +23,7 @@ type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
+type ProtoGetRecentCommandsAck = { ok: boolean; commands_json?: string; commandsJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoSeedBarbariansAck = {
   ok: boolean;
@@ -817,6 +819,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
@@ -1004,6 +1007,27 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+
+  getRecentCommands(limit: number = 25) {
+    return new Promise<GetRecentCommandsResponse>((resolve, reject) => {
+      if (typeof client.GetRecentCommands !== "function") {
+        reject(new Error("simulation client GetRecentCommands RPC is unavailable"));
+        return;
+      }
+      client.GetRecentCommands({ limit }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.commands_json ?? response.commandsJson;
+        if (!payload) {
+          resolve({ ok: true, commands: [] });
+          return;
+        }
+        resolve({ ok: true, commands: JSON.parse(payload) });
+      });
+    });
+  },
   startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
@@ -1057,6 +1081,7 @@ export const createSimulationClient = (address: string): {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (

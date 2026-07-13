@@ -12,6 +12,7 @@ import {
   type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
+  type GetRecentCommandsResponse,
   type PlayerSubscriptionSnapshot,
   type SeasonArchiveRow,
   type SimulationEvent,
@@ -136,6 +137,13 @@ type ProtoAdminPlayersRequest = Record<string, never>;
 type ProtoAdminPlayersResponse = {
   ok: boolean;
   players_json?: string;
+};
+type ProtoGetRecentCommandsRequest = {
+  limit?: number;
+};
+type ProtoGetRecentCommandsResponse = {
+  ok: boolean;
+  commands_json?: string;
 };
 type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string };
 type ProtoStartNextSeasonResponse = {
@@ -2623,6 +2631,31 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         supply: player.strategicResources.SUPPLY ?? 0
       }));
       callback(null, { ok: true, players_json: JSON.stringify(rows) });
+    },
+    GetRecentCommands(
+      call: { request: ProtoGetRecentCommandsRequest },
+      callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
+    ) {
+      const limit = call.request.limit ?? 100;
+      void commandStore.loadAllCommands()
+        .then((allCommands) => {
+          const recent = allCommands
+            .sort((a, b) => (b.queuedAt ?? 0) - (a.queuedAt ?? 0))
+            .slice(0, limit)
+            .map(cmd => ({
+              playerId: cmd.playerId,
+              type: cmd.type,
+              commandId: cmd.commandId,
+              issuedAt: cmd.queuedAt ?? 0
+            }));
+          callback(null, { ok: true, commands_json: JSON.stringify(recent) });
+        })
+        .catch((error) =>
+          callback(error instanceof Error ? error : new Error("failed to load commands"), {
+            ok: false,
+            commands_json: ""
+          })
+        );
     },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },
