@@ -23,6 +23,7 @@ type BindClientMapInputDeps = {
   cancelOngoingCapture: () => void;
   hideTileActionMenu: () => void;
   clearCrystalTargeting: () => void;
+  cancelBuildingPlacement: () => void;
   renderMobilePanels: () => void;
   queueSpecificTargets: (targetKeys: string[]) => { queued: number; skipped: number };
   processActionQueue: () => boolean;
@@ -145,6 +146,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.cancelOngoingCapture();
       deps.hideTileActionMenu();
       deps.clearCrystalTargeting();
+      deps.cancelBuildingPlacement();
       return;
     }
 
@@ -255,6 +257,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (target && (deps.canvas.contains(target) || deps.tileActionMenuEl.contains(target))) {
       ev.preventDefault();
       deps.hideTileActionMenu();
+      deps.cancelBuildingPlacement();
     }
   });
 
