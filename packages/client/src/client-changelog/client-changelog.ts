@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.2",
+  version: "2026.07.13.3",
   title: "What's New",
-  summary: "Town Captured popup now also fires when combat destroys a Settlement-tier town instead of only when it survives. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
+  summary: "Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub.",
   entries: [
+    {
+      introducedIn: "2026.07.13.3",
+      title: "Town Captured popup now fires for neutral towns too",
+      why: "The popup only fired when the tile's previous owner was a real, different player id, to avoid firing on first-time map reveals. That over-excluded a legitimate case: claiming an already-known but unowned (neutral) town peacefully via Expand — e.g. one that decayed back to neutral, or a vacated barbarian town — never showed the popup at all.",
+      changes: [
+        "Claiming a previously-known neutral town via Expand now shows the Town Captured popup, not just combat captures from another empire.",
+        "First-time map reveals (a tile you've never seen before) still correctly don't trigger the popup, since there's no earlier state to compare against."
+      ]
+    },
     {
       introducedIn: "2026.07.13.2",
       title: "Town Captured popup now fires for destroyed settlements too",
@@ -319,17 +328,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
       ]
-    },
-    {
-      introducedIn: "2026.07.07.5",
-      title: "Settlements now grow population over time",
-      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
-      changes: [
-        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
-        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
-      ]
     }
-    // Older entries (2026.07.07.4 and earlier) trimmed: the release-day
+    // Older entries (2026.07.07.5 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
