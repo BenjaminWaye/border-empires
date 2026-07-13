@@ -19,16 +19,37 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.4",
+  version: "2026.07.13.6",
   title: "What's New",
-  summary: "AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
+  summary: "AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
   entries: [
     {
-      introducedIn: "2026.07.13.4",
+      introducedIn: "2026.07.13.6",
       title: "Fixed AI opponents going idle for extended periods",
       why: "An AI empire under continuous attack could cut to the front of the turn queue every tick with no fairness limit, occupying every turn indefinitely and leaving other AI empires unable to act — including ones with large gold reserves and clear expansion opportunities.",
       changes: [
         "An AI empire that hasn't taken a turn in 2 seconds is now guaranteed to go next, even ahead of one under active attack."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.5",
+      title: "Placement preview highlights the structures that will actually benefit",
+      why: "The Waterworks/Foundry placement radius preview showed the affected area, but not which of your existing structures inside it would actually receive the bonus — you had to know the mechanic and count tiles yourself.",
+      changes: [
+        "While placing a Foundry, every active Mine you own within its radius now highlights green.",
+        "While placing a Waterworks, every active Farmstead you own within its radius now highlights green.",
+        "Works in both the flat map and 3D view."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.4",
+      title: "Building placement mode for Waterworks and Foundry",
+      why: "Placing a radius-based structure like Waterworks or Foundry was a blind commitment — you tapped Build and hoped the tile you picked was valid, with no visibility into the actual affected area or whether the location was strategically optimal.",
+      changes: [
+        "Tapping Build on a Waterworks or Foundry now enters placement mode instead of immediately building — a radius preview appears on the map showing the affected area.",
+        "Click any valid tile to move the building there; the preview updates in real time with the correct radius for each structure.",
+        "Valid placements show the structure's color; invalid placements (wrong surface type, conflicts, missing tech) show red.",
+        "Confirm to finalize, press Escape or right-click to cancel — no commitment until you're satisfied."
       ]
     },
     {
@@ -313,31 +334,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "When you're not leading a Season Victory objective, the leaderboard now shows a \"You: ...\" line with your own progress alongside the leader's, so you can see how far behind (or close) you are."
       ]
     },
-    {
-      introducedIn: "2026.07.08.0",
-      title: "New Development tab shows what's using your build slots",
-      why: "The HUD already showed a \"Development X/3\" counter for the shared slot limit on simultaneous settles and constructions, but there was no way to see what was actually occupying those slots or what was queued waiting for one to free up — you had to remember or hunt across the map.",
-      changes: [
-        "Tap the Development counter in the top HUD bar to open a new panel listing every active slot (settlement or structure, its location, and time remaining) plus everything queued behind the cap."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.7",
-      title: "Structures no longer randomly vanish from tiles",
-      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
-      changes: [
-        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.6",
-      title: "Fixed development slot bonuses not applying",
-      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
-      changes: [
-        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
-      ]
     }
-    // Older entries (2026.07.07.5 and earlier) trimmed: the release-day
+    // Older entries (2026.07.08.0 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

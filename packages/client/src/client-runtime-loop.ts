@@ -18,6 +18,7 @@ import {
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { structureAreaPreviewForTile } from "./client-structure-effects/client-structure-effects.js";
+import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
@@ -143,6 +144,7 @@ type StartClientRuntimeLoopDeps = {
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   reconcileActionQueue: () => void;
   sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+  isPlacementValidForTile: (tile: Tile | undefined) => boolean;
 };
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
@@ -1358,6 +1360,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
+
+    if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
 
     if (state.aetherWallTargeting.active) {
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";

@@ -10,9 +10,8 @@ import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
-import { downloadClientDebugBundle } from "../client-debug-bundle/client-debug-bundle.js";
-import { downloadRespawnBugReport } from "../client-respawn-report.js";
 import { createClientThreeTerrainRenderer } from "../client-map-3d/client-map-3d.js";
+import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
 import {
   prefersTrue3DRendererMode,
   setTrue3DRendererActive
@@ -226,7 +225,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         terrainAt,
         effectiveOverlayColor,
         tileVisibilityStateAt,
-        settlementProgressForTile: actionFlow.settlementProgressForTile
+        settlementProgressForTile: actionFlow.settlementProgressForTile,
+        isPlacementValidForTile: actionFlow.isPlacementValidForTile
       });
       setTrue3DRendererActive(true);
     } catch (error) {
@@ -300,7 +300,9 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     economicStructureName,
     populationPerMinuteLabel,
     townNextGrowthEtaLabel,
-    tileVisibilityStateAt
+    tileVisibilityStateAt,
+    placementOverlayEl: dom.placementOverlayEl,
+    placementLabelEl: dom.placementLabelEl
   });
 
   const renderCaptureProgress = (): void =>
@@ -321,18 +323,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       captureTargetEl: dom.captureTargetEl
     });
 
-  const downloadDebugBundle = (): Promise<void> =>
-    downloadClientDebugBundle({
-      state,
-      wsUrl
-    });
-
-  const downloadRespawnReportForNotice = (args: { notice: import("../client-types.js").PlayerRespawnNotice }): Promise<void> =>
-    downloadRespawnBugReport({
-      notice: args.notice,
-      state,
-      wsUrl
-    });
+  const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
 
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
@@ -462,6 +453,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureCloseBtn,
     captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
     captureTimeEl,
+    placementCancelBtn: dom.placementCancelBtn,
+    placementConfirmBtn: dom.placementConfirmBtn,
     shardAlertCloseBtn,
     panelCloseBtn,
     panelActionButtons,
@@ -479,6 +472,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestViewRefresh,
     collectVisibleYield: actionFlow.collectVisibleYield,
     cancelOngoingCapture: actionFlow.cancelOngoingCapture,
+    confirmBuildingPlacement: actionFlow.confirmBuildingPlacement,
+    cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
@@ -633,7 +628,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestViewRefresh,
     reconcileActionQueue: actionFlow.reconcileActionQueue,
     sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq }))
+      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+    isPlacementValidForTile: actionFlow.isPlacementValidForTile
   });
 
   bindClientMapInput(state, {
@@ -651,6 +647,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     cancelOngoingCapture: actionFlow.cancelOngoingCapture,
     hideTileActionMenu: actionFlow.hideTileActionMenu,
     clearCrystalTargeting: actionFlow.clearCrystalTargeting,
+    cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     renderMobilePanels,
     queueSpecificTargets: actionFlow.queueSpecificTargets,
     processActionQueue: actionFlow.processActionQueue,

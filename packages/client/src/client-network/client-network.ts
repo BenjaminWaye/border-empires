@@ -2,7 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared"
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { clearServerDeployingSession, setServerDeployingSession } from "../client-state/client-state.js";
+import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
 import {
