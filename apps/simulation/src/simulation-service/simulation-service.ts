@@ -22,6 +22,7 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
+import { getAiDecisionDiagnostics } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -2668,7 +2669,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoGetAiDecisionDiagnosticsRequest },
       callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
     ) {
-      const { getAiDecisionDiagnostics } = require("../ai/ai-decision-diagnostics.js");
       try {
         const playerId = call.request.player_id || undefined;
         const diagnostics = getAiDecisionDiagnostics(playerId);
