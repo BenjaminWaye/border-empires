@@ -138,7 +138,16 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       return undefined;
 
     case "ATTACK": {
-      const canDirectAttack = canAttack && strategic.attackReady && !strategic.musterReady;
+      // Defer to MUSTER only when it can actually engage an enemy-*player*
+      // border (mirrors scoreAttack). Muster is a player-vs-player mechanic, so
+      // a barbarian-only front must NOT defer — otherwise ATTACK scores highest
+      // but produces no command and the planner falls through to WAIT
+      // (the ATTACK↔MUSTER execution-path deadlock).
+      const musterWillHandle =
+        strategic.musterReady &&
+        fa.frontierEnemyPlayerTargetCount > 0 &&
+        notStalemated(fa.enemyAttack);
+      const canDirectAttack = canAttack && strategic.attackReady && !musterWillHandle;
       if (state.preferredEnemyAttack && notStalemated(state.preferredEnemyAttack) && canDirectAttack) {
         return buildPlannerFrontierCommand(context, state.preferredEnemyAttack, "ATTACK");
       }
