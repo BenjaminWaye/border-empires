@@ -233,6 +233,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     attackerOutpostMult: outpostMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
     attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
+    attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
+    defenderOwnerId: defenderOwnerId,
     fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,

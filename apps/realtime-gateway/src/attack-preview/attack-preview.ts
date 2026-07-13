@@ -103,6 +103,7 @@ export const attackPreviewResult = (
     : undefined;
   const preview = buildFrontierCombatPreview(target, {
     attackerOutpostMult,
+    defenderOwnerId: target.ownerId,
     ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
   });
   return {
