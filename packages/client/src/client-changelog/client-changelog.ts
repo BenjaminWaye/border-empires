@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.1",
+  version: "2026.07.13.2",
   title: "What's New",
-  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
+  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button (no auto-dismiss — stays until dismissed). Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
   entries: [
+    {
+      introducedIn: "2026.07.13.2",
+      title: "Town Captured popup stays until dismissed",
+      why: "The initial 9s auto-dismiss was too aggressive — players wanted time to read the town's stats and decide whether to jump there without the popup vanishing.",
+      changes: [
+        "Town Captured popup no longer auto-dismisses; it stays open until the player clicks the close button, clicks the backdrop, or clicks Jump to Town."
+      ]
+    },
     {
       introducedIn: "2026.07.13.1",
       title: "Town Captured popup",
