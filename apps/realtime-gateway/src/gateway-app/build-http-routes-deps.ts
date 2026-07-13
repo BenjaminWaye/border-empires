@@ -79,6 +79,7 @@ export const buildGatewayHttpRoutesDeps = (ctx: BuildGatewayHttpRoutesDepsContex
     hydrateSeasonArchiveDisplayNames(await ctx.simulationClient.listSeasonArchives(), ctx.profileStore),
   getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
   getRecentCommands: (limit?: number) => ctx.simulationClient.getRecentCommands(limit),
+  getAiDecisionDiagnostics: (playerId?: string) => Promise.resolve([]), // Stub for now; requires server-side impl
   startNextSeason: (force?: boolean) => ctx.simulationClient.startNextSeason(force),
   seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
   ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),

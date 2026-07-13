@@ -24,6 +24,7 @@ import type {
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import { recordAiDecisionDiagnostic } from "../ai-decision-diagnostics.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
@@ -205,6 +206,30 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
 ): AutomationPlannerResult => {
   const inputs = buildDecisionInputs(state);
   const policy = evaluateUtilityPolicy(inputs);
+
+  // Record diagnostic for wait_and_recover debugging
+  const fa = state.context.frontierAnalysis;
+  recordAiDecisionDiagnostic({
+    playerId: state.context.playerId,
+    tick: state.context.tick,
+    canExpand: inputs.canExpand,
+    canAttack: inputs.canAttack,
+    scores: policy.scores,
+    vetoes: {}, // Will be populated if we add veto tracking to decisions.ts
+    frontierState: {
+      neutralCount: fa.frontierNeutralTargetCount,
+      economicCount: fa.frontierOpportunityEconomic,
+      townSupportCount: fa.frontierOpportunityTownSupport,
+      scoutCount: fa.frontierOpportunityScout,
+      enemyCount: fa.frontierEnemyTargetCount,
+      barbarianCount: fa.frontierBarbarianTargetCount
+    },
+    points: inputs.points,
+    manpower: inputs.manpower,
+    devSlotAvailable: inputs.devSlotAvailable,
+    winner: policy.winner,
+    winnerScore: policy.winnerScore
+  });
 
   const sorted = (Object.entries(policy.scores) as Array<[DecisionClass, number]>)
     .filter(([, s]) => s > 0)
