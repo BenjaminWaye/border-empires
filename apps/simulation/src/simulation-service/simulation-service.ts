@@ -2636,7 +2636,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoGetRecentCommandsRequest },
       callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
     ) {
-      const limit = call.request.limit ?? 100;
+      const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
       void commandStore.loadAllCommands()
         .then((allCommands) => {
           const recent = allCommands

@@ -256,9 +256,6 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
         deps.getRecentCommands(100)
       ]);
 
-      const playerMap = new Map<string, AdminPlayerRow>();
-      players.forEach(p => playerMap.set(p.id, p));
-
       const aiPlayers = players.filter(p => p.isAi);
       const aiDebug = aiPlayers.map(player => {
         const playerCommands = commandsResult.commands
