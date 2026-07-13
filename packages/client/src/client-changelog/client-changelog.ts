@@ -34,12 +34,32 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.07.12.6",
-      title: "Download diagnostics and switch renderer from Settings",
-      why: "The diagnostics download was only available during map loading failures. And when 3D ran slow, you had to wait for the pop-up overlay — there was no way to see the warning again if you dismissed it, or to proactively grab diagnostics to investigate lag.",
+      introducedIn: "2026.07.12.7",
+      title: "Rail Depot reworked into a mustering hub",
+      why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
       changes: [
-        "A \"Download Diagnostics\" button now appears at the bottom of the Settings tab (gear icon), so you can grab a performance bundle at any time — not just during login failures.",
-        "When 3D is active and FPS stays below 25 for 5+ seconds, Settings shows a \"3D is running slow\" banner with a \"Switch to 2D\" button that reloads immediately in 2D mode."
+        "Each Rail Depot built adds +0.5 global manpower regen per minute.",
+        "Outposts within 50 tiles of a Rail Depot now muster at 2x speed instead of the base 1.25x.",
+        "Rail Depot has no gold upkeep — it costs 4,000 gold + 100 crystal to build."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Fixed inaccurate siege outpost attack multiplier text",
+      why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
+      changes: [
+        "Siege Outpost now correctly shows +60% offense (was +25%).",
+        "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
+        "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
+        "Tile overview badges now show the correct attack multiplier per siege variant."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.6",
+      title: "Fixed fog of war not clearing while expanding",
+      why: "A recent fix that made expand actions faster (skipping a redundant full-area rescan on every expand) accidentally also skipped sending the newly-visible fringe of land around each expand. The result: expanding into unexplored territory revealed nothing, while unrelated background activity elsewhere on the map occasionally leaked through as disconnected fogged-then-cleared patches.",
+      changes: [
+        "Expanding into unexplored territory now correctly reveals the newly-visible edge of land around your new tile again, without bringing back the slow full-area rescan that caused the original expand speed issue."
       ]
     },
     {
@@ -264,7 +284,66 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tap the Development counter in the top HUD bar to open a new panel listing every active slot (settlement or structure, its location, and time remaining) plus everything queued behind the cap."
       ]
     },
-    // Older entries (2026.07.07.7 and earlier) trimmed: the release-day
+    {
+      introducedIn: "2026.07.07.7",
+      title: "Structures no longer randomly vanish from tiles",
+      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
+      changes: [
+        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.6",
+      title: "Fixed development slot bonuses not applying",
+      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
+      changes: [
+        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.5",
+      title: "Settlements now grow population over time",
+      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
+      changes: [
+        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
+        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.4",
+      title: "Muster flags are now easier to find",
+      why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
+      changes: [
+        "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
+        "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.3",
+      title: "Fixed fog-of-war lifting on unrelated map tiles",
+      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
+      changes: [
+        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
+        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.2",
+      title: "AI empires stopped earning gold entirely once inactive for too long",
+      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
+      changes: [
+        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
+      ]
+    },
+    {
+      introducedIn: "2026.07.07.0",
+      title: "Warbands tech grants +5% attack and defense",
+      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
+      changes: [
+        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
+      ]
+    }
+    // Older entries (2026.07.06.5 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

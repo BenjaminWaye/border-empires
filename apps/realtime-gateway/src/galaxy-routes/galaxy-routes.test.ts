@@ -288,4 +288,33 @@ describe("galaxy routes", () => {
     });
     expect(response.json().planets).toHaveLength(1);
   });
+
+  it("surfaces the winner's stats snapshot in both /hq/galaxy/me and the public /hq/galaxy list", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const stats = {
+      ironPerMinute: 12,
+      goldPerMinute: 34,
+      supplyPerMinute: 5,
+      foodPerMinute: 78,
+      crystalPerMinute: 2,
+      totalPopulation: 900,
+      monumentalBuildings: { WORLD_ENGINE: 1 }
+    };
+    const app = buildApp({
+      archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "conquest", objectiveName: "Conquest", stats } })],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer good-token" }
+    });
+    expect(meResponse.json().planets[0].stats).toEqual(stats);
+
+    const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
+    expect(publicResponse.json().planets[0].stats).toEqual(stats);
+  });
 });

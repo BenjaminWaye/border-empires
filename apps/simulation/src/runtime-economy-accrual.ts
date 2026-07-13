@@ -36,16 +36,17 @@ export type RuntimeEconomyAccrualContext = {
   tileYieldEconomyContextForPlayer: (player: DomainPlayer) => RuntimeTileYieldEconomyContext;
   tileYieldCollectedAt: (tileKey: string, ownerId?: string) => number | undefined;
   emitEvent: (event: SimulationEvent) => void;
+  railDepotCountForPlayer: (playerId: string) => number;
 };
 
 export const playerManpowerCap = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): number =>
   player.id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id));
 
 export const playerManpowerRegenPerMinute = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): number =>
-  playerManpowerRegenPerMinuteFromSummary(ctx.summaryForPlayer(player.id));
+  playerManpowerRegenPerMinuteFromSummary(ctx.summaryForPlayer(player.id), ctx.railDepotCountForPlayer(player.id));
 
 export const playerManpowerBreakdown = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): ManpowerBreakdown =>
-  playerManpowerBreakdownFromSummary(ctx.summaryForPlayer(player.id));
+  playerManpowerBreakdownFromSummary(ctx.summaryForPlayer(player.id), ctx.railDepotCountForPlayer(player.id));
 
 export const effectiveRuntimeManpowerAt = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer, nowMs: number): number =>
   effectiveManpowerAt(player, playerManpowerCap(ctx, player), playerManpowerRegenPerMinute(ctx, player), nowMs);
