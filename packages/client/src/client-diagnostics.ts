@@ -1,17 +1,49 @@
 import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
+import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-performance-metrics/client-performance-metrics.js";
+import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // Snapshot of state useful for triaging a stuck-login report: identity bits
-// (anonymised), connection state, elapsed timers, recent network/auth events.
+// (anonymised), connection state, elapsed timers, recent network/auth events,
+// performance metrics, and a load-time waterfall.
 // Excludes auth tokens and any heavy snapshot payloads.
 export const buildDiagnosticsBundle = (
   state: Pick<
     ClientState,
-    "connection" | "firstChunkAt" | "mapLoadStartedAt" | "chunkFullCount" | "authSessionReady" | "authRetrying" | "authBusyTitle" | "authBusyDetail" | "authEmail" | "authReady" | "authUserLabel" | "hasEverInitialized"
+    | "connection"
+    | "firstChunkAt"
+    | "mapLoadStartedAt"
+    | "chunkFullCount"
+    | "authSessionReady"
+    | "authRetrying"
+    | "authBusyTitle"
+    | "authBusyDetail"
+    | "authEmail"
+    | "authReady"
+    | "authUserLabel"
+    | "hasEverInitialized"
+    | "activeBackend"
+    | "bridgeDebugMode"
+    | "bridgeDebugBootstrap"
+    | "bridgeDebugWsUrl"
+    | "bridgeDebugSeasonId"
+    | "bridgeDebugRuntimeFingerprint"
+    | "bridgeDebugSnapshotLabel"
+    | "bridgeDebugServerBuildSha"
+    | "bridgeDebugAcceptLatencyP95Ms"
+    | "bridgeDebugInitialTileCount"
+    | "bridgeDebugSupportedMessageCount"
   >,
   wsUrl: string,
   now: number = Date.now()
 ): Record<string, unknown> => {
+  const navStart =
+    typeof performance !== "undefined" && performance.timing?.navigationStart
+      ? performance.timing.navigationStart
+      : now;
+
+  initPerformanceMetrics();
+
   return {
     incidentId: `diag-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     capturedAtMs: now,
@@ -34,8 +66,29 @@ export const buildDiagnosticsBundle = (
       authBusyDetail: state.authBusyDetail,
       authUserLabel: state.authUserLabel,
       authEmail: state.authEmail ? "***" : "", // redact
+      hasEverInitialized: state.hasEverInitialized,
+      activeBackend: state.activeBackend,
+      bridgeDebugMode: state.bridgeDebugMode,
+      bridgeDebugBootstrap: state.bridgeDebugBootstrap,
+      bridgeDebugWsUrl: state.bridgeDebugWsUrl || wsUrl,
+      bridgeDebugSeasonId: state.bridgeDebugSeasonId,
+      bridgeDebugRuntimeFingerprint: state.bridgeDebugRuntimeFingerprint,
+      bridgeDebugSnapshotLabel: state.bridgeDebugSnapshotLabel,
+      bridgeDebugServerBuildSha: state.bridgeDebugServerBuildSha,
+      bridgeDebugAcceptLatencyP95Ms: state.bridgeDebugAcceptLatencyP95Ms,
+      bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
+      bridgeDebugSupportedMessageCount: state.bridgeDebugSupportedMessageCount,
+      renderer: isTrue3DRendererActive() ? "true-3d" : "2d-canvas"
+    },
+    loadWaterfall: {
+      capturedElapsedMs: now - navStart,
+      mapLoadStartedElapsedMs: state.mapLoadStartedAt > 0 ? state.mapLoadStartedAt - navStart : null,
+      firstChunkElapsedMs: state.firstChunkAt > 0 ? state.firstChunkAt - navStart : null,
+      chunkFullCount: state.chunkFullCount,
+      authSessionReadyElapsedMs: state.authSessionReady && state.firstChunkAt > 0 ? state.firstChunkAt - navStart : null,
       hasEverInitialized: state.hasEverInitialized
     },
+    performanceMetrics: snapshotPerformanceMetrics(),
     recentDebugEvents: snapshotClientDebugEvents()
   };
 };

@@ -171,7 +171,17 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // clients with mid-map neutral tiles on every barbarian capture. Keying off
     // isAiControlledActor rather than attacker.isAi is load-bearing: barbarians
     // carry isAi:false by design (see runtime-player-factory.ts).
-    if (isAiControlledActor(lock.playerId, attacker?.isAi)) {
+    //
+    // EXPAND also skips the full scan: the target tile is always adjacent to
+    // territory the player already had vision over, so a (2r+1)² reveal scan
+    // finds nothing new — it was only ever paying for redundant re-sends of
+    // already-revealed tiles. With observatory/tech vision-radius bonuses this
+    // scan can hit 400+ tiles per single-tile EXPAND, which synchronously
+    // blocks the sim's event loop for 150-800ms+ and has caused gateway submit
+    // timeouts (SIMULATION_UNAVAILABLE) during rapid-fire expand chains. ATTACK
+    // keeps the full reveal: capturing deep enemy territory can genuinely
+    // expose tiles outside the player's prior vision.
+    if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND") {
       tileDeltas = [context.tileDeltaFromState(resolvedTarget)];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
