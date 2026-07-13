@@ -1,0 +1,305 @@
+/**
+ * SQLite command-store worker thread.
+ *
+ * `node:sqlite`'s `DatabaseSync` API is fully synchronous — every query
+ * blocks whichever thread calls it for the query's full duration. Running
+ * this on the gateway main thread means a single slow query (large table,
+ * WAL contention with the simulation's own sqlite-writer-worker against the
+ * same file — see fly.combined.staging.toml, GATEWAY_SQLITE_PATH and
+ * SIMULATION_SQLITE_PATH both point at /data/border-empires.db — or a disk
+ * stall) freezes every WebSocket, every other player's login, and
+ * `/healthz` for as long as the query takes. The `withTimeout()` guard
+ * callers wrap around these calls cannot help: a `setTimeout` cannot fire
+ * until the synchronous call that starved it returns. See the 2026-07-13
+ * 133s slow-login incident on border-empires-combined-staging (build_init
+ * and event_loop_max_ms both landed at ~98s) for a concrete case.
+ *
+ * This worker owns its own `DatabaseSync` connection to the same file and
+ * runs the command-store queries here instead — the blocking now happens on
+ * this worker's thread, off the gateway's event loop. Mirrors
+ * apps/simulation/src/sqlite-writer-worker.ts, which solved the same
+ * problem for the simulation side: self-contained (no relative imports) so
+ * it loads correctly as raw source in dev/test as well as compiled dist,
+ * without depending on a TS-loader hook propagating into the worker thread.
+ *
+ * Message protocol (main -> worker):
+ *   { id: number; method: string; args: unknown[] }
+ *
+ * Message protocol (worker -> main):
+ *   { type: "ready" } | { type: "ready"; error: string }
+ *   { type: "retry" }
+ *   { id: number; ok: true; result: unknown }
+ *   { id: number; ok: false; error: string }
+ */
+
+import { DatabaseSync } from "node:sqlite";
+import { parentPort, workerData } from "node:worker_threads";
+
+type CommandType = "ATTACK" | "EXPAND" | string;
+
+type CommandEnvelopeLike = {
+  commandId: string;
+  sessionId: string;
+  playerId: string;
+  clientSeq: number;
+  type: CommandType;
+  payloadJson: string;
+};
+
+type StoredGatewayCommand = {
+  commandId: string;
+  sessionId: string;
+  playerId: string;
+  clientSeq: number;
+  type: CommandType;
+  payloadJson: string;
+  queuedAt: number;
+  status: "QUEUED" | "ACCEPTED" | "REJECTED" | "RESOLVED";
+  acceptedAt?: number;
+  rejectedAt?: number;
+  rejectedCode?: string;
+  rejectedMessage?: string;
+  resolvedAt?: number;
+};
+
+type Row = {
+  command_id: string;
+  session_id: string;
+  player_id: string;
+  client_seq: number;
+  command_type: CommandType;
+  payload_json: string;
+  queued_at: number;
+  status: "QUEUED" | "ACCEPTED" | "REJECTED" | "RESOLVED";
+  accepted_at: number | null;
+  rejected_at: number | null;
+  rejected_code: string | null;
+  rejected_message: string | null;
+  resolved_at: number | null;
+};
+
+if (!parentPort) throw new Error("command-store-worker must run inside a Worker thread");
+
+const { sqlitePath, applySchema } = workerData as { sqlitePath: string; applySchema: boolean };
+
+const db = new DatabaseSync(sqlitePath);
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  PRAGMA synchronous = NORMAL;
+  PRAGMA foreign_keys = ON;
+  PRAGMA busy_timeout = 5000;
+`);
+
+if (applySchema) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS commands (
+      command_id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      client_seq INTEGER NOT NULL,
+      command_type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      queued_at INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq);
+    CREATE INDEX IF NOT EXISTS commands_player_id_idx ON commands (player_id);
+    CREATE TABLE IF NOT EXISTS command_results (
+      command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      accepted_at INTEGER,
+      rejected_at INTEGER,
+      rejected_code TEXT,
+      rejected_message TEXT,
+      resolved_at INTEGER
+    );
+  `);
+}
+
+const SELECT_JOINED = `
+SELECT
+  c.command_id, c.session_id, c.player_id, c.client_seq, c.command_type,
+  c.payload_json, c.queued_at,
+  r.status, r.accepted_at, r.rejected_at, r.rejected_code, r.rejected_message, r.resolved_at
+FROM commands c JOIN command_results r ON r.command_id = c.command_id
+`;
+
+const toStored = (row: Row): StoredGatewayCommand => ({
+  commandId: row.command_id,
+  sessionId: row.session_id,
+  playerId: row.player_id,
+  clientSeq: row.client_seq,
+  type: row.command_type,
+  payloadJson: row.payload_json,
+  queuedAt: row.queued_at,
+  status: row.status,
+  ...(row.accepted_at !== null ? { acceptedAt: row.accepted_at } : {}),
+  ...(row.rejected_at !== null ? { rejectedAt: row.rejected_at } : {}),
+  ...(row.rejected_code !== null ? { rejectedCode: row.rejected_code } : {}),
+  ...(row.rejected_message !== null ? { rejectedMessage: row.rejected_message } : {}),
+  ...(row.resolved_at !== null ? { resolvedAt: row.resolved_at } : {})
+});
+
+// node:sqlite uses code="ERR_SQLITE_ERROR" for all errors; the specific
+// SQLite extended error code is in the numeric `errcode` field.
+const isSqliteBusy = (error: unknown): boolean => {
+  const errcode = (error as { errcode?: number } | undefined)?.errcode;
+  // SQLITE_BUSY=5 and its extended subtypes (RECOVERY=261, SNAPSHOT=517, TIMEOUT=773)
+  // all share the same lower byte; mask to catch all variants.
+  return errcode !== undefined && (errcode & 0xff) === 5;
+};
+
+const isSqliteUniqueConstraint = (error: unknown): boolean => {
+  const errcode = (error as { errcode?: number } | undefined)?.errcode;
+  return errcode === 2067; // SQLITE_CONSTRAINT_UNIQUE
+};
+
+/** Retry backoff for SQLITE_BUSY contention (50ms, 150ms, 300ms). */
+const SQLITE_BUSY_RETRY_DELAYS_MS = [50, 150, 300] as const;
+
+const withSqliteRetry = async <T>(op: () => T): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= SQLITE_BUSY_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return op();
+    } catch (error) {
+      lastError = error;
+      if (!isSqliteBusy(error) || attempt >= SQLITE_BUSY_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      parentPort!.postMessage({ type: "retry" });
+      const delayMs = SQLITE_BUSY_RETRY_DELAYS_MS[attempt];
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+  }
+  throw lastError;
+};
+
+const insertCmd = db.prepare(
+  `INSERT INTO commands (command_id, session_id, player_id, client_seq, command_type, payload_json, queued_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(command_id) DO NOTHING`
+);
+const insertResult = db.prepare(
+  `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
+   ON CONFLICT(command_id) DO NOTHING`
+);
+const selectByCommandIdOrPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ? OR (c.player_id = ? AND c.client_seq = ?) LIMIT 1`);
+const selectByPlayerSeqOnly = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? LIMIT 1`);
+const updateAccepted = db.prepare(`UPDATE command_results SET status = 'ACCEPTED', accepted_at = ? WHERE command_id = ?`);
+const updateRejected = db.prepare(
+  `UPDATE command_results SET status = 'REJECTED', rejected_at = ?, rejected_code = ?, rejected_message = ? WHERE command_id = ?`
+);
+const updateResolved = db.prepare(`UPDATE command_results SET status = 'RESOLVED', resolved_at = ? WHERE command_id = ?`);
+const selectByCommandId = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ?`);
+const selectByPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ?`);
+const selectUnresolvedForPlayer = db.prepare(
+  `${SELECT_JOINED} WHERE c.player_id = ? AND r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.client_seq ASC`
+);
+const selectNextClientSeq = db.prepare(`SELECT COALESCE(MAX(client_seq), 0) + 1 AS next_seq FROM commands WHERE player_id = ?`);
+
+const methods = {
+  async persistQueuedCommand(command: CommandEnvelopeLike, queuedAt: number): Promise<StoredGatewayCommand> {
+    try {
+      await withSqliteRetry(() => {
+        db.exec("BEGIN");
+        try {
+          insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
+          insertResult.run(command.commandId);
+          db.exec("COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
+      });
+    } catch (error) {
+      // UNIQUE constraint on (player_id, client_seq) with a different commandId:
+      // idempotent re-submission after a reconnect or clientSeq tracking gap.
+      // Return the existing stored command rather than surfacing QUEUE_PERSIST_FAILED.
+      if (isSqliteUniqueConstraint(error)) {
+        const existing = selectByPlayerSeqOnly.get(command.playerId, command.clientSeq) as Row | undefined;
+        if (existing) return toStored(existing);
+      }
+      throw error;
+    }
+    const row = selectByCommandIdOrPlayerSeq.get(command.commandId, command.playerId, command.clientSeq) as Row | undefined;
+    if (!row) throw new Error("queued command insert returned no row");
+    return toStored(row);
+  },
+
+  async markAccepted(commandId: string, acceptedAt: number): Promise<void> {
+    updateAccepted.run(acceptedAt, commandId);
+  },
+
+  async markRejected(commandId: string, rejectedAt: number, code: string, message: string): Promise<void> {
+    updateRejected.run(rejectedAt, code, message, commandId);
+  },
+
+  async markResolved(commandId: string, resolvedAt: number): Promise<void> {
+    updateResolved.run(resolvedAt, commandId);
+  },
+
+  async get(commandId: string): Promise<StoredGatewayCommand | undefined> {
+    const row = selectByCommandId.get(commandId) as Row | undefined;
+    return row ? toStored(row) : undefined;
+  },
+
+  async findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredGatewayCommand | undefined> {
+    const row = selectByPlayerSeq.get(playerId, clientSeq) as Row | undefined;
+    return row ? toStored(row) : undefined;
+  },
+
+  async listUnresolvedForPlayer(playerId: string): Promise<StoredGatewayCommand[]> {
+    const rows = selectUnresolvedForPlayer.all(playerId) as Row[];
+    return rows.map(toStored);
+  },
+
+  async nextClientSeqForPlayer(playerId: string): Promise<number> {
+    const row = selectNextClientSeq.get(playerId) as { next_seq: number };
+    return row?.next_seq ?? 1;
+  }
+};
+
+type MethodName = keyof typeof methods;
+
+const dispatch = (method: MethodName, args: unknown[]): Promise<unknown> => {
+  switch (method) {
+    case "persistQueuedCommand":
+      return methods.persistQueuedCommand(args[0] as CommandEnvelopeLike, args[1] as number);
+    case "markAccepted":
+      return methods.markAccepted(args[0] as string, args[1] as number);
+    case "markRejected":
+      return methods.markRejected(args[0] as string, args[1] as number, args[2] as string, args[3] as string);
+    case "markResolved":
+      return methods.markResolved(args[0] as string, args[1] as number);
+    case "get":
+      return methods.get(args[0] as string);
+    case "findByPlayerSeq":
+      return methods.findByPlayerSeq(args[0] as string, args[1] as number);
+    case "listUnresolvedForPlayer":
+      return methods.listUnresolvedForPlayer(args[0] as string);
+    case "nextClientSeqForPlayer":
+      return methods.nextClientSeqForPlayer(args[0] as string);
+    default:
+      return Promise.reject(new Error(`unknown command store method: ${method satisfies never}`));
+  }
+};
+
+parentPort.postMessage({ type: "ready" });
+
+parentPort.on("message", (msg: unknown) => {
+  if (!msg || typeof msg !== "object") return;
+  const message = msg as { id?: unknown; method?: unknown; args?: unknown };
+  if (typeof message.id !== "number" || typeof message.method !== "string") return;
+  const { id, method } = message as { id: number; method: string };
+  const args = Array.isArray(message.args) ? message.args : [];
+  void (async () => {
+    try {
+      const result = await dispatch(method as MethodName, args);
+      parentPort!.postMessage({ id, ok: true, result });
+    } catch (err) {
+      parentPort!.postMessage({ id, ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  })();
+});
