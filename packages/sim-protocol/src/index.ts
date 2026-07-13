@@ -99,6 +99,18 @@ export type AdminPlayerRow = {
   supply: number;
 };
 
+export type RecentCommand = {
+  playerId: string;
+  type: string;
+  commandId: string;
+  issuedAt: number;
+};
+
+export type GetRecentCommandsResponse = {
+  ok: boolean;
+  commands: RecentCommand[];
+};
+
 export type SeasonLifecycleStatus = "active" | "ended";
 
 type SeasonVictoryPathId =
