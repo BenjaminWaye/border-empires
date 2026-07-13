@@ -87,9 +87,10 @@ export const findEnclosedRegionsAdjacentTo = (
 };
 
 /**
- * Auto-fill: settle all unowned land pockets sealed by `ownerId`'s territory
- * adjacent to `capturedTile`. Natural barriers (sea, mountain) count toward the
- * seal, but a pocket that leans on them is capped at
+ * Auto-fill: settle all unowned land pockets — and promote any of `ownerId`'s
+ * own FRONTIER tiles inside those pockets to SETTLED — sealed by `ownerId`'s
+ * territory adjacent to `capturedTile`. Natural barriers (sea, mountain) count
+ * toward the seal, but a pocket that leans on them is capped at
  * AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE; a pocket walled purely by the
  * player's own SETTLED tiles may grow to AUTO_FILL_MAX_REGION_SIZE. Pockets
  * bordering enemy territory are left alone. Returns the newly-settled tiles.
@@ -118,7 +119,13 @@ export const applyAutoFill = (input: {
   for (const region of regions) {
     for (const key of region) {
       const existing = tiles.get(key);
-      if (!existing || existing.ownerId) continue;
+      if (!existing) continue;
+      // Claim unowned land, and promote the enclosing player's own FRONTIER
+      // tiles inside the sealed pocket to SETTLED — once a pocket is fully
+      // walled off it should settle, not remain vulnerable to frontier decay.
+      const isUnowned = !existing.ownerId;
+      const isOwnFrontier = existing.ownerId === ownerId && existing.ownershipState === "FRONTIER";
+      if (!isUnowned && !isOwnFrontier) continue;
       const filledTile: DomainTileState = {
         ...existing,
         ownerId,

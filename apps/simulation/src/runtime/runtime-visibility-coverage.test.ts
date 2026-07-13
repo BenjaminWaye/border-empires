@@ -312,6 +312,7 @@ describe("stampVisibilityAndMergeFogDeltas", () => {
     const wireByKey = new Map([["5,5", { x: 5, y: 5, ownerId: "player-1", ownershipState: "SETTLED" as const }]]);
     const result = stampVisibilityAndMergeFogDeltas([{ x: 1, y: 1, ownerId: "player-2" }], {
       leftVisionTileKeys: new Set(["5,5"]),
+      enteredVisionTileKeys: undefined,
       wireDeltaForTileKey: (key) => wireByKey.get(key),
       tileKeyFor: (x, y) => `${x},${y}`
     });
@@ -325,9 +326,40 @@ describe("stampVisibilityAndMergeFogDeltas", () => {
     const wireByKey = new Map([["2,2", { x: 2, y: 2, ownerId: "player-3", ownershipState: "SETTLED" as const, fortJson: "{}" }]]);
     const result = stampVisibilityAndMergeFogDeltas([{ x: 2, y: 2 }], {
       leftVisionTileKeys: new Set(["2,2"]),
+      enteredVisionTileKeys: undefined,
       wireDeltaForTileKey: (key) => wireByKey.get(key),
       tileKeyFor: (x, y) => `${x},${y}`
     });
     expect(result).toEqual([{ x: 2, y: 2, ownerId: "player-3", ownershipState: "SETTLED", fortJson: "{}", visibilityState: "FOG" }]);
+  });
+
+  // Regression for the "fog stopped clearing on EXPAND" incident: EXPAND's
+  // resolution event only carries the captured tile itself in tileDeltas
+  // (see runtime-lock-resolution.ts), so the leading-edge fringe of newly
+  // visible fog around it must be reconstructed here from the vision
+  // transition accumulator, or it silently never reaches the client.
+  it("merges a full VISIBLE reveal delta for a tile that newly entered vision but has no delta in the batch", () => {
+    const wireByKey = new Map([["9,9", { x: 9, y: 9, terrain: "LAND" as const }]]);
+    const result = stampVisibilityAndMergeFogDeltas([{ x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER" as const }], {
+      leftVisionTileKeys: undefined,
+      enteredVisionTileKeys: new Set(["9,9"]),
+      wireDeltaForTileKey: (key) => wireByKey.get(key),
+      tileKeyFor: (x, y) => `${x},${y}`
+    });
+    expect(result).toEqual([
+      { x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER", visibilityState: "VISIBLE" },
+      { x: 9, y: 9, terrain: "LAND", visibilityState: "VISIBLE" }
+    ]);
+  });
+
+  it("does not double-emit a tile that is both the batch's own delta and newly entered vision", () => {
+    const wireByKey = new Map([["3,3", { x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER" as const }]]);
+    const result = stampVisibilityAndMergeFogDeltas([{ x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER" as const }], {
+      leftVisionTileKeys: undefined,
+      enteredVisionTileKeys: new Set(["3,3"]),
+      wireDeltaForTileKey: (key) => wireByKey.get(key),
+      tileKeyFor: (x, y) => `${x},${y}`
+    });
+    expect(result).toEqual([{ x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER", visibilityState: "VISIBLE" }]);
   });
 });
