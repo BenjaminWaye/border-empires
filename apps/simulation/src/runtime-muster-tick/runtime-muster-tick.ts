@@ -5,7 +5,9 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
-  OUTPOST_DEPOT_RADIUS
+  OUTPOST_DEPOT_RADIUS,
+  RAIL_DEPOT_BOOSTED_MUSTER_MULT,
+  RAIL_DEPOT_MUSTER_RADIUS
 } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
@@ -20,6 +22,8 @@ const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
+type Position = { x: number; y: number };
+
 export type MusterTickInput = {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -27,6 +31,7 @@ export type MusterTickInput = {
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  railDepotPositionsByOwner: ReadonlyMap<string, ReadonlyArray<Position>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
@@ -62,6 +67,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     input.applyManpowerRegen(player, input.nowMs);
 
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
+    const depotPositions = input.railDepotPositionsByOwner.get(playerId) ?? [];
 
     // Count non-stale flags so throughput is split evenly across them.
     let activeMusterCount = 0;
@@ -93,7 +99,7 @@ export const tickMuster = (input: MusterTickInput): void => {
       }
 
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
-      const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
+      const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * elapsedMin,
@@ -139,6 +145,48 @@ export const tickMuster = (input: MusterTickInput): void => {
       });
     }
   }
+};
+
+/**
+ * Returns the muster speed multiplier for a tile:
+ *   - RAIL_DEPOT_BOOSTED_MUSTER_MULT if an outpost within OUTPOST_DEPOT_RADIUS
+ *     is itself within RAIL_DEPOT_MUSTER_RADIUS of a Rail Depot
+ *   - MUSTER_DEPOT_SPEED_MULT if an outpost is within OUTPOST_DEPOT_RADIUS but
+ *     none of the nearby outposts are depot-backed
+ *   - 1.0 if no outpost is nearby
+ *
+ * Checks every outpost within range (not just the closest one) because the
+ * closest outpost to this tile isn't necessarily the one nearest a depot.
+ */
+const musterSpeedMultiplier = (
+  tile: DomainTileState,
+  outpostKeys: Set<string>,
+  depotPositions: ReadonlyArray<Position>
+): number => {
+  if (outpostKeys.size === 0) return 1;
+
+  const nearbyOutposts = outpostsWithinRadius(tile, outpostKeys);
+  if (nearbyOutposts.length === 0) return 1;
+  if (depotPositions.length === 0) return MUSTER_DEPOT_SPEED_MULT;
+
+  for (const outpost of nearbyOutposts) {
+    for (const depot of depotPositions) {
+      if (chebyshevDistanceSimple(outpost.x, outpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
+        return RAIL_DEPOT_BOOSTED_MUSTER_MULT;
+      }
+    }
+  }
+  return MUSTER_DEPOT_SPEED_MULT;
+};
+
+/** All active outpost tiles within OUTPOST_DEPOT_RADIUS of the given tile. */
+const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): Position[] => {
+  const found: Position[] = [];
+  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) found.push({ x: tile.x, y: tile.y });
+  for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
+    if (outpostKeys.has(simulationTileKey(x, y))) found.push({ x, y });
+  }
+  return found;
 };
 
 /**
@@ -244,13 +292,4 @@ const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set
   const light = input.activeLightOutpostsByOwner.get(playerId);
   if (light) for (const key of light) keys.add(key);
   return keys;
-};
-
-const isInsideDepotZone = (tile: DomainTileState, outpostKeys: Set<string>): boolean => {
-  if (outpostKeys.size === 0) return false;
-  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) return true;
-  for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
-    if (outpostKeys.has(simulationTileKey(x, y))) return true;
-  }
-  return false;
 };

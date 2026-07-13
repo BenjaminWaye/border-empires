@@ -19,10 +19,31 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.6",
+  version: "2026.07.12.7",
   title: "What's New",
-  summary: "Fixed fog of war not clearing properly while expanding.",
+  summary: "Rail Depot is now a mustering hub: boosts manpower regen and speeds up nearby outpost muster. Siege outpost attack multiplier descriptions corrected.",
   entries: [
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Rail Depot reworked into a mustering hub",
+      why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
+      changes: [
+        "Each Rail Depot built adds +0.5 global manpower regen per minute.",
+        "Outposts within 50 tiles of a Rail Depot now muster at 2x speed instead of the base 1.25x.",
+        "Rail Depot has no gold upkeep — it costs 4,000 gold + 100 crystal to build."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Fixed inaccurate siege outpost attack multiplier text",
+      why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
+      changes: [
+        "Siege Outpost now correctly shows +60% offense (was +25%).",
+        "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
+        "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
+        "Tile overview badges now show the correct attack multiplier per siege variant."
+      ]
+    },
     {
       introducedIn: "2026.07.12.6",
       title: "Fixed fog of war not clearing while expanding",
