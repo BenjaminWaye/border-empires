@@ -129,7 +129,13 @@ const scoreAttack = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canAttack),
     boolVeto(inp.attackReady),
-    boolVeto(!inp.musterReady),          // muster system handles it via MUSTER class
+    // Defer to the MUSTER class ONLY when muster can actually engage — i.e. it
+    // has a weak enemy-*player* border to advance on. MUSTER never handles
+    // barbarian fronts, so a barbarian-only front with muster ready must stay
+    // with ATTACK; otherwise both classes veto and the AI deadlocks into
+    // wait_and_recover (ATTACK says "muster handles it", MUSTER says "not my
+    // target").
+    boolVeto(!(inp.musterReady && inp.hasWeakEnemyBorder)),
     // Barbarian attacks don't require BREAK posture — only player attacks do.
     boolVeto(inp.frontPosture === "BREAK" || inp.hasBarbTarget),
     // Scales with how hard the enemy is pressing.
