@@ -955,6 +955,14 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   // Skip the rebuild while the player is typing a new name, or a background
   // re-render would wipe unsaved keystrokes and reset focus/cursor position.
+  const sustainedLowFpsNow = hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now());
+  const showLowFpsSwitch = isTrue3DRendererActive() && sustainedLowFpsNow && !state.rendererPrompt.dismissed;
+  const lowFpsSwitchHtml = showLowFpsSwitch
+    ? `<div class="settings-low-fps-banner">
+         <p>3D is running slow — switch to the lighter 2D renderer for smoother performance.</p>
+         <button type="button" class="panel-btn" data-settings-switch-2d>Switch to 2D</button>
+       </div>`
+    : "";
   if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
     dom.panelSettingsEl.innerHTML = `
       <div class="card auth-settings-card">
@@ -971,8 +979,10 @@ export const renderClientHud = (deps: HudDeps): void => {
             </div>
           </label>
         </div>
+        ${lowFpsSwitchHtml}
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
+        <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
       </div>
     `;
     dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
@@ -1091,6 +1101,23 @@ export const renderClientHud = (deps: HudDeps): void => {
       if (!focus) return;
       state.economyFocus = focus;
       renderClientHud(deps);
+    };
+  });
+  const settingsSwitch2dButtons = dom.hud.querySelectorAll("[data-settings-switch-2d]") as NodeListOf<HTMLButtonElement>;
+  settingsSwitch2dButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = (): void => {
+      state.rendererPrompt.dismissed = true;
+      storageSet(RENDERER_PROMPT_STORAGE_KEY, "1");
+      const url = new URL(window.location.href);
+      url.searchParams.set("renderer", "2d");
+      window.location.replace(url.toString());
+    };
+  });
+  const settingsDownloadDiagnosticsButtons = dom.hud.querySelectorAll("[data-settings-download-diagnostics]") as NodeListOf<HTMLButtonElement>;
+  settingsDownloadDiagnosticsButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = (): void => {
+      const bundle = buildDiagnosticsBundle(state, wsUrl);
+      downloadDiagnosticsBundle(bundle);
     };
   });
 
