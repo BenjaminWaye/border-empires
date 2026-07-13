@@ -26,7 +26,7 @@ const buildRealisticWorld = (): {
   let i = 0;
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let x = 0; x < WORLD_WIDTH; x++) {
-      const terrain = (x + y) % 5 === 0 ? "FOREST" : "PLAINS";
+      const terrain = (x + y) % 5 === 0 ? "MOUNTAIN" : "LAND";
       baselineTiles.push({ x, y, terrain });
       // ~14% of tiles diverge from baseline (owned/settled), matching the
       // benchmark's realistic mid-game scenario.
