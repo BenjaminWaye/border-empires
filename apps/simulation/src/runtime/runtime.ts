@@ -134,6 +134,7 @@ import {
   type AutomationPlannerDiagnostic
 } from "../ai/automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "../ai/ai-preplan-command.js";
+import { mergePreplanDiagnostic } from "./merge-preplan-diagnostic.js";
 import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js";
 import {
   AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS,
@@ -2058,7 +2059,7 @@ export class SimulationRuntime {
     clientSeq: number,
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number }
+    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: Partial<Record<string, boolean>> }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
     if (!player) {
@@ -2144,30 +2145,13 @@ export class SimulationRuntime {
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
+      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns as Partial<Record<import("../ai/utility/decisions.js").DecisionClass, boolean>> } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix
     });
     if (preplanDiagnostic?.preplanReason) {
-      plan.diagnostic = {
-        ...plan.diagnostic,
-        preplanReason: preplanDiagnostic.preplanReason,
-        ...(typeof preplanDiagnostic.preplanNeedsEconomy === "boolean"
-          ? { preplanNeedsEconomy: preplanDiagnostic.preplanNeedsEconomy }
-          : {}),
-        ...(typeof preplanDiagnostic.preplanNeedsFood === "boolean"
-          ? { preplanNeedsFood: preplanDiagnostic.preplanNeedsFood }
-          : {}),
-        ...(typeof preplanDiagnostic.preplanTechChoiceAffordable === "boolean"
-          ? { preplanTechChoiceAffordable: preplanDiagnostic.preplanTechChoiceAffordable }
-          : {}),
-        ...(typeof preplanDiagnostic.preplanDomainChoiceAffordable === "boolean"
-          ? { preplanDomainChoiceAffordable: preplanDiagnostic.preplanDomainChoiceAffordable }
-          : {}),
-        ...(preplanDiagnostic.preplanProgressState
-          ? { preplanProgressState: preplanDiagnostic.preplanProgressState }
-          : {})
-      };
+      plan.diagnostic = mergePreplanDiagnostic(plan.diagnostic, preplanDiagnostic);
     }
     return plan;
   }

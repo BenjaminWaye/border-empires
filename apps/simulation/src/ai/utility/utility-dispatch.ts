@@ -43,6 +43,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
+  decisionCooldowns: Partial<Record<DecisionClass, boolean>> | undefined;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
-    cooldown: {},
+    cooldown: state.decisionCooldowns ?? {},
     stalemated: targetStalemated(state.preferredEnemyAttack, state)
   };
 };

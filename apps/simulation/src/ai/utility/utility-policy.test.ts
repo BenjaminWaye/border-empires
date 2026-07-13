@@ -3,6 +3,12 @@ import { describe, expect, it } from "vitest";
 import { boolVeto, clamp01, compensate, linear, logistic, quadratic, scoreConsiderations } from "./considerations.js";
 import { type DecisionInputs, scoreDecision } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import {
+  activeCooldownsForPlayer,
+  createRejectionCooldownState,
+  recordRejectionCooldown,
+  REJECTION_COOLDOWN_MS
+} from "../ai-rejection-cooldown.js";
 
 // ── Base inputs ──────────────────────────────────────────────────────────────
 // A neutral starting state: modest gold, no threats, no opportunities.
@@ -370,5 +376,68 @@ describe("evaluateUtilityPolicy", () => {
       momentumTicks: {}
     });
     expect(boosted.scores["EXPAND"]).toBeGreaterThan(unboosted.scores["EXPAND"]);
+  });
+});
+
+// ── Rejection cooldown tests ────────────────────────────────────────────────
+
+describe("rejection cooldown", () => {
+  const BUILD_DEFENSE_READY: DecisionInputs = {
+    ...BASE,
+    hasFortBuild: true,
+    frontierEnemyCount: 1,
+    devSlotAvailable: true,
+    pressureAttackScore: 200
+  };
+
+  it("BUILD_DEFENSE scores > 0 without cooldown", () => {
+    const s = scoreDecision("BUILD_DEFENSE", BUILD_DEFENSE_READY);
+    expect(s).toBeGreaterThan(0);
+  });
+
+  it("BUILD_DEFENSE scores 0 when on cooldown", () => {
+    const s = scoreDecision("BUILD_DEFENSE", {
+      ...BUILD_DEFENSE_READY,
+      cooldown: { BUILD_DEFENSE: true }
+    });
+    expect(s).toBe(0);
+  });
+
+  it("cooldown forces WAIT to win over BUILD_DEFENSE", () => {
+    const withoutCooldown = evaluateUtilityPolicy(BUILD_DEFENSE_READY);
+    const withCooldown = evaluateUtilityPolicy({
+      ...BUILD_DEFENSE_READY,
+      cooldown: { BUILD_DEFENSE: true }
+    });
+    expect(withoutCooldown.winner).toBe("BUILD_DEFENSE");
+    expect(withCooldown.winner).toBe("WAIT");
+  });
+
+  it("recordRejectionCooldown maps BUILD_FORT to BUILD_DEFENSE", () => {
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ BUILD_DEFENSE: true });
+  });
+
+  it("recordRejectionCooldown maps BUILD_ECONOMIC_STRUCTURE to BUILD_ECONOMY", () => {
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", "BUILD_ECONOMIC_STRUCTURE", 1000);
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ BUILD_ECONOMY: true });
+  });
+
+  it("cooldown expires after REJECTION_COOLDOWN_MS", () => {
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
+    const active = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS + 1);
+    expect(active).toBeUndefined();
+  });
+
+  it("non-build command types do not create cooldowns", () => {
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", "EXPAND", 1000);
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + 1);
+    expect(cooldowns).toBeUndefined();
   });
 });

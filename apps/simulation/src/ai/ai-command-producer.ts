@@ -21,6 +21,12 @@ import {
   reservedDevelopmentSlotCount,
   type DevelopmentSlotReservation
 } from "./ai-development-slot-reservations.js";
+import {
+  activeCooldownsForPlayer,
+  createRejectionCooldownState,
+  recordRejectionCooldown,
+  type RejectionCooldownState
+} from "./ai-rejection-cooldown.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
@@ -34,6 +40,7 @@ type AiCommandProducerOptions = {
       options?: {
         skipPreplan?: boolean;
         reservedDevelopmentSlots?: number;
+        decisionCooldowns?: Partial<Record<string, boolean>>;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
@@ -87,6 +94,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
+  const rejectionCooldowns = createRejectionCooldownState();
   const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -157,6 +165,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType });
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, pendingCommand.commandType, now());
       }
       resolvePendingPreplanOutcome(
         event.commandId,
@@ -231,6 +240,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           const issuedAt = now();
           const plannerStartedAt = now();
           const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
+          const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, issuedAt);
           const plan = options.runtime.explainNextAutomationCommand
             ? options.runtime.explainNextAutomationCommand(
                 playerId,
@@ -239,7 +249,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
                 "ai-runtime",
                 {
                   skipPreplan,
-                  ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {})
+                  ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {}),
+                  ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
                 }
               )
             : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
