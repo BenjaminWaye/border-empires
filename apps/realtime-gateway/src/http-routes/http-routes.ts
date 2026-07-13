@@ -83,6 +83,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
+  getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
@@ -279,6 +280,21 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       });
 
       return { ok: true, aiPlayers: aiDebug };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  app.get("/admin/debug/ai/decisions", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      const playerId = typeof request.query.playerId === "string" ? request.query.playerId : undefined;
+      const diagnostics = await deps.getAiDecisionDiagnostics?.(playerId);
+      return { ok: true, diagnostics: diagnostics ?? [] };
     } catch (error) {
       reply.code(503);
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
