@@ -292,7 +292,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       return { ok: false, error: "unauthorized" };
     }
     try {
-      const playerId = typeof request.query.playerId === "string" ? request.query.playerId : undefined;
+      const query = request.query as Record<string, unknown> | undefined;
+      const playerId = typeof query?.playerId === "string" ? query.playerId : undefined;
       const diagnostics = await deps.getAiDecisionDiagnostics?.(playerId);
       return { ok: true, diagnostics: diagnostics ?? [] };
     } catch (error) {
