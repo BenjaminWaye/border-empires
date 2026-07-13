@@ -127,7 +127,7 @@ describe("domain card previews", () => {
     const ironBastions: DomainInfo = {
       id: "iron-bastions",
       tier: 2,
-      name: "Iron Bastions",
+      name: "Dwarf Kingdom",
       description: "Fortifies later defenses.",
       requiresTechId: "ironworking",
       mods: {},
@@ -261,7 +261,7 @@ describe("domainOwnedHtml — trickle suffix", () => {
   const ironBastions: DomainInfo = {
     id: "iron-bastions",
     tier: 1,
-    name: "Iron Bastions",
+    name: "Dwarf Kingdom",
     description: "Forts pop up overnight.",
     requiresTechId: "masonry",
     mods: {},
@@ -276,9 +276,9 @@ describe("domainOwnedHtml — trickle suffix", () => {
       "IRON"
     );
     expect(html).toContain("Clockwork Stipend <em>(IRON trickle)</em>");
-    // Iron Bastions never offered a trickle table — must not get the suffix.
-    expect(html).toContain("<strong>Iron Bastions</strong>");
-    expect(html).not.toContain("Iron Bastions <em>(");
+    // Dwarf Kingdom never offered a trickle table — must not get the suffix.
+    expect(html).toContain("<strong>Dwarf Kingdom</strong>");
+    expect(html).not.toContain("Dwarf Kingdom <em>(");
   });
 
   it("does not append a suffix when the player has not locked a resource", () => {

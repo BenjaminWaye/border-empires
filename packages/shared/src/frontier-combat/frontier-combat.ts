@@ -27,6 +27,8 @@ export type FrontierCombatModifiers = {
   attackerOutpostMult?: number;
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
+  attackVsBarbariansMult?: number;
+  defenderOwnerId?: string;
   fortDefenseMult?: number;
   // Muster system garrison scaling: when set, fort defense is proportional to fill ratio.
   musterSystemEnabled?: boolean;
@@ -70,6 +72,7 @@ const buildFrontierCombatPreviewImpl = (
   let atkMult = modifiers.attackerOutpostMult ?? 1;
   if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
   if (target.hasFort) atkMult *= modifiers.attackVsFortsMult ?? 1;
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) atkMult *= modifiers.attackVsBarbariansMult ?? 1;
   const atkEff = 10 * atkMult;
   const defMult = defenseMultiplierForTile(target, modifiers);
   const defEff = 10 * defMult;

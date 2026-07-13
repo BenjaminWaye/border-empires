@@ -16,7 +16,7 @@
     {
       "id": "iron-bastions",
       "tier": 1,
-      "name": "Iron Bastions",
+      "name": "Dwarf Kingdom",
       "description": "Forts pop up overnight and cost a pittance to keep.",
       "requiresTechId": "masonry",
       "cost": { "gold": 6000, "iron": 120 },
@@ -29,13 +29,12 @@
     {
       "id": "supply-raiding",
       "tier": 1,
-      "name": "Supply Raiding",
-      "description": "Raiders deploy faster and cost less supply to keep in the field.",
+      "name": "Dewildernisation",
+      "description": "A concerted imperial campaign to push back the wilds. Raiders strike harder against barbarian holdings, dealing significantly more damage in frontier combat.",
       "requiresTechId": "leatherworking",
       "cost": { "gold": 6000, "supply": 120 },
       "effects": {
-        "outpostDeploymentSpeedMult": 1.5,
-        "outpostSupplyUpkeepMult": 0.7
+        "attackVsBarbariansMult": 1.5
       }
     },
     {

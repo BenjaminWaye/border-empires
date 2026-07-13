@@ -19,10 +19,29 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.5",
+  version: "2026.07.13.0",
   title: "What's New",
-  summary: "Diagnostics download now includes performance metrics and frame-phase breakdown for lag triage.",
+  summary: "Supply Raiding reworked into Dewildernisation — bonus attack power versus barbarians.",
   entries: [
+    {
+      introducedIn: "2026.07.13.0",
+      title: "Supply Raiding reworked into Dewildernisation — bonus vs barbarians",
+      why: "The original Supply Raiding domain boosted outpost deployment speed and reduced outpost supply upkeep, which pigeonholed it into a niche siege-outpost role that felt disconnected from its raiding theme. The domain now lives up to its name as a focused barbarian offensive bonus.",
+      changes: [
+        "Supply Raiding has been renamed to Dewildernisation — a concerted imperial campaign to push back the wilds.",
+        "Iron Bastions has been renamed to Dwarf Kingdom.",
+        "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.6",
+      title: "Download diagnostics and switch renderer from Settings",
+      why: "The diagnostics download was only available during map loading failures. And when 3D ran slow, you had to wait for the pop-up overlay — there was no way to see the warning again if you dismissed it, or to proactively grab diagnostics to investigate lag.",
+      changes: [
+        "A \"Download Diagnostics\" button now appears at the bottom of the Settings tab (gear icon), so you can grab a performance bundle at any time — not just during login failures.",
+        "When 3D is active and FPS stays below 25 for 5+ seconds, Settings shows a \"3D is running slow\" banner with a \"Switch to 2D\" button that reloads immediately in 2D mode."
+      ]
+    },
     {
       introducedIn: "2026.07.12.5",
       title: "Diagnostics bundle now includes performance metrics and frame-phase breakdown",
@@ -245,113 +264,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Tap the Development counter in the top HUD bar to open a new panel listing every active slot (settlement or structure, its location, and time remaining) plus everything queued behind the cap."
       ]
     },
-    {
-      introducedIn: "2026.07.07.7",
-      title: "Structures no longer randomly vanish from tiles",
-      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
-      changes: [
-        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.6",
-      title: "Fixed development slot bonuses not applying",
-      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
-      changes: [
-        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.5",
-      title: "Settlements now grow population over time",
-      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
-      changes: [
-        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
-        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.4",
-      title: "Muster flags are now easier to find",
-      why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
-      changes: [
-        "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
-        "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.3",
-      title: "Fixed fog-of-war lifting on unrelated map tiles",
-      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
-      changes: [
-        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
-        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.2",
-      title: "AI empires stopped earning gold entirely once inactive for too long",
-      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
-      changes: [
-        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.0",
-      title: "Warbands tech grants +5% attack and defense",
-      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
-      changes: [
-        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.5",
-      title: "AI empires no longer get stuck permanently broke",
-      why: "AI-controlled empires were claiming frontier land automatically every tick, which spent gold faster than their income could replenish it. That kept their gold pinned near zero forever, so they could never afford to actually settle any of the land they'd claimed into a producing town — they'd sit with hundreds of claimed tiles but almost no real economy.",
-      changes: [
-        "AI empires now hold back a small gold reserve before auto-claiming more frontier land, so gold can build up enough to actually settle claimed tiles into towns.",
-        "AI empires now favor claiming land diagonally when scouting, which reveals more of the map per tile claimed.",
-        "AI empires no longer waste a claim on a tile that has no resource, dock, or town and reveals no new map — they'll wait for a better option instead."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.0",
-      title: "Barbarian plunder capped to prevent gold inflation",
-      why: "Capturing a settled tile from Barbarians was awarding massive gold (up to 108 trillion in one capture) because barbarians were initialized with Number.MAX_SAFE_INTEGER gold and the plunder formula divided their 9-quadrillion stash by the tile count.",
-      changes: [
-        "Plunder from barbarian capture is now fixed at 10 gold per tile, down from a share of their quadrillion-gold pool.",
-        "Barbarian initial gold value reduced from MAX_SAFE_INTEGER to 100 to prevent any future inflation vectors."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.4",
-      title: "Galaxy launcher button is simpler and no longer spins",
-      why: "The rotating-planet launcher button was too visually prominent for a cosmetic feature — it competed with the game's main UI rather than quietly indicating access to the galaxy view.",
-      changes: [
-        "The launcher button is now a simple 🪐 emoji on a transparent background instead of a full rotating gas giant, making it much less obtrusive on the game screen.",
-        "The button still opens the full planet-view starfield overlay when clicked."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Fish tiles now produce more food than grain",
-      why: "Fish was strictly worse than grain — lower production, can't be improved, can't be banked. Swapping the production rates gives fish a clear strategic niche: high flow for immediate population feeding, but still perishable and unimprovable. Grain is now the lower-rate option but bankable and improvable with Farmsteads and Waterworks.",
-      changes: [
-        "Fish tile production increased from 48 to 72 FOOD/day; farm tile production reduced from 72 to 48 FOOD/day.",
-        "Farmstead bonus on farm tiles updated accordingly (48 + 24 = 72/day with Farmstead).",
-        "All structures and techs that reference food rates have been updated to match."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Waypoint replacement from any neutral tile",
-      why: "Setting a waypoint locked you into it — tapping another neutral tile while a waypoint was active did nothing. You had to manually cancel the old waypoint first, then tap the new tile again to set a new one, which was frustrating in fast-paced expansion.",
-      changes: [
-        "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
-        "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
-      ]
-    }
-    // Older entries (2026.07.06.2 and earlier) trimmed: the release-day
+    // Older entries (2026.07.07.7 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

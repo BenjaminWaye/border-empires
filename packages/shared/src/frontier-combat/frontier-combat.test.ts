@@ -42,6 +42,32 @@ describe("frontier combat", () => {
     expect(preview.winChance).toBeCloseTo(1, 6);
   });
 
+  it("applies attackVsBarbariansMult when the defender is a barbarian", () => {
+    const baseline = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { defenderOwnerId: "barbarian-1" }
+    );
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { defenderOwnerId: "barbarian-1", attackVsBarbariansMult: 1.5 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(1.5, 6);
+    expect(boosted.atkEff).toBeCloseTo(15, 6);
+    expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
+  });
+
+  it("does not apply attackVsBarbariansMult when the defender is not a barbarian", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { defenderOwnerId: "ai-1", attackVsBarbariansMult: 1.5 }
+    );
+
+    expect(preview.atkMult).toBe(1);
+    expect(preview.atkEff).toBe(10);
+  });
+
   it("keeps preview and resolution tagged to the same combat module", () => {
     expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
   });
