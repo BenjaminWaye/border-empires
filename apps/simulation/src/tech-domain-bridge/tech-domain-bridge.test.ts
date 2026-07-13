@@ -145,13 +145,12 @@ describe("tier-1 domain effects are wired", () => {
     expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
   });
 
-  it("Supply Raiding exposes outpostDeploymentSpeedMult / outpostSupplyUpkeepMult", () => {
+  it("Supply Raiding exposes attackVsBarbariansMult at 1.5", () => {
     const player = {
       techIds: new Set<string>(["leatherworking"]),
       domainIds: new Set<string>(["supply-raiding"])
     };
-    expect(multiplicativeEffectForPlayer(player, "outpostDeploymentSpeedMult")).toBeCloseTo(1.5, 6);
-    expect(multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult")).toBeCloseTo(0.7, 6);
+    expect(multiplicativeEffectForPlayer(player, "attackVsBarbariansMult")).toBeCloseTo(1.5, 6);
   });
 
   it("Mercantile Charter exposes firstThreeTownsPopulationGrowthMult at 1.25", () => {
