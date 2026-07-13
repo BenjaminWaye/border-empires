@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_TILE_CAP } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, MUSTER_TILE_CAP, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -131,5 +131,40 @@ describe("muster accumulation tick", () => {
     const b = musterAmount(runtime, 12, 10)!;
     expect(a).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 2);
     expect(b).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 2);
+  });
+
+  it("applies the Rail Depot boost when the nearest outpost isn't the depot-backed one", async () => {
+    // Muster tile at (200,200). Outpost A at distance 1 is the *nearest* outpost
+    // to the muster tile but is NOT within RAIL_DEPOT_MUSTER_RADIUS of the depot.
+    // Outpost B at distance 5 is farther from the muster tile (still within
+    // OUTPOST_DEPOT_RADIUS) but IS within RAIL_DEPOT_MUSTER_RADIUS of the depot.
+    // The tile should get the depot-boosted rate because *some* nearby outpost
+    // is depot-backed, not just because the closest one is.
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        tiles: [
+          { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
+          { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
+          { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "RAIL_DEPOT", status: "active", ownerId: "player-1" } }
+        ],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 200, 200, 1);
+
+    // Advance 10s so the inflow stays well under MUSTER_TILE_CAP at either
+    // multiplier, letting the test distinguish 1.25x from 2.0x.
+    nowMs = 1_000 + 10_000;
+    runtime.tickMuster(nowMs);
+
+    const accumulated = musterAmount(runtime, 200, 200)!;
+    const boostedExpected = (MUSTER_BASE_RATE_PER_MIN * RAIL_DEPOT_BOOSTED_MUSTER_MULT * 10_000) / 60_000;
+    const unboostedExpected = (MUSTER_BASE_RATE_PER_MIN * MUSTER_DEPOT_SPEED_MULT * 10_000) / 60_000;
+    expect(accumulated).toBeCloseTo(boostedExpected, 2);
+    expect(accumulated).not.toBeCloseTo(unboostedExpected, 2);
   });
 });

@@ -2086,6 +2086,10 @@ body {
   gap: 10px;
 }
 
+.renderer-prompt-download-btn {
+  margin-top: 8px;
+}
+
 .guide-link-btn {
   border: 0;
   background: transparent;

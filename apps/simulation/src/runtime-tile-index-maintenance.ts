@@ -201,6 +201,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   activeLightOutpostsByOwner: Map<string, Set<string>>;
   musterTilesByOwner: Map<string, Set<string>>;
   fortTilesByOwner: Map<string, Set<string>>;
+  railDepotTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -218,6 +219,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshLightOutpostIndexForTile(input);
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
+  refreshRailDepotIndexForTile(input);
 };
 
 /**
@@ -415,6 +417,27 @@ const refreshFortGarrisonIndexForTile = (input: {
   if (prevOwnerId === nextOwnerId) return;
   if (prevOwnerId) input.fortTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextOwnerId) addTileToOwnerSet(input.fortTilesByOwner, input.tileKey, nextOwnerId);
+};
+
+const isRailDepotActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.economicStructure?.type === "RAIL_DEPOT" &&
+  tile.economicStructure.ownerId === ownerId &&
+  tile.economicStructure.status === "active";
+
+const refreshRailDepotIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  railDepotTilesByOwner: Map<string, Set<string>>;
+}): void => {
+  const prevOwnerId = input.previous?.ownerId;
+  const nextOwnerId = input.next.ownerId;
+  const prevActive = input.previous && prevOwnerId ? isRailDepotActive(input.previous, prevOwnerId) : false;
+  const nextActive = nextOwnerId ? isRailDepotActive(input.next, nextOwnerId) : false;
+  if (!prevActive && !nextActive) return;
+  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+  if (prevActive && prevOwnerId) input.railDepotTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.railDepotTilesByOwner, input.tileKey, nextOwnerId);
 };
 
 const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, ownerId: string): void => {

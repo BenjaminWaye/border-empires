@@ -421,6 +421,23 @@ const ORPHAN_LOCK_GRACE_MS = 60_000;
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
 
+/** Convert a rail depot key index to position arrays for the muster tick. */
+const railDepotPositionsFromKeys = (
+  index: ReadonlyMap<string, Set<string>>,
+  tiles: ReadonlyMap<string, DomainTileState>
+): Map<string, Array<{ x: number; y: number }>> => {
+  const result = new Map<string, Array<{ x: number; y: number }>>();
+  for (const [ownerId, keys] of index) {
+    const positions: Array<{ x: number; y: number }> = [];
+    for (const key of keys) {
+      const tile = tiles.get(key);
+      if (tile) positions.push({ x: tile.x, y: tile.y });
+    }
+    if (positions.length > 0) result.set(ownerId, positions);
+  }
+  return result;
+};
+
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
   private terrainEpoch = nextTerrainEpoch++;
@@ -481,6 +498,8 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
   // muster accumulation tick enumerate active musters without scanning the map.
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
+  // Index of active Rail Depot tiles per owner (mustering logistics hub).
+  private readonly railDepotTilesByOwner = new Map<string, Set<string>>();
   // Tracks muster manpower reserved by in-flight attacks (remote muster).
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
@@ -826,6 +845,12 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(tile.fort.ownerId, set); }
         set.add(tileKey);
       }
+      // Populate railDepotTilesByOwner index (mustering logistics hub).
+      if (tile.economicStructure?.type === "RAIL_DEPOT" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.railDepotTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.railDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -1151,6 +1176,7 @@ export class SimulationRuntime {
       musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
@@ -1505,7 +1531,8 @@ export class SimulationRuntime {
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id));
+    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
+    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), depotCount);
   }
 
   playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
@@ -1514,7 +1541,8 @@ export class SimulationRuntime {
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id));
+    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
+    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), depotCount);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -1790,7 +1818,8 @@ export class SimulationRuntime {
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
-      fortTilesByOwner: this.fortTilesByOwner
+      fortTilesByOwner: this.fortTilesByOwner,
+      railDepotTilesByOwner: this.railDepotTilesByOwner
     });
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;

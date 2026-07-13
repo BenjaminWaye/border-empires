@@ -247,8 +247,8 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     expect(structureInfoForKey("IRON_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
     expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");
-    expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.25x to 2x");
-    expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 2x to 3x");
+    expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.6x to 1.8x");
+    expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 1.8x to 2.0x");
     expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "90 iron"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "180 iron"]);
     expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "90 supply", "60 iron"]);

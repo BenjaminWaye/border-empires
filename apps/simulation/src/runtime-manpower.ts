@@ -2,6 +2,7 @@ import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
+  RAIL_DEPOT_MANPOWER_REGEN_PER_MIN,
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
@@ -19,7 +20,10 @@ export const playerManpowerCapFromSummary = (summary: PlayerRuntimeSummary): num
   return Math.max(MANPOWER_BASE_CAP, cap);
 };
 
-export const playerManpowerRegenPerMinuteFromSummary = (summary: PlayerRuntimeSummary): number => {
+export const playerManpowerRegenPerMinuteFromSummary = (
+  summary: PlayerRuntimeSummary,
+  railDepotCount = 0
+): number => {
   let regen = 0;
   let index = 0;
   for (const tier of summary.ownedTownTierByTile.values()) {
@@ -27,7 +31,8 @@ export const playerManpowerRegenPerMinuteFromSummary = (summary: PlayerRuntimeSu
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
-  return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
+  const depotBonus = railDepotCount * RAIL_DEPOT_MANPOWER_REGEN_PER_MIN;
+  return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen + depotBonus);
 };
 
 const townTierLabel = (tier: TownTier, count: number): string => {
@@ -48,7 +53,10 @@ const manpowerRegenWeightNote = (weight: number): string | undefined => {
   return `${Math.round(weight * 100)}% scaling`;
 };
 
-export const playerManpowerBreakdownFromSummary = (summary: PlayerRuntimeSummary): ManpowerBreakdown => {
+export const playerManpowerBreakdownFromSummary = (
+  summary: PlayerRuntimeSummary,
+  railDepotCount = 0
+): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
   let index = 0;
@@ -79,6 +87,9 @@ export const playerManpowerBreakdownFromSummary = (summary: PlayerRuntimeSummary
       ...(note ? { note } : {})
     };
   });
+  if (railDepotCount > 0) {
+    regenLines.push({ label: "Rail Depot", amount: railDepotCount * RAIL_DEPOT_MANPOWER_REGEN_PER_MIN });
+  }
   const townCap = capLines.reduce((total, line) => total + line.amount, 0);
   const townRegen = regenLines.reduce((total, line) => total + line.amount, 0);
   return {

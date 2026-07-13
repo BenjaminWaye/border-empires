@@ -973,6 +973,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         </div>
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
+        <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
       </div>
     `;
     dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
@@ -1093,6 +1094,13 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
+  const settingsDownloadDiagnosticsButtons = dom.hud.querySelectorAll("[data-settings-download-diagnostics]") as NodeListOf<HTMLButtonElement>;
+  settingsDownloadDiagnosticsButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = (): void => {
+      const bundle = buildDiagnosticsBundle(state, wsUrl);
+      downloadDiagnosticsBundle(bundle);
+    };
+  });
 
   renderClientChangelogOverlay({
     state,
@@ -1185,6 +1193,7 @@ export const renderClientHud = (deps: HudDeps): void => {
             <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
             <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
           </div>
+          <button id="renderer-prompt-download" class="panel-btn guide-secondary-btn renderer-prompt-download-btn" type="button">Download Diagnostics</button>
         </div>
       </div>
     `;
@@ -1204,6 +1213,13 @@ export const renderClientHud = (deps: HudDeps): void => {
         const url = new URL(window.location.href);
         url.searchParams.set("renderer", "2d");
         window.location.replace(url.toString());
+      };
+    }
+    const downloadBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-download") as HTMLButtonElement | null;
+    if (downloadBtn) {
+      downloadBtn.onclick = (): void => {
+        const bundle = buildDiagnosticsBundle(state, wsUrl);
+        downloadDiagnosticsBundle(bundle);
       };
     }
   } else if (dom.rendererPromptOverlayEl.innerHTML) {
