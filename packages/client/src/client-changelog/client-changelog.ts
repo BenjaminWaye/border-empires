@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.7",
+  version: "2026.07.13.1",
   title: "What's New",
-  summary: "Rail Depot is now a mustering hub: boosts manpower regen and speeds up nearby outpost muster. Siege outpost attack multiplier descriptions corrected.",
+  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
   entries: [
+    {
+      introducedIn: "2026.07.13.1",
+      title: "Town Captured popup",
+      why: "Capturing a shard site already celebrated the moment with a popup, but capturing a town — a much bigger empire event — was silent, easy to miss in the middle of a fight, and gave no quick way to jump back to the new town.",
+      changes: [
+        "Capturing an enemy or barbarian town now shows a hero popup with town art, its name, coordinates, and tier.",
+        "The popup shows the town's population, the Manpower Cap and Manpower Regen it will add to your empire, and a note that full production resumes once it's settled and supported.",
+        "A Jump to Town button recenters the map on the captured town in case it's off-screen."
+      ]
+    },
     {
       introducedIn: "2026.07.12.7",
       title: "Rail Depot reworked into a mustering hub",
@@ -316,24 +326,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
         "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
       ]
-    },
-    {
-      introducedIn: "2026.07.07.2",
-      title: "AI empires stopped earning gold entirely once inactive for too long",
-      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
-      changes: [
-        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.0",
-      title: "Warbands tech grants +5% attack and defense",
-      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
-      changes: [
-        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
-      ]
     }
-    // Older entries (2026.07.06.5 and earlier) trimmed: the release-day
+    // Older entries (2026.07.07.2 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
