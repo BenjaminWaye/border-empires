@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.07.13.1",
   title: "What's New",
-  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
+  summary: "Capturing a town now shows a hero popup with its stats and a jump-to-town button. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub. Siege outpost attack multiplier descriptions corrected.",
   entries: [
     {
       introducedIn: "2026.07.13.1",
@@ -31,6 +31,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Capturing an enemy or barbarian town now shows a hero popup with town art, its name, coordinates, and tier.",
         "The popup shows the town's population, the Manpower Cap and Manpower Regen it will add to your empire, and a note that full production resumes once it's settled and supported.",
         "A Jump to Town button recenters the map on the captured town in case it's off-screen."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.0",
+      title: "Supply Raiding reworked into Dewildernisation — bonus vs barbarians",
+      why: "The original Supply Raiding domain boosted outpost deployment speed and reduced outpost supply upkeep, which pigeonholed it into a niche siege-outpost role that felt disconnected from its raiding theme. The domain now lives up to its name as a focused barbarian offensive bonus.",
+      changes: [
+        "Supply Raiding has been renamed to Dewildernisation — a concerted imperial campaign to push back the wilds.",
+        "Iron Bastions has been renamed to Dwarf Kingdom.",
+        "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
       ]
     },
     {

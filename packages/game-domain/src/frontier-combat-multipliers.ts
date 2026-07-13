@@ -51,11 +51,13 @@ export const resolveFrontierCombatMultipliers = (
 ): {
   attackVsSettledMult: number;
   attackVsFortsMult: number;
+  attackVsBarbariansMult: number;
   fortDefenseMult: number;
 } => {
   return {
     attackVsSettledMult: multiplicativeEffectForPlayer(attackerTechIds, attackerDomainIds, "attackVsSettledMult"),
     attackVsFortsMult: multiplicativeEffectForPlayer(attackerTechIds, attackerDomainIds, "attackVsFortsMult"),
+    attackVsBarbariansMult: multiplicativeEffectForPlayer(attackerTechIds, attackerDomainIds, "attackVsBarbariansMult"),
     fortDefenseMult: multiplicativeEffectForPlayer(defenderTechIds ?? [], defenderDomainIds, "fortDefenseMult"),
   };
 };
