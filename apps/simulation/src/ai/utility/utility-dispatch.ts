@@ -24,7 +24,6 @@ import type {
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
-import { recordAiDecisionDiagnostic } from "../ai-decision-diagnostics.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
@@ -207,37 +206,18 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
   const inputs = buildDecisionInputs(state);
   const policy = evaluateUtilityPolicy(inputs);
 
-  // Record diagnostic for wait_and_recover debugging
-  const fa = state.context.frontierAnalysis;
-  recordAiDecisionDiagnostic({
-    playerId: state.context.playerId,
-    tick: Math.floor(state.context.issuedAt / 1000), // Use issued timestamp as tick proxy
-    canExpand: inputs.canExpand,
-    canAttack: inputs.canAttack,
-    scores: policy.scores,
-    vetoes: {}, // Will be populated if we add veto tracking to decisions.ts
-    frontierState: {
-      neutralCount: fa.frontierNeutralTargetCount,
-      economicCount: fa.frontierOpportunityEconomic,
-      townSupportCount: fa.frontierOpportunityTownSupport,
-      scoutCount: fa.frontierOpportunityScout,
-      enemyCount: fa.frontierEnemyTargetCount,
-      barbarianCount: fa.frontierBarbarianTargetCount
-    },
-    points: inputs.points,
-    manpower: inputs.manpower,
-    devSlotAvailable: inputs.devSlotAvailable,
-    winner: policy.winner,
-    winnerScore: policy.winnerScore
-  });
-
   const sorted = (Object.entries(policy.scores) as Array<[DecisionClass, number]>)
     .filter(([, s]) => s > 0)
     .sort(([, a], [, b]) => b - a);
 
+  // Attach the full score map to the diagnostic so the AI decision diagnostics
+  // endpoint can show why every class scored 0. The diagnostic (not this Map)
+  // is what crosses the AI-worker → sim-worker boundary, so recording must
+  // happen sim-side from the diagnostic — see recordAiDecisionDiagnosticFromPlanner.
   const utilityBase = {
     utilityRunnerUp: policy.runnerUp,
     utilityRunnerUpScore: policy.runnerUpScore,
+    utilityScores: policy.scores,
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };
 
