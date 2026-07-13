@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.3",
+  version: "2026.07.13.4",
   title: "What's New",
-  summary: "Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub.",
+  summary: "AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
   entries: [
+    {
+      introducedIn: "2026.07.13.4",
+      title: "Fixed AI opponents going idle for extended periods",
+      why: "An AI empire under continuous attack could cut to the front of the turn queue every tick with no fairness limit, occupying every turn indefinitely and leaving other AI empires unable to act — including ones with large gold reserves and clear expansion opportunities.",
+      changes: [
+        "An AI empire that hasn't taken a turn in 2 seconds is now guaranteed to go next, even ahead of one under active attack."
+      ]
+    },
     {
       introducedIn: "2026.07.13.3",
       title: "Town Captured popup now fires for neutral towns too",

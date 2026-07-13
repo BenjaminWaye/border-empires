@@ -33,6 +33,7 @@ import {
   reservedDevelopmentSlotCount,
   type DevelopmentSlotReservation
 } from "./ai-development-slot-reservations.js";
+import { buildAiTickIterationOrder, DEFAULT_STARVATION_GUARD_MS } from "./ai-tick-fairness.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -250,6 +251,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   // collect_for_active_lock, collect_for_economic_recovery), then any AI
   // already firing organic collects every 20–40s would keep resetting the
   const urgentByPlayerId = new Set<string>();
+  // Per-player last-considered timestamp — feeds the ai-tick-fairness starvation guard.
+  const lastConsideredAtByPlayer = new Map<string, number>();
   const intentLatchState = createAiIntentLatchState();
   const attackStalemate = createAttackStalemateTracker();
   // Latching is always on for the worker producer — runtime tracks
@@ -945,18 +948,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const [id, t] of trackedPreplanByCommandId) if (t.trackedAt <= cutoff) trackedPreplanByCommandId.delete(id);
       attackStalemate.expireOlderThan(now() - ATTACK_STALEMATE_WINDOW_MS);
 
-      // Build iteration order: urgent defenders first, then round-robin.
-      const iterationOrder: number[] = [];
-      const seenIndices = new Set<number>();
-      for (const urgentId of [...urgentByPlayerId]) {
-        if (!aiPlayerIdSet.has(urgentId)) { urgentByPlayerId.delete(urgentId); continue; }
-        const idx = options.aiPlayerIds.indexOf(urgentId);
-        if (idx >= 0 && !seenIndices.has(idx)) { iterationOrder.push(idx); seenIndices.add(idx); }
-      }
-      for (let i = 0; i < options.aiPlayerIds.length; i++) {
-        const idx = (nextPlayerIndex + i) % options.aiPlayerIds.length;
-        if (!seenIndices.has(idx)) { iterationOrder.push(idx); seenIndices.add(idx); }
-      }
+      // Iteration order: starved players, then urgent defenders, then round-robin (see ai-tick-fairness.ts).
+      for (const urgentId of [...urgentByPlayerId]) if (!aiPlayerIdSet.has(urgentId)) urgentByPlayerId.delete(urgentId);
+      const iterationOrder = buildAiTickIterationOrder({
+        aiPlayerIds: options.aiPlayerIds, urgentPlayerIds: urgentByPlayerId, nextPlayerIndex,
+        lastConsideredAtByPlayer, nowMs: now(), starvationGuardMs: DEFAULT_STARVATION_GUARD_MS
+      });
       iterationOrderLength = iterationOrder.length;
 
       for (const playerIndex of iterationOrder) {
@@ -969,6 +966,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (options.playerBudgetCheck && !options.playerBudgetCheck(playerId)) continue;
 
         lastPlayerId = playerId;
+        lastConsideredAtByPlayer.set(playerId, now());
         let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         let activePreplanCommandId: string | undefined;
 
