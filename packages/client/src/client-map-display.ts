@@ -143,7 +143,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
   if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for full-map vision for 24 hours.";
-  if (kind === "RAIL_DEPOT") return "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
+  if (kind === "RAIL_DEPOT") return "Mustering hub: boosts manpower regen and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
   if (kind === "WEATHER_ENGINE") return "Blocks hostile bombardment and hostile observatory actions within 30 tiles.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
@@ -253,7 +253,7 @@ export const structureInfoForKey = (
     if (key === "ASTRAL_DOCK") return ["9 gold / m", "0.10 crystal / m"];
     if (key === "AEGIS_DOME_PART") return ["2.50 gold / m"];
     if (key === "AEGIS_DOME") return ["8 gold / m", "0.10 crystal / m"];
-    if (key === "RAIL_DEPOT") return ["1.50 gold / m"];
+    if (key === "RAIL_DEPOT") return [];
     if (key === "WEATHER_ENGINE") return ["4 gold / m", "0.10 crystal / m"];
     return [];
   };
@@ -264,9 +264,9 @@ export const structureInfoForKey = (
     if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_RANGE}-tile crystal range (protection + casting, grows with tech)`];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "LIGHT_OUTPOST") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
-    if (key === "SIEGE_OUTPOST") return ["+25% local offense", "Improves attacks launched from this tile"];
-    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.25x to 2x"];
-    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 2x to 3x against heavy fortified targets"];
+    if (key === "SIEGE_OUTPOST") return ["+60% local offense", "Improves attacks launched from this tile"];
+    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
+    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", "+18 food cap"];
     if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Boosted food production raises food cap"];
     if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
@@ -297,7 +297,7 @@ export const structureInfoForKey = (
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes for 300 crystal", "Requires nearby Aether Tower power"];
-    if (key === "RAIL_DEPOT") return ["Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network"];
+    if (key === "RAIL_DEPOT") return ["+0.5 manpower regen per depot", "Boosts outpost muster speed within 50 tiles"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Levy one resource from all rivals every 60 minutes for 240 crystal", "Requires nearby Aether Tower power"];
@@ -525,7 +525,7 @@ export const structureInfoForKey = (
   if (type === "SIEGE_TOWER") {
     return structure({
       title: "Siege Tower",
-      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.25x to 2x.",
+      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.6x to 1.8x.",
       glyph: "⚔",
       placement: "Upgrade an existing Siege Outpost on its current tile.",
       costBits: costBitsFor(type),
@@ -535,7 +535,7 @@ export const structureInfoForKey = (
   if (type === "DREAD_TOWER") {
     return structure({
       title: "Dread Tower",
-      detail: "Dread Towers upgrade Siege Towers and raise siege attack from 2x to 3x for assaults against the heaviest fortified targets.",
+      detail: "Dread Towers upgrade Siege Towers and raise siege attack from 1.8x to 2.0x for assaults against the heaviest fortified targets.",
       glyph: "⚔",
       placement: "Upgrade an existing Siege Tower on its current tile.",
       costBits: costBitsFor(type),
@@ -625,7 +625,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network.",
+      detail: "Rail Depots are mustering hubs that boost manpower regen and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -764,7 +764,7 @@ export const structureInfoForKey = (
   }
   return structure({
     title: "Siege Outpost",
-    detail: "Siege outposts are offensive staging structures for border tiles. They add +25% local offense to attacks launched from their tile.",
+    detail: "Siege outposts are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
     glyph: "⚔",
     placement: "Build on a settled border tile you own.",
     costBits: costBitsFor(type),

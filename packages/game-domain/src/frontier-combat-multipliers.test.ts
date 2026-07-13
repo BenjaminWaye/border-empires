@@ -8,8 +8,19 @@ describe("resolveFrontierCombatMultipliers", () => {
     expect(result).toEqual({
       attackVsSettledMult: 1,
       attackVsFortsMult: 1,
+      attackVsBarbariansMult: 1,
       fortDefenseMult: 1,
     });
+  });
+
+  it("resolves attackVsBarbariansMult from Dewildernisation domain", () => {
+    const result = resolveFrontierCombatMultipliers(
+      [],
+      ["supply-raiding"],
+      [],
+      [],
+    );
+    expect(result.attackVsBarbariansMult).toBe(1.5);
   });
 
   it("resolves attackVsSettledMult from known domains", () => {

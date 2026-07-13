@@ -175,17 +175,34 @@ describe("ATTACK decision", () => {
     const s = scoreDecision("ATTACK", { ...BASE, canAttack: true, attackReady: false });
     expect(s).toBe(0);
   });
-  it("vetoed when musterReady (muster class handles it)", () => {
+  it("vetoed when muster can engage (musterReady + weak enemy-player border)", () => {
     const s = scoreDecision("ATTACK", {
       ...BASE,
       canAttack: true,
       attackReady: true,
       musterReady: true,
+      hasWeakEnemyBorder: true,
       frontierEnemyCount: 1,
       frontPosture: "BREAK",
       pressureAttackScore: 300
     });
     expect(s).toBe(0);
+  });
+  it("NOT vetoed on a barbarian-only front even when musterReady (muster can't engage barbs)", () => {
+    // Regression: ATTACK↔MUSTER deadlock. musterReady but no enemy-player
+    // border (hasWeakEnemyBorder=false) means MUSTER vetoes, so ATTACK must
+    // still fire against the barbarian target instead of both idling.
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      musterReady: true,
+      hasWeakEnemyBorder: false,
+      hasBarbTarget: true,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300
+    });
+    expect(s).toBeGreaterThan(0);
   });
   // stalemate is folded into canAttack (buildDecisionInputs), not a
   // separate ATTACK veto. When stalemated, canAttack becomes false and

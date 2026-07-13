@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, PlayerRespawnNotice, VisibilityState, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, MonumentalStructureType, PlayerRespawnNotice, VisibilityState, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -99,6 +99,45 @@ export type AdminPlayerRow = {
   supply: number;
 };
 
+export type RecentCommand = {
+  playerId: string;
+  type: string;
+  commandId: string;
+  issuedAt: number;
+};
+
+export type GetRecentCommandsResponse = {
+  ok: boolean;
+  commands: RecentCommand[];
+};
+
+export type AiDecisionDiagnostic = {
+  playerId: string;
+  tick: number;
+  canExpand: boolean;
+  canAttack: boolean;
+  scores: Record<string, number>;
+  vetoes: Record<string, string | undefined>;
+  frontierState: {
+    neutralCount: number;
+    economicCount: number;
+    townSupportCount: number;
+    scoutCount: number;
+    enemyCount: number;
+    barbarianCount: number;
+  };
+  points: number;
+  manpower: number;
+  devSlotAvailable: boolean;
+  winner: string;
+  winnerScore: number;
+};
+
+export type GetAiDecisionDiagnosticsResponse = {
+  ok: boolean;
+  diagnostics: AiDecisionDiagnostic[];
+};
+
 export type SeasonLifecycleStatus = "active" | "ended";
 
 type SeasonVictoryPathId =
@@ -123,12 +162,26 @@ export type SeasonVictoryObjectiveSnapshot = {
   conditionMet: boolean;
 };
 
+// A point-in-time snapshot of the winning player's economy, taken at the
+// moment they're crowned — the base "planet stats" carried forward once the
+// planet is named (see galaxy-routes.ts).
+export type SeasonWinnerStats = {
+  ironPerMinute: number;
+  goldPerMinute: number;
+  supplyPerMinute: number;
+  foodPerMinute: number;
+  crystalPerMinute: number;
+  totalPopulation: number;
+  monumentalBuildings: Partial<Record<MonumentalStructureType, number>>;
+};
+
 export type SeasonWinnerSnapshot = {
   playerId: string;
   playerName: string;
   crownedAt: number;
   objectiveId: SeasonVictoryPathId;
   objectiveName: string;
+  stats?: SeasonWinnerStats;
 };
 
 export type SeasonVictoryTrackerSnapshot = {

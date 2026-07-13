@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type {
   AdminPlayerRow,
   CurrentSeasonSummary,
+  GetRecentCommandsResponse,
   SeasonArchiveRow,
   SeasonLifecycleStatus
 } from "@border-empires/sim-protocol";
@@ -81,6 +82,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
+  getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
@@ -237,6 +240,81 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
     try {
       return { ok: true, players: await deps.getAdminPlayers() };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  app.get("/admin/debug/ai", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      const [players, commandsResult] = await Promise.all([
+        deps.getAdminPlayers(),
+        deps.getRecentCommands(100)
+      ]);
+
+      const aiPlayers = players.filter(p => p.isAi);
+      const aiDebug = aiPlayers.map(player => {
+        const playerCommands = commandsResult.commands
+          .filter(cmd => cmd.playerId === player.id)
+          .slice(0, 5);
+
+        return {
+          playerId: player.id,
+          name: player.name,
+          gold: player.gold,
+          incomePerMinute: player.incomePerMinute,
+          settledTiles: player.settledTiles,
+          ownedTiles: player.ownedTiles,
+          techs: player.techs,
+          recentCommands: playerCommands.map(cmd => ({
+            type: cmd.type,
+            commandId: cmd.commandId,
+            issuedAt: cmd.issuedAt
+          }))
+        };
+      });
+
+      return { ok: true, aiPlayers: aiDebug };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  app.get("/admin/debug/ai/decisions", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      const query = request.query as Record<string, unknown> | undefined;
+      const playerId = typeof query?.playerId === "string" ? query.playerId : undefined;
+      const diagnostics = await deps.getAiDecisionDiagnostics?.(playerId);
+      return { ok: true, diagnostics: diagnostics ?? [], count: (diagnostics ?? []).length };
+    } catch (error) {
+      reply.code(503);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  app.get("/admin/debug/ai/recording-status", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      // Try to get diagnostics to verify recording is happening
+      const allDiagnostics = await deps.getAiDecisionDiagnostics?.();
+      return {
+        ok: true,
+        recording: (allDiagnostics?.length ?? 0) > 0,
+        totalDiagnostics: allDiagnostics?.length ?? 0
+      };
     } catch (error) {
       reply.code(503);
       return { ok: false, error: error instanceof Error ? error.message : String(error) };

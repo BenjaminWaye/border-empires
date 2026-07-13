@@ -31,6 +31,7 @@ import { notificationCategoryForServerError } from "../client-persistent-alerts/
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
+import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -2112,84 +2113,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TILE_DELTA_BATCH") {
-      const tileUpdates =
-        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
-      const batchTouchesFrontierQueue =
-        Array.isArray(tileUpdates) &&
-        tileUpdates.some((update) => {
-          const updateKey = keyFor(update.x, update.y);
-          if (updateKey === state.actionTargetKey) return true;
-          if (state.queuedTargetKeys.has(updateKey)) return true;
-          return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
-        });
-      if (batchTouchesFrontierQueue) {
-        frontierQueueDebug("tile_delta_batch_matches_frontier_target", {
-          updates: tileUpdates?.map((update) => ({
-            key: keyFor(update.x, update.y),
-            ownerId: update.ownerId,
-            ownershipState: update.ownershipState
-          }))
-        });
-      }
-      applyGatewayTileDeltaBatch(
-        {
-          state,
-          keyFor,
-          mergeIncomingTileDetail,
-          mergeServerTileWithOptimisticState,
-          clearRenderCaches,
-          buildMiniMapBase
-        },
-        tileUpdates
-      );
-      let resolvedQueuedFrontierCapture = false;
-      if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
-        for (const update of tileUpdates) {
-          const updateKey = keyFor(update.x, update.y);
-          const resolved = state.tiles.get(updateKey);
-          if (resolved) state.tiles.set(updateKey, resolved);
-          if (resolved?.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
-            state.frontierSyncWaitUntilByTarget.delete(updateKey);
-            clearLateFrontierAck(updateKey);
-            state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
-            state.queuedTargetKeys.delete(updateKey);
-          }
-          if (
-            !resolvedQueuedFrontierCapture &&
-            updateKey === state.actionTargetKey &&
-            ((currentActionCanResolveFromFrontierOwnership(updateKey) &&
-              resolved?.ownerId === state.me &&
-              resolved.ownershipState === "FRONTIER") ||
-              currentActionCanResolveFromPostCombatTileSync(updateKey))
-          ) {
-            resolvedQueuedFrontierCapture = true;
-          }
-        }
-      }
-      if (state.firstChunkAt === 0 && Array.isArray(tileUpdates) && tileUpdates.length > 0) {
-        state.firstChunkAt = Date.now();
-        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
-        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
-      }
-      if (resolvedQueuedFrontierCapture) {
-        resolveFrontierCapture("TILE_DELTA_BATCH");
-      }
-      // Re-render the tile action menu if the delta touched the currently selected
-      // own tile (e.g. SET_MUSTER returns a tile delta that changes muster state).
-      if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
-        const touchedKeys = new Set<string>((tileUpdates as Array<{ x: number; y: number }>).map((u) => keyFor(u.x, u.y)));
-        if (touchedKeys.has(state.tileActionMenu.currentTileKey)) {
-          const refreshedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
-          if (refreshedTile) {
-            openSingleTileActionMenu(refreshedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false, preserveTab: true });
-          }
-        }
-      }
-      const batchPlayerManpower = (msg as { playerManpower?: unknown }).playerManpower;
-      if (typeof batchPlayerManpower === "number" && (msg as { playerId?: unknown }).playerId === state.me) {
-        state.manpower = batchPlayerManpower;
-      }
-      renderHud();
+      handleTileDeltaBatchMessage(msg, {
+        state,
+        keyFor,
+        mergeIncomingTileDetail,
+        mergeServerTileWithOptimisticState,
+        clearRenderCaches,
+        buildMiniMapBase,
+        frontierQueueDebug,
+        clearLateFrontierAck,
+        currentActionCanResolveFromFrontierOwnership,
+        currentActionCanResolveFromPostCombatTileSync,
+        resolveFrontierCapture,
+        openSingleTileActionMenu,
+        renderHud,
+        requestViewRefresh
+      });
       return;
     }
 

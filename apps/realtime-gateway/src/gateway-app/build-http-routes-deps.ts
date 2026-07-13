@@ -78,6 +78,11 @@ export const buildGatewayHttpRoutesDeps = (ctx: BuildGatewayHttpRoutesDepsContex
   listSeasonArchives: async () =>
     hydrateSeasonArchiveDisplayNames(await ctx.simulationClient.listSeasonArchives(), ctx.profileStore),
   getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
+  getRecentCommands: (limit?: number) => ctx.simulationClient.getRecentCommands(limit),
+  getAiDecisionDiagnostics: async (playerId?: string) => {
+    const result = await ctx.simulationClient.getAiDecisionDiagnostics(playerId);
+    return result.diagnostics ?? [];
+  },
   startNextSeason: (force?: boolean) => ctx.simulationClient.startNextSeason(force),
   seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
   ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),

@@ -8,6 +8,8 @@ import {
   type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
+  type GetRecentCommandsResponse,
+  type GetAiDecisionDiagnosticsResponse,
   type LockedFrontierCombatResult,
   type PlayerSubscriptionDock,
   type PlayerSubscriptionSnapshot,
@@ -22,6 +24,10 @@ type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
+type ProtoGetRecentCommandsRequest = { limit?: number };
+type ProtoGetRecentCommandsAck = { ok: boolean; commands_json?: string; commandsJson?: string };
+type ProtoGetAiDecisionDiagnosticsRequest = { player_id?: string; playerId?: string };
+type ProtoGetAiDecisionDiagnosticsAck = { ok: boolean; diagnostics_json?: string; diagnosticsJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoSeedBarbariansAck = {
   ok: boolean;
@@ -208,6 +214,14 @@ type SimulationClientLike = {
   GetAdminPlayers?: (
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
+  ) => void;
+  GetRecentCommands?: (
+    request: ProtoGetRecentCommandsRequest,
+    callback: (error: Error | null, response: ProtoGetRecentCommandsAck) => void
+  ) => void;
+  GetAiDecisionDiagnostics?: (
+    request: ProtoGetAiDecisionDiagnosticsRequest,
+    callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsAck) => void
   ) => void;
   StartNextSeason?: (
     request: { force?: boolean; imperial_ward_json?: string | undefined },
@@ -817,6 +831,8 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
+  getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
@@ -1004,6 +1020,53 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+
+  getRecentCommands(limit: number = 25) {
+    return new Promise<GetRecentCommandsResponse>((resolve, reject) => {
+      if (typeof client.GetRecentCommands !== "function") {
+        reject(new Error("simulation client GetRecentCommands RPC is unavailable"));
+        return;
+      }
+      client.GetRecentCommands({ limit }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.commands_json ?? response.commandsJson;
+        if (!payload) {
+          resolve({ ok: true, commands: [] });
+          return;
+        }
+        resolve({ ok: true, commands: JSON.parse(payload) });
+      });
+    });
+  },
+
+  getAiDecisionDiagnostics(playerId?: string) {
+    return new Promise<GetAiDecisionDiagnosticsResponse>((resolve, reject) => {
+      if (typeof client.GetAiDecisionDiagnostics !== "function") {
+        reject(new Error("simulation client GetAiDecisionDiagnostics RPC is unavailable"));
+        return;
+      }
+      const request: ProtoGetAiDecisionDiagnosticsRequest = {};
+      if (playerId !== undefined) {
+        request.player_id = playerId;
+      }
+      client.GetAiDecisionDiagnostics(request, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.diagnostics_json ?? response.diagnosticsJson;
+        if (!payload) {
+          resolve({ ok: true, diagnostics: [] });
+          return;
+        }
+        resolve({ ok: true, diagnostics: JSON.parse(payload) });
+      });
+    });
+  },
+
   startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
@@ -1057,6 +1120,8 @@ export const createSimulationClient = (address: string): {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
+  getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (

@@ -164,7 +164,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
   const draw = (): void => {
     const nowMs = performance.now();
-    // Sample rAF cadence (not throttled draw cadence) so the counter reflects real device load.
+    performance.mark("frame-start");
     recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;
     if (nowMs - lastDrawAt < minFrameGap) {
@@ -783,7 +783,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         blocked: Boolean(settlementProgress)
       });
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
-    };
+    }; performance.mark("tile-start");
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
         const wx = deps.wrapX(state.camX + x);
@@ -1303,7 +1303,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         });
         drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }
-    }
+    } performance.mark("tile-end");
 
     for (const { wk, px, py, vis, t } of overlayTiles) {
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {

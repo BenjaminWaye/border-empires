@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.12.5",
+  version: "2026.07.13.5",
   title: "What's New",
-  summary: "Building placement preview now highlights which existing structures will actually benefit — Mines light up green for Foundry, Farmsteads for Waterworks.",
+  summary: "Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town. Supply Raiding reworked into Dewildernisation. Rail Depot is now a mustering hub.",
   entries: [
     {
-      introducedIn: "2026.07.12.5",
+      introducedIn: "2026.07.13.5",
       title: "Placement preview highlights the structures that will actually benefit",
       why: "The Waterworks/Foundry placement radius preview showed the affected area, but not which of your existing structures inside it would actually receive the bonus — you had to know the mechanic and count tiles yourself.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.07.12.4",
+      introducedIn: "2026.07.13.4",
       title: "Building placement mode for Waterworks and Foundry",
       why: "Placing a radius-based structure like Waterworks or Foundry was a blind commitment — you tapped Build and hoped the tile you picked was valid, with no visibility into the actual affected area or whether the location was strategically optimal.",
       changes: [
@@ -42,6 +42,92 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Click any valid tile to move the building there; the preview updates in real time with the correct radius for each structure.",
         "Valid placements show the structure's color; invalid placements (wrong surface type, conflicts, missing tech) show red.",
         "Confirm to finalize, press Escape or right-click to cancel — no commitment until you're satisfied."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.3",
+      title: "Town Captured popup now fires for neutral towns too",
+      why: "The popup only fired when the tile's previous owner was a real, different player id, to avoid firing on first-time map reveals. That over-excluded a legitimate case: claiming an already-known but unowned (neutral) town peacefully via Expand — e.g. one that decayed back to neutral, or a vacated barbarian town — never showed the popup at all.",
+      changes: [
+        "Claiming a previously-known neutral town via Expand now shows the Town Captured popup, not just combat captures from another empire.",
+        "First-time map reveals (a tile you've never seen before) still correctly don't trigger the popup, since there's no earlier state to compare against."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.2",
+      title: "Town Captured popup now fires for destroyed settlements too",
+      why: "The Town Captured popup only fired when the captured tile still had town data afterward. Combat destroys a Settlement-tier town on capture — its population disperses instead of joining the empire — so the tile legitimately ends up with no town, and the popup silently never showed for what's usually the majority of captures.",
+      changes: [
+        "Capturing a Settlement-tier town via combat now shows a 'Settlement Destroyed' variant of the popup using the town's pre-capture name, tier, and population, instead of showing nothing.",
+        "The destroyed variant explains the population dispersed rather than joining your empire, and drops the Manpower Cap/Regen stats since nothing was actually gained.",
+        "Towns that survive capture (Town tier and above) keep showing the original 'Town Captured' popup with full stats."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.1",
+      title: "Town Captured popup",
+      why: "Capturing a shard site already celebrated the moment with a popup, but capturing a town — a much bigger empire event — was silent, easy to miss in the middle of a fight, and gave no quick way to jump back to the new town.",
+      changes: [
+        "Capturing an enemy or barbarian town now shows a hero popup with town art, its name, coordinates, and tier.",
+        "The popup shows the town's population, the Manpower Cap and Manpower Regen it will add to your empire, and a note that full production resumes once it's settled and supported.",
+        "A Jump to Town button recenters the map on the captured town in case it's off-screen."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.0",
+      title: "Supply Raiding reworked into Dewildernisation — bonus vs barbarians",
+      why: "The original Supply Raiding domain boosted outpost deployment speed and reduced outpost supply upkeep, which pigeonholed it into a niche siege-outpost role that felt disconnected from its raiding theme. The domain now lives up to its name as a focused barbarian offensive bonus.",
+      changes: [
+        "Supply Raiding has been renamed to Dewildernisation — a concerted imperial campaign to push back the wilds.",
+        "Iron Bastions has been renamed to Dwarf Kingdom.",
+        "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Rail Depot reworked into a mustering hub",
+      why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
+      changes: [
+        "Each Rail Depot built adds +0.5 global manpower regen per minute.",
+        "Outposts within 50 tiles of a Rail Depot now muster at 2x speed instead of the base 1.25x.",
+        "Rail Depot has no gold upkeep — it costs 4,000 gold + 100 crystal to build."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Fixed inaccurate siege outpost attack multiplier text",
+      why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
+      changes: [
+        "Siege Outpost now correctly shows +60% offense (was +25%).",
+        "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
+        "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
+        "Tile overview badges now show the correct attack multiplier per siege variant."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.6",
+      title: "Fixed fog of war not clearing while expanding",
+      why: "A recent fix that made expand actions faster (skipping a redundant full-area rescan on every expand) accidentally also skipped sending the newly-visible fringe of land around each expand. The result: expanding into unexplored territory revealed nothing, while unrelated background activity elsewhere on the map occasionally leaked through as disconnected fogged-then-cleared patches.",
+      changes: [
+        "Expanding into unexplored territory now correctly reveals the newly-visible edge of land around your new tile again, without bringing back the slow full-area rescan that caused the original expand speed issue."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.5",
+      title: "Diagnostics bundle now includes performance metrics and frame-phase breakdown",
+      why: "When users report lag, the diagnostics download had no performance data — just connection state and identity bits. Without FPS history, frame phase timing, or load-time waterfall, there was no way to triage whether the problem was server-side, network, or client rendering.",
+      changes: [
+        "The diagnostics download (triggered via the Settings tab) now includes a load-waterfall section showing how long each login step took relative to navigation start.",
+        "Performance metrics are now collected every 2 seconds under the hood: FPS distribution (min, max, avg, p50, p95, p99), memory usage samples (last 60 snapshots), connection type, and device info. All appear in the diagnostics file.",
+        "Each rendered frame is now broken into three phases (frame setup, tile render, overlay post) measured as elapsed milliseconds, so lag can be traced to a specific phase of the draw loop."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.4",
+      title: "Auto-fill now settles enclosed frontier tiles",
+      why: "When territory sealed off a pocket of land, auto-fill was only claiming unowned tiles inside it — any of your own frontier tiles trapped in the same pocket stayed frontier and could still decay back to unowned, even though the pocket was fully enclosed by your own settled territory.",
+      changes: [
+        "Frontier tiles inside a pocket sealed off by your territory are now promoted to settled along with the unowned tiles, instead of being left as decay-vulnerable frontier."
       ]
     },
     {
@@ -247,76 +333,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Tap the Development counter in the top HUD bar to open a new panel listing every active slot (settlement or structure, its location, and time remaining) plus everything queued behind the cap."
       ]
-    },
-    {
-      introducedIn: "2026.07.07.7",
-      title: "Structures no longer randomly vanish from tiles",
-      why: "Any tile update unrelated to a fort, observatory, siege outpost, economic structure, sabotage marker, town, or naval muster order could still wipe that structure from view — the server's wire format couldn't tell 'this delta didn't touch that structure' apart from 'this structure was removed', so an unrelated change to the same tile (a yield tick, a nearby capture, etc.) would blank it out.",
-      changes: [
-        "Structures, towns, and muster orders now stay visible through unrelated tile updates instead of disappearing until the next full sync."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.6",
-      title: "Fixed development slot bonuses not applying",
-      why: "Frontier Doctrine (and other domains/techs like Iron Bastions and Supply Raiding) set a developmentProcessCapacityAdd effect that the tech tooltip correctly displayed as \"Development slots +1\", but the actual slot limit sent to the client — and enforced by the server when starting a new settlement — was always the flat base of 3, regardless of what a player had researched.",
-      changes: [
-        "Development slot limits now include the developmentProcessCapacityAdd bonus from all owned techs and domains, both in the HUD toolbar and in server-side settlement validation."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.5",
-      title: "Settlements now grow population over time",
-      why: "The population-growth tick explicitly skipped any town at SETTLEMENT tier, so a Settlement's population stayed frozen at its starting value (typically 800) forever, even though the tile-detail view already displayed a projected growth rate and ETA to Town tier as if it were growing. Settlements can already be upgraded to Town tier via a free manual command regardless of population, but players had no way to grow their Settlement's population beforehand or watch it develop naturally.",
-      changes: [
-        "Settlement-tier towns now accumulate population using the same boosted growth-rate formula the tile-detail view already projected (4x the base rate, to reach the 10,000-population Town threshold in a comparable timeframe), plus the same food-fed check, war-pause, and long-peace bonus rules as Town-tier and above.",
-        "Settlements still upgrade to Town tier via a free manual command regardless of population — this only fixes population growth while still at Settlement tier."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.4",
-      title: "Muster flags are now easier to find",
-      why: "Unfed towns already got a pulsing edge-of-screen arrow so you could find them from anywhere on the map, but active muster flags (holding or advancing manpower) had no equivalent — they were only visible if you happened to be looking at the right tile in the 3D view.",
-      changes: [
-        "Active muster flags you own now show a pulsing locator arrow at the screen edge when off-screen, click it to jump straight to the flag, just like the unfed-town warning.",
-        "The manpower detail panel now lists every active muster flag (location, hold/advance mode, and staged manpower); click a row to center the camera on it."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.3",
-      title: "Fixed fog-of-war lifting on unrelated map tiles",
-      why: "When a barbarian walked off a tile anywhere on the map, the server broadcast a tiny ownership-clearing update to every connected player so stale ghost ownership wouldn't linger in the client's cache. The client couldn't tell that stub apart from a real visible-tile update, so it treated it as proof the tile was now visible and permanently lifted fog-of-war on random, distant tiles it had never actually seen.",
-      changes: [
-        "The server now marks these broadcast-only ownership clears with an explicit flag instead of relying on the shape of the update.",
-        "The client uses that flag to update stale ownership without discovering the tile or lifting its fog — fog-of-war now only lifts for tiles you've actually observed."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.2",
-      title: "AI empires stopped earning gold entirely once inactive for too long",
-      why: "AI empires only submit a command when their planner decides on something other than \"wait\" — and a broke AI stuck waiting never submits anything. Gold income was gated behind the same 12-hour away-from-keyboard cap used for human players, so an AI that went 12 hours without submitting a command (which happens automatically the moment it gets stuck waiting) had its income permanently switched off, with no way back — confirmed on staging, where AI gold was frozen bit-for-bit identical across polls minutes apart.",
-      changes: [
-        "AI empires are now exempt from the human away-from-keyboard income cap, so they keep earning gold regardless of how long they've been stuck waiting for something worthwhile to do."
-      ]
-    },
-    {
-      introducedIn: "2026.07.07.0",
-      title: "Warbands tech grants +5% attack and defense",
-      why: "Unlocking the Warbands technology previously gave no direct combat stat bonus — its only effect was the attack-vs-settled multiplier, which didn't affect overall attack or defense values. This meant researching an early military tech felt underwhelming compared to economic alternatives.",
-      changes: [
-        "The Warbands (tribal-warfare) tech now applies +5% attack and +5% defense modifiers globally, matching the stat bonuses that the tech UI has always displayed."
-      ]
-    },
-    {
-      introducedIn: "2026.07.06.3",
-      title: "Waypoint replacement from any neutral tile",
-      why: "Setting a waypoint locked you into it — tapping another neutral tile while a waypoint was active did nothing. You had to manually cancel the old waypoint first, then tap the new tile again to set a new one, which was frustrating in fast-paced expansion.",
-      changes: [
-        "Tapping a reachable neutral tile while a waypoint is active now shows 'Clear Waypoint and Expand Here' as the first menu action.",
-        "Selecting it cancels the existing waypoint and immediately starts expansion toward the new tile in a single tap."
-      ]
     }
-    // Older entries (2026.07.06.2 and earlier) trimmed: the release-day
+    // Older entries (2026.07.07.7 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

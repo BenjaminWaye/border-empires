@@ -138,7 +138,16 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       return undefined;
 
     case "ATTACK": {
-      const canDirectAttack = canAttack && strategic.attackReady && !strategic.musterReady;
+      // Defer to MUSTER only when it can actually engage an enemy-*player*
+      // border (mirrors scoreAttack). Muster is a player-vs-player mechanic, so
+      // a barbarian-only front must NOT defer — otherwise ATTACK scores highest
+      // but produces no command and the planner falls through to WAIT
+      // (the ATTACK↔MUSTER execution-path deadlock).
+      const musterWillHandle =
+        strategic.musterReady &&
+        fa.frontierEnemyPlayerTargetCount > 0 &&
+        notStalemated(fa.enemyAttack);
+      const canDirectAttack = canAttack && strategic.attackReady && !musterWillHandle;
       if (state.preferredEnemyAttack && notStalemated(state.preferredEnemyAttack) && canDirectAttack) {
         return buildPlannerFrontierCommand(context, state.preferredEnemyAttack, "ATTACK");
       }
@@ -210,9 +219,23 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
     .filter(([, s]) => s > 0)
     .sort(([, a], [, b]) => b - a);
 
+  // Attach the full score map to the diagnostic so the AI decision diagnostics
+  // endpoint can show why every class scored 0. The diagnostic (not this Map)
+  // is what crosses the AI-worker → sim-worker boundary, so recording must
+  // happen sim-side from the diagnostic — see recordAiDecisionDiagnosticFromPlanner.
   const utilityBase = {
     utilityRunnerUp: policy.runnerUp,
     utilityRunnerUpScore: policy.runnerUpScore,
+    utilityScores: policy.scores,
+    utilityGates: {
+      attackReady: state.strategic.attackReady,
+      musterReady: state.strategic.musterReady,
+      frontPosture: state.strategic.frontPosture,
+      hasBarbTarget: inputs.hasBarbTarget,
+      hasWeakEnemyBorder: inputs.hasWeakEnemyBorder,
+      stalemated: inputs.stalemated,
+      pressureAttackScore: inputs.pressureAttackScore
+    },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };
 

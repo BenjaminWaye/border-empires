@@ -76,7 +76,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   async preparePayload(sections: SimulationSnapshotSections): Promise<string> {
     const baselineIndex = await this.resolveBaselineIndexFromSections(sections);
     const payload = baselineIndex
-      ? compactSnapshotForStorage(sections, baselineIndex)
+      ? await compactSnapshotForStorage(sections, baselineIndex)
       : buildSimulationSnapshotPayload(sections);
     return await this.stringify(payload);
   }

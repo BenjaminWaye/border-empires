@@ -12,6 +12,7 @@ import {
   type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
+  type GetRecentCommandsResponse,
   type PlayerSubscriptionSnapshot,
   type SeasonArchiveRow,
   type SimulationEvent,
@@ -21,6 +22,7 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
+import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -40,14 +42,14 @@ import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.j
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, simulationTileKey, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
-import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
+import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
@@ -62,6 +64,7 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
+import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
@@ -135,6 +138,20 @@ type ProtoAdminPlayersRequest = Record<string, never>;
 type ProtoAdminPlayersResponse = {
   ok: boolean;
   players_json?: string;
+};
+type ProtoGetRecentCommandsRequest = {
+  limit?: number;
+};
+type ProtoGetRecentCommandsResponse = {
+  ok: boolean;
+  commands_json?: string;
+};
+type ProtoGetAiDecisionDiagnosticsRequest = {
+  player_id?: string;
+};
+type ProtoGetAiDecisionDiagnosticsResponse = {
+  ok: boolean;
+  diagnostics_json?: string;
 };
 type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string };
 type ProtoStartNextSeasonResponse = {
@@ -1410,6 +1427,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       now: baseSummary.updatedAt
     });
     currentSeasonState = trackerResult.seasonState;
+    // Capture the winner's economy/population/monuments the moment they're
+    // crowned, while runtimeState still reflects this season's world — this
+    // is the base "planet stats" a christened planet carries forward
+    // (see galaxy-routes.ts). Guarded so a season sitting on "ended" doesn't
+    // re-scan tiles on every subsequent recompute.
+    if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
+      currentSeasonState = {
+        ...currentSeasonState,
+        winner: {
+          ...currentSeasonState.winner,
+          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId)
+        }
+      };
+    }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
     const finalSummary =
       trackerResult.changed || trackerResult.crownedWinner
@@ -1709,6 +1740,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.utilityWinner) {
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1753,6 +1785,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("worker", diagnostic));
                 }
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             ...(options.aiDryRun ? { experimentDryRun: true } : {}),
             ...(options.aiMaxCommandsPerTick ? { experimentMaxCommandsPerTick: options.aiMaxCommandsPerTick } : {}),
@@ -1804,6 +1837,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.utilityWinner) {
                 simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
             playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
             onTick: ({ durationMs, playerId }) => {
@@ -1818,6 +1852,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("runtime", diagnostic));
                 }
               }
+              recordAiDecisionDiagnosticFromPlanner(diagnostic);
             }
           });
       simulationMetrics.setSimAiCurrentTickIntervalMs(options.aiTickMs ?? 250);
@@ -1950,10 +1985,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = stampVisibilityAndMergeFogDeltas(runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId, { includeOwnershipClears: true }), {
-              leftVisionTileKeys: visionTransitions.left.get(subscribedPlayerId),
-              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined,
-              tileKeyFor: simulationTileKey
+            const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
+              filterTileDeltasForPlayer: (deltas, playerId, options) => runtime.filterTileDeltasForPlayer(deltas, playerId, options),
+              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined
             });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
@@ -2609,6 +2643,46 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         supply: player.strategicResources.SUPPLY ?? 0
       }));
       callback(null, { ok: true, players_json: JSON.stringify(rows) });
+    },
+    GetRecentCommands(
+      call: { request: ProtoGetRecentCommandsRequest },
+      callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
+    ) {
+      const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
+      void commandStore.loadAllCommands()
+        .then((allCommands) => {
+          const recent = allCommands
+            .sort((a, b) => (b.queuedAt ?? 0) - (a.queuedAt ?? 0))
+            .slice(0, limit)
+            .map(cmd => ({
+              playerId: cmd.playerId,
+              type: cmd.type,
+              commandId: cmd.commandId,
+              issuedAt: cmd.queuedAt ?? 0
+            }));
+          callback(null, { ok: true, commands_json: JSON.stringify(recent) });
+        })
+        .catch((error) =>
+          callback(error instanceof Error ? error : new Error("failed to load commands"), {
+            ok: false,
+            commands_json: ""
+          })
+        );
+    },
+    GetAiDecisionDiagnostics(
+      call: { request: ProtoGetAiDecisionDiagnosticsRequest },
+      callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
+    ) {
+      try {
+        const playerId = call.request.player_id || undefined;
+        const diagnostics = getAiDecisionDiagnostics(playerId);
+        callback(null, { ok: true, diagnostics_json: JSON.stringify(diagnostics) });
+      } catch (error) {
+        callback(error instanceof Error ? error : new Error("failed to load diagnostics"), {
+          ok: false,
+          diagnostics_json: ""
+        });
+      }
     },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },

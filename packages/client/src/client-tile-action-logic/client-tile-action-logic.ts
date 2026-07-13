@@ -1733,7 +1733,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.gold < 4000
                     ? "Need 4000 gold"
                     : "Need 100 CRYSTAL",
-            `4000 gold + 100 CRYSTAL • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • auto-settles nearest frontier within 20 tiles every 10m • +10 connected-town income points`,
+            `4000 gold + 100 CRYSTAL • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • +0.5 manpower regen • boosts outpost muster within 50 tiles • auto-settles nearest frontier within 20 tiles every 10m • +10 connected-town income points`,
             slots,
             deps
           )
