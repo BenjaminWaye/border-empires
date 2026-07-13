@@ -28,7 +28,7 @@ export type FrontierCombatModifiers = {
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
   attackVsBarbariansMult?: number;
-  defenderOwnerId?: string;
+  defenderOwnerId?: string | undefined;
   fortDefenseMult?: number;
   // Muster system garrison scaling: when set, fort defense is proportional to fill ratio.
   musterSystemEnabled?: boolean;
