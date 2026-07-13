@@ -23,6 +23,7 @@ type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
+type ProtoGetRecentCommandsRequest = { limit?: number };
 type ProtoGetRecentCommandsAck = { ok: boolean; commands_json?: string; commandsJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoSeedBarbariansAck = {
