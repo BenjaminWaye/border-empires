@@ -87,4 +87,24 @@ describe("computeSeasonWinnerStats", () => {
       monumentalBuildings: {}
     });
   });
+
+  it("skips tiles with malformed townJson/economicStructureJson instead of throwing", () => {
+    const runtimeState = {
+      players: [{ id: "player-1", incomePerMinute: 5, strategicProductionPerMinute: { FOOD: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 0 } }],
+      tiles: [
+        { x: 0, y: 0, ownerId: "player-1", townJson: "{not valid json", economicStructureJson: "also not valid json" },
+        { x: 1, y: 0, ownerId: "player-1", townJson: JSON.stringify({ population: 40 }) }
+      ]
+    } as unknown as Parameters<typeof computeSeasonWinnerStats>[0];
+
+    expect(computeSeasonWinnerStats(runtimeState, "player-1")).toEqual({
+      ironPerMinute: 1,
+      goldPerMinute: 5,
+      supplyPerMinute: 1,
+      foodPerMinute: 1,
+      crystalPerMinute: 1,
+      totalPopulation: 40,
+      monumentalBuildings: {}
+    });
+  });
 });

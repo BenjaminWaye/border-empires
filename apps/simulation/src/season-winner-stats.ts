@@ -1,6 +1,7 @@
 import type { SeasonWinnerStats } from "@border-empires/sim-protocol";
 import { MONUMENTAL_STRUCTURE_TYPES, type MonumentalStructureType } from "@border-empires/shared";
 import type { RuntimeExportState } from "./runtime-state-export.js";
+import { parseStructure, parseTown } from "./snapshot-tile-cache.js";
 
 const MONUMENTAL_STRUCTURE_TYPE_SET: ReadonlySet<string> = new Set(MONUMENTAL_STRUCTURE_TYPES);
 
@@ -21,16 +22,12 @@ export const computeSeasonWinnerStats = (
 
   for (const tile of runtimeState.tiles) {
     if (tile.ownerId !== winnerId) continue;
-    if (tile.townJson) {
-      const town = JSON.parse(tile.townJson) as { population?: number };
-      if (typeof town.population === "number") totalPopulation += town.population;
-    }
-    if (tile.economicStructureJson) {
-      const structure = JSON.parse(tile.economicStructureJson) as { type?: string; status?: string };
-      if (structure.status === "active" && structure.type && MONUMENTAL_STRUCTURE_TYPE_SET.has(structure.type)) {
-        const type = structure.type as MonumentalStructureType;
-        monumentalBuildings[type] = (monumentalBuildings[type] ?? 0) + 1;
-      }
+    const town = parseTown(tile);
+    if (typeof town?.population === "number") totalPopulation += town.population;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type && MONUMENTAL_STRUCTURE_TYPE_SET.has(structure.type)) {
+      const type = structure.type as MonumentalStructureType;
+      monumentalBuildings[type] = (monumentalBuildings[type] ?? 0) + 1;
     }
   }
 
