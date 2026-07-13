@@ -68,6 +68,23 @@ Returns AI players with their last 5 commands and current state:
 
 **Use when**: Debugging AI decision-making, checking for stuck/silent AIs, verifying command execution.
 
+---
+
+### `/admin/debug/ai/decisions` – Decision-Making Diagnostics
+**GET** `/admin/debug/ai/decisions?playerId=ai-1`  
+**Auth**: Requires admin token
+
+Returns detailed decision-scoring history for debugging wait_and_recover loops:
+- `scores` – Score for each decision class (EXPAND, ATTACK, MUSTER, BUILD_DEFENSE, BUILD_ECONOMY, CHOOSE_TECH, WAIT)
+- `winner` – Which decision won and its score
+- `frontierState` – Counts of frontier opportunities: neutral, economic, town-support, scout, enemy, barbarian
+- Resource state: gold, manpower, dev slot availability
+- `canExpand` / `canAttack` flags
+
+**Use when**: AI is stuck in wait_and_recover with no commands. Shows exactly which decision classes scored 0 and why.
+
+Example: If `canExpand: false` and all EXPAND-related conditions zero, you'll see why expansion is blocked.
+
 ```json
 {
   "ok": true,
