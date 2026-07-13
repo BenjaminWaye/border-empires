@@ -333,7 +333,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "When you're not leading a Season Victory objective, the leaderboard now shows a \"You: ...\" line with your own progress alongside the leader's, so you can see how far behind (or close) you are."
       ]
-    },
     }
     // Older entries (2026.07.08.0 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
