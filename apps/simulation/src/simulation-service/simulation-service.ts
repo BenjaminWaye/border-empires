@@ -38,7 +38,8 @@ import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
+import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
+import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
@@ -1053,17 +1054,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onPersistenceFailure: (error) => {
+      if (handlePersistenceConstraintViolation(error, simulationMetrics, recordLagDiagnostic, log)) return;
       if (fatalPersistenceError) return;
       fatalPersistenceError = error;
       recordLagDiagnostic("error", "simulation_persistence_failed", {
         error: error.message
       });
       log.error({ err: error }, "simulation entering fatal persistence failure mode");
-      // Dump the error to /data/ before exiting so flyctl logs don't need to
-      // retain it — the file survives the restart and is logged on next boot.
+      // Dump to /data/ before exiting — survives the restart, logged on next boot.
       try {
-        const stamp = new Date().toISOString();
-        const payload = JSON.stringify({ at: stamp, error: error.message, stack: error.stack ?? "" });
+        const payload = JSON.stringify({ at: new Date().toISOString(), error: error.message, stack: error.stack ?? "" });
         fs.writeFileSync("/data/last-persistence-failure.json", payload);
       } catch {
         // /data/ may not exist in dev; ignore silently
@@ -1079,8 +1079,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
-  // Post-season proto-tile cache: tiles freeze after season end, so the marshalled
-  // array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
+  // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
   const invalidateSharedFullVisibilityTilesCache = (): void => { sharedFullVisibilityTilesCache = undefined; };
@@ -1573,8 +1572,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const autopilotMaxPersistencePending = 256;
   const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
+  const persistedMaxClientSeqByPlayer = await commandStore.loadMaxClientSeqByPlayer();
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
-    buildNextClientSeqByPlayer(recoveredCommands, playerIds);
+    seedNextClientSeqByPlayer(recoveredCommands, persistedMaxClientSeqByPlayer, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
