@@ -1,4 +1,4 @@
-import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import type { SimulationEventStore } from "../event-store/event-store.js";
@@ -9,13 +9,13 @@ type SimulationPersistenceQueueDependencies = {
   onEventPersisted?: () => void;
   onEventStoreWrite?: (durationMs: number) => void;
   onDiagnostic?: (sample: {
-    phase: "command_status" | "event_store";
-    eventType: SimulationEvent["eventType"];
+    phase: "command_status" | "event_store" | "queued_command";
+    eventType: SimulationEvent["eventType"] | "COMMAND_QUEUED";
     commandId: string;
     durationMs: number;
     pendingCount: number;
     failed: boolean;
-    operation: "markAccepted" | "markRejected" | "markResolved" | "appendEvent" | "noop";
+    operation: "markAccepted" | "markRejected" | "markResolved" | "persistQueuedCommand" | "appendEvent" | "noop";
     retryCount: number;
   }) => void;
   onPersistenceFailure?: (error: Error) => void;
@@ -25,6 +25,15 @@ type SimulationPersistenceQueueDependencies = {
 
 type SimulationPersistenceQueue = {
   enqueueEvent(event: SimulationEvent, createdAt?: number): void;
+  /**
+   * Persists the initial QUEUED row for a command before it's applied.
+   * Must be called (and therefore chained onto the same drain ordering)
+   * before the corresponding COMMAND_ACCEPTED/COMMAND_REJECTED event is
+   * enqueued via enqueueEvent, otherwise markAccepted/markRejected silently
+   * no-op against a row that doesn't exist yet — see ai-debugging docs for
+   * why /admin/debug/ai's recentCommands depends on this ordering.
+   */
+  enqueueQueuedCommand(command: CommandEnvelope, queuedAt: number): void;
   whenIdle(): Promise<void>;
   pendingCount(): number;
   isDegraded(): boolean;
@@ -227,8 +236,44 @@ export const createSimulationPersistenceQueue = (
     drain = drain.then(persistTask, persistTask);
   };
 
+  const enqueueQueuedCommand = (command: CommandEnvelope, queuedAt: number): void => {
+    pendingCount += 1;
+    const persistTask = async () => {
+      const startedAt = Date.now();
+      let failed = false;
+      let retryCount = 0;
+      try {
+        const result = await withPersistenceRetry(async () => {
+          await dependencies.commandStore.persistQueuedCommand(command, queuedAt);
+        }, retryBackoffMs);
+        retryCount = result.retryCount;
+      } catch (error) {
+        failed = true;
+        markFailure();
+        reportFailure(error);
+        log.error("failed to persist queued simulation command", error);
+      } finally {
+        dependencies.onDiagnostic?.({
+          phase: "queued_command",
+          eventType: "COMMAND_QUEUED",
+          commandId: command.commandId,
+          durationMs: Math.max(0, Date.now() - startedAt),
+          pendingCount,
+          failed,
+          operation: "persistQueuedCommand",
+          retryCount
+        });
+        pendingCount = Math.max(0, pendingCount - 1);
+        markSuccess();
+      }
+    };
+
+    drain = drain.then(persistTask, persistTask);
+  };
+
   return {
     enqueueEvent,
+    enqueueQueuedCommand,
     whenIdle: () => drain,
     pendingCount: () => pendingCount,
     isDegraded: () => Date.now() < degradedUntil,
