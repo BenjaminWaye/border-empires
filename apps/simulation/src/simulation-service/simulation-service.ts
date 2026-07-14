@@ -1571,10 +1571,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const autopilotMaxPersistencePending = 256;
+  // recoveredCommands only reflects the process's startup-recovery snapshot,
+  // so it's only meaningful for the first (boot) call. loadMaxClientSeqByPlayer
+  // is re-queried on every call so a season rollover (which reruns this via
+  // startAutopilots without a process restart) reseeds from commands issued
+  // during prior seasons instead of the stale boot-time snapshot — otherwise
+  // reused AI/system player ids (ai-1, barbarian-1, ...) restart from a low
+  // seq that collides with rows already in the commands table.
   const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
-  const persistedMaxClientSeqByPlayer = await commandStore.loadMaxClientSeqByPlayer();
-  const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
-    seedNextClientSeqByPlayer(recoveredCommands, persistedMaxClientSeqByPlayer, playerIds);
+  const nextClientSeqByPlayers = async (playerIds: string[]): Promise<Record<string, number>> =>
+    seedNextClientSeqByPlayer(recoveredCommands, await commandStore.loadMaxClientSeqByPlayer(), playerIds);
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
@@ -1652,7 +1658,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     return [];
   };
-  const startAutopilots = (): void => {
+  const startAutopilots = async (): Promise<void> => {
     closeAutopilots();
     const aiPlayerIds = resolveAutopilotAiPlayerIds();
     // Per-player rolling time-budget trackers — each AI gets its own
@@ -1703,7 +1709,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
             onPlannerTick: ({ breached }) => {
@@ -1805,7 +1811,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
@@ -1885,7 +1891,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(systemPlayerIds),
             tickIntervalMs: options.systemTickMs ?? 500,
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
@@ -1899,7 +1905,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(systemPlayerIds),
             tickIntervalMs: options.systemTickMs ?? 500,
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
@@ -2049,8 +2055,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   if (shouldRepairZeroGrossIncomeSettlements) {
     for (const id of runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState)).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
   }
-  startAutopilots();
-  const replaceRuntime = ({
+  await startAutopilots();
+  const replaceRuntime = async ({
     nextRuntime,
     nextPlayers,
     nextSeasonState,
@@ -2060,7 +2066,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     nextPlayers: typeof activePlayers;
     nextSeasonState: SimulationSeasonState;
     nextSeededTileCount: number;
-  }): void => {
+  }): Promise<void> => {
     runtime = nextRuntime;
     activePlayers = nextPlayers;
     currentSeasonState = nextSeasonState;
@@ -2068,7 +2074,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
     for (const id of runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
-    startAutopilots();
+    await startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
     if (currentSummary) return currentSummary;
@@ -2150,7 +2156,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         currentSummary: nextSummary,
         createdAt: bootstrap.seasonState.startedAt
       });
-      replaceRuntime({
+      await replaceRuntime({
         nextRuntime,
         nextPlayers: createActivePlayerIdentityMap(bootstrap.initialPlayers.values()),
         nextSeasonState: bootstrap.seasonState,

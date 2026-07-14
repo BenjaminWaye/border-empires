@@ -157,6 +157,62 @@ describe("createSimulationPersistenceQueue", () => {
     expect(queue.lastFailureAt()).toBeTypeOf("number");
   });
 
+  it("does not degrade the queue when an event-store write hits a constraint violation", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const failure = new Error("UNIQUE constraint failed: commands.player_id, commands.client_seq");
+    const onPersistenceFailure = vi.fn();
+    vi.spyOn(eventStore, "appendEvent").mockRejectedValue(failure);
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onPersistenceFailure,
+      retryBackoffMs: [0, 0, 0],
+      log: { error: vi.fn() }
+    });
+
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "nope"
+      },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(queue.isDegraded()).toBe(false);
+    expect(onPersistenceFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it("does not degrade the queue when persistQueuedCommand hits a constraint violation", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const failure = new Error("UNIQUE constraint failed: commands.player_id, commands.client_seq");
+    const onPersistenceFailure = vi.fn();
+    vi.spyOn(commandStore, "persistQueuedCommand").mockRejectedValue(failure);
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onPersistenceFailure,
+      retryBackoffMs: [0, 0, 0],
+      log: { error: vi.fn() }
+    });
+
+    queue.enqueueQueuedCommand(
+      { commandId: "cmd-fail-1", sessionId: "s", playerId: "ai-1", clientSeq: 1, issuedAt: 100, type: "EXPAND", payloadJson: "{}" },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(queue.isDegraded()).toBe(false);
+    expect(onPersistenceFailure).toHaveBeenCalledWith(failure);
+  });
+
   it("reports persistence failures to the fatal failure callback", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();

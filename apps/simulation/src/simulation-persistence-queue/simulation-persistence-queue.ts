@@ -2,6 +2,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import type { SimulationEventStore } from "../event-store/event-store.js";
+import { isPersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 
 type SimulationPersistenceQueueDependencies = {
   commandStore: SimulationCommandStore;
@@ -141,6 +142,14 @@ export const createSimulationPersistenceQueue = (
     degradedUntil = Math.max(degradedUntil, now + 30_000);
   };
 
+  // Constraint violations are deterministic (e.g. a duplicate client_seq):
+  // retrying or waiting out a backpressure window recovers nothing, so they
+  // must not trip degraded mode the way transient durability failures do.
+  const markFailureUnlessConstraintViolation = (error: unknown): void => {
+    if (error instanceof Error && isPersistenceConstraintViolation(error)) return;
+    markFailure();
+  };
+
   const reportFailure = (error: unknown): void => {
     const failure = error instanceof Error ? error : new Error(String(error));
     dependencies.onPersistenceFailure?.(failure);
@@ -166,7 +175,7 @@ export const createSimulationPersistenceQueue = (
           commandStatusRetryCount = result.retryCount;
         } catch (error) {
           commandStatusFailed = true;
-          markFailure();
+          markFailureUnlessConstraintViolation(error);
           reportFailure(error);
           switch (event.eventType) {
             case "COMMAND_ACCEPTED":
@@ -209,7 +218,7 @@ export const createSimulationPersistenceQueue = (
             dependencies.onEventPersisted?.();
           } catch (error) {
             eventStoreWriteFailed = true;
-            markFailure();
+            markFailureUnlessConstraintViolation(error);
             reportFailure(error);
             log.error("failed to persist simulation event", error);
           } finally {
@@ -249,7 +258,7 @@ export const createSimulationPersistenceQueue = (
         retryCount = result.retryCount;
       } catch (error) {
         failed = true;
-        markFailure();
+        markFailureUnlessConstraintViolation(error);
         reportFailure(error);
         log.error("failed to persist queued simulation command", error);
       } finally {
