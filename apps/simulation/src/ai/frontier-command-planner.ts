@@ -74,6 +74,17 @@ export type FrontierAnalysis = {
   frontierOpportunityWaste: number;
   /** True when the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES) was hit. */
   narrowAnalyzeCapped: boolean;
+  /**
+   * Diagnostic-only (see docs/agents/topic-runbooks.md ai debugging notes):
+   * how many neighbor candidate tiles this scan visited vs how many were
+   * entirely absent from the planner's tilesByKey (worker never received a
+   * tile_delta for them, vs. genuinely known-and-classified-as-waste).
+   * A high missing/total ratio for a large empire points at a sync-scope gap
+   * (planner-sync-scope.ts's relevance radius or an incremental-rebuild bug),
+   * not a legitimately empty frontier.
+   */
+  neighborCandidateTotal: number;
+  missingNeighborTileCount: number;
 };
 
 export const analyzeOwnedFrontierTargetsFromLookup = (
@@ -157,10 +168,14 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 
   let capped = false;
   let candidatesEvaluated = 0;
+  let neighborCandidateTotal = 0;
+  let missingNeighborTileCount = 0;
   for (const from of ownedTileList) {
     for (const targetKey of cachedCandidateKeysForOrigin(from)) {
       const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
+      neighborCandidateTotal += 1;
+      if (!target) missingNeighborTileCount += 1;
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
@@ -317,7 +332,9 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     frontierOpportunityScout,
     frontierOpportunityScaffold,
     frontierOpportunityWaste,
-    narrowAnalyzeCapped: capped
+    narrowAnalyzeCapped: capped,
+    neighborCandidateTotal,
+    missingNeighborTileCount
   };
 };
 

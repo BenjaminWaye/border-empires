@@ -290,4 +290,52 @@ describe("frontier command planner", () => {
     expect(analysis.frontierOpportunityWaste).toBe(1);
     expect(analysis.expand?.target).toMatchObject({ x: 11, y: 10 });
   });
+
+  // Regression/diagnostic coverage for investigating "AI planner sees a
+  // legitimately-empty frontier vs. a sync-scope gap" reports (worker-thread
+  // tile map missing entries for tiles that genuinely exist in the live
+  // world). See ai-decision-diagnostics.ts and the worker's tilesByKey — a
+  // candidate absent from the map (undefined) is indistinguishable from a
+  // real ocean/void tile without this counter.
+  describe("neighborCandidateTotal / missingNeighborTileCount diagnostics", () => {
+    it("reports zero missing neighbors when every candidate tile is known to the planner", () => {
+      const tiles = new Map([
+        ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1" }],
+        ["11,10", { x: 11, y: 10, terrain: "LAND" as const }],
+        ["9,10", { x: 9, y: 10, terrain: "SEA" as const }],
+        ["10,9", { x: 10, y: 9, terrain: "LAND" as const }],
+        ["10,11", { x: 10, y: 11, terrain: "LAND" as const }],
+        ["9,9", { x: 9, y: 9, terrain: "SEA" as const }],
+        ["11,9", { x: 11, y: 9, terrain: "LAND" as const }],
+        ["9,11", { x: 9, y: 11, terrain: "SEA" as const }],
+        ["11,11", { x: 11, y: 11, terrain: "LAND" as const }]
+      ]);
+
+      const analysis = analyzeOwnedFrontierTargetsFromLookup(tiles, [tiles.get("10,10")!], "ai-1");
+
+      expect(analysis.neighborCandidateTotal).toBe(8);
+      expect(analysis.missingNeighborTileCount).toBe(0);
+    });
+
+    it("counts neighbor candidates entirely absent from the planner's tile map (sync-scope gap) separately from real waste tiles", () => {
+      // Only origin and ONE neighbor are known to the planner; the other 7
+      // neighbor coordinates were never delivered via tile_deltas (simulating
+      // a sync-scope gap), so tilesByKey.get() returns undefined for them —
+      // this must be counted as "missing", not silently treated the same as
+      // a legitimately-classified waste tile.
+      const tiles = new Map([
+        ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1" }],
+        ["11,10", { x: 11, y: 10, terrain: "LAND" as const }]
+      ]);
+
+      const analysis = analyzeOwnedFrontierTargetsFromLookup(tiles, [tiles.get("10,10")!], "ai-1");
+
+      expect(analysis.neighborCandidateTotal).toBe(8);
+      expect(analysis.missingNeighborTileCount).toBe(7);
+      // Confirms this is NOT a bug in the existing waste-tile classification —
+      // that path only sees the one known neighbor and correctly separates
+      // "known and classified" from "never synced".
+      expect(analysis.frontierOpportunityWaste).toBe(1);
+    });
+  });
 });
