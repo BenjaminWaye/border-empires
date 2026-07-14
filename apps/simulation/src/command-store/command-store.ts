@@ -27,6 +27,14 @@ export type SimulationCommandStore = {
   findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined>;
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]>;
   loadAllCommands(): Promise<StoredSimulationCommand[]>;
+  /**
+   * Highest persisted client_seq per player across ALL rows, regardless of status.
+   * Used to seed each command producer's next-seq counter on boot so reissued
+   * seqs can't collide with resolved/rejected rows still in the commands table.
+   * Deliberately distinct from loadRecoverableCommands (which excludes
+   * RESOLVED/REJECTED and would understate the true high-water mark).
+   */
+  loadMaxClientSeqByPlayer(): Promise<Record<string, number>>;
 };
 
 export class InMemorySimulationCommandStore implements SimulationCommandStore {
@@ -99,5 +107,14 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
 
   async loadAllCommands(): Promise<StoredSimulationCommand[]> {
     return [...this.commands.values()].sort((left, right) => left.queuedAt - right.queuedAt);
+  }
+
+  async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
+    const maxByPlayer: Record<string, number> = {};
+    for (const command of this.commands.values()) {
+      const current = maxByPlayer[command.playerId] ?? 0;
+      if (command.clientSeq > current) maxByPlayer[command.playerId] = command.clientSeq;
+    }
+    return maxByPlayer;
   }
 }

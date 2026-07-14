@@ -129,4 +129,17 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     const rows = this.db.prepare(`${SELECT_JOINED} ORDER BY c.queued_at ASC`).all() as Row[];
     return rows.map(toStored);
   }
+
+  async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
+    // Queries the commands table directly (not the QUEUED/ACCEPTED-filtered
+    // recovery view) so resolved/rejected rows still count toward the seq
+    // high-water mark — otherwise a producer reseeds low and collides with
+    // them via the commands_player_seq_idx UNIQUE index.
+    const rows = this.db
+      .prepare(`SELECT player_id, MAX(client_seq) AS max_seq FROM commands GROUP BY player_id`)
+      .all() as { player_id: string; max_seq: number }[];
+    const maxByPlayer: Record<string, number> = {};
+    for (const row of rows) maxByPlayer[row.player_id] = row.max_seq;
+    return maxByPlayer;
+  }
 }

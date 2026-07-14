@@ -60,6 +60,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_global_status_broadcast_coalesced_total ${formatMetricValue(sample.simGlobalStatusBroadcastCoalescedTotal)}`,
     "# TYPE sim_snapshot_prune_failed_total counter",
     `sim_snapshot_prune_failed_total ${formatMetricValue(sample.simSnapshotPruneFailedTotal)}`,
+    "# TYPE sim_persistence_constraint_violation_total counter",
+    `sim_persistence_constraint_violation_total ${formatMetricValue(sample.simPersistenceConstraintViolationTotal)}`,
     "# TYPE sim_writer_queue_depth gauge",
     `sim_writer_queue_depth ${formatMetricValue(sample.simWriterQueueDepth)}`,
     "# TYPE sim_writer_queue_backpressure_wait_total counter",
