@@ -12,37 +12,11 @@ import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { mergePlannerTileDelta } from "./planner-tile-delta-merge.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
-
-const mergePlannerTileDelta = (
-  existing: PlannerTileView | undefined,
-  tileDelta: SimulationTileDelta
-): PlannerTileView | undefined => {
-  const terrain = tileDelta.terrain ?? existing?.terrain;
-  if (!terrain) return undefined;
-  const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
-  if (tileDelta.terrain) next.terrain = tileDelta.terrain;
-  if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
-    else delete next.resource;
-  }
-  if ("dockId" in tileDelta) {
-    if (tileDelta.dockId) next.dockId = tileDelta.dockId;
-    else delete next.dockId;
-  }
-  if ("ownerId" in tileDelta) {
-    if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
-    else delete next.ownerId;
-  }
-  if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
-    else delete next.ownershipState;
-  }
-  return next;
-};
 
 type WorkerSystemCommandProducerOptions = {
   runtime: Pick<
