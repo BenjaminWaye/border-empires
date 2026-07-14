@@ -28,6 +28,12 @@ export const AI_SPATIAL_FOCUS_MAX_OWNED_TILES = 256;
 export const AI_SPATIAL_FOCUS_EXPIRY_MS = 60_000;
 export const AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS = 15_000;
 export const AI_SPATIAL_FOCUS_HARD_EXPIRY_MS = 10 * 60_000;
+// Owned-tile BFS-front membership can churn near the 256-tile boundary even
+// when the scan itself is finding nothing actionable, which otherwise keeps
+// the focus pinned on a dead front forever (see selectSpatialFocus). Forcing
+// rotation after this many consecutive unproductive refreshes bounds
+// recovery to ~3-4 minutes without thrashing on a single noisy tick.
+export const AI_SPATIAL_FOCUS_MAX_UNPRODUCTIVE_STREAK = 3;
 
 export type AiSpatialFocusCategory = "hot_frontier" | "build_candidate" | "settle_pending";
 
@@ -45,6 +51,7 @@ export type AiSpatialFocus = {
   readonly expiresAt: number;
   readonly hardExpiresAt: number;
   readonly lastOriginByCategory: Readonly<Partial<Record<AiSpatialFocusCategory, string>>>;
+  readonly unproductiveStreak: number;
 };
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
@@ -186,6 +193,12 @@ export const selectSpatialFocus = (params: {
   maxOwnedTiles?: number;
   expiryMs?: number;
   hardExpiryMs?: number;
+  /** Whether the previous scan of this front found anything actionable.
+   *  undefined means "no signal yet" (first refresh, or a tick where the
+   *  scan never ran) and is treated as productive so a focus is never
+   *  force-rotated off before it's actually been evaluated. */
+  lastScanWasProductive?: boolean | undefined;
+  maxUnproductiveStreak?: number;
 }): AiSpatialFocus | undefined => {
   const { prior, hotFrontierTileKeys, ownedTileKeys, now } = params;
   const buildCandidateTileKeys = params.buildCandidateTileKeys ?? EMPTY_TILE_SET;
@@ -194,6 +207,8 @@ export const selectSpatialFocus = (params: {
   const maxOwnedTiles = params.maxOwnedTiles ?? AI_SPATIAL_FOCUS_MAX_OWNED_TILES;
   const expiryMs = params.expiryMs ?? AI_SPATIAL_FOCUS_EXPIRY_MS;
   const hardExpiryMs = params.hardExpiryMs ?? AI_SPATIAL_FOCUS_HARD_EXPIRY_MS;
+  const maxUnproductiveStreak = params.maxUnproductiveStreak ?? AI_SPATIAL_FOCUS_MAX_UNPRODUCTIVE_STREAK;
+  const lastScanWasProductive = params.lastScanWasProductive ?? true;
 
   if (ownedTileKeys.size === 0) return undefined;
 
@@ -216,19 +231,28 @@ export const selectSpatialFocus = (params: {
   const priorCanContinue = priorOriginStillOwned && now < priorHardExpiresAt;
   if (priorCanContinue) {
     if (now < prior.expiresAt) return prior;
-    const refreshedPriorFront = expandFocusFront(prior.originTileKey, ownedTileKeys, maxOwnedTiles);
-    const priorFrontChanged = !setsEqual(refreshedPriorFront, prior.primaryFront);
-    if (priorFrontChanged) {
-      return {
-        originTileKey: prior.originTileKey,
-        originCategory: prior.originCategory,
-        primaryFront: refreshedPriorFront,
-        computedAt: now,
-        expiresAt: Math.min(softExpiresAt, priorHardExpiresAt),
-        hardExpiresAt: priorHardExpiresAt,
-        lastOriginByCategory: priorLastOriginByCategory
-      };
+    const candidateStreak = lastScanWasProductive ? 0 : (prior.unproductiveStreak ?? 0) + 1;
+    const forceRotate = candidateStreak >= maxUnproductiveStreak;
+    if (!forceRotate) {
+      const refreshedPriorFront = expandFocusFront(prior.originTileKey, ownedTileKeys, maxOwnedTiles);
+      const priorFrontChanged = !setsEqual(refreshedPriorFront, prior.primaryFront);
+      if (priorFrontChanged) {
+        return {
+          originTileKey: prior.originTileKey,
+          originCategory: prior.originCategory,
+          primaryFront: refreshedPriorFront,
+          computedAt: now,
+          expiresAt: Math.min(softExpiresAt, priorHardExpiresAt),
+          hardExpiresAt: priorHardExpiresAt,
+          lastOriginByCategory: priorLastOriginByCategory,
+          unproductiveStreak: candidateStreak
+        };
+      }
     }
+    // Either the front's owned-tile membership is stable, or it kept
+    // "changing" (topology churn) while producing nothing actionable for
+    // maxUnproductiveStreak refreshes in a row — in both cases fall through
+    // to category rotation below instead of re-pinning the same origin.
   }
 
   let originTileKey: string | undefined;
@@ -254,7 +278,8 @@ export const selectSpatialFocus = (params: {
     computedAt: now,
     expiresAt: softExpiresAt,
     hardExpiresAt: now + hardExpiryMs,
-    lastOriginByCategory: nextLastOriginByCategory
+    lastOriginByCategory: nextLastOriginByCategory,
+    unproductiveStreak: 0
   };
 };
 

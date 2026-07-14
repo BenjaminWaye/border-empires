@@ -470,6 +470,12 @@ export class SimulationRuntime {
   // refreshSpatialFocusForPlayer; cleared automatically when the player owns
   // no territory.
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
+  // Cached from the previous tick's planAutomationCommand diagnostic; feeds
+  // selectSpatialFocus's unproductive-streak rotation. A missing entry means
+  // "no signal yet", which selectSpatialFocus treats as productive. Kept in
+  // sync with aiSpatialFocusByPlayer (see refreshSpatialFocusForPlayer and
+  // explainNextAutomationCommand's zero-territory branch).
+  private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>();
   // Incrementally-maintained tile key cache for the planner player-view export.
   // Each entry holds six TileKeyArrayEntry objects, updated O(1) per tile
   // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
@@ -663,6 +669,7 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size <= 0) {
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
       return undefined;
     }
     const prior = this.aiSpatialFocusByPlayer.get(playerId);
@@ -677,12 +684,14 @@ export class SimulationRuntime {
       settlePendingTileKeys: summary.frontierTileKeys,
       ownedTileKeys: summary.territoryTileKeys,
       now,
-      jitterMs
+      jitterMs,
+      lastScanWasProductive: this.aiSpatialFocusProductiveByPlayer.get(playerId)
     });
     if (focus) {
       this.aiSpatialFocusByPlayer.set(playerId, focus);
     } else {
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
     }
     return focus;
   }
@@ -2072,6 +2081,7 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
       this.visionExpansionCache.invalidate(playerId);
       if (player.isAi) {
         const nowMs = this.now();
@@ -2153,6 +2163,14 @@ export class SimulationRuntime {
     });
     if (preplanDiagnostic?.preplanReason) {
       plan.diagnostic = mergePreplanDiagnostic(plan.diagnostic, preplanDiagnostic);
+    }
+    if (typeof plan.diagnostic.scanFoundActionableCandidate === "boolean") {
+      this.aiSpatialFocusProductiveByPlayer.set(playerId, plan.diagnostic.scanFoundActionableCandidate);
+    } else {
+      // No scan ran this tick (e.g. active_lock noop) - clear any cached
+      // value instead of leaving a stale one, so the next refresh sees "no
+      // signal" (treated as productive) rather than a lock-outlasting false.
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
     }
     return plan;
   }
