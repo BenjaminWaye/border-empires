@@ -7243,6 +7243,68 @@ describe("simulation runtime — tile shedding", () => {
     const state = runtime.exportState();
     expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
   });
+
+  it("releases ownership of a town tile without destroying the town", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "TOWN", population: 400 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    const shed = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    expect(shed?.ownerId).toBeUndefined();
+    expect(shed?.townPopulationTier).toBe("TOWN");
+  });
+
+  it("never sheds a SETTLEMENT-tier town, even when it is the player's only eligible tile", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    const tile = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    expect(tile?.ownerId).toBe("ai-1");
+    expect(tile?.townPopulationTier).toBe("SETTLEMENT");
+  });
 });
 
 describe("imperial exchange levy", () => {
