@@ -72,6 +72,9 @@ import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
+import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
+import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
+import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -425,6 +428,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  const rssHeapGapMonitor = createRssHeapGapMonitor();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
     const writer = logWriters[level];
@@ -438,17 +442,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // forwarded to the gateway main thread so both watchdog-kill and sim-exit
   // write paths have the sim's last known state. See lag-diagnostics.ts.
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
-  // GC observer to detect stop-the-world pauses. Major GC can cause multi-second
-  // event_loop_blocked entries with no tracked tasks; GC pauses are invisible to
-  // instrumentation since they block JS execution.
+  // GC observer; "warn" so recordLagDiagnostic retains it for death forensics.
   let gcPauseObserver: PerformanceObserver | undefined;
   try {
     gcPauseObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
-          recordLagDiagnostic("info", "gc_pause_detected", {
+          recordLagDiagnostic("warn", "gc_pause_detected", {
             durationMs: (entry.duration as number),
-            gcKind: (entry as unknown as Record<string, unknown>).kind
+            gcKind: decodeGcKind((entry as unknown as Record<string, unknown>).kind as number | undefined)
           });
         }
       }
@@ -559,8 +561,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     (await createSimulationEventStore(storeFactoryOptions));
   // Route all SQLite writes through a dedicated worker thread so the sim
   // thread's event loop is never blocked by I/O (157–822ms per write observed).
-  // Only wrap when using real SQLite stores (not injected test doubles).
-  // Reads stay on the sim thread; WAL mode allows concurrent readers.
+  // Only wrap when using real SQLite stores (not test doubles); reads stay on the sim thread (WAL allows concurrent readers).
   const writerChannel =
     !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
       ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath, {
@@ -574,7 +575,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           onBackpressureWait: () => {
             simulationMetrics.incrementSimWriterQueueBackpressureWait();
             log.warn({ phase: "sqlite_writer_channel" }, "writer queue backpressure engaged; sim thread awaiting drain");
-          }
+          },
+          trackSync: mainThreadTasks.trackSync
         })
       : undefined;
   const commandStore = writerChannel
@@ -1301,7 +1303,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
     const snapshot = useWorkerBuild
       ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
-      : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
+      : mainThreadTasks.trackSync("snapshot_materialize_inline", { playerId }, () =>
+          buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts));
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -2861,30 +2864,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
-        // Focused warn whenever a 5s+ block is detected. Otherwise the spike
-        // is silently rolled into sim_event_loop_max_ms in the 1Hz dump and
-        // we lose the exact moment to correlate with other logs. Block was
-        // detected just NOW (the sampler is `lagMs` ms late firing), so the
-        // block started at `now - lagMs`. Includes runtime + memory context
-        // so we can localise what was running.
+        // Focused warn for a 5s+ block (else the spike is silently rolled into
+        // sim_event_loop_max_ms). Payload building (GC-pause/RSS-gap correlation)
+        // lives in event-loop-block-diagnostic.ts.
         if (lagMs >= 2_000) {
-          const memory = process.memoryUsage();
-          emitLog("warn", "simulation event loop blocked", {
-            phase: "event_loop_blocked",
+          emitLog("warn", "simulation event loop blocked", buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,
             blockStartedAtMs: now - lagMs,
             queueDepths: runtime.queueDepths(),
-            heapUsedMb: memory.heapUsed / (1024 * 1024),
-            heapTotalMb: memory.heapTotal / (1024 * 1024),
-            rssMb: memory.rss / (1024 * 1024),
+            memory: process.memoryUsage(),
             persistencePendingCount: persistenceQueue.pendingCount(),
             persistenceDegraded: persistenceQueue.isDegraded(),
             activePlayerCount: activePlayers.size,
-            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now)
-              .sort((a, b) => (b.active ? b.elapsedMs : b.durationMs) - (a.active ? a.elapsedMs : a.durationMs))
-              .slice(0, 16)
-          });
+            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now),
+            lagDiagRing: getLagDiagRing()
+          }));
         }
       }, 100);
       metricsTicker = setInterval(() => {
@@ -2907,6 +2902,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           heapUsedMb: memory.heapUsed / (1024 * 1024),
           heapTotalMb: memory.heapTotal / (1024 * 1024)
         });
+        // rss - heapTotal = native/external memory invisible to heapUsed/heapTotal; cooldown-gated, see mem-gap-diagnostic.ts.
+        const rssHeapGap = rssHeapGapMonitor.check(memory);
+        if (rssHeapGap.shouldWarn) {
+          recordLagDiagnostic("warn", "rss_heap_gap_high", { rssHeapGapMb: rssHeapGap.gapMb, rssMb: memory.rss / (1024 * 1024) });
+        }
         if (pendingGcDurationsMs.length > 0) {
           for (const durationMs of pendingGcDurationsMs.splice(0)) {
             simulationMetrics.observeSimGcPauseMs(durationMs);
