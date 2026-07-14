@@ -88,10 +88,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simSystemQueueBacklogMs = 0;
   let simHumanNoninteractiveQueueBacklogMs = 0;
   let simCommandApplyTrackEvictedTotal = 0;
-  // Empire-size gauges: total owned tiles across player empires, and the
-  // single largest empire's tile count. The largest empire drives the
-  // per-player O(territory) cost of the planner sync / per-cycle work, so it
-  // is the key scale signal to correlate against event-loop lag.
+  // Empire-size gauges: total owned tiles, and the single largest empire's tile count (drives
+  // per-player O(territory) planner sync cost — the key scale signal to correlate against event-loop lag).
   let simOwnedTilesTotal = 0;
   let simMaxEmpireTiles = 0;
   const simAiBroadFallbackSkipped = new Map<string, number>();
@@ -104,12 +102,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiAutopilotEnabled = 0;
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
-  // Experiment-mode counters (see SIMULATION_AI_DRY_RUN etc). Each fires only
-  // when the corresponding flag is set, so a zero count means the guard never
-  // engaged — required by the "emit a counter on every skip/cap" project rule.
+  // Experiment-mode counters (see SIMULATION_AI_DRY_RUN etc). Each fires only when the corresponding
+  // flag is set; zero means the guard never engaged — "emit a counter on every skip/cap" project rule.
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simPersistenceConstraintViolationTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
   let simBarbVisionUnionRecomputeThrottledTotal = 0;
@@ -175,6 +173,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simPersistenceConstraintViolationTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
     simBarbVisionUnionRecomputeThrottledTotal,
@@ -310,11 +309,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
     },
-    // Live gauge of in-flight writer-channel messages; set on every post()/ack
-    // so a growing queue is visible in /metrics before it becomes a heap
-    // incident. See SqliteWriterChannel — pending has no depth cap, so this
-    // is the only signal that the queue is backing up, not just individual
-    // writes being slow.
+    incrementSimPersistenceConstraintViolation(): void {
+      simPersistenceConstraintViolationTotal += 1;
+    },
+    // Live gauge of in-flight writer-channel messages; set on every post()/ack so a growing queue is
+    // visible before a heap incident. See SqliteWriterChannel — pending has no depth cap, so this is
+    // the only signal the queue is backing up, not just individual writes being slow.
     setSimWriterQueueDepth(value: number): void {
       simWriterQueueDepth = clampMetric(value);
     },

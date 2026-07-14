@@ -250,6 +250,7 @@ export class WriterBackedCommandStore implements SimulationCommandStore {
   findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined> { return this.reader.findByPlayerSeq(playerId, clientSeq); }
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadRecoverableCommands(); }
   loadAllCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadAllCommands(); }
+  loadMaxClientSeqByPlayer(): Promise<Record<string, number>> { return this.reader.loadMaxClientSeqByPlayer(); }
 }
 
 // SimulationSnapshotStore whose writes go through the writer worker.
