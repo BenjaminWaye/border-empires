@@ -28,9 +28,9 @@ export const parseSubscribeOptions = (subscriptionJson: string | undefined): Sub
   }
 };
 
-// The bootstrap-only snapshot cache only ever holds a full-visibility
-// snapshot post-season-end (warmSeasonEndSnapshots); otherwise it's
-// fog-limited, so an explicit full-vis bootstrap (admin reveal-map) must
-// skip it during an active season rather than replay stale fog-limited tiles.
-export const shouldServeCachedBootstrapSnapshot = (fullVisibility: boolean, seasonEnded: boolean): boolean =>
+// snapshotCacheByPlayerId only ever holds a full-visibility snapshot
+// post-season-end (warmSeasonEndSnapshots); otherwise it's fog-limited, so an
+// explicit full-vis subscribe (admin reveal-map/spectator) must skip it
+// during an active season rather than replay stale fog-limited tiles.
+export const shouldServeCachedSubscribeSnapshot = (fullVisibility: boolean, seasonEnded: boolean): boolean =>
   fullVisibility !== true || seasonEnded;
