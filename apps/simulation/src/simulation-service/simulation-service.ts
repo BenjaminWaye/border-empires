@@ -55,7 +55,7 @@ import { createStartupReplayCompactionRunner } from "../startup-replay-compactio
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
-import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
+import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
@@ -2358,11 +2358,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           try {
             return subscribeOptions.mode === "bootstrap-only"
               ? await (async () => {
-                  // On gateway retry (first build finished in >10s, client fired again),
-                  // the in-flight dedup above is already resolved, but the snapshot was
-                  // cached by the first build. Serve from cache + cheap worldStatus
-                  // rather than re-running the full 9-23s export.
-                  const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+                  // On gateway retry, serve from cache + cheap worldStatus rather than
+                  // re-running the full 9-23s export (see shouldServeCachedSubscribeSnapshot).
+                  const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
+                  const cached = cacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
                   if (cached) {
                     const summary = await readCurrentSummary();
                     return { ...cached, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
@@ -2374,17 +2373,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   });
                 })()
               : await (() => {
-                  // Phase B3: reuse the cached snapshot when available. For
-                  // normal logins, always check cache. For full-vis (admin/spectator
-                  // or season-ended), only check cache post-season — warming pre-builds
-                  // full-vis snapshots there; during active season full-vis is only for
-                  // admin spectators who shouldn't get a stale non-full-vis snapshot.
-                  const useFullVisibility = subscribeOptions.fullVisibility === true || currentSeasonState.status === "ended";
-                  const seasonEnded = currentSeasonState.status === "ended";
-                  if (!useFullVisibility || seasonEnded) {
-                    const cached = snapshotCacheByPlayerId.get(call.request.player_id);
-                    if (cached) return cached;
-                  }
+                  // Phase B3: reuse the cached snapshot when available (see
+                  // shouldServeCachedSubscribeSnapshot for the full-vis/season rule).
+                  const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
+                  const cached = cacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
+                  if (cached) return cached;
                   return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
                     fullVisibility: subscribeOptions.fullVisibility,
                     ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
