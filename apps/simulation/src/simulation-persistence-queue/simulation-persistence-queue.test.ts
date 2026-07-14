@@ -354,4 +354,138 @@ describe("createSimulationPersistenceQueue", () => {
     await expect(commandStore.get("cancel-capture-1")).resolves.toMatchObject({ status: "RESOLVED", resolvedAt: 130 });
     await expect(commandStore.get("expand-cmd-1")).resolves.toMatchObject({ status: "RESOLVED", resolvedAt: 130 });
   });
+
+  // Regression: /admin/debug/ai's recentCommands (and loadAllCommands in
+  // general) read commandStore.loadAllCommands(), which for the SQLite store
+  // is an INNER JOIN between the commands and command_results tables. Before
+  // enqueueQueuedCommand existed, nothing ever called persistQueuedCommand,
+  // so markAccepted/markRejected always ran against a row that was never
+  // inserted and silently no-opped — command history was permanently empty.
+  it("enqueueQueuedCommand persists the row a later ACCEPTED event needs to update", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const queue = createSimulationPersistenceQueue({ commandStore, eventStore });
+
+    queue.enqueueQueuedCommand(
+      {
+        commandId: "cmd-queued-1",
+        sessionId: "session-1",
+        playerId: "ai-1",
+        clientSeq: 1,
+        issuedAt: 100,
+        type: "EXPAND",
+        payloadJson: "{}"
+      },
+      100
+    );
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-queued-1",
+        playerId: "ai-1",
+        actionType: "EXPAND",
+        originX: 1,
+        originY: 1,
+        targetX: 2,
+        targetY: 1,
+        resolvesAt: 123
+      },
+      110
+    );
+
+    await queue.whenIdle();
+
+    await expect(commandStore.get("cmd-queued-1")).resolves.toMatchObject({
+      status: "ACCEPTED",
+      playerId: "ai-1",
+      type: "EXPAND",
+      acceptedAt: 110
+    });
+    await expect(commandStore.loadAllCommands()).resolves.toContainEqual(
+      expect.objectContaining({ commandId: "cmd-queued-1", status: "ACCEPTED" })
+    );
+  });
+
+  it("preserves call order between enqueueQueuedCommand and enqueueEvent for the same command", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const persistSpy = vi.spyOn(commandStore, "persistQueuedCommand");
+    const markAcceptedSpy = vi.spyOn(commandStore, "markAccepted");
+    const queue = createSimulationPersistenceQueue({ commandStore, eventStore });
+
+    queue.enqueueQueuedCommand(
+      { commandId: "cmd-order-1", sessionId: "s", playerId: "ai-1", clientSeq: 1, issuedAt: 100, type: "EXPAND", payloadJson: "{}" },
+      100
+    );
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-order-1",
+        playerId: "ai-1",
+        actionType: "EXPAND",
+        originX: 1,
+        originY: 1,
+        targetX: 2,
+        targetY: 1,
+        resolvesAt: 123
+      },
+      110
+    );
+
+    await queue.whenIdle();
+
+    expect(persistSpy.mock.invocationCallOrder[0]).toBeLessThan(markAcceptedSpy.mock.invocationCallOrder[0]!);
+  });
+
+  it("emits a queued_command diagnostic and clears pendingCount on success", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const onDiagnostic = vi.fn();
+    const queue = createSimulationPersistenceQueue({ commandStore, eventStore, onDiagnostic });
+
+    queue.enqueueQueuedCommand(
+      { commandId: "cmd-diag-1", sessionId: "s", playerId: "ai-1", clientSeq: 1, issuedAt: 100, type: "EXPAND", payloadJson: "{}" },
+      100
+    );
+    expect(queue.pendingCount()).toBe(1);
+
+    await queue.whenIdle();
+
+    expect(queue.pendingCount()).toBe(0);
+    expect(onDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "queued_command",
+        eventType: "COMMAND_QUEUED",
+        commandId: "cmd-diag-1",
+        failed: false,
+        operation: "persistQueuedCommand",
+        retryCount: 0
+      })
+    );
+  });
+
+  it("marks the queue degraded and reports the fatal callback when persistQueuedCommand keeps failing", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const failure = new Error("db timeout");
+    const onPersistenceFailure = vi.fn();
+    vi.spyOn(commandStore, "persistQueuedCommand").mockRejectedValue(failure);
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onPersistenceFailure,
+      retryBackoffMs: [0, 0, 0],
+      log: { error: vi.fn() }
+    });
+
+    queue.enqueueQueuedCommand(
+      { commandId: "cmd-fail-1", sessionId: "s", playerId: "ai-1", clientSeq: 1, issuedAt: 100, type: "EXPAND", payloadJson: "{}" },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(queue.isDegraded()).toBe(true);
+    expect(onPersistenceFailure).toHaveBeenCalledWith(failure);
+  });
 });

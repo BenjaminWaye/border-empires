@@ -1077,15 +1077,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
-  // Post-season proto-tile cache: tiles are frozen after season end so the
-  // marshalled proto tile array is an immutable constant for a given seasonId.
-  // All players get identical full-visibility tiles post-season, so one cached
-  // array can be shared across all concurrent SubscribePlayer RPCs.
+  // Post-season proto-tile cache: tiles freeze after season end, so the marshalled
+  // array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
-  const invalidateSharedFullVisibilityTilesCache = (): void => {
-    sharedFullVisibilityTilesCache = undefined;
-  };
+  const invalidateSharedFullVisibilityTilesCache = (): void => { sharedFullVisibilityTilesCache = undefined; };
   const sharedFullVisibilityTiles = (runtimeState: ReturnType<SimulationRuntime["exportState"]>): PlayerSubscriptionSnapshot["tiles"] => {
     if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
     return sharedFullVisibilityTilesCache;
@@ -1546,6 +1542,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
+    // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
+    // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
+    persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
     mainThreadTasks.trackSync(
       "runtime_submit_command",
       {
