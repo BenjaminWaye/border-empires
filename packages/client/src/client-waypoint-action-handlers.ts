@@ -36,7 +36,12 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
-  state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+  const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
+  state.waypoint = {
+    target: { x: selected.x, y: selected.y },
+    plan,
+    trackBarbarian: selectedTile?.ownerId === "barbarian-1"
+  };
   const summary = plan.attackCount > 0
     ? `${plan.expandCount} expand + ${plan.attackCount} attack`
     : `${plan.expandCount} expand`;
