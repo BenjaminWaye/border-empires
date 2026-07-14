@@ -76,4 +76,45 @@ describe("InMemorySimulationCommandStore", () => {
       rejectedMessage: "invalid command payload"
     });
   });
+
+  it("returns max client seq across all statuses per player", async () => {
+    const store = new InMemorySimulationCommandStore();
+    const cmd1 = {
+      commandId: "cmd-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
+      issuedAt: 1_000,
+      type: "ATTACK" as const,
+      payloadJson: "{}"
+    };
+    const cmd2 = {
+      commandId: "cmd-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 5,
+      issuedAt: 1_100,
+      type: "EXPAND" as const,
+      payloadJson: "{}"
+    };
+    const cmd3 = {
+      commandId: "cmd-3",
+      sessionId: "session-1",
+      playerId: "player-2",
+      clientSeq: 2,
+      issuedAt: 1_200,
+      type: "ATTACK" as const,
+      payloadJson: "{}"
+    };
+    await store.persistQueuedCommand(cmd1, 1_000);
+    await store.persistQueuedCommand(cmd2, 1_100);
+    await store.persistQueuedCommand(cmd3, 1_200);
+    await store.markAccepted("cmd-1", 1_050);
+    await store.markResolved("cmd-1", 1_100);
+    await store.markAccepted("cmd-2", 1_150);
+    await store.markResolved("cmd-2", 1_200);
+
+    const maxSeq = await store.loadMaxClientSeqByPlayer();
+    expect(maxSeq).toEqual({ "player-1": 5, "player-2": 2 });
+  });
 });

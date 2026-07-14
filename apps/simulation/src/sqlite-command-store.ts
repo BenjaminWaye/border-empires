@@ -129,4 +129,11 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     const rows = this.db.prepare(`${SELECT_JOINED} ORDER BY c.queued_at ASC`).all() as Row[];
     return rows.map(toStored);
   }
+
+  async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
+    const rows = this.db
+      .prepare(`SELECT player_id, MAX(client_seq) AS max_seq FROM commands GROUP BY player_id`)
+      .all() as { player_id: string; max_seq: number }[];
+    return Object.fromEntries(rows.map((row) => [row.player_id, row.max_seq]));
+  }
 }

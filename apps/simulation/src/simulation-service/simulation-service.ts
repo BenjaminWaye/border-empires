@@ -12,10 +12,8 @@ import {
   type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
-  type GetRecentCommandsResponse,
   type PlayerSubscriptionSnapshot,
   type SeasonArchiveRow,
-  type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
@@ -38,7 +36,6 @@ import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
@@ -616,6 +613,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   }): Promise<{
     initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
     initialCommandHistory: ReturnType<typeof recoverCommandHistory>;
+    maxClientSeqByPlayer: Record<string, number>;
     recoveredCommandCount: number;
     recoveredEventCount: number;
   }> => {
@@ -666,6 +664,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return {
       initialState: bootstrap.initialState,
       initialCommandHistory: recoverCommandHistory([], []),
+      maxClientSeqByPlayer: {},
       recoveredCommandCount: 0,
       recoveredEventCount: 0
     };
@@ -743,6 +742,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return {
         initialState: recoveredStateFromSeedWorld(seedWorld),
         initialCommandHistory: recoverCommandHistory([], []),
+        maxClientSeqByPlayer: {},
         recoveredCommandCount: 0,
         recoveredEventCount: 0
       };
@@ -1572,9 +1572,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const autopilotMaxPersistencePending = 256;
-  const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
-    buildNextClientSeqByPlayer(recoveredCommands, playerIds);
+    Object.fromEntries(playerIds.map((p) => [p, (effectiveStartupRecovery.maxClientSeqByPlayer[p] ?? 0) + 1] as const));
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
