@@ -325,24 +325,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Actions that require live vision (build, settle, collect, expand, uncapture) are blocked on fogged/unexplored tiles with a clear notice.",
         "Fog memory is session-only for this release — it resets on reconnect and re-reveals from your current vision."
       ]
-    },
-    {
-      introducedIn: "2026.07.08.2",
-      title: "Fixed mustered attacks on a connected dock never firing",
-      why: "Launching an attack on an enemy dock reachable only via your own connected dock's sea route would stage a muster flag and wait for it to fill, but once it reached full strength the attack would silently re-stage instead of launching — the range check that decides whether a muster flag is close enough measured raw grid distance, which a sea crossing between two docks can never satisfy no matter how much muster was staged.",
-      changes: [
-        "A muster flag on a dock tile that is sea-linked to the target now counts as in range once full, so the attack launches instead of getting stuck in an endless staging loop."
-      ]
-    },
-    {
-      introducedIn: "2026.07.08.1",
-      title: "Season Victory cards now show your progress, not just the leader's",
-      why: "The leaderboard's Season Victory cards always showed the current leader's progress on each objective, but the server never actually sent your own comparison numbers unless you were the leader, so the \"You: ...\" line under a non-led objective silently never appeared, even though the client already had code to render it.",
-      changes: [
-        "When you're not leading a Season Victory objective, the leaderboard now shows a \"You: ...\" line with your own progress alongside the leader's, so you can see how far behind (or close) you are."
-      ]
     }
-    // Older entries (2026.07.08.0 and earlier) trimmed: the release-day
+    // Older entries (2026.07.08.2 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
