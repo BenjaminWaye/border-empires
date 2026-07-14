@@ -12,6 +12,16 @@ import type { SimulationCommandStore, StoredSimulationCommand } from "../command
 import type { SimulationSnapshotSections, SimulationSnapshotStore, StoredSimulationSnapshot } from "../snapshot-store/snapshot-store.js";
 import type { SqliteSimulationSnapshotStore } from "../sqlite-snapshot-store/sqlite-snapshot-store.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import type { MainThreadTaskDetails } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+
+// worker.postMessage structured-clones its argument synchronously on the sim
+// thread before the worker ever sees it — for large TILE_DELTA_BATCH payloads
+// this clone cost was previously folded into the async queueWaitMs/workMs/
+// totalMs breakdown below (WriterWriteTiming), making it indistinguishable
+// from "the worker was busy" or "the SQL itself was slow". Optionally routing
+// it through the caller's mainThreadTasks.trackSync makes it show up as its
+// own entry in event_loop_blocked's mainThreadTasks attribution.
+type TrackSyncFn = <T>(phase: string, details: MainThreadTaskDetails | undefined, task: () => T) => T;
 
 type AckMessage =
   | { id: number; ok: true; handlerStartedAtMs?: number; workMs?: number }
@@ -56,6 +66,7 @@ export class SqliteWriterChannel {
   private readonly maxPending: number;
   private readonly onQueueDepthChanged: ((depth: number) => void) | undefined;
   private readonly onBackpressureWait: (() => void) | undefined;
+  private readonly trackSync: TrackSyncFn | undefined;
   private drainWaiters: Array<{ resolve: () => void; reject: (e: Error) => void }> = [];
   // Set once the worker dies. A caller queued in drainWaiters at that point
   // must be REJECTED, not released to proceed — if we just resolved it, its
@@ -74,6 +85,7 @@ export class SqliteWriterChannel {
       maxPending?: number;
       onQueueDepthChanged?: (depth: number) => void;
       onBackpressureWait?: () => void;
+      trackSync?: TrackSyncFn;
     } = {}
   ) {
     this.onWriteTimed = options.onWriteTimed;
@@ -81,6 +93,7 @@ export class SqliteWriterChannel {
     this.maxPending = Math.max(1, options.maxPending ?? DEFAULT_MAX_PENDING);
     this.onQueueDepthChanged = options.onQueueDepthChanged;
     this.onBackpressureWait = options.onBackpressureWait;
+    this.trackSync = options.trackSync;
     const workerUrl = resolveWorkerEntryUrl("../sqlite-writer-worker.js", import.meta.url);
     this.worker = new Worker(workerUrl, { workerData: { dbPath } });
     this.worker.on("message", (msg: AckMessage) => {
@@ -153,7 +166,11 @@ export class SqliteWriterChannel {
       this.pending.set(id, { op: msg.op, sentAtMs: Date.now(), resolve, reject });
     });
     this.onQueueDepthChanged?.(this.pending.size);
-    this.worker.postMessage({ ...msg, id });
+    if (this.trackSync) {
+      this.trackSync("sqlite_writer_postmessage_clone", { op: msg.op }, () => this.worker.postMessage({ ...msg, id }));
+    } else {
+      this.worker.postMessage({ ...msg, id });
+    }
     return result;
   }
 
