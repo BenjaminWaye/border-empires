@@ -140,9 +140,20 @@ describe("season rollover reseeds client_seq from fresh persisted state (not boo
       const rolloverResult = await startNextSeason(client, true);
       expect(rolloverResult.ok).toBe(true);
 
-      // Season 2's AI producer restarts for the same "ai-1" id. Wait for at
-      // least one more persisted command from it.
-      await waitForAiCommandCount(commandStore, 2, 20_000);
+      // The RPC only resolves once replaceRuntime — which stops season 1's
+      // producer via closeAutopilots() before starting season 2's — has fully
+      // completed, so season 1 can never add another row past this point.
+      // Snapshotting the count here (rather than assuming a fixed target
+      // like "2") avoids a false pass: season 1's producer ticks every 20ms
+      // for the whole rollover round-trip and could easily have already
+      // produced more than one command on its own before rollover finished,
+      // which would let a stale "wait for count >= 2" check succeed without
+      // season 2's producer ever having run. Any growth past this exact
+      // count is unambiguously season 2's doing.
+      const countAtRollover = (await commandStore.loadAllCommands()).filter(
+        (command) => command.playerId === "ai-1"
+      ).length;
+      await waitForAiCommandCount(commandStore, countAtRollover + 1, 20_000);
 
       expect(service.metricsSnapshot().simPersistenceConstraintViolationTotal).toBe(0);
     },
