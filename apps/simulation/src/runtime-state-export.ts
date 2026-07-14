@@ -404,6 +404,9 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       `${playerId}:refresh=${dt1 - dt0},summary=${dt2 - dt1},tileKeys=${dt3 - dt2},obj=${dt4 - dt3}(${objectiveCacheHit ? "hit" : "miss"}),tot=${dt4 - dt0}`
     );
 
+    const ownedTileCount = tileKeys.territoryTileKeys.length;
+    const frontierTileCount = tileKeys.frontierTileKeys.length;
+
     players.push({
       id: player.id,
       points: player.points,
@@ -427,7 +430,9 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
       ...(expansionObjective ? { expansionObjective } : {}),
-      activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0
+      activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
+      ownedTileCount,
+      frontierTileCount
     });
   }
   const diagTotalMs = Date.now() - diagTotalStart;
