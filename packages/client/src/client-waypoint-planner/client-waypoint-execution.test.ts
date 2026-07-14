@@ -213,4 +213,21 @@ describe("topUpFromWaypoint", () => {
     expect(state.waypoint?.plan.reachable).toBe(false);
     expect(messages.some((m) => /waypoint halted/i.test(m))).toBe(true);
   });
+
+  it("retargets a tracked barbarian waypoint to a diagonally-offset relocation", () => {
+    // The barbarian that was at (4,3) has moved diagonally to (3,2) — a
+    // Chebyshev-ring cell that a plus-shaped (non-diagonal) scan would miss.
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3),
+      tile(3, 2, { ownerId: "barbarian-1" })
+    ]);
+    state.waypoint = {
+      target: { x: 4, y: 3 },
+      trackBarbarian: true,
+      plan: { target: { x: 4, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    };
+    topUpFromWaypoint(state, keyFor, () => {});
+    expect(state.waypoint?.target).toEqual({ x: 3, y: 2 });
+  });
 });

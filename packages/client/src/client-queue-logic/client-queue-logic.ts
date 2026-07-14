@@ -669,8 +669,8 @@ const findNearestBarbarian = (
 ): { x: number; y: number } | undefined => {
   for (let r = 0; r <= radius; r++) {
     for (let dx = -r; dx <= r; dx++) {
-      const cols = Math.abs(dx) === r ? [0] : [-r, r] as const;
-      for (const dy of cols) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const x = wrapX(cx + dx, WORLD_WIDTH);
         const y = wrapY(cy + dy, WORLD_HEIGHT);
         const tile = state.tiles.get(keyFor(x, y));
