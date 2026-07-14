@@ -428,6 +428,17 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
+  // Surfaced for ai-spatial-focus.ts's unproductive-streak rotation: whether
+  // *any* category (frontier/settle/build) found something actionable this
+  // tick, restricted to the same spatial-focus front. diagnosticBase is the
+  // same object referenced by context.diagnostic, so mutating it here flows
+  // through runUtilityPolicy/mergePreplanDiagnostic to the caller.
+  diagnosticBase.scanFoundActionableCandidate =
+    hasActionableFrontierAnalysis(frontierAnalysis) ||
+    Boolean(settlementCandidate) ||
+    Boolean(economicBuild) ||
+    Boolean(fortBuild) ||
+    Boolean(siegeOutpostBuild);
   // buildAutomationStrategicSnapshot only ever needs settled tiles carrying
   // a resource/dockId/town (for victory-path scoring) — every such tile is
   // already guaranteed to be in buildCandidateTiles (isBuildCandidateTile in
