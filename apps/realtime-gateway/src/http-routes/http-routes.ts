@@ -53,7 +53,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     simulation: {
       connected: boolean;
       lastReadyAt?: number;
-      lastError?: string;
+      lastError?: string | undefined; backlogPendingCount?: number | undefined; backlogDegraded?: boolean | undefined;
     };
   };
   snapshotDir?: string;

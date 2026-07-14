@@ -38,6 +38,22 @@ const musterLabel = (tile: Tile): string => {
   return `Holding ${muster.amount} manpower at (${tile.x}, ${tile.y}).`;
 };
 
+// Regression for the 2026-07-14 staging login stall: the generic "still
+// starting" message is misleading once the sim is up but draining a large
+// command backlog after a restart (which can take minutes) — the gateway
+// flags that case with backlogDegraded: true on the SERVER_STARTING payload
+// so this can show an accurate message instead.
+export const serverStartingBusyMessages = (backlogDegraded: boolean): { detail: string; retryStatus: string } =>
+  backlogDegraded
+    ? {
+        detail: "The game server is replaying a backlog of prior activity after a restart. This can take a few minutes; no progress is lost.",
+        retryStatus: "Server is replaying a backlog after a restart. Retrying sign-in..."
+      }
+    : {
+        detail: "The game server is still starting. Sign-in will retry automatically.",
+        retryStatus: "Game server is still starting. Retrying sign-in..."
+      };
+
 export const notificationCategoryForServerError = (code: string): NotificationCategory => {
   if (code === "TOWN_UNFED") return "persistent_alert";
   if (code === "SIMULATION_UNAVAILABLE" || code === "SERVER_STARTING") return "debug";
