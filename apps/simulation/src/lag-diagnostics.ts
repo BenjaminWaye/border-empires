@@ -9,6 +9,7 @@ export type LagDiagEntry = {
   event: string;
   phase?: unknown;
   durationMs?: unknown;
+  gcKind?: unknown;
 };
 
 const LAG_DIAG_RING_CAP = 50;
@@ -28,7 +29,8 @@ export const createLagDiagnostics = (options: {
       level,
       event,
       ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
-      ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {})
+      ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {}),
+      ...(typeof payload.gcKind === "string" ? { gcKind: payload.gcKind } : {})
     });
     if (lagDiagRing.length > LAG_DIAG_RING_CAP) lagDiagRing.shift();
   };
