@@ -372,4 +372,64 @@ describe("prepare player integration", () => {
       })
     );
   });
+
+  it("reveal-map (bootstrap-only + fullVisibility) is not served from a player's fog-limited cache", async () => {
+    // "stress-10ai" seeds player-1 at x:0-4,y:0-9 and ai-5 at x:101-120,y:0-9 —
+    // far outside VISION_RADIUS (4), so ai-5's tiles are a reliable stand-in for
+    // "tiles the admin has never seen" without depending on random spawn placement.
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      seedProfile: "stress-10ai",
+      enableAiAutopilot: false,
+      enableSystemAutopilot: false,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+    const observerId = "player-1";
+    const farAwayId = "ai-5";
+
+    // Ordinary login populates snapshotCacheByPlayerId with a fog-limited snapshot,
+    // mirroring the gateway's gateway_auth_bootstrap subscribe.
+    const fogLimited = await subscribePlayer(client, observerId);
+    expect(fogLimited.tiles.some((tile) => tile.ownerId === farAwayId)).toBe(false);
+
+    // Admin reveal-map requests a fresh full-visibility snapshot via bootstrap-only
+    // mode. It must NOT be served from the fog-limited cache populated above, and
+    // must include tiles well outside the observer's fog-of-war vision.
+    const revealed = await subscribePlayer(
+      client,
+      observerId,
+      JSON.stringify({ mode: "bootstrap-only", fullVisibility: true, trigger: "gateway_reveal_map" })
+    );
+
+    expect(revealed.tiles.some((tile) => tile.ownerId === farAwayId)).toBe(true);
+  });
+
+  it("still serves bootstrap-only cache hits for non-full-visibility retries", async () => {
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+    const playerId = "firebase-user-bootstrap-cache-hit";
+
+    await preparePlayer(client, playerId);
+    const first = await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only" }));
+
+    const retryStartedAt = Date.now();
+    const retry = await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only" }));
+    const retryDurationMs = Date.now() - retryStartedAt;
+
+    expect(retry.tiles.length).toBe(first.tiles.length);
+    // A cache hit should be near-instant; a rebuild would take much longer for a
+    // full-world export. This guards the login/rally-anchor bootstrap-retry
+    // optimization the reveal-map fix must not regress.
+    expect(retryDurationMs).toBeLessThan(1_000);
+  });
 });
