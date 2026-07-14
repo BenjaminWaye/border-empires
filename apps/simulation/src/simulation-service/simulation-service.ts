@@ -55,7 +55,7 @@ import { createStartupReplayCompactionRunner } from "../startup-replay-compactio
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
-import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
+import { parseSubscribeOptions, shouldServeCachedBootstrapSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
@@ -2359,11 +2359,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           try {
             return subscribeOptions.mode === "bootstrap-only"
               ? await (async () => {
-                  // On gateway retry (first build finished in >10s, client fired again),
-                  // the in-flight dedup above is already resolved, but the snapshot was
-                  // cached by the first build. Serve from cache + cheap worldStatus
-                  // rather than re-running the full 9-23s export.
-                  const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+                  // On gateway retry, serve from cache + cheap worldStatus rather than
+                  // re-running the full 9-23s export (see shouldServeCachedBootstrapSnapshot).
+                  const bootstrapCacheOk = shouldServeCachedBootstrapSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
+                  const cached = bootstrapCacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
                   if (cached) {
                     const summary = await readCurrentSummary();
                     return { ...cached, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
