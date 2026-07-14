@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.7",
+  version: "2026.07.13.8",
   title: "What's New",
-  summary: "AI empires stop endlessly re-proposing a fort build the server just rejected. AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
+  summary: "Barbarian hordes multiply more slowly — they now need 5 captured player tiles before spawning a new barb, up from 3. AI empires stop endlessly re-proposing a fort build the server just rejected. AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
   entries: [
+    {
+      introducedIn: "2026.07.13.8",
+      title: "Barbarian hordes multiply more slowly",
+      why: "Barbarians were multiplying too quickly, growing to 483 tiles on a recent season — far beyond the intended population cap. Each successful capture of a player tile accumulated progress, and at 3 progress they spawned a new barbarian tile. Now they need 5, slowing their growth by about 40%.",
+      changes: [
+        "Barbarian multiply threshold raised from 3 to 5 — they now need 5 captured player tiles before spawning an extra barbarian instead of 3."
+      ]
+    },
     {
       introducedIn: "2026.07.13.7",
       title: "Fixed AI empires spamming rejected fort builds",

@@ -6338,10 +6338,7 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("does not multiply when walking into neutral land at threshold-equivalent progress", () => {
-      // Even with the source carrying threshold-or-above progress, a walk
-      // into neutral land does not multiply — capture of a player tile is
-      // the only way to earn the multiply event.
+    it("multiplies into neutral land when source carries threshold-level progress", () => {
       const { runtime, randomSpy, runResolve } = buildBarbRuntime({
         barbTiles: [
           { x: 10, y: 10 },
@@ -6352,14 +6349,12 @@ describe("simulation runtime", () => {
         lockTarget: { x: 10, y: 11 },
         attackerId: "barbarian-1"
       });
-      readProgress(runtime).set("10,10", 3);
+      readProgress(runtime).set("10,10", 5);
 
       runResolve();
 
       const state = runtime.exportState();
-      // newProgress = 3 + 0 = 3, hits threshold, but source releases (walk)
-      // because the population is way below the cap — verify multiply still
-      // fires on a non-zero-gain capture in the runtime-level test below.
+      // newProgress = 5 + 0 = 5, hits threshold → multiply fires
       expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("barbarian-1");
       expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("barbarian-1");
 
@@ -6381,7 +6376,7 @@ describe("simulation runtime", () => {
         attackerId: "barbarian-1"
       });
       // Stamp origin with at-threshold progress so without the cap it would multiply.
-      readProgress(runtime).set("100,100", 3);
+      readProgress(runtime).set("100,100", 5);
 
       runResolve();
 
@@ -6397,7 +6392,7 @@ describe("simulation runtime", () => {
       // as soon as the population drops below cap.
       const progress = readProgress(runtime);
       expect(progress.get("100,100")).toBeUndefined();
-      expect(progress.get("50,50")).toBe(3);
+      expect(progress.get("50,50")).toBe(5);
 
       randomSpy.mockRestore();
     });
