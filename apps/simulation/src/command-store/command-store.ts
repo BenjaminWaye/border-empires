@@ -28,11 +28,15 @@ export type SimulationCommandStore = {
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]>;
   loadAllCommands(): Promise<StoredSimulationCommand[]>;
   /**
-   * Highest persisted client_seq per player across ALL rows, regardless of status.
-   * Used to seed each command producer's next-seq counter on boot so reissued
-   * seqs can't collide with resolved/rejected rows still in the commands table.
+   * Highest ever-persisted client_seq per player, regardless of status AND
+   * regardless of whether the underlying commands row still exists. Used to
+   * seed each command producer's next-seq counter on boot so reissued seqs
+   * can't collide with resolved/rejected rows still in the commands table.
    * Deliberately distinct from loadRecoverableCommands (which excludes
    * RESOLVED/REJECTED and would understate the true high-water mark).
+   * Backed by a durable watermark updated on every insert (not a MAX() scan
+   * over commands), so it stays correct after RESOLVED/REJECTED rows are
+   * removed by retention pruning.
    */
   loadMaxClientSeqByPlayer(): Promise<Record<string, number>>;
 };

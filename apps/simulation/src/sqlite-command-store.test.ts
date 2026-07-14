@@ -143,4 +143,24 @@ describe("SqliteSimulationCommandStore", () => {
     const store = await createStore();
     await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({});
   });
+
+  // Regression for retention pruning (added alongside SIMULATION_COMMAND_RETENTION_MS
+  // in sqlite-writer-worker.ts): once RESOLVED/REJECTED commands rows are deleted,
+  // loadMaxClientSeqByPlayer must still return the true high-water mark via
+  // client_seq_watermarks, not silently drop back to a lower value.
+  it("loadMaxClientSeqByPlayer survives the commands row being pruned away", async () => {
+    const store = await createStore();
+    const db = (store as unknown as { db: { exec: (sql: string) => void } }).db;
+
+    await store.persistQueuedCommand(testCommand("cmd-old"), 100);
+    await store.markResolved("cmd-old", 101);
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({ "ai-1": 1 });
+
+    // Simulate the writer worker's retention prune deleting the resolved row
+    // (cascades to command_results via the FK) without touching the watermark.
+    db.exec(`DELETE FROM commands WHERE command_id = 'cmd-old'`);
+    await expect(store.get("cmd-old")).resolves.toBeUndefined();
+
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({ "ai-1": 1 });
+  });
 });
