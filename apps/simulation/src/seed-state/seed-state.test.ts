@@ -138,7 +138,12 @@ describe("simulation seed state", () => {
     expect(terrainCounts.MOUNTAIN).toBeGreaterThan(0);
     expect(neutralTownCount).toBeGreaterThan(70);
     expect(dockCount).toBeGreaterThan(0);
-    expect(shardSiteCount).toBeGreaterThan(0);
+    // PR #859 removed initial shard-cache scattering from world creation —
+    // shard sites now only appear later via the periodic shard-rain tick
+    // (runtime-shard-rain-tick.ts), never at genesis. Asserting 0 here (was
+    // previously toBeGreaterThan(0) and silently broken since #859) so a
+    // regression that reintroduces initial scattering is caught.
+    expect(shardSiteCount).toBe(0);
     expect(ownedHomeTiles).toHaveLength(21);
     for (let index = 0; index < ownedHomeTiles.length; index += 1) {
       for (let otherIndex = index + 1; otherIndex < ownedHomeTiles.length; otherIndex += 1) {
