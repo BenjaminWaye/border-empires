@@ -24,6 +24,7 @@ import type {
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
-  decisionCooldowns: Partial<Record<DecisionClass, boolean>> | undefined;
+  decisionCooldowns: DecisionCooldownMap | undefined;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -14,6 +14,9 @@ import type { DecisionClass } from "./utility/decisions.js";
 /** How long a rejected decision class stays on cooldown (ms). */
 export const REJECTION_COOLDOWN_MS = 10_000;
 
+/** Shared shape for cooldown maps crossing worker/runtime boundaries. */
+export type DecisionCooldownMap = Partial<Record<DecisionClass, boolean>>;
+
 const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], DecisionClass>> = {
   BUILD_FORT: "BUILD_DEFENSE",
   BUILD_SIEGE_OUTPOST: "BUILD_DEFENSE",
@@ -47,10 +50,10 @@ export const activeCooldownsForPlayer = (
   state: RejectionCooldownState,
   playerId: string,
   nowMs: number
-): Partial<Record<DecisionClass, boolean>> | undefined => {
+): DecisionCooldownMap | undefined => {
   const playerCooldowns = state.get(playerId);
   if (!playerCooldowns || playerCooldowns.size === 0) return undefined;
-  const result: Partial<Record<DecisionClass, boolean>> = {};
+  const result: DecisionCooldownMap = {};
   let hasActive = false;
   for (const [cls, expiresAt] of playerCooldowns) {
     if (expiresAt > nowMs) {
