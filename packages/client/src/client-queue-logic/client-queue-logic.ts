@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -658,6 +658,29 @@ export const processDevelopmentQueue = (
   return started;
 };
 
+const BARBARIAN_TRACK_RADIUS = 5;
+
+const findNearestBarbarian = (
+  cx: number,
+  cy: number,
+  radius: number,
+  state: Pick<ClientState, "tiles">,
+  keyFor: (x: number, y: number) => string
+): { x: number; y: number } | undefined => {
+  for (let r = 0; r <= radius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = wrapX(cx + dx, WORLD_WIDTH);
+        const y = wrapY(cy + dy, WORLD_HEIGHT);
+        const tile = state.tiles.get(keyFor(x, y));
+        if (tile?.ownerId === "barbarian-1") return { x, y };
+      }
+    }
+  }
+  return undefined;
+};
+
 // Walk the active waypoint plan one tile forward into the action queue.
 // Called when the action queue is empty so manual taps always take
 // priority. Re-plans against current state on every call so fog reveals,
@@ -672,12 +695,22 @@ export const topUpFromWaypoint = (
   if (state.actionQueue.length > 0) return false;
   if (state.actionInFlight) return false;
 
-  const target = waypoint.target;
+  let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   if (targetTile && targetTile.ownerId === state.me) {
     pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
     state.waypoint = undefined;
     return false;
+  }
+
+  // Barbarian tracking: if the original tile is no longer barbarian-owned,
+  // scan for where it moved and retarget.
+  if (waypoint.trackBarbarian && targetTile?.ownerId !== "barbarian-1") {
+    const moved = findNearestBarbarian(target.x, target.y, BARBARIAN_TRACK_RADIUS, state, keyFor);
+    if (moved) {
+      waypoint.target = moved;
+      target = moved;
+    }
   }
 
   const plan = planWaypoint(target, { state, keyFor });
