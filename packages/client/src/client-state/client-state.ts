@@ -47,6 +47,10 @@ export type ClientWaypoint = {
   // Consecutive top-ups where the planner re-emitted the same step we
   // just enqueued. Resets to 0 the moment the plan advances.
   consecutiveRetries?: number;
+  // When true, the waypoint dynamically retargets if the barbarian moves
+  // off the original coordinate. Set when the destination tile is owned
+  // by barbarian-1.
+  trackBarbarian?: boolean;
 };
 
 type QueuedOptimisticKind = OptimisticStructureKind;
