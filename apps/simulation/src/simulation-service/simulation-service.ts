@@ -1976,7 +1976,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // Capture-reveal-only deltas skip yield, economy, and town-enrichment
       // computation.
       if (event.eventType === "TILE_DELTA_BATCH") {
-        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
+        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId, subscriberCount: subscriptionRegistry.subscribedPlayerIds().length }, () => {
           const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
           let maxFilterMs = 0;
           let slowestFilterPlayerId = "";
