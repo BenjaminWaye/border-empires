@@ -135,6 +135,28 @@ jobs:
           echo "result_file=${RESULT_FILE}" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
+      - name: Dump process logs on harness failure
+        if: always() && steps.harness.outcome == 'failure'
+        run: |
+          echo "::group::sim.log"
+          cat /tmp/sim.log || true
+          echo "::endgroup::"
+          echo "::group::gateway.log"
+          cat /tmp/gateway.log || true
+          echo "::endgroup::"
+
+      - name: Upload process logs
+        if: always() && steps.harness.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-harness-process-logs
+          path: |
+            /tmp/sim.log
+            /tmp/gateway.log
+            /tmp/harness-output.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Stop simulation and gateway
         if: always()
         run: |
