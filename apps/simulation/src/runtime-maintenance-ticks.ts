@@ -48,6 +48,11 @@ export async function tickTileShedding(input: {
         if (tile.ownerId !== player.id) continue;
         if (tile.ownershipState !== "SETTLED") continue;
         if (input.locksByTile.has(tileKey)) continue;
+        // A neutral SETTLEMENT-tier town is otherwise unreachable: combat
+        // capture razes SETTLEMENT towns rather than transferring them, and
+        // handleUncaptureTileCommand rejects abandoning one outright. Keep
+        // shedding out of the business of manufacturing that state too.
+        if (tile.town?.populationTier === "SETTLEMENT") continue;
         const stamp = input.tileSettledAtByKey.get(tileKey) ?? -Infinity;
         if (stamp >= shedStamp) {
           shedStamp = stamp;
