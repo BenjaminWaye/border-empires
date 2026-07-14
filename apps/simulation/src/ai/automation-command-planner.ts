@@ -127,7 +127,7 @@ const emptyFrontierAnalysis = (): FrontierAnalysis => ({
 
 const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
   analysis.frontierEnemyTargetCount > 0 ||
-  analysis.frontierNeutralTargetCount > 0 ||
+  analysis.frontierNeutralTargetCount > analysis.frontierOpportunityWaste ||
   Boolean(
     analysis.attack ||
       analysis.expand ||
