@@ -26,6 +26,7 @@ import {
 } from "../email-alerts/email-alerts.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
+import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
@@ -350,8 +351,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const simulationHealth = {
     connected: false,
     lastReadyAt: undefined as number | undefined,
-    lastError: undefined as string | undefined
+    lastError: undefined as string | undefined,
+    backlogPendingCount: undefined as number | undefined,
+    backlogDegraded: false
   };
+  if (options.simMetricsUrl) {
+    createSimBacklogStatusPoller({
+      getSimMetrics: async () => {
+        const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
+        return res.text();
+      },
+      target: simulationHealth,
+      threshold: Math.max(1, Number(process.env.GATEWAY_BACKLOG_DEGRADED_THRESHOLD ?? 500))
+    }).start();
+  }
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
@@ -1957,11 +1971,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await ensureSimulationReadyForAuth();
               authTrace.endStep("ensure_simulation_ready", simulationHealth.connected);
               if (!simulationHealth.connected) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "SERVER_STARTING",
-                  message: "Realtime simulation is temporarily unavailable. Retry shortly."
-                });
+                sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
                 authTrace.complete("rejected", "SERVER_STARTING");
                 return;
               }
@@ -2109,11 +2119,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 prepareDurationMs: Date.now() - prepareStartedAt,
                 error: error instanceof Error ? error.message : String(error)
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               if (acceptedRallyCode) await rallyLinkStore.releaseUse(acceptedRallyCode);
               authTrace.endStep("prepare_player", false);
               authTrace.complete("rejected", "prepare_failed");
@@ -2219,11 +2225,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel,
                 error: error instanceof Error ? error.message : String(error)
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("bootstrap_subscribe", false);
               authTrace.complete("rejected", "bootstrap_failed");
               return;
@@ -2295,11 +2297,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
                 app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("live_subscribe", false);
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
@@ -2815,11 +2813,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               messageType: message.type,
               simulationLastError: simulationHealth.lastError ?? ""
             });
-            sendJson(socket, {
-              type: "ERROR",
-              code: "SERVER_STARTING",
-              message: "Realtime simulation is temporarily unavailable. Retry shortly."
-            });
+            sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
             return;
           }
 

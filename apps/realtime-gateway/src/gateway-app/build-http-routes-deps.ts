@@ -25,7 +25,13 @@ export type BuildGatewayHttpRoutesDepsContext = {
   startupStartedAt: number;
   simulationAddress?: string;
   simulationSeedProfile: SimulationSeedProfile;
-  simulationHealth: { connected: boolean; lastReadyAt: number | undefined; lastError: string | undefined };
+  simulationHealth: {
+    connected: boolean;
+    lastReadyAt: number | undefined;
+    lastError: string | undefined;
+    backlogPendingCount?: number | undefined;
+    backlogDegraded?: boolean | undefined;
+  };
   snapshotDir?: string;
   legacySnapshotBootstrap?: ReturnType<typeof loadLegacySnapshotBootstrap>;
   recentGatewayEvents: GatewayDebugEvent[];
@@ -53,7 +59,9 @@ export const buildGatewayHttpRoutesDeps = (ctx: BuildGatewayHttpRoutesDepsContex
     simulation: {
       connected: ctx.simulationHealth.connected,
       ...(typeof ctx.simulationHealth.lastReadyAt === "number" ? { lastReadyAt: ctx.simulationHealth.lastReadyAt } : {}),
-      ...(ctx.simulationHealth.lastError ? { lastError: ctx.simulationHealth.lastError } : {})
+      ...(ctx.simulationHealth.lastError ? { lastError: ctx.simulationHealth.lastError } : {}),
+      ...(typeof ctx.simulationHealth.backlogPendingCount === "number" ? { backlogPendingCount: ctx.simulationHealth.backlogPendingCount } : {}),
+      ...(ctx.simulationHealth.backlogDegraded ? { backlogDegraded: true } : {})
     }
   }),
   ...(ctx.snapshotDir ? { snapshotDir: ctx.snapshotDir } : {}),

@@ -1426,64 +1426,13 @@ describe("client network regression guards", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
 
-    bindClientNetwork({
-      state,
-      ws: ws as unknown as WebSocket,
-      wsUrl: "ws://localhost:3001/ws",
+    bindWithDeps(state, ws, {
       firebaseAuth: { currentUser: { uid: "player-1" } },
-      keyFor: (x: number, y: number) => `${x},${y}`,
       renderHud,
       setAuthStatus,
       syncAuthOverlay,
-      authenticateSocket,
-      pushFeed: vi.fn(),
-      pushFeedEntry: vi.fn(),
-      clearOptimisticTileState: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      requestViewRefresh: vi.fn(),
-      applyPendingSettlementsFromServer: vi.fn(),
-      mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
-      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-      maybeAnnounceShardSite: vi.fn(),
-      markDockDiscovered: vi.fn(),
-      centerOnOwnedTile: vi.fn(),
-      authProfileNameEl: { value: "" },
-      authProfileColorEl: { value: "" },
-      defensibilityPctFromTE: vi.fn(() => 0),
-      clearPendingCollectVisibleDelta: vi.fn(),
-      seedProfileSetupFields: vi.fn(),
-      resetStrategicReplayState: vi.fn(),
-      setWorldSeed: vi.fn(),
-      clearRenderCaches: vi.fn(),
-      buildMiniMapBase: vi.fn(),
-      shardAlertKeyForPayload: vi.fn(),
-      showShardAlert: vi.fn(),
-      combatResolutionAlert: vi.fn(),
-      wasPredictedCombatAlreadyShown: vi.fn(() => false),
-      showCaptureAlert: vi.fn(),
-      requestSettlement: vi.fn(() => false),
-      dropQueuedTargetKeyIfAbsent: vi.fn(),
-      processActionQueue: vi.fn(() => false),
-      clearSettlementProgressForTile: vi.fn(),
-      terrainAt: vi.fn(() => "LAND"),
-      requestTileDetailIfNeeded: vi.fn(),
-      requestAttackPreviewForTarget: vi.fn(),
-      openSingleTileActionMenu: vi.fn(),
-      isTileOwnedByAlly: vi.fn(() => false),
-      hideShardAlert: vi.fn(),
-      explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      clearSettlementProgressByKey: vi.fn(),
-      showCollectVisibleCooldownAlert: vi.fn(),
-      formatCooldownShort: vi.fn(() => "1s"),
-      reconcileActionQueue: vi.fn(),
-      revertOptimisticVisibleCollectDelta: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
-      playerNameForOwner: vi.fn(),
-      settlementProgressForTile: vi.fn(() => undefined),
-      COLLECT_VISIBLE_COOLDOWN_MS: 1_000
-    } as any);
+      authenticateSocket
+    });
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -1501,6 +1450,39 @@ describe("client network regression guards", () => {
 
     vi.runOnlyPendingTimers();
     expect(authenticateSocket).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  // Regression for the 2026-07-14 staging login stall: SERVER_STARTING alone
+  // ("still starting") is misleading once the sim is up but draining a large
+  // command backlog after a restart — the gateway now flags this case with
+  // backlogDegraded: true so the client can show an accurate message instead.
+  it("shows the backlog-replay message instead of the generic 'still starting' text when the server flags backlogDegraded", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const setAuthStatus = vi.fn();
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+
+    bindWithDeps(state, ws, {
+      firebaseAuth: { currentUser: { uid: "player-1" } },
+      setAuthStatus
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "SERVER_STARTING",
+        message: "The game server is replaying a backlog of prior activity after a restart. This can take a few minutes; no progress is lost. Retrying automatically...",
+        backlogDegraded: true
+      })
+    });
+
+    expect(state.authBusyDetail).toContain("replaying a backlog");
+    expect(setAuthStatus).toHaveBeenCalledWith("Server is replaying a backlog after a restart. Retrying sign-in...");
+
+    vi.runOnlyPendingTimers();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
