@@ -691,6 +691,7 @@ export class SimulationRuntime {
       this.aiSpatialFocusByPlayer.set(playerId, focus);
     } else {
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
     }
     return focus;
   }
@@ -2165,6 +2166,11 @@ export class SimulationRuntime {
     }
     if (typeof plan.diagnostic.scanFoundActionableCandidate === "boolean") {
       this.aiSpatialFocusProductiveByPlayer.set(playerId, plan.diagnostic.scanFoundActionableCandidate);
+    } else {
+      // No scan ran this tick (e.g. active_lock noop) - clear any cached
+      // value instead of leaving a stale one, so the next refresh sees "no
+      // signal" (treated as productive) rather than a lock-outlasting false.
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
     }
     return plan;
   }
