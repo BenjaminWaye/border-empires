@@ -91,6 +91,12 @@ export type AutomationPlannerDiagnostic = {
   strategicFrontierTileCountInput?: number;
   frontierOriginCount?: number;
   dockOriginCount?: number;
+  /** Whether this tick's focus-restricted scan found any actionable frontier
+   *  target, settlement candidate, or build candidate. Feeds
+   *  ai-spatial-focus.ts's unproductive-streak rotation via runtime.ts.
+   *  Undefined means "not evaluated this tick" (preplan short-circuit /
+   *  no-command noop) — callers must treat that as productive. */
+  scanFoundActionableCandidate?: boolean;
   playerScopeKeyCount?: number;
   playerScopeTileCount?: number;
   preplanReason?: AutomationPreplanReason;

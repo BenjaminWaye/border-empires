@@ -198,7 +198,8 @@ describe("selectSpatialFocus", () => {
       computedAt: 0,
       expiresAt: AI_SPATIAL_FOCUS_EXPIRY_MS,
       hardExpiresAt: AI_SPATIAL_FOCUS_HARD_EXPIRY_MS,
-      lastOriginByCategory: { hot_frontier: key(99, 99) }
+      lastOriginByCategory: { hot_frontier: key(99, 99) },
+      unproductiveStreak: 0
     };
     const owned = ownedRect(0, 0, 3, 3);
     const hot = new Set([key(2, 2)]);
@@ -409,5 +410,162 @@ describe("selectSpatialFocus", () => {
     })!;
     expect(second.originCategory).toBe("settle_pending");
     expect(second.originTileKey).toBe(key(3, 3));
+  });
+
+  // A growing rectangle spanning two fixed corners: (0,0) (hot_frontier
+  // origin) and (9,9) (build_candidate origin). Both corners stay owned and
+  // fully connected as the rectangle grows, so expandFocusFront's BFS from
+  // either corner keeps picking up the new tiles -> priorFrontChanged is
+  // true on every refresh, independent of which origin is active. This
+  // isolates the unproductive-streak behavior from ordinary front-churn
+  // rotation (which already fires when the front is stable).
+  const growingOwnedRect = (extraCols: number): Set<string> => ownedRect(0, 0, 10 + extraCols, 10);
+
+  describe("unproductive-streak forced rotation", () => {
+    it("forces rotation after maxUnproductiveStreak consecutive unproductive refreshes even while the front keeps changing", () => {
+      const hot = new Set([key(0, 0)]);
+      const build = new Set([key(9, 9)]);
+      const first = selectSpatialFocus({
+        prior: undefined,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(0),
+        now: 1_000,
+        maxUnproductiveStreak: 2
+      })!;
+      expect(first.originCategory).toBe("hot_frontier");
+      expect(first.originTileKey).toBe(key(0, 0));
+      expect(first.unproductiveStreak).toBe(0);
+
+      const second = selectSpatialFocus({
+        prior: first,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(1),
+        now: first.expiresAt + 1,
+        lastScanWasProductive: false,
+        maxUnproductiveStreak: 2
+      })!;
+      // Streak is 1, below the threshold of 2 -> front-changed branch still
+      // wins, same origin/category as before.
+      expect(second.originCategory).toBe("hot_frontier");
+      expect(second.originTileKey).toBe(key(0, 0));
+      expect(second.unproductiveStreak).toBe(1);
+
+      const third = selectSpatialFocus({
+        prior: second,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(2),
+        now: second.expiresAt + 1,
+        lastScanWasProductive: false,
+        maxUnproductiveStreak: 2
+      })!;
+      // Streak reaches 2 -> forced rotation to the next category, even
+      // though the front changed (grew) yet again this refresh.
+      expect(third.originCategory).toBe("build_candidate");
+      expect(third.originTileKey).toBe(key(9, 9));
+      expect(third.unproductiveStreak).toBe(0);
+    });
+
+    it("never forces rotation when scans are productive, or when no signal is given", () => {
+      const hot = new Set([key(0, 0)]);
+      const build = new Set([key(9, 9)]);
+      const first = selectSpatialFocus({
+        prior: undefined,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(0),
+        now: 1_000,
+        maxUnproductiveStreak: 2
+      })!;
+
+      const second = selectSpatialFocus({
+        prior: first,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(1),
+        now: first.expiresAt + 1,
+        lastScanWasProductive: true,
+        maxUnproductiveStreak: 2
+      })!;
+      expect(second.originTileKey).toBe(key(0, 0));
+      expect(second.unproductiveStreak).toBe(0);
+
+      const third = selectSpatialFocus({
+        prior: second,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(2),
+        now: second.expiresAt + 1,
+        // lastScanWasProductive omitted -> defaults to productive.
+        maxUnproductiveStreak: 2
+      })!;
+      expect(third.originTileKey).toBe(key(0, 0));
+
+      const fourth = selectSpatialFocus({
+        prior: third,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(3),
+        now: third.expiresAt + 1,
+        lastScanWasProductive: true,
+        maxUnproductiveStreak: 2
+      })!;
+      // Three refreshes past the threshold, but always productive/unsignaled
+      // -> never rotates.
+      expect(fourth.originCategory).toBe("hot_frontier");
+      expect(fourth.originTileKey).toBe(key(0, 0));
+      expect(fourth.unproductiveStreak).toBe(0);
+    });
+
+    it("resets the streak to 0 after a forced rotation and does not immediately re-rotate", () => {
+      const hot = new Set([key(0, 0)]);
+      const build = new Set([key(9, 9)]);
+      const first = selectSpatialFocus({
+        prior: undefined,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(0),
+        now: 1_000,
+        maxUnproductiveStreak: 2
+      })!;
+      const second = selectSpatialFocus({
+        prior: first,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(1),
+        now: first.expiresAt + 1,
+        lastScanWasProductive: false,
+        maxUnproductiveStreak: 2
+      })!;
+      const third = selectSpatialFocus({
+        prior: second,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(2),
+        now: second.expiresAt + 1,
+        lastScanWasProductive: false,
+        maxUnproductiveStreak: 2
+      })!;
+      expect(third.originCategory).toBe("build_candidate");
+      expect(third.unproductiveStreak).toBe(0);
+
+      const fourth = selectSpatialFocus({
+        prior: third,
+        hotFrontierTileKeys: hot,
+        buildCandidateTileKeys: build,
+        ownedTileKeys: growingOwnedRect(3),
+        now: third.expiresAt + 1,
+        lastScanWasProductive: false,
+        maxUnproductiveStreak: 2
+      })!;
+      // Streak is scoped to the new origin: this is only the first
+      // unproductive refresh since rotating, so it stays put at streak 1
+      // rather than immediately rotating again.
+      expect(fourth.originCategory).toBe("build_candidate");
+      expect(fourth.originTileKey).toBe(key(9, 9));
+      expect(fourth.unproductiveStreak).toBe(1);
+    });
   });
 });

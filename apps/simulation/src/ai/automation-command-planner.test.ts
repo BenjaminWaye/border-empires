@@ -51,6 +51,7 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.noCommandReason).toBe("active_lock");
+    expect(result.diagnostic.scanFoundActionableCandidate).toBeUndefined();
   });
 
   it("idles with wait_and_recover when only enemy land is adjacent and manpower is low", () => {
@@ -77,6 +78,9 @@ describe("automation command planner", () => {
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.frontierEnemyTargetCount).toBe(1);
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    // A target was found even though manpower gates the actual attack -
+    // "found" tracks scan results, not whether a command was issued.
+    expect(result.diagnostic.scanFoundActionableCandidate).toBe(true);
   });
 
   it("idles with wait_and_recover when no frontier exists and points are zero", () => {
@@ -101,6 +105,7 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.scanFoundActionableCandidate).toBe(false);
   });
 
   it("reports wait_and_recover when no legal land expansion or attack exists", () => {
