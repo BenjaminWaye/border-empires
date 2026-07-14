@@ -27,6 +27,7 @@ export type SimulationCommandStore = {
   findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined>;
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]>;
   loadAllCommands(): Promise<StoredSimulationCommand[]>;
+  loadMaxClientSeqByPlayer(): Promise<Record<string, number>>;
 };
 
 export class InMemorySimulationCommandStore implements SimulationCommandStore {
@@ -99,5 +100,13 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
 
   async loadAllCommands(): Promise<StoredSimulationCommand[]> {
     return [...this.commands.values()].sort((left, right) => left.queuedAt - right.queuedAt);
+  }
+
+  async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+    for (const command of this.commands.values()) {
+      result[command.playerId] = Math.max(result[command.playerId] ?? 0, command.clientSeq);
+    }
+    return result;
   }
 }

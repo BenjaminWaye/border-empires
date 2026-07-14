@@ -20,6 +20,7 @@ import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.j
 export type SimulationStartupRecovery = {
   initialState: RecoveredSimulationState;
   initialCommandHistory: RecoveredCommandHistory;
+  maxClientSeqByPlayer: Record<string, number>;
   recoveredCommandCount: number;
   recoveredEventCount: number;
 };
@@ -65,9 +66,10 @@ export const loadSimulationStartupRecovery = async ({
   bootstrapState?: RecoveredSimulationState;
   requireDurableState?: boolean;
 }): Promise<SimulationStartupRecovery> => {
-  const [recoverableCommands, latestSnapshot] = await Promise.all([
+  const [recoverableCommands, latestSnapshot, maxClientSeqByPlayer] = await Promise.all([
     commandStore.loadRecoverableCommands(),
-    snapshotStore?.loadLatestSnapshot()
+    snapshotStore?.loadLatestSnapshot(),
+    commandStore.loadMaxClientSeqByPlayer()
   ]);
   const usableSnapshot =
     latestSnapshot && hasUsableSnapshotState(latestSnapshot.snapshotPayload.initialState.tiles) ? latestSnapshot : undefined;
@@ -103,6 +105,7 @@ export const loadSimulationStartupRecovery = async ({
   return {
     initialState: finalizeRecoveredSimulationAccumulator(recoveredStateAccumulator),
     initialCommandHistory: finalizeRecoveredCommandHistoryAccumulator(recoveredCommandHistoryAccumulator),
+    maxClientSeqByPlayer,
     recoveredCommandCount: recoverableCommands.length,
     recoveredEventCount
   };
