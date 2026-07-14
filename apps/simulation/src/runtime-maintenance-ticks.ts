@@ -48,6 +48,11 @@ export async function tickTileShedding(input: {
         if (tile.ownerId !== player.id) continue;
         if (tile.ownershipState !== "SETTLED") continue;
         if (input.locksByTile.has(tileKey)) continue;
+        // A neutral SETTLEMENT-tier town is otherwise unreachable: combat
+        // capture razes SETTLEMENT towns rather than transferring them, and
+        // handleUncaptureTileCommand rejects abandoning one outright. Keep
+        // shedding out of the business of manufacturing that state too.
+        if (tile.town?.populationTier === "SETTLEMENT") continue;
         const stamp = input.tileSettledAtByKey.get(tileKey) ?? -Infinity;
         if (stamp >= shedStamp) {
           shedStamp = stamp;
@@ -67,11 +72,15 @@ export async function tickTileShedding(input: {
 
     const exec = () => {
       const commandId = `tile-shed:${player.id}:${shedTileKey}:${input.nowMs}`;
+      // town is deliberately preserved: shedding releases ownership of the
+      // tile, not the town itself (mirrors handleUncaptureTileCommand, which
+      // leaves an abandoned town intact as a neutral town). fort/observatory/
+      // siegeOutpost/economicStructure carry their own ownerId and don't
+      // survive losing the owning player, same as on uncapture.
       const shedState: DomainTileState = {
         ...shedTile,
         ownerId: undefined,
         ownershipState: undefined,
-        town: undefined,
         fort: undefined,
         observatory: undefined,
         siegeOutpost: undefined,
@@ -87,7 +96,6 @@ export async function tickTileShedding(input: {
             ...input.tileDeltaFromState(shedState),
             ownerId: "",
             ownershipState: "",
-            townJson: "",
             fortJson: "",
             observatoryJson: "",
             siegeOutpostJson: "",
