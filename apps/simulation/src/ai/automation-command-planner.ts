@@ -320,8 +320,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           }
         })
       : emptyFrontierAnalysis();
+  let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
   let broadFallbackSkipped = false;
-  if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
+  if ((canAttack || canExpand) && !frontierAnalysisActionable && input.frontierTiles.length > 0) {
     if (input.ownedTiles.length > SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD) {
       // Broad fallback's second analyzeOwnedFrontierTargetsFromLookup
       // dominates the 587ms tail at this scale. The narrow result stands.
@@ -350,11 +351,36 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
           frontierOrigins = broadFrontierOrigins;
           frontierAnalysis = broadFrontierAnalysis;
+          frontierAnalysisActionable = true;
         }
       }
     }
   }
   recordPhaseTiming("choose_frontier", frontierStartedAt);
+
+  const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
+  let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
+  let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
+  let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
+    const structurePlayer = {
+      id: input.playerId,
+      points: input.points,
+      ...(input.techIds ? { techIds: input.techIds } : {}),
+      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
+      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
+      settledTileCount,
+      townCount,
+      incomePerMinute
+    };
+    const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
+    const buildCandidates = restrictToFocus(structureCandidates);
+    // Competition is resolved by scoring, not a boolean gate — always compute
+    // so BUILD_ECONOMY can be scored even when frontier action is available.
+    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+  }
 
   const diagnosticBase: AutomationPlannerDiagnostic = {
     playerId: input.playerId,
@@ -384,6 +410,16 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
     frontierOriginCount: frontierOrigins.length,
     dockOriginCount: dockOrigins.length,
+    // Feeds ai-spatial-focus.ts's unproductive-streak rotation (via
+    // runtime.ts): whether *any* category (frontier/settle/build) found
+    // something actionable this tick, restricted to the same spatial-focus
+    // front.
+    scanFoundActionableCandidate:
+      frontierAnalysisActionable ||
+      Boolean(settlementCandidate) ||
+      Boolean(economicBuild) ||
+      Boolean(fortBuild) ||
+      Boolean(siegeOutpostBuild),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
@@ -405,40 +441,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const summarizeStartedAt = Date.now();
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
-  const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
-  let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
-  let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
-  let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
-  if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
-    const structurePlayer = {
-      id: input.playerId,
-      points: input.points,
-      ...(input.techIds ? { techIds: input.techIds } : {}),
-      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
-      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
-      settledTileCount,
-      townCount,
-      incomePerMinute
-    };
-    const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
-    const buildCandidates = restrictToFocus(structureCandidates);
-    // Competition is resolved by scoring, not a boolean gate — always compute
-    // so BUILD_ECONOMY can be scored even when frontier action is available.
-    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-  }
-  // Surfaced for ai-spatial-focus.ts's unproductive-streak rotation: whether
-  // *any* category (frontier/settle/build) found something actionable this
-  // tick, restricted to the same spatial-focus front. diagnosticBase is the
-  // same object referenced by context.diagnostic, so mutating it here flows
-  // through runUtilityPolicy/mergePreplanDiagnostic to the caller.
-  diagnosticBase.scanFoundActionableCandidate =
-    hasActionableFrontierAnalysis(frontierAnalysis) ||
-    Boolean(settlementCandidate) ||
-    Boolean(economicBuild) ||
-    Boolean(fortBuild) ||
-    Boolean(siegeOutpostBuild);
   // buildAutomationStrategicSnapshot only ever needs settled tiles carrying
   // a resource/dockId/town (for victory-path scoring) — every such tile is
   // already guaranteed to be in buildCandidateTiles (isBuildCandidateTile in
