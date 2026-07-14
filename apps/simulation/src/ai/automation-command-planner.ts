@@ -122,7 +122,9 @@ const emptyFrontierAnalysis = (): FrontierAnalysis => ({
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
   frontierOpportunityWaste: 0,
-  narrowAnalyzeCapped: false
+  narrowAnalyzeCapped: false,
+  neighborCandidateTotal: 0,
+  missingNeighborTileCount: 0
 });
 
 const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
@@ -370,6 +372,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierOpportunityScout: frontierAnalysis.frontierOpportunityScout,
     frontierOpportunityScaffold: frontierAnalysis.frontierOpportunityScaffold,
     frontierOpportunityWaste: frontierAnalysis.frontierOpportunityWaste,
+    neighborCandidateTotal: frontierAnalysis.neighborCandidateTotal,
+    missingNeighborTileCount: frontierAnalysis.missingNeighborTileCount,
     canAttack,
     canExpand,
     ownedTileCount: input.ownedTiles.length,
