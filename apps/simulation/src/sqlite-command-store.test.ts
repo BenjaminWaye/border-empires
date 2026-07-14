@@ -99,4 +99,48 @@ describe("SqliteSimulationCommandStore", () => {
     await expect(store.get("cmd-4")).resolves.toMatchObject({ status: "ACCEPTED" });
     await expect(store.loadAllCommands()).resolves.toHaveLength(1);
   });
+
+  // Regression for the staging boot crash-loop (2026-07-14): the seq counter
+  // was reseeded from loadRecoverableCommands (QUEUED/ACCEPTED only), so once
+  // a player's commands resolved/rejected the max was understated, the
+  // producer reissued a low seq, and the UNIQUE(player_id, client_seq) index
+  // rejected it — a deterministic failure that repeated on every restart.
+  // loadMaxClientSeqByPlayer must count ALL rows regardless of status.
+  it("loadMaxClientSeqByPlayer counts RESOLVED/REJECTED rows, not just recoverable ones", async () => {
+    const store = await createStore();
+    const cmd = (commandId: string, playerId: string, clientSeq: number) => ({
+      commandId,
+      sessionId: "session-1",
+      playerId,
+      clientSeq,
+      issuedAt: 100,
+      type: "EXPAND" as const,
+      payloadJson: "{}"
+    });
+
+    // player-a: highest seq (3) is a RESOLVED command — invisible to loadRecoverableCommands.
+    await store.persistQueuedCommand(cmd("a-1", "player-a", 1), 100);
+    await store.markAccepted("a-1", 101);
+    await store.persistQueuedCommand(cmd("a-3", "player-a", 3), 102);
+    await store.markResolved("a-3", 103);
+    // player-b: highest seq (2) is a REJECTED command — also invisible to loadRecoverableCommands.
+    await store.persistQueuedCommand(cmd("b-2", "player-b", 2), 104);
+    await store.markRejected("b-2", 105, "BAD", "nope");
+
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({
+      "player-a": 3,
+      "player-b": 2
+    });
+
+    // Contrast: the recovery view would have understated both, which is the bug.
+    const recoverableMax = (await store.loadRecoverableCommands())
+      .filter((c) => c.playerId === "player-a")
+      .reduce((max, c) => Math.max(max, c.clientSeq), 0);
+    expect(recoverableMax).toBe(1);
+  });
+
+  it("loadMaxClientSeqByPlayer returns an empty map when no commands exist", async () => {
+    const store = await createStore();
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({});
+  });
 });

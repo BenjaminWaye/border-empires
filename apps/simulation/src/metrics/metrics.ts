@@ -110,6 +110,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simPersistenceConstraintViolationTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
   let simBarbVisionUnionRecomputeThrottledTotal = 0;
@@ -175,6 +176,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simPersistenceConstraintViolationTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
     simBarbVisionUnionRecomputeThrottledTotal,
@@ -309,6 +311,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    incrementSimPersistenceConstraintViolation(): void {
+      simPersistenceConstraintViolationTotal += 1;
     },
     // Live gauge of in-flight writer-channel messages; set on every post()/ack
     // so a growing queue is visible in /metrics before it becomes a heap

@@ -1053,6 +1053,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onPersistenceFailure: (error) => {
+      // A constraint violation (e.g. UNIQUE(player_id, client_seq)) is a
+      // deterministic logic error, not a durability failure: restarting
+      // re-runs the exact same write and re-throws, turning it into a
+      // crash-loop that takes the whole VM down (staging, 2026-07-14). Skip
+      // the offending command and keep serving; the DB-max seq seeding (see
+      // nextClientSeqByPlayers) is the real fix, and this counter surfaces
+      // any residual collision.
+      if (/constraint failed/i.test(error.message)) {
+        simulationMetrics.incrementSimPersistenceConstraintViolation();
+        recordLagDiagnostic("error", "simulation_persistence_constraint_violation", {
+          error: error.message
+        });
+        log.error({ err: error }, "simulation persistence constraint violation (non-fatal, command skipped)");
+        return;
+      }
       if (fatalPersistenceError) return;
       fatalPersistenceError = error;
       recordLagDiagnostic("error", "simulation_persistence_failed", {
@@ -1573,8 +1588,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const autopilotMaxPersistencePending = 256;
   const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
-  const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
-    buildNextClientSeqByPlayer(recoveredCommands, playerIds);
+  // recoveredCommands only carries QUEUED/ACCEPTED rows, so its max client_seq
+  // understates the true high-water mark once a player's commands resolve or
+  // reject (barbarian/system commands almost always do). Reseeding from that
+  // alone reissues low seqs that collide with the resolved rows still in the
+  // commands table (UNIQUE(player_id, client_seq)) — the boot crash-loop we
+  // saw on staging. Seed from the full-table MAX(client_seq) instead, taking
+  // the higher of the two so a not-yet-persisted recovered command can never
+  // lower the mark.
+  const persistedMaxClientSeqByPlayer = await commandStore.loadMaxClientSeqByPlayer();
+  const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> => {
+    const fromRecovered = buildNextClientSeqByPlayer(recoveredCommands, playerIds);
+    const seeded: Record<string, number> = {};
+    for (const playerId of playerIds) {
+      const fromPersisted = (persistedMaxClientSeqByPlayer[playerId] ?? 0) + 1;
+      seeded[playerId] = Math.max(fromRecovered[playerId] ?? 1, fromPersisted);
+    }
+    return seeded;
+  };
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 

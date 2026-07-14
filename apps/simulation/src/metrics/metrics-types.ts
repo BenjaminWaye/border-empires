@@ -121,6 +121,10 @@ export type SimulationMetricsSnapshot = {
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  /** Persistence writes rejected by a SQLite constraint (e.g. UNIQUE on (player_id, client_seq)). Deterministic,
+   * so it is deliberately non-fatal — the command is skipped rather than crash-looping the process. A non-zero,
+   * still-climbing value after the client_seq DB-max seeding fix means a new collision source has appeared. */
+  simPersistenceConstraintViolationTotal: number;
   /** In-flight sqlite-writer-channel messages (gauge). Growing without bound means the writer worker is falling behind. */
   simWriterQueueDepth: number;
   /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
