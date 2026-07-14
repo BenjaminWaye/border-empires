@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.6",
+  version: "2026.07.13.7",
   title: "What's New",
-  summary: "AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
+  summary: "AI empires stop endlessly re-proposing a fort build the server just rejected. AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
   entries: [
+    {
+      introducedIn: "2026.07.13.7",
+      title: "Fixed AI empires spamming rejected fort builds",
+      why: "An AI empire whose Build Fort proposal was rejected by the server had no memory of the rejection, so it re-proposed the exact same build on the very next tick — over and over, burning planner cycles instead of doing anything productive.",
+      changes: [
+        "A rejected build now puts that decision on a 10-second cooldown for that empire, so the planner picks a different action (or waits) instead of immediately retrying the same rejected build."
+      ]
+    },
     {
       introducedIn: "2026.07.13.6",
       title: "Fixed AI opponents going idle for extended periods",
