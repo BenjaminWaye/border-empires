@@ -29,6 +29,15 @@ export type AiDecisionDiagnostic = {
     enemyCount: number;
     barbarianCount: number;
   };
+  /**
+   * Neighbor candidate tiles the frontier scan visited vs how many were
+   * entirely absent from the worker's tile map. A high missing/total ratio
+   * for a large empire is a sync-scope gap (tiles never delivered via
+   * tile_deltas), not a legitimately empty frontier — see
+   * frontier-command-planner.ts's FrontierAnalysis doc comment.
+   */
+  neighborCandidateTotal: number;
+  missingNeighborTileCount: number;
   winner: string | undefined;
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
@@ -72,6 +81,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
       enemyCount: diagnostic.frontierEnemyTargetCount,
       barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0
     },
+    neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
+    missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,

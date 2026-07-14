@@ -82,6 +82,9 @@ export type AutomationPlannerDiagnostic = {
   frontierOpportunityScout?: number;
   frontierOpportunityScaffold?: number;
   frontierOpportunityWaste?: number;
+  /** Diagnostic: neighbor candidate tiles the frontier scan visited vs how many were absent from the worker's tile map (sync-scope gap indicator). */
+  neighborCandidateTotal?: number;
+  missingNeighborTileCount?: number;
   canAttack: boolean;
   canExpand: boolean;
   ownedTileCount?: number;
