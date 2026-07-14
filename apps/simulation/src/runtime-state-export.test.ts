@@ -27,8 +27,8 @@ describe("runtime state export", () => {
         tileCollectionVersion: 1,
         topologyVersion: 1,
         topologyDirtyTileKeys: [],
-        territoryTileKeys: [],
-        frontierTileKeys: [],
+        territoryTileKeys: ["a", "b", "c"],
+        frontierTileKeys: ["x", "y"],
         hotFrontierTileKeys: [],
         strategicFrontierTileKeys: [],
         buildCandidateTileKeys: [],
@@ -44,5 +44,7 @@ describe("runtime state export", () => {
     });
 
     expect(view?.ownedStructureCounts).toEqual({ FORT: 2, SIEGE_OUTPOST: 3 });
+    expect(view?.ownedTileCount).toBe(3);
+    expect(view?.frontierTileCount).toBe(2);
   });
 });
