@@ -22,7 +22,7 @@ import {
   type AutomationPlannerDecisionContext
 } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
-import type { DecisionClass } from "./utility/decisions.js";
+import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 
 import {
   createAutomationNoopDiagnostic,
@@ -103,7 +103,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Number of muster flags this player currently has active. */
   activeMusterCount?: number;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
-  decisionCooldowns?: Partial<Record<DecisionClass, boolean>>;
+  decisionCooldowns?: DecisionCooldownMap;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See

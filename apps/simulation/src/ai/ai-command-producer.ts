@@ -25,7 +25,7 @@ import {
   activeCooldownsForPlayer,
   createRejectionCooldownState,
   recordRejectionCooldown,
-  type RejectionCooldownState
+  type DecisionCooldownMap
 } from "./ai-rejection-cooldown.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
@@ -40,7 +40,7 @@ type AiCommandProducerOptions = {
       options?: {
         skipPreplan?: boolean;
         reservedDevelopmentSlots?: number;
-        decisionCooldowns?: Partial<Record<string, boolean>>;
+        decisionCooldowns?: DecisionCooldownMap;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };

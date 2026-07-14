@@ -35,8 +35,9 @@ import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-n
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import { resolvePlayerTiles as resolvePlayerTilesFromCache } from "./planner-tile-resolver.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { applyTileDelta } from "./planner-apply-tile-delta.js";
+import { applyTileDelta } from "./planner-tile-delta-merge.js";
 import type { SimulationTileDelta } from "./planner-tile-delta-parse.js";
+import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
 
@@ -149,7 +150,7 @@ const choosePlannerCommand = (
     collectVisibleOnCooldown?: boolean;
     lastHeartbeatAtMs?: number;
     attackStalemateTargetTileKeys?: ReadonlySet<string>;
-    decisionCooldowns?: Partial<Record<string, boolean>>;
+    decisionCooldowns?: DecisionCooldownMap;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
@@ -254,7 +255,7 @@ const choosePlannerCommand = (
     ...(options?.attackStalemateTargetTileKeys
       ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
       : {}),
-    ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns as Partial<Record<import("./utility/decisions.js").DecisionClass, boolean>> } : {}),
+    ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
     ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
     ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
     clientSeq,
@@ -367,7 +368,7 @@ parentPort.on("message", (msg: unknown) => {
           : undefined;
         const cooldownRaw = message.decisionCooldowns;
         const decisionCooldowns = cooldownRaw && typeof cooldownRaw === "object"
-          ? cooldownRaw as Partial<Record<string, boolean>>
+          ? cooldownRaw as DecisionCooldownMap
           : undefined;
         const plan = choosePlannerCommand(
           message.playerId as string,
