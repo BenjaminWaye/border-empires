@@ -24,6 +24,7 @@ import type {
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
+  decisionCooldowns: DecisionCooldownMap | undefined;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -108,7 +110,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
-    cooldown: {},
+    cooldown: state.decisionCooldowns ?? {},
     stalemated: targetStalemated(state.preferredEnemyAttack, state)
   };
 };
