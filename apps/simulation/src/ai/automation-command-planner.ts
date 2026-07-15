@@ -102,6 +102,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** Number of muster flags this player currently has active. */
   activeMusterCount?: number;
+  /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
@@ -474,7 +475,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     siegeOutpostBuildAvailable: Boolean(siegeOutpostBuild),
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
     ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
-    ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {})
+    ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {}),
+    ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
   });
   input.onStrategicSnapshot?.(strategic);
 

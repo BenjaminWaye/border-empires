@@ -17,6 +17,7 @@ import {
 } from "../automation-command-planner-helpers.js";
 import type { AutomationStrategicSnapshot } from "../automation-strategic-snapshot.js";
 import type { FrontierAnalysis } from "../frontier-command-planner.js";
+import { tileKeyOf } from "../frontier-scoring.js";
 import type {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
@@ -162,6 +163,17 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     case "MUSTER": {
       const target = fa.enemyAttack;
       if (target && strategic.musterReady && notStalemated(target) && fa.frontierEnemyPlayerTargetCount > 0) {
+        // Skip re-issuing at a tile that already has this player's active
+        // flag — handleSetMusterCommand treats a same-tile re-issue as a
+        // harmless no-op re-affirmation (not a new flag, doesn't free/consume
+        // a cap slot), but since the utility scorer re-picks MUSTER every
+        // tick the front stays hot, it was submitting a fresh SET_MUSTER
+        // roughly every 19s indefinitely — 5000+ permanently-QUEUED SET_MUSTER
+        // commands found in production (see runtime-structure-lifecycle-command-handlers.ts
+        // for the separate fix to the QUEUED-forever bug this caused). The
+        // existing flag keeps accumulating/auto-firing on its own either way,
+        // so skipping the reissue changes nothing about combat behavior.
+        if (strategic.musterTileKeys?.has(tileKeyOf(target.from.x, target.from.y))) return undefined;
         return buildPlannerCommand(context, "SET_MUSTER", {
           x: target.from.x,
           y: target.from.y,
