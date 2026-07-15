@@ -192,10 +192,21 @@ const waitForSimWorkerClosed = (): Promise<void> =>
     setTimeout(settle, SIM_WORKER_SHUTDOWN_TIMEOUT_MS).unref();
   });
 
+// Fail-safe: if graceful shutdown (gateway.close() / sim worker close) ever
+// stalls — leaving the HTTP listener closed but the process alive with the
+// sim worker still ticking, as observed once on staging — force-exit rather
+// than hang indefinitely with no server listening.
+const SHUTDOWN_HARD_EXIT_MS = 20_000;
+
 let shutdownInFlight: Promise<void> | undefined;
 const shutdown = (signal: NodeJS.Signals | "uncaught"): Promise<void> => {
   if (shutdownInFlight) return shutdownInFlight;
   console.log(`[merged] caught ${signal}; shutting down`);
+  const hardExitTimer = setTimeout(() => {
+    console.error(`[merged] graceful shutdown exceeded ${SHUTDOWN_HARD_EXIT_MS}ms; force-exiting`);
+    process.exit(1);
+  }, SHUTDOWN_HARD_EXIT_MS);
+  hardExitTimer.unref();
   shutdownInFlight = (async () => {
     try {
       gateway.notifyDeployment();
