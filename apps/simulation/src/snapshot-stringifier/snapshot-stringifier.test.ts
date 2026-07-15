@@ -47,11 +47,26 @@ describe("createChunkedSnapshotStringifier", () => {
     expect(await stringify(payload)).toBe(JSON.stringify(payload));
   });
 
-  it("invokes onYield more than once for a large payload", async () => {
+  it("does not chunk (or yield) a realistic checkpoint-sized payload", async () => {
     const onYield = vi.fn();
     const stringify = createChunkedSnapshotStringifier({ onYield });
-    // 5000 tiles > CHUNK_THRESHOLD(500); CHUNK_SIZE(2000) → 3 slices → 2 yields
+    // Real compacted checkpoint payloads measured ~5,147 elements on staging;
+    // this must stay well under CHUNK_THRESHOLD so it never yields — see the
+    // constant's comment for why yielding here is actively harmful under AI
+    // planner contention on the sim thread.
     const tiles = Array.from({ length: 5_000 }, (_, i) => ({ x: i, y: 0 }));
+    const payload = { initialState: { tiles, activeLocks: [] }, commandEvents: [] };
+    await stringify(payload);
+    expect(onYield.mock.calls.length).toBe(0);
+  });
+
+  it("invokes onYield more than once for a genuinely huge payload", async () => {
+    const onYield = vi.fn();
+    const stringify = createChunkedSnapshotStringifier({ onYield });
+    // Only payloads far beyond any realistic compacted checkpoint (the
+    // ~18MB uncompacted fallback case, when no worldgen baseline resolves)
+    // should still chunk at all.
+    const tiles = Array.from({ length: 250_000 }, (_, i) => ({ x: i, y: 0 }));
     const payload = { initialState: { tiles, activeLocks: [] }, commandEvents: [] };
     await stringify(payload);
     expect(onYield.mock.calls.length).toBeGreaterThan(1);

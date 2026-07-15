@@ -8,11 +8,28 @@ const inlineStringifier: SnapshotStringifier = async (payload) => JSON.stringify
 
 export const createInlineSnapshotStringifier = (): SnapshotStringifier => inlineStringifier;
 
+// Diagnosed on staging via per-phase checkpoint timing: this chunked
+// stringifier is the SqliteSimulationSnapshotStore's fallback (used if the
+// worker-based stringifier — see createWorkerSnapshotStringifier below —
+// isn't wired in), and its setImmediate yields sit on the same sim thread as
+// the AI planner's own tick scheduling. That's the exact contention already
+// fixed for compactSnapshotForStorage: each yield re-queues behind however
+// much AI-tick work is already queued, an UNBOUNDED wait under load, logged
+// stretching a checkpoint's stringify phase past a second (and, per
+// sim_checkpoint_export_ms, up to 11-14s at the tail).
+//
+// The real compacted checkpoint payload measured 1.65MB / ~5,147 elements on
+// staging; a single-shot JSON.stringify of that exact payload measured
+// ~11ms. Chunking exists to avoid a large unyielded block for genuinely huge
+// arrays (the ~18MB uncompacted fallback, when no worldgen baseline
+// resolves) — raising the threshold well above realistic checkpoint sizes
+// means normal payloads take the fast, bounded, synchronous path, and only
+// truly pathological payloads still chunk.
 /** Minimum array length that triggers chunked serialisation with EL yields. */
-const CHUNK_THRESHOLD = 500;
+const CHUNK_THRESHOLD = 100_000;
 
 /** Number of array elements stringified per synchronous slice before a yield. */
-const CHUNK_SIZE = 2_000;
+const CHUNK_SIZE = 20_000;
 
 /** Yield to the event loop via setImmediate. */
 const yieldToEventLoop = (): Promise<void> => new Promise<void>((resolve) => setImmediate(resolve));
