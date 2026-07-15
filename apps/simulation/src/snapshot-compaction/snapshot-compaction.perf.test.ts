@@ -64,7 +64,44 @@ describe("compactSnapshotForStorage — event-loop yielding at realistic scale",
     );
 
     expect(result.tileOverlay.length).toBeGreaterThan(0);
-    // 202,500 tiles / 2,000-tile yield chunk size ⇒ at least ~100 yields.
-    expect(yieldCount).toBeGreaterThan(50);
+    // 202,500 tiles / 50,000-tile yield chunk size ⇒ 4 yields. Upper bound
+    // guards against a future regression back toward the small chunk size
+    // that let each yield queue behind AI-tick backlog (see YIELD_CHUNK_SIZE's
+    // comment); lower bound guards against removing yielding entirely, which
+    // would reintroduce the original unyielded ~100-130ms synchronous block.
+    expect(yieldCount).toBeGreaterThanOrEqual(2);
+    expect(yieldCount).toBeLessThanOrEqual(10);
+  });
+
+  it("keeps each unyielded slice well under the watchdog's stall threshold", async () => {
+    const { baselineTiles, runtimeTiles } = buildRealisticWorld();
+    const baselineIndex = buildWorldgenBaselineIndex(baselineTiles);
+
+    let lastResumedAt = Date.now();
+    const sliceDurationsMs: number[] = [];
+    const timingYield = (): Promise<void> =>
+      new Promise((resolve) => {
+        sliceDurationsMs.push(Date.now() - lastResumedAt);
+        setImmediate(() => {
+          lastResumedAt = Date.now();
+          resolve();
+        });
+      });
+
+    const t0 = Date.now();
+    await compactSnapshotForStorage(
+      { initialState: { tiles: runtimeTiles, activeLocks: [] }, commandEvents: [] },
+      baselineIndex,
+      timingYield
+    );
+    sliceDurationsMs.push(Date.now() - lastResumedAt);
+
+    // Each individual synchronous slice must stay far below anything already
+    // tolerated on the sim thread (AI ticks alone run up to ~1s
+    // synchronously — see sim_tick_duration_ms p99) so this checkpoint step
+    // can never itself become the thing that stalls other work.
+    for (const duration of sliceDurationsMs) expect(duration).toBeLessThan(500);
+    // And the whole compaction still completes quickly overall.
+    expect(Date.now() - t0).toBeLessThan(1000);
   });
 });
