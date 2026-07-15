@@ -917,6 +917,7 @@ export class SimulationRuntime {
         });
         this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
         this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
+        this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
     // In-flight structure work (under_construction / removing) survives in tile
@@ -2765,6 +2766,7 @@ export class SimulationRuntime {
         allied: payload.allied
       }
     );
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private rejectCommand(command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string): void {
@@ -2866,7 +2868,8 @@ export class SimulationRuntime {
       tileKey: input.targetKey,
       startedAt: input.startedAt,
       resolvesAt,
-      goldCost: SETTLE_COST
+      goldCost: SETTLE_COST,
+      commandId: input.commandId
     });
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
@@ -2919,6 +2922,7 @@ export class SimulationRuntime {
       });
       this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.playerId });
     });
   }
 
@@ -3022,6 +3026,7 @@ export class SimulationRuntime {
       strategic
     });
     this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleCollectVisibleCommand(command: CommandEnvelope): void {
@@ -3060,6 +3065,7 @@ export class SimulationRuntime {
       strategic
     });
     this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleUncaptureTileCommand(command: CommandEnvelope): void {
@@ -3117,6 +3123,7 @@ export class SimulationRuntime {
     // tiles — re-check encirclement connectivity from the now-vacant key.
     this.applyEncirclement([targetKey], command.playerId, command.commandId, { bfsCap: 2000 });
     this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleOverloadSynthesizerCommand(command: CommandEnvelope): void {
@@ -3180,6 +3187,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
     this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
@@ -3229,6 +3237,8 @@ export class SimulationRuntime {
       playerId: command.playerId,
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
+    this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private abilityCommandContext(): RuntimeAbilityCommandContext {
@@ -3851,10 +3861,12 @@ export class SimulationRuntime {
   private handleWatchMusterCommand(command: CommandEnvelope): void {
     const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
     this.watchedMusterTileByPlayer.set(command.playerId, simulationTileKey(payload.x, payload.y));
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleUnwatchMusterCommand(command: CommandEnvelope): void {
     this.watchedMusterTileByPlayer.delete(command.playerId);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private handleCancelFortBuildCommand(command: CommandEnvelope): void {

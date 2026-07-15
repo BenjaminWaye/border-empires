@@ -337,4 +337,5 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
 }
