@@ -1,0 +1,348 @@
+// Changelog entry data only, split out from client-changelog.ts to keep that
+// file (rendering/visibility logic) under the repo's 500-line file cap. This
+// file grows by ~1 release entry per user-visible change; if it approaches
+// the cap, prune entries older than the 6-day release-day window enforced by
+// client-changelog.test.ts ("keeps only the latest week of release entries").
+
+export type ClientChangelogEntry = {
+  introducedIn: string;
+  title: string;
+  why: string;
+  changes: string[];
+};
+
+export type ClientChangelogRelease = {
+  version: string;
+  title: string;
+  summary: string;
+  entries: ClientChangelogEntry[];
+};
+
+// Update this object for every user-facing client release.
+export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
+  version: "2026.07.15.5",
+  title: "What's New",
+  summary: "Muster-fed attacks from different flags now march and fire independently instead of one flag's attack blocking every other flag's transit. Muster flags on the 3D map no longer render beneath the ownership overlay (settled/frontier tint) — they now draw on top where they belong. Also includes the previous release: truce and alliance offers to AI empires in seasonal games now resolve correctly, build cancellations refund your spend, and the alliance/truce search box no longer flickers or shows AI empires that never settled.",
+  entries: [
+    {
+      introducedIn: "2026.07.15.5",
+      title: "Muster flags now arm and fire attacks independently",
+      why: "Queuing a second muster-fed attack while a first was still marching (or just fired and awaiting its result) reused a single global transit/deferred-attack slot, so the second attack overwrote the first's tracked state and the whole action queue stalled behind it — even though the server already funds and resolves each flag's attack independently.",
+      changes: [
+        "Each muster flag's marching timer and deferred attack are now tracked independently, keyed by the flag's own tile.",
+        "Arming a muster transit no longer blocks the rest of the action queue — other targets (via other flags, or direct attacks/expands) keep processing while troops are still marching.",
+        "The map supply-line overlay now shows a line for every active muster-fed attack at once instead of only the most recently queued one.",
+        "Cancelling now clears every flag still marching, not just the most recently armed one."
+      ]
+    },
+    {
+      introducedIn: "2026.07.15.4", title: "Fixed muster flags rendering behind the ownership overlay on the 3D map", why: "Muster flag meshes (renderOrder 36) were opaque-only materials, so Four.js drew them during the opaque pass — before the ownership overlay (transparent, renderOrder 6-7) in the transparent pass. The overlay then painted on top, making flags appear to sit beneath the settled/frontier tint despite having a numerically higher renderOrder.", changes: ["Muster flag pole, pennant, spike, and soldier-dot meshes now use transparent: true, moving them into the transparent pass where their renderOrder of 36 correctly places them on top of the ownership overlay."]
+    },
+    {
+      introducedIn: "2026.07.15.3", title: "Fixed truce/alliance offers to AI empires in seasonal games", why: "The 2026.07.11.1 fix aligned gateway social state AI names to \"AI N\" format, but the client's INIT payload still surfaced seasonal leaderboard names (e.g. \"Freja Sund\") in playerStyles and the leaderboard, so truce and alliance requests sent with those names still failed with \"target not found\".", changes: ["AI empire names in playerStyles and the leaderboard are now always \"AI N\", matching what the client sends in truce and alliance requests."]
+    },
+    {
+      introducedIn: "2026.07.15.2",
+      title: "Cancelling a structure build now refunds what you spent",
+      why: "Cancelling a Fort, Siege Outpost, Observatory, or economic structure while it was still under construction (or mid-upgrade) deleted the in-progress structure but never gave back the gold, manpower, or strategic resources you paid to start it — that spend was simply gone.",
+      changes: [
+        "Cancelling a build or upgrade now refunds the exact gold, manpower, and strategic resource cost (iron, supply, crystal, etc.) that was spent to start it.",
+        "Fort and Siege Outpost refunds use the tier that was actually being built, so a tech unlock partway through construction can't change what comes back.",
+        "Cancelling a structure removal (not a build) is unaffected — removals were already free to start, so there is nothing to refund there."
+      ]
+    },
+    {
+      introducedIn: "2026.07.15.1",
+      title: "Fixed alliance/truce search dropdown and target resolution",
+      why: "The alliance/truce target search box listed AI empires that had never founded a settlement this season (only pre-registered, never active), the suggestion dropdown rewrote its options on nearly every HUD render — flickering or closing an open autocomplete popup while typing — and a request could target a name (like the default 'Nauticus' shown for a player who hasn't set a display name yet) that was never actually registered under that name for alliance/truce resolution, so the request always failed with 'target not found'.",
+      changes: [
+        "AI empires that haven't settled/founded an empire yet no longer appear as alliance/truce search suggestions; only AI with real activity (tiles, income, or tech) are offered.",
+        "The suggestion dropdown now only rewrites its options when the list actually changes, instead of on every HUD render, fixing the flicker/disappearing popup while typing.",
+        "A player who hasn't set a custom display name is now registered under the same cosmetic default name shown to others (e.g. 'Nauticus'), so alliance/truce requests targeting that name resolve correctly instead of failing."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.8",
+      title: "Barbarian hordes multiply more slowly",
+      why: "Barbarians were multiplying too quickly, growing to 483 tiles on a recent season — far beyond the intended population cap. Each successful capture of a player tile accumulated progress, and at 3 progress they spawned a new barbarian tile. Now they need 5, slowing their growth by about 40%.",
+      changes: [
+        "Barbarian multiply threshold raised from 3 to 5 — they now need 5 captured player tiles before spawning an extra barbarian instead of 3."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.7",
+      title: "Fixed AI empires spamming rejected fort builds",
+      why: "An AI empire whose Build Fort proposal was rejected by the server had no memory of the rejection, so it re-proposed the exact same build on the very next tick — over and over, burning planner cycles instead of doing anything productive.",
+      changes: [
+        "A rejected build now puts that decision on a 10-second cooldown for that empire, so the planner picks a different action (or waits) instead of immediately retrying the same rejected build."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.6",
+      title: "Fixed AI opponents going idle for extended periods",
+      why: "An AI empire under continuous attack could cut to the front of the turn queue every tick with no fairness limit, occupying every turn indefinitely and leaving other AI empires unable to act — including ones with large gold reserves and clear expansion opportunities.",
+      changes: [
+        "An AI empire that hasn't taken a turn in 2 seconds is now guaranteed to go next, even ahead of one under active attack."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.5",
+      title: "Placement preview highlights the structures that will actually benefit",
+      why: "The Waterworks/Foundry placement radius preview showed the affected area, but not which of your existing structures inside it would actually receive the bonus — you had to know the mechanic and count tiles yourself.",
+      changes: [
+        "While placing a Foundry, every active Mine you own within its radius now highlights green.",
+        "While placing a Waterworks, every active Farmstead you own within its radius now highlights green.",
+        "Works in both the flat map and 3D view."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.4",
+      title: "Building placement mode for Waterworks and Foundry",
+      why: "Placing a radius-based structure like Waterworks or Foundry was a blind commitment — you tapped Build and hoped the tile you picked was valid, with no visibility into the actual affected area or whether the location was strategically optimal.",
+      changes: [
+        "Tapping Build on a Waterworks or Foundry now enters placement mode instead of immediately building — a radius preview appears on the map showing the affected area.",
+        "Click any valid tile to move the building there; the preview updates in real time with the correct radius for each structure.",
+        "Valid placements show the structure's color; invalid placements (wrong surface type, conflicts, missing tech) show red.",
+        "Confirm to finalize, press Escape or right-click to cancel — no commitment until you're satisfied."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.3",
+      title: "Town Captured popup now fires for neutral towns too",
+      why: "The popup only fired when the tile's previous owner was a real, different player id, to avoid firing on first-time map reveals. That over-excluded a legitimate case: claiming an already-known but unowned (neutral) town peacefully via Expand — e.g. one that decayed back to neutral, or a vacated barbarian town — never showed the popup at all.",
+      changes: [
+        "Claiming a previously-known neutral town via Expand now shows the Town Captured popup, not just combat captures from another empire.",
+        "First-time map reveals (a tile you've never seen before) still correctly don't trigger the popup, since there's no earlier state to compare against."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.2",
+      title: "Town Captured popup now fires for destroyed settlements too",
+      why: "The Town Captured popup only fired when the captured tile still had town data afterward. Combat destroys a Settlement-tier town on capture — its population disperses instead of joining the empire — so the tile legitimately ends up with no town, and the popup silently never showed for what's usually the majority of captures.",
+      changes: [
+        "Capturing a Settlement-tier town via combat now shows a 'Settlement Destroyed' variant of the popup using the town's pre-capture name, tier, and population, instead of showing nothing.",
+        "The destroyed variant explains the population dispersed rather than joining your empire, and drops the Manpower Cap/Regen stats since nothing was actually gained.",
+        "Towns that survive capture (Town tier and above) keep showing the original 'Town Captured' popup with full stats."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.1",
+      title: "Town Captured popup",
+      why: "Capturing a shard site already celebrated the moment with a popup, but capturing a town — a much bigger empire event — was silent, easy to miss in the middle of a fight, and gave no quick way to jump back to the new town.",
+      changes: [
+        "Capturing an enemy or barbarian town now shows a hero popup with town art, its name, coordinates, and tier.",
+        "The popup shows the town's population, the Manpower Cap and Manpower Regen it will add to your empire, and a note that full production resumes once it's settled and supported.",
+        "A Jump to Town button recenters the map on the captured town in case it's off-screen."
+      ]
+    },
+    {
+      introducedIn: "2026.07.13.0",
+      title: "Supply Raiding reworked into Dewildernisation — bonus vs barbarians",
+      why: "The original Supply Raiding domain boosted outpost deployment speed and reduced outpost supply upkeep, which pigeonholed it into a niche siege-outpost role that felt disconnected from its raiding theme. The domain now lives up to its name as a focused barbarian offensive bonus.",
+      changes: [
+        "Supply Raiding has been renamed to Dewildernisation — a concerted imperial campaign to push back the wilds.",
+        "Iron Bastions has been renamed to Dwarf Kingdom.",
+        "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Rail Depot reworked into a mustering hub",
+      why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
+      changes: [
+        "Each Rail Depot built adds +0.5 global manpower regen per minute.",
+        "Outposts within 50 tiles of a Rail Depot now muster at 2x speed instead of the base 1.25x.",
+        "Rail Depot has no gold upkeep — it costs 4,000 gold + 100 crystal to build."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.7",
+      title: "Fixed inaccurate siege outpost attack multiplier text",
+      why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
+      changes: [
+        "Siege Outpost now correctly shows +60% offense (was +25%).",
+        "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
+        "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
+        "Tile overview badges now show the correct attack multiplier per siege variant."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.6",
+      title: "Fixed fog of war not clearing while expanding",
+      why: "A recent fix that made expand actions faster (skipping a redundant full-area rescan on every expand) accidentally also skipped sending the newly-visible fringe of land around each expand. The result: expanding into unexplored territory revealed nothing, while unrelated background activity elsewhere on the map occasionally leaked through as disconnected fogged-then-cleared patches.",
+      changes: [
+        "Expanding into unexplored territory now correctly reveals the newly-visible edge of land around your new tile again, without bringing back the slow full-area rescan that caused the original expand speed issue."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.5",
+      title: "Diagnostics bundle now includes performance metrics and frame-phase breakdown",
+      why: "When users report lag, the diagnostics download had no performance data — just connection state and identity bits. Without FPS history, frame phase timing, or load-time waterfall, there was no way to triage whether the problem was server-side, network, or client rendering.",
+      changes: [
+        "The diagnostics download (triggered via the Settings tab) now includes a load-waterfall section showing how long each login step took relative to navigation start.",
+        "Performance metrics are now collected every 2 seconds under the hood: FPS distribution (min, max, avg, p50, p95, p99), memory usage samples (last 60 snapshots), connection type, and device info. All appear in the diagnostics file.",
+        "Each rendered frame is now broken into three phases (frame setup, tile render, overlay post) measured as elapsed milliseconds, so lag can be traced to a specific phase of the draw loop."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.4",
+      title: "Auto-fill now settles enclosed frontier tiles",
+      why: "When territory sealed off a pocket of land, auto-fill was only claiming unowned tiles inside it — any of your own frontier tiles trapped in the same pocket stayed frontier and could still decay back to unowned, even though the pocket was fully enclosed by your own settled territory.",
+      changes: [
+        "Frontier tiles inside a pocket sealed off by your territory are now promoted to settled along with the unowned tiles, instead of being left as decay-vulnerable frontier."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.3",
+      title: "Emperor's Endorsement and the Imperial Ward",
+      why: "Phase 1 of the galactic meta-layer crowns the winner of the most recently ended season as \"Emperor\" for a one-hour window, letting them endorse another player who then gets Imperial Ward charges next season — a real bonus with teeth, not just a resource head start.",
+      changes: [
+        "If you're the reigning Emperor, opening your galaxy view now shows an endorsement form with a live countdown to when the window closes.",
+        "You can endorse a player by email or player ID, and change your pick as many times as you like before the window closes. If you don't act, the next season starts automatically after the hour anyway — nothing is ever blocked on the Emperor.",
+        "The endorsed player starts next season with 3 Imperial Ward charges. Activating one (from the new shield chip in your stat bar) makes every tile you own completely un-attackable for 10 minutes — you can still attack out, and there's no cooldown between charges.",
+        "The endorsement section is only visible to the Emperor — everyone else's galaxy view is unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.2",
+      title: "New Settings tab",
+      why: "Account controls (logout, debug info) were bolted onto the bottom of the Sharding panel, which had nothing to do with account settings. There was also no way to change your display name after initial setup.",
+      changes: [
+        "Added a Settings tab (gear icon) after Sharding in both the desktop panel bar and mobile nav.",
+        "Moved sign-in status, client build version, bridge/auth debug info, map reveal, and Log Out into the new Settings tab.",
+        "Added a Display Name field in Settings so you can change your name at any time, not just during initial profile setup."
+      ]
+    },
+    {
+      introducedIn: "2026.07.12.1",
+      title: "Fixed Aegis Lock and Astral Dock Launch not doing anything",
+      why: "The gateway kept two separate lists of which commands it forwards to the simulation. The two lists had drifted apart, so Aegis Lock and Astral Dock Launch actions were quietly discarded before they ever reached the simulation — no error, just nothing happened.",
+      changes: [
+        "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.4",
+      title: "Fixed lingering ghost ownership after barbarians move",
+      why: "When a barbarian vacated a tile, the server correctly told the client the tile was now neutral, but a tile-merge bug quietly restored the barbarian's old ownership — so the map kept showing the tile as owned indefinitely.",
+      changes: [
+        "Tiles that lose their owner (e.g. a barbarian walking away) now clear their ownership color immediately instead of staying stuck on the previous owner."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.3",
+      title: "Fixed black gap at the shoreline",
+      why: "At low camera angles you could see a black crack where the land met the water — the terrain surface had no thickness and stopped exactly at the coast.",
+      changes: [
+        "Coastal land tiles now drop a solid wall down to below the waterline so grazing camera angles never show through to empty space at the shore."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.2",
+      title: "Shard rain countdown on the domain panel",
+      why: "There was no persistent way to see when the next shard rain was coming — only a one-time dismissible alert.",
+      changes: [
+        "The Shard Network card now shows 'Next shard rain in Xh Ym' while waiting, or 'Shard rain active — N sites — X left' while it's underway."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.2",
+      title: "Missions tab hidden",
+      why: "Missions are paused for rebalance; the tab was showing stale placeholder content.",
+      changes: [
+        "The Missions button and panel are hidden from desktop and mobile navigation. Mission state is untouched so the feature can return later."
+      ]
+    },
+    {
+      introducedIn: "2026.07.11.1",
+      title: "Fixed truce offers to AI empires in seasonal default games",
+      why: "Social state used seasonal names (e.g. \"Freja Sund\") while client sent \"AI N\" format for truce target names, causing all truce offers to AI empires to fail with \"target not found\".",
+      changes: [
+        "Aligned gateway social state AI names to \"AI N\" format matching client display names."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.9",
+      title: "Season-end overlay now scrolls on macOS trackpad",
+      why: "Nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither scrolled.",
+      changes: [
+        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container.",
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.8",
+      title: "Fog of war now renders in the 3D map",
+      why: "3D renderer skipped drawing any tile not currently visible, so fogged tiles were empty black.",
+      changes: [
+        "Fogged 3D tiles now render frozen terrain, darkened, with dim owner tint."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.7",
+      title: "Season-end overlay scrolling works everywhere, not just in the tab panel area",
+      why: "Removing the outer scroll container (2026.07.09.6) fixed the tab panels but made scrolling over the header/tabs do nothing.",
+      changes: [
+        "Kept outer scroll on header/tab bar while tab panels scroll independently."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.5",
+      title: "Fogged tiles keep a dim ownership tint",
+      why: "Fog-of-war dropped ownership color once a tile went fogged, so you couldn't tell who held it last.",
+      changes: [
+        "Fogged tiles now render a dim, static tint of their last-witnessed owner."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.4",
+      title: "Fixed minimap shard-rain pings not rendering on fogged tiles",
+      why: "The minimap ping loop skipped any tile that wasn't a currently-visible FALL shard site, so pings on fogged or unexplored tiles never animated even though the ping itself was active.",
+      changes: [
+        "Minimap shard-rain pings now render for the duration they're active, regardless of the tile's fog or exploration state."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.3",
+      title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
+      why: "The gateway hashed barbarian-1 for a color, overriding the client's intended dark-grey fallback with a bright hue.",
+      changes: [
+        "Barbarian territory now always renders dark grey (#2f3842), regardless of server color."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.2",
+      title: "Fixed truce offers appearing on barbarian tiles",
+      why: "Truce menu only excluded id \"barbarian\", not \"barbarian-1\", so truce actions appeared on barbarian territory.",
+      changes: [
+        "Offer/Break Truce no longer appear on any barbarian-owned tile."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.1",
+      title: "Truce-break lockout",
+      why: "Breaking a truce early had no consequence, so players used truces as free, revocable shields.",
+      changes: [
+        "Breaking an active truce now locks you out of new truces for 24 hours."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.0",
+      title: "Leaderboard scrolling works normally on mobile",
+      why: "The leaderboard panel and other mobile panels would not scroll with normal touch gestures — you could only scroll them by pressing and holding the tab navigation bar at the bottom of the screen. The panel was missing standard mobile scroll CSS properties.",
+      changes: [
+        "Mobile panels now have proper touch-action, momentum scrolling, and overscroll-behavior CSS so they scroll with normal finger swipes."
+      ]
+    },
+    {
+      introducedIn: "2026.07.09.0",
+      title: "Login probes no longer inflate the season-end empire count",
+      why: "Health-check login probes that briefly connect to verify the server is alive were creating game-world empires with no tiles, income, or techs — and counting toward the 'N empires vied for the crown' tally at season end, making empty seasons look busier than they were.",
+      changes: [
+        "Players with zero settled tiles, zero income, and zero techs are now excluded from leaderboard rankings and the seasonal empire-count display, automatically filtering out login probes and other zero-activity empires."
+      ]
+    }
+    // Older entries (2026.07.08.6 and earlier) trimmed: the release-day
+    // window test only keeps entries within the latest 6 days of
+    // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
+  ]
+};
