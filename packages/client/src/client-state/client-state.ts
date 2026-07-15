@@ -4,6 +4,7 @@ import { checkServerDeployingSession } from "../client-server-deploying-session/
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -265,20 +266,10 @@ export const createInitialState = () => ({
     radius: number;
   }>,
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean; fromMusterAdvance?: boolean } | undefined,
-  musterTransit: undefined as {
-    musterX: number;
-    musterY: number;
-    targetX: number;
-    targetY: number;
-    transitStartAt: number;
-    transitEndsAt: number;
-  } | undefined,
-  activeMusterSource: undefined as { x: number; y: number } | undefined,
-  deferredAttack: undefined as {
-    fromX: number; fromY: number;
-    toX: number; toY: number;
-    commandId: string; clientSeq: number;
-  } | undefined,
+  // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
+  // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
+  musterTransitByTile: new Map<string, MusterTransitEntry>(),
+  deferredAttackByTile: new Map<string, DeferredMusterAttack>(),
   pendingCombatReveal: undefined as
     | {
         targetKey: string;

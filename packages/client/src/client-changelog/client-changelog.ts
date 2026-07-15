@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.15.4",
+  version: "2026.07.15.5",
   title: "What's New",
-  summary: "Muster flags on the 3D map no longer render beneath the ownership overlay (settled/frontier tint) — they now draw on top where they belong. Also includes the previous release: truce and alliance offers to AI empires in seasonal games now resolve correctly, build cancellations refund your spend, and the alliance/truce search box no longer flickers or shows AI empires that never settled.",
+  summary: "Muster-fed attacks from different flags now march and fire independently instead of one flag's attack blocking every other flag's transit. Muster flags on the 3D map no longer render beneath the ownership overlay (settled/frontier tint) — they now draw on top where they belong. Also includes the previous release: truce and alliance offers to AI empires in seasonal games now resolve correctly, build cancellations refund your spend, and the alliance/truce search box no longer flickers or shows AI empires that never settled.",
   entries: [
+    {
+      introducedIn: "2026.07.15.5",
+      title: "Muster flags now arm and fire attacks independently",
+      why: "Queuing a second muster-fed attack while a first was still marching (or just fired and awaiting its result) reused a single global transit/deferred-attack slot, so the second attack overwrote the first's tracked state and the whole action queue stalled behind it — even though the server already funds and resolves each flag's attack independently.",
+      changes: [
+        "Each muster flag's marching timer and deferred attack are now tracked independently, keyed by the flag's own tile.",
+        "Arming a muster transit no longer blocks the rest of the action queue — other targets (via other flags, or direct attacks/expands) keep processing while troops are still marching.",
+        "The map supply-line overlay now shows a line for every active muster-fed attack at once instead of only the most recently queued one.",
+        "Cancelling now clears every flag still marching, not just the most recently armed one."
+      ]
+    },
     {
       introducedIn: "2026.07.15.4", title: "Fixed muster flags rendering behind the ownership overlay on the 3D map", why: "Muster flag meshes (renderOrder 36) were opaque-only materials, so Four.js drew them during the opaque pass — before the ownership overlay (transparent, renderOrder 6-7) in the transparent pass. The overlay then painted on top, making flags appear to sit beneath the settled/frontier tint despite having a numerically higher renderOrder.", changes: ["Muster flag pole, pennant, spike, and soldier-dot meshes now use transparent: true, moving them into the transparent pass where their renderOrder of 36 correctly places them on top of the ownership overlay."]
     },

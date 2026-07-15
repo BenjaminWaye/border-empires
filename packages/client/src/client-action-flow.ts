@@ -9,6 +9,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
+import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -582,9 +583,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.autoSettleTargets.delete(targetKey);
     }
     state.capture = undefined;
-    state.musterTransit = undefined;
-    state.activeMusterSource = undefined;
-    state.deferredAttack = undefined;
+    // Only this attack's flag entry — other flags may still be marching.
+    if (target) clearMusterTransitForTarget(state, target.x, target.y);
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
