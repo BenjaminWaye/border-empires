@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.15.1",
+  version: "2026.07.15.2",
   title: "What's New",
-  summary: "Fixed the alliance/truce search box: AI empires that haven't founded a settlement this season no longer clutter the target dropdown, the suggestion list no longer flickers/closes while typing, and requests targeting a player who hasn't set a custom display name now resolve correctly instead of reporting 'target not found'.",
+  summary: "Cancelling a Fort, Siege Outpost, Observatory, or economic structure build (or upgrade) now refunds the gold, manpower, and resources you spent starting it. Fixed the alliance/truce search box: AI empires that haven't founded a settlement this season no longer clutter the target dropdown, the suggestion list no longer flickers/closes while typing, and requests targeting a player who hasn't set a custom display name now resolve correctly instead of reporting 'target not found'.",
   entries: [
+    {
+      introducedIn: "2026.07.15.2",
+      title: "Cancelling a structure build now refunds what you spent",
+      why: "Cancelling a Fort, Siege Outpost, Observatory, or economic structure while it was still under construction (or mid-upgrade) deleted the in-progress structure but never gave back the gold, manpower, or strategic resources you paid to start it — that spend was simply gone.",
+      changes: [
+        "Cancelling a build or upgrade now refunds the exact gold, manpower, and strategic resource cost (iron, supply, crystal, etc.) that was spent to start it.",
+        "Fort and Siege Outpost refunds use the tier that was actually being built, so a tech unlock partway through construction can't change what comes back.",
+        "Cancelling a structure removal (not a build) is unaffected — removals were already free to start, so there is nothing to refund there."
+      ]
+    },
     {
       introducedIn: "2026.07.15.1",
       title: "Fixed alliance/truce search dropdown and target resolution",
