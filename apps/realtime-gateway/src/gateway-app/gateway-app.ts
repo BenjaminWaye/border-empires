@@ -10,7 +10,7 @@ import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "..
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter } from "../slack-alerts/slack-alerts.js";
-import { resolveGatewayAuthIdentity } from "../auth-identity/auth-identity.js";
+import { initialSocialNameForSeedPlayer, resolveGatewayAuthIdentity, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
@@ -143,12 +143,6 @@ const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string |
   const normalized = (email ?? "").trim().toLowerCase();
   const target = (fogAdminEmail ?? "").trim().toLowerCase();
   return normalized.length > 0 && target.length > 0 && normalized === target;
-};
-
-const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
-  if (playerId === "barbarian-1") return "Barbarians";
-  if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
-  return seedName ?? playerId;
 };
 
 const seasonalDefaultAiPlayerIds = (aiPlayerCount?: number): string[] => Array.from({ length: aiPlayerCount ?? 20 }, (_, index) => `ai-${index + 1}`);
@@ -2053,7 +2047,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             socialState.registerPlayer(
               playerIdentity.playerId,
-              persistedProfile?.name ?? playerIdentity.playerName
+              socialRegistrationNameFor(playerIdentity.playerId, persistedProfile?.name ?? playerIdentity.playerName)
             );
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
