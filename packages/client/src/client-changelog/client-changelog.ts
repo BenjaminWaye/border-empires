@@ -19,10 +19,13 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.15.3",
+  version: "2026.07.15.4",
   title: "What's New",
-  summary: "Truce and alliance offers to AI empires in seasonal games now resolve correctly — the client was using seasonal display names (e.g. 'Freja Sund') while the social state expected 'AI N' format. Cancelling a Fort, Siege Outpost, Observatory, or economic structure build (or upgrade) now refunds the gold, manpower, and resources you spent starting it. Fixed the alliance/truce search box: AI empires that haven't founded a settlement this season no longer clutter the target dropdown, the suggestion list no longer flickers/closes while typing, and requests targeting a player who hasn't set a custom display name now resolve correctly instead of reporting 'target not found'.",
+  summary: "Muster flags on the 3D map no longer render beneath the ownership overlay (settled/frontier tint) — they now draw on top where they belong. Also includes the previous release: truce and alliance offers to AI empires in seasonal games now resolve correctly, build cancellations refund your spend, and the alliance/truce search box no longer flickers or shows AI empires that never settled.",
   entries: [
+    {
+      introducedIn: "2026.07.15.4", title: "Fixed muster flags rendering behind the ownership overlay on the 3D map", why: "Muster flag meshes (renderOrder 36) were opaque-only materials, so Four.js drew them during the opaque pass — before the ownership overlay (transparent, renderOrder 6-7) in the transparent pass. The overlay then painted on top, making flags appear to sit beneath the settled/frontier tint despite having a numerically higher renderOrder.", changes: ["Muster flag pole, pennant, spike, and soldier-dot meshes now use transparent: true, moving them into the transparent pass where their renderOrder of 36 correctly places them on top of the ownership overlay."]
+    },
     {
       introducedIn: "2026.07.15.3", title: "Fixed truce/alliance offers to AI empires in seasonal games", why: "The 2026.07.11.1 fix aligned gateway social state AI names to \"AI N\" format, but the client's INIT payload still surfaced seasonal leaderboard names (e.g. \"Freja Sund\") in playerStyles and the leaderboard, so truce and alliance requests sent with those names still failed with \"target not found\".", changes: ["AI empire names in playerStyles and the leaderboard are now always \"AI N\", matching what the client sends in truce and alliance requests."]
     },
