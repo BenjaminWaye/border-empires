@@ -156,6 +156,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     activeTargets: [...reveals].sort(),
     revealCapacity: context.revealCapacityForPlayer(actor)
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -195,6 +196,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     type: "REVEAL_EMPIRE_STATS_RESULT",
     stats: context.buildRevealEmpireStats(target)
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -244,6 +246,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     points: actor.points,
     strategicResources: actor.strategicResources
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -316,6 +319,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     points: actor.points,
     strategicResources: actor.strategicResources
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -371,6 +375,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     type: "AETHER_BRIDGE_UPDATE",
     bridges: active
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -434,6 +439,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     type: "AETHER_WALL_UPDATE",
     walls: active
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handlePurgeSiphonCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {

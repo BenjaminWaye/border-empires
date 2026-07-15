@@ -137,6 +137,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     playerId: command.playerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -177,6 +178,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     playerId: command.playerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAirportBombardCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -290,6 +292,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     missedTiles,
     tiles: tileOutcomes
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -342,6 +345,7 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
   }
   if (totalTransferred > 0) context.addStrategicResource(actor, payload.resource, totalTransferred);
   context.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -423,6 +427,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     }
   }
   context.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAegisLockCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -465,6 +470,7 @@ export function handleAegisLockCommand(context: RuntimeMapCommandContext, comman
     y: payload.fromY,
     activeUntil: now + AEGIS_LOCK_DURATION_MS
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -507,4 +513,5 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     y: payload.fromY,
     activeUntil: now + ASTRAL_DOCK_LAUNCH_DURATION_MS
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

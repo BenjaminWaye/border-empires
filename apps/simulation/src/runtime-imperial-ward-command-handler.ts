@@ -47,4 +47,5 @@ export function handleActivateImperialWardCommand(context: RuntimeMapCommandCont
     activeUntil,
     chargesRemaining: actor.imperialWardCharges
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
