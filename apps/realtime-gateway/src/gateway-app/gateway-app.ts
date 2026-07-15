@@ -355,17 +355,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     backlogPendingCount: undefined as number | undefined,
     backlogDegraded: false
   };
-  if (options.simMetricsUrl) {
-    createSimBacklogStatusPoller({
-      getSimMetrics: async () => {
-        const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
-        if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
-        return res.text();
-      },
-      target: simulationHealth,
-      threshold: Math.max(1, Number(process.env.GATEWAY_BACKLOG_DEGRADED_THRESHOLD ?? 500))
-    }).start();
-  }
+  const simBacklogStatusPoller = options.simMetricsUrl
+    ? createSimBacklogStatusPoller({
+        getSimMetrics: async () => {
+          const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
+          if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
+          return res.text();
+        },
+        target: simulationHealth,
+        threshold: Math.max(1, Number(process.env.GATEWAY_BACKLOG_DEGRADED_THRESHOLD ?? 500))
+      })
+    : undefined;
+  simBacklogStatusPoller?.start();
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
@@ -1918,6 +1919,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
+    simBacklogStatusPoller?.stop();
     slackAlertLatencyPoll.stop();
     databaseKeepAlive.stop();
     gcObserver?.disconnect();

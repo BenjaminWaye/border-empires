@@ -64,6 +64,11 @@ export const createSimBacklogStatusPoller = (options: {
     try {
       const metricsText = await options.getSimMetrics();
       const pendingCount = parseSimWriterQueueDepth(metricsText);
+      // A successful scrape whose text doesn't (yet) contain the gauge — e.g.
+      // the sim hasn't registered it this early in its own boot — is treated
+      // the same as a fetch error: keep the last known value rather than
+      // silently clearing a real backlog signal to undefined/false.
+      if (pendingCount === undefined) return;
       options.target.backlogPendingCount = pendingCount;
       options.target.backlogDegraded = isBacklogDegraded(pendingCount, options.threshold);
     } catch (error) {
