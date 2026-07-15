@@ -61,6 +61,10 @@ describe("SqliteWriterChannel backpressure", () => {
         rejected_message TEXT,
         resolved_at INTEGER
       );
+      CREATE TABLE client_seq_watermarks (
+        player_id TEXT PRIMARY KEY,
+        max_client_seq INTEGER NOT NULL
+      );
     `);
     db.close();
     return dbPath;

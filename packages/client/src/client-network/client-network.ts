@@ -27,7 +27,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
-import { notificationCategoryForServerError } from "../client-persistent-alerts/client-persistent-alerts.js";
+import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
@@ -2835,11 +2835,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state.authBusyTitle = "Securing session";
           state.authBusyDetail =
             errorCode === "SERVER_STARTING"
-              ? "The game server is still starting. Sign-in will retry automatically."
+              ? serverStartingBusyMessages(msg.backlogDegraded === true).detail
               : "Google account connected, but the authentication service did not answer in time. Retrying...";
           scheduleAuthReconnect(
             errorCode === "SERVER_STARTING"
-              ? "Game server is still starting. Retrying sign-in..."
+              ? serverStartingBusyMessages(msg.backlogDegraded === true).retryStatus
               : "Google account connected. Waiting for the game server to finish authorizing..."
           );
           return;
