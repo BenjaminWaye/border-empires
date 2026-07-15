@@ -3120,15 +3120,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       socket.on("close", () => {
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
-        void simulationClient.submitCommand({
+        // clientSeq must be real: commands has UNIQUE(player_id, client_seq),
+        // and a hardcoded 0 here only ever succeeded once per player, ever —
+        // read commandStore's real counter instead of colliding every time.
+        void commandStore.nextClientSeqForPlayer(closingPlayerId).then((clientSeq) => simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
-          sessionId: session.sessionId,
-          playerId: closingPlayerId,
-          clientSeq: 0,
-          issuedAt: Date.now(),
-          type: "UNWATCH_MUSTER",
-          payloadJson: "{}"
-        }).catch(() => { /* best-effort on disconnect */ });
+          sessionId: session.sessionId, playerId: closingPlayerId, clientSeq, issuedAt: Date.now(),
+          type: "UNWATCH_MUSTER", payloadJson: "{}"
+        })).catch(() => { /* best-effort on disconnect */ });
         void playerSubscriptions.removeSocket(closingPlayerId, socket)
           .then(() => {
             syncGatewaySnapshotMetricsFromCache(closingPlayerId);
