@@ -10,6 +10,7 @@ import {
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -1030,6 +1031,11 @@ export const processActionQueue = (
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
   topUpFromWaypoint(state, deps.keyFor, deps.pushFeed);
   let deferredFrontierSyncTargets = 0;
+  // Arming a muster transit doesn't dispatch a real network send (see
+  // below), so the loop keeps going past it; track whether we armed
+  // anything so callers still see "started" work even when nothing was
+  // actually sent to the server this pass.
+  let armedMuster = false;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];
     if (!next) return false;
@@ -1377,42 +1383,31 @@ export const processActionQueue = (
           deps.renderHud();
           continue;
         }
-        // Flag found within range — compute transit delay and defer the send.
-        const transitMs = closest.dist * MUSTER_TRANSIT_MS_PER_TILE;
-        const now = Date.now();
-        state.musterTransit = {
+        // Flag found within range — arm the transit and defer the send.
+        // Arming doesn't hold the single actionInFlight lock (nothing is
+        // sent to the server yet), so the queue keeps processing: other
+        // targets can arm their own flags in the same pass instead of
+        // being blocked behind this one attack's march.
+        armMusterTransit(state, deps.keyFor, {
           musterX: closest.tile.x,
           musterY: closest.tile.y,
-          targetX: to.x,
-          targetY: to.y,
-          transitStartAt: now,
-          transitEndsAt: now + transitMs,
-        };
-        state.activeMusterSource = { x: closest.tile.x, y: closest.tile.y };
-        state.capture = {
-          startAt: now + transitMs,
-          resolvesAt: now + transitMs + 3_000,
-          target: { x: to.x, y: to.y },
-        };
-        state.deferredAttack = {
-          fromX: from.x, fromY: from.y,
-          toX: to.x, toY: to.y,
-          commandId, clientSeq,
-        };
-        state.actionInFlight = true;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = now;
-        state.actionTargetKey = targetKey;
+          fromX: from.x,
+          fromY: from.y,
+          toX: to.x,
+          toY: to.y,
+          transitTiles: closest.dist,
+          commandId,
+          clientSeq
+        });
+        armedMuster = true;
         deps.pushFeed(
-          `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — troops marching (${Math.round(transitMs / 1000)}s transit)`,
+          `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — troops marching (${Math.round((closest.dist * MUSTER_TRANSIT_MS_PER_TILE) / 1000)}s transit)`,
           "combat",
           "info"
         );
         state.selected = { x: to.x, y: to.y };
         deps.renderHud();
-        return true;
+        continue;
       }
       deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
       attackSyncLog("send", {
@@ -1436,7 +1431,7 @@ export const processActionQueue = (
     deps.renderHud();
     return true;
   }
-  return false;
+  return armedMuster;
 };
 
 export const requestAttackPreviewForHover = (

@@ -25,6 +25,7 @@ import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-b
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
@@ -1499,42 +1500,46 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
-    // 2D supply line: flag → attack front, only for attacks on owned tiles (not neutral expands).
-    // For ADVANCE mode, scan for the adjacent muster tile that fired the attack.
+    // 2D supply lines: flag → attack front, one per active muster flag, only
+    // for attacks on owned tiles (not neutral expands). Each flag's line is
+    // independent of the others (different flags may be in different
+    // phases at once). For a server-fired ADVANCE-mode attack not covered
+    // by any tracked flag, fall back to scanning for the adjacent flag.
+    const musterSupplyLines2D = activeMusterSupplyLines(state, deps.keyFor);
+    const coveredTargetKeys2D = new Set(musterSupplyLines2D.map((line) => line.targetKey));
     const captureTargetKey2D = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
     const targetOwned = Boolean(state.tiles.get(captureTargetKey2D)?.ownerId);
-    const musterSupplySrc = state.activeMusterSource ?? (targetOwned && state.capture ? (() => {
-      if (advanceSrcCache2D?.targetKey !== captureTargetKey2D) {
-        let bestTile: { x: number; y: number } | undefined;
-        let bestDist = Infinity;
-        const tgt = state.capture.target;
-        for (const tile of state.tiles.values()) {
-          if (!tile.muster || tile.muster.ownerId !== state.me || tile.muster.mode !== "ADVANCE") continue;
-          const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
-          if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
-        }
-        advanceSrcCache2D = { targetKey: captureTargetKey2D, result: bestTile };
+    if (state.capture && targetOwned && !coveredTargetKeys2D.has(captureTargetKey2D)) {
+      const advanceFallback2D = resolveAdvanceMusterFallbackSource(state, captureTargetKey2D, state.capture.target, advanceSrcCache2D);
+      advanceSrcCache2D = advanceFallback2D.cache;
+      if (advanceFallback2D.result) {
+        musterSupplyLines2D.push({
+          musterX: advanceFallback2D.result.x,
+          musterY: advanceFallback2D.result.y,
+          targetX: state.capture.target.x,
+          targetY: state.capture.target.y,
+          targetKey: captureTargetKey2D,
+          phase: "locked"
+        });
       }
-      return advanceSrcCache2D.result;
-    })() : undefined);
-    if (!isTrue3DRendererActive() && musterSupplySrc && state.capture) {
-      const src = musterSupplySrc;
-      const tgt = state.capture.target;
-      const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
-      const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
-      const phase = state.musterTransit ? "transit" : "locked";
-      const alpha = phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
-      deps.ctx.save();
-      deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
-      deps.ctx.globalAlpha = alpha;
-      deps.ctx.lineWidth = phase === "transit" ? 3.5 : 2.5;
-      if (phase === "transit") deps.ctx.setLineDash([6, 4]);
-      deps.ctx.beginPath();
-      deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
-      deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
-      deps.ctx.stroke();
-      deps.ctx.setLineDash([]);
-      deps.ctx.restore();
+    }
+    if (!isTrue3DRendererActive()) {
+      for (const line of musterSupplyLines2D) {
+        const srcScreen = deps.worldToScreen(line.musterX, line.musterY, size, halfW, halfH);
+        const tgtScreen = deps.worldToScreen(line.targetX, line.targetY, size, halfW, halfH);
+        const alpha = line.phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
+        deps.ctx.save();
+        deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
+        deps.ctx.globalAlpha = alpha;
+        deps.ctx.lineWidth = line.phase === "transit" ? 3.5 : 2.5;
+        if (line.phase === "transit") deps.ctx.setLineDash([6, 4]);
+        deps.ctx.beginPath();
+        deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
+        deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
+        deps.ctx.stroke();
+        deps.ctx.setLineDash([]);
+        deps.ctx.restore();
+      }
     }
 
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
@@ -1611,26 +1616,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
       deps.renderHud();
     }
-    // Fire deferred attack once the transit window expires.
-    if (state.musterTransit) {
-      if (Date.now() >= state.musterTransit.transitEndsAt) {
-        state.musterTransit = undefined;
-        const deferred = state.deferredAttack;
-        if (deferred) {
-          state.deferredAttack = undefined;
-          // Reset the action clock so the 2s accept timeout starts from now,
-          // not from the transit start.
-          state.actionStartedAt = Date.now();
-          state.actionAcceptTimeoutHandledAt = 0;
-          deps.sendDeferredAttack(deferred.fromX, deferred.fromY, deferred.toX, deferred.toY, deferred.commandId, deferred.clientSeq);
-        }
-        deps.requestViewRefresh();
-      } else {
-        // Troops still marching — skip the action-accept timeout check entirely.
-        // The server hasn't received ATTACK yet so no ACK is expected.
-        return;
-      }
-    }
+    // Fire whichever muster flags' transit windows have expired. Each flag
+    // arms/marches independently of the others and of the single
+    // actionInFlight slot; fireDueMusterTransits only claims that slot for
+    // the one attack it actually sends this tick.
+    fireDueMusterTransits(state, {
+      keyFor: deps.keyFor,
+      sendDeferredAttack: deps.sendDeferredAttack,
+      requestViewRefresh: deps.requestViewRefresh
+    });
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;

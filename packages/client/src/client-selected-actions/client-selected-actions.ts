@@ -1,4 +1,5 @@
 import { COLLECT_VISIBLE_COOLDOWN_MS } from "../client-constants.js";
+import { cancelUnsentMusterTransits } from "../client-muster-transit/client-muster-transit.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
 import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
@@ -115,23 +116,28 @@ export const uncaptureSelected = (
 };
 
 export const cancelOngoingCapture = (
-  state: Pick<ClientState, "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys" | "musterTransit" | "activeMusterSource" | "deferredAttack" | "actionInFlight" | "actionCurrent" | "actionTargetKey" | "capture">,
+  state: Pick<
+    ClientState,
+    "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys" | "musterTransitByTile" | "deferredAttackByTile" | "actionInFlight" | "actionCurrent" | "actionTargetKey" | "capture"
+  >,
   sendGameMessage: (payload: unknown) => boolean
 ): void => {
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
-  if (state.musterTransit) {
-    // Troops are still marching — cancel before the attack is sent.
-    state.musterTransit = undefined;
-    state.activeMusterSource = undefined;
-    state.deferredAttack = undefined;
+  // Muster-fed attacks still marching (not yet sent to the server) are
+  // purely local — cancel all of them immediately rather than just the
+  // most recently armed one, since independent flags may each be at a
+  // different point in their transit.
+  if (cancelUnsentMusterTransits(state)) {
     state.capture = undefined;
     state.actionInFlight = false;
     state.actionCurrent = undefined;
     state.actionTargetKey = "";
-    return;
   }
+  // Anything already sent (a fired muster attack awaiting resolution, or
+  // any other in-flight capture) is a real server-side lock — cancelled
+  // via CANCEL_CAPTURE, which is harmless to send even if nothing is active.
   sendGameMessage({ type: "CANCEL_CAPTURE" });
 };
 
