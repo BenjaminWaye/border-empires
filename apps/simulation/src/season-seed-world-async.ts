@@ -44,6 +44,7 @@ import {
   type GeneratedDockState,
   type GeneratedSeasonSeedWorld
 } from "./season-seed-world.js";
+import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
 // yields between generation stages, used by the live "Start New Season"
@@ -322,38 +323,16 @@ export const createSeasonSeedWorldAsync = async (
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
   await onYield?.();
 
-  const barbarianTileKeys = new Set<TileKey>();
-  const BARBARIAN_SEED_TARGET = 80;
-  const BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN = 12;
-  const BARBARIAN_SEED_MIN_SEPARATION = 4;
-  const BARBARIAN_SEED_MAX_TRIES = BARBARIAN_SEED_TARGET * 200;
-  const isFarFromAnyPlayerSpawn = (x: number, y: number): boolean =>
-    spawnPositions.every((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) >= BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN);
-  const isFarFromOtherBarbs = (x: number, y: number): boolean => {
-    for (const existingKey of barbarianTileKeys) {
-      const [bx, by] = parseKey(existingKey);
-      if (chebyshevDistance(x, y, bx, by) < BARBARIAN_SEED_MIN_SEPARATION) return false;
-    }
-    return true;
-  };
-  for (let attempt = 0; attempt < BARBARIAN_SEED_MAX_TRIES && barbarianTileKeys.size < BARBARIAN_SEED_TARGET; attempt += 1) {
-    const x = Math.floor(
-      terrainRuntime.seeded01(attempt * 73 + 11, attempt * 131 + 17, worldSeed + 50_001) * WORLD_WIDTH
-    );
-    const y = Math.floor(
-      terrainRuntime.seeded01(attempt * 89 + 19, attempt * 113 + 23, worldSeed + 50_002) * WORLD_HEIGHT
-    );
-    const tk = key(x, y);
-    if (terrainAt(x, y) !== "LAND") continue;
-    if (ownership.has(tk)) continue;
-    if (townsByTile.has(tk)) continue;
-    if (docksByTile.has(tk)) continue;
-    if (shardSitesByTile.has(tk)) continue;
-    if (!isFarFromAnyPlayerSpawn(x, y)) continue;
-    if (!isFarFromOtherBarbs(x, y)) continue;
-    ownership.set(tk, "barbarian-1");
-    barbarianTileKeys.add(tk);
-  }
+  const barbarianTileKeys = seedBarbarianTiles({
+    spawnPositions,
+    ownership,
+    townsByTile,
+    docksByTile,
+    shardSitesByTile,
+    worldSeed,
+    terrainAt,
+    seeded01: terrainRuntime.seeded01
+  });
   await onYield?.();
 
   const tiles = new Map<string, DomainTileState>();

@@ -5,6 +5,16 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 export const BARBARIAN_PLAYER_ID = "barbarian-1";
 export const BARBARIAN_TILE_COOLDOWN_MS = 15_000;
 
+// Hard cap on barbarian territory. An uncapped barbarian on staging grew to
+// 941 tiles (vs prod's ~126); the sim main thread re-exports the barbarian's
+// full planner view (O(territory)) on every one of those tiles' ownership
+// changes, and with the barbarian constantly being eaten by AI that re-export
+// churned continuously — the dominant sim-thread cost, starving gateway logins
+// on the shared vCPU. At/above the cap the barbarian takes no action, so it
+// can never grow past ~100 via its own expansion; players eroding it below the
+// cap let it act again, so it hovers at ≤100 and its export stays cheap.
+export const MAX_BARBARIAN_TILES = 100;
+
 export type BarbarianPlannerDeps = {
   readonly tilesByKey: ReadonlyMap<string, PlannerTileView>;
   readonly resolveOwnedTiles: (player: PlannerPlayerView) => PlannerTileView[];
@@ -39,6 +49,9 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   ): CommandEnvelope | null => {
     const ownedTiles = deps.resolveOwnedTiles(player);
     if (ownedTiles.length === 0) return null;
+    // Size cap: stop acting once at/over the cap so the barbarian can never
+    // grow its own territory (and thus its per-churn export cost) unbounded.
+    if (ownedTiles.length >= MAX_BARBARIAN_TILES) return null;
 
     const visible = deps.getVisibleToAnyNonBarbPlayer();
     if (visible.size === 0) return null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBarbarianPlanner, BARBARIAN_PLAYER_ID, BARBARIAN_TILE_COOLDOWN_MS } from "./system-job-barbarian-planner.js";
+import { createBarbarianPlanner, BARBARIAN_PLAYER_ID, BARBARIAN_TILE_COOLDOWN_MS, MAX_BARBARIAN_TILES } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 
 const makeBarbTile = (x: number, y: number): PlannerTileView => ({
@@ -192,4 +192,37 @@ describe("createBarbarianPlanner cooldown", () => {
     });
     expect(planner.choose(makeBarbPlayer([tileKey(5, 5)]), 1, 1_000)).toBeNull();
   });
+
+  it("takes no action once at/over the territory cap so the barbarian cannot grow unbounded", () => {
+    // Build a barbarian at exactly the cap, every tile visible and eligible.
+    // Without the cap the planner would emit an expansion command; with it,
+    // the barbarian stays put so its per-churn planner export cost stays
+    // bounded (see MAX_BARBARIAN_TILES rationale).
+    const tilesByKey = new Map<string, PlannerTileView>();
+    const territory: string[] = [];
+    const visible = new Set<string>();
+    for (let i = 0; i < MAX_BARBARIAN_TILES; i += 1) {
+      const x = i;
+      const y = 0;
+      tilesByKey.set(tileKey(x, y), makeBarbTile(x, y));
+      territory.push(tileKey(x, y));
+      visible.add(tileKey(x, y));
+    }
+    // A neutral tile the barbarian could expand into if it were allowed to act.
+    tilesByKey.set(tileKey(0, 1), { x: 0, y: 1, terrain: "LAND" });
+    const planner = createBarbarianPlanner({
+      tilesByKey,
+      resolveOwnedTiles: (p) =>
+        p.territoryTileKeys.map((k) => tilesByKey.get(k)).filter((t): t is PlannerTileView => !!t),
+      getDockLinksByDockTileKey: () => new Map(),
+      getVisibleToAnyNonBarbPlayer: () => visible,
+      now: () => 1_000
+    });
+    expect(planner.choose(makeBarbPlayer(territory), 1, 1_000)).toBeNull();
+
+    // One tile below the cap, it acts again.
+    const belowCap = territory.slice(0, MAX_BARBARIAN_TILES - 1);
+    expect(planner.choose(makeBarbPlayer(belowCap), 2, 1_000)).not.toBeNull();
+  });
+
 });
