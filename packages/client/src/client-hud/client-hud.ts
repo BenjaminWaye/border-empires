@@ -25,7 +25,7 @@ import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js"
 import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
 import { updateSettingsDisplayName, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
-import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "../client-social-suggestions/client-social-suggestions.js";
+import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
 import type { StructureInfoKey } from "../client-map-display.js";
@@ -555,7 +555,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  dom.allianceTargetOptionsEl.innerHTML = allianceTargetSuggestionOptionsHtml(allianceTargetSuggestions(state));
+  renderAllianceTargetOptionsIfChanged(dom.allianceTargetOptionsEl, state);
   dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveGatewayAuthIdentity } from "./auth-identity.js";
+import { initialSocialNameForSeedPlayer, resolveGatewayAuthIdentity, socialRegistrationNameFor } from "./auth-identity.js";
 
 describe("resolveGatewayAuthIdentity", () => {
   it("keeps plain non-jwt tokens as direct player ids only when explicitly allowed", () => {
@@ -62,5 +62,38 @@ describe("resolveGatewayAuthIdentity", () => {
         playerName: expect.stringMatching(/^Empire [0-9A-Z]{6}$/)
       })
     );
+  });
+});
+
+describe("initialSocialNameForSeedPlayer", () => {
+  it("uses the cosmetic 'Nauticus' default for an uncustomized player-1, matching the leaderboard fallback", () => {
+    expect(initialSocialNameForSeedPlayer("player-1", undefined)).toBe("Nauticus");
+    expect(initialSocialNameForSeedPlayer("player-1", "player-1")).toBe("Nauticus");
+  });
+
+  it("keeps a real customized name for player-1 once one has been set", () => {
+    expect(initialSocialNameForSeedPlayer("player-1", "Valen")).toBe("Valen");
+  });
+
+  it("still labels AI and barbarian seed players as before", () => {
+    expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("AI 6");
+    expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Barbarians");
+  });
+});
+
+describe("socialRegistrationNameFor", () => {
+  it("applies the cosmetic default when the resolved auth name is just the raw player id (never customized)", () => {
+    // This is the direct-player-id-token auth path (resolveGatewayAuthIdentity
+    // returns { playerId: "player-1", playerName: "player-1" }): without this
+    // mapping, social-state would register the player under the literal id
+    // "player-1", while the leaderboard/alliance-search dropdown shows them
+    // as "Nauticus" to other players — making "Nauticus" unresolvable by
+    // resolveByName and alliance/truce requests fail with "target not found".
+    expect(socialRegistrationNameFor("player-1", "player-1")).toBe("Nauticus");
+  });
+
+  it("keeps a real resolved auth/profile name unchanged", () => {
+    expect(socialRegistrationNameFor("player-1", "Valen")).toBe("Valen");
+    expect(socialRegistrationNameFor("player-2", "player-2")).toBe("player-2");
   });
 });
