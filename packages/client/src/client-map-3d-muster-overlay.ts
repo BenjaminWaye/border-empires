@@ -105,19 +105,19 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
   const MAX = 256;
 
   const poleGeom = new CylinderGeometry(POLE_R_TOP, POLE_R_BOT, POLE_H, 6);
-  const poleMat  = new MeshBasicMaterial({ color: "#2d2d3c", depthTest: false, depthWrite: false });
+  const poleMat  = new MeshBasicMaterial({ color: "#2d2d3c", depthTest: false, depthWrite: false, transparent: true });
   const poleMesh = new InstancedMesh(poleGeom, poleMat, MAX);
 
   const pennantGeom = buildPennantGeometry();
-  const pennantMat  = new MeshBasicMaterial({ color: "#ffffff", side: DoubleSide, depthTest: false, depthWrite: false });
+  const pennantMat  = new MeshBasicMaterial({ color: "#ffffff", side: DoubleSide, depthTest: false, depthWrite: false, transparent: true });
   const pennantMesh = new InstancedMesh(pennantGeom, pennantMat, MAX);
 
   const spikeGeom = new ConeGeometry(SPIKE_R, SPIKE_H, 4);
-  const spikeMat  = new MeshBasicMaterial({ color: "#4a4a5c", depthTest: false, depthWrite: false });
+  const spikeMat  = new MeshBasicMaterial({ color: "#4a4a5c", depthTest: false, depthWrite: false, transparent: true });
   const spikeMesh = new InstancedMesh(spikeGeom, spikeMat, MAX);
 
   const soldierGeom = new ConeGeometry(SOLDIER_W * 0.5, SOLDIER_H, 4); // tiny soldier silhouette
-  const soldierMat  = new MeshBasicMaterial({ color: "#0a0d18", depthTest: false, depthWrite: false });
+  const soldierMat  = new MeshBasicMaterial({ color: "#0a0d18", depthTest: false, depthWrite: false, transparent: true });
   const soldierMesh = new InstancedMesh(soldierGeom, soldierMat, MAX * SOLDIERS_MAX);
 
   for (const m of [poleMesh, pennantMesh, spikeMesh, soldierMesh]) {
