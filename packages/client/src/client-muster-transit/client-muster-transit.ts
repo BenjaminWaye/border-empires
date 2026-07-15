@@ -39,6 +39,14 @@ type ArmMusterTransitState = MusterTransitMaps &
 // the server yet — so it must NOT hold the single actionInFlight lock.
 // Doing so would block every other flag's transit (and the rest of the
 // action queue) behind this one attack's multi-second march.
+//
+// Note: state.capture stays a single slot (out of scope for this per-flag
+// conversion — see activeMusterSupplyLines for the real multi-flag overlay
+// source of truth). Arming a second flag while an earlier one is still
+// resolving overwrites capture.resolvesAt with the newer attack's timeline,
+// which can delay (never break) the runtime loop's 5s combat-result-timeout
+// safety net for the still-in-flight older attack — a rare fallback-for-a-
+// fallback path that self-corrects once that attack's real result arrives.
 export const armMusterTransit = (
   state: ArmMusterTransitState,
   keyFor: (x: number, y: number) => string,
@@ -90,6 +98,19 @@ export const armMusterTransit = (
 type FireDueMusterTransitsState = MusterTransitMaps &
   Pick<ClientState, "actionInFlight" | "actionAcceptedAck" | "combatStartAck" | "actionAcceptTimeoutHandledAt" | "actionStartedAt" | "actionCurrent" | "actionTargetKey">;
 
+// Once fired, a flag's entry is only meant to live in "locked" phase
+// (musterTransitByTile without a matching deferredAttackByTile) until its
+// combat result arrives, at which point clearMusterTransitForTarget removes
+// it. But several other reset paths (accept-timeout, command rejection,
+// reconnect/resync) reset actionInFlight/actionCurrent without knowing
+// about these maps, so an unclean resolution can orphan a locked entry
+// forever — permanently excluding that flag from findClosestMuster and
+// leaving a stale overlay line. Every legitimate resolution/recovery path
+// in this system completes within ~12s of the transit ending (see the
+// frontierSyncWaitUntilByTarget/frontierLateAckUntilByTarget windows
+// elsewhere); prune anything still locked well beyond that as a safety net.
+const STALE_LOCKED_MUSTER_TRANSIT_MS = 30_000;
+
 // Fire whichever flags' transit windows have elapsed. Only one frontier
 // command can be awaiting a server ack at a time (state.actionInFlight is
 // still a single slot for the actual send/ack/resolution cycle); any flag
@@ -107,7 +128,12 @@ export const fireDueMusterTransits = (
   const now = Date.now();
   for (const [flagKey, transit] of state.musterTransitByTile) {
     const deferred = state.deferredAttackByTile.get(flagKey);
-    if (!deferred) continue; // already fired — waiting on combat resolution
+    if (!deferred) {
+      // Already fired — normally waiting on combat resolution, but prune it
+      // if it's been orphaned well past every legitimate recovery window.
+      if (now - transit.transitEndsAt > STALE_LOCKED_MUSTER_TRANSIT_MS) state.musterTransitByTile.delete(flagKey);
+      continue;
+    }
     if (now < transit.transitEndsAt) continue;
     if (state.actionInFlight) continue;
     state.deferredAttackByTile.delete(flagKey);
