@@ -17,7 +17,6 @@ import {
   createChunkedSnapshotStringifier,
   type SnapshotStringifier
 } from "../snapshot-stringifier/snapshot-stringifier.js";
-import type { SnapshotCompactor } from "../snapshot-compaction-pool/snapshot-compaction-pool.js";
 
 type Row = {
   snapshot_id: number;
@@ -40,7 +39,6 @@ export type WorldgenBaselineResolver = (input: {
 
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly stringify: SnapshotStringifier;
-  private readonly compact: SnapshotCompactor | undefined;
   private readonly resolveBaseline: WorldgenBaselineResolver | undefined;
   private readonly onPruneFailure: ((error: unknown) => void) | undefined;
   private lastLoadedFormatVersion: number | undefined;
@@ -49,13 +47,11 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     private readonly db: DatabaseSync,
     options: {
       stringify?: SnapshotStringifier;
-      compact?: SnapshotCompactor;
       resolveBaseline?: WorldgenBaselineResolver;
       onPruneFailure?: (error: unknown) => void;
     } = {}
   ) {
     this.stringify = options.stringify ?? defaultStringify;
-    this.compact = options.compact;
     this.resolveBaseline = options.resolveBaseline;
     this.onPruneFailure = options.onPruneFailure;
   }
@@ -78,16 +74,6 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   }
 
   async preparePayload(sections: SimulationSnapshotSections): Promise<string> {
-    // With a worker compactor injected, resolve the raw baseline tiles only —
-    // building the {x,y}->tile index (202,500 Map.set calls) happens inside
-    // the worker too, so this thread never touches the full-world array.
-    if (this.compact) {
-      const baselineTiles = await this.resolveBaselineTilesFromSections(sections);
-      const payload = baselineTiles
-        ? await this.compact(sections, baselineTiles)
-        : buildSimulationSnapshotPayload(sections);
-      return await this.stringify(payload);
-    }
     const baselineIndex = await this.resolveBaselineIndexFromSections(sections);
     const payload = baselineIndex
       ? await compactSnapshotForStorage(sections, baselineIndex)
@@ -168,24 +154,17 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     }
   }
 
-  private async resolveBaselineTilesFromSections(
+  private async resolveBaselineIndexFromSections(
     sections: SimulationSnapshotSections
-  ): Promise<ReadonlyArray<RecoveredTile> | undefined> {
+  ): Promise<ReadonlyMap<string, RecoveredTile> | undefined> {
     if (!this.resolveBaseline) return undefined;
     const season = sections.initialState.season;
     if (!season) return undefined;
-    return await this.resolveBaseline({
+    const tiles = await this.resolveBaseline({
       rulesetId: season.rulesetId,
       worldSeed: season.worldSeed,
       ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
     });
-  }
-
-  private async resolveBaselineIndexFromSections(
-    sections: SimulationSnapshotSections
-  ): Promise<ReadonlyMap<string, RecoveredTile> | undefined> {
-    const tiles = await this.resolveBaselineTilesFromSections(sections);
-    if (!tiles) return undefined;
     const index = new Map<string, RecoveredTile>();
     for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
     return index;
