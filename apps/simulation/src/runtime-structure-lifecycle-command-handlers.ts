@@ -4,6 +4,7 @@ import {
   MUSTER_MAX_TILES,
   MUSTER_SYSTEM_ENABLED,
   SIEGE_TIER_LADDER,
+  STRUCTURE_REGISTRY,
   structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCost,
@@ -65,10 +66,20 @@ type StructureCancelRefund = {
 // (runtime-structure-command-handlers.ts) took, or the player permanently loses that
 // gold/manpower/strategic spend. Fort and siege outpost tiers are recomputed from the
 // tile's stored `variant` (not the player's *current* tech) so a tech unlock mid-build
-// can't change what gets refunded. Economic/observatory gold is scaling-by-count, so we
-// subtract 1 from the current owned count first: the index already counted this
-// under-construction structure, so `count - 1` reproduces the count that was active when
-// the build started.
+// can't change what gets refunded -- this is exact regardless of concurrency, since the
+// ladder is keyed by variant, not by a count that could shift under other in-flight builds.
+//
+// Economic/observatory gold is scaling-by-owned-count, so we subtract 1 from the current
+// owned-structure-count index first: the index bumps as soon as construction starts, so by
+// cancel time it already counts this under-construction structure, and `count - 1`
+// reproduces the count that was active when *this* build started. Known limitation: this
+// is exact as long as the player has at most one structure of that type under construction
+// at a time. If two builds of the same scaling economic/observatory type are in flight
+// concurrently (allowed by DEVELOPMENT_PROCESS_LIMIT slots) and only one is cancelled, the
+// refund can be attributed to the wrong tier -- the discrepancy nets to zero once every
+// concurrent build of that type is either completed or cancelled, but cancelling one while
+// keeping the other can over- or under-refund by the gap between two adjacent cost tiers.
+// A fully drift-proof fix would persist the exact cost paid on the tile at build time.
 function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourceKey, amount: number): void {
   if (amount <= 0) return;
   const current = actor.strategicResources?.[resource] ?? 0;
@@ -106,8 +117,13 @@ function economicOrObservatoryCancelRefund(
   const existingCount = Math.max(0, context.ownedStructureCountForPlayer(playerId, structureType) - 1);
   const gold = structureBuildGoldCost(structureType, existingCount);
   const manpower = structureBuildManpowerCost(structureType);
+  // Mirrors handleBuildStructureCommand's strategicCostForStructure precedence exactly
+  // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
+  // this can't drift from what was actually charged if the two tables ever disagree.
+  const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
   const costDef = structureCostDefinition(structureType);
-  const strategic: StrategicRefund = costDef.resourceCost ? { [costDef.resourceCost.resource]: costDef.resourceCost.amount } : {};
+  const strategic: StrategicRefund =
+    registryStrategic ?? (costDef.resourceCost ? { [costDef.resourceCost.resource]: costDef.resourceCost.amount } : {});
   return { gold, manpower, strategic };
 }
 
