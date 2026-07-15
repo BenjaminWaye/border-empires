@@ -1,5 +1,6 @@
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { InMemorySimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
+import type { SnapshotCompactor } from "../snapshot-compaction-pool/snapshot-compaction-pool.js";
 import type { SnapshotStringifier } from "../snapshot-stringifier/snapshot-stringifier.js";
 import type { WorldgenBaselineResolver } from "../sqlite-snapshot-store/sqlite-snapshot-store.js";
 import type { SqliteWriterChannel } from "../sqlite-writer-channel/sqlite-writer-channel.js";
@@ -8,6 +9,7 @@ type SnapshotStoreFactoryOptions = {
   sqlitePath?: string;
   applySchema?: boolean;
   stringify?: SnapshotStringifier;
+  compact?: SnapshotCompactor;
   resolveBaseline?: WorldgenBaselineResolver;
   onPruneFailure?: (error: unknown) => void;
   writerChannel?: SqliteWriterChannel;
@@ -26,6 +28,7 @@ export const createSimulationSnapshotStore = async (
   // only one DB connection is opened.
   const reader = new SqliteSimulationSnapshotStore(openSqliteDatabase(options.sqlitePath), {
     ...(options.stringify ? { stringify: options.stringify } : {}),
+    ...(options.compact ? { compact: options.compact } : {}),
     ...(options.resolveBaseline ? { resolveBaseline: options.resolveBaseline } : {}),
     ...(!options.writerChannel && options.onPruneFailure ? { onPruneFailure: options.onPruneFailure } : {})
   });

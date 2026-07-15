@@ -159,3 +159,50 @@ describe("SqliteSimulationSnapshotStore event prune", () => {
     expect(eventIds(db)).toEqual([]);
   });
 });
+
+describe("SqliteSimulationSnapshotStore compact injection", () => {
+  const sectionsWithSeason = (): SimulationSnapshotSections =>
+    ({
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
+        activeLocks: [],
+        season: { rulesetId: "default", worldSeed: 1 }
+      },
+      commandEvents: []
+    }) as unknown as SimulationSnapshotSections;
+
+  const baselineTile = { x: 0, y: 0, terrain: "LAND" as const };
+
+  it("uses the injected compact function with the raw baseline tiles (not a pre-built index)", async () => {
+    const db = new DatabaseSync(":memory:");
+    let receivedBaselineTiles: unknown;
+    const store = new SqliteSimulationSnapshotStore(db, {
+      resolveBaseline: () => [baselineTile],
+      compact: async (sections, baselineTiles) => {
+        receivedBaselineTiles = baselineTiles;
+        return { formatVersion: 1, tileOverlay: [{ x: 0, y: 0, ownerId: "ai-1" }], activeLocks: sections.initialState.activeLocks, commandEvents: [] };
+      },
+      stringify: async (payload) => JSON.stringify(payload)
+    });
+    await store.applySchema();
+    const json = await store.preparePayload(sectionsWithSeason());
+    expect(receivedBaselineTiles).toEqual([baselineTile]);
+    expect(JSON.parse(json)).toMatchObject({ tileOverlay: [{ x: 0, y: 0, ownerId: "ai-1" }] });
+  });
+
+  it("falls back to buildSimulationSnapshotPayload when no baseline resolves, even with a compact function injected", async () => {
+    const db = new DatabaseSync(":memory:");
+    let compactCalled = false;
+    const store = new SqliteSimulationSnapshotStore(db, {
+      compact: async () => {
+        compactCalled = true;
+        return { formatVersion: 1, tileOverlay: [], activeLocks: [], commandEvents: [] };
+      },
+      stringify: async (payload) => JSON.stringify(payload)
+    });
+    await store.applySchema();
+    const json = await store.preparePayload(sectionsWithSeason());
+    expect(compactCalled).toBe(false);
+    expect(JSON.parse(json)).toMatchObject({ initialState: { tiles: [{ x: 0, y: 0, ownerId: "ai-1" }] } });
+  });
+});

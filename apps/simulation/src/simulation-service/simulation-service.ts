@@ -30,7 +30,9 @@ import type { SimulationEventStore } from "../event-store/event-store.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
-import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { createWorkerSnapshotStringifier } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { createSnapshotCompactorIfEnabled } from "../snapshot-compaction-pool/snapshot-compaction-pool.js";
+import { buildWorkerMemoryMetricsLog } from "./worker-memory-metrics.js";
 import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
@@ -526,6 +528,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
+  const snapshotCompactor = createSnapshotCompactorIfEnabled({ ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}), onError: (err) => log.error({ err: err instanceof Error ? err.message : String(err) }, "failed to start snapshot-compaction worker") }); // see snapshot-compaction-pool.ts
   // Snapshot build pool: moves enrichment + assembly off the simulation event
   // loop so the sim thread is free to answer gRPC pings while the 1–3 s build
   // runs in a worker.  Falls back to sync inline build if worker unavailable.
@@ -552,6 +555,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
     ...(snapshotStringifier ? { stringify: snapshotStringifier } : {}),
+    ...(snapshotCompactor ? { compact: snapshotCompactor } : {}),
     resolveBaseline: resolveWorldgenBaseline
   };
   const commandStoreBase =
@@ -2922,63 +2926,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (simulationMetricsLogIntervalMs > 0 && now - lastSimulationMetricsLogAt >= simulationMetricsLogIntervalMs) {
           lastSimulationMetricsLogAt = now;
           const sample = simulationMetrics.snapshot();
-          const workerMemoryMb = (() => {
-            const toMb = (bytes?: number): number | undefined =>
-              typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
-            type HasWorkerMetrics = { getWorkerMetrics: () => WorkerMemoryMetrics };
-            const snapshotMetrics =
-              snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
-                ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
-                : undefined;
-            const buildWorkerMetrics = snapshotBuildPool?.getMetrics();
-            const aiMetrics =
-              aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
-                ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
-                : undefined;
-            const systemMetrics =
-              systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
-                ? (systemCommandProducer as HasWorkerMetrics).getWorkerMetrics()
-                : undefined;
-            // Per-worker rss is intentionally dropped — process.memoryUsage().rss
-            // inside a Worker returns the shared-process RSS, not the worker's
-            // contribution. Heap, external, and arrayBuffers are per-V8-isolate
-            // (per-worker) and useful.
-            return {
-              snapshot: snapshotMetrics
-                ? {
-                    heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
-                    external_mb: toMb(snapshotMetrics.externalBytes),
-                    array_buffers_mb: toMb(snapshotMetrics.arrayBuffersBytes),
-                    respawn_count: snapshotMetrics.respawnCount,
-                    last_exit_code: snapshotMetrics.lastExitCode
-                  }
-                : undefined,
-              build_workers: buildWorkerMetrics?.map((m, i) => ({
-                slot: i,
-                heap_used_mb: toMb(m.heapUsedBytes),
-                respawn_count: m.respawnCount,
-                last_exit_code: m.lastExitCode
-              })),
-              ai: aiMetrics
-                ? {
-                    heap_used_mb: toMb(aiMetrics.heapUsedBytes),
-                    external_mb: toMb(aiMetrics.externalBytes),
-                    array_buffers_mb: toMb(aiMetrics.arrayBuffersBytes),
-                    respawn_count: aiMetrics.respawnCount,
-                    last_exit_code: aiMetrics.lastExitCode
-                  }
-                : undefined,
-              system: systemMetrics
-                ? {
-                    heap_used_mb: toMb(systemMetrics.heapUsedBytes),
-                    external_mb: toMb(systemMetrics.externalBytes),
-                    array_buffers_mb: toMb(systemMetrics.arrayBuffersBytes),
-                    respawn_count: systemMetrics.respawnCount,
-                    last_exit_code: systemMetrics.lastExitCode
-                  }
-                : undefined
-            };
-          })();
+          const workerMemoryMb = buildWorkerMemoryMetricsLog({
+            snapshotStringifier,
+            snapshotCompactor,
+            snapshotBuildPool,
+            aiCommandProducer,
+            systemCommandProducer
+          });
           const toMbRounded = (bytes: number): number =>
             Math.round((bytes / (1024 * 1024)) * 10) / 10;
           log.info(
