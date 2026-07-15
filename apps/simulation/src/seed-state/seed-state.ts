@@ -240,16 +240,33 @@ const createStressSeedWorld = (
   };
 };
 
+// createSeasonSeedWorld regenerates the full world map (~200k tiles) from
+// scratch — a multi-second synchronous cost (~3.4s on a loaded box). Callers
+// like the gateway's buildGatewayInitPayload invoke createSeedWorld() on
+// every login purely as a fallback lookup table, so an unmemoized call here
+// turned into a per-login full worldgen block on the gateway main thread
+// (observed at 100+s under concurrent AI load). Cache the generated result
+// and hand back a DEEP clone: the gateway path only reads it, but the sim
+// runtime constructor mutates seed players/tiles in place (applyManpowerRegen,
+// tile-merge), so a shared reference would let one runtime construction
+// corrupt the cached template for the next. structuredClone (~110ms for
+// 200k tiles) fully isolates every caller and is still ~30x cheaper than
+// regenerating the world.
+let cachedSeasonSeedWorld: ReturnType<typeof createSeasonSeedWorld> | undefined;
+
 export const createSeedWorld = (profile: SimulationSeedProfile = "default"): SimulationSeedWorld => {
   if (profile === "stress-10ai") return createStressSeedWorld(10, "stress-10ai");
   if (profile === "stress-20ai") return createStressSeedWorld(20, "stress-20ai");
   if (profile === "stress-40ai") return createStressSeedWorld(40, "stress-40ai");
   if (profile === "season-20ai") {
-    const generated = createSeasonSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer);
+    if (!cachedSeasonSeedWorld) {
+      cachedSeasonSeedWorld = createSeasonSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer);
+    }
+    const generated = cachedSeasonSeedWorld;
     return {
-      players: generated.players,
-      tiles: generated.tiles,
-      docks: generated.docks,
+      players: structuredClone(generated.players),
+      tiles: structuredClone(generated.tiles),
+      docks: structuredClone(generated.docks),
       summary: {
         profile: "season-20ai",
         humanPlayers: generated.humanPlayers,
@@ -257,7 +274,7 @@ export const createSeedWorld = (profile: SimulationSeedProfile = "default"): Sim
         totalTiles: generated.totalTiles,
         totalSettledTiles: generated.totalSettledTiles,
         totalTownTiles: generated.totalTownTiles,
-        perPlayer: generated.perPlayer
+        perPlayer: structuredClone(generated.perPlayer)
       }
     };
   }
