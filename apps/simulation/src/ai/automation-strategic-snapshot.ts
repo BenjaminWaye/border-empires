@@ -71,6 +71,8 @@ export type AutomationStrategicSnapshot = {
   victoryPathContender: boolean;
   hasActiveTown: boolean;
   hasActiveDock: boolean;
+  /** Passthrough — tile keys of this player's currently active muster flags. */
+  musterTileKeys?: ReadonlySet<string>;
 };
 
 type VictoryPathScore = {
@@ -106,6 +108,7 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   previousVictoryPath?: AutomationVictoryPath | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   activeMusterCount?: number;
+  musterTileKeys?: ReadonlySet<string>;
 };
 
 const VICTORY_PATH_REPIVOT_MARGIN = 28;
@@ -487,6 +490,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     manpowerSufficient,
     victoryPathContender,
     hasActiveTown,
-    hasActiveDock
+    hasActiveDock,
+    ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
   };
 };
