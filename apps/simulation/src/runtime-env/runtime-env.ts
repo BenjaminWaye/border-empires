@@ -65,6 +65,24 @@ const parsePositiveNumber = (value: string | undefined, fallback: number, label:
   return parsed;
 };
 
+// AI/system tick intervals drive continuous, compounding CPU work (player
+// export + relevance sync + a worker postMessage round trip, every tick,
+// forever) — unlike most env-tunable knobs, an aggressive override here
+// doesn't fail fast, it silently taxes every other thread sharing the box's
+// CPU. Staging was found running SIMULATION_AI_TICK_MS=25 /
+// SIMULATION_SYSTEM_TICK_MS=100 (10x / 5x faster than this file's own
+// defaults below) — the AI planner and barbarian producer ticking 40 and 10
+// times a second respectively, which is what was actually contending with
+// the checkpoint pipeline for CPU, not any single expensive operation.
+// Clamp to a floor so a stress-test profile's aggressive value can never
+// silently apply to a steady-state deployment.
+const parsePositiveNumberWithFloor = (
+  value: string | undefined,
+  fallback: number,
+  floor: number,
+  label: string
+): number => Math.max(floor, parsePositiveNumber(value, fallback, label));
+
 // AI player count is locked into the save when a season is seeded, so the env
 // var is only consulted when bootstrapping a fresh season. Treat 0, empty, or
 // malformed values as "no override" rather than crashing — a typo in the env
@@ -161,7 +179,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
     ...(typeof aiPlayerCountHint === "number" ? { aiPlayerCount: aiPlayerCountHint } : {}),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
-    aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
+    aiTickMs: parsePositiveNumberWithFloor(env.SIMULATION_AI_TICK_MS, 250, 100, "simulation ai tick"),
     aiMinCommandIntervalMs: parsePositiveNumber(
       env.SIMULATION_AI_MIN_COMMAND_INTERVAL_MS,
       1_000,
@@ -173,7 +191,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       "simulation ai max event-loop lag"
     ),
     enableSystemAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_SYSTEM_AUTOPILOT),
-    systemTickMs: parsePositiveNumber(env.SIMULATION_SYSTEM_TICK_MS, 500, "simulation system tick"),
+    systemTickMs: parsePositiveNumberWithFloor(env.SIMULATION_SYSTEM_TICK_MS, 500, 200, "simulation system tick"),
     globalStatusBroadcastDebounceMs: parsePositiveNumber(
       env.SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS,
       15_000,
