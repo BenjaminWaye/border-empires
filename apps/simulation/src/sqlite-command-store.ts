@@ -82,6 +82,21 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         max_client_seq INTEGER NOT NULL
       );
     `);
+    // Backfill for any player with existing commands rows predating this
+    // table (i.e. every player on an already-populated database, the very
+    // first time this runs). Without this, loadMaxClientSeqByPlayer returns
+    // nothing for a player until their first insert after this deploy,
+    // reseeding them to client_seq=1 and colliding with their real history —
+    // this is exactly the crash loop that motivated adding the watermark in
+    // the first place. Idempotent and safe to run on every boot: MAX() only
+    // ever raises the watermark, never lowers it, uses the existing
+    // commands_player_seq_idx (player_id, client_seq) index, and is a no-op
+    // once every player has a watermark row.
+    this.db.exec(`
+      INSERT INTO client_seq_watermarks (player_id, max_client_seq)
+      SELECT player_id, MAX(client_seq) FROM commands GROUP BY player_id
+      ON CONFLICT(player_id) DO UPDATE SET max_client_seq = MAX(max_client_seq, excluded.max_client_seq)
+    `);
   }
 
   async persistQueuedCommand(command: CommandEnvelope, queuedAt: number): Promise<void> {
