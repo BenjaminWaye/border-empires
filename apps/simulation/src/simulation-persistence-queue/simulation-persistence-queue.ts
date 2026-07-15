@@ -109,6 +109,7 @@ const persistCommandStatus = async (
       await commandStore.markRejected(event.commandId, createdAt, event.code, event.message);
       return "markRejected";
     case "COMBAT_RESOLVED":
+    case "COMMAND_RESOLVED":
       await commandStore.markResolved(event.commandId, createdAt);
       return "markResolved";
     case "COMBAT_CANCELLED":

@@ -24,6 +24,21 @@ function rejectCommand(
   });
 }
 
+// Every handler in this file is "instant" (no combat lock, no async
+// accept-then-resolve lifecycle) — success is fully determined by the time
+// the handler returns. Without this, persistCommandStatus has no event to
+// key off on the success path (only TILE_DELTA_BATCH is emitted), so the
+// command's persisted status stays QUEUED forever: confirmed root cause of
+// 5000+ permanently-QUEUED SET_MUSTER commands in production, re-recovered
+// and re-queued on every restart. REMOVE_STRUCTURE resolves its ORIGINAL
+// command here too (at dispatch, not at completeStructureRemoval) — the
+// actual multi-minute completion is tracked independently via completesAt
+// on the tile and re-scheduled on boot recovery, not via command replay, so
+// there is no need to keep the original command non-terminal until then.
+function resolveCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+}
+
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {
   const cancelled: string[] = [];
   const lock = context.locksByTile.get(originKey);
@@ -83,6 +98,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: 0, updatedAt: now }) }]
   });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
 export function handleClearMusterCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -115,6 +131,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
   });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
 export function handleCancelFortBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -133,6 +150,7 @@ export function handleCancelFortBuildCommand(context: RuntimeStructureCommandCon
   const updatedTile: DomainTileState = { ...target, fort: undefined };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  resolveCommand(context, command);
 }
 
 export function handleCancelStructureBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -155,6 +173,7 @@ export function handleCancelStructureBuildCommand(context: RuntimeStructureComma
   }
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  resolveCommand(context, command);
 }
 
 function cancelStructureActionTile(target: DomainTileState, playerId: string): DomainTileState | undefined {
@@ -245,6 +264,7 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
   context.scheduleAfter(removeDurationMs, () => context.completeStructureRemoval(targetKey, command.playerId, command.commandId));
 }
 
@@ -284,4 +304,5 @@ export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCo
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }

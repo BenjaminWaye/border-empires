@@ -58,6 +58,27 @@ describe("muster commands", () => {
     expect(m).toMatchObject({ ownerId: "player-1", amount: 0, mode: "HOLD" });
   });
 
+  // Regression for 5000+ permanently-QUEUED SET_MUSTER commands found in
+  // production: SET_MUSTER's success path only emitted TILE_DELTA_BATCH, which
+  // persistCommandStatus doesn't recognize as terminal, so the command's
+  // persisted status never left QUEUED and it was replayed on every restart.
+  it("SET_MUSTER emits COMMAND_RESOLVED on success", async () => {
+    const runtime = buildRuntime();
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "set-muster-resolved",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "set-muster-resolved", playerId: "player-1" });
+  });
+
   it("CLEAR_MUSTER removes tile.muster", async () => {
     const runtime = buildRuntime();
     runtime.submitCommand({
@@ -72,6 +93,8 @@ describe("muster commands", () => {
     await Promise.resolve();
     expect(muster(runtime.exportState().tiles, 10, 10)).toBeDefined();
 
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
     runtime.submitCommand({
       commandId: "clear-muster-2",
       sessionId: "session-1",
@@ -83,6 +106,8 @@ describe("muster commands", () => {
     });
     await Promise.resolve();
     expect(muster(runtime.exportState().tiles, 10, 10)).toBeUndefined();
+    // Same regression as SET_MUSTER above.
+    expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "clear-muster-2", playerId: "player-1" });
   });
 
   it("SET_MUSTER on an enemy tile is rejected", async () => {

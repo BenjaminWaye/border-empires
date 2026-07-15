@@ -8,8 +8,17 @@ export const DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES = 16_384;
 // exists purely so an unforeseen server prefix can never re-bloat the snapshot.
 export const DEFAULT_MAX_RECORDED_COMMAND_HISTORY = 50_000;
 
+// COMMAND_RESOLVED closes a gap found in production: instant commands with no
+// combat lock (SET_MUSTER, CLEAR_MUSTER, the structure cancel/remove family)
+// only emitted TILE_DELTA_BATCH on success, which isn't terminal here or in
+// persistCommandStatus — so 5000+ SET_MUSTER commands stayed QUEUED forever,
+// bloating the commands table past retention's reach and getting replayed on
+// every restart. See runtime-structure-lifecycle-command-handlers.ts.
 export const isTerminalCommandEvent = (event: SimulationEvent): boolean =>
-  event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED" || event.eventType === "COMBAT_CANCELLED";
+  event.eventType === "COMMAND_REJECTED" ||
+  event.eventType === "COMBAT_RESOLVED" ||
+  event.eventType === "COMBAT_CANCELLED" ||
+  event.eventType === "COMMAND_RESOLVED";
 
 // commandId prefixes for server-generated commands. These are emitted by the
 // simulation itself (AI/system planners, territory automation, economy accrual,
