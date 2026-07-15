@@ -141,28 +141,33 @@ export type CompactionYield = () => Promise<void>;
 const defaultYieldToEventLoop: CompactionYield = () =>
   new Promise<void>((resolve) => setImmediate(resolve));
 
-// Every Nth tile processed in each of the two compaction loops, cede the
-// event loop. Both loops are O(world-tile-count) (~202,500 on the 450x450
-// map) and ran fully synchronously prior to the yield being added — measured
-// at ~100-130ms of unyielded main-thread work per checkpoint on a realistic
-// late-game world (see snapshot-compaction.perf.test.ts). Every other step in
-// the checkpoint pipeline (buildRuntimeSnapshotSectionsAsync, the stringifier,
-// the event-prune loop) already yields; this closes the one gap.
+// Both compaction loops are O(world-tile-count) (~202,500 on the 450x450
+// map). A prior fix made them yield every 2,000 tiles (~101 yields) to avoid
+// a single ~100-130ms unyielded block, matching every other step in the
+// checkpoint pipeline. That backfired badly in production: staging measured
+// one checkpoint stretching to 17-22s wall time (sim_checkpoint_export_ms),
+// because each setImmediate yield re-queues behind the AI planner's own tick
+// scheduling on this same thread — and that queue-jump wait is UNBOUNDED,
+// growing with however much AI-tick backlog happens to be queued at that
+// exact moment. A follow-up that only reduced yield count (larger chunks,
+// fewer yields) still measured 16.7s once the AI backlog built up over
+// sustained uptime — fewer chances to get stuck behind AI ticks is not the
+// same as zero chances. A worker thread was tried too, but moving the
+// ~202,500-tile sections object across a worker boundary requires a
+// structured clone that itself measured 7-9.5s on a realistic shape — worse
+// than the problem it solved.
 //
-// CHUNK_SIZE=2,000 (~101 yields for the full world) was observed on staging
-// stretching one checkpoint to 17-22s wall time (sim_checkpoint_export_ms) —
-// not from the ~100-130ms of real work, but because each of those ~101
-// setImmediate yields queues behind the AI planner's own tick scheduling on
-// this same thread, and each queue-jump wait compounds. A worker thread was
-// tried first to eliminate that contention entirely, but moving the ~202,500-
-// tile sections object across a worker boundary requires a structured clone
-// that itself measured 7-9.5s on a realistic shape — worse than the problem
-// it solved. Fewer, larger chunks is the simpler fix: fewer yield points
-// means fewer chances to queue behind AI-tick backlog, while each individual
-// synchronous slice (~25-30ms at this size) stays far below anything already
-// tolerated on this thread (AI ticks alone run up to ~1s synchronously; see
-// sim_tick_duration_ms).
-const YIELD_CHUNK_SIZE = 50_000;
+// The actual fix: don't yield at all. JS is single-threaded — once this
+// synchronous pass starts, NOTHING on this thread (not AI ticks, not gRPC
+// handlers) can preempt it until it finishes, which is what makes its cost
+// genuinely bounded (~100-130ms, see snapshot-compaction.perf.test.ts) no
+// matter how much AI-tick work is already queued. Yielding traded a small,
+// bounded cost for an unbounded one under exactly the AI-tick contention this
+// runs alongside. YIELD_CHUNK_SIZE stays effectively infinite for any
+// realistic world size; `yieldToEventLoop` is left in the signature purely
+// so tests can still assert on chunking behavior if the world ever grows
+// enough to need it back (with a worker, not setImmediate, next time).
+const YIELD_CHUNK_SIZE = Number.MAX_SAFE_INTEGER;
 
 /**
  * Compact a v0-shaped payload into v1 storage form using the worldgen baseline.
