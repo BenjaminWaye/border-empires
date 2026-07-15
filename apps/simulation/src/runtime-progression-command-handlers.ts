@@ -114,6 +114,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     playerId: command.playerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleCollectShardCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {
@@ -166,6 +167,7 @@ export function handleCollectShardCommand(context: RuntimeProgressionCommandCont
     strategic: { SHARD: amount }
   });
   context.emitPlayerStateUpdate(command);
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleChooseTechCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {
@@ -200,6 +202,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
       buildTechUpdatePayload(actor, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(actor.id) })
     )
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleChooseDomainCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {
@@ -243,4 +246,5 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
       buildDomainUpdatePayload(actor, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(actor.id) })
     )
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
