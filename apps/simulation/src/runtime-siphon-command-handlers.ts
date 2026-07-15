@@ -96,4 +96,5 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
     playerId: command.playerId,
     tileDeltas: updatedTiles.map((updatedTile) => context.tileDeltaFromState(updatedTile))
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

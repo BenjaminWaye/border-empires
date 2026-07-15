@@ -20,6 +20,7 @@ export type PendingSettlementRecord = {
   startedAt: number;
   resolvesAt: number;
   goldCost: number;
+  commandId: string;
 };
 
 export type PlayerRuntimeSummary = {
