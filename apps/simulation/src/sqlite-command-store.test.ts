@@ -148,6 +148,36 @@ describe("SqliteSimulationCommandStore", () => {
   // in sqlite-writer-worker.ts): once RESOLVED/REJECTED commands rows are deleted,
   // loadMaxClientSeqByPlayer must still return the true high-water mark via
   // client_seq_watermarks, not silently drop back to a lower value.
+  // Regression for the 2026-07-15 staging crash loop: this migration shipped
+  // to an already-populated database (36k+ historical commands rows), and
+  // client_seq_watermarks started empty — loadMaxClientSeqByPlayer returned
+  // nothing for any player until their first insert after the deploy,
+  // reseeding them to client_seq=1 and immediately colliding with their real
+  // history on the very next command. applySchema() must backfill existing
+  // players' watermarks from commands on every boot (idempotent, no-op once
+  // backfilled), not just start tracking new inserts going forward.
+  it("backfills client_seq_watermarks from pre-existing commands rows on applySchema", async () => {
+    const db = new DatabaseSync(":memory:") as ConstructorParameters<typeof SqliteSimulationCommandStore>[0];
+    const store = new SqliteSimulationCommandStore(db);
+    await store.applySchema();
+
+    // Simulate rows that existed before client_seq_watermarks was introduced —
+    // inserted directly, bypassing persistQueuedCommand's watermark upsert.
+    const rawDb = db as unknown as { exec: (sql: string) => void };
+    rawDb.exec(`
+      INSERT INTO commands (command_id, session_id, player_id, client_seq, command_type, payload_json, queued_at)
+      VALUES ('legacy-1', 'session-1', 'barbarian-1', 38187, 'ATTACK', '{}', 100);
+      INSERT INTO command_results (command_id, status) VALUES ('legacy-1', 'RESOLVED');
+    `);
+
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({});
+
+    // Re-running applySchema (as happens on every process boot) must backfill it.
+    await store.applySchema();
+
+    await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({ "barbarian-1": 38187 });
+  });
+
   it("loadMaxClientSeqByPlayer survives the commands row being pruned away", async () => {
     const store = await createStore();
     const db = (store as unknown as { db: { exec: (sql: string) => void } }).db;
