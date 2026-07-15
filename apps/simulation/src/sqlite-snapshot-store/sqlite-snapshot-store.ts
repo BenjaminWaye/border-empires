@@ -27,6 +27,15 @@ type Row = {
 
 const defaultStringify: SnapshotStringifier = createChunkedSnapshotStringifier();
 
+// Diagnostic only: names which checkpoint sub-step is actually slow, so a
+// future stall doesn't require re-deriving this by elimination again (see
+// the compaction and stringify fix history for how much guessing that took).
+const SLOW_CHECKPOINT_PHASE_MS = 300;
+const logSlowCheckpointPhase = (phase: string, durationMs: number): void => {
+  if (durationMs < SLOW_CHECKPOINT_PHASE_MS) return;
+  console.warn(`[sqlite-snapshot-store] slow checkpoint phase: ${phase} took ${durationMs}ms`);
+};
+
 /**
  * Resolve the worldgen baseline tiles for a given (rulesetId, worldSeed).
  * Caller is responsible for memoisation — the store will not cache results.
@@ -74,11 +83,20 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   }
 
   async preparePayload(sections: SimulationSnapshotSections): Promise<string> {
+    const baselineT0 = Date.now();
     const baselineIndex = await this.resolveBaselineIndexFromSections(sections);
+    logSlowCheckpointPhase("resolve_baseline_index", Date.now() - baselineT0);
+
+    const compactT0 = Date.now();
     const payload = baselineIndex
       ? await compactSnapshotForStorage(sections, baselineIndex)
       : buildSimulationSnapshotPayload(sections);
-    return await this.stringify(payload);
+    logSlowCheckpointPhase("compact", Date.now() - compactT0);
+
+    const stringifyT0 = Date.now();
+    const json = await this.stringify(payload);
+    logSlowCheckpointPhase("stringify", Date.now() - stringifyT0);
+    return json;
   }
 
   async saveSnapshot(snapshot: {
@@ -87,11 +105,13 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     createdAt: number;
   }): Promise<void> {
     const json = await this.preparePayload(snapshot.snapshotSections);
+    const insertT0 = Date.now();
     this.db
       .prepare(
         `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
       )
       .run(snapshot.lastAppliedEventId, json, snapshot.createdAt);
+    logSlowCheckpointPhase("sqlite_insert", Date.now() - insertT0);
     // Retention: keep only the most recent 3 snapshots. Each is a full
     // world dump, so unbounded retention fills the volume in hours.
     this.db.exec(
@@ -134,6 +154,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     // (the 2026-06-13 staging death-spiral). So swallow, count, and report —
     // the worst case is unpruned events, not data loss. Boot-time REINDEX
     // (sqlite-db.ts) is what actually repairs the underlying corruption.
+    const pruneT0 = Date.now();
     try {
       const PRUNE_CHUNK = 5000;
       const pruneStmt = this.db.prepare(
@@ -149,6 +170,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
       this.db.exec("PRAGMA wal_checkpoint(PASSIVE)");
+      logSlowCheckpointPhase("prune_events", Date.now() - pruneT0);
     } catch (pruneError) {
       this.onPruneFailure?.(pruneError);
     }
