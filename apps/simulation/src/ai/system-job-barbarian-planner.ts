@@ -10,9 +10,11 @@ export const BARBARIAN_TILE_COOLDOWN_MS = 15_000;
 // full planner view (O(territory)) on every one of those tiles' ownership
 // changes, and with the barbarian constantly being eaten by AI that re-export
 // churned continuously — the dominant sim-thread cost, starving gateway logins
-// on the shared vCPU. At/above the cap the barbarian takes no action, so it
-// can never grow past ~100 via its own expansion; players eroding it below the
-// cap let it act again, so it hovers at ≤100 and its export stays cheap.
+// on the shared vCPU. At/above the cap the barbarian self-erodes (releases one
+// of its own tiles back to neutral each cycle) instead of expanding, so it
+// actively shrinks toward the cap rather than sitting frozen forever waiting
+// for players to attack it — an already-oversized barbarian (e.g. staging's
+// existing 941-tile one) recovers on its own.
 export const MAX_BARBARIAN_TILES = 100;
 
 export type BarbarianPlannerDeps = {
@@ -37,6 +39,39 @@ export type BarbarianPlanner = {
   readonly cooldownByTileKey: ReadonlyMap<string, number>;
 };
 
+/**
+ * Release one of the barbarian's own tiles back to neutral via UNCAPTURE_TILE.
+ * Picks the first tile not on cooldown (deterministic — resolveOwnedTiles
+ * order is stable) so erosion doesn't immediately re-target the same tile if
+ * a prior release command is still in flight or got rejected.
+ */
+const chooseErosionCommand = (
+  ownedTiles: readonly PlannerTileView[],
+  playerId: string,
+  clientSeq: number,
+  issuedAt: number,
+  nowMs: number,
+  cooldownByTileKey: Map<string, number>,
+  cooldownMs: number
+): CommandEnvelope | null => {
+  for (const tile of ownedTiles) {
+    const tk = `${tile.x},${tile.y}`;
+    const cooldownUntil = cooldownByTileKey.get(tk);
+    if (cooldownUntil !== undefined && cooldownUntil > nowMs) continue;
+    cooldownByTileKey.set(tk, nowMs + cooldownMs);
+    return {
+      commandId: `system-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+      sessionId: `system-runtime:${playerId}`,
+      playerId,
+      clientSeq,
+      issuedAt,
+      type: "UNCAPTURE_TILE",
+      payloadJson: JSON.stringify({ x: tile.x, y: tile.y })
+    };
+  }
+  return null;
+};
+
 export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPlanner => {
   const now = deps.now ?? (() => Date.now());
   const cooldownMs = deps.cooldownMs ?? BARBARIAN_TILE_COOLDOWN_MS;
@@ -49,14 +84,17 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   ): CommandEnvelope | null => {
     const ownedTiles = deps.resolveOwnedTiles(player);
     if (ownedTiles.length === 0) return null;
-    // Size cap: stop acting once at/over the cap so the barbarian can never
-    // grow its own territory (and thus its per-churn export cost) unbounded.
-    if (ownedTiles.length >= MAX_BARBARIAN_TILES) return null;
+    const t = now();
+    // Size cap: at/over the cap, release one of its own tiles back to neutral
+    // instead of expanding — actively erodes an oversized barbarian back
+    // toward the cap rather than freezing it in place forever.
+    if (ownedTiles.length >= MAX_BARBARIAN_TILES) {
+      return chooseErosionCommand(ownedTiles, player.id, clientSeq, issuedAt, t, cooldownByTileKey, cooldownMs);
+    }
 
     const visible = deps.getVisibleToAnyNonBarbPlayer();
     if (visible.size === 0) return null;
 
-    const t = now();
     const eligibleTiles: PlannerTileView[] = [];
     for (const tile of ownedTiles) {
       const tileKey = `${tile.x},${tile.y}`;
