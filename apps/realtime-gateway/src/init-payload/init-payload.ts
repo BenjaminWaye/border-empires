@@ -303,24 +303,25 @@ const snapshotDisplayNameForPlayer = (
   return snapshotName && snapshotName.length > 0 ? snapshotName : undefined;
 };
 
+// Social state keys AI players by "AI N", so recovered names must match even if the live leaderboard reports a seasonal name.
+const recoveredEntryName = <T extends { id: string; name: string }>(
+  entry: T,
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): string => {
+  if (entry.id.startsWith("ai-")) return `AI ${entry.id.slice(3)}`;
+  if (!liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry.name;
+  return snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap) ?? entry.name;
+};
+
 const recoverEntryNameFromSnapshot = <T extends { id: string; name: string }>(
   entries: T[],
   snapshotBootstrap: LegacySnapshotBootstrap | undefined
-): T[] =>
-  entries.map((entry) => {
-    if (!liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
-    const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
-    return snapshotName ? { ...entry, name: snapshotName } : entry;
-  });
+): T[] => entries.map((entry) => ({ ...entry, name: recoveredEntryName(entry, snapshotBootstrap) }));
 
 const recoverOptionalEntryNameFromSnapshot = <T extends { id: string; name: string }>(
   entry: T | undefined,
   snapshotBootstrap: LegacySnapshotBootstrap | undefined
-): T | undefined => {
-  if (!entry || !liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
-  const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
-  return snapshotName ? { ...entry, name: snapshotName } : entry;
-};
+): T | undefined => (entry ? { ...entry, name: recoveredEntryName(entry, snapshotBootstrap) } : entry);
 
 const recoverSeasonVictoryNamesFromSnapshot = (
   objectives: SeasonVictoryObjectiveView[],
@@ -794,8 +795,7 @@ export const buildGatewayInitPayload = (
     id: playerId,
     name:
       snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
-      liveVisibleNameByPlayerId.get(playerId) ??
-      displayNameForSeedPlayer(playerId, playerIdentity.playerName),
+      (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : (liveVisibleNameByPlayerId.get(playerId) ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName))),
     tileColor: hexColorForPlayerId(playerId)
   }));
 
