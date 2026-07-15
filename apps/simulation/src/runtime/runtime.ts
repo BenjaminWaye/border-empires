@@ -2890,7 +2890,7 @@ export class SimulationRuntime {
         tileKey: input.targetKey,
         startedAt: input.startedAt,
         resolvesAt,
-        goldCost: SETTLE_COST
+        goldCost: SETTLE_COST, commandId: input.commandId
       };
       const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
       if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;

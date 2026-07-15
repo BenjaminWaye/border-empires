@@ -329,7 +329,8 @@ export const applySimulationEventsToRecoveredAccumulator = (
         tileKey: event.tileKey,
         startedAt: event.startedAt,
         resolvesAt: event.resolvesAt,
-        goldCost: event.goldCost
+        goldCost: event.goldCost,
+        commandId: event.commandId
       });
       continue;
     }
