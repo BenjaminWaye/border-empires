@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.13.8",
+  version: "2026.07.15.1",
   title: "What's New",
-  summary: "Barbarian hordes multiply more slowly — they now need 5 captured player tiles before spawning a new barb, up from 3. AI empires stop endlessly re-proposing a fort build the server just rejected. AI empires under sustained attack no longer monopolize the planner and starve out other AI opponents. Building placement preview: preview and confirm Waterworks/Foundry placement, with beneficiary tiles highlighted green. Town Captured popup now also fires when peacefully claiming a neutral town or when combat destroys a Settlement-tier town.",
+  summary: "Fixed the alliance/truce search box: AI empires that haven't founded a settlement this season no longer clutter the target dropdown, the suggestion list no longer flickers/closes while typing, and requests targeting a player who hasn't set a custom display name now resolve correctly instead of reporting 'target not found'.",
   entries: [
+    {
+      introducedIn: "2026.07.15.1",
+      title: "Fixed alliance/truce search dropdown and target resolution",
+      why: "The alliance/truce target search box listed AI empires that had never founded a settlement this season (only pre-registered, never active), the suggestion dropdown rewrote its options on nearly every HUD render — flickering or closing an open autocomplete popup while typing — and a request could target a name (like the default 'Nauticus' shown for a player who hasn't set a display name yet) that was never actually registered under that name for alliance/truce resolution, so the request always failed with 'target not found'.",
+      changes: [
+        "AI empires that haven't settled/founded an empire yet no longer appear as alliance/truce search suggestions; only AI with real activity (tiles, income, or tech) are offered.",
+        "The suggestion dropdown now only rewrites its options when the list actually changes, instead of on every HUD render, fixing the flicker/disappearing popup while typing.",
+        "A player who hasn't set a custom display name is now registered under the same cosmetic default name shown to others (e.g. 'Nauticus'), so alliance/truce requests targeting that name resolve correctly instead of failing."
+      ]
+    },
     {
       introducedIn: "2026.07.13.8",
       title: "Barbarian hordes multiply more slowly",
@@ -302,39 +312,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Players with zero settled tiles, zero income, and zero techs are now excluded from leaderboard rankings and the seasonal empire-count display, automatically filtering out login probes and other zero-activity empires."
       ]
-    },
-    {
-      introducedIn: "2026.07.08.6",
-      title: "Fixed fogged tiles looking unexplored",
-      why: "A tile only rendered as fog (dimmed, last-known state) if its key was in the client's discoveredTiles set — but several code paths (the login chunk-stream, live TILE_DELTA updates, and optimistic-action reverts) only added a tile to that set when it wasn't fogged, a leftover check from before fog-of-war existed. So any tile whose first-ever appearance was already fogged, or that got reverted while fogged, rendered solid black exactly like terrain you'd never seen — fog and unexplored were visually indistinguishable.",
-      changes: [
-        "Fogged tiles are now always marked as discovered, regardless of which code path first delivers them, so they correctly render dimmed instead of pitch black."
-      ]
-    },
-    {
-      introducedIn: "2026.07.08.4",
-      title: "Breakthrough Momentum: a captured tile's neighbours are briefly weaker",
-      why: "For 60 seconds after you lose a tile to an attacker, its still-held cardinal neighbours were meant to show a 30% defence penalty (Breakthrough Momentum) — but the breach timer never actually reached the client over the network (the field was missing from the wire schema), the attack preview never accounted for it, and neighbours breached across the world's east/west or north/south seam were missed entirely.",
-      changes: [
-        "The breach timer now reliably reaches the client, so weakened neighbouring tiles show a torn, paper-like amber border for the full 60-second window instead of never appearing.",
-        "The torn edge only appears on the side of the tile actually missing a friendly neighbour, not the whole tile perimeter.",
-        "The attack preview's win chance now reflects a target's active breach penalty before you commit to an attack.",
-        "Breaching now correctly wraps across the world's edge, so a capture near the map seam weakens neighbours on the far side too.",
-        "This mechanic remains behind the BREAKTHROUGH_ENABLED flag (off by default) until it's enabled for a season."
-      ]
-    },
-    {
-      introducedIn: "2026.07.08.3",
-      title: "Fog of war (session-only)",
-      why: "Losing a tile you could no longer see previously either left it looking like you still owned it (stale data) or silently disappeared from the map, because the server had no way to tell the client exactly which tiles left vision and what they looked like the instant before.",
-      changes: [
-        "Tiles that leave your vision now freeze at their last-witnessed state (including who captured them) and render fogged, instead of going stale or vanishing.",
-        "Tiles you've never seen render as unexplored; tiles you can currently see render normally.",
-        "Actions that require live vision (build, settle, collect, expand, uncapture) are blocked on fogged/unexplored tiles with a clear notice.",
-        "Fog memory is session-only for this release — it resets on reconnect and re-reveals from your current vision."
-      ]
     }
-    // Older entries (2026.07.08.2 and earlier) trimmed: the release-day
+    // Older entries (2026.07.08.6 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
