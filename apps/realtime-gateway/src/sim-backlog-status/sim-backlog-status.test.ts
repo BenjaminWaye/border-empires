@@ -75,6 +75,28 @@ describe("createSimBacklogStatusPoller", () => {
     poller.stop();
   });
 
+  it("keeps the last known value when a scrape succeeds but the gauge is absent from the text", async () => {
+    const target: { backlogPendingCount?: number; backlogDegraded?: boolean } = {};
+    let call = 0;
+    const poller = createSimBacklogStatusPoller({
+      getSimMetrics: async () => {
+        call += 1;
+        // First scrape has the gauge; second (e.g. sim mid-boot, gauge not
+        // registered yet) succeeds but omits it entirely.
+        return call === 1 ? "sim_writer_queue_depth 600\n" : "sim_ai_queue_backlog_ms 0\n";
+      },
+      target,
+      threshold: 500,
+      intervalMs: 10
+    });
+    poller.start();
+    await vi.waitFor(() => expect(target.backlogPendingCount).toBe(600));
+    await vi.waitFor(() => expect(call).toBeGreaterThanOrEqual(2));
+    expect(target.backlogPendingCount).toBe(600);
+    expect(target.backlogDegraded).toBe(true);
+    poller.stop();
+  });
+
   it("keeps the last known value when a scrape fails instead of clearing it", async () => {
     const target: { backlogPendingCount?: number; backlogDegraded?: boolean } = {};
     let call = 0;
