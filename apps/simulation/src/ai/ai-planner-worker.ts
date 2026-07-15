@@ -258,6 +258,7 @@ const choosePlannerCommand = (
     ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
     ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
     ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
+    ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
