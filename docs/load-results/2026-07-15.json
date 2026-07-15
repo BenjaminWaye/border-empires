@@ -1,0 +1,181 @@
+{
+  "at": "2026-07-15T04:53:22.008Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:13101/ws",
+    "startedAt": "2026-07-15T04:53:22.008Z",
+    "endedAt": "2026-07-15T05:23:25.562Z",
+    "soakMinutes": 30,
+    "minAcceptedSamples": 30,
+    "waitForResult": true,
+    "settleAfterAcceptedMs": 250,
+    "refreshOnEmptyFrontier": false,
+    "acceptedSamples": 960,
+    "acceptedP95Ms": 4,
+    "acceptedP99Ms": 21,
+    "acceptedMaxMs": 27,
+    "diagnostics": {
+      "openedSessions": 8,
+      "frontierRefreshes": 0,
+      "emptyFrontierRejections": 0,
+      "speculativeInvalidTargets": 0,
+      "resourcePauses": 0
+    },
+    "batches": [
+      {
+        "at": 1784091424919,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 4,
+        "acceptedP99Ms": 5,
+        "acceptedMaxMs": 8,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784091642573,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 4,
+        "acceptedP99Ms": 6,
+        "acceptedMaxMs": 12,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784091886521,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 4,
+        "acceptedP99Ms": 13,
+        "acceptedMaxMs": 20,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784092100495,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 4,
+        "acceptedP99Ms": 18,
+        "acceptedMaxMs": 20,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784092329537,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 4,
+        "acceptedP99Ms": 21,
+        "acceptedMaxMs": 22,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784092566094,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 3,
+        "acceptedP99Ms": 21,
+        "acceptedMaxMs": 22,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784092791413,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 5,
+        "acceptedP99Ms": 24,
+        "acceptedMaxMs": 26,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1784093005557,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 5,
+        "acceptedP99Ms": 27,
+        "acceptedMaxMs": 27,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      }
+    ],
+    "batchErrors": [
+      {
+        "at": 1784091218684,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 2 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      }
+    ]
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:13101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "warmup": {
+      "ok": true,
+      "samples": 3,
+      "stableMs": 3000,
+      "timeoutMs": 30000,
+      "lastGatewayEventLoopMaxMs": 1,
+      "lastSimEventLoopMaxMs": 1
+    },
+    "sampleCount": 903,
+    "sampleErrors": [],
+    "gatewayEventLoopMaxMs": 4,
+    "simEventLoopMaxMs": 62,
+    "simHumanInteractiveBacklogMaxMs": 0,
+    "simCheckpointRssMaxMb": 478.906
+  },
+  "gates": {
+    "acceptedSamplesAtLeastMinimum": true,
+    "actionAcceptedP95Under300": true,
+    "actionAcceptedP99Under500": true,
+    "actionAcceptedMaxUnder1000": true,
+    "gatewayEventLoopMaxUnder500": true,
+    "simEventLoopMaxUnder150": true,
+    "simHumanInteractiveBacklogMaxUnder500": true,
+    "simCheckpointRssMaxUnder800": true
+  },
+  "allGatesGreen": true
+}
