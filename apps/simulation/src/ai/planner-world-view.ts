@@ -87,6 +87,8 @@ export type PlannerPlayerView = {
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** Number of active muster flags this player currently has placed. */
   activeMusterCount?: number;
+  /** Tile keys (see tileKeyOf) of this player's currently active muster flags. */
+  musterTileKeys?: string[];
   /** Total owned tiles (territoryTileKeys.length = settled + frontier). */
   ownedTileCount: number;
   /** Total frontier tiles (frontierTileKeys.length). */

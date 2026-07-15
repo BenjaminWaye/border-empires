@@ -431,6 +431,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
       ...(expansionObjective ? { expansionObjective } : {}),
       activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
+      musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
       ownedTileCount,
       frontierTileCount
     });
