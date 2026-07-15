@@ -71,6 +71,16 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         rejected_message TEXT,
         resolved_at INTEGER
       );
+      -- One tiny row per player, updated monotonically on every insert. Lets
+      -- loadMaxClientSeqByPlayer stay correct and O(player count) even after
+      -- RESOLVED/REJECTED rows in commands/command_results are pruned by
+      -- retention — without this, pruning old rows would let a future reseed
+      -- understate the true high-water mark and reintroduce the client_seq
+      -- collision that loadMaxClientSeqByPlayer was added to fix.
+      CREATE TABLE IF NOT EXISTS client_seq_watermarks (
+        player_id TEXT PRIMARY KEY,
+        max_client_seq INTEGER NOT NULL
+      );
     `);
   }
 
@@ -84,10 +94,15 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
       `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
        ON CONFLICT(command_id) DO NOTHING`
     );
+    const upsertWatermark = this.db.prepare(
+      `INSERT INTO client_seq_watermarks (player_id, max_client_seq) VALUES (?, ?)
+       ON CONFLICT(player_id) DO UPDATE SET max_client_seq = MAX(max_client_seq, excluded.max_client_seq)`
+    );
     this.db.exec("BEGIN");
     try {
       insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
       insertResult.run(command.commandId);
+      upsertWatermark.run(command.playerId, command.clientSeq);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -131,12 +146,14 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
   }
 
   // See SimulationCommandStore.loadMaxClientSeqByPlayer for the full rationale.
+  // Reads from client_seq_watermarks (not MAX(client_seq) GROUP BY on commands)
+  // so this stays correct once retention pruning removes old commands rows.
   async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
     const rows = this.db
-      .prepare(`SELECT player_id, MAX(client_seq) AS max_seq FROM commands GROUP BY player_id`)
-      .all() as { player_id: string; max_seq: number }[];
+      .prepare(`SELECT player_id, max_client_seq FROM client_seq_watermarks`)
+      .all() as { player_id: string; max_client_seq: number }[];
     const maxByPlayer: Record<string, number> = {};
-    for (const row of rows) maxByPlayer[row.player_id] = row.max_seq;
+    for (const row of rows) maxByPlayer[row.player_id] = row.max_client_seq;
     return maxByPlayer;
   }
 }
