@@ -270,8 +270,7 @@ import {
   handleSurveySweepCommand as handleSurveySweepCommandImpl,
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
-import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js";
-import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
