@@ -3,12 +3,6 @@ import { describe, expect, it } from "vitest";
 import { boolVeto, clamp01, compensate, linear, logistic, quadratic, scoreConsiderations } from "./considerations.js";
 import { type DecisionInputs, scoreDecision } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
-import {
-  activeCooldownsForPlayer,
-  createRejectionCooldownState,
-  recordRejectionCooldown,
-  REJECTION_COOLDOWN_MS
-} from "../ai-rejection-cooldown.js";
 
 // ── Base inputs ──────────────────────────────────────────────────────────────
 // A neutral starting state: modest gold, no threats, no opportunities.
@@ -26,6 +20,8 @@ const BASE: DecisionInputs = {
   hasOnlyScoutExpand: false,
   hasWeakEnemyBorder: false,
   hasBarbTarget: false,
+  hasAnyExpandCandidate: false,
+  hasAnyAttackCandidate: false,
   devSlotAvailable: true,
   attackReady: false,
   musterReady: false,
@@ -133,11 +129,28 @@ describe("EXPAND decision", () => {
     });
     expect(s).toBe(0);
   });
+  it("vetoed when frontier is all waste (no concrete expand candidate)", () => {
+    // Regression: the AI would score EXPAND high from aggregate counts
+    // (expansionOpportunityCount, hasExpansionObjective) even though every
+    // neutral frontier tile was "waste" — the concrete command builder's
+    // preferFogEfficientExpansion filter refused all of them, so executeClass
+    // returned undefined and WAIT won every tick despite EXPAND scoring 1.0.
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      hasActionableNonWasteExpand: false,
+      hasAnyExpandCandidate: false,
+      hasExpansionObjective: true,
+      expansionOpportunityCount: 7
+    });
+    expect(s).toBe(0);
+  });
   it("scores > 0 with gold and actionable frontier", () => {
     const s = scoreDecision("EXPAND", {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3
     });
     expect(s).toBeGreaterThan(0);
@@ -148,6 +161,7 @@ describe("EXPAND decision", () => {
       canExpand: true,
       pressureThreatensCore: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
       frontierOpportunityEconomic: 2
     });
@@ -160,6 +174,7 @@ describe("EXPAND decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       pressureThreatensCore: true,
       pressureAttackScore: 500
@@ -168,6 +183,7 @@ describe("EXPAND decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       pressureThreatensCore: false
     });
@@ -179,6 +195,22 @@ describe("EXPAND decision", () => {
 describe("ATTACK decision", () => {
   it("vetoed when not attackReady", () => {
     const s = scoreDecision("ATTACK", { ...BASE, canAttack: true, attackReady: false });
+    expect(s).toBe(0);
+  });
+  it("vetoed when no concrete attack candidate exists", () => {
+    // Regression: ATTACK could score high via frontPosture/pressureAttackScore
+    // even when every enemy tile on the frontier was stalemated or the
+    // candidate builder found no barbarian/player target — same
+    // score–execute mismatch as the EXPAND waste-frontier bug.
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      hasAnyAttackCandidate: false,
+      frontierEnemyCount: 2,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300
+    });
     expect(s).toBe(0);
   });
   it("vetoed when muster can engage (musterReady + weak enemy-player border)", () => {
@@ -202,6 +234,7 @@ describe("ATTACK decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       musterReady: true,
       hasWeakEnemyBorder: false,
       hasBarbTarget: true,
@@ -240,6 +273,7 @@ describe("ATTACK decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       frontierEnemyCount: 1,
       frontPosture: "BREAK",
       pressureAttackScore: 250
@@ -261,6 +295,7 @@ describe("BUILD_ECONOMY decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
@@ -275,6 +310,7 @@ describe("BUILD_ECONOMY decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       frontierEnemyCount: 2,
       frontPosture: "BREAK",
       pressureAttackScore: 300,
@@ -311,6 +347,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 4
     });
     const max = Math.max(...Object.values(result.scores));
@@ -322,6 +359,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 4
     });
     expect(result.runnerUpScore).toBeLessThanOrEqual(result.winnerScore);
@@ -337,6 +375,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
@@ -365,6 +404,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       momentumTicks: { EXPAND: 5 }
     });
@@ -372,6 +412,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       momentumTicks: {}
     });
@@ -379,65 +420,6 @@ describe("evaluateUtilityPolicy", () => {
   });
 });
 
-// ── Rejection cooldown tests ────────────────────────────────────────────────
-
-describe("rejection cooldown", () => {
-  const BUILD_DEFENSE_READY: DecisionInputs = {
-    ...BASE,
-    hasFortBuild: true,
-    frontierEnemyCount: 1,
-    devSlotAvailable: true,
-    pressureAttackScore: 200
-  };
-
-  it("BUILD_DEFENSE scores > 0 without cooldown", () => {
-    const s = scoreDecision("BUILD_DEFENSE", BUILD_DEFENSE_READY);
-    expect(s).toBeGreaterThan(0);
-  });
-
-  it("BUILD_DEFENSE scores 0 when on cooldown", () => {
-    const s = scoreDecision("BUILD_DEFENSE", {
-      ...BUILD_DEFENSE_READY,
-      cooldown: { BUILD_DEFENSE: true }
-    });
-    expect(s).toBe(0);
-  });
-
-  it("cooldown forces WAIT to win over BUILD_DEFENSE", () => {
-    const withoutCooldown = evaluateUtilityPolicy(BUILD_DEFENSE_READY);
-    const withCooldown = evaluateUtilityPolicy({
-      ...BUILD_DEFENSE_READY,
-      cooldown: { BUILD_DEFENSE: true }
-    });
-    expect(withoutCooldown.winner).toBe("BUILD_DEFENSE");
-    expect(withCooldown.winner).toBe("WAIT");
-  });
-
-  it("recordRejectionCooldown maps BUILD_FORT to BUILD_DEFENSE", () => {
-    const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
-    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
-    expect(cooldowns).toEqual({ BUILD_DEFENSE: true });
-  });
-
-  it("recordRejectionCooldown maps BUILD_ECONOMIC_STRUCTURE to BUILD_ECONOMY", () => {
-    const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_ECONOMIC_STRUCTURE", 1000);
-    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
-    expect(cooldowns).toEqual({ BUILD_ECONOMY: true });
-  });
-
-  it("cooldown expires after REJECTION_COOLDOWN_MS", () => {
-    const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
-    const active = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS + 1);
-    expect(active).toBeUndefined();
-  });
-
-  it("non-build command types do not create cooldowns", () => {
-    const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "EXPAND", 1000);
-    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + 1);
-    expect(cooldowns).toBeUndefined();
-  });
-});
+// Rejection cooldown tests (BUILD_DEFENSE scoring + recordRejectionCooldown
+// mapping) live in ../ai-rejection-cooldown.test.ts, co-located with the
+// module they cover.

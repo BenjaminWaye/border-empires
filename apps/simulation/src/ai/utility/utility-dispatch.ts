@@ -96,6 +96,18 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       !(fa.frontierOpportunityEconomic > 0 ||
         fa.frontierOpportunityTownSupport > 0 ||
         fa.frontierOpportunityScaffold > 0),
+    hasAnyExpandCandidate:
+      fa.economicExpand !== undefined ||
+      fa.directedExpand !== undefined ||
+      fa.townSupportExpand !== undefined ||
+      fa.expand !== undefined ||
+      fa.scaffoldExpand !== undefined ||
+      fa.scoutExpand !== undefined,
+    hasAnyAttackCandidate:
+      (state.preferredEnemyAttack !== undefined &&
+        !targetStalemated(state.preferredEnemyAttack, state)) ||
+      (fa.barbarianAttack !== undefined &&
+        !targetStalemated(fa.barbarianAttack, state)),
     devSlotAvailable: state.devSlotAvailable,
     attackReady: strategic.attackReady,
     musterReady: strategic.musterReady,
