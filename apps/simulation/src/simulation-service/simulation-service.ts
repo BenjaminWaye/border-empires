@@ -439,9 +439,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     console[level](message, payload);
   };
-  // Death-forensics ring buffer — rolling window of recent lag diagnostics
-  // forwarded to the gateway main thread so both watchdog-kill and sim-exit
-  // write paths have the sim's last known state. See lag-diagnostics.ts.
+  // Death-forensics ring buffer — rolling window of recent lag diagnostics forwarded to the gateway main
+  // thread so both watchdog-kill and sim-exit write paths have the sim's last known state (lag-diagnostics.ts).
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
   // GC observer; "warn" so recordLagDiagnostic retains it for death forensics.
   let gcPauseObserver: PerformanceObserver | undefined;
@@ -513,9 +512,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
   let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
-  // Only spin up a stringify worker for SQLite-backed deployments — full
-  // snapshots there are ~18MB and inline JSON.stringify blocks the
-  // simulation event loop. In-memory tests stay inline.
+  // Only spin up a stringify worker for SQLite-backed deployments — full snapshots there are ~18MB and
+  // inline JSON.stringify blocks the simulation event loop. In-memory tests stay inline.
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
     try {
       snapshotStringifier = createWorkerSnapshotStringifier();
@@ -1611,6 +1609,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
     }
 
+    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
     return (
       !persistenceQueue.isDegraded() &&
       persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
@@ -1623,6 +1622,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       simulationMetrics.incrementSimAiTickThrottled("season_ended");
       return false;
     }
+    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
     return (
       !persistenceQueue.isDegraded() &&
       persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
