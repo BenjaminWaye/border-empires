@@ -234,7 +234,6 @@ const choosePlannerCommand = (
     ownedTiles,
     tilesByKey,
     dockLinksByDockTileKey,
-    isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
     playerScopeKeyCount: plannerPlayerScopeKeyCount(player),
     playerScopeTileCount: resolvedPlayerScopeTileCount({
       ownedTiles,

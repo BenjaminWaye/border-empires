@@ -75,7 +75,6 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   ownedStructureCounts?: PlannerOwnedStructureCounts;
   tilesByKey: ReadonlyMap<string, TTile>;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
-  isPendingSettlement?: (tile: TTile) => boolean;
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
