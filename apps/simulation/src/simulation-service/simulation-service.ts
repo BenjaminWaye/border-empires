@@ -60,6 +60,7 @@ import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../pa
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
+import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
@@ -1668,6 +1669,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
       recordAiCommandRejectionMessage(playerId, commandType, rejectionCode, rejectionMessage);
     };
+    const onAiCommand = ({ playerId, commandType }: { playerId: string; commandType: CommandEnvelope["type"] }): void => { simulationMetrics.observeSimAiCommand(commandType, playerId); if (commandType === "EXPAND") simulationMetrics.incrementSimAiExpand(playerId); };
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
     emitLog("info", "simulation autopilot startup", {
       enableAiAutopilot: aiAutopilotEnabled,
@@ -1719,9 +1721,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
             playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
-            onCommand: ({ playerId, commandType }) => {
-              simulationMetrics.observeSimAiCommand(commandType, playerId);
-            },
+            onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
@@ -1810,9 +1810,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
-            onCommand: ({ playerId, commandType }) => {
-              simulationMetrics.observeSimAiCommand(commandType, playerId);
-            },
+            onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
@@ -2888,6 +2886,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
+        applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({
           heapUsedMb: memory.heapUsed / (1024 * 1024),
