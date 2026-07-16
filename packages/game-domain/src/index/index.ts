@@ -54,6 +54,11 @@ export type DomainPlayer = {
   techRootId?: string;
   tileColor?: string;
   allies: Set<string>;
+  // Active truce partners, synced from the gateway (see SYNC_TRUCE in
+  // sim-protocol). Blocks combat/observatory actions like allies do, but
+  // grants no shared vision. Optional so existing DomainPlayer/RuntimePlayer
+  // fixtures across tests don't all need updating.
+  truces?: Set<string>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource

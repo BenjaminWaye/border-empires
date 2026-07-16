@@ -7,7 +7,13 @@ import {
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
 } from "./command-coverage-sets/command-coverage-sets.js";
 
-const SimulationCommandTypeSchema = z.union([DurableCommandTypeSchema, z.literal("SYNC_ALLIANCE"), z.literal("WATCH_MUSTER"), z.literal("UNWATCH_MUSTER")]);
+const SimulationCommandTypeSchema = z.union([
+  DurableCommandTypeSchema,
+  z.literal("SYNC_ALLIANCE"),
+  z.literal("SYNC_TRUCE"),
+  z.literal("WATCH_MUSTER"),
+  z.literal("UNWATCH_MUSTER")
+]);
 
 export const CommandEnvelopeSchema = z.object({
   commandId: z.string().min(1),

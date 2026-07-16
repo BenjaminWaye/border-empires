@@ -159,9 +159,29 @@ describe("social state", () => {
     expect(social.snapshotForPlayer("player-1").activeTruces).toEqual([
       expect.objectContaining({ otherPlayerId: "player-2" })
     ]);
+    expect(social.activeTrucePairs()).toEqual([["player-1", "player-2"]]);
     expect(social.breakTruce("player-1", "player-2").ok).toBe(true);
     expect(social.snapshotForPlayer("player-1").activeTruces).toHaveLength(0);
     expect(social.snapshotForPlayer("player-2").activeTruces).toHaveLength(0);
+    expect(social.activeTrucePairs()).toEqual([]);
+  });
+
+  it("activeTrucePairs sweeps out truces whose duration has elapsed", () => {
+    let currentTime = 1_000;
+    const social = createSocialState({
+      now: () => currentTime,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" }
+      ]
+    });
+    social.requestTruce("player-1", "Valka", 12);
+    const requestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-2", requestId!).ok).toBe(true);
+    expect(social.activeTrucePairs()).toEqual([["player-1", "player-2"]]);
+
+    currentTime += 12 * 60 * 60_000 + 1;
+    expect(social.activeTrucePairs()).toEqual([]);
   });
 
   it("can resync players after an accept error clears a stale truce request", () => {

@@ -42,11 +42,13 @@ export type RuntimeCommandDispatchHandlers = {
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
+  handleSyncTruceCommand: (command: CommandEnvelope) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => void;
 };
 
 export const commandScheduling = (command: CommandEnvelope): "immediate" | "background" =>
   command.type !== "SYNC_ALLIANCE" &&
+  command.type !== "SYNC_TRUCE" &&
   (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
     ? "background"
     : "immediate";
@@ -94,6 +96,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
+  if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
   if (command.type === "ATTACK" || command.type === "EXPAND") {
     handlers.handleFrontierCommand(command, command.type);
   }
@@ -145,7 +148,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||
-  command.type === "SYNC_ALLIANCE";
+  command.type === "SYNC_ALLIANCE" ||
+  command.type === "SYNC_TRUCE";
 
 export type RuntimeCommandEnqueue = (
   lane: QueueLane,

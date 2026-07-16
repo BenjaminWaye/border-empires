@@ -31,6 +31,7 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-runtime",
   allies: new Set<string>(),
+  truces: new Set<string>(),
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
 });
@@ -39,3 +40,14 @@ export const createAiRuntimePlayer = (playerId: string): RuntimePlayer => ({
   ...createHumanRuntimePlayer(playerId),
   isAi: true
 });
+
+// Central check for "can actor treat otherPlayerId as friendly for combat /
+// observatory-ability purposes". Alliances grant this permanently; truces
+// grant it only while the truce is active (see SYNC_TRUCE in sim-protocol).
+// Every attack/muster/reveal/siphon/bombard/levy site that used to check
+// `actor.allies.has(...)` alone should route through this helper instead so
+// truces are respected consistently.
+export const isAlliedOrTruced = (
+  actor: { allies: Set<string>; truces?: Set<string> },
+  otherPlayerId: string
+): boolean => actor.allies.has(otherPlayerId) || (actor.truces?.has(otherPlayerId) ?? false);

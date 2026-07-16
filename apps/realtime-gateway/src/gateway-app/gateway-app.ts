@@ -20,7 +20,6 @@ import {
   createEmailAlertService,
   readAttackAlert,
   readIncomingAllianceRequestAlert,
-  readIncomingTruceRequestAlert,
   type EmailAlertConfig,
   type EmailAlertOutcome
 } from "../email-alerts/email-alerts.js";
@@ -47,6 +46,8 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
+import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
 import {
   createSimSubmitHealthState,
   recordSubmitSuccess,
@@ -78,7 +79,7 @@ import {
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
-import { createSeededAiTruceResponder, extractTruceRequestFromPayloads } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
+import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
@@ -1203,6 +1204,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
+  const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
+    simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
+    withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
+  });
   const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
     seededAiPlayerIds,
     seedPlayers,
@@ -1212,7 +1217,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     rejectTruce: socialState.rejectTruce,
     syncPlayers: socialState.syncPlayers,
     fanoutPlayerPayloads,
-    recordGatewayEvent
+    recordGatewayEvent, syncTruceToSimulation
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1833,7 +1838,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
-  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000);
+  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   const imperialWardAutoStart = startImperialWardAutoStartTimer({
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
     startNextSeason: (force, imperialWard) => simulationClient.startNextSeason(force, imperialWard),
@@ -1909,7 +1914,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop();
+    allianceBreakFinalize.stop(); truceExpirySync.stop();
     imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
@@ -2727,64 +2732,26 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "TRUCE_REQUEST") {
-            const result = socialState.requestTruce(session.playerId, message.targetPlayerName, message.durationHours);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);
-            if (alert) {
-              sendGameplayEmailAlert("truce_request", alert.recipientPlayerId, () =>
-                emailAlerts.sendTruceRequestAlert({
-                  recipientPlayerId: alert.recipientPlayerId,
-                  senderName: alert.senderName,
-                  durationHours: alert.durationHours
-                })
-              );
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            await maybeAutoRespondToSeededAiTruce(extractTruceRequestFromPayloads(result.payloadsByPlayerId, session.playerId));
-            return;
-          }
-
-          if (message.type === "TRUCE_ACCEPT") {
-            const result = socialState.acceptTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_REJECT") {
-            const result = socialState.rejectTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_CANCEL") {
-            const result = socialState.cancelTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_BREAK") {
-            const result = socialState.breakTruce(session.playerId, message.targetPlayerId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
+          if (
+            await handleTruceSocketMessage(
+              {
+                requestTruce: socialState.requestTruce,
+                acceptTruce: socialState.acceptTruce,
+                rejectTruce: socialState.rejectTruce,
+                cancelTruce: socialState.cancelTruce,
+                breakTruce: socialState.breakTruce,
+                sendJson,
+                fanoutPlayerPayloads,
+                syncTruceToSimulation,
+                maybeAutoRespondToSeededAiTruce,
+                sendGameplayEmailAlert,
+                sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert
+              },
+              message,
+              session.playerId,
+              socket
+            )
+          ) {
             return;
           }
 

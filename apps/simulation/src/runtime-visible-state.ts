@@ -343,6 +343,7 @@ function visiblePlayersProjection(
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
+        truces: [...(player.truces ?? [])].sort(),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,
