@@ -107,6 +107,7 @@ import {
   incrementalRemove,
   plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
   resetFromIterable,
+  type PlannerPlayerTileKeysContext,
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
 } from "../planner-tile-keys-cache.js";
@@ -450,6 +451,14 @@ export class SimulationRuntime {
   // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
   // miss. Populated lazily via plannerPlayerTileKeys, kept live via mutation hooks.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
+  // Bundles the four maps above by reference for plannerPlayerTileKeys; built
+  // once since the Maps themselves are never reassigned, only mutated.
+  private readonly plannerPlayerTileKeysContext: PlannerPlayerTileKeysContext = {
+    tileKeyCacheByPlayer: this.plannerPlayerTileKeyCacheByPlayer,
+    tileCollectionVersionByPlayer: this.plannerPlayerTileCollectionVersionByPlayer,
+    topologyVersionByPlayer: this.plannerPlayerTopologyVersionByPlayer,
+    topologyDirtyTilesByPlayer: this.plannerPlayerTopologyDirtyTilesByPlayer
+  };
   private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId.  A single lock is
   // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
@@ -1460,14 +1469,7 @@ export class SimulationRuntime {
   }
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): PlannerPlayerTileKeysResult {
-    return plannerPlayerTileKeysImpl(
-      playerId,
-      summary,
-      this.plannerPlayerTileKeyCacheByPlayer,
-      this.plannerPlayerTileCollectionVersionByPlayer,
-      this.plannerPlayerTopologyVersionByPlayer,
-      this.plannerPlayerTopologyDirtyTilesByPlayer
-    );
+    return plannerPlayerTileKeysImpl(playerId, summary, this.plannerPlayerTileKeysContext);
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {

@@ -160,6 +160,14 @@ export type PlannerPlayerTileKeysResult = {
   pendingSettlementTileKeys: string[];
 };
 
+/** Per-player cache/version state read by {@link plannerPlayerTileKeys}. */
+export type PlannerPlayerTileKeysContext = {
+  tileKeyCacheByPlayer: Map<string, PlannerTileKeysCacheEntry>;
+  tileCollectionVersionByPlayer: Map<string, number>;
+  topologyVersionByPlayer: Map<string, number>;
+  topologyDirtyTilesByPlayer: Map<string, Set<string>>;
+};
+
 /**
  * Build the planner-facing tile key export for one player, draining the
  * transient per-sync dirty set and lazily initializing the incremental cache
@@ -172,26 +180,23 @@ export type PlannerPlayerTileKeysResult = {
 export function plannerPlayerTileKeys(
   playerId: string,
   summary: PlannerTileKeysSummarySnapshot,
-  plannerPlayerTileKeyCacheByPlayer: Map<string, PlannerTileKeysCacheEntry>,
-  plannerPlayerTileCollectionVersionByPlayer: Map<string, number>,
-  plannerPlayerTopologyVersionByPlayer: Map<string, number>,
-  plannerPlayerTopologyDirtyTilesByPlayer: Map<string, Set<string>>
+  context: PlannerPlayerTileKeysContext
 ): PlannerPlayerTileKeysResult {
   // Drain dirty tiles on every call — they are transient (consumed per sync)
   // and must NOT be cached, so they are read and cleared here before the
   // cache check, ensuring each syncPlayers call gets the correct delta.
-  const dirtySet = plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
+  const dirtySet = context.topologyDirtyTilesByPlayer.get(playerId);
   const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
   dirtySet?.clear();
 
-  const tileCollectionVersion = plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
-  const topologyVersion = plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
+  const tileCollectionVersion = context.tileCollectionVersionByPlayer.get(playerId) ?? 0;
+  const topologyVersion = context.topologyVersionByPlayer.get(playerId) ?? 0;
 
   // Kept in sync by mutation hooks; if no entry exists (first access or after
   // a full rebuild), init once from summary Sets — O(territory) one-time cost.
-  let entry = plannerPlayerTileKeyCacheByPlayer.get(playerId);
+  let entry = context.tileKeyCacheByPlayer.get(playerId);
   if (!entry) {
-    entry = initCacheEntryFromSummary(plannerPlayerTileKeyCacheByPlayer, playerId, summary);
+    entry = initCacheEntryFromSummary(context.tileKeyCacheByPlayer, playerId, summary);
   }
 
   return {
