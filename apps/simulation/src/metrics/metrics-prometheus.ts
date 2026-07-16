@@ -178,6 +178,9 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const commandType of DURABLE_COMMAND_TYPES) {
     lines.push(`sim_ai_command_rejected_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandRejectedTotalByType[commandType] ?? 0)}`);
   }
+  for (const [code, count] of Object.entries(sample.simAiCommandRejectedCodeTotal)) {
+    lines.push(`sim_ai_command_rejected_code_total{code=\"${code}\"} ${formatMetricValue(count)}`);
+  }
   for (const reason of AUTOMATION_PREPLAN_REASONS) {
     lines.push(`sim_ai_preplan_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiPreplanTotalByReason[reason])}`);
   }

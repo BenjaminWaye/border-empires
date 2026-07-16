@@ -25,6 +25,9 @@ describe("simulation metrics", () => {
     metrics.observeSimAiCommand("SETTLE", "ai-4");
     metrics.observeSimAiCommand("EXPAND", "ai-2");
     metrics.observeSimAiCommand("BUILD_ECONOMIC_STRUCTURE", "ai-9");
+    metrics.observeSimAiCommandRejected("BUILD_ECONOMIC_STRUCTURE", "BUILD_INVALID");
+    metrics.observeSimAiCommandRejected("BUILD_ECONOMIC_STRUCTURE", "BUILD_INVALID");
+    metrics.observeSimAiCommandRejected("ATTACK", "INSUFFICIENT_GOLD");
     metrics.observeSimAiPreplan("defer_unaffordable_progression", "ai-4");
     metrics.observeSimAiPreplan("choose_domain", "ai-9");
     metrics.observeSimAiPreplanProgress("tech_and_domain_unaffordable", "ai-4");
@@ -97,6 +100,10 @@ describe("simulation metrics", () => {
     expect(sample.simAiCommandTotalByType.SETTLE).toBe(1);
     expect(sample.simAiCommandTotalByType.EXPAND).toBe(1);
     expect(sample.simAiCommandTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(1);
+    expect(sample.simAiCommandRejectedTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(2);
+    expect(sample.simAiCommandRejectedTotalByType.ATTACK).toBe(1);
+    expect(sample.simAiCommandRejectedCodeTotal.BUILD_INVALID).toBe(2);
+    expect(sample.simAiCommandRejectedCodeTotal.INSUFFICIENT_GOLD).toBe(1);
     expect(sample.simAiCommandRecent).toContain("ai-4:SETTLE");
     expect(sample.simAiCommandRecent).toContain("ai-9:BUILD_ECONOMIC_STRUCTURE");
     expect(sample.simAiPreplanTotalByReason.defer_unaffordable_progression).toBe(1);
@@ -171,6 +178,9 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_runtime_apply_ms_by_command{type="EXPAND",quantile="p95"} 17');
     expect(exposition).toContain('sim_ai_command_total{type="SETTLE"} 1');
     expect(exposition).toContain('sim_ai_command_total{type="BUILD_ECONOMIC_STRUCTURE"} 1');
+    expect(exposition).toContain('sim_ai_command_rejected_total{type="BUILD_ECONOMIC_STRUCTURE"} 2');
+    expect(exposition).toContain('sim_ai_command_rejected_code_total{code="BUILD_INVALID"} 2');
+    expect(exposition).toContain('sim_ai_command_rejected_code_total{code="INSUFFICIENT_GOLD"} 1');
     expect(exposition).toContain('sim_ai_preplan_total{reason="defer_unaffordable_progression"} 1');
     expect(exposition).toContain('sim_ai_preplan_progress_total{state="tech_and_domain_unaffordable"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
