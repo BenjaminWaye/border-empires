@@ -148,7 +148,6 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
-        delete tile.economicStructure;
         const hasTech = (id: string) => state.techIds.includes(id);
         // If the tile already has a fort at max tier with no upgrade path,
         // don't write an optimistic under_construction state the sim will reject.
