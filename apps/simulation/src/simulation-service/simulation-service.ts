@@ -1719,8 +1719,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
-            onRejectedCommand: ({ commandType }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType);
+            onRejectedCommand: ({ commandType, rejectionCode }) => {
+              simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
             },
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
@@ -1819,8 +1819,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
-            onRejectedCommand: ({ commandType }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType);
+            onRejectedCommand: ({ commandType, rejectionCode }) => {
+              simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
             },
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
