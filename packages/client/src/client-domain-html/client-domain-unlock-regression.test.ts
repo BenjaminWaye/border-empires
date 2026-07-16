@@ -65,7 +65,7 @@ describe("domain unlock UI", () => {
     const send = vi.fn();
     const pushFeed = vi.fn();
     const state = createInitialState();
-    state.domainChoices = ["frontier-bureau"];
+    state.domainChoices = ["cogwork-foundries"];
     state.domainCatalog = [domain({ id: "frontier-doctrine", name: "Frontier Doctrine" })];
     state.authSessionReady = true;
 
@@ -80,11 +80,11 @@ describe("domain unlock UI", () => {
     const send = vi.fn();
     const pushFeed = vi.fn();
     const state = createInitialState();
-    state.domainChoices = ["frontier-bureau"];
+    state.domainChoices = ["cogwork-foundries"];
     state.domainCatalog = [
       domain({
-        id: "frontier-bureau",
-        name: "Frontier Bureau",
+        id: "cogwork-foundries",
+        name: "Cogwork Foundries",
         tier: 2,
         requiresTechId: "logistics",
         requirements: { gold: 14000, resources: { SHARD: 1 }, canResearch: false }
@@ -92,7 +92,7 @@ describe("domain unlock UI", () => {
     ];
     state.authSessionReady = true;
 
-    chooseDomainFromUi("frontier-bureau", chooseDeps(state, send, pushFeed));
+    chooseDomainFromUi("cogwork-foundries", chooseDeps(state, send, pushFeed));
 
     expect(send).not.toHaveBeenCalled();
     expect(pushFeed).toHaveBeenCalledWith("Domain requirements are not met yet.", "tech", "warn");

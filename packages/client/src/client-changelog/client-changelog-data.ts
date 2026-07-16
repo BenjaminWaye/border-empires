@@ -20,10 +20,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.1",
+  version: "2026.07.16.2",
   title: "What's New",
-  summary: "AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt — the AI was proposing these next to towns with nowhere open to place them, and each rejected attempt burned its turn instead of doing something else useful. AI attacks also no longer flood the server with repeat attempts against a target that's already mid-attack. Also includes the previous release: muster-fed attacks from different flags now march and fire independently, and muster flags on the 3D map render on top of the ownership overlay where they belong.",
+  summary: "Tier 2 domain rebalance: Frontier Bureau is now Cogwork Foundries, trading its old capacity bonus for a straight 25% faster build time on economic structures. Stone Curtain, Iron Vanguard, Crystal Network, and Scholastic Exchanges all got their bonuses bumped up to match, and Scholastic Exchanges dropped its non-functional research-speed effect. Also includes the previous release: AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt.",
   entries: [
+    {
+      introducedIn: "2026.07.16.2",
+      title: "Tier 2 domain rebalance: Cogwork Foundries and stronger peers",
+      why: "Frontier Bureau's only effect (+1 development capacity) duplicated its Tier 1 predecessor at triple the cost, and no domain in the game sped up economic structure construction. Scholastic Exchanges also carried a researchTimeMult effect that was never wired into any build/research timer, so it did nothing.",
+      changes: [
+        "Frontier Bureau is renamed Cogwork Foundries and now grants a 25% build-speed bonus to economic structures instead of +1 development capacity.",
+        "Stone Curtain's frontier defense bonus increases from +15/1.1x to +20/1.2x.",
+        "Iron Vanguard's attack bonuses vs. settled land and forts increase from 1.12x to 1.20x.",
+        "Scholastic Exchanges drops its non-functional research-speed effect; its connected-town step bonus increases from +0.1 to +0.2.",
+        "Crystal Network's reveal-upkeep discount increases from 15% to 20%, and its observatory range bonus increases from +6 to +10."
+      ]
+    },
     {
       introducedIn: "2026.07.16.1",
       title: "AI empires build economic structures reliably instead of stalling out",

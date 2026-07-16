@@ -30,7 +30,7 @@ describe("refreshLiveTechRequirements", () => {
       }
     ];
     state.domainIds = ["frontier-doctrine"];
-    state.domainChoices = ["frontier-bureau"];
+    state.domainChoices = ["cogwork-foundries"];
     state.domainCatalog = [
       {
         id: "frontier-doctrine",
@@ -43,9 +43,9 @@ describe("refreshLiveTechRequirements", () => {
         requirements: { gold: 6000, resources: { FOOD: 120 }, canResearch: false }
       },
       {
-        id: "frontier-bureau",
+        id: "cogwork-foundries",
         tier: 2,
-        name: "Frontier Bureau",
+        name: "Cogwork Foundries",
         description: "",
         requiresTechId: "logistics",
         mods: {},
@@ -59,13 +59,13 @@ describe("refreshLiveTechRequirements", () => {
     const html = renderDomainChoiceGridHtml({
       domainCatalog: state.domainCatalog,
       domainIds: state.domainIds,
-      domainUiSelectedId: "frontier-bureau",
+      domainUiSelectedId: "cogwork-foundries",
       ownedByTier: ownedDomainByTier(state.domainCatalog, state.domainIds),
       currentTier: 2,
-      requiresTechNames: { "frontier-doctrine": "Workshop Standards", "frontier-bureau": "Convoy Logistics" }
+      requiresTechNames: { "frontier-doctrine": "Workshop Standards", "cogwork-foundries": "Convoy Logistics" }
     });
 
-    expect(state.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
+    expect(state.domainCatalog.find((domain) => domain.id === "cogwork-foundries")?.requirements.canResearch).toBe(false);
     expect(html).toContain("Choose one domain for Tier 2");
     expect(html).toContain("✗ Requires Convoy Logistics");
     expect(html).not.toContain("Unlock Tier 1 first to reach this tier");

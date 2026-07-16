@@ -277,7 +277,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
     : spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST"
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
-      : spec.buildMs;
+      : spec.kind === "ECONOMIC"
+        ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
+        : spec.buildMs;
   const completesAt = context.now() + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST";
   const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "LIGHT_OUTPOST";
