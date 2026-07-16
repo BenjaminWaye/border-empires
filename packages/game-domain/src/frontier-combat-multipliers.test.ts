@@ -30,8 +30,8 @@ describe("resolveFrontierCombatMultipliers", () => {
       [],
       [],
     );
-    expect(result.attackVsSettledMult).toBe(1.12);
-    expect(result.attackVsFortsMult).toBe(1.12);
+    expect(result.attackVsSettledMult).toBe(1.20);
+    expect(result.attackVsFortsMult).toBe(1.20);
   });
 
   it("stacks multiplicative effects from multiple domains", () => {
@@ -41,8 +41,8 @@ describe("resolveFrontierCombatMultipliers", () => {
       [],
       [],
     );
-    expect(result.attackVsSettledMult).toBeCloseTo(1.12 * 1.10, 10);
-    expect(result.attackVsFortsMult).toBeCloseTo(1.12 * 1.10, 10);
+    expect(result.attackVsSettledMult).toBeCloseTo(1.20 * 1.10, 10);
+    expect(result.attackVsFortsMult).toBeCloseTo(1.20 * 1.10, 10);
   });
 
   it("resolves fortDefenseMult from defender domains", () => {
@@ -67,8 +67,8 @@ describe("resolveFrontierCombatMultipliers", () => {
 
   it("produces correct win chance when techs affect combat", () => {
     // SETTLED tile, no town, no fort: base defMult = 1.35 → defEff = 13.5
-    // With iron-vanguard (attackVsSettledMult = 1.12): atkEff = 10 * 1.12 = 11.2
-    // Win chance = 11.2 / (11.2 + 13.5) = 11.2 / 24.7 ≈ 0.4534
+    // With iron-vanguard (attackVsSettledMult = 1.20): atkEff = 10 * 1.20 = 12.0
+    // Win chance = 12.0 / (12.0 + 13.5) = 12.0 / 25.5 ≈ 0.4706
     const target = { terrain: "LAND" as const, ownershipState: "SETTLED" as const };
     const noTechPreview = buildFrontierCombatPreview(target);
     expect(noTechPreview.atkEff).toBe(10);
@@ -82,8 +82,8 @@ describe("resolveFrontierCombatMultipliers", () => {
       [],
     );
     const techPreview = buildFrontierCombatPreview(target, multipliers);
-    expect(techPreview.atkEff).toBeCloseTo(11.2, 6);
-    expect(techPreview.winChance).toBeCloseTo(11.2 / 24.7, 6);
+    expect(techPreview.atkEff).toBeCloseTo(12.0, 6);
+    expect(techPreview.winChance).toBeCloseTo(12.0 / 25.5, 6);
     expect(techPreview.winChance).toBeGreaterThan(noTechPreview.winChance);
   });
 });
