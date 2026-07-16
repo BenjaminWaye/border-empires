@@ -6,11 +6,6 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
-  validateFrontierCommand,
-  fortAttackManpowerMultiplier,
-  MANPOWER_BASE_CAP,
-  MANPOWER_BASE_REGEN_PER_MINUTE,
-  TOWN_MANPOWER_BY_TIER,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -33,8 +28,7 @@ import {
   WORLD_WIDTH,
   type Terrain,
   type BuildableStructureType,
-  type EconomicStructureType,
-  type StructureSpec
+  type EconomicStructureType
 } from "@border-empires/shared";
 import {
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
@@ -64,26 +58,14 @@ import {
 import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
-  coordsInChebyshevRadius,
-  FRONTIER_DECAY_MS,
-  fortAutoAttackCandidates,
-  isActiveFortAnchor,
   isSettledTownAnchor,
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
-  candidateIndexKeysAroundTileKey,
-  isBuildCandidateTile,
-  isHotFrontierTile,
-  isStrategicFrontierTile,
-  playerIdsAffectedByTileChange
-} from "../ai/planner-candidate-index.js";
-import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
-  cloneStrategicProduction,
   createEmptyPlayerRuntimeSummary,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
@@ -107,7 +89,6 @@ import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-stor
 import {
   additiveEffectForPlayer, buildModBreakdownForPlayer,
   effectiveVisionRadiusForPlayer,
-  multiplicativeEffectForPlayer,
   recomputeMods
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
@@ -124,8 +105,10 @@ import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
   incrementalAdd,
   incrementalRemove,
-  initCacheEntryFromSummary,
+  plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
   resetFromIterable,
+  type PlannerPlayerTileKeysContext,
+  type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
 } from "../planner-tile-keys-cache.js";
 import {
@@ -174,7 +157,6 @@ import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-re
 import {
   parseAllianceSyncPayload,
   parseConverterTogglePayload,
-  parseEconomicStructurePayload,
   parseSettlePayload,
   parseStructureTilePayload,
   parseTilePayload
@@ -188,21 +170,15 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
-import { ENCIRCLEMENT_DECAY_MS } from "../encirclement/encirclement.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import {
-  FOREST_SETTLEMENT_MULT,
-  MAX_SETTLE_DURATION_MS,
-  SETTLE_DURATION_MS,
   settlementBaseDurationMsForTile,
   settlementDurationMsForPlayer
 } from "../runtime-settlement-rules.js";
 import {
-  TECH_REQUIREMENTS_BY_STRUCTURE,
   economicStructureGoldUpkeepPerInterval,
-  isConverterStructureType,
-  upgradeBaseTypeForEconomicStructure
+  isConverterStructureType
 } from "../runtime-structure-rules/runtime-structure-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
@@ -280,7 +256,6 @@ import {
   pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
   pickReadyOwnedObservatoryForTarget as pickReadyOwnedObservatoryForTargetImpl,
   revealCapacityForPlayer as revealCapacityForPlayerImpl,
-  seaTileCountBetween as seaTileCountBetweenImpl,
   setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
@@ -402,17 +377,12 @@ import {
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 
-export { InMemorySimulationPersistence } from "../runtime-types.js";
-export type { SimulationTileWireDelta } from "../runtime-types.js";
-
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // Force a full upkeep-cache rebuild every N reads to bound floating-point drift
 // from the incremental add/subtract sum over a long-lived season.
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
-export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const RESPAWN_MINIMUM_GOLD = 100;
-export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
 // Grace beyond resolvesAt before the sweep drops a lock (60s).
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.
@@ -481,6 +451,14 @@ export class SimulationRuntime {
   // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
   // miss. Populated lazily via plannerPlayerTileKeys, kept live via mutation hooks.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
+  // Bundles the four maps above by reference for plannerPlayerTileKeys; built
+  // once since the Maps themselves are never reassigned, only mutated.
+  private readonly plannerPlayerTileKeysContext: PlannerPlayerTileKeysContext = {
+    tileKeyCacheByPlayer: this.plannerPlayerTileKeyCacheByPlayer,
+    tileCollectionVersionByPlayer: this.plannerPlayerTileCollectionVersionByPlayer,
+    topologyVersionByPlayer: this.plannerPlayerTopologyVersionByPlayer,
+    topologyDirtyTilesByPlayer: this.plannerPlayerTopologyDirtyTilesByPlayer
+  };
   private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId.  A single lock is
   // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
@@ -1490,51 +1468,8 @@ export class SimulationRuntime {
     // summary only if no entry exists.
   }
 
-  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
-    tileCollectionVersion: number;
-    topologyVersion: number;
-    topologyDirtyTileKeys: string[];
-    territoryTileKeys: string[];
-    frontierTileKeys: string[];
-    hotFrontierTileKeys: string[];
-    strategicFrontierTileKeys: string[];
-    buildCandidateTileKeys: string[];
-    pendingSettlementTileKeys: string[];
-  } {
-    // Drain dirty tiles on every call — they are transient (consumed per sync)
-    // and must NOT be cached, so they are read and cleared here before the
-    // cache check, ensuring each syncPlayers call gets the correct delta.
-    const dirtySet = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
-    const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
-    dirtySet?.clear();
-
-    const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
-    const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
-
-    // Kept in sync by mutation hooks; if no entry exists (first access or after
-    // a full rebuild), init once from summary Sets — O(territory) one-time cost.
-    let entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (!entry) {
-      entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
-    }
-
-    // CONTRACT — LIVE references into the incremental cache (mutated in place
-    // on the NEXT territory mutation), not copies. Read/iterate/copy sync only;
-    // never retain across a mutation cycle (silently-drifted territory). Safe
-    // today: planner worker gets a structured clone; relevantTileKeyIndex
-    // snapshots into `new Set(...)` before yielding. Copy first if you add a
-    // consumer that retains one of these arrays.
-    return {
-      tileCollectionVersion,
-      topologyVersion,
-      topologyDirtyTileKeys,
-      territoryTileKeys: entry.territory.keys,
-      frontierTileKeys: entry.frontier.keys,
-      hotFrontierTileKeys: entry.hotFrontier.keys,
-      strategicFrontierTileKeys: entry.strategicFrontier.keys,
-      buildCandidateTileKeys: entry.buildCandidate.keys,
-      pendingSettlementTileKeys: entry.pendingSettlement.keys
-    };
+  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): PlannerPlayerTileKeysResult {
+    return plannerPlayerTileKeysImpl(playerId, summary, this.plannerPlayerTileKeysContext);
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -1971,16 +1906,6 @@ export class SimulationRuntime {
     });
   }
 
-  private assertYieldIndexCorrect(playerId: string, now: number, yieldContext: RuntimeTileYieldEconomyContext): void {
-    assertYieldIndexCorrectImpl({
-      playerId,
-      tiles: this.tiles,
-      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      summary: this.summaryForPlayer(playerId),
-      now,
-      yieldContext
-    });
-  }
 
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
@@ -2516,10 +2441,6 @@ export class SimulationRuntime {
       playerId,
       options
     );
-  }
-
-  private strategicProductionPerMinuteForPlayer(playerId: string): Record<StrategicResourceKey, number> {
-    return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
   }
 
   private settledTilesForPlayer(playerId: string): DomainTileState[] {
@@ -3504,10 +3425,6 @@ export class SimulationRuntime {
     return isCoastalLandImpl(this.tiles, x, y);
   }
 
-  private seaTileCountBetween(ax: number, ay: number, bx: number, by: number): number | undefined {
-    return seaTileCountBetweenImpl(this.tiles, ax, ay, bx, by);
-  }
-
   private closestAetherBridgeOrigin(playerId: string, targetX: number, targetY: number): { x: number; y: number } | undefined {
     return closestAetherBridgeOriginImpl(this.tiles, playerId, targetX, targetY);
   }
@@ -3696,15 +3613,6 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void {
     this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil));
-  }
-
-  private tileHasActiveFortPatrolGrace(tileKey: string, nowMs: number): boolean {
-    const graceUntil = this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0;
-    if (graceUntil <= nowMs) {
-      if (graceUntil > 0) this.fortPatrolGraceUntilByTile.delete(tileKey);
-      return false;
-    }
-    return true;
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
