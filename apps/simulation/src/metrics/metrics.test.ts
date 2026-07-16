@@ -231,4 +231,64 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_ai_action_class_total{class="MUSTER"} 0');
     expect(exposition).toContain('sim_ai_action_class_total{class="CHOOSE_TECH"} 0');
   });
+
+  it("still exposes the experiment-mode skip counters after extraction into metrics-experiment-counters.ts", () => {
+    // Regression: these four counters (dry-run/command-cap/expand-disabled/
+    // build-disabled skips) were moved out of metrics.ts's own closure state
+    // into a separate module to make room under the 500-line file cap.
+    // The public method names and snapshot/exposition field names must stay
+    // identical — this pins that the extraction didn't silently drop wiring.
+    const metrics = createSimulationMetrics();
+    metrics.incrementSimAiDryRunSkipped();
+    metrics.incrementSimAiCommandCapSkipped();
+    metrics.incrementSimAiCommandCapSkipped();
+    metrics.incrementSimAiExpandDisabled();
+    metrics.incrementSimAiBuildDisabled();
+
+    const sample = metrics.snapshot();
+    expect(sample.simAiDryRunSkippedTotal).toBe(1);
+    expect(sample.simAiCommandCapSkippedTotal).toBe(2);
+    expect(sample.simAiExpandDisabledTotal).toBe(1);
+    expect(sample.simAiBuildDisabledTotal).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain("sim_ai_dry_run_skipped_total 1");
+    expect(exposition).toContain("sim_ai_command_cap_skipped_total 2");
+    expect(exposition).toContain("sim_ai_expand_disabled_total 1");
+    expect(exposition).toContain("sim_ai_build_disabled_total 1");
+  });
+
+  it("exposes per-AI-player gold, gold-capacity, tile-count gauges and an EXPAND-only command counter", () => {
+    // Growth/spend visibility: previously the only way to check whether AI
+    // players were expanding or spending gold was manually diffing
+    // /admin/debug/ai snapshots by hand (see staging investigation — this was
+    // wrong once already, misreading a stale diagnostics ring-buffer window
+    // as "AI stalled" when it wasn't). These gauges/counter make growth speed
+    // and gold-capacity headroom directly queryable via Prometheus.
+    const metrics = createSimulationMetrics();
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_856, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 513 });
+    metrics.setSimAiPlayerState("ai-2", { gold: 2_921, goldCapacity: 7_200, settledTiles: 271, ownedTiles: 501 });
+    // A later call for the same player replaces, not accumulates — this is a gauge, not a counter.
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_900, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 514 });
+    metrics.incrementSimAiExpand("ai-1");
+    metrics.incrementSimAiExpand("ai-1");
+    metrics.incrementSimAiExpand("ai-2");
+
+    const sample = metrics.snapshot();
+    expect(sample.simAiPlayerGoldGauge["ai-1"]).toBe(27_900);
+    expect(sample.simAiPlayerGoldGauge["ai-2"]).toBe(2_921);
+    expect(sample.simAiPlayerGoldCapacityGauge["ai-1"]).toBe(15_480);
+    expect(sample.simAiPlayerSettledTilesGauge["ai-1"]).toBe(92);
+    expect(sample.simAiPlayerOwnedTilesGauge["ai-1"]).toBe(514);
+    expect(sample.simAiExpandTotalByPlayer["ai-1"]).toBe(2);
+    expect(sample.simAiExpandTotalByPlayer["ai-2"]).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain('sim_ai_player_gold{player_id="ai-1"} 27900');
+    expect(exposition).toContain('sim_ai_player_gold_capacity{player_id="ai-1"} 15480');
+    expect(exposition).toContain('sim_ai_player_settled_tiles{player_id="ai-1"} 92');
+    expect(exposition).toContain('sim_ai_player_owned_tiles{player_id="ai-1"} 514');
+    expect(exposition).toContain('sim_ai_expand_total{player_id="ai-1"} 2');
+    expect(exposition).toContain('sim_ai_expand_total{player_id="ai-2"} 1');
+  });
 });

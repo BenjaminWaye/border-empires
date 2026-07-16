@@ -200,6 +200,7 @@ import {
   buildRuntimePlayerDebugSnapshot,
   exportPlannerTilesForKeys,
   plannerPlayerScopeKeyCount,
+  type RuntimeAiPlayerMetricsRow,
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
@@ -2240,8 +2241,7 @@ export class SimulationRuntime {
 
   exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
     return buildRuntimePlayerDebugSnapshot({
-      locksByTile: this.locksByTile,
-      players: this.players,
+      locksByTile: this.locksByTile, players: this.players,
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
@@ -2250,9 +2250,10 @@ export class SimulationRuntime {
     });
   }
 
-  exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
-    return exportPlannerTilesForKeys(this.tiles, tileKeys);
-  }
+  // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
+  exportAiPlayerMetricsSnapshot(): RuntimeAiPlayerMetricsRow[] { return [...this.players.values()].filter((p) => p.isAi === true).map((p) => { const summary = this.summaryForPlayer(p.id); return { id: p.id, isAi: true, points: p.points, incomePerMinute: this.estimatedIncomePerMinuteForPlayer(p.id), settledTileCount: summary.settledTileCount, ownedTileCount: summary.territoryTileKeys.size }; }); }
+
+  exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] { return exportPlannerTilesForKeys(this.tiles, tileKeys); }
 
   private buildExportInput() {
     return {
@@ -2559,9 +2560,7 @@ export class SimulationRuntime {
     return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 100) / 100;
   }
 
-  private activeDevelopmentProcessCountForPlayer(playerId: string): number {
-    return this.summaryForPlayer(playerId).activeDevelopmentProcessCount;
-  }
+  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
     // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
