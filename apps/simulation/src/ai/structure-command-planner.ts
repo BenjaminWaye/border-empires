@@ -261,7 +261,7 @@ export const chooseBestFortBuild = (
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-    if (!tileOpenForStructure(tile)) continue;
+    if (tile.fort || !tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("FORT", player.id, tile, tilesByKey)) continue;
     let adjacentLandCount = 0;
     let hostileAdjacency = 0;
