@@ -8,7 +8,11 @@ import {
 } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
-import { openTownSupportNeighborTiles, townSupportStructureShowsOnTile } from "../town-support-lookup.js";
+import {
+  economicStructureTypesForSupportedTown,
+  openTownSupportNeighborTiles,
+  townSupportStructureShowsOnTile
+} from "../town-support-lookup.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -190,6 +194,8 @@ export const chooseBestEconomicBuild = (
     // scanning it per-candidate-type would triple an 8-neighbor scan for no
     // reason (see town-support-lookup.ts).
     let openSupportNeighbors: readonly StructurePlannerTile[] | undefined;
+    let existingSupportStructureTypes: ReadonlySet<EconomicStructureType> | undefined;
+    const townKey = tileKeyOf(tile.x, tile.y);
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
     } else if (tile.resource === "WOOD" || tile.resource === "FUR") {
@@ -198,7 +204,7 @@ export const chooseBestEconomicBuild = (
       candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
     } else if (tile.town && tile.town.populationTier !== "SETTLEMENT" &&
         (typeof tile.town.supportCurrent !== "number" || typeof tile.town.supportMax !== "number" || tile.town.supportCurrent < tile.town.supportMax)) {
-      openSupportNeighbors = openTownSupportNeighborTiles(tilesByKey, player.id, tileKeyOf(tile.x, tile.y));
+      openSupportNeighbors = openTownSupportNeighborTiles(tilesByKey, player.id, townKey);
       // A town missing support capacity does NOT guarantee an open neighbor
       // exists to host the structure — the town may be boxed in by FRONTIER
       // neighbors or neighbors already holding a structure. Without this
@@ -206,6 +212,9 @@ export const chooseBestEconomicBuild = (
       // nowhere to place it, and the runtime rejected ~99.9% of those
       // commands in production, burning the tick's action budget every time.
       if (openSupportNeighbors.length > 0) {
+        // Computed once per tile, not per candidate type — see
+        // economicStructureTypesForSupportedTown's docs in town-support-lookup.ts.
+        existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
         candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
         candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
         candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
@@ -219,6 +228,16 @@ export const chooseBestEconomicBuild = (
         openSupportNeighbors &&
         !openSupportNeighbors.some((neighbor) => townSupportStructureShowsOnTile(tilesByKey, player.id, neighbor, candidate.type))
       ) {
+        continue;
+      }
+      // A town needing MORE support capacity overall (supportCurrent <
+      // supportMax, checked above) does not mean it's missing THIS specific
+      // type — it might already have a GRANARY and just need a MARKET/BANK.
+      // The runtime rejects a duplicate ("town already has granary") via
+      // economicStructureForSupportedTown; without this same check here the
+      // AI kept proposing a structure type the town already had, on repeat,
+      // every rejection-cooldown cycle, forever (see town-support-lookup.ts).
+      if (existingSupportStructureTypes?.has(candidate.type)) {
         continue;
       }
       const next = { tile, structureType: candidate.type, score: candidate.score };
