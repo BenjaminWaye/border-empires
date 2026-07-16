@@ -636,8 +636,6 @@ describe("ai command producer", () => {
           diagnostic: {
             playerId: "ai-1",
             sessionPrefix: "ai-runtime",
-            settlementEligible: false,
-            settlementCandidateFound: false,
             frontierEnemyTargetCount: 0,
             frontierNeutralTargetCount: 0,
             canAttack: false,
@@ -680,8 +678,6 @@ describe("ai command producer", () => {
           diagnostic: {
             playerId,
             sessionPrefix: "ai-runtime" as const,
-            settlementEligible: true,
-            settlementCandidateFound: true,
             frontierEnemyTargetCount: 0,
             frontierNeutralTargetCount: 1,
             canAttack: false,
@@ -725,8 +721,6 @@ describe("ai command producer", () => {
             diagnostic: {
               playerId,
               sessionPrefix: "ai-runtime" as const,
-              settlementEligible: false,
-              settlementCandidateFound: false,
               frontierEnemyTargetCount: 0,
               frontierNeutralTargetCount: 0,
               canAttack: false,
@@ -747,8 +741,6 @@ describe("ai command producer", () => {
           diagnostic: {
             playerId,
             sessionPrefix: "ai-runtime" as const,
-            settlementEligible: false,
-            settlementCandidateFound: false,
             frontierEnemyTargetCount: 0,
             frontierNeutralTargetCount: 1,
             canAttack: false,
@@ -812,8 +804,6 @@ describe("ai command producer", () => {
         diagnostic: {
           playerId,
           sessionPrefix: "ai-runtime" as const,
-          settlementEligible: false,
-          settlementCandidateFound: false,
           frontierEnemyTargetCount: 0,
           frontierNeutralTargetCount: clientSeq === 1 ? 0 : 1,
           canAttack: false,
@@ -878,8 +868,6 @@ describe("ai command producer", () => {
         diagnostic: {
           playerId,
           sessionPrefix: "ai-runtime" as const,
-          settlementEligible: false,
-          settlementCandidateFound: false,
           frontierEnemyTargetCount: 0,
           frontierNeutralTargetCount: clientSeq === 1 ? 0 : 1,
           canAttack: false,

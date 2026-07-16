@@ -5,7 +5,6 @@ import {
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_PROGRESS_STATES,
   AUTOMATION_PREPLAN_REASONS,
-  AUTOMATION_SETTLE_DECISION_REASONS,
   DECISION_CLASSES,
   DURABLE_COMMAND_TYPES,
   LANES,
@@ -95,11 +94,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_ai_preplan_total counter",
     "# TYPE sim_ai_preplan_progress_total counter",
     "# TYPE sim_ai_noop_total counter",
-    "# TYPE sim_ai_settle_decision_total counter",
-    "# TYPE sim_ai_settle_decision_top_score gauge",
-    `sim_ai_settle_decision_top_score{quantile=\"p50\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p50)}`,
-    `sim_ai_settle_decision_top_score{quantile=\"p95\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p95)}`,
-    `sim_ai_settle_decision_top_score{quantile=\"p99\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p99)}`,
     "# TYPE sim_checkpoint_export_ms gauge",
     `sim_checkpoint_export_ms{quantile="p50"} ${formatMetricValue(sample.simCheckpointExportMs.p50)}`,
     `sim_checkpoint_export_ms{quantile="p95"} ${formatMetricValue(sample.simCheckpointExportMs.p95)}`,
@@ -189,9 +183,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   }
   for (const reason of AUTOMATION_NOOP_REASONS) {
     lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
-  }
-  for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
-    lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
   }
   for (const reason of AI_TICK_THROTTLE_REASONS) {
     lines.push(`sim_ai_tick_throttled_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiTickThrottledTotal[reason])}`);

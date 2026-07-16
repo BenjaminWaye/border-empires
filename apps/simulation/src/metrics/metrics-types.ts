@@ -8,10 +8,6 @@ import {
   type AutomationPreplanProgressState,
   type AutomationPreplanReason
 } from "../ai/automation-command-planner.js";
-import {
-  AUTOMATION_SETTLE_DECISION_REASONS,
-  type AutomationSettleDecisionReason
-} from "../ai/automation-command-planner-helpers.js";
 import { DECISION_CLASSES, type DecisionClass } from "../ai/utility/decisions.js";
 import type { QuantileSample } from "./metrics-format.js";
 
@@ -21,15 +17,13 @@ export type {
   AutomationNoopReason,
   AutomationPreplanProgressState,
   AutomationPreplanReason,
-  AutomationSettleDecisionReason,
   DecisionClass,
   QuantileSample
 };
 export {
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_PROGRESS_STATES,
-  AUTOMATION_PREPLAN_REASONS,
-  AUTOMATION_SETTLE_DECISION_REASONS
+  AUTOMATION_PREPLAN_REASONS
 };
 
 export const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -47,7 +41,6 @@ export type DurableCommandType = CommandEnvelope["type"];
 export const AI_PLANNER_PHASES = [
   // Worker-side (inside the planner thread).
   "resolve_player_tiles",
-  "planner_choose_settlement",
   "planner_choose_frontier",
   "planner_summarize_frontier",
   "planner_total",
@@ -170,9 +163,6 @@ export type SimulationMetricsSnapshot = {
   simAiTickThrottledTotal: Record<AiTickThrottleReason, number>;
   simAiCurrentTickIntervalMs: number;
   simAiBudgetUsedMs: number;
-  simAiSettleDecisionTotalByReason: Record<AutomationSettleDecisionReason, number>;
-  simAiSettleDecisionRecent: string[];
-  simAiSettleDecisionTopScore: QuantileSample;
   simAiPlannerPhaseMs: Record<AiPlannerPhase, QuantileSample>;
   // Per-runtime-drain histogram. submit_command on the bridge measured 92-319ms
   // p99, which we now know was the drain that runs as a microtask after each

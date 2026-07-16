@@ -2,11 +2,9 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import {
   ATTACK_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST,
-  SETTLE_COST
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 
-import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { computeTownSupport } from "../town-support.js";
 import {
@@ -17,10 +15,7 @@ import {
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot, type AutomationStrategicSnapshot, type AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
-import {
-  evaluateSettleCandidateDecision,
-  type AutomationPlannerDecisionContext
-} from "./automation-command-planner-helpers.js";
+import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 
@@ -168,18 +163,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
   }
 
-  const settlementEligible =
-    input.sessionPrefix === "ai-runtime" &&
-    input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
-    input.points >= SETTLE_COST;
-  const settlementStartedAt = Date.now();
   // Restrict per-AI candidate sets to the spatial focus front when present.
-  // Without this, large empires made per-tick selectors (settle priority,
-  // structure build) iterate the full owned/frontier set every tick — the
-  // settle priority evaluator alone is O(neighborhood) per candidate, so
-  // unbounded inputs produced multi-second AI ticks even after the frontier
-  // candidate enumeration was bounded. Fall back to the unfiltered list when
-  // the focus excludes everything, so the AI never starves on a bad focus.
+  // Without this, large empires made per-tick selectors (structure build)
+  // iterate the full owned/frontier set every tick. Fall back to the
+  // unfiltered list when the focus excludes everything, so the AI never
+  // starves on a bad focus.
   const focusFront = input.spatialFocusFront;
   const restrictToFocus = <T extends AutomationPlannerTile>(
     tiles: readonly T[]
@@ -203,41 +191,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     }
     return ownedFrontierTilesCache;
   };
-  const settlementSources = (restrictToFocus(
-    input.strategicFrontierTiles?.length
-      ? input.strategicFrontierTiles
-      : input.hotFrontierTiles?.length
-        ? input.hotFrontierTiles
-        : input.frontierTiles.length > 0
-          ? input.frontierTiles
-          : ownedFrontierTiles()
-  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
-  const fallbackSettlementSources = (restrictToFocus(
-    input.hotFrontierTiles?.length
-      ? input.hotFrontierTiles
-      : input.frontierTiles.length > 0
-        ? input.frontierTiles
-        : ownedFrontierTiles()
-  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
-  const settlementCandidate = settlementEligible
-    ? chooseBestStrategicSettlementTile(
-        input.playerId,
-        settlementSources,
-        input.tilesByKey as ReadonlyMap<string, DomainTileState>,
-        input.isPendingSettlement
-          ? (tile) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false
-          : undefined
-      )
-    : undefined;
-  const fallbackSettlementCandidate = settlementEligible
-    ? chooseBestSettlementTile(input.playerId, fallbackSettlementSources, input.tilesByKey as ReadonlyMap<string, DomainTileState>, {
-        ...(input.isPendingSettlement
-          ? { isPending: (tile: DomainTileState) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false }
-          : {})
-      })
-    : undefined;
-  recordPhaseTiming("choose_settlement", settlementStartedAt);
-
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
   const baseFrontierOrigins =
@@ -388,8 +341,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const diagnosticBase: AutomationPlannerDiagnostic = {
     playerId: input.playerId,
     sessionPrefix: input.sessionPrefix,
-    settlementEligible,
-    settlementCandidateFound: Boolean(settlementCandidate),
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
     frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
     frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
@@ -421,7 +372,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // front.
     scanFoundActionableCandidate:
       frontierAnalysisActionable ||
-      Boolean(settlementCandidate) ||
       Boolean(economicBuild) ||
       Boolean(fortBuild) ||
       Boolean(siegeOutpostBuild),
@@ -435,8 +385,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     issuedAt: input.issuedAt,
     sessionPrefix: input.sessionPrefix,
     diagnostic: diagnosticBase,
-    settlementCandidate: settlementCandidate as TTile | undefined,
-    fallbackSettlementCandidate: fallbackSettlementCandidate as TTile | undefined,
     frontierAnalysis,
     tilesByKey: input.tilesByKey,
     needsFood,
@@ -464,8 +412,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ownedTiles: strategicOwnedTiles,
     tilesByKey: input.tilesByKey,
     frontierAnalysis,
-    ...(settlementCandidate ? { settlementCandidate: settlementCandidate as TTile } : {}),
-    ...(fallbackSettlementCandidate ? { fallbackSettlementCandidate: fallbackSettlementCandidate as TTile } : {}),
     needsFood,
     needsEconomy,
     canAttack,

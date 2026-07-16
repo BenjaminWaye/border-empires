@@ -30,8 +30,7 @@ import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
 // ── State type ───────────────────────────────────────────────────────────────
 
 export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
-  // context already carries settlementCandidate, fallbackSettlementCandidate,
-  // frontierAnalysis, needsFood, needsEconomy
+  // context already carries frontierAnalysis, needsFood, needsEconomy
   context: AutomationPlannerDecisionContext<TTile>;
   strategic: AutomationStrategicSnapshot;
   canAttack: boolean;
