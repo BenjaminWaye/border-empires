@@ -158,8 +158,6 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.settlementEligible).toBe(true);
-    expect(result.diagnostic.settlementCandidateFound).toBe(false);
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
     expect(result.diagnostic.ownedTileCount).toBe(1);
     expect(result.diagnostic.ownedFrontierTileCount).toBe(0);

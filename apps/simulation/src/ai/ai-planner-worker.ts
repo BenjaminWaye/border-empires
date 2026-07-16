@@ -117,7 +117,6 @@ const resolvePlayerTiles = (
 const emitDiagnostic = (sample: {
   phase:
     | "resolve_player_tiles"
-    | "planner_choose_settlement"
     | "planner_choose_frontier"
     | "planner_summarize_frontier"
     | "planner_total"
@@ -235,7 +234,6 @@ const choosePlannerCommand = (
     ownedTiles,
     tilesByKey,
     dockLinksByDockTileKey,
-    isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
     playerScopeKeyCount: plannerPlayerScopeKeyCount(player),
     playerScopeTileCount: resolvedPlayerScopeTileCount({
       ownedTiles,
@@ -264,7 +262,6 @@ const choosePlannerCommand = (
     sessionPrefix: "ai-runtime",
     onPhaseTiming: (sample) => {
       const phaseByPlannerPhase = {
-        choose_settlement: "planner_choose_settlement",
         choose_frontier: "planner_choose_frontier",
         summarize_frontier: "planner_summarize_frontier",
         analyze_iter_total: "analyze_iter_total",

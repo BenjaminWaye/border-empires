@@ -2146,7 +2146,6 @@ export class SimulationRuntime {
       ownedTiles,
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
-      isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
       playerScopeKeyCount: plannerPlayerScopeKeyCount(summary),
       playerScopeTileCount: plannerPlayerScopeKeyCount(summary),
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),

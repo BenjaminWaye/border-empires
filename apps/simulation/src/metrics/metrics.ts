@@ -7,10 +7,6 @@ import {
   type AutomationPreplanProgressState,
   type AutomationPreplanReason
 } from "../ai/automation-command-planner.js";
-import {
-  AUTOMATION_SETTLE_DECISION_REASONS,
-  type AutomationSettleDecisionReason
-} from "../ai/automation-command-planner-helpers.js";
 import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
@@ -72,11 +68,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   );
   const simAiNoopRecent: string[] = [];
   const simAiNoFrontierRecent: string[] = [];
-  const simAiSettleDecisionTotalByReason = new Map<AutomationSettleDecisionReason, number>(
-    AUTOMATION_SETTLE_DECISION_REASONS.map((reason) => [reason, 0])
-  );
-  const simAiSettleDecisionRecent: string[] = [];
-  const simAiSettleDecisionTopScore: number[] = [];
   const simAiPlannerPhaseMs = new Map<AiPlannerPhase, number[]>(
     AI_PLANNER_PHASES.map((phase) => [phase, []])
   );
@@ -207,11 +198,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiTickThrottledTotal: Object.fromEntries(simAiTickThrottledTotal) as Record<AiTickThrottleReason, number>,
     simAiCurrentTickIntervalMs,
     simAiBudgetUsedMs,
-    simAiSettleDecisionTotalByReason: Object.fromEntries(
-      AUTOMATION_SETTLE_DECISION_REASONS.map((reason) => [reason, simAiSettleDecisionTotalByReason.get(reason) ?? 0])
-    ) as Record<AutomationSettleDecisionReason, number>,
-    simAiSettleDecisionRecent: [...simAiSettleDecisionRecent],
-    simAiSettleDecisionTopScore: quantileSample(simAiSettleDecisionTopScore),
     simAiPlannerPhaseMs: Object.fromEntries(
       AI_PLANNER_PHASES.map((phase) => [phase, quantileSample(simAiPlannerPhaseMs.get(phase) ?? [])])
     ) as Record<AiPlannerPhase, ReturnType<typeof quantileSample>>,
@@ -424,12 +410,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimAiNoFrontierDetail(detail: string): void {
       appendRecent(simAiNoFrontierRecent, detail, 12);
-    },
-    observeSimAiSettleDecision(reason: AutomationSettleDecisionReason, playerId: string, topScore: number): void {
-      simAiSettleDecisionTotalByReason.set(reason, (simAiSettleDecisionTotalByReason.get(reason) ?? 0) + 1);
-      const rounded = Math.round(topScore);
-      appendRecent(simAiSettleDecisionRecent, `${playerId}:${reason}:${rounded}`, 12);
-      appendSample(simAiSettleDecisionTopScore, topScore, limit);
     },
     observeSimAiPlannerPhaseMs(phase: AiPlannerPhase, value: number): void {
       const target = simAiPlannerPhaseMs.get(phase);

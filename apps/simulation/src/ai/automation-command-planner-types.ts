@@ -71,8 +71,6 @@ export type AutomationPlannerTile = {
 export type AutomationPlannerDiagnostic = {
   playerId: string;
   sessionPrefix: AutomationSessionPrefix;
-  settlementEligible: boolean;
-  settlementCandidateFound: boolean;
   frontierEnemyTargetCount: number;
   frontierEnemyPlayerTargetCount?: number;
   frontierBarbarianTargetCount?: number;
@@ -109,9 +107,6 @@ export type AutomationPlannerDiagnostic = {
   preplanDomainChoiceAffordable?: boolean;
   preplanProgressState?: AutomationPreplanProgressState;
   noCommandReason?: AutomationNoopReason;
-  // Inline import to avoid a circular types dependency (helpers ↔ types).
-  settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
-  settleDecisionTopScore?: number;
   broadFallbackSkipped?: boolean | undefined;
   /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
   narrowAnalyzeCapped?: boolean | undefined;
@@ -140,7 +135,6 @@ export type AutomationPlannerDiagnostic = {
 };
 
 export type AutomationPlannerPhase =
-  | "choose_settlement"
   | "choose_frontier"
   | "summarize_frontier"
   | "analyze_iter_total"
@@ -160,8 +154,6 @@ export const createAutomationNoopDiagnostic = (
 ): AutomationPlannerDiagnostic => ({
   playerId,
   sessionPrefix,
-  settlementEligible: false,
-  settlementCandidateFound: false,
   frontierEnemyTargetCount: 0,
   frontierNeutralTargetCount: 0,
   canAttack: false,

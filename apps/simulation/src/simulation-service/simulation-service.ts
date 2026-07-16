@@ -188,7 +188,6 @@ const formatNoFrontierDiagnostic = (
     `dock_origins=${diagnostic.dockOriginCount ?? 0}`,
     `scope_keys=${diagnostic.playerScopeKeyCount ?? 0}`,
     `scope_tiles=${diagnostic.playerScopeTileCount ?? 0}`,
-    `settle=${diagnostic.settlementCandidateFound ? 1 : 0}`,
     `enemy=${diagnostic.frontierEnemyTargetCount}`,
     `enemy_player=${diagnostic.frontierEnemyPlayerTargetCount ?? 0}`,
     `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
@@ -1729,13 +1728,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
               }
-              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
-                simulationMetrics.observeSimAiSettleDecision(
-                  diagnostic.settleDecisionReason,
-                  diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
-                );
-              }
               if (diagnostic.broadFallbackSkipped) {
                 simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
               }
@@ -1828,13 +1820,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
-                simulationMetrics.observeSimAiSettleDecision(
-                  diagnostic.settleDecisionReason,
-                  diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
-                );
               }
               if (diagnostic.broadFallbackSkipped) {
                 simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
@@ -3000,9 +2985,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               sim_ai_noop_total: sample.simAiNoopTotalByReason,
               sim_ai_noop_recent: sample.simAiNoopRecent,
               sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
-              sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
-              sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
-              sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
               sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
               sim_runtime_drain_ms: sample.simRuntimeDrainMs,
               sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
