@@ -244,7 +244,7 @@ export const canBuildPlacementStructure = (
   techIds: string[],
   strategicResources?: Partial<Record<string, number>>
 ): PlacementAvailability => {
-  if (tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure)
+  if (tile.siegeOutpost || tile.observatory || tile.economicStructure)
     return { available: false, reason: "Tile already has structure" };
   if (tile.ownerId !== me) return { available: false, reason: "Not your tile" };
 
