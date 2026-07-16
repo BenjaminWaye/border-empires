@@ -19,6 +19,7 @@ import {
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type {
   ActiveAetherBridgeView,
@@ -132,7 +133,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "cannot reveal yourself");
     return;
   }
-  if (!context.players.has(payload.targetPlayerId) || actor.allies.has(payload.targetPlayerId)) {
+  if (!context.players.has(payload.targetPlayerId) || isAlliedOrTruced(actor, payload.targetPlayerId)) {
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "target empire not found or not hostile");
     return;
   }
@@ -171,7 +172,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "requires Surveying");
     return;
   }
-  if (!target || payload.targetPlayerId === actor.id || actor.allies.has(payload.targetPlayerId)) {
+  if (!target || payload.targetPlayerId === actor.id || isAlliedOrTruced(actor, payload.targetPlayerId)) {
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "target empire not found or not hostile");
     return;
   }
@@ -268,7 +269,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     target.terrain !== "LAND" ||
     !target.ownerId ||
     target.ownerId === actor.id ||
-    actor.allies.has(target.ownerId) ||
+    isAlliedOrTruced(actor, target.ownerId) ||
     !targetIsPurgeableOwnership
   ) {
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "target hostile settled or frontier land");

@@ -16,6 +16,7 @@ import {
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
@@ -140,7 +141,7 @@ export const handleFrontierCommandImpl = (
     targetShielded:
       (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
       ctx.isTileWardedByImperialWard(to.ownerId),
-    defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
+    defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),

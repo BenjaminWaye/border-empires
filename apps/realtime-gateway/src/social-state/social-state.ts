@@ -177,6 +177,7 @@ export type SocialState = {
   rejectTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
+  activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
 };
 
 export type SocialStateSink = {
@@ -625,8 +626,7 @@ export const createSocialState = (options: {
       };
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
-      sink?.deleteTruceRequest(requestId);
-      sink?.saveActiveTruce(truce);
+      sink?.deleteTruceRequest(requestId); sink?.saveActiveTruce(truce);
       const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
       return ok([actor.id, from.id], { [actor.id]: announcement, [from.id]: announcement });
     },
@@ -659,10 +659,10 @@ export const createSocialState = (options: {
       trucesByPair.delete(pairKey(actor.id, target.id));
       sink?.removeActiveTruce(actor.id, target.id);
       const lockoutUntil = now() + TRUCE_BREAK_LOCKOUT_MS;
-      truceLockoutUntilByPlayerId.set(actor.id, lockoutUntil);
-      sink?.saveTruceLockout(actor.id, lockoutUntil);
+      truceLockoutUntilByPlayerId.set(actor.id, lockoutUntil); sink?.saveTruceLockout(actor.id, lockoutUntil);
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
-    }
+    },
+    activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };
 };

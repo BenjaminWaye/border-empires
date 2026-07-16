@@ -275,5 +275,28 @@ describe("rewrite social integration", () => {
     ).toEqual(
       expect.objectContaining({ type: "TRUCE_UPDATE", activeTruces: [expect.objectContaining({ otherPlayerId: "player-1" })] })
     );
+    expect(submittedCommands).toContainEqual(
+      expect.objectContaining({
+        type: "SYNC_TRUCE",
+        playerId: "player-2",
+        payloadJson: JSON.stringify({ targetPlayerId: "player-1", truced: true })
+      })
+    );
+
+    second.socket.send(JSON.stringify({ type: "TRUCE_BREAK", targetPlayerId: "player-1" }));
+    expect(
+      await nextMatchingMessage(
+        first,
+        "truce broken first",
+        (message) => message.type === "TRUCE_UPDATE" && Array.isArray(message.activeTruces) && message.activeTruces.length === 0
+      )
+    ).toEqual(expect.objectContaining({ type: "TRUCE_UPDATE", activeTruces: [] }));
+    expect(submittedCommands).toContainEqual(
+      expect.objectContaining({
+        type: "SYNC_TRUCE",
+        playerId: "player-2",
+        payloadJson: JSON.stringify({ targetPlayerId: "player-1", truced: false })
+      })
+    );
   });
 });
