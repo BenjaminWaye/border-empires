@@ -164,11 +164,26 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
   // Reads from client_seq_watermarks (not MAX(client_seq) GROUP BY on commands)
   // so this stays correct once retention pruning removes old commands rows.
   async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {
-    const rows = this.db
-      .prepare(`SELECT player_id, max_client_seq FROM client_seq_watermarks`)
-      .all() as { player_id: string; max_client_seq: number }[];
-    const maxByPlayer: Record<string, number> = {};
-    for (const row of rows) maxByPlayer[row.player_id] = row.max_client_seq;
-    return maxByPlayer;
+    try {
+      const rows = this.db
+        .prepare(`SELECT player_id, max_client_seq FROM client_seq_watermarks`)
+        .all() as { player_id: string; max_client_seq: number }[];
+      const maxByPlayer: Record<string, number> = {};
+      for (const row of rows) maxByPlayer[row.player_id] = row.max_client_seq;
+      return maxByPlayer;
+    } catch (error) {
+      // Table doesn't exist yet (fixture predates this schema). Fall back to computing
+      // from commands table. This is only safe on startup (before any writes); the
+      // backfill in applySchema() will create the table and sync the watermarks.
+      if ((error as { message?: string }).message?.includes("no such table")) {
+        const rows = this.db
+          .prepare(`SELECT player_id, MAX(client_seq) as max_client_seq FROM commands GROUP BY player_id`)
+          .all() as { player_id: string; max_client_seq: number }[];
+        const maxByPlayer: Record<string, number> = {};
+        for (const row of rows) maxByPlayer[row.player_id] = row.max_client_seq;
+        return maxByPlayer;
+      }
+      throw error;
+    }
   }
 }
