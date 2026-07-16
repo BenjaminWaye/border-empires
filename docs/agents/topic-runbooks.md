@@ -23,6 +23,7 @@ Use one topic per recurring work area, for example:
 | `docs/agents/topics/staging-access.md` | Reading logs/metrics from staging inside a remote session; proxy constraints; freeze diagnosis |
 | `docs/agents/topics/load-harness.md` | Nightly load harness: why it runs against a local DB fixture instead of staging, how to publish a fresher fixture snapshot |
 | `docs/agents/topics/staging-login-cpu-contention.md` | Staging login-probe failures / SIM_UNAVAILABLE under heavy AI load: thread model, PSI/isolated-repro diagnostic technique, fixes tried, next levers if it recurs |
+| `docs/agents/topics/ai-planner.md` | AI decision pipeline architecture, profiling per-plan CPU (`sim_ai_planner_phase_ms`), what the AI emits vs. computes, and how to find dead/wasteful AI code |
 
 ## Template
 
