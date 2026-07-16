@@ -3,7 +3,9 @@
  *
  * A frontier tile owned by player P is "connected" when there exists a path
  * through other frontier tiles owned by P that terminates at a settled tile
- * owned by P. Connectivity uses 8-neighbors (diagonals count). The path may
+ * owned by P or at a frontier tile that carries a dock. Docks are persistent
+ * world-gen features: owning the dock tile gives connectivity even before it
+ * is settled. Connectivity uses 8-neighbors (diagonals count). The path may
  * NOT traverse another player's settled tiles.
  *
  * When a frontier tile loses connectivity it is "cut off" and gets a short
@@ -55,13 +57,18 @@ export interface EncirclementTileView {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+  dockId?: string | undefined;
 }
+
+const isSupplyTerminal = (tile: EncirclementTileView): boolean =>
+  tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && Boolean(tile.dockId));
 
 /**
  * Check whether a single frontier tile owned by `playerId` is connected to
- * any settled tile owned by `playerId`, walking only through that player's
- * own frontier tiles (settled tiles of the same player are valid path
- * terminators but NOT traversed further; other players' settled tiles block).
+ * any settled tile owned by `playerId` or to any frontier tile that carries
+ * a dock, walking only through that player's own frontier tiles. (Settled
+ * tiles and frontier dock tiles of the same player are valid path terminators
+ * but NOT traversed further; other players' settled tiles block.)
  *
  * Returns true if connected, false if cut off.
  */
@@ -73,6 +80,8 @@ export const isFrontierConnected = (
 ): boolean => {
   const tile = getTile(tileKey);
   if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return false;
+
+  if (tile.dockId) return true;
 
   const visited = new Set<string>();
   const queue: string[] = [tileKey];
@@ -87,8 +96,8 @@ export const isFrontierConnected = (
       const neighbor = getTile(nk);
       if (!neighbor || neighbor.ownerId !== playerId) continue;
 
-      if (neighbor.ownershipState === "SETTLED") {
-        // Reached a friendly settled tile — connected!
+      if (isSupplyTerminal(neighbor)) {
+        // Reached a friendly settled tile or a frontier dock — connected!
         return true;
       }
 
@@ -213,14 +222,32 @@ export const computeEncirclementDeltas = (
   const fwdQueue: string[] = [];
   const fwdVisited = new Set<string>();
 
+  // Collect supply terminals that border the affected region as BFS roots.
+  // Frontier dock tiles in the affected region itself also act as roots —
+  // they are their own supply terminal (no settled tile required).
+  //
+  // Frontier dock roots must also be added to reachable: unlike settled roots,
+  // they appear in toCheck (they are FRONTIER tiles), so the classification
+  // loop must see them as reachable to avoid a false positive cut-off.
   for (const key of bfsVisited) {
     for (const nk of connectedNeighborKeys(key, options?.extraNeighborKeys)) {
       if (fwdVisited.has(nk)) continue;
       const neighbor = getTile(nk);
-      if (neighbor?.ownerId === affectedPlayerId && neighbor.ownershipState === "SETTLED") {
+      if (neighbor?.ownerId === affectedPlayerId && isSupplyTerminal(neighbor)) {
         fwdVisited.add(nk);
         fwdQueue.push(nk);
+        if (neighbor.ownershipState === "FRONTIER") reachable.add(nk);
       }
+    }
+    // A frontier dock tile in the affected region is its own supply root.
+    // Without this, a lone frontier dock tile would be collected in toCheck
+    // but never added as a root, causing a false positive cut-off.
+    if (fwdVisited.has(key)) continue;
+    const tile = getTile(key);
+    if (tile?.ownerId === affectedPlayerId && tile.ownershipState === "FRONTIER" && Boolean(tile.dockId)) {
+      fwdVisited.add(key);
+      fwdQueue.push(key);
+      reachable.add(key);
     }
   }
 
