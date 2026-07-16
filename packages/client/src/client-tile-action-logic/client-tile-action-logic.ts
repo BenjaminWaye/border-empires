@@ -1395,7 +1395,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             waterworksAvail.available,
             waterworksAvail.available ? "" : waterworksAvail.reason,
-            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +50% farmstead food within 10 tiles; boosted production raises food cap`,
+            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +100% farmstead food within 10 tiles; boosted production raises food cap`,
             slots,
             deps
           )

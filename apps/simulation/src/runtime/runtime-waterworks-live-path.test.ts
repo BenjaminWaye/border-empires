@@ -3,7 +3,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 
 // Regression coverage for the live tile-collect / tile-delta path: the
-// Waterworks +50% radius boost is correctly modeled in buildTileYieldView
+// Waterworks +100% radius boost is correctly modeled in buildTileYieldView
 // (see tile-yield-view.test.ts) and wired through periodic upkeep accrual,
 // but SimulationRuntime.collectTileYield() and tileDeltaFromState() build
 // their own `resolvedContext` and used to forget to forward
@@ -56,7 +56,7 @@ const buildRuntime = (includeWaterworks: boolean, now: () => number) =>
   });
 
 describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
-  it("collecting a farmstead FARM tile within Waterworks radius credits 1.5x the FOOD of the same tile without Waterworks", async () => {
+  it("collecting a farmstead FARM tile within Waterworks radius credits 2x the FOOD of the same tile without Waterworks", async () => {
     const oneHourMs = 60 * 60_000;
     const withoutWaterworks = buildRuntime(false, () => oneHourMs);
     const withWaterworks = buildRuntime(true, () => oneHourMs);
@@ -84,7 +84,7 @@ describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
     const boostedFood = await collect(withWaterworks, "collect-boosted");
 
     expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
+    expect(boostedFood).toBeCloseTo(baseFood * 2, 5);
   });
 
   it("tileDeltaFromState (the live tile-delta broadcast path) reports the Waterworks-boosted FOOD rate, not the un-boosted rate", () => {
@@ -104,6 +104,6 @@ describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
     const baseFood = deltaYieldStrategicFood(withoutWaterworks);
     const boostedFood = deltaYieldStrategicFood(withWaterworks);
     expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo((baseFood ?? 0) * 1.5, 5);
+    expect(boostedFood).toBeCloseTo((baseFood ?? 0) * 2, 5);
   });
 });

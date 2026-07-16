@@ -259,7 +259,7 @@ export const buildTileYieldView = (
     }
   }
   // Waterworks radius boost: a FARM tile with an active Farmstead within
-  // WATERWORKS_RADIUS of an active Waterworks gets +50% on its total FOOD
+  // WATERWORKS_RADIUS of an active Waterworks gets +100% on its total FOOD
   // output (base + farmstead combined).
   if (
     tile.resource === "FARM" &&
