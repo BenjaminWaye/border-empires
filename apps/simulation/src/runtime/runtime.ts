@@ -31,14 +31,6 @@ import {
   type EconomicStructureType
 } from "@border-empires/shared";
 import {
-  ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
-  CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
-  FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
-  IRONWORKS_OVERLOAD_IRON,
-  SYNTH_OVERLOAD_DISABLE_MS,
-  SYNTH_OVERLOAD_GOLD_COST
-} from "@border-empires/game-domain";
-import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
   DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
 } from "../command-event-lifecycle.js";
@@ -156,9 +148,7 @@ import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metr
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
   parseAllianceSyncPayload,
-  parseConverterTogglePayload,
   parseSettlePayload,
-  parseStructureTilePayload,
   parseTilePayload
 } from "../runtime-command-parsers.js";
 import {
@@ -176,10 +166,6 @@ import {
   settlementBaseDurationMsForTile,
   settlementDurationMsForPlayer
 } from "../runtime-settlement-rules.js";
-import {
-  economicStructureGoldUpkeepPerInterval,
-  isConverterStructureType
-} from "../runtime-structure-rules/runtime-structure-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
@@ -342,6 +328,12 @@ import {
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
   type RuntimeStructureCommandContext
 } from "../runtime-structure-command-handlers.js";
+import {
+  handleOverloadSynthesizerCommand as handleOverloadSynthesizerCommandImpl,
+  handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
+  handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
+  type RuntimeEconomicStructureCommandContext
+} from "../runtime-economic-structure-command-handlers.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -2992,177 +2984,35 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
-  private handleUncaptureTileCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
-    if (target.ownerId !== command.playerId) { this.rejectCommand(command, "UNCAPTURE_NOT_OWNER", "tile is not owned by you"); return; }
-    if (this.ownedTileCountForPlayer(command.playerId) <= 1) { this.rejectCommand(command, "UNCAPTURE_LAST_TILE", "cannot uncapture your last tile"); return; }
-    if (target.town?.populationTier === "SETTLEMENT") { this.rejectCommand(command, "UNCAPTURE_SETTLEMENT", "cannot abandon your settlement"); return; }
-    const summary = this.summaryForPlayer(command.playerId);
-    if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
-      this.rejectCommand(command, "UNCAPTURE_LAST_TOWN", "cannot abandon your last town"); return;
-    }
-    if (this.locksByTile.has(targetKey)) { this.rejectCommand(command, "LOCKED", "tile locked in combat"); return; }
-
-    // Refund any banked muster manpower before releasing the tile.
-    if (target.muster?.ownerId && target.muster.amount > 0) {
-      const musterOwner = this.players.get(target.muster.ownerId);
-      if (musterOwner) {
-        musterOwner.manpower = Math.min(
-          this.playerManpowerCap(musterOwner),
-          musterOwner.manpower + target.muster.amount
-        );
-      }
-    }
-    const updatedTile: DomainTileState = {
-      ...target,
-      ownerId: undefined,
-      ownershipState: undefined,
-      fort: undefined,
-      observatory: undefined,
-      siegeOutpost: undefined,
-      economicStructure: undefined,
-      muster: undefined
+  private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      now: this.now,
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
+      ownedTileCountForPlayer: (playerId) => this.ownedTileCountForPlayer(playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
     };
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    if (target.muster) {
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: `${command.commandId}:bc`,
-        playerId: "__broadcast__",
-        tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: "" }]
-      });
-    }
-    // Removing an owned tile can sever the supply path to downstream frontier
-    // tiles — re-check encirclement connectivity from the now-vacant key.
-    this.applyEncirclement([targetKey], command.playerId, command.commandId, { bfsCap: 2000 });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  }
+
+  private handleUncaptureTileCommand(command: CommandEnvelope): void {
+    handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command);
   }
 
   private handleOverloadSynthesizerCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    const structure = target?.economicStructure;
-    if (!target || !structure || structure.ownerId !== command.playerId) {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "no owned synthesizer on tile"); return;
-    }
-    if (!actor.techIds.has("overload-protocols")) {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "unlock synthesizer overload via Overload Protocols first"); return;
-    }
-    if (
-      structure.type !== "FUR_SYNTHESIZER" &&
-      structure.type !== "ADVANCED_FUR_SYNTHESIZER" &&
-      structure.type !== "IRONWORKS" &&
-      structure.type !== "ADVANCED_IRONWORKS" &&
-      structure.type !== "CRYSTAL_SYNTHESIZER" &&
-      structure.type !== "ADVANCED_CRYSTAL_SYNTHESIZER"
-    ) {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "only synthesizer structures can overload"); return;
-    }
-    if (structure.status === "under_construction" || structure.status === "removing") {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is not ready"); return;
-    }
-    if (structure.disabledUntil && structure.disabledUntil > this.now()) {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is recovering from overload"); return;
-    }
-    if (actor.points < SYNTH_OVERLOAD_GOLD_COST) {
-      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "insufficient gold for synthesizer overload"); return;
-    }
-
-    actor.points -= SYNTH_OVERLOAD_GOLD_COST;
-    if (structure.type === "FUR_SYNTHESIZER" || structure.type === "ADVANCED_FUR_SYNTHESIZER") {
-      this.addStrategicResource(actor, "SUPPLY", FUR_SYNTHESIZER_OVERLOAD_SUPPLY);
-    } else if (structure.type === "IRONWORKS" || structure.type === "ADVANCED_IRONWORKS") {
-      this.addStrategicResource(actor, "IRON", IRONWORKS_OVERLOAD_IRON);
-    } else {
-      this.addStrategicResource(actor, "CRYSTAL", CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL);
-    }
-
-    const reenabledAt = this.now() + SYNTH_OVERLOAD_DISABLE_MS;
-    const updatedTile: DomainTileState = {
-      ...target,
-      economicStructure: {
-        ...structure,
-        status: "inactive",
-        disabledUntil: reenabledAt,
-        nextUpkeepAt: reenabledAt,
-        inactiveReason: undefined
-      }
-    };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleOverloadSynthesizerCommandImpl(this.economicStructureCommandContext(), command);
   }
 
   private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseConverterTogglePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    const structure = target?.economicStructure;
-    if (!target || !structure || structure.ownerId !== command.playerId) {
-      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "no owned converter on tile"); return;
-    }
-    if (!isConverterStructureType(structure.type)) {
-      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "only converter structures can be toggled"); return;
-    }
-    if (structure.status === "under_construction" || structure.status === "removing") {
-      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is not ready"); return;
-    }
-    if (structure.disabledUntil && structure.disabledUntil > this.now()) {
-      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is recovering from overload"); return;
-    }
-
-    if (payload.enabled) {
-      if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-        this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter requires settled owned tile"); return;
-      }
-      const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
-      if (actor.points < upkeep) {
-        this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "insufficient gold for converter upkeep"); return;
-      }
-      actor.points -= upkeep;
-    }
-
-    const updatedTile: DomainTileState = {
-      ...target,
-      economicStructure: {
-        ...structure,
-        status: payload.enabled ? "active" : "inactive",
-        inactiveReason: payload.enabled ? undefined : "manual",
-        nextUpkeepAt: this.now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
-      }
-    };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command);
   }
 
   private abilityCommandContext(): RuntimeAbilityCommandContext {
