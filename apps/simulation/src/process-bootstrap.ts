@@ -200,7 +200,6 @@ export const bootstrapSimulationProcess = async (
           simAiPreplanRecent: snapshot.simAiPreplanRecent,
           simAiPreplanProgressRecent: snapshot.simAiPreplanProgressRecent,
           simAiCommandRecent: snapshot.simAiCommandRecent,
-          simAiSettleDecisionRecent: snapshot.simAiSettleDecisionRecent,
           simAiLastCommandAcceptedAtMs: snapshot.simAiLastCommandAcceptedAtMs
         })}\n`
       );

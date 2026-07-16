@@ -120,7 +120,6 @@ type WorkerAiCommandProducerOptions = {
       | "tile_delta_sync"
       | "request_plan_round_trip"
       | "resolve_player_tiles"
-      | "planner_choose_settlement"
       | "planner_choose_frontier"
       | "planner_summarize_frontier"
       | "planner_total"
@@ -275,7 +274,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         const diagnostic = message.diagnostic as {
           phase:
             | "resolve_player_tiles"
-            | "planner_choose_settlement"
             | "planner_choose_frontier"
             | "planner_summarize_frontier"
             | "planner_total";

@@ -6,8 +6,6 @@ import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from 
 const baseDiagnostic = (overrides: Partial<AutomationPlannerDiagnostic> = {}): AutomationPlannerDiagnostic => ({
   playerId: "ai-4",
   sessionPrefix: "ai-runtime",
-  settlementEligible: false,
-  settlementCandidateFound: false,
   frontierEnemyTargetCount: 0,
   frontierNeutralTargetCount: 1,
   canAttack: true,

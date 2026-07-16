@@ -228,8 +228,6 @@ describe("worker AI command producer pause/resume", () => {
             diagnostic: {
               playerId: msg.playerId,
               sessionPrefix: "ai-runtime",
-              settlementEligible: false,
-              settlementCandidateFound: false,
               frontierEnemyTargetCount: 0,
               frontierNeutralTargetCount: 0,
               canAttack: false,
@@ -456,8 +454,6 @@ describe("worker AI command producer pause/resume", () => {
               playerId: msg.playerId,
               sessionPrefix: "ai-runtime",
               preplanReason: "collect_for_active_lock",
-              settlementEligible: false,
-              settlementCandidateFound: false,
               frontierEnemyTargetCount: 0,
               frontierNeutralTargetCount: 0,
               canAttack: false,
@@ -691,8 +687,6 @@ describe("worker AI command producer pause/resume", () => {
               ? {
                   playerId: "ai-1",
                   sessionPrefix: "ai-runtime",
-                  settlementEligible: false,
-                  settlementCandidateFound: false,
                   frontierEnemyTargetCount: 0,
                   frontierNeutralTargetCount: 0,
                   canAttack: false,

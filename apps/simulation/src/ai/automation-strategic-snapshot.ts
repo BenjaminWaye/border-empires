@@ -2,7 +2,6 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
-import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 
 // Scales required manpower with threat level — matches legacy tempo-policy:
 //   threatCritical → ATTACK_MIN  (gamble allowed when desperate)
@@ -56,10 +55,8 @@ export type AutomationStrategicSnapshot = {
   underThreat: boolean;
   threatCritical: boolean;
   growthFoundationEstablished: boolean;
-  townSupportSettlementAvailable: boolean;
   townSupportExpandAvailable: boolean;
   islandExpandAvailable: boolean;
-  islandSettlementAvailable: boolean;
   openingScoutAvailable: boolean;
   scoutExpandWorthwhile: boolean;
   pressureAttackScore: number;
@@ -96,8 +93,6 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   ownedTiles: readonly TTile[];
   tilesByKey: ReadonlyMap<string, TTile>;
   frontierAnalysis: FrontierAnalysis;
-  settlementCandidate?: TTile | undefined;
-  fallbackSettlementCandidate?: TTile | undefined;
   needsFood: boolean;
   needsEconomy: boolean;
   canAttack: boolean;
@@ -136,20 +131,6 @@ const targetRequiresDockCrossing = (
       )
   );
 
-const settlementSupportsTown = <TTile extends StrategicTile>(
-  playerId: string,
-  candidate: TTile | undefined,
-  tilesByKey: ReadonlyMap<string, TTile>
-): boolean => {
-  if (!candidate) return false;
-  const evaluation = evaluateSettlementCandidate(
-    playerId,
-    candidate as unknown as DomainTileState,
-    tilesByKey as ReadonlyMap<string, DomainTileState>
-  );
-  return evaluation.townSupportNeed > 0;
-};
-
 const ownedResourceTileCounts = <TTile extends StrategicTile>(
   playerId: string,
   ownedTiles: readonly TTile[]
@@ -178,9 +159,7 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
 ): Record<AutomationVictoryPath, VictoryPathScore> => {
   const islandGrowthAvailable =
     targetRequiresDockCrossing(input.frontierAnalysis.expand) ||
-    targetRequiresDockCrossing(input.frontierAnalysis.economicExpand) ||
-    Boolean(input.settlementCandidate?.dockId) ||
-    Boolean(input.fallbackSettlementCandidate?.dockId);
+    targetRequiresDockCrossing(input.frontierAnalysis.economicExpand);
   const townsTarget = Math.max(2, Math.ceil(Math.max(1, input.settledTileCount) / 5));
   const controlledTileCount = input.controlledTileCount;
   const diplomaticControlTarget = Math.max(4, input.townCount * 3);
@@ -228,8 +207,6 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     input.frontierAnalysis.frontierOpportunityScout * 10 +
     input.frontierAnalysis.frontierOpportunityScaffold * 8 +
     (islandGrowthAvailable ? 120 : 0) +
-    (input.settlementCandidate ? 18 : 0) +
-    (input.fallbackSettlementCandidate ? 8 : 0) +
     (!input.needsFood && !input.needsEconomy ? 18 : -18);
   const resourceMonopolyScore =
     topResourceCount * 60 +
@@ -242,8 +219,6 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const maritimeSupremacyScore =
     dockCount * 60 +
     (dockCount >= 2 && islandGrowthAvailable ? 160 : 0) +
-    (dockCount >= 2 && input.fallbackSettlementCandidate?.dockId ? 60 : 0) +
-    (dockCount >= 2 && input.settlementCandidate?.dockId ? 40 : 0) +
     (!input.needsFood ? 12 : -16);
   const populationCounts = {
     TOWN_CONTROL: input.pathPopulationCounts?.TOWN_CONTROL ?? 0,
@@ -338,9 +313,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       targetRequiresDockCrossing(input.frontierAnalysis.economicExpand) ||
       input.frontierAnalysis.frontierOpportunityEconomic > 0 ||
       input.frontierAnalysis.frontierOpportunityTownSupport > 0 ||
-      input.frontierAnalysis.frontierOpportunityScaffold > 0 ||
-      Boolean(input.settlementCandidate) ||
-      Boolean(input.fallbackSettlementCandidate)
+      input.frontierAnalysis.frontierOpportunityScaffold > 0
     );
   const pressureAttackScore =
     (input.frontierAnalysis.attack?.score ?? 0) +
@@ -384,9 +357,6 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     frontPosture = "BREAK";
   }
 
-  const townSupportSettlementAvailable =
-    settlementSupportsTown(input.playerId, input.settlementCandidate, input.tilesByKey) ||
-    settlementSupportsTown(input.playerId, input.fallbackSettlementCandidate, input.tilesByKey);
   const townSupportExpandAvailable =
     input.canExpand &&
     !input.needsFood &&
@@ -404,15 +374,10 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       targetRequiresDockCrossing(input.frontierAnalysis.expand) ||
       targetRequiresDockCrossing(input.frontierAnalysis.scaffoldExpand)
     );
-  const islandSettlementAvailable =
-    islandFocusedPath &&
-    Boolean(input.settlementCandidate?.dockId || input.fallbackSettlementCandidate?.dockId);
   const openingScoutAvailable =
     input.canExpand &&
     input.townCount === 0 &&
     input.settledTileCount <= 1 &&
-    !input.settlementCandidate &&
-    !input.fallbackSettlementCandidate &&
     Boolean(input.frontierAnalysis.scoutExpand);
   const scoutExpandWorthwhile =
     input.canExpand &&
@@ -439,7 +404,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   let strategicFocus: AutomationStrategicFocus = "BALANCED";
   if (
     primaryVictoryPath === "DIPLOMATIC_DOMINANCE" &&
-    (islandExpandAvailable || islandSettlementAvailable) &&
+    islandExpandAvailable &&
     growthFoundationEstablished &&
     !pressureThreatensCore
   ) {
@@ -477,10 +442,8 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     underThreat,
     threatCritical,
     growthFoundationEstablished,
-    townSupportSettlementAvailable,
     townSupportExpandAvailable,
     islandExpandAvailable,
-    islandSettlementAvailable,
     openingScoutAvailable,
     scoutExpandWorthwhile,
     pressureAttackScore,

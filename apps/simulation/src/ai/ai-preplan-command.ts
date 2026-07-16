@@ -44,8 +44,6 @@ const createDiagnostic = (
 ): AutomationPlannerDiagnostic => ({
   playerId,
   sessionPrefix,
-  settlementEligible: false,
-  settlementCandidateFound: false,
   frontierEnemyTargetCount: 0,
   frontierNeutralTargetCount: 0,
   canAttack: false,
