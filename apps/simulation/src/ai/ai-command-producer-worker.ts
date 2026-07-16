@@ -96,7 +96,7 @@ type WorkerAiCommandProducerOptions = {
     lastCommandType?: string;
   }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
-  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string; rejectionMessage: string }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   /** Diagnostic experiment flags — staging investigation only. */
@@ -790,7 +790,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         releaseAiLatchedIntent(intentLatchState, event.playerId);
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
-        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code });
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code, rejectionMessage: event.message });
         recordRejectionCooldown(rejectionCooldowns, event.playerId, pending.commandType, now());
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
