@@ -154,6 +154,11 @@ export type SimulationMetricsSnapshot = {
   simAiNarrowAnalyzeCapped: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
   simAiCommandRejectedTotalByType: Record<DurableCommandType, number>;
+  // Coarse rejection triage: the runtime's rejectCommand code (e.g.
+  // "BUILD_INVALID", "INSUFFICIENT_GOLD"), not broken down by command type —
+  // cross-reference with simAiCommandRejectedTotalByType to narrow down
+  // which command type is producing which code when one type dominates.
+  simAiCommandRejectedCodeTotal: Record<string, number>;
   simAiCommandRecent: string[];
   simAiPreplanTotalByReason: Record<AutomationPreplanReason, number>;
   simAiPreplanRecent: string[];

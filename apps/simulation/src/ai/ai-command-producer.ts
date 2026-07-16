@@ -61,7 +61,7 @@ type AiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number; playerId: string | undefined }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
-  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
@@ -164,7 +164,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         releaseAiLatchedIntent(intentLatchState, event.playerId);
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
-        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType });
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code });
         recordRejectionCooldown(rejectionCooldowns, event.playerId, pendingCommand.commandType, now());
       }
       resolvePendingPreplanOutcome(
