@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.15.5",
+  version: "2026.07.16.1",
   title: "What's New",
-  summary: "Muster-fed attacks from different flags now march and fire independently instead of one flag's attack blocking every other flag's transit. Muster flags on the 3D map no longer render beneath the ownership overlay (settled/frontier tint) — they now draw on top where they belong. Also includes the previous release: truce and alliance offers to AI empires in seasonal games now resolve correctly, build cancellations refund your spend, and the alliance/truce search box no longer flickers or shows AI empires that never settled.",
+  summary: "AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt — the AI was proposing these next to towns with nowhere open to place them, and each rejected attempt burned its turn instead of doing something else useful. AI attacks also no longer flood the server with repeat attempts against a target that's already mid-attack. Also includes the previous release: muster-fed attacks from different flags now march and fire independently, and muster flags on the 3D map render on top of the ownership overlay where they belong.",
   entries: [
+    {
+      introducedIn: "2026.07.16.1",
+      title: "AI empires build economic structures reliably instead of stalling out",
+      why: "The AI proposed markets/banks/granaries for any town below its support capacity without checking whether an open, already-settled neighboring tile actually existed to place the structure on (the runtime never builds these on the town tile itself). In production this meant ~99.9% of the AI's BUILD_ECONOMIC_STRUCTURE attempts were rejected, and each rejected attempt used up that turn's action instead of falling through to something the AI could actually do — leaving AI economies stalled even with gold to spend.",
+      changes: [
+        "The AI now checks for an open, correctly-assigned settled support tile before proposing a market, bank, or granary, so it stops repeatedly proposing builds the server was always going to reject.",
+        "A rejected attack now goes on a brief cooldown instead of being immediately retried every tick — previously the AI could resubmit the same doomed attack roughly a dozen times while the earlier one was still resolving."
+      ]
+    },
     {
       introducedIn: "2026.07.15.5",
       title: "Muster flags now arm and fire attacks independently",
@@ -260,88 +269,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Aligned gateway social state AI names to \"AI N\" format matching client display names."
       ]
-    },
-    {
-      introducedIn: "2026.07.09.9",
-      title: "Season-end overlay now scrolls on macOS trackpad",
-      why: "Nested scroll containers (.se-scroll-body wrapping .se-tab-panels) confused macOS trackpad — neither scrolled.",
-      changes: [
-        "Removed overflow-y: auto from .se-scroll-body so only .se-tab-panels is the scroll container.",
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.8",
-      title: "Fog of war now renders in the 3D map",
-      why: "3D renderer skipped drawing any tile not currently visible, so fogged tiles were empty black.",
-      changes: [
-        "Fogged 3D tiles now render frozen terrain, darkened, with dim owner tint."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.7",
-      title: "Season-end overlay scrolling works everywhere, not just in the tab panel area",
-      why: "Removing the outer scroll container (2026.07.09.6) fixed the tab panels but made scrolling over the header/tabs do nothing.",
-      changes: [
-        "Kept outer scroll on header/tab bar while tab panels scroll independently."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.5",
-      title: "Fogged tiles keep a dim ownership tint",
-      why: "Fog-of-war dropped ownership color once a tile went fogged, so you couldn't tell who held it last.",
-      changes: [
-        "Fogged tiles now render a dim, static tint of their last-witnessed owner."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.4",
-      title: "Fixed minimap shard-rain pings not rendering on fogged tiles",
-      why: "The minimap ping loop skipped any tile that wasn't a currently-visible FALL shard site, so pings on fogged or unexplored tiles never animated even though the ping itself was active.",
-      changes: [
-        "Minimap shard-rain pings now render for the duration they're active, regardless of the tile's fog or exploration state."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.3",
-      title: "Fixed barbarian tiles rendering turquoise instead of dark grey",
-      why: "The gateway hashed barbarian-1 for a color, overriding the client's intended dark-grey fallback with a bright hue.",
-      changes: [
-        "Barbarian territory now always renders dark grey (#2f3842), regardless of server color."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.2",
-      title: "Fixed truce offers appearing on barbarian tiles",
-      why: "Truce menu only excluded id \"barbarian\", not \"barbarian-1\", so truce actions appeared on barbarian territory.",
-      changes: [
-        "Offer/Break Truce no longer appear on any barbarian-owned tile."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.1",
-      title: "Truce-break lockout",
-      why: "Breaking a truce early had no consequence, so players used truces as free, revocable shields.",
-      changes: [
-        "Breaking an active truce now locks you out of new truces for 24 hours."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.0",
-      title: "Leaderboard scrolling works normally on mobile",
-      why: "The leaderboard panel and other mobile panels would not scroll with normal touch gestures — you could only scroll them by pressing and holding the tab navigation bar at the bottom of the screen. The panel was missing standard mobile scroll CSS properties.",
-      changes: [
-        "Mobile panels now have proper touch-action, momentum scrolling, and overscroll-behavior CSS so they scroll with normal finger swipes."
-      ]
-    },
-    {
-      introducedIn: "2026.07.09.0",
-      title: "Login probes no longer inflate the season-end empire count",
-      why: "Health-check login probes that briefly connect to verify the server is alive were creating game-world empires with no tiles, income, or techs — and counting toward the 'N empires vied for the crown' tally at season end, making empty seasons look busier than they were.",
-      changes: [
-        "Players with zero settled tiles, zero income, and zero techs are now excluded from leaderboard rankings and the seasonal empire-count display, automatically filtering out login probes and other zero-activity empires."
-      ]
     }
-    // Older entries (2026.07.08.6 and earlier) trimmed: the release-day
+    // Older entries (2026.07.09.9 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

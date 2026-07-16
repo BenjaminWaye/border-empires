@@ -25,6 +25,47 @@ const makeTile = (
 });
 
 describe("automation planner economy gate", () => {
+  it("builds an economic structure when income is weak and a good settled resource tile exists", () => {
+    const ownedTown = makeTile(5, 5, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
+    });
+    // MARKET is a town-support structure — the runtime places it on an open,
+    // SETTLED neighbor tile assigned to this town (resolveTownSupportTarget),
+    // never on the town tile itself. A fixture with no such neighbor is
+    // unrealistic and previously masked the AI proposing commands the
+    // runtime always rejects (see structure-command-planner.test.ts for the
+    // dedicated regression test on chooseBestEconomicBuild itself).
+    const openSupportTile = makeTile(6, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 10,
+      techIds: ["trade"],
+      strategicResources: { FOOD: 60 },
+      settledTileCount: 6,
+      townCount: 1,
+      incomePerMinute: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [ownedTown, openSupportTile],
+      tilesByKey: new Map([
+        ["5,5", ownedTown],
+        ["6,5", openSupportTile]
+      ]),
+      clientSeq: 3,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "BUILD_ECONOMIC_STRUCTURE",
+      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MARKET" })
+    });
+  });
+
   it("treats local reserved development slots as occupied before choosing economy", () => {
     const ownedTown = makeTile(5, 5, {
       ownerId: "ai-1",

@@ -54,6 +54,21 @@ export type DecisionInputs = {
   hasOnlyScoutExpand: boolean;
   hasWeakEnemyBorder: boolean;
   hasBarbTarget: boolean;
+  // Authoritative "can this class actually produce a command" gates — derived
+  // directly from the same concrete candidate fields executeClass() checks
+  // (see utility-dispatch.ts's buildDecisionInputs). Without these, EXPAND/
+  // ATTACK could score high off aggregate counts/flags (frontierNeutralCount,
+  // hasExpansionObjective, frontPosture) while every concrete candidate field
+  // (fa.expand, fa.directedExpand, preferredEnemyAttack, fa.barbarianAttack,
+  // ...) was actually undefined — e.g. a frontier where every neutral tile is
+  // classified "waste" with no fog value, so preferFogEfficientExpansion
+  // refuses to select any of them. The utility policy would then pick EXPAND
+  // as the winning class, executeClass would return undefined, and the
+  // planner would silently fall through every other class to WAIT — while
+  // still reporting a phantom nonzero EXPAND/ATTACK score. See
+  // docs/agents/topics/ai-planner.md.
+  hasAnyExpandCandidate: boolean;
+  hasAnyAttackCandidate: boolean;
   devSlotAvailable: boolean;
   // Strategic snapshot outputs
   attackReady: boolean;
@@ -96,6 +111,12 @@ const momentumBonus = (cls: DecisionClass, inp: DecisionInputs): number =>
 const scoreExpand = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canExpand),
+    // Authoritative gate: a concrete, executable EXPAND candidate must exist
+    // (mirrors executeClass's EXPAND branch exactly). Without this, the
+    // aggregate flags below can pass (e.g. an expansion objective is set, or
+    // frontierNeutralCount > 0) even when every candidate tile was refused as
+    // valueless waste — scoring EXPAND high with nothing to actually execute.
+    boolVeto(inp.hasAnyExpandCandidate),
     // Suppress plain/waste expansion when no actionable target exists AND no
     // expansion objective is set.  Scout-only passes this gate (hasOnlyScoutExpand)
     // but gets penalised below so WAIT wins when the economy is weak.
@@ -129,6 +150,12 @@ const scoreAttack = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canAttack),
     boolVeto(inp.attackReady),
+    // Authoritative gate: a concrete, executable ATTACK candidate must exist
+    // (mirrors executeClass's ATTACK branch: preferredEnemyAttack or
+    // fa.barbarianAttack). Without this, frontPosture === "BREAK" alone could
+    // pass the veto below with zero enemy/barbarian targets on the frontier,
+    // scoring ATTACK high with nothing to actually execute.
+    boolVeto(inp.hasAnyAttackCandidate),
     // Defer to the MUSTER class ONLY when muster can actually engage — i.e. it
     // has a weak enemy-*player* border to advance on. MUSTER never handles
     // barbarian fronts, so a barbarian-only front with muster ready must stay
