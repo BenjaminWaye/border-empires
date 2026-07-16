@@ -1,6 +1,58 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAiCommandProducer } from "./ai-command-producer.js";
+import {
+  clearDevelopmentReservationsForPlayer,
+  reservedDevelopmentSlotCount,
+  reserveDevelopmentSlot,
+  type DevelopmentSlotReservation
+} from "./ai-development-slot-reservations.js";
+
+describe("clearDevelopmentReservationsForPlayer", () => {
+  // Regression: reservations previously only cleared on COMMAND_REJECTED or
+  // after a fixed 6s grace timer (AI_DEVELOPMENT_RESERVATION_GRACE_MS) —
+  // neither is tied to whether the AI worker's player snapshot has actually
+  // caught up with the accepted build. A build cooldown driven off the
+  // reservation must lift as soon as a fresh sync lands, not on a guess.
+  it("removes every reservation for the player regardless of expiry time", () => {
+    const state = new Map<string, DevelopmentSlotReservation[]>();
+    reserveDevelopmentSlot(
+      state,
+      { commandId: "cmd-1", type: "BUILD_FORT", playerId: "ai-1", sessionId: "ai-runtime:ai-1", clientSeq: 1, issuedAt: 0, payloadJson: "{}" },
+      1_000
+    );
+    expect(reservedDevelopmentSlotCount(state, "ai-1", 1_000)).toBe(1);
+
+    clearDevelopmentReservationsForPlayer(state, "ai-1");
+
+    expect(reservedDevelopmentSlotCount(state, "ai-1", 1_000)).toBe(0);
+  });
+
+  it("does not affect other players' reservations", () => {
+    const state = new Map<string, DevelopmentSlotReservation[]>();
+    reserveDevelopmentSlot(
+      state,
+      { commandId: "cmd-1", type: "BUILD_FORT", playerId: "ai-1", sessionId: "ai-runtime:ai-1", clientSeq: 1, issuedAt: 0, payloadJson: "{}" },
+      1_000
+    );
+    reserveDevelopmentSlot(
+      state,
+      { commandId: "cmd-2", type: "BUILD_ECONOMIC_STRUCTURE", playerId: "ai-2", sessionId: "ai-runtime:ai-2", clientSeq: 1, issuedAt: 0, payloadJson: "{}" },
+      1_000
+    );
+
+    clearDevelopmentReservationsForPlayer(state, "ai-1");
+
+    expect(reservedDevelopmentSlotCount(state, "ai-1", 1_000)).toBe(0);
+    expect(reservedDevelopmentSlotCount(state, "ai-2", 1_000)).toBe(1);
+  });
+
+  it("is a no-op for a player with no reservations", () => {
+    const state = new Map<string, DevelopmentSlotReservation[]>();
+    expect(() => clearDevelopmentReservationsForPlayer(state, "ai-1")).not.toThrow();
+    expect(reservedDevelopmentSlotCount(state, "ai-1", 1_000)).toBe(0);
+  });
+});
 
 describe("AI development slot reservations", () => {
   it("passes local development slot reservations into the next plan request", async () => {
