@@ -1,4 +1,5 @@
 import { EMPIRE_STORAGE_FLOOR, STORAGE_MINUTES } from "../runtime-empire-storage.js";
+import type { RuntimeAiPlayerMetricsRow } from "../runtime-state-export.js";
 
 // Per-AI-player growth/spend gauges. Bounded to the fixed AI roster for a
 // season (5-ish players, not user input), same cardinality precedent as
@@ -12,11 +13,13 @@ import { EMPIRE_STORAGE_FLOOR, STORAGE_MINUTES } from "../runtime-empire-storage
 // monotonic spend counter would mean wiring a new dependency into all of
 // them — a much larger, riskier surface than a metrics-only change justifies.
 // Instead, setState is called once per second from the existing metricsTicker
-// (see simulation-service.ts) using data already computed for
-// exportPlayerDebugSnapshot() (no new tile/player scan). Graphed over time,
-// the gold gauge dropping between income ticks already shows spend behavior;
-// combined with the gold-capacity gauge it answers "are they spending before
-// hitting the cap" without new plumbing into every debit site.
+// (see simulation-service.ts) using runtime.exportAiPlayerMetricsSnapshot() —
+// a lean, AI-only export that skips the sorts/clones/lock-scan work
+// exportPlayerDebugSnapshot() does for every player (see RuntimeAiPlayerMetricsRow
+// doc comment in runtime-state-export.ts). Graphed over time, the gold gauge
+// dropping between income ticks already shows spend behavior; combined with
+// the gold-capacity gauge it answers "are they spending before hitting the
+// cap" without new plumbing into every debit site.
 //
 // EXPAND is tracked as a counter (not a gauge) because it fires from the
 // existing onCommand hook (already invoked once per accepted AI command,
@@ -58,26 +61,14 @@ export const createAiPlayerStateMetrics = () => {
 
 export type AiPlayerStateMetrics = ReturnType<typeof createAiPlayerStateMetrics>;
 
-// Minimal shape needed from RuntimePlayerDebugSnapshot's rows — decoupled
-// from that exact type so this module doesn't depend on runtime-state-export.
-export type AiPlayerDebugRow = {
-  id: string;
-  isAi: boolean;
-  points: number;
-  incomePerMinute: number;
-  settledTileCount: number;
-  ownedTileCount: number;
-};
-
-// Called once per second from simulation-service.ts's existing metricsTicker,
-// with the same exportPlayerDebugSnapshot() rows /admin/debug/ai reads — no
-// new tile/player scan added by this update.
+// Called once per second from simulation-service.ts's existing metricsTicker
+// with runtime.exportAiPlayerMetricsSnapshot() rows (already AI-only, so no
+// isAi filtering needed here) — no new tile/player scan added by this update.
 export const applyAiPlayerDebugSnapshotToMetrics = (
-  players: readonly AiPlayerDebugRow[],
+  players: readonly RuntimeAiPlayerMetricsRow[],
   setSimAiPlayerState: AiPlayerStateMetrics["setSimAiPlayerState"]
 ): void => {
   for (const player of players) {
-    if (!player.isAi) continue;
     setSimAiPlayerState(player.id, {
       gold: player.points,
       goldCapacity: Math.max(EMPIRE_STORAGE_FLOOR.GOLD, player.incomePerMinute * STORAGE_MINUTES),

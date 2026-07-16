@@ -2886,7 +2886,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
-        applyAiPlayerDebugSnapshotToMetrics(runtime.exportPlayerDebugSnapshot(), simulationMetrics.setSimAiPlayerState);
+        applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({
           heapUsedMb: memory.heapUsed / (1024 * 1024),
