@@ -1,6 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
-  isTownSupportPlacementStructure,
   structureBuildGoldCost,
   structureCostDefinition,
   structureShowsOnTile,
@@ -9,7 +8,7 @@ import {
 } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
-import { firstAvailableTownSupportTile } from "../town-support-lookup.js";
+import { openTownSupportNeighborTiles, townSupportStructureShowsOnTile } from "../town-support-lookup.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -183,6 +182,14 @@ export const chooseBestEconomicBuild = (
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
+    // Town-support structures (MARKET/BANK/GRANARY) build on an open,
+    // already-SETTLED neighbor tile assigned to this town
+    // (resolveTownSupportTarget in runtime-structure-command-handlers.ts),
+    // never on the town tile itself. Computed once per tile — the neighbor
+    // scan is identical regardless of which of the three types is chosen, so
+    // scanning it per-candidate-type would triple an 8-neighbor scan for no
+    // reason (see town-support-lookup.ts).
+    let openSupportNeighbors: readonly StructurePlannerTile[] | undefined;
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
     } else if (tile.resource === "WOOD" || tile.resource === "FUR") {
@@ -191,27 +198,26 @@ export const chooseBestEconomicBuild = (
       candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
     } else if (tile.town && tile.town.populationTier !== "SETTLEMENT" &&
         (typeof tile.town.supportCurrent !== "number" || typeof tile.town.supportMax !== "number" || tile.town.supportCurrent < tile.town.supportMax)) {
-      candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
-      candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
-      candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+      openSupportNeighbors = openTownSupportNeighborTiles(tilesByKey, player.id, tileKeyOf(tile.x, tile.y));
+      // A town missing support capacity does NOT guarantee an open neighbor
+      // exists to host the structure — the town may be boxed in by FRONTIER
+      // neighbors or neighbors already holding a structure. Without this
+      // check the AI proposed BUILD_ECONOMIC_STRUCTURE for towns with
+      // nowhere to place it, and the runtime rejected ~99.9% of those
+      // commands in production, burning the tick's action budget every time.
+      if (openSupportNeighbors.length > 0) {
+        candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
+        candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
+        candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+      }
     }
     for (const candidate of candidates) {
       const existingOwnedCount = plannedOwnedStructureCount(player, counts, candidate.type);
       if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
-      // Town-support structures (MARKET/BANK/GRANARY) don't build on the town
-      // tile itself — the runtime places them on an open, already-SETTLED
-      // neighbor tile assigned to this town (resolveTownSupportTarget in
-      // runtime-structure-command-handlers.ts). A town missing support
-      // capacity (checked above) does NOT guarantee such a tile exists — the
-      // town may be boxed in by FRONTIER neighbors or neighbors already
-      // holding a structure. Without this check the AI proposed
-      // BUILD_ECONOMIC_STRUCTURE for towns with nowhere to place it, and the
-      // runtime rejected ~99.9% of those commands in production (see
-      // town-support-lookup.ts), burning the tick's action budget every time.
       if (
-        isTownSupportPlacementStructure(candidate.type) &&
-        !firstAvailableTownSupportTile(tilesByKey, player.id, tileKeyOf(tile.x, tile.y), candidate.type)
+        openSupportNeighbors &&
+        !openSupportNeighbors.some((neighbor) => townSupportStructureShowsOnTile(tilesByKey, player.id, neighbor, candidate.type))
       ) {
         continue;
       }
