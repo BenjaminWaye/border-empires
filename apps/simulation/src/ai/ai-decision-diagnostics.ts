@@ -42,6 +42,7 @@ export type AiDecisionDiagnostic = {
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
+  economicBuildCandidate: string | undefined;
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
@@ -86,7 +87,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
-    gates: diagnostic.utilityGates
+    gates: diagnostic.utilityGates,
+    economicBuildCandidate: diagnostic.economicBuildCandidate
   });
 };
 

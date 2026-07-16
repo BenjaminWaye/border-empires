@@ -41,3 +41,29 @@ describe("recordAiDecisionDiagnosticFromPlanner — neighborCandidateTotal / mis
     });
   });
 });
+
+describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () => {
+  // Regression: AiDecisionDiagnostic is an explicit field allowlist copied
+  // from AutomationPlannerDiagnostic — a new planner diagnostic field is
+  // silently dropped from /admin/debug/ai/decisions unless it's also added
+  // here. economicBuildCandidate was added to the planner type without this
+  // mapping, so it always showed as undefined regardless of the real value.
+  it("carries the picked build candidate through from the planner diagnostic", () => {
+    recordAiDecisionDiagnosticFromPlanner(
+      baseDiagnostic({
+        playerId: "ai-decision-diag-test-3",
+        economicBuildCandidate: "12,7:MARKET"
+      })
+    );
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-3");
+    expect(recorded).toMatchObject({ economicBuildCandidate: "12,7:MARKET" });
+  });
+
+  it("is undefined when the planner diagnostic has no build candidate", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-4" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-4");
+    expect(recorded.economicBuildCandidate).toBeUndefined();
+  });
+});
