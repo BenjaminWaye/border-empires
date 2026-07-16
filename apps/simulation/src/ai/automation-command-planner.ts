@@ -374,6 +374,12 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       Boolean(economicBuild) ||
       Boolean(fortBuild) ||
       Boolean(siegeOutpostBuild),
+    // Debug-only: what chooseBestEconomicBuild actually picked, so a
+    // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
+    // specific tile/type via /admin/debug/ai/decisions instead of guessing.
+    ...(economicBuild
+      ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
+      : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
