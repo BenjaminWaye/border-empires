@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner-types.js";
-import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from "./ai-decision-diagnostics.js";
+import {
+  getAiDecisionDiagnostics,
+  recordAiCommandRejectionMessage,
+  recordAiDecisionDiagnosticFromPlanner
+} from "./ai-decision-diagnostics.js";
 
 const baseDiagnostic = (overrides: Partial<AutomationPlannerDiagnostic> = {}): AutomationPlannerDiagnostic => ({
   playerId: "ai-4",
@@ -65,5 +69,35 @@ describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () 
 
     const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-4");
     expect(recorded.economicBuildCandidate).toBeUndefined();
+  });
+});
+
+describe("recordAiCommandRejectionMessage", () => {
+  // Most command rejections collapse to the same generic "BUILD_INVALID"
+  // code (see sim_ai_command_rejected_code_total) — the message is what
+  // actually disambiguates the reason, so it must survive into the
+  // per-player decision diagnostic ring buffer, not just the metrics.
+  it("attaches the most recent rejection to subsequently recorded diagnostics for that player", () => {
+    recordAiCommandRejectionMessage(
+      "ai-decision-diag-test-5",
+      "BUILD_ECONOMIC_STRUCTURE",
+      "BUILD_INVALID",
+      "needs an open support tile next to this town"
+    );
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-5" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-5");
+    expect(recorded.lastRejection).toMatchObject({
+      commandType: "BUILD_ECONOMIC_STRUCTURE",
+      code: "BUILD_INVALID",
+      message: "needs an open support tile next to this town"
+    });
+  });
+
+  it("is undefined when no rejection has been recorded for that player", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-6" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-6");
+    expect(recorded.lastRejection).toBeUndefined();
   });
 });

@@ -22,7 +22,7 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
-import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -1664,6 +1664,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // 200ms-per-1s-window budget so one large/expensive AI cannot exhaust
     // a shared pool and starve smaller AIs of planning time.
     const aiBudgetTrackers = createPerPlayerAiBudgetTrackers(aiPlayerIds);
+    const onAiRejectedCommand = ({ playerId, commandType, rejectionCode, rejectionMessage }: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string; rejectionMessage: string }): void => {
+      simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
+      recordAiCommandRejectionMessage(playerId, commandType, rejectionCode, rejectionMessage);
+    };
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
     emitLog("info", "simulation autopilot startup", {
       enableAiAutopilot: aiAutopilotEnabled,
@@ -1718,9 +1722,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
-            onRejectedCommand: ({ commandType, rejectionCode }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
-            },
+            onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
                 simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
@@ -1811,9 +1813,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
-            onRejectedCommand: ({ commandType, rejectionCode }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
-            },
+            onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
                 simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);

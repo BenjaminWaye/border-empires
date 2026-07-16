@@ -43,10 +43,28 @@ export type AiDecisionDiagnostic = {
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
   economicBuildCandidate: string | undefined;
+  /** Most recent COMMAND_REJECTED this player has seen, if any — most
+   *  rejection reasons collapse to the same "BUILD_INVALID" code (see
+   *  sim_ai_command_rejected_code_total), so the message is what actually
+   *  disambiguates "tile already has structure" from "needs an open
+   *  support tile" etc. */
+  lastRejection: { commandType: string; code: string; message: string; at: number } | undefined;
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
 const MAX_DIAGNOSTICS_PER_PLAYER = 100;
+
+// Bounded by the fixed AI player set for a season, not user input.
+const lastRejectionByPlayer = new Map<string, { commandType: string; code: string; message: string; at: number }>();
+
+export const recordAiCommandRejectionMessage = (
+  playerId: string,
+  commandType: string,
+  code: string,
+  message: string
+): void => {
+  lastRejectionByPlayer.set(playerId, { commandType, code, message, at: Date.now() });
+};
 
 export const recordAiDecisionDiagnostic = (diag: AiDecisionDiagnostic): void => {
   const existing = recentDiagnostics.get(diag.playerId) ?? [];
@@ -88,7 +106,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
-    economicBuildCandidate: diagnostic.economicBuildCandidate
+    economicBuildCandidate: diagnostic.economicBuildCandidate,
+    lastRejection: lastRejectionByPlayer.get(diagnostic.playerId)
   });
 };
 
