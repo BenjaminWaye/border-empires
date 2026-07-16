@@ -1,7 +1,21 @@
+/**
+ * Runtime-side entry point for town support tile lookups. The actual logic
+ * lives in ../town-support-lookup.ts (generic over any tile shape) so the
+ * AI planner's chooseBestEconomicBuild can use the EXACT SAME algorithm the
+ * runtime uses to decide whether a town-support structure (MARKET/GRANARY/
+ * BANK) can actually be placed — see town-support-lookup.ts's file comment
+ * for why that used to diverge and what it broke in production.
+ */
+
 import type { DomainTileState } from "@border-empires/game-domain";
-import { structureShowsOnTile, type EconomicStructureType } from "@border-empires/shared";
-import { forEachFrontierNeighbor } from "../frontier-topology.js";
-import { simulationTileKey } from "../seed-state/seed-state.js";
+import type { EconomicStructureType } from "@border-empires/shared";
+import {
+  assignedTownKeyForSupportTile as assignedTownKeyForSupportTileGeneric,
+  economicStructureForSupportedTown as economicStructureForSupportedTownGeneric,
+  firstAvailableTownSupportTile as firstAvailableTownSupportTileGeneric,
+  supportedDockKeysForTile as supportedDockKeysForTileGeneric,
+  supportedTownKeysForTile as supportedTownKeysForTileGeneric
+} from "../town-support-lookup.js";
 
 export function supportedTownKeysForTile(
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -9,8 +23,7 @@ export function supportedTownKeysForTile(
   x: number,
   y: number
 ): string[] {
-  const townKey = assignedTownKeyForSupportTile(tiles, playerId, x, y);
-  return townKey ? [townKey] : [];
+  return supportedTownKeysForTileGeneric(tiles, playerId, x, y);
 }
 
 export function assignedTownKeyForSupportTile(
@@ -19,10 +32,7 @@ export function assignedTownKeyForSupportTile(
   x: number,
   y: number
 ): string | undefined {
-  return adjacentTileStates(tiles, x, y)
-    .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT")
-    .sort((a, b) => a.x - b.x || a.y - b.y)
-    .map((tile) => simulationTileKey(tile.x, tile.y))[0];
+  return assignedTownKeyForSupportTileGeneric(tiles, playerId, x, y);
 }
 
 export function supportedDockKeysForTile(
@@ -31,9 +41,7 @@ export function supportedDockKeysForTile(
   x: number,
   y: number
 ): string[] {
-  return adjacentTileStates(tiles, x, y)
-    .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.dockId)
-    .map((tile) => simulationTileKey(tile.x, tile.y));
+  return supportedDockKeysForTileGeneric(tiles, playerId, x, y);
 }
 
 export function economicStructureForSupportedTown(
@@ -42,16 +50,7 @@ export function economicStructureForSupportedTown(
   townKey: string,
   structureType: EconomicStructureType
 ): DomainTileState | undefined {
-  const [townXRaw, townYRaw] = townKey.split(",");
-  const townX = Number(townXRaw);
-  const townY = Number(townYRaw);
-  return adjacentTileStates(tiles, townX, townY).find(
-    (tile) =>
-      assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey &&
-      tile.ownerId === playerId &&
-      tile.economicStructure?.ownerId === playerId &&
-      tile.economicStructure.type === structureType
-  );
+  return economicStructureForSupportedTownGeneric(tiles, playerId, townKey, structureType);
 }
 
 export function firstAvailableTownSupportTile(
@@ -60,29 +59,5 @@ export function firstAvailableTownSupportTile(
   townKey: string,
   structureType: EconomicStructureType
 ): DomainTileState | undefined {
-  const [townXRaw, townYRaw] = townKey.split(",");
-  const townX = Number(townXRaw);
-  const townY = Number(townYRaw);
-  return adjacentTileStates(tiles, townX, townY).find((tile) => {
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
-    if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
-    if (assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) !== townKey) return false;
-    return structureShowsOnTile(structureType, {
-      ownershipState: tile.ownershipState,
-      resource: tile.resource,
-      dockId: tile.dockId,
-      townPopulationTier: undefined,
-      supportedTownCount: supportedTownKeysForTile(tiles, playerId, tile.x, tile.y).length,
-      supportedDockCount: supportedDockKeysForTile(tiles, playerId, tile.x, tile.y).length
-    });
-  });
-}
-
-function adjacentTileStates(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): DomainTileState[] {
-  const result: DomainTileState[] = [];
-  forEachFrontierNeighbor(x, y, (nx, ny) => {
-    const tile = tiles.get(simulationTileKey(nx, ny));
-    if (tile) result.push(tile);
-  });
-  return result;
+  return firstAvailableTownSupportTileGeneric(tiles, playerId, townKey, structureType);
 }

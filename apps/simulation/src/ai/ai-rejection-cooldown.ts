@@ -20,7 +20,15 @@ export type DecisionCooldownMap = Partial<Record<DecisionClass, boolean>>;
 const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], DecisionClass>> = {
   BUILD_FORT: "BUILD_DEFENSE",
   BUILD_SIEGE_OUTPOST: "BUILD_DEFENSE",
-  BUILD_ECONOMIC_STRUCTURE: "BUILD_ECONOMY"
+  BUILD_ECONOMIC_STRUCTURE: "BUILD_ECONOMY",
+  // ATTACK was missing from this map, so a rejected ATTACK (e.g. ATTACK_COOLDOWN/
+  // LOCKED while the previous attack from the same origin is still resolving —
+  // COMBAT_LOCK_MS = 3000ms) never went on cooldown. The utility policy re-picks
+  // ATTACK on the very next tick (250ms), re-submits the same doomed command, and
+  // repeats until the lock clears — up to ~11 wasted rejected submissions per
+  // successful attack. Observed as an 81% ATTACK rejection rate in production
+  // (see docs/agents/topics/ai-planner.md).
+  ATTACK: "ATTACK"
 };
 
 export const decisionClassForCommand = (commandType: CommandEnvelope["type"]): DecisionClass | undefined =>

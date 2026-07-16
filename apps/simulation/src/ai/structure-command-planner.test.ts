@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { planAutomationCommand } from "./automation-command-planner.js";
 import {
+  chooseBestEconomicBuild,
   chooseBestFortBuild,
   chooseBestSiegeOutpostBuild,
+  type StructurePlannerPlayer,
   type StructurePlannerTile
 } from "./structure-command-planner.js";
 
@@ -13,6 +15,16 @@ const tile = (x: number, y: number, overrides: Partial<StructurePlannerTile> = {
   terrain: "LAND",
   ...overrides
 });
+
+const ECONOMIC_BUILD_PLAYER: StructurePlannerPlayer = {
+  id: "ai-1",
+  points: 10_000,
+  techIds: ["trade", "pottery", "coinage"],
+  strategicResources: { FOOD: 1_000 },
+  settledTileCount: 10,
+  townCount: 1,
+  incomePerMinute: 20
+};
 
 describe("structure command planner", () => {
   it("uses cached siege outpost counts for affordability before scanning candidate sites", () => {
@@ -116,5 +128,74 @@ describe("structure command planner", () => {
     });
 
     expect(result.command?.type).not.toBe("BUILD_SIEGE_OUTPOST");
+  });
+});
+
+describe("chooseBestEconomicBuild — town support tile availability", () => {
+  // Regression: production staging showed BUILD_ECONOMIC_STRUCTURE rejected
+  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MARKET/BANK/
+  // GRANARY whenever a town's supportCurrent < supportMax, without checking
+  // whether a physical open SETTLED neighbor tile actually existed to host
+  // the structure. The runtime places these on an adjacent support tile
+  // (resolveTownSupportTarget), not the town tile itself, and rejects with
+  // "needs an open support tile next to this town" when none exists — which
+  // silently burns the AI's action budget every tick it re-proposes the same
+  // doomed command instead of falling through to something executable.
+  const town = tile(0, 0, {
+    ownerId: "ai-1",
+    ownershipState: "SETTLED",
+    town: { populationTier: "TOWN", supportCurrent: 0, supportMax: 2 }
+  });
+
+  it("does not propose a town-support structure when every neighbor is FRONTIER (no open SETTLED support tile)", () => {
+    // All 8 neighbors owned but still FRONTIER — matches the low
+    // settled-tile-ratio empires observed stuck in production (e.g. 175
+    // settled out of 1667 owned tiles).
+    const frontierNeighbors = [
+      [-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]
+    ].map(([dx, dy]) => tile(dx, dy, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
+    const tilesByKey = new Map<string, StructurePlannerTile>([
+      ["0,0", town],
+      ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
+    ]);
+
+    const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, ...frontierNeighbors], tilesByKey);
+    expect(result).toBeUndefined();
+  });
+
+  it("proposes a town-support structure when an open, correctly-assigned SETTLED neighbor exists", () => {
+    const openSupportTile = tile(1, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const tilesByKey = new Map<string, StructurePlannerTile>([
+      ["0,0", town],
+      ["1,0", openSupportTile]
+    ]);
+
+    const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, openSupportTile], tilesByKey);
+    expect(result).toBeDefined();
+    expect(result?.tile).toBe(town);
+    expect(["MARKET", "BANK", "GRANARY"]).toContain(result?.structureType);
+  });
+
+  it("does not propose a town-support structure when the only SETTLED neighbor already has a structure", () => {
+    const occupiedNeighbor = tile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "ai-1", status: "active" }
+    });
+    const frontierNeighbors = [
+      [-1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]
+    ].map(([dx, dy]) => tile(dx, dy, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
+    const tilesByKey = new Map<string, StructurePlannerTile>([
+      ["0,0", town],
+      ["1,0", occupiedNeighbor],
+      ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
+    ]);
+
+    const result = chooseBestEconomicBuild(
+      ECONOMIC_BUILD_PLAYER,
+      [town, occupiedNeighbor, ...frontierNeighbors],
+      tilesByKey
+    );
+    expect(result).toBeUndefined();
   });
 });

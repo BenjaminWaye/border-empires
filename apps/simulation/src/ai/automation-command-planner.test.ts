@@ -204,37 +204,6 @@ describe("automation command planner", () => {
     });
   });
 
-  it("builds an economic structure when income is weak and a good settled resource tile exists", () => {
-    const ownedTown = makeTile(5, 5, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
-    });
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 5_000,
-      manpower: 10,
-      techIds: ["trade"],
-      strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
-      townCount: 1,
-      incomePerMinute: 0,
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [],
-      ownedTiles: [ownedTown],
-      tilesByKey: new Map([["5,5", ownedTown]]),
-      clientSeq: 3,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command).toMatchObject({
-      type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MARKET" })
-    });
-  });
-
   it("builds a fort on an exposed settled core tile when enemies crowd the frontier", () => {
     const town = makeTile(8, 8, {
       ownerId: "ai-1",
