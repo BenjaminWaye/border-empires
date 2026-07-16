@@ -176,6 +176,59 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     expect(["MARKET", "BANK", "GRANARY"]).toContain(result?.structureType);
   });
 
+  it("does not re-propose a structure type the town already has, even when it outscores the genuinely missing type", () => {
+    // Regression: staging showed the same "273,30:GRANARY" candidate proposed
+    // and rejected ("town already has granary") every rejection-cooldown
+    // cycle indefinitely. supportCurrent < supportMax only means the town
+    // wants MORE support capacity overall — it doesn't mean it's missing
+    // THIS specific type. The runtime's economicStructureForSupportedTown
+    // check catches the duplicate; chooseBestEconomicBuild must too.
+    //
+    // The town already has BANK (score 66, the highest-scoring candidate
+    // here) and GRANARY (score 20) — only MARKET (score 54) is genuinely
+    // missing. Without the fix, BANK's higher score would win even though
+    // the town already has one; asserting "not GRANARY" alone wouldn't
+    // catch that, since BANK naturally outscores GRANARY regardless of the
+    // fix — the assertion must pin the winner to MARKET specifically.
+    //
+    // Coordinates kept positive and away from 0 — negative offsets wrap
+    // around WORLD_WIDTH/WORLD_HEIGHT (450x450), which would silently look
+    // up the wrong tile key and mask this exact class of bug.
+    const town2 = tile(10, 10, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { populationTier: "TOWN", supportCurrent: 0, supportMax: 3 }
+    });
+    const existingBank = tile(11, 10, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "ai-1", type: "BANK", status: "active" }
+    });
+    const existingGranary = tile(11, 9, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "ai-1", type: "GRANARY", status: "active" }
+    });
+    const openSupportTile = tile(9, 10, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const frontierNeighbors = [
+      [10, 9], [9, 9], [9, 11], [10, 11], [11, 11]
+    ].map(([x, y]) => tile(x, y, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
+    const tilesByKey = new Map<string, StructurePlannerTile>([
+      ["10,10", town2],
+      ["11,10", existingBank],
+      ["11,9", existingGranary],
+      ["9,10", openSupportTile],
+      ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
+    ]);
+
+    const result = chooseBestEconomicBuild(
+      ECONOMIC_BUILD_PLAYER,
+      [town2, existingBank, existingGranary, openSupportTile, ...frontierNeighbors],
+      tilesByKey
+    );
+    expect(result?.structureType).toBe("MARKET");
+  });
+
   it("does not propose a town-support structure when the only SETTLED neighbor already has a structure", () => {
     const occupiedNeighbor = tile(1, 0, {
       ownerId: "ai-1",
