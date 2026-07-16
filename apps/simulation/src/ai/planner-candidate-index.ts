@@ -3,8 +3,6 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 
-const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
-
 const ownerIdsNearTile = (
   tile: DomainTileState,
   tilesByKey: ReadonlyMap<string, DomainTileState>
@@ -151,5 +149,3 @@ export const isBuildCandidateTile = (
     supportedDockCount(playerId, tile, tilesByKey) > 0 ||
     hasHostileNeighbor(playerId, tile, tilesByKey)
   );
-
-export const plannerCandidateIndexKey = tileKeyOf;

@@ -171,6 +171,19 @@ sim_ai_noop_total{player="ai-1",type="ATTACK"} 300
 
 ## Notes
 
+- **Planner internals / CPU profiling / dead-code hunting**: for the AI decision
+  pipeline architecture, how to profile per-plan cost (`sim_ai_planner_phase_ms`),
+  what the AI emits vs. computes, and how to find dead/wasteful AI work, see
+  `docs/agents/topics/ai-planner.md`.
+- **Known AI capability gaps** (not wired up, tracked intentionally — low priority):
+  - The AI never builds **observatories**. `structure-command-planner.ts` only
+    has economic/fort/siege builders; there is no observatory builder, so
+    `BUILD_OBSERVATORY` is never emitted (it appears only in command-classifier
+    lists). Wiring it up means adding a `chooseBestObservatoryBuild` and a
+    `BUILD_OBSERVATORY` path in the planner/utility policy.
+  - The AI never uses **crystal abilities** (`AIRPORT_BOMBARD` / Sky Dock
+    Bombard, `CRYSTAL_SYNTHESIZER`, `ADVANCED_CRYSTAL_SYNTHESIZER`). No AI code
+    references them — the AI accumulates crystal but never spends it on abilities.
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time
 - **Metrics delay**: Prometheus metrics may lag 30–60 seconds in practice
