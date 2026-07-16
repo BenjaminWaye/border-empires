@@ -13,13 +13,10 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
 import type { AiLatchedIntentKind } from "./ai-intent-latch.js";
-import { MAX_SETTLE_DURATION_MS } from "../runtime/runtime.js";
 
 const FRONTIER_LATCH_GRACE_MS = 500;
-const SETTLE_LATCH_GRACE_MS = 1_000;
 
 export const FRONTIER_INTENT_WAKE_MS = COMBAT_LOCK_MS + FRONTIER_LATCH_GRACE_MS;
-export const SETTLE_INTENT_WAKE_MS = MAX_SETTLE_DURATION_MS + SETTLE_LATCH_GRACE_MS;
 
 export const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLatchedIntentKind | undefined => {
   // BUILD_* commands intentionally not latched — their resolution timing
@@ -27,13 +24,11 @@ export const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLa
   // handles "skip while in flight." Adding them here without a wake window
   // would create a confusing dead branch in the producer.
   if (commandType === "ATTACK" || commandType === "EXPAND") return "frontier";
-  if (commandType === "SETTLE") return "settlement";
   return undefined;
 };
 
 export const wakeWindowMsForCommand = (commandType: CommandEnvelope["type"]): number => {
   if (commandType === "ATTACK" || commandType === "EXPAND") return FRONTIER_INTENT_WAKE_MS;
-  if (commandType === "SETTLE") return SETTLE_INTENT_WAKE_MS;
   return 0;
 };
 
