@@ -2133,12 +2133,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 bootstrapsInFlight,
                 maxConcurrentBootstraps
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_BUSY",
-                retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
-                message: "Server is busy. Retry shortly."
-              });
+              sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
               authTrace.complete("rejected", "bootstrap_admission");
               return;
             }
@@ -2153,12 +2148,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   maxConcurrentBootstraps,
                   queueDepth: loginQueue.size()
                 });
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "SERVER_BUSY",
-                  retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
-                  message: "Server is busy. Retry shortly."
-                });
+                sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
                 authTrace.complete("rejected", "bootstrap_admission");
                 return;
               }
@@ -2228,6 +2218,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             } finally {
               bootstrapsInFlight -= 1;
               loginQueue.drain();
+            }
+            // Client gave up during the multi-second bootstrap subscribe: socket is closed and its
+            // close handler already no-op'd (nothing attached yet). Attaching now leaks a dead socket
+            // into the subscriber set — every future broadcast fans out to one more zombie per abandoned
+            // login. (A close AFTER attach is self-healed by removeSocket + subscribeOnce's hasSockets guard.)
+            if (socket.readyState !== socket.OPEN) {
+              gatewayMetrics.incrementLoginAbandonedBeforeAttachTotal();
+              recordGatewayEvent("warn", "gateway_auth_abandoned_before_attach", { playerId: playerIdentity.playerId, channel });
+              authTrace.complete("rejected", "abandoned_before_attach");
+              return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
