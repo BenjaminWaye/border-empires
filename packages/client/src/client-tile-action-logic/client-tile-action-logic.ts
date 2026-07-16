@@ -730,7 +730,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
-    const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    const hasBlockingStructure = Boolean(tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const supportedTowns = tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
     const supportedTown = supportedTowns[0];
     const supportedDocks = tile.ownershipState === "SETTLED" ? deps.supportedOwnedDocksForTile(tile) : [];
@@ -1175,12 +1175,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("aeronautics") &&
               state.gold >= airportGoldCost &&
               (state.strategicResources.CRYSTAL ?? 0) >= 80 &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("aeronautics")
               ? "Requires Sky Docks"
-              : tile.fort || tile.siegeOutpost || tile.observatory
+              : tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : state.gold < airportGoldCost
                   ? `Need ${airportGoldCost} gold`
@@ -1200,12 +1199,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("plastics") &&
               state.gold >= aetherTowerGoldCost &&
               (state.strategicResources.CRYSTAL ?? 0) >= 160 &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("plastics")
               ? "Requires Aether Towers"
-              : tile.fort || tile.siegeOutpost || tile.observatory
+              : tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : state.gold < aetherTowerGoldCost
                   ? `Need ${aetherTowerGoldCost} gold`
@@ -1225,12 +1223,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("radar") &&
               state.gold >= 4000 &&
               (state.strategicResources.CRYSTAL ?? 0) >= 120 &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("radar")
               ? "Requires Resonance Grid"
-              : tile.fort || tile.siegeOutpost || tile.observatory
+              : tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : state.gold < 4000
                   ? "Need 4000 gold"
@@ -1250,7 +1247,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("urban-markets") &&
               imperialExchangePartCount >= 3 &&
               !imperialExchangeBuilt &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("urban-markets")
@@ -1259,7 +1255,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Imperial Exchange already built"
                 : imperialExchangePartCount < 3
                   ? "Build 3 Imperial Exchange parts first"
-                  : tile.fort || tile.siegeOutpost || tile.observatory
+                  : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
                     : "Unavailable",
             `Free after 3 parts • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE") / 60000)}m`,
@@ -1277,7 +1273,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("world-engine") &&
               worldEnginePartCount >= 3 &&
               !worldEngineBuilt &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("world-engine")
@@ -1286,7 +1281,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Worldbreaker Cannon already built"
                 : worldEnginePartCount < 3
                   ? "Build 3 Worldbreaker Cannon parts first"
-                  : tile.fort || tile.siegeOutpost || tile.observatory
+                  : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
                     : "Unavailable",
             `Free after 3 parts • ${Math.round(economicStructureBuildMs("WORLD_ENGINE") / 60000)}m`,
@@ -1304,7 +1299,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("aegis-dome") &&
               aegisDomePartCount >= 3 &&
               !aegisDomeBuilt &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("aegis-dome")
@@ -1313,7 +1307,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Aegis Dome already built"
                 : aegisDomePartCount < 3
                   ? "Build 3 Aegis Dome parts first"
-                  : tile.fort || tile.siegeOutpost || tile.observatory
+                  : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
                     : "Unavailable",
             `Free after 3 parts • ${Math.round(economicStructureBuildMs("AEGIS_DOME") / 60000)}m`,
@@ -1331,7 +1325,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("astral-dock") &&
               astralDockPartCount >= 3 &&
               !astralDockBuilt &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("astral-dock")
@@ -1340,7 +1333,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Astral Dock already built"
                 : astralDockPartCount < 3
                   ? "Build 3 Astral Dock parts first"
-                  : tile.fort || tile.siegeOutpost || tile.observatory
+                  : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
                     : "Unavailable",
             `Free after 3 parts • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m`,
@@ -1357,12 +1350,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             state.techIds.includes("civil-service") &&
               state.gold >= 2600 &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("civil-service")
               ? "Requires Civil Service"
-              : tile.fort || tile.siegeOutpost || tile.observatory
+              : tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : "Need 2600 gold",
             `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep • 3 gold/min`,
@@ -1410,12 +1402,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.techIds.includes("organized-supply") &&
               state.gold >= 2200 &&
               (state.strategicResources.CRYSTAL ?? 0) >= 80 &&
-              !tile.fort &&
               !tile.siegeOutpost &&
               !tile.observatory,
             !state.techIds.includes("organized-supply")
               ? "Requires Organized Supply"
-              : tile.fort || tile.siegeOutpost || tile.observatory
+              : tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : state.gold < 2200
                   ? "Need 2200 gold"

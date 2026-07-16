@@ -122,7 +122,7 @@ const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesB
 };
 
 const tileOpenForStructure = (tile: StructurePlannerTile): boolean =>
-  !tile.fort && !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
+  !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
 
 const structureVisibleOnTile = (
   structureType: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType,
