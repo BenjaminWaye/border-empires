@@ -112,6 +112,8 @@ export type AutomationPlannerDiagnostic = {
   narrowAnalyzeCapped?: boolean | undefined;
   /** Set when the planner acts on an expansion objective (directed expand). */
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
+  /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
+  economicBuildCandidate?: string;
   // Utility AI fields — populated on every result from the main planner.
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;
