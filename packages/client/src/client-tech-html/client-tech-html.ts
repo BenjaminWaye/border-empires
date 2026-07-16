@@ -82,26 +82,9 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
   if (key === "supportEconomicFoodUpkeepMult" && typeof value === "number") return `Town support food upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
-    const resourceOutput = value as Record<string, unknown>;
-    const labels: string[] = [];
-    if (typeof resourceOutput.farm === "number" && resourceOutput.farm !== 1) {
-      labels.push(`Farm output +${((resourceOutput.farm - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.fish === "number" && resourceOutput.fish !== 1) {
-      labels.push(`Fish output +${((resourceOutput.fish - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.iron === "number" && resourceOutput.iron !== 1) {
-      labels.push(`Iron output +${((resourceOutput.iron - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.crystal === "number" && resourceOutput.crystal !== 1) {
-      labels.push(`Crystal output +${((resourceOutput.crystal - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.supply === "number" && resourceOutput.supply !== 1) {
-      labels.push(`Supply output +${((resourceOutput.supply - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.shard === "number" && resourceOutput.shard !== 1) {
-      labels.push(`Shard output +${((resourceOutput.shard - 1) * 100).toFixed(0)}%`);
-    }
+    const ro = value as Record<string, unknown>;
+    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["iron", "Iron"], ["crystal", "Crystal"], ["supply", "Supply"], ["shard", "Shard"]];
+    const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }
   if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
