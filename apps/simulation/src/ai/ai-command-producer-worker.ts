@@ -29,6 +29,7 @@ import {
 } from "./ai-attack-stalemate.js";
 import {
   clearDevelopmentReservation,
+  clearDevelopmentReservationsForPlayer,
   reserveDevelopmentSlot,
   reservedDevelopmentSlotCount,
   type DevelopmentSlotReservation
@@ -315,10 +316,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       for (const [, resolve] of pendingRequests) resolve({ command: null });
       pendingRequests.clear();
-      // The new worker thread starts unpaused. Reset our local backlog-tracking
-      // flag so the next tick re-issues pause/resume against the fresh worker;
-      // otherwise we'd silently keep planning while the main thread thinks the
-      // worker is paused (or vice-versa).
+      // The new worker starts unpaused — reset the local flag so the next
+      // tick re-issues pause/resume against it, or we'd silently desync.
       humanBacklogWasNonEmpty = false;
       workerMetrics.respawnCount += 1;
       scheduleRespawn(0);
@@ -388,12 +387,13 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       durationMs: Math.max(0, now() - exportStartedAt),
       playerCount: players.length
     });
-    for (const player of players) plannerPlayersById.set(player.id, player);
+    for (const player of players) {
+      plannerPlayersById.set(player.id, player);
+      clearDevelopmentReservationsForPlayer(developmentReservationsByPlayer, player.id);
+    }
     const replacePlayersStartedAt = now();
-    // replacePlayers returns only the keys that are newly relevant to the
-    // rebuilt players. We scope the unseen-tile backfill scan to these keys
-    // instead of scanning all relevantTileKeys (was O(global_100k), now
-    // O(newly_relevant) ≈ 0 at steady state, small on territory expansion).
+    // replacePlayers returns only newly-relevant keys, scoping the backfill
+    // scan below to O(newly_relevant) instead of O(global_100k).
     const newlyRelevantKeys = trackSync(
       "sync_players_replace_players",
       { playerCount: players.length },
