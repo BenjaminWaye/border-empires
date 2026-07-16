@@ -1,5 +1,6 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
+  isTownSupportPlacementStructure,
   structureBuildGoldCost,
   structureCostDefinition,
   structureShowsOnTile,
@@ -8,6 +9,7 @@ import {
 } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import { firstAvailableTownSupportTile } from "../town-support-lookup.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -197,6 +199,22 @@ export const chooseBestEconomicBuild = (
       const existingOwnedCount = plannedOwnedStructureCount(player, counts, candidate.type);
       if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
+      // Town-support structures (MARKET/BANK/GRANARY) don't build on the town
+      // tile itself — the runtime places them on an open, already-SETTLED
+      // neighbor tile assigned to this town (resolveTownSupportTarget in
+      // runtime-structure-command-handlers.ts). A town missing support
+      // capacity (checked above) does NOT guarantee such a tile exists — the
+      // town may be boxed in by FRONTIER neighbors or neighbors already
+      // holding a structure. Without this check the AI proposed
+      // BUILD_ECONOMIC_STRUCTURE for towns with nowhere to place it, and the
+      // runtime rejected ~99.9% of those commands in production (see
+      // town-support-lookup.ts), burning the tick's action budget every time.
+      if (
+        isTownSupportPlacementStructure(candidate.type) &&
+        !firstAvailableTownSupportTile(tilesByKey, player.id, tileKeyOf(tile.x, tile.y), candidate.type)
+      ) {
+        continue;
+      }
       const next = { tile, structureType: candidate.type, score: candidate.score };
       if (!best || next.score > best.score) best = next;
     }
