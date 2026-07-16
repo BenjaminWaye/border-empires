@@ -299,22 +299,25 @@ const choosePlannerCommand = (
         : {})
     };
   }
-  aiTrainingRecorder.record(
-    buildAiTrainingRecord({
-      player,
-      issuedAt,
-      clientSeq,
-      ownedTiles,
-      frontierTiles,
-      hotFrontierTiles,
-      strategicFrontierTiles,
-      buildCandidateTiles,
-      pendingSettlementTileKeys,
-      ...(plannerDocks.length ? { docks: plannerDocks } : {}),
-      ...(plan.command ? { command: plan.command } : {}),
-      diagnostic: plan.diagnostic
-    })
-  );
+  // Only build the (tile-sorting) training record when recording is actually on.
+  if (aiTrainingRecorder.enabled) {
+    aiTrainingRecorder.record(
+      buildAiTrainingRecord({
+        player,
+        issuedAt,
+        clientSeq,
+        ownedTiles,
+        frontierTiles,
+        hotFrontierTiles,
+        strategicFrontierTiles,
+        buildCandidateTiles,
+        pendingSettlementTileKeys,
+        ...(plannerDocks.length ? { docks: plannerDocks } : {}),
+        ...(plan.command ? { command: plan.command } : {}),
+        diagnostic: plan.diagnostic
+      })
+    );
+  }
   emitDiagnostic({
     phase: "planner_total",
     durationMs: Math.max(0, Date.now() - plannerStartedAt),

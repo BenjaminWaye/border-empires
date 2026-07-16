@@ -16,7 +16,7 @@
 //   the equivalent of legacy's territoryVersion — same shape, same
 //   semantics, already wired through `PlannerPlayerView.tileCollectionVersion`.
 
-export type AiLatchedIntentKind = "frontier" | "settlement" | "structure";
+export type AiLatchedIntentKind = "frontier" | "structure";
 
 export type AiLatchedIntent = {
   playerId: string;
