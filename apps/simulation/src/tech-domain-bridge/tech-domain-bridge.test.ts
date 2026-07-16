@@ -109,9 +109,9 @@ describe("tech-domain bridge progression sources", () => {
 
     const payload = buildDomainUpdatePayload(player, []);
 
-    expect(payload.domainChoices).toEqual(expect.arrayContaining(["frontier-bureau", "stone-curtain"]));
+    expect(payload.domainChoices).toEqual(expect.arrayContaining(["cogwork-foundries", "stone-curtain"]));
     expect(payload.domainChoices).not.toContain("frontier-doctrine");
-    expect(payload.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
+    expect(payload.domainCatalog.find((domain) => domain.id === "cogwork-foundries")?.requirements.canResearch).toBe(false);
   });
 
   it("still rejects choosing a domain whose tier is open but required tech is missing", () => {
@@ -126,11 +126,11 @@ describe("tech-domain bridge progression sources", () => {
       strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
     };
 
-    const outcome = chooseDomainForPlayer(player, "frontier-bureau", []);
+    const outcome = chooseDomainForPlayer(player, "cogwork-foundries", []);
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.reason).toBe("requirements not met");
-    expect(player.domainIds.has("frontier-bureau")).toBe(false);
+    expect(player.domainIds.has("cogwork-foundries")).toBe(false);
   });
 });
 
