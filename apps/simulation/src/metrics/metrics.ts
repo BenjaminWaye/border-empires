@@ -8,6 +8,8 @@ import {
   type AutomationPreplanReason
 } from "../ai/automation-command-planner.js";
 import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
+import { createAiExperimentCounters } from "./metrics-experiment-counters.js";
+import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
   AI_PLANNER_PHASES,
@@ -95,9 +97,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiAutopilotEnabled = 0;
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
-  // Experiment-mode counters (see SIMULATION_AI_DRY_RUN etc). Each fires only when the corresponding
-  // flag is set; zero means the guard never engaged — "emit a counter on every skip/cap" project rule.
-  let simAiDryRunSkippedTotal = 0;
+  const aiExperimentCounters = createAiExperimentCounters();
+  const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
   let simPersistenceConstraintViolationTotal = 0;
@@ -109,9 +110,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
   let simLoginExportPausedDrainTotal = 0;
-  let simAiCommandCapSkippedTotal = 0;
-  let simAiExpandDisabledTotal = 0;
-  let simAiBuildDisabledTotal = 0;
   let simMusterRemoteAttackTotal = 0;
   let simMusterRemoteBlockedTotal = 0;
   let simMusterRemoteBlockedBarbarianTotal = 0;
@@ -157,7 +155,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
-    simAiDryRunSkippedTotal,
+    ...aiExperimentCounters.snapshot(),
+    ...aiPlayerStateMetrics.snapshot(),
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
     simPersistenceConstraintViolationTotal,
@@ -169,9 +168,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simReplayHistoryEvictedTotal,
     simReplayServerEventsSkippedTotal,
     simLoginExportPausedDrainTotal,
-    simAiCommandCapSkippedTotal,
-    simAiExpandDisabledTotal,
-    simAiBuildDisabledTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
     simAiCommandTotalByType: Object.fromEntries(
@@ -283,9 +279,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
     },
-    incrementSimAiDryRunSkipped(): void {
-      simAiDryRunSkippedTotal += 1;
-    },
+    incrementSimAiDryRunSkipped: aiExperimentCounters.incrementSimAiDryRunSkipped,
+    incrementSimAiCommandCapSkipped: aiExperimentCounters.incrementSimAiCommandCapSkipped,
+    incrementSimAiExpandDisabled: aiExperimentCounters.incrementSimAiExpandDisabled,
+    incrementSimAiBuildDisabled: aiExperimentCounters.incrementSimAiBuildDisabled,
+    setSimAiPlayerState: aiPlayerStateMetrics.setSimAiPlayerState,
+    incrementSimAiExpand: aiPlayerStateMetrics.incrementSimAiExpand,
     incrementSimGlobalStatusBroadcastCoalesced(): void {
       simGlobalStatusBroadcastCoalescedTotal += 1;
     },
@@ -328,15 +327,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimLoginExportPausedDrain(): void {
       simLoginExportPausedDrainTotal += 1;
-    },
-    incrementSimAiCommandCapSkipped(): void {
-      simAiCommandCapSkippedTotal += 1;
-    },
-    incrementSimAiExpandDisabled(): void {
-      simAiExpandDisabledTotal += 1;
-    },
-    incrementSimAiBuildDisabled(): void {
-      simAiBuildDisabledTotal += 1;
     },
     incrementSimMusterRemoteAttack(): void {
       simMusterRemoteAttackTotal += 1;
