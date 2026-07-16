@@ -8,7 +8,6 @@ export type DevelopmentSlotReservation = {
 };
 
 export const isDevelopmentSlotCommand = (type: CommandEnvelope["type"]): boolean =>
-  type === "SETTLE" ||
   type === "BUILD_FORT" ||
   type === "BUILD_OBSERVATORY" ||
   type === "BUILD_SIEGE_OUTPOST" ||

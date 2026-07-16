@@ -1,15 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAiCommandProducer } from "./ai-command-producer.js";
-import { SETTLE_INTENT_WAKE_MS, wakeWindowMsForCommand } from "./ai-intent-latch-helpers.js";
-import { MAX_SETTLE_DURATION_MS } from "../runtime/runtime.js";
 
 describe("ai command producer", () => {
-  it("keeps the settle intent fallback long enough for forest settlement duration", () => {
-    expect(wakeWindowMsForCommand("SETTLE")).toBe(SETTLE_INTENT_WAKE_MS);
-    expect(SETTLE_INTENT_WAKE_MS).toBe(MAX_SETTLE_DURATION_MS + 1_000);
-  });
-
   it("submits AI frontier commands through the same durable envelope path", async () => {
     const submitted: Array<{ playerId: string; type: string; payloadJson: string; clientSeq: number }> = [];
     const producer = createAiCommandProducer({
@@ -442,7 +435,7 @@ describe("ai command producer", () => {
     expect(submittedPlayers).toEqual(["ai-1", "ai-1"]);
   });
 
-  it("with intent-latch enabled, releases the latch on TILE_DELTA_BATCH (the SETTLE/BUILD resolution event)", async () => {
+  it("with intent-latch enabled, releases the latch on TILE_DELTA_BATCH (the neutral-EXPAND resolution event)", async () => {
     let nowMs = 1_000;
     const onEvent = vi.fn(() => () => undefined);
     const chooseNextAutomationCommand = vi.fn(
@@ -452,8 +445,8 @@ describe("ai command producer", () => {
         playerId,
         clientSeq,
         issuedAt,
-        type: "SETTLE" as const,
-        payloadJson: JSON.stringify({ x: 1, y: 0 })
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
       })
     );
     const runtime = {
@@ -475,7 +468,7 @@ describe("ai command producer", () => {
 
     await producer.tick();
     nowMs = 1_500;
-    // SETTLE resolves with TILE_DELTA_BATCH (no COMBAT_RESOLVED) — must release the latch.
+    // EXPAND to neutral resolves with TILE_DELTA_BATCH (no COMBAT_RESOLVED) — must release the latch.
     runtime.onEvent.mock.calls[0]?.[0]?.({
       eventType: "TILE_DELTA_BATCH",
       commandId: "ai-runtime-ai-1-1-1000",

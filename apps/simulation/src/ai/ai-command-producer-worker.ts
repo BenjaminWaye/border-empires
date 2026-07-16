@@ -163,7 +163,6 @@ type PlannedCommandResult = {
 
 const isExpandAction = (type: CommandEnvelope["type"]): boolean => type === "EXPAND" || type === "ATTACK";
 const isBuildAction = (type: CommandEnvelope["type"]): boolean =>
-  type === "SETTLE" ||
   type === "BUILD_FORT" ||
   type === "BUILD_OBSERVATORY" ||
   type === "BUILD_SIEGE_OUTPOST" ||

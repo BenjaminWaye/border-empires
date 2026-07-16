@@ -34,7 +34,7 @@ describe("AI intent latch", () => {
     latchAiIntent(state, {
       playerId: "ai-1",
       actionKey: "settle_owned_frontier_tile",
-      kind: "settlement",
+      kind: "frontier",
       startedAt: 100,
       wakeAt: 700,
       territoryVersion: 4,
