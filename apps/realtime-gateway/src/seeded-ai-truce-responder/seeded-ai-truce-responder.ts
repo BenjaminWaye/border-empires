@@ -99,6 +99,11 @@ export type SeededAiTruceResponderDeps = {
   syncPlayers: (playerIds: string[]) => { payloadsByPlayerId: Map<string, unknown[]> };
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
+  // The gateway's normal TRUCE_ACCEPT handler syncs the truce to the
+  // simulation before fanning out payloads; this auto-responder must do the
+  // same or seeded-AI truces silently fail to block combat/observatory
+  // actions server-side.
+  syncTruceToSimulation: (input: { playerId: string; targetPlayerId: string; truced: boolean }) => Promise<boolean>;
 };
 
 export type SeededAiTruceResponder = {
@@ -144,6 +149,9 @@ export const createSeededAiTruceResponder = (deps: SeededAiTruceResponderDeps): 
       });
       deps.fanoutPlayerPayloads(deps.syncPlayers([request.fromPlayerId, request.toPlayerId]).payloadsByPlayerId);
       return;
+    }
+    if (decision === "accept") {
+      await deps.syncTruceToSimulation({ playerId: request.toPlayerId, targetPlayerId: request.fromPlayerId, truced: true });
     }
     deps.recordGatewayEvent("info", "gateway_ai_truce_response", {
       aiPlayerId: request.toPlayerId,
