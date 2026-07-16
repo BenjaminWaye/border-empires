@@ -122,7 +122,7 @@ const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesB
 };
 
 const tileOpenForStructure = (tile: StructurePlannerTile): boolean =>
-  !tile.fort && !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
+  !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
 
 const structureVisibleOnTile = (
   structureType: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType,
@@ -261,7 +261,7 @@ export const chooseBestFortBuild = (
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-    if (!tileOpenForStructure(tile)) continue;
+    if (tile.fort || !tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("FORT", player.id, tile, tilesByKey)) continue;
     let adjacentLandCount = 0;
     let hostileAdjacency = 0;

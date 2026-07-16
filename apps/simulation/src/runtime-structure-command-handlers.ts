@@ -228,7 +228,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST" && target.siegeOutpost?.ownerId === command.playerId);
-  if (!upgrading && !sameFamilyUpgrade && (target.fort || target.observatory || target.siegeOutpost || target.economicStructure)) {
+  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || target.economicStructure || (target.fort && spec.kind !== "ECONOMIC"))) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }
