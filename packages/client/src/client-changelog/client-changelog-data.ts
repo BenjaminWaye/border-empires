@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.5",
+  version: "2026.07.16.6",
   title: "What's New",
-  summary: "Waterworks now doubles farmstead food output (+100%) instead of the previous +50% bonus, making water infrastructure a much stronger investment for food production.",
+  summary: "Added temporary diagnostic logging to trace Survey Sweep's floating map markers end-to-end while we track down a report that they aren't appearing. Also includes the previous release: Waterworks now doubles farmstead food output (+100%) instead of the previous +50% bonus.",
   entries: [
+    {
+      introducedIn: "2026.07.16.6",
+      title: "Diagnostic logging added for Survey Sweep floating markers",
+      why: "A report that Survey Sweep's floating resource/town markers don't appear on the 3D map couldn't be confirmed from code review alone — the server-side ping generation, gateway routing, and client render sync all appear correctly wired and a regression test confirms ping generation works. Console logging at each stage will show exactly where pings stop flowing (or reveal a positioning bug) the next time the ability is used.",
+      changes: [
+        "Server logs how many tiles were scanned, how many carried a resource/town, and how many were filtered out as already-visible when Survey Sweep runs.",
+        "Client logs the raw and parsed ping payload it receives, and (throttled to once per second) the marker count and computed scene position fed into the 3D render loop.",
+        "All log lines are tagged [survey-sweep-debug] for easy filtering and removal once the root cause is found."
+      ]
+    },
     {
       introducedIn: "2026.07.16.5",
       title: "Waterworks food bonus doubled to +100%",

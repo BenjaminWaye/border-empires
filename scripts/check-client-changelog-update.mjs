@@ -6,6 +6,12 @@ import { resolve } from "node:path";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const changelogPath = "packages/client/src/client-changelog/client-changelog.ts";
+// Release entry data (including the version string checked below) lives in
+// client-changelog-data.ts, split out from client-changelog.ts to keep that
+// file under the repo's 500-line cap. Either file counts as "the changelog
+// was updated" for the presence check, but the version bump is always read
+// from the data file since that's where `version:` actually lives now.
+const changelogDataPath = "packages/client/src/client-changelog/client-changelog-data.ts";
 const relevantRoots = ["packages/client/src/", "packages/shared/src/"];
 
 const runGit = (args) =>
@@ -46,14 +52,15 @@ const isRelevantChange = (path) =>
   relevantRoots.some((root) => path.startsWith(root)) &&
   !path.endsWith(".test.ts") &&
   !path.endsWith(".spec.ts") &&
-  path !== changelogPath;
+  path !== changelogPath &&
+  path !== changelogDataPath;
 
 const relevantChanges = [...changedFiles].filter(isRelevantChange);
 if (relevantChanges.length === 0) process.exit(0);
 
-if (!changedFiles.has(changelogPath)) {
+if (!changedFiles.has(changelogPath) && !changedFiles.has(changelogDataPath)) {
   console.error("Client changelog check failed.");
-  console.error("Relevant product code changed without updating packages/client/src/client-changelog.ts.");
+  console.error(`Relevant product code changed without updating ${changelogDataPath}.`);
   console.error("Changed files:");
   for (const file of relevantChanges) console.error(`- ${file}`);
   process.exit(1);
@@ -65,14 +72,14 @@ const extractVersion = (source) => {
   return match[1];
 };
 
-const currentSource = readFileSync(resolve(repoRoot, changelogPath), "utf8");
+const currentSource = readFileSync(resolve(repoRoot, changelogDataPath), "utf8");
 const currentVersion = extractVersion(currentSource);
-const previousSource = mergeBase ? optionalGit(["show", `${mergeBase}:${changelogPath}`]) : "";
+const previousSource = mergeBase ? optionalGit(["show", `${mergeBase}:${changelogDataPath}`]) : "";
 const previousVersion = previousSource ? extractVersion(previousSource) : "";
 
 if (previousVersion && currentVersion === previousVersion) {
   console.error("Client changelog check failed.");
-  console.error("packages/client/src/client-changelog.ts changed, but the release version was not bumped.");
+  console.error(`${changelogDataPath} changed, but the release version was not bumped.`);
   console.error(`Current release version: ${currentVersion}`);
   process.exit(1);
 }

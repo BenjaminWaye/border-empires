@@ -13,6 +13,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
+import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
@@ -2443,13 +2444,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SURVEY_SWEEP_RESULT") {
       const nowMs = Date.now();
       const pings = surveySweepPingsFromPayload(msg.pings);
-      state.surveySweepPings.push(
-        ...pings.map((ping) => ({
-          ...ping,
-          createdAt: nowMs,
-          expiresAt: nowMs + 12_000
-        }))
-      );
+      state.surveySweepPings.push(...pings.map((ping) => ({ ...ping, createdAt: nowMs, expiresAt: nowMs + 12_000 })));
+      logSurveySweepReceived(msg.pings, pings, state.surveySweepPings.length);
       const resourceCount = pings.filter((ping) => ping.kind === "resource").length;
       const townCount = pings.filter((ping) => ping.kind === "town").length;
       pushFeed(`Survey Sweep found ${resourceCount} resource ${resourceCount === 1 ? "site" : "sites"} and ${townCount} ${townCount === 1 ? "town" : "towns"} outside current vision.`, "info", "success");

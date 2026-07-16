@@ -47,7 +47,7 @@ import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
-import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js";
+import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { filterAndLogSurveySweepPings } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
@@ -1119,7 +1119,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const syncSurveySweepPings = (): void => {
     const wallNowMs = Date.now();
     surveySweepPingOverlay.beginFrame();
-    deps.state.surveySweepPings = deps.state.surveySweepPings.filter((ping) => ping.expiresAt > wallNowMs);
+    deps.state.surveySweepPings = filterAndLogSurveySweepPings(deps.state.surveySweepPings, wallNowMs, deps.state.camX, deps.state.camY, (x, y) => ({ sceneX: toroidDelta(deps.state.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(deps.state.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) + MARKER_RISE_ABOVE_HEIGHTFIELD }));
     for (const ping of deps.state.surveySweepPings) {
       const sceneX = toroidDelta(deps.state.camX, ping.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
       const sceneZ = toroidDelta(deps.state.camY, ping.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
