@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.3",
+  version: "2026.07.16.4",
   title: "What's New",
-  summary: "AI empires no longer get stuck repeatedly proposing a market, bank, or granary for a town that already has one — they now build whichever type the town is actually missing. Also includes the previous releases: a Tier 2 domain rebalance (Cogwork Foundries and stronger peers), and AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt.",
+  summary: "Truces now actually stop combat — a truce partner could still be attacked, muster-attacked, and targeted with reveal/aether lance/siphon/bombard/levy abilities, because the truce was only known to the gateway and never reached the server-side runtime that enforces those checks. Also includes the previous release: AI empires no longer get stuck repeatedly proposing a market, bank, or granary for a town that already has one.",
   entries: [
+    {
+      introducedIn: "2026.07.16.4",
+      title: "Truces now block attacks, muster attacks, and observatory abilities",
+      why: "Truces were tracked only in the gateway's social layer and never synced to the simulation, so every server-side \"is this target allied or truced\" check only ever saw alliances. A truce partner could still be attacked, muster-attacked, and targeted with Reveal Empire, Reveal Empire Stats, Aether Lance, Siphon, Airport Bombard, and Imperial Exchange Levy — the truce badge was cosmetic.",
+      changes: [
+        "Truce state now syncs to the simulation on accept/break and on natural expiry, the same way alliances already do.",
+        "Attacks, muster attacks, and every ability listed above now correctly refuse to target a truce partner, matching alliance behavior."
+      ]
+    },
     {
       introducedIn: "2026.07.16.3",
       title: "AI empires stop re-proposing a support structure type the town already has",
