@@ -11,7 +11,7 @@ import {
   AUTOMATION_SETTLE_DECISION_REASONS,
   type AutomationSettleDecisionReason
 } from "../ai/automation-command-planner-helpers.js";
-import { appendRecent, appendSample, clampMetric, quantile } from "./metrics-format.js";
+import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
   AI_PLANNER_PHASES,
@@ -56,6 +56,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simAiCommandRejectedTotalByType = new Map<DurableCommandType, number>(
     DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, 0])
   );
+  // Bounded: codes come from a fixed set of rejectCommand(..., code, ...) call sites, not user input.
+  const simAiCommandRejectedCodeTotal = new Map<string, number>();
   const simAiCommandRecent: string[] = [];
   const simAiPreplanTotalByReason = new Map<AutomationPreplanReason, number>(
     AUTOMATION_PREPLAN_REASONS.map((reason) => [reason, 0])
@@ -143,12 +145,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   );
   const simAiUtilityDecisionRecent: string[] = [];
 
-  const quantileSample = (series: number[]) => ({
-    p50: quantile(series, 0.5),
-    p95: quantile(series, 0.95),
-    p99: quantile(series, 0.99)
-  });
-
   const snapshot = () => ({
     simEventLoopMaxMs,
     simOwnedTilesTotal,
@@ -193,6 +189,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiCommandRejectedTotalByType: Object.fromEntries(
       DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, simAiCommandRejectedTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
+    simAiCommandRejectedCodeTotal: Object.fromEntries(simAiCommandRejectedCodeTotal),
     simAiCommandRecent: [...simAiCommandRecent],
     simAiPreplanTotalByReason: Object.fromEntries(
       AUTOMATION_PREPLAN_REASONS.map((reason) => [reason, simAiPreplanTotalByReason.get(reason) ?? 0])
@@ -402,8 +399,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       appendRecent(simAiCommandRecent, `${playerId}:${commandType}`, 20);
       simAiLastCommandAcceptedAtMs.set(playerId, Date.now());
     },
-    observeSimAiCommandRejected(commandType: DurableCommandType): void {
+    observeSimAiCommandRejected(commandType: DurableCommandType, rejectionCode: string): void {
       simAiCommandRejectedTotalByType.set(commandType, (simAiCommandRejectedTotalByType.get(commandType) ?? 0) + 1);
+      simAiCommandRejectedCodeTotal.set(rejectionCode, (simAiCommandRejectedCodeTotal.get(rejectionCode) ?? 0) + 1);
     },
     observeSimAiExpansionObjective(kind: "neutral_value" | "enemy" | "none"): void {
       simAiExpansionObjectiveTotalByKind.set(kind, (simAiExpansionObjectiveTotalByKind.get(kind) ?? 0) + 1);
