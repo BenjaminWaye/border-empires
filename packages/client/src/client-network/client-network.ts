@@ -12,6 +12,7 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
+import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
@@ -2204,15 +2205,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (!("landBiome" in normalizedUpdate)) delete merged.landBiome;
           if (!("regionType" in normalizedUpdate)) delete merged.regionType;
         }
+        // resource/dockId stay inline: unlike the gateway path, this handler
+        // only ever SETS these fields on a defined value -- it has no
+        // delete-on-falsy branch, so it must not be routed through the
+        // shared helper (which does delete on falsy).
         if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
-        if ("ownerId" in normalizedUpdate) {
-          if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
-          else delete merged.ownerId;
-        }
-        if ("ownershipState" in normalizedUpdate) {
-          if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
-          else delete merged.ownershipState;
-        }
+        // capital/breachShockUntil/clusterId/clusterType/dock are TILE_DELTA-only
+        // fields -- the gateway path has no equivalent handling for them.
         if ("capital" in normalizedUpdate) {
           if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
@@ -2221,15 +2220,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
-        if ("frontierDecayAt" in normalizedUpdate) {
-          if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
-          else delete merged.frontierDecayAt;
-        }
-        if ("frontierDecayKind" in normalizedUpdate) {
-          if (normalizedUpdate.frontierDecayKind) merged.frontierDecayKind = normalizedUpdate.frontierDecayKind;
-          else delete merged.frontierDecayKind;
-        }
-        if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
         if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
         if (normalizedUpdate.landBiome !== undefined) merged.landBiome = normalizedUpdate.landBiome;
@@ -2239,59 +2229,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
-        const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
-        if ("shardSite" in normalizedUpdate) {
-          if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
-          else if (claimedShardSite && normalizedUpdate.ownerId === state.me && normalizedUpdate.ownershipState === "FRONTIER") {
-            merged.shardSite = claimedShardSite;
-          } else delete merged.shardSite;
-        }
-        if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
-        if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
-        if ("fort" in normalizedUpdate) {
-          if (normalizedUpdate.fort) merged.fort = normalizedUpdate.fort;
-          else delete merged.fort;
-        }
-        if ("observatory" in normalizedUpdate) {
-          if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
-          else delete merged.observatory;
-        }
-        if ("economicStructure" in normalizedUpdate) {
-          if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
-          else delete merged.economicStructure;
-        }
-        if ("siegeOutpost" in normalizedUpdate) {
-          if (normalizedUpdate.siegeOutpost) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
-          else delete merged.siegeOutpost;
-        }
-        if ("sabotage" in normalizedUpdate) {
-          if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
-          else delete merged.sabotage;
-        }
-        if ("muster" in normalizedUpdate) {
-          if (normalizedUpdate.muster) merged.muster = normalizedUpdate.muster;
-          else delete merged.muster;
-        }
-        if ("yield" in normalizedUpdate) {
-          if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
-          else delete merged.yield;
-        }
-        if ("yieldRate" in normalizedUpdate) {
-          if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
-          else delete merged.yieldRate;
-        }
-        if ("yieldCap" in normalizedUpdate) {
-          if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
-          else delete merged.yieldCap;
-        }
-        if ("upkeepEntries" in normalizedUpdate) {
-          if (normalizedUpdate.upkeepEntries) merged.upkeepEntries = normalizedUpdate.upkeepEntries;
-          else delete merged.upkeepEntries;
-        }
-        if ("history" in normalizedUpdate) {
-          if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
-          else delete merged.history;
-        }
+        applyCommonTileFields(existing, merged, normalizedUpdate, { me: state.me });
         if (tileMatchesDebugKey(normalizedUpdate.x, normalizedUpdate.y, 0, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
           debugTileLog("tile-delta-fort-field", {
             x: normalizedUpdate.x,
