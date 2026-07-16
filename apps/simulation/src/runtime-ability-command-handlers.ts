@@ -103,18 +103,33 @@ function buildSurveySweepPings(
   centerY: number
 ): SurveySweepPing[] {
   const pings: SurveySweepPing[] = [];
+  let scannedTiles = 0;
+  let missingTiles = 0;
+  let candidateKindTiles = 0;
+  let filteredAsVisible = 0;
   for (let dy = -SURVEY_SWEEP_HALF_EXTENT; dy <= SURVEY_SWEEP_HALF_EXTENT; dy += 1) {
     const y = ((centerY + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
     for (let dx = -SURVEY_SWEEP_HALF_EXTENT; dx <= SURVEY_SWEEP_HALF_EXTENT; dx += 1) {
       const x = ((centerX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      scannedTiles += 1;
       const tile = context.tiles.get(simulationTileKey(x, y));
-      if (!tile) continue;
+      if (!tile) {
+        missingTiles += 1;
+        continue;
+      }
       const kind = surveySweepPingKind(tile);
       if (!kind) continue;
-      if (context.filterTileDeltasForPlayer([context.tileDeltaFromState(tile)], playerId).length > 0) continue;
+      candidateKindTiles += 1;
+      if (context.filterTileDeltasForPlayer([context.tileDeltaFromState(tile)], playerId).length > 0) {
+        filteredAsVisible += 1;
+        continue;
+      }
       pings.push({ x, y, kind });
     }
   }
+  console.log(
+    `[survey-sweep-debug] server buildSurveySweepPings playerId=${playerId} center=(${centerX},${centerY}) scannedTiles=${scannedTiles} missingTiles=${missingTiles} candidateKindTiles=${candidateKindTiles} filteredAsVisible=${filteredAsVisible} finalPingCount=${pings.length}`
+  );
   return pings.sort((left, right) => left.kind.localeCompare(right.kind) || left.y - right.y || left.x - right.x);
 }
 
@@ -236,6 +251,9 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
   context.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
+  console.log(
+    `[survey-sweep-debug] server emitting SURVEY_SWEEP_RESULT commandId=${command.commandId} playerId=${command.playerId} pingCount=${pings.length}`
+  );
   context.emitPlayerMessage(command, {
     type: "SURVEY_SWEEP_RESULT",
     center: { x: observatoryTile.x, y: observatoryTile.y },
