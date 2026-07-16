@@ -176,7 +176,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(72);
   });
 
-  it("waterworks within 10 tiles boosts farmstead food to 108/day ((48+24)×1.5)", () => {
+  it("waterworks within 10 tiles boosts farmstead food to 144/day ((48+24)×2)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -202,7 +202,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["10,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(144);
   });
 
   it("waterworks boost wraps around the world edge (Chebyshev distance, not raw coordinate difference)", () => {
@@ -230,7 +230,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["1,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(144);
   });
 
   it("Q1: farmstead built on a farm already in waterworks range emits 108 FOOD immediately, no neighbor scan needed", () => {
@@ -263,7 +263,7 @@ describe("buildTileYieldView", () => {
       dockLinksByDockTileKey: new Map(),
       waterworksKeys: new Set(["10,5"])
     });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
+    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(144);
   });
 
   it("MINE applies STRUCTURE_OUTPUT_MULT (x1.5) to base IRON output: 60 -> 90/day", () => {

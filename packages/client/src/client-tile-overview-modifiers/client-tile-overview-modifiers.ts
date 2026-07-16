@@ -56,7 +56,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
   if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
     return [{
       reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+50% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
+      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
       tone: "positive"
     }];
   }

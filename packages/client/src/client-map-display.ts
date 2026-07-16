@@ -152,7 +152,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a 15-minute Aegis Lock for 220 crystal every 60 minutes.";
   if (kind === "WORLD_ENGINE") return "Unique world monument. Every 60 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold and 500 crystal.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +18 food cap.";
-  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +50% within a 10-tile radius; boosted production raises food cap.";
+  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; boosted production raises food cap.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
   if (kind === "MINE") return "Improves iron or crystal production on this tile and raises that resource's cap.";
   return "Strengthens this tile's economy.";
@@ -268,7 +268,7 @@ export const structureInfoForKey = (
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", "+18 food cap"];
-    if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Boosted food production raises food cap"];
+    if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", "Boosted food production raises food cap"];
     if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
     if (key === "MARKET") return ["+50% town gold production", "Higher production raises gold cap"];
@@ -635,7 +635,7 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "A network of irrigation canals that boosts all Farmstead food production by +50% within a 10-tile radius. Boosted food production also raises food cap.",
+      detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Boosted food production also raises food cap.",
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
