@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.4",
+  version: "2026.07.16.5",
   title: "What's New",
-  summary: "Truces now actually stop combat — a truce partner could still be attacked, muster-attacked, and targeted with reveal/aether lance/siphon/bombard/levy abilities, because the truce was only known to the gateway and never reached the server-side runtime that enforces those checks. Also includes the previous release: AI empires no longer get stuck repeatedly proposing a market, bank, or granary for a town that already has one.",
+  summary: "Waterworks now doubles farmstead food output (+100%) instead of the previous +50% bonus, making water infrastructure a much stronger investment for food production.",
   entries: [
+    {
+      introducedIn: "2026.07.16.5",
+      title: "Waterworks food bonus doubled to +100%",
+      why: "Waterworks was underperforming relative to its cost — a 50% boost within 10 tiles didn't justify the investment for most players. Doubling it to 100% makes water infrastructure a clearly impactful food multiplier.",
+      changes: [
+        "Waterworks now boosts farmstead food production by +100% (up from +50%) within a 10-tile radius."
+      ]
+    },
     {
       introducedIn: "2026.07.16.4",
       title: "Truces now block attacks, muster attacks, and observatory abilities",
