@@ -202,6 +202,10 @@ import {
   playerManpowerRegenPerMinuteFromSummary
 } from "../runtime-manpower.js";
 import {
+  resolveMusterSource as resolveMusterSourceImpl,
+  type RuntimeMusterSourceContext
+} from "../runtime-muster-source.js";
+import {
   buildRuntimeExportPlayers,
   buildRuntimeExportState,
   buildRuntimeExportStateAsync,
@@ -3960,56 +3964,11 @@ export class SimulationRuntime {
     requiredMuster: number,
     preferredKey?: string
   ): { sourceKey: string; available: number } | undefined {
-    const origin = this.tiles.get(originKey);
-    if (!origin) return undefined;
-
-    // Fast path: origin tile's own muster suffices.
-    if (origin.muster?.ownerId === actorId) {
-      const reserved = this.musterReservedByKey.get(originKey) ?? 0;
-      const available = origin.muster.amount - reserved;
-      if (available >= requiredMuster) return { sourceKey: originKey, available };
-    }
-
-    // Advance-system preferred key: skip distance check since the BFS
-    // already verified connectivity through owned territory.
-    if (preferredKey && preferredKey !== originKey) {
-      const preferred = this.tiles.get(preferredKey);
-      if (preferred?.muster?.ownerId === actorId) {
-        const reserved = this.musterReservedByKey.get(preferredKey) ?? 0;
-        const available = preferred.muster.amount - reserved;
-        if (available >= requiredMuster) return { sourceKey: preferredKey, available };
-      }
-    }
-
-    const musterKeys = this.musterTilesByOwner.get(actorId);
-    if (!musterKeys) return undefined;
-
-    let bestKey: string | undefined;
-    let bestDist = Infinity;
-
-    for (const tileKey of musterKeys) {
-      if (tileKey === originKey) continue; // already checked above
-      if (tileKey === preferredKey) continue; // already checked above
-      const tile = this.tiles.get(tileKey);
-      if (!tile?.muster || tile.muster.ownerId !== actorId) continue;
-      const reserved = this.musterReservedByKey.get(tileKey) ?? 0;
-      const available = tile.muster.amount - reserved;
-      if (available < requiredMuster) continue;
-
-      // Chebyshev distance with world wrapping.
-      const dx = Math.min(Math.abs(tile.x - origin.x), WORLD_WIDTH - Math.abs(tile.x - origin.x));
-      const dy = Math.min(Math.abs(tile.y - origin.y), WORLD_HEIGHT - Math.abs(tile.y - origin.y));
-      const dist = Math.max(dx, dy);
-      if (dist <= 10 && dist < bestDist) {
-        bestDist = dist;
-        bestKey = tileKey;
-      }
-    }
-
-    if (!bestKey) return undefined;
-    const tile = this.tiles.get(bestKey)!;
-    const reserved = this.musterReservedByKey.get(bestKey) ?? 0;
-    return { sourceKey: bestKey, available: tile.muster!.amount - reserved };
+    return resolveMusterSourceImpl(actorId, originKey, requiredMuster, preferredKey, {
+      tiles: this.tiles,
+      musterTilesByOwner: this.musterTilesByOwner,
+      musterReservedByKey: this.musterReservedByKey
+    });
   }
 
   /**
