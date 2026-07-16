@@ -105,8 +105,9 @@ import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
   incrementalAdd,
   incrementalRemove,
-  initCacheEntryFromSummary,
+  plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
   resetFromIterable,
+  type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
 } from "../planner-tile-keys-cache.js";
 import {
@@ -1458,51 +1459,15 @@ export class SimulationRuntime {
     // summary only if no entry exists.
   }
 
-  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
-    tileCollectionVersion: number;
-    topologyVersion: number;
-    topologyDirtyTileKeys: string[];
-    territoryTileKeys: string[];
-    frontierTileKeys: string[];
-    hotFrontierTileKeys: string[];
-    strategicFrontierTileKeys: string[];
-    buildCandidateTileKeys: string[];
-    pendingSettlementTileKeys: string[];
-  } {
-    // Drain dirty tiles on every call — they are transient (consumed per sync)
-    // and must NOT be cached, so they are read and cleared here before the
-    // cache check, ensuring each syncPlayers call gets the correct delta.
-    const dirtySet = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
-    const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
-    dirtySet?.clear();
-
-    const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
-    const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
-
-    // Kept in sync by mutation hooks; if no entry exists (first access or after
-    // a full rebuild), init once from summary Sets — O(territory) one-time cost.
-    let entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (!entry) {
-      entry = initCacheEntryFromSummary(this.plannerPlayerTileKeyCacheByPlayer, playerId, summary);
-    }
-
-    // CONTRACT — LIVE references into the incremental cache (mutated in place
-    // on the NEXT territory mutation), not copies. Read/iterate/copy sync only;
-    // never retain across a mutation cycle (silently-drifted territory). Safe
-    // today: planner worker gets a structured clone; relevantTileKeyIndex
-    // snapshots into `new Set(...)` before yielding. Copy first if you add a
-    // consumer that retains one of these arrays.
-    return {
-      tileCollectionVersion,
-      topologyVersion,
-      topologyDirtyTileKeys,
-      territoryTileKeys: entry.territory.keys,
-      frontierTileKeys: entry.frontier.keys,
-      hotFrontierTileKeys: entry.hotFrontier.keys,
-      strategicFrontierTileKeys: entry.strategicFrontier.keys,
-      buildCandidateTileKeys: entry.buildCandidate.keys,
-      pendingSettlementTileKeys: entry.pendingSettlement.keys
-    };
+  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): PlannerPlayerTileKeysResult {
+    return plannerPlayerTileKeysImpl(
+      playerId,
+      summary,
+      this.plannerPlayerTileKeyCacheByPlayer,
+      this.plannerPlayerTileCollectionVersionByPlayer,
+      this.plannerPlayerTopologyVersionByPlayer,
+      this.plannerPlayerTopologyDirtyTilesByPlayer
+    );
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
