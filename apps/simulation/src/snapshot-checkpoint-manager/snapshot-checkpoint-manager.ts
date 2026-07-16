@@ -36,6 +36,8 @@ type SnapshotCheckpointManagerOptions = {
 export type SnapshotCheckpointManager = {
   onEventPersisted: () => Promise<void>;
   checkpointNow: (options?: { ignoreMemoryGuard?: boolean }) => Promise<SnapshotCheckpointResult>;
+  /** True while a checkpoint's export+save is in flight (i.e. from "before_save" through "after_save"/error). */
+  isCheckpointInFlight: () => boolean;
 };
 
 export type SnapshotCheckpointResult =
@@ -150,6 +152,7 @@ export const createSnapshotCheckpointManager = (
     },
     checkpointNow(options = {}): Promise<SnapshotCheckpointResult> {
       return flushSnapshot({ force: true, ignoreMemoryGuard: options.ignoreMemoryGuard ?? false });
-    }
+    },
+    isCheckpointInFlight: () => snapshotInFlight
   };
 };
