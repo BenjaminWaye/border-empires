@@ -80,8 +80,8 @@ describe("gateway init progression sources", () => {
       "default"
     );
 
-    expect(init.domainChoices).toEqual(expect.arrayContaining(["frontier-bureau", "stone-curtain"]));
+    expect(init.domainChoices).toEqual(expect.arrayContaining(["cogwork-foundries", "stone-curtain"]));
     expect(init.domainChoices).not.toContain("frontier-doctrine");
-    expect(init.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
+    expect(init.domainCatalog.find((domain) => domain.id === "cogwork-foundries")?.requirements.canResearch).toBe(false);
   });
 });

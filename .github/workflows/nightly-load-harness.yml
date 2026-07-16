@@ -50,8 +50,8 @@ jobs:
       # Loaded-state DB fixture (~1900+ tiles, 20 AI players, islands map)
       # published as a GitHub Release asset. Update FIXTURE_TAG when a
       # fresher/larger snapshot is captured from staging.
-      FIXTURE_TAG: "load-harness-fixture-v1"
-      FIXTURE_ASSET: "harness-fixture-v1.db"
+      FIXTURE_TAG: "load-harness-fixture-v2"
+      FIXTURE_ASSET: "harness-fixture-v2.db"
 
     steps:
       - name: Checkout

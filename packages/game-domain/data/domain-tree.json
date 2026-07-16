@@ -61,14 +61,14 @@
       }
     },
     {
-      "id": "frontier-bureau",
+      "id": "cogwork-foundries",
       "tier": 2,
-      "name": "Frontier Bureau",
-      "description": "Expansion is coordinated centrally, and supported frontier fights like settled land.",
+      "name": "Cogwork Foundries",
+      "description": "Steam-driven assembly lines and clockwork cranes turn frontier construction into an industrial process.",
       "requiresTechId": "logistics",
       "cost": { "gold": 14000, "food": 220, "shard": 1 },
       "effects": {
-        "developmentProcessCapacityAdd": 1
+        "economicStructureBuildSpeedMult": 1.25
       }
     },
     {
@@ -79,8 +79,8 @@
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 14000, "iron": 220, "shard": 1 },
       "effects": {
-        "frontierDefenseAdd": 15,
-        "settledDefenseNearFortMult": 1.1
+        "frontierDefenseAdd": 20,
+        "settledDefenseNearFortMult": 1.20
       }
     },
     {
@@ -91,8 +91,8 @@
       "requiresTechId": "bronze-working",
       "cost": { "gold": 14000, "iron": 240, "shard": 1 },
       "effects": {
-        "attackVsSettledMult": 1.12,
-        "attackVsFortsMult": 1.12
+        "attackVsSettledMult": 1.20,
+        "attackVsFortsMult": 1.20
       }
     },
     {
@@ -103,8 +103,7 @@
       "requiresTechId": "ledger-keeping",
       "cost": { "gold": 14000, "crystal": 200, "shard": 1 },
       "effects": {
-        "researchTimeMult": 0.9,
-        "connectedTownStepBonusAdd": 0.1
+        "connectedTownStepBonusAdd": 0.20
       }
     },
     {
@@ -115,8 +114,8 @@
       "requiresTechId": "signal-fires",
       "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
       "effects": {
-        "revealUpkeepMult": 0.85,
-        "observatoryRangeBonus": 6
+        "revealUpkeepMult": 0.80,
+        "observatoryRangeBonus": 10
       }
     },
     {
