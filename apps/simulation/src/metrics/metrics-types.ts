@@ -215,4 +215,14 @@ export type SimulationMetricsSnapshot = {
   simPostSeasonProtoTileCacheHitTotal: number;
   /** Post-season proto-tile cache misses (first map or new season). */
   simPostSeasonProtoTileCacheMissTotal: number;
+  /** Current gold per AI player (gauge), sampled once/sec from exportPlayerDebugSnapshot — see metrics-ai-player-state.ts for why this is a gauge, not a spend counter. */
+  simAiPlayerGoldGauge: Record<string, number>;
+  /** Empire gold storage cap per AI player (gauge) — Math.max(EMPIRE_STORAGE_FLOOR.GOLD, goldIncomePerMinute * STORAGE_MINUTES), same formula as runtime-empire-storage.ts. */
+  simAiPlayerGoldCapacityGauge: Record<string, number>;
+  /** Settled tile count per AI player (gauge). */
+  simAiPlayerSettledTilesGauge: Record<string, number>;
+  /** Owned (territory) tile count per AI player (gauge). */
+  simAiPlayerOwnedTilesGauge: Record<string, number>;
+  /** EXPAND commands accepted per AI player (counter) — the one growth-relevant command type tracked per-player; SETTLE/BUILD are not (see metrics-ai-player-state.ts). */
+  simAiExpandTotalByPlayer: Record<string, number>;
 };

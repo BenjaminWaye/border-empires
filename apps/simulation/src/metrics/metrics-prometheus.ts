@@ -224,6 +224,29 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const cls of DECISION_CLASSES) {
     lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);
   }
+  // Per-AI-player growth/spend gauges + EXPAND counter (bounded to the fixed
+  // AI roster). See metrics-ai-player-state.ts for why gold is a gauge, not a
+  // spend counter, and why only EXPAND (not SETTLE/BUILD) is tracked per-player.
+  lines.push("# TYPE sim_ai_player_gold gauge");
+  for (const [playerId, gold] of Object.entries(sample.simAiPlayerGoldGauge)) {
+    lines.push(`sim_ai_player_gold{player_id=\"${playerId}\"} ${formatMetricValue(gold)}`);
+  }
+  lines.push("# TYPE sim_ai_player_gold_capacity gauge");
+  for (const [playerId, capacity] of Object.entries(sample.simAiPlayerGoldCapacityGauge)) {
+    lines.push(`sim_ai_player_gold_capacity{player_id=\"${playerId}\"} ${formatMetricValue(capacity)}`);
+  }
+  lines.push("# TYPE sim_ai_player_settled_tiles gauge");
+  for (const [playerId, count] of Object.entries(sample.simAiPlayerSettledTilesGauge)) {
+    lines.push(`sim_ai_player_settled_tiles{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_player_owned_tiles gauge");
+  for (const [playerId, count] of Object.entries(sample.simAiPlayerOwnedTilesGauge)) {
+    lines.push(`sim_ai_player_owned_tiles{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_expand_total counter");
+  for (const [playerId, count] of Object.entries(sample.simAiExpandTotalByPlayer)) {
+    lines.push(`sim_ai_expand_total{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
 
   return lines.join("\n");
 };
