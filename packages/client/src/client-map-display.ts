@@ -635,7 +635,7 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "A network of irrigation canals that boosts all Farmstead food production by +50% within a 10-tile radius. Boosted food production also raises food cap.",
+      detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Boosted food production also raises food cap.",
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),

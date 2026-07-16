@@ -209,7 +209,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownBonus).toBe(0.5);
   });
 
-  it("boosts a Farmstead FARM tile's FOOD yield by 1.5x when an active Waterworks is within radius", () => {
+  it("boosts a Farmstead FARM tile's FOOD yield by 2x when an active Waterworks is within radius", () => {
     const farmTile = {
       x: 5,
       y: 5,
@@ -254,7 +254,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
     const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
     expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
+    expect(boostedFood).toBeCloseTo(baseFood * 2, 5);
   });
 
   it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {

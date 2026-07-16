@@ -238,7 +238,7 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+50%");
+    expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+100%");
     expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("20 tiles");
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("60 minutes");
