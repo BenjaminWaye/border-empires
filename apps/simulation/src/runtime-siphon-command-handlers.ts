@@ -7,6 +7,7 @@ import {
   SIPHON_SHARE
 } from "@border-empires/game-domain";
 import { parseTilePayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
 
@@ -34,7 +35,7 @@ function siphonableTileForActor(
   actor: DomainPlayer,
   now: number
 ): tile is DomainTileState {
-  if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) {
+  if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || isAlliedOrTruced(actor, tile.ownerId)) {
     return false;
   }
   if (!tile.town && !tile.resource) return false;

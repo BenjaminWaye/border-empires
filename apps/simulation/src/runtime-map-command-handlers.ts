@@ -238,7 +238,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     for (let dx = -1; dx <= 1; dx += 1) {
       const tileKey = simulationTileKey(payload.toX + dx, payload.toY + dy);
       const tile = context.tiles.get(tileKey);
-      if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) continue;
+      if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || (actor.allies.has(tile.ownerId) || actor.truces?.has(tile.ownerId))) continue;
       targetableTiles += 1;
       const missChance = Math.min(
         AIRPORT_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? AIRPORT_BOMBARD_FORT_MISS_BONUS : 0),
@@ -333,7 +333,7 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
   }
   let totalTransferred = 0;
   for (const other of context.players.values()) {
-    if (other.id === actor.id || actor.allies.has(other.id)) continue;
+    if (other.id === actor.id || actor.allies.has(other.id) || actor.truces?.has(other.id)) continue;
     const stock = context.strategicResourceAmount(other, payload.resource);
     const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
     if (take <= 0) continue;

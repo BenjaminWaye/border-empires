@@ -143,6 +143,18 @@ export const parseAllianceSyncPayload = (payloadJson: string): { targetPlayerId:
   }
 };
 
+export const parseTruceSyncPayload = (payloadJson: string): { targetPlayerId: string; truced: boolean } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0 || typeof parsed.truced !== "boolean") {
+      return null;
+    }
+    return { targetPlayerId: parsed.targetPlayerId, truced: parsed.truced };
+  } catch {
+    return null;
+  }
+};
+
 export const parseAetherWallPayload = (
   payloadJson: string
 ): { x: number; y: number; direction: AetherWallDirection; length: 1 | 2 | 3 } | null => {

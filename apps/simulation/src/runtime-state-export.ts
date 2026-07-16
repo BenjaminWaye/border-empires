@@ -64,6 +64,7 @@ export type RuntimeExportState = {
     domainIds: string[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
+    truces: string[];
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;
@@ -183,6 +184,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
+        truces: [...(player.truces ?? [])].sort(),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,
