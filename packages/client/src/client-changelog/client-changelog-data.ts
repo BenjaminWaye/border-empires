@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.2",
+  version: "2026.07.16.3",
   title: "What's New",
-  summary: "Tier 2 domain rebalance: Frontier Bureau is now Cogwork Foundries, trading its old capacity bonus for a straight 25% faster build time on economic structures. Stone Curtain, Iron Vanguard, Crystal Network, and Scholastic Exchanges all got their bonuses bumped up to match, and Scholastic Exchanges dropped its non-functional research-speed effect. Also includes the previous release: AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt.",
+  summary: "AI empires no longer get stuck repeatedly proposing a market, bank, or granary for a town that already has one — they now build whichever type the town is actually missing. Also includes the previous releases: a Tier 2 domain rebalance (Cogwork Foundries and stronger peers), and AI empires now build markets, banks, and granaries reliably instead of the runtime silently rejecting almost every attempt.",
   entries: [
+    {
+      introducedIn: "2026.07.16.3",
+      title: "AI empires stop re-proposing a support structure type the town already has",
+      why: "A town below its overall support capacity doesn't mean it's missing THIS specific structure type — it might already have a granary and only need a market or bank. The AI's candidate selector didn't check for that, so it kept proposing (and getting rejected for) the same already-built structure type on repeat, every rejection-cooldown cycle, indefinitely, instead of falling through to the type it actually needed.",
+      changes: [
+        "The AI now skips any structure type the town's support tiles already have and proposes the genuinely missing type instead."
+      ]
+    },
     {
       introducedIn: "2026.07.16.2",
       title: "Tier 2 domain rebalance: Cogwork Foundries and stronger peers",

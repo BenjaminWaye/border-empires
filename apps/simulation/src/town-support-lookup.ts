@@ -100,6 +100,37 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
 }
 
 /**
+ * Every economic structure type already built on a correctly-assigned
+ * support tile next to this town, as a Set for O(1) membership checks.
+ * Computed once per town via a single 8-neighbor scan (plus a per-neighbor
+ * assignment check) — callers checking multiple candidate structure types
+ * for the same town (e.g. MARKET/BANK/GRANARY) MUST call this once and reuse
+ * the Set instead of calling economicStructureForSupportedTown per type,
+ * which would repeat the full neighbor scan once per candidate.
+ */
+export function economicStructureTypesForSupportedTown<T extends TownSupportTile>(
+  tiles: ReadonlyMap<string, T>,
+  playerId: string,
+  townKey: string
+): ReadonlySet<EconomicStructureType> {
+  const [townXRaw, townYRaw] = townKey.split(",");
+  const townX = Number(townXRaw);
+  const townY = Number(townYRaw);
+  const types = new Set<EconomicStructureType>();
+  for (const tile of adjacentTileStates(tiles, townX, townY)) {
+    if (
+      tile.ownerId === playerId &&
+      tile.economicStructure?.ownerId === playerId &&
+      tile.economicStructure.type &&
+      assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey
+    ) {
+      types.add(tile.economicStructure.type);
+    }
+  }
+  return types;
+}
+
+/**
  * Returns every open, correctly-assigned SETTLED tile adjacent to the given
  * town that has no structure yet — i.e. every tile that COULD host a
  * town-support structure, before checking any particular structureType's
