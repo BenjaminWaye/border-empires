@@ -121,8 +121,3 @@ export const getAiDecisionDiagnostics = (playerId?: string): AiDecisionDiagnosti
   }
   return all.sort((a, b) => b.recordedAt - a.recordedAt);
 };
-
-export const getLatestAiDecisionDiagnostic = (playerId: string): AiDecisionDiagnostic | undefined => {
-  const diags = recentDiagnostics.get(playerId);
-  return diags?.[diags.length - 1];
-};
