@@ -312,7 +312,6 @@ function applyCombatEncirclement(
     if (encirclementChangedKeys.length === 0) return;
     const affectedPlayerIds = new Set<string>();
     if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    if (attackerWon) affectedPlayerIds.add(lock.playerId);
     if (originLost) affectedPlayerIds.add(lock.playerId);
     if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
     for (const pid of affectedPlayerIds) {
