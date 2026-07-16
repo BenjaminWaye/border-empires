@@ -100,12 +100,63 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
 }
 
 /**
+ * Returns every open, correctly-assigned SETTLED tile adjacent to the given
+ * town that has no structure yet — i.e. every tile that COULD host a
+ * town-support structure, before checking any particular structureType's
+ * placement rules. This is the expensive part (an 8-neighbor scan, plus an
+ * 8-neighbor assignment check per candidate) — callers checking multiple
+ * structure types for the same town (e.g. MARKET/BANK/GRANARY, which all
+ * share identical placement rules today — see structure-placement-metadata.ts)
+ * should call this ONCE and reuse the result instead of re-scanning per type.
+ */
+export function openTownSupportNeighborTiles<T extends TownSupportTile>(
+  tiles: ReadonlyMap<string, T>,
+  playerId: string,
+  townKey: string
+): T[] {
+  const [townXRaw, townYRaw] = townKey.split(",");
+  const townX = Number(townXRaw);
+  const townY = Number(townYRaw);
+  return adjacentTileStates(tiles, townX, townY).filter((tile) => {
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
+    if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
+    return assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey;
+  });
+}
+
+/**
+ * Cheap, per-tile check: does `structureType` show on this already-known
+ * candidate tile? Pair with openTownSupportNeighborTiles (computed once) to
+ * check multiple structure types for the same town without repeating the
+ * expensive 8-neighbor scan per type.
+ */
+export const townSupportStructureShowsOnTile = <T extends TownSupportTile>(
+  tiles: ReadonlyMap<string, T>,
+  playerId: string,
+  tile: T,
+  structureType: EconomicStructureType
+): boolean =>
+  structureShowsOnTile(structureType, {
+    ownershipState: tile.ownershipState,
+    resource: tile.resource,
+    dockId: tile.dockId,
+    townPopulationTier: undefined,
+    supportedTownCount: supportedTownKeysForTile(tiles, playerId, tile.x, tile.y).length,
+    supportedDockCount: supportedDockKeysForTile(tiles, playerId, tile.x, tile.y).length
+  });
+
+/**
  * Finds the first open, correctly-assigned SETTLED tile adjacent to the given
  * town that can host `structureType`. Returns undefined when no such tile
  * exists — this is the exact condition the runtime rejects
  * BUILD_ECONOMIC_STRUCTURE for ("needs an open support tile next to this
  * town"), so any caller proposing a town-support structure as a command
  * candidate MUST check this first (see chooseBestEconomicBuild).
+ *
+ * Checking several structure types for the same town? Call
+ * openTownSupportNeighborTiles once and check each type against that list
+ * instead of calling this once per type — it repeats the full neighbor scan
+ * every call.
  */
 export function firstAvailableTownSupportTile<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
@@ -113,20 +164,7 @@ export function firstAvailableTownSupportTile<T extends TownSupportTile>(
   townKey: string,
   structureType: EconomicStructureType
 ): T | undefined {
-  const [townXRaw, townYRaw] = townKey.split(",");
-  const townX = Number(townXRaw);
-  const townY = Number(townYRaw);
-  return adjacentTileStates(tiles, townX, townY).find((tile) => {
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
-    if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
-    if (assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) !== townKey) return false;
-    return structureShowsOnTile(structureType, {
-      ownershipState: tile.ownershipState,
-      resource: tile.resource,
-      dockId: tile.dockId,
-      townPopulationTier: undefined,
-      supportedTownCount: supportedTownKeysForTile(tiles, playerId, tile.x, tile.y).length,
-      supportedDockCount: supportedDockKeysForTile(tiles, playerId, tile.x, tile.y).length
-    });
-  });
+  return openTownSupportNeighborTiles(tiles, playerId, townKey).find((tile) =>
+    townSupportStructureShowsOnTile(tiles, playerId, tile, structureType)
+  );
 }
