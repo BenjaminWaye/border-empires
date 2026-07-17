@@ -92,6 +92,10 @@ export type AutomationPlannerDiagnostic = {
   strategicFrontierTileCountInput?: number;
   frontierOriginCount?: number;
   dockOriginCount?: number;
+  /** Debug-only: "x,y" of the first few frontier-scan origin tiles this tick
+   *  (see baseFrontierOrigins in automation-command-planner.ts). Answers "what
+   *  tile is the AI stuck scanning" without a live gRPC/SQLite lookup. */
+  frontierOriginKeysSample?: string[];
   /** Whether this tick's focus-restricted scan found any actionable frontier
    *  target, settlement candidate, or build candidate. Feeds
    *  ai-spatial-focus.ts's unproductive-streak rotation via runtime.ts.

@@ -38,6 +38,10 @@ export type AiDecisionDiagnostic = {
    */
   neighborCandidateTotal: number;
   missingNeighborTileCount: number;
+  /** "x,y" of the first few frontier-scan origin tiles this tick — the tile(s)
+   *  the AI's scan is currently anchored on (see hotFrontierTiles priority
+   *  ladder in automation-command-planner.ts's baseFrontierOrigins). */
+  frontierOriginKeysSample: readonly string[];
   winner: string | undefined;
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
@@ -102,6 +106,7 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     },
     neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
     missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
+    frontierOriginKeysSample: diagnostic.frontierOriginKeysSample ?? [],
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
