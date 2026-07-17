@@ -15,6 +15,7 @@ import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-w
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
@@ -974,29 +975,27 @@ export const renderClientHud = (deps: HudDeps): void => {
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
         <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
+        <button type="button" class="panel-btn" data-settings-report-bug>Report Bug</button>
       </div>
     `;
     dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
   }
 
-  const acceptButtons = dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>;
-  acceptButtons.forEach((btn: HTMLButtonElement) => {
+  (dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const id = btn.dataset.requestId;
       if (!id) return;
       sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
-  const rejectButtons = dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>;
-  rejectButtons.forEach((btn: HTMLButtonElement) => {
+  (dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const id = btn.dataset.requestId;
       if (!id) return;
       sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
-  const cancelButtons = dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>;
-  cancelButtons.forEach((btn: HTMLButtonElement) => {
+  (dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const id = btn.dataset.requestId;
       if (!id) return;
@@ -1035,7 +1034,6 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "TRUCE_CANCEL", requestId: id }, "Finish sign-in before changing truce requests.");
     };
   });
-
   const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
   authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {
     authLogoutBtn.onclick = async () => {
@@ -1102,6 +1100,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
+  // Bug report overlay
+  renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
   renderClientChangelogOverlay({
     state,
     changelogOverlayEl: dom.changelogOverlayEl,
