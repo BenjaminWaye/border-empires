@@ -384,6 +384,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
     frontierOriginCount: frontierOrigins.length,
     dockOriginCount: dockOrigins.length,
+    frontierOriginKeysSample: frontierOrigins.slice(0, 8).map((tile) => `${tile.x},${tile.y}`),
     // Feeds ai-spatial-focus.ts's unproductive-streak rotation (via
     // runtime.ts): whether *any* category (frontier/settle/build) found
     // something actionable this tick, restricted to the same spatial-focus
