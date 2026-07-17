@@ -79,9 +79,8 @@ import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, fir
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
-  additiveEffectForPlayer, buildModBreakdownForPlayer,
-  effectiveVisionRadiusForPlayer,
-  recomputeMods
+  additiveEffectForPlayer,
+  effectiveVisionRadiusForPlayer
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
@@ -314,6 +313,10 @@ import {
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
+import {
+  emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
+  type RuntimePlayerStateUpdateContext
+} from "../runtime-player-state-update.js";
 import {
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
@@ -2593,65 +2596,27 @@ export class SimulationRuntime {
     return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
   }
 
+  private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {
+    return {
+      players: this.players,
+      lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      cachedDefensibilityMetrics: (playerId, summary) => this.cachedDefensibilityMetrics(playerId, summary),
+      cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
+      playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
+      pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
+      autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
+      activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId)
+    };
+  }
+
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
-    const player = this.players.get(playerId);
-    if (!player) return;
-    this.applyManpowerRegen(player);
-    const summary = this.summaryForPlayer(playerId);
-    // Use cached snapshots — O(1) on cache hit (rebuilt at most once per tile
-    // mutation via replaceTileState invalidation).
-    // Defensibility must be computed before the economy snapshot so that
-    // cachedEconomySnapshot can read the warm defensibility cache and apply
-    // the correct integrity economy multiplier without triggering its own rebuild.
-    const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-    const economy = this.cachedEconomySnapshot(player);
-    player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
-    const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
-    const lastCap = this.lastEmittedStorageCapByPlayer.get(playerId);
-    const capChanged =
-      !lastCap ||
-      lastCap.GOLD !== storageCap.GOLD ||
-      lastCap.FOOD !== storageCap.FOOD ||
-      lastCap.IRON !== storageCap.IRON ||
-      lastCap.CRYSTAL !== storageCap.CRYSTAL ||
-      lastCap.SUPPLY !== storageCap.SUPPLY ||
-      lastCap.SHARD !== storageCap.SHARD;
-    if (capChanged) this.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
-    this.emitPlayerMessage(
-      { commandId: command.commandId, playerId },
-      {
-        type: "PLAYER_UPDATE",
-        gold: player.points,
-        mods: player.mods ?? recomputeMods(player),
-        modBreakdown: buildModBreakdownForPlayer(player),
-        manpower: player.manpower,
-        manpowerCap: this.playerManpowerCap(player),
-        manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
-        logisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute(player),
-        manpowerBreakdown: this.playerManpowerBreakdown(player),
-        incomePerMinute: economy.incomePerMinute,
-        strategicResources: {
-          FOOD: player.strategicResources?.FOOD ?? 0,
-          IRON: player.strategicResources?.IRON ?? 0,
-          CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-          SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-          SHARD: player.strategicResources?.SHARD ?? 0
-        },
-        strategicProductionPerMinute: economy.strategicProductionPerMinute,
-        economyBreakdown: economy.economyBreakdown,
-        upkeepPerMinute: economy.upkeepPerMinute,
-        upkeepLastTick: economy.upkeepLastTick,
-        T: metrics.T,
-        E: metrics.E,
-        Ts: metrics.Ts,
-        Es: metrics.Es,
-        pendingSettlements: this.pendingSettlementsSnapshotForPlayer(playerId),
-        autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
-        developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
-        activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId),
-        ...(capChanged ? { storageCap } : {})
-      }
-    );
+    emitPlayerStateUpdateImpl(this.playerStateUpdateContext(), command, playerId);
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
