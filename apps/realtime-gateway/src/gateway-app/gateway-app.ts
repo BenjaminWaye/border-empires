@@ -1133,7 +1133,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   registerGatewayHttpRoutes(
     app,
-    buildGatewayHttpRoutesDeps({
+    buildGatewayHttpRoutesDeps(app, {
       startupStartedAt,
       ...(options.simulationAddress ? { simulationAddress: options.simulationAddress } : {}),
       simulationSeedProfile,
@@ -1153,7 +1153,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore,
       galaxyEndorsementStore,
       authBindingStore,
-      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
+      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),...(slackAlerter ? { alertPlayerBugReport: (report: import("../slack-alerts/slack-alerts.js").BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {})
     })
   );
 
