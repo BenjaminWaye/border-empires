@@ -1,5 +1,7 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
+  bestFortTierForTech,
+  bestSiegeTierForTech,
   structureBuildGoldCost,
   structureCostDefinition,
   structureShowsOnTile,
@@ -254,9 +256,17 @@ export const chooseBestFortBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
-  if (resourceStock(player, "IRON") < 45) return undefined;
-  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
-  if (!canAffordGold(player, structureBuildGoldCost("FORT", plannedOwnedStructureCount(player, counts, "FORT")))) return undefined;
+  // Iron/gold requirements must match the tier the runtime will actually
+  // build (runtime-structure-command-handlers.ts always resolves a fresh
+  // fort via bestFortTierForTech, never the flat base-FORT cost) — a player
+  // with fortified-walls/steelworking tech gets IRON_BASTION/THUNDER_BASTION
+  // (90/180 iron, 1800/4200 gold) instead of the base 45 iron / 900 gold.
+  // Using the flat base cost here let the AI repeatedly propose a fort it
+  // could never afford, rejected every tick with "insufficient IRON for
+  // fort" — confirmed in production (74/74 BUILD_FORT commands rejected).
+  const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
+  if (resourceStock(player, "IRON") < fortTier.iron) return undefined;
+  if (!canAffordGold(player, fortTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
@@ -292,9 +302,13 @@ export const chooseBestSiegeOutpostBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("leatherworking")) return undefined;
-  if (resourceStock(player, "SUPPLY") < 45) return undefined;
-  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
-  if (!canAffordGold(player, structureBuildGoldCost("SIEGE_OUTPOST", plannedOwnedStructureCount(player, counts, "SIEGE_OUTPOST")))) return undefined;
+  // Same tier-awareness fix as chooseBestFortBuild above: siegecraft/
+  // standing-army tech means the runtime builds SIEGE_TOWER/DREAD_TOWER
+  // (90/140 supply, 60/120 iron, 1800/4200 gold), not the flat base cost.
+  const siegeTier = bestSiegeTierForTech((id) => playerTechSet(player).has(id));
+  if (resourceStock(player, "SUPPLY") < siegeTier.supply) return undefined;
+  if (siegeTier.iron > 0 && resourceStock(player, "IRON") < siegeTier.iron) return undefined;
+  if (!canAffordGold(player, siegeTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
