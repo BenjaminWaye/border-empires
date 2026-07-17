@@ -168,12 +168,25 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   // unfiltered list when the focus excludes everything, so the AI never
   // starves on a bad focus.
   const focusFront = input.spatialFocusFront;
+  // Tracks whether restrictToFocus had to widen to the unfiltered list this
+  // call (focus front defined but had zero overlap with the candidate set).
+  // A result found only via that widening says nothing about whether *this*
+  // front is worth staying on — feeding it into scanFoundActionableCandidate
+  // permanently defeats ai-spatial-focus.ts's unproductive-streak rotation
+  // (production incident: staging AI-4/ai-1 pinned on the same dead front
+  // for 10+ minutes because a real-but-out-of-focus build candidate kept
+  // reporting "productive" every tick). See the regression tests below.
+  let frontierScanUsedFocusFallback = false;
+  let buildScanUsedFocusFallback = false;
   const restrictToFocus = <T extends AutomationPlannerTile>(
-    tiles: readonly T[]
+    tiles: readonly T[],
+    onFallback?: () => void
   ): readonly T[] => {
     if (!focusFront || tiles.length === 0) return tiles;
     const filtered = tiles.filter((tile) => focusFront.has(`${tile.x},${tile.y}`));
-    return filtered.length > 0 ? (filtered as readonly T[]) : tiles;
+    if (filtered.length > 0) return filtered as readonly T[];
+    onFallback?.();
+    return tiles;
   };
   // Last-resort fallback for when frontierTiles/hotFrontierTiles/
   // strategicFrontierTiles are ALL empty. At steady state for any real
@@ -227,7 +240,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
-  const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins);
+  const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins, () => {
+    frontierScanUsedFocusFallback = true;
+  });
   // settledTileCount/townCount are already incrementally maintained per
   // player (player-runtime-summary.ts) and supplied on every real call
   // path. controlledTileCount is just settled + frontier tile counts
@@ -290,7 +305,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ]);
       // The broad fallback also respects the spatial focus front so a large
       // empire cannot blow up planner CPU through the fallback path.
-      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
+      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll, () => {
+        frontierScanUsedFocusFallback = true;
+      });
       if (broadFrontierOrigins.length > frontierOrigins.length) {
         const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
           canAttack,
@@ -329,7 +346,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       incomePerMinute
     };
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
-    const buildCandidates = restrictToFocus(structureCandidates);
+    const buildCandidates = restrictToFocus(structureCandidates, () => {
+      buildScanUsedFocusFallback = true;
+    });
     // Competition is resolved by scoring, not a boolean gate — always compute
     // so BUILD_ECONOMY can be scored even when frontier action is available.
     economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
@@ -368,12 +387,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // Feeds ai-spatial-focus.ts's unproductive-streak rotation (via
     // runtime.ts): whether *any* category (frontier/settle/build) found
     // something actionable this tick, restricted to the same spatial-focus
-    // front.
+    // front. Results found only via restrictToFocus's unfiltered-fallback
+    // widening (frontierScanUsedFocusFallback / buildScanUsedFocusFallback)
+    // do NOT count — see the fallback tracking above and its regression test.
     scanFoundActionableCandidate:
-      frontierAnalysisActionable ||
-      Boolean(economicBuild) ||
-      Boolean(fortBuild) ||
-      Boolean(siegeOutpostBuild),
+      (frontierAnalysisActionable && !frontierScanUsedFocusFallback) ||
+      (Boolean(economicBuild) && !buildScanUsedFocusFallback) ||
+      (Boolean(fortBuild) && !buildScanUsedFocusFallback) ||
+      (Boolean(siegeOutpostBuild) && !buildScanUsedFocusFallback),
     // Debug-only: what chooseBestEconomicBuild actually picked, so a
     // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
     // specific tile/type via /admin/debug/ai/decisions instead of guessing.

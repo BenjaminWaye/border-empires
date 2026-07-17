@@ -599,6 +599,5 @@ describe("automation command planner", () => {
       payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
     });
   });
-
 });
 

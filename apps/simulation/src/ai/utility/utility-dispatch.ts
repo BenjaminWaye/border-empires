@@ -81,6 +81,20 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       fa.frontierOpportunityTownSupport +
       fa.frontierOpportunityScout +
       fa.frontierOpportunityScaffold,
+    // Same aggregate as expansionOpportunityCount, but with waste-classified
+    // plain neutrals excluded from the neutral term (mirrors the veto EXPAND
+    // itself applies via hasActionableNonWasteExpand — see that field below).
+    // BUILD_ECONOMY's suppression term must use this one: counting waste
+    // tiles there was suppressing economy building on the same tiles EXPAND
+    // was refusing to touch, permanently deadlocking a hemmed-in AI on WAIT
+    // even with a real, affordable economic candidate ready. See
+    // decisions.ts's scoreBuildEconomy and docs/agents/topics/ai-planner.md.
+    nonWasteExpansionOpportunityCount:
+      Math.max(0, fa.frontierNeutralTargetCount - fa.frontierOpportunityWaste) +
+      fa.frontierOpportunityEconomic +
+      fa.frontierOpportunityTownSupport +
+      fa.frontierOpportunityScout +
+      fa.frontierOpportunityScaffold,
     hasWeakEnemyBorder:
       fa.frontierEnemyPlayerTargetCount > 0 && !targetStalemated(fa.enemyAttack, state),
     hasBarbTarget:
