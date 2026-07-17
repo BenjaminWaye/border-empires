@@ -20,6 +20,7 @@ const BASE: DecisionInputs = {
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
   expansionOpportunityCount: 0,
+  nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
   hasOnlyScoutExpand: false,

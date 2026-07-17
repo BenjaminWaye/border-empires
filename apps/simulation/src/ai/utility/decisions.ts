@@ -37,9 +37,20 @@ export type DecisionInputs = {
   frontierEnemyCount: number;
   frontierOpportunityEconomic: number;
   // Aggregate expansion signal across all opportunity types (neutral, economic,
-  // town-support, scout, scaffold). Feeds the EXPAND linear curve so that any
-  // non-waste opportunity contributes proportionally.
+  // town-support, scout, scaffold). Feeds the EXPAND linear curve — EXPAND's
+  // own veto (hasAnyExpandCandidate / hasActionableNonWasteExpand below)
+  // already gates out the waste-only case, so counting waste here just adds
+  // texture once a real candidate is confirmed to exist.
   expansionOpportunityCount: number;
+  // Same aggregate, but with waste-classified plain neutrals excluded (see
+  // utility-dispatch.ts's buildDecisionInputs). Used by BUILD_ECONOMY's
+  // suppression term instead of expansionOpportunityCount: that term exists
+  // to defer economy-building "while expansion is available", and waste-only
+  // neutrals are NOT available to EXPAND (it refuses them) — counting them
+  // there suppressed BUILD_ECONOMY on the same tiles EXPAND was refusing to
+  // touch, deadlocking a hemmed-in AI on WAIT despite an affordable, ready
+  // economic build. See docs/agents/topics/ai-planner.md.
+  nonWasteExpansionOpportunityCount: number;
   // Expansion quality: true when an economic/scaffold/town-support opportunity
   // exists on the frontier, or when an expansion objective is set.  Without
   // this, plain-tile expansion is suppressed (matches old noDirectedExpansion).
@@ -195,7 +206,10 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     // Includes frontier enemy count so that ANY enemy at the gate naturally
     // suppresses economy building, letting ATTACK win the competition.
     // 1 frontier action cuts BUILD_ECONOMY by ~67%; ≥1.5 pushes to 0.
-    1 - linear(inp.expansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
+    // Uses nonWasteExpansionOpportunityCount, NOT expansionOpportunityCount:
+    // waste-only neutrals are not real "expansion available" (EXPAND itself
+    // refuses them), so they must not suppress economy building either.
+    1 - linear(inp.nonWasteExpansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
     // Scales up when income is genuinely weak; midpoint 0.7 ensures
     // SETTLE/EXPAND/ATTACK (all scoring ~1.0) outrank economy builds.
     logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)

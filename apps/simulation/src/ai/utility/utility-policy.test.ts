@@ -15,6 +15,7 @@ const BASE: DecisionInputs = {
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
   expansionOpportunityCount: 0,
+  nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
   hasOnlyScoutExpand: false,
@@ -297,6 +298,9 @@ describe("BUILD_ECONOMY decision", () => {
       hasActionableNonWasteExpand: true,
       hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
+      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above,
+      // so the waste-excluded count matches the raw count here.
+      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     };
@@ -331,6 +335,53 @@ describe("BUILD_ECONOMY decision", () => {
       frontierEnemyCount: 0
     });
     expect(s).toBeGreaterThan(0);
+  });
+
+  // Regression: production staging AI-4 sat permanently on WAIT with 22k
+  // gold and a ready, affordable FARMSTEAD candidate because its frontier
+  // was surrounded only by waste-classified neutral tiles. EXPAND correctly
+  // refused them (hasActionableNonWasteExpand=false), but the raw
+  // expansionOpportunityCount (which includes waste) was still fully
+  // suppressing BUILD_ECONOMY's score to 0 via the "expansion is available"
+  // consideration — even though that "expansion" wasn't actually available
+  // to EXPAND either. nonWasteExpansionOpportunityCount must exclude the
+  // waste tiles so BUILD_ECONOMY isn't deadlocked by opportunities EXPAND
+  // itself refuses.
+  it("is NOT suppressed by waste-only neutrals that EXPAND itself refuses", () => {
+    const wasteOnlyHemmedIn: DecisionInputs = {
+      ...BASE,
+      canExpand: true,
+      // EXPAND sees 7 raw neutral tiles but none are actionable (all waste) —
+      // mirrors "vetoed when frontier is all waste" above.
+      hasActionableNonWasteExpand: false,
+      hasAnyExpandCandidate: false,
+      expansionOpportunityCount: 7,
+      nonWasteExpansionOpportunityCount: 0,
+      hasEconomicBuild: true,
+      needsEconomy: false
+    };
+    const expand = scoreDecision("EXPAND", wasteOnlyHemmedIn);
+    const economy = scoreDecision("BUILD_ECONOMY", wasteOnlyHemmedIn);
+    expect(expand).toBe(0);
+    // Before the fix this was 0 (fully suppressed by the 7 waste tiles).
+    expect(economy).toBeGreaterThan(0.5);
+
+    const result = evaluateUtilityPolicy(wasteOnlyHemmedIn);
+    expect(result.winner).toBe("BUILD_ECONOMY");
+  });
+
+  it("stays suppressed by real (non-waste) frontier enemy presence", () => {
+    // Enemy pressure should still suppress economy building even when the
+    // AI has no waste-only expansion candidates — nonWasteExpansionOpportunityCount
+    // must not accidentally exempt frontierEnemyCount from the suppression term.
+    const s = scoreDecision("BUILD_ECONOMY", {
+      ...BASE,
+      hasEconomicBuild: true,
+      needsEconomy: false,
+      nonWasteExpansionOpportunityCount: 0,
+      frontierEnemyCount: 5
+    });
+    expect(s).toBe(0);
   });
 });
 
@@ -377,6 +428,8 @@ describe("evaluateUtilityPolicy", () => {
       hasActionableNonWasteExpand: true,
       hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
+      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above.
+      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     });

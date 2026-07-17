@@ -106,3 +106,36 @@ consolidation, planning cadence), not deletion.
 - `frontPosture`/attack-gating thresholds live in
   `automation-strategic-snapshot.ts` and have several branches — read the
   function, don't trust a single restated threshold.
+- **Waste-inclusive aggregate counts silently gate unrelated decision classes**
+  (staging incident, ai-4/ai-1 permanently on WAIT with gold above cap and a
+  ready `economicBuildCandidate`): `expansionOpportunityCount` in
+  `utility-dispatch.ts` includes waste-classified plain neutrals (tiles
+  `EXPAND` itself refuses via `hasActionableNonWasteExpand`). Any *other*
+  decision class that uses it as an "expansion is available, defer to it"
+  suppression term (e.g. `scoreBuildEconomy`) gets suppressed by tiles that
+  were never actually available. Fixed by adding
+  `nonWasteExpansionOpportunityCount` (waste excluded) for BUILD_ECONOMY's
+  suppression term specifically — `expansionOpportunityCount` is still correct
+  for EXPAND's own linear-signal term, since EXPAND's veto already gates the
+  waste-only case first. When wiring a new consideration off an existing
+  aggregate field, check whether that field's *inclusions* still match the
+  new consumer's definition of "available."
+- **`restrictToFocus`'s unfiltered-fallback silently defeats
+  `ai-spatial-focus.ts`'s rotation** (same staging incident): `restrictToFocus`
+  (in `automation-command-planner.ts`) widens to the full unfiltered candidate
+  list whenever the current focus front has zero overlap with the candidate
+  set — by design, so a bad focus never starves the AI entirely. But feeding a
+  result found *only* via that widening into `scanFoundActionableCandidate`
+  (which drives `ai-spatial-focus.ts`'s unproductive-streak rotation) makes
+  every front look "productive" forever, since the widened scan effectively
+  re-scans the whole empire regardless of which front is nominally active.
+  For a large empire this pins the focus origin on the same dead 256-tile
+  window for 10+ minutes (confirmed live: identical `neighborCandidateTotal`
+  and `economicBuildCandidate` across 5.5 minutes of polling, well past the
+  60-75s soft-expiry). Fixed by tracking whether each `restrictToFocus` call
+  relevant to the productivity signal actually had to widen
+  (`frontierScanUsedFocusFallback` / `buildScanUsedFocusFallback`) and
+  excluding fallback-sourced results from `scanFoundActionableCandidate` —
+  command *execution* still uses the widened candidate regardless (finding a
+  real, distant candidate and building it is correct), only the "is *this*
+  front worth staying on" signal changes.
