@@ -69,6 +69,42 @@ describe("recordAiDecisionDiagnosticFromPlanner — frontierOriginKeysSample", (
   });
 });
 
+describe("recordAiDecisionDiagnosticFromPlanner — priority-ladder tier counts", () => {
+  // Distinguishes "fell through to the plain frontier list because the hot
+  // set was genuinely empty" (hotFrontierTileCountInput 0) from "these
+  // origins came from the cached hot set" (hotFrontierTileCountInput > 0) —
+  // the latter combined with frontierOriginExplanations showing reason:
+  // "none" is a stale hotFrontierTileKeys index entry, not a healthy fallback.
+  it("carries the tier counts through from the planner diagnostic", () => {
+    recordAiDecisionDiagnosticFromPlanner(
+      baseDiagnostic({
+        playerId: "ai-decision-diag-test-tiers-1",
+        hotFrontierTileCountInput: 8,
+        strategicFrontierTileCountInput: 0,
+        frontierTileCountInput: 421
+      })
+    );
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-tiers-1");
+    expect(recorded).toMatchObject({
+      hotFrontierTileCountInput: 8,
+      strategicFrontierTileCountInput: 0,
+      frontierTileCountInput: 421
+    });
+  });
+
+  it("defaults to zero when the planner diagnostic omits them", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-tiers-2" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-tiers-2");
+    expect(recorded).toMatchObject({
+      hotFrontierTileCountInput: 0,
+      strategicFrontierTileCountInput: 0,
+      frontierTileCountInput: 0
+    });
+  });
+});
+
 describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () => {
   // Regression: AiDecisionDiagnostic is an explicit field allowlist copied
   // from AutomationPlannerDiagnostic — a new planner diagnostic field is
