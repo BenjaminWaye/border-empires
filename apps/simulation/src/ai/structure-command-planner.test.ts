@@ -27,7 +27,7 @@ const ECONOMIC_BUILD_PLAYER: StructurePlannerPlayer = {
 };
 
 describe("structure command planner", () => {
-  it("uses cached siege outpost counts for affordability before scanning candidate sites", () => {
+  it("proposes a siege outpost when affordable, regardless of existing owned count (runtime never scales SIEGE_OUTPOST gold/resource cost by count)", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -48,16 +48,20 @@ describe("structure command planner", () => {
       techIds: ["leatherworking"],
       strategicResources: { SUPPLY: 45 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
+    // 3 existing outposts must not affect affordability — matches
+    // runtime-structure-command-handlers.ts, which always charges the flat
+    // SIEGE_TIER_LADDER cost for the player's best available tier, never a
+    // count-scaled cost.
     expect(chooseBestSiegeOutpostBuild({
       id: "ai-1",
       points: 1_000,
       techIds: ["leatherworking"],
       strategicResources: { SUPPLY: 45 },
       ownedStructureCounts: { SIEGE_OUTPOST: 3 }
-    }, [candidate], tilesByKey, [candidate])).toBeUndefined();
+    }, [candidate], tilesByKey, [candidate])).toBe(candidate);
   });
 
-  it("uses cached fort counts for affordability before scanning candidate sites", () => {
+  it("proposes a fort when affordable, regardless of existing owned count (runtime never scales FORT gold/resource cost by count)", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -81,10 +85,85 @@ describe("structure command planner", () => {
       techIds: ["masonry"],
       strategicResources: { IRON: 45 },
       ownedStructureCounts: { FORT: 2 }
-    }, [candidate], tilesByKey, [candidate])).toBeUndefined();
+    }, [candidate], tilesByKey, [candidate])).toBe(candidate);
   });
 
-  it("counts structures outside buildCandidateTiles when planning structure affordability", () => {
+  // Regression: production staging (ai-5) had 74/74 BUILD_FORT commands
+  // rejected with "insufficient IRON for fort", forever, burning its action
+  // budget every tick. chooseBestFortBuild's affordability precheck hardcoded
+  // the base-tier FORT cost (45 iron, 900 gold) regardless of tech, but
+  // runtime-structure-command-handlers.ts always resolves the player's BEST
+  // available tier via bestFortTierForTech — fortified-walls -> IRON_BASTION
+  // (90 iron, 1800 gold), steelworking -> THUNDER_BASTION (180 iron, 4200
+  // gold). A player with fortified-walls and 45-89 iron passed the AI's
+  // stale check but was always rejected by the runtime's real (higher) cost.
+  it("gates fort proposal on the tier the player will actually build, not the flat base-tier cost", () => {
+    const candidate = tile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { populationTier: "TOWN" }
+    });
+    const enemy = tile(1, 0, { ownerId: "enemy-1" });
+    const tilesByKey = new Map([
+      ["0,0", candidate],
+      ["1,0", enemy]
+    ]);
+    const basePlayer = {
+      id: "ai-1",
+      points: 1_000,
+      techIds: ["masonry", "fortified-walls"]
+    };
+
+    // 50 iron passes the old hardcoded "< 45" check, but IRON_BASTION (the
+    // tier fortified-walls unlocks) actually needs 90 — must not propose.
+    expect(chooseBestFortBuild(
+      { ...basePlayer, strategicResources: { IRON: 50 } },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBeUndefined();
+
+    // 90 iron and 1800 gold (IRON_BASTION's real cost) — now affordable.
+    expect(chooseBestFortBuild(
+      { ...basePlayer, points: 1_800, strategicResources: { IRON: 90 } },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBe(candidate);
+  });
+
+  it("gates siege outpost proposal on the tier the player will actually build, not the flat base-tier cost", () => {
+    const candidate = tile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { populationTier: "TOWN" }
+    });
+    const enemy = tile(1, 0, { ownerId: "enemy-1", town: { populationTier: "TOWN" } });
+    const tilesByKey = new Map([
+      ["0,0", candidate],
+      ["1,0", enemy]
+    ]);
+    const basePlayer = { id: "ai-1", points: 1_000, techIds: ["leatherworking", "siegecraft"] };
+
+    // 50 supply passes the old hardcoded "< 45" check, but SIEGE_TOWER (the
+    // tier siegecraft unlocks) needs 90 supply AND 60 iron — must not propose.
+    expect(chooseBestSiegeOutpostBuild(
+      { ...basePlayer, strategicResources: { SUPPLY: 50 } },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBeUndefined();
+
+    // SIEGE_TOWER's real cost: 90 supply, 60 iron, 1800 gold.
+    expect(chooseBestSiegeOutpostBuild(
+      { ...basePlayer, points: 1_800, strategicResources: { SUPPLY: 90, IRON: 60 } },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBe(candidate);
+  });
+
+  it("does not propose a siege outpost when supply is insufficient for the player's actual tier, even with existing outposts elsewhere", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -111,7 +190,11 @@ describe("structure command planner", () => {
       points: 1_000,
       manpower: 1_000,
       techIds: ["leatherworking"],
-      strategicResources: { SUPPLY: 45 },
+      // Genuinely insufficient supply (not a count-scaling artifact — see
+      // the tier-awareness tests above; SIEGE_OUTPOST's flat cost is 45
+      // supply and this player has 0) — the AI must fall through to
+      // something else, not repeatedly propose an unaffordable build.
+      strategicResources: { SUPPLY: 0 },
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 12,

@@ -139,3 +139,43 @@ consolidation, planning cadence), not deletion.
   command *execution* still uses the widened candidate regardless (finding a
   real, distant candidate and building it is correct), only the "is *this*
   front worth staying on" signal changes.
+- **`spatialFocusFront` is never wired into the worker-based AI planning
+  path** (`ai-planner-worker.ts` / `PlannerPlayerView`) — it's only computed
+  and passed in `runtime.ts`'s direct/non-worker `planAutomationCommand`
+  call. Staging runs with `SIMULATION_AI_WORKER=1`, so on staging
+  `focusFront` is *always* `undefined` and `restrictToFocus` never actually
+  restricts anything — the real EXPAND-stall driver there was origin
+  *selection* (see next entry), not focus-front scoping. Check which path is
+  active (`SIMULATION_AI_WORKER` env var) before assuming spatial-focus code
+  is in effect.
+- **`baseFrontierOrigins` is winner-take-all across categories, not a union**
+  (`hotFrontierTiles ?? strategicFrontierTiles ?? frontierTiles ?? ownedTiles`,
+  `automation-command-planner.ts`): if `hotFrontierTiles` is non-empty
+  *anywhere* in the empire (one hostile/strategic-neutral neighbor is
+  enough), the narrow scan origin set becomes *only* that hot tile's
+  neighbors — every calm/scoutable segment of the frontier is invisible that
+  tick, regardless of empire size. Confirmed live: ai-1's narrow scan
+  (`neighborCandidateTotal: 8`) evaluated exactly one origin's 8-neighbor
+  set, nowhere near a real GEMS resource sitting 4 tiles from its actual
+  frontier. The broad-fallback fix (previous entry, this file) recovers this
+  *only* when the narrow scan is also unactionable — if the hot origin finds
+  *anything* (even a low-value target), the broad fallback's
+  `!frontierAnalysisActionable` gate never fires and the rest of the empire
+  stays permanently unscanned. Not yet fixed — flagged for follow-up; any
+  fix needs CPU-impact analysis per `docs/agents/ai-guardrails.md` before
+  broadening how often/far the broad fallback runs.
+- **`chooseBestFortBuild`/`chooseBestSiegeOutpostBuild` affordability
+  prechecks were tier-unaware** (`structure-command-planner.ts`): they
+  hardcoded the base-tier IRON/SUPPLY/gold cost (e.g. 45 iron for FORT)
+  regardless of tech, but `runtime-structure-command-handlers.ts` always
+  builds the player's *best available* tier via `bestFortTierForTech`/
+  `bestSiegeTierForTech` (IRON_BASTION/THUNDER_BASTION, SIEGE_TOWER/
+  DREAD_TOWER — up to 4x the base cost). A player with the relevant tech and
+  partial resources passed the AI's stale check but was rejected by the
+  runtime every time. Confirmed live: ai-5 had 74/74 `BUILD_FORT` commands
+  rejected with "insufficient IRON for fort," forever. Fixed by resolving
+  the actual tier via the same `bestFortTierForTech`/`bestSiegeTierForTech`
+  helpers the runtime uses, before checking affordability. Also: neither
+  structure's gold cost actually scales with existing owned count at
+  runtime (unlike economic structures) — `ownedStructureCounts`-based gold
+  scaling in the AI's old precheck was dead/incorrect for these two types.

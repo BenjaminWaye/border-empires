@@ -7,6 +7,7 @@ import {
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
+import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, strideSample } from "./broad-fallback-sample.js";
 import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
@@ -52,8 +53,6 @@ export type {
   AutomationSessionPrefix
 };
 export type { AutomationPreplanReason } from "./automation-command-planner-types.js";
-
-const SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD = 500;
 
 type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
@@ -170,13 +169,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   // starves on a bad focus.
   const focusFront = input.spatialFocusFront;
   // Tracks whether restrictToFocus had to widen to the unfiltered list this
-  // call (focus front defined but had zero overlap with the candidate set).
-  // A result found only via that widening says nothing about whether *this*
-  // front is worth staying on — feeding it into scanFoundActionableCandidate
-  // permanently defeats ai-spatial-focus.ts's unproductive-streak rotation
-  // (production incident: staging AI-4/ai-1 pinned on the same dead front
-  // for 10+ minutes because a real-but-out-of-focus build candidate kept
-  // reporting "productive" every tick). See the regression tests below.
+  // call (defined focus front, zero overlap with the candidate set). Feeding
+  // a fallback-found result into scanFoundActionableCandidate would defeat
+  // ai-spatial-focus.ts's unproductive-streak rotation (production incident:
+  // AI-4/ai-1 pinned on the same dead front for 10+ minutes). See tests below.
   let frontierScanUsedFocusFallback = false;
   let buildScanUsedFocusFallback = false;
   const restrictToFocus = <T extends AutomationPlannerTile>(
@@ -203,6 +199,24 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ) as readonly TTile[];
     }
     return ownedFrontierTilesCache;
+  };
+  // Bounded sibling of ownedFrontierTiles() above, for the broad fallback's
+  // origin union specifically. That union needs a backstop for callers whose
+  // input.frontierTiles is real but incomplete (see the regression test for
+  // this), but — unlike ownedFrontierTiles()'s other caller, which needs an
+  // ACCURATE count — the broad fallback only needs a bounded SAMPLE of owned
+  // FRONTIER tiles, same reasoning as BROAD_FALLBACK_FRONTIER_SAMPLE_CAP.
+  // Sampling input.ownedTiles (not just the already-sampled frontierTiles)
+  // keeps this cheap regardless of empire size instead of the O(owned) scan
+  // ownedFrontierTiles() does when no spatial focus is set.
+  let ownedFrontierTilesSampleCache: readonly TTile[] | undefined;
+  const ownedFrontierTilesSample = (): readonly TTile[] => {
+    if (!ownedFrontierTilesSampleCache) {
+      ownedFrontierTilesSampleCache = restrictToFocus(strideSample(input.ownedTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP)).filter(
+        (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
+      ) as readonly TTile[];
+    }
+    return ownedFrontierTilesSampleCache;
   };
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
@@ -304,17 +318,20 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         })
       : emptyFrontierAnalysis();
   let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
+  // Diagnostic-only now (see BROAD_FALLBACK_FRONTIER_SAMPLE_CAP above): the
+  // broad fallback used to be skipped outright above this owned-tile count;
+  // it now always runs, bounded by sampling input.frontierTiles instead.
+  // Kept as a field (always false) so existing diagnostic consumers/tests
+  // don't need to special-case its absence.
   let broadFallbackSkipped = false;
   if ((canAttack || canExpand) && !frontierAnalysisActionable && input.frontierTiles.length > 0) {
-    if (input.ownedTiles.length > SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD) {
-      // Broad fallback's second analyzeOwnedFrontierTargetsFromLookup
-      // dominates the 587ms tail at this scale. The narrow result stands.
-      broadFallbackSkipped = true;
-    } else {
+    {
+      // Uses ownedFrontierTilesSample() (bounded), not ownedFrontierTiles()
+      // (unbounded O(owned) scan) — see that function's doc comment.
       const broadFrontierOriginsAll = dedupeTiles([
         ...narrowFrontierOrigins,
-        ...input.frontierTiles,
-        ...ownedFrontierTiles()
+        ...strideSample(input.frontierTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP),
+        ...ownedFrontierTilesSample()
       ]);
       // The broad fallback also respects the spatial focus front so a large
       // empire cannot blow up planner CPU through the fallback path.

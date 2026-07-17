@@ -582,31 +582,6 @@ describe("automation command planner", () => {
     expect(result.command?.type).toBe("EXPAND");
   });
 
-  it("skips broad-fallback when owned tiles exceed threshold", () => {
-    const tileCount = 501;
-    const ownedTiles = Array.from({ length: tileCount }, (_, i) =>
-      makeTile(0, i, { ownerId: "ai-1", ownershipState: "FRONTIER" })
-    );
-    const tilesByKey = new Map(ownedTiles.map((t) => [`${t.x},${t.y}`, t]));
-    const frontierTiles = ownedTiles.slice(0, 3);
-
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 1000,
-      manpower: 100,
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles,
-      ownedTiles,
-      tilesByKey,
-      clientSeq: 1,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.diagnostic.broadFallbackSkipped).toBe(true);
-  });
-
   it("runs the broad fallback (and finds a real target) when the narrow scan sees only a waste-classified neutral", () => {
     // Regression test for the gate bug where hasActionableFrontierAnalysis()
     // counted ANY neutral (even a fully-boxed-in "waste" one with nothing to
