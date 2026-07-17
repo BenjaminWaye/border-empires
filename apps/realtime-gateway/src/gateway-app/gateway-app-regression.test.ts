@@ -118,4 +118,21 @@ describe("gateway fog capability regression guard", () => {
     expect(observeSource).toContain("commandId: event.commandId,");
     expect(observeSource).toContain("eventType: event.eventType,");
   });
+
+  // Regression for redundant JSON.stringify: PLAYER_STYLE fans out to every
+  // connected socket in the game (not just the renaming player) on every
+  // SET_PROFILE call, so it must reuse the codebase's existing
+  // preSerializeBroadcast helper instead of paying JSON.stringify once per
+  // socket for the identical payload.
+  it("pre-serializes the PLAYER_STYLE broadcast instead of re-stringifying it per socket", () => {
+    const source = sourceFor("./gateway-app.ts");
+    const setProfileStart = source.indexOf('if (message.type === "SET_PROFILE") {');
+    const setProfileEnd = source.indexOf('if (message.type === "ALLIANCE_REQUEST") {');
+    const setProfileSource = source.slice(setProfileStart, setProfileEnd);
+
+    expect(setProfileSource).toContain("const stylePayload = preSerializeBroadcast({");
+    expect(setProfileSource).toContain(
+      "for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);"
+    );
+  });
 });

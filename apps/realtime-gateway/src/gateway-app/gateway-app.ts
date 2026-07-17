@@ -2651,18 +2651,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
             taken.add(normalized);
             const suggestedColors = pickSuggestedPalette(6, taken);
-            const stylePayload = {
+            const stylePayload = preSerializeBroadcast({
               type: "PLAYER_STYLE",
               playerId: session.playerId,
               name: override.name ?? message.displayName,
               tileColor: override.tileColor ?? normalized
-            };
+            });
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
               queueOrSendSessionPayload(targetSocket, {
                 type: "PLAYER_UPDATE",
-                name: override.name,
-                tileColor: override.tileColor,
+                name: override.name ?? message.displayName,
+                tileColor: override.tileColor ?? normalized,
                 profileNeedsSetup: false,
                 canToggleFog: session.canToggleFog,
                 suggestedColors

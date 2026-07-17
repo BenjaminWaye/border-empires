@@ -1337,25 +1337,9 @@ describe("client gateway sync regression", () => {
     expect(renderHud).toHaveBeenCalled();
   });
 
-  it("updates player names and colors from runtime PLAYER_STYLE messages", () => {
-    const state = createState();
-    state.me = "player-1";
-    const ws = new FakeWebSocket();
-    bind(state, ws);
-
-    ws.emit("message", {
-      data: JSON.stringify({
-        type: "PLAYER_STYLE",
-        playerId: "player-1",
-        name: "Nauticus Prime",
-        tileColor: "#123456"
-      })
-    });
-
-    expect(state.meName).toBe("Nauticus Prime");
-    expect(state.playerNames.get("player-1")).toBe("Nauticus Prime");
-    expect(state.playerColors.get("player-1")).toBe("#123456");
-  });
+  // PLAYER_STYLE handling now lives in client-player-style-message.ts; see
+  // client-player-style-message.test.ts for its regression coverage
+  // (including the self-vs-other-player re-render behavior).
 
   it("does not synthesize town support from sparse gateway deltas", () => {
     const state = createState();

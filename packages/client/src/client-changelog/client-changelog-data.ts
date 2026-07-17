@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.6",
+  version: "2026.07.16.7",
   title: "What's New",
-  summary: "Added temporary diagnostic logging to trace Survey Sweep's floating map markers end-to-end while we track down a report that they aren't appearing. Also includes the previous release: Waterworks now doubles farmstead food output (+100%) instead of the previous +50% bonus.",
+  summary: "Fixed display name changes not showing up in the HUD or settings panel after saving — the update was reaching the server, but the client didn't refresh the screen until some unrelated event happened to trigger it. Also includes the previous release: temporary diagnostic logging added to trace Survey Sweep's floating map markers.",
   entries: [
+    {
+      introducedIn: "2026.07.16.7",
+      title: "Display name updates now show immediately",
+      why: "Saving a new display name sends a PLAYER_STYLE broadcast (to everyone, including you) followed by a self-only PLAYER_UPDATE. The client updated its internal state from PLAYER_STYLE but never re-rendered the screen for it, so the Display Name field and HUD stayed on the old name until some unrelated message happened to trigger a redraw — meanwhile other parts of the UI (like the Firebase-backed \"Signed in as\") could already show the new name, making it look like the change silently failed.",
+      changes: [
+        "The client now re-renders the HUD and auth overlay immediately when a PLAYER_STYLE update is about your own name or color, instead of waiting on a later message."
+      ]
+    },
     {
       introducedIn: "2026.07.16.6",
       title: "Diagnostic logging added for Survey Sweep floating markers",
