@@ -13,6 +13,7 @@
  */
 
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner-types.js";
+import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 
 export type AiDecisionDiagnostic = {
   playerId: string;
@@ -42,6 +43,9 @@ export type AiDecisionDiagnostic = {
    *  the AI's scan is currently anchored on (see hotFrontierTiles priority
    *  ladder in automation-command-planner.ts's baseFrontierOrigins). */
   frontierOriginKeysSample: readonly string[];
+  /** Why each frontierOriginKeysSample tile was classified hot — see
+   *  planner-candidate-index.ts's explainFrontierOriginTile. */
+  frontierOriginExplanations: readonly FrontierOriginExplanation[];
   winner: string | undefined;
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
@@ -107,6 +111,7 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
     missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
     frontierOriginKeysSample: diagnostic.frontierOriginKeysSample ?? [],
+    frontierOriginExplanations: diagnostic.frontierOriginExplanations ?? [],
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
