@@ -46,6 +46,29 @@ describe("recordAiDecisionDiagnosticFromPlanner — neighborCandidateTotal / mis
   });
 });
 
+describe("recordAiDecisionDiagnosticFromPlanner — frontierOriginKeysSample", () => {
+  // Answers "what tile is the AI stuck scanning" from /admin/debug/ai/decisions
+  // directly, without a live gRPC/SQLite lookup against the running sim.
+  it("carries the frontier-scan origin tile keys through from the planner diagnostic", () => {
+    recordAiDecisionDiagnosticFromPlanner(
+      baseDiagnostic({
+        playerId: "ai-decision-diag-test-origin-1",
+        frontierOriginKeysSample: ["12,34", "12,35"]
+      })
+    );
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-origin-1");
+    expect(recorded).toMatchObject({ frontierOriginKeysSample: ["12,34", "12,35"] });
+  });
+
+  it("defaults to an empty array when the planner diagnostic omits it", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-origin-2" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-origin-2");
+    expect(recorded.frontierOriginKeysSample).toEqual([]);
+  });
+});
+
 describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () => {
   // Regression: AiDecisionDiagnostic is an explicit field allowlist copied
   // from AutomationPlannerDiagnostic — a new planner diagnostic field is
