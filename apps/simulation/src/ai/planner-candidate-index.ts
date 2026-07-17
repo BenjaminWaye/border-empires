@@ -126,6 +126,51 @@ export const isHotFrontierTile = (
   tile.ownershipState === "FRONTIER" &&
   (hasHostileNeighbor(playerId, tile, tilesByKey) || hasStrategicNeutralNeighbor(playerId, tile, tilesByKey));
 
+export type FrontierOriginExplanation = {
+  key: string;
+  ownerId: string | undefined;
+  ownershipState: DomainTileState["ownershipState"] | undefined;
+  /** Recomputed live from tilesByKey — lets a caller detect a stale
+   *  hotFrontierTileKeys entry (index says hot, live recompute says not). */
+  currentlyHot: boolean;
+  reason: "hostile_neighbor" | "strategic_neutral_neighbor" | "not_owned_frontier" | "none";
+  neighbor?: {
+    key: string;
+    ownerId: string | undefined;
+    resource: DomainTileState["resource"];
+    dockId: string | undefined;
+    townType: string | undefined;
+  };
+};
+
+/** Debug-only: explains why a frontier-scan origin tile was (or wasn't, if
+ *  stale) classified hot — see isHotFrontierTile above, which this mirrors. */
+export const explainFrontierOriginTile = (
+  playerId: string,
+  tile: DomainTileState,
+  tilesByKey: ReadonlyMap<string, DomainTileState>
+): FrontierOriginExplanation => {
+  const key = `${tile.x},${tile.y}`;
+  if (tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") {
+    return { key, ownerId: tile.ownerId, ownershipState: tile.ownershipState, currentlyHot: false, reason: "not_owned_frontier" };
+  }
+  let reason: FrontierOriginExplanation["reason"] = "none";
+  let neighbor: FrontierOriginExplanation["neighbor"];
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (reason === "hostile_neighbor") return;
+    const n = tilesByKey.get(`${nx},${ny}`);
+    if (!n || n.terrain !== "LAND") return;
+    if (n.ownerId && n.ownerId !== playerId) {
+      reason = "hostile_neighbor";
+      neighbor = { key: `${nx},${ny}`, ownerId: n.ownerId, resource: n.resource, dockId: n.dockId, townType: n.town?.type };
+    } else if (reason === "none" && !n.ownerId && (n.resource || n.dockId || n.town)) {
+      reason = "strategic_neutral_neighbor";
+      neighbor = { key: `${nx},${ny}`, ownerId: n.ownerId, resource: n.resource, dockId: n.dockId, townType: n.town?.type };
+    }
+  });
+  return { key, ownerId: tile.ownerId, ownershipState: tile.ownershipState, currentlyHot: reason !== "none", reason, ...(neighbor ? { neighbor } : {}) };
+};
+
 export const isStrategicFrontierTile = (
   playerId: string,
   tile: DomainTileState,

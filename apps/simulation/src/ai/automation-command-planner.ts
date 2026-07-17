@@ -6,6 +6,7 @@ import {
 } from "@border-empires/shared";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
+import { explainFrontierOriginTile } from "./planner-candidate-index.js";
 import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
@@ -356,6 +357,13 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
 
+  // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
+  // concrete DomainTileState signature (same cast pattern as
+  // frontier-command-planner.ts's domainTilesByKey) — TTile's structural
+  // shape (AutomationPlannerTile) already matches at runtime, but the
+  // generic type parameter isn't verifiable against DomainTileState at
+  // compile time without this assertion.
+  const domainTilesByKey = input.tilesByKey as unknown as ReadonlyMap<string, DomainTileState>;
   const diagnosticBase: AutomationPlannerDiagnostic = {
     playerId: input.playerId,
     sessionPrefix: input.sessionPrefix,
@@ -385,6 +393,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierOriginCount: frontierOrigins.length,
     dockOriginCount: dockOrigins.length,
     frontierOriginKeysSample: frontierOrigins.slice(0, 8).map((tile) => `${tile.x},${tile.y}`),
+    // Debug-only: explains *why* each sampled origin was classified hot —
+    // recomputed live from tilesByKey, so a mismatch against the cached
+    // hotFrontierTileKeys entry that produced this origin set (reason:
+    // "not_owned_frontier" or "none") is a stale-index signal, not a
+    // legitimately hot tile. See planner-candidate-index.ts's
+    // explainFrontierOriginTile, which mirrors isHotFrontierTile exactly.
+    frontierOriginExplanations: frontierOrigins
+      .slice(0, 8)
+      .map((tile) => explainFrontierOriginTile(input.playerId, tile as unknown as DomainTileState, domainTilesByKey)),
     // Feeds ai-spatial-focus.ts's unproductive-streak rotation (via
     // runtime.ts): whether *any* category (frontier/settle/build) found
     // something actionable this tick, restricted to the same spatial-focus
