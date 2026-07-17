@@ -2149,7 +2149,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       currentSummarySignature = leaderboardSignature(nextSummary);
       currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
-      clearSeasonVictoryTimer();
+      // Old timer's closure captured the previous season's state, so clear it —
+      // but re-arm the 5-min fallback for the new season, otherwise no code
+      // path ever recomputes seasonVictory again and every objective stays
+      // frozen at its post-rollover all-zero snapshot (`nextSummary` above).
+      scheduleSeasonVictoryRecheck(undefined);
       for (const stream of eventStreams) {
         stream.write(
           toProtoEvent({
