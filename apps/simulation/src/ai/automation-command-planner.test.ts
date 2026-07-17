@@ -202,6 +202,63 @@ describe("automation command planner", () => {
     });
   });
 
+  it("falls through directly to frontierTiles when hotFrontierTiles is empty, instead of starving on strategicFrontierTiles-only origins with no expand target", () => {
+    // strategicInterior is a legitimate isStrategicFrontierTile candidate
+    // (good to SETTLE — e.g. an interior gap that improves territory shape)
+    // but has zero expandable/attackable neighbors in this sparse tilesByKey.
+    // There is no SETTLE decision class in the AI's utility policy, so being
+    // "good to settle" is never actionable on its own. Before the fix, this
+    // being the sole strategicFrontierTiles entry (with hotFrontierTiles
+    // empty) meant baseFrontierOrigins picked ONLY this tile, so the real
+    // expand target below (plainFrontier -> farmTarget) was never scanned.
+    //
+    // ownedTiles must exceed SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD (500):
+    // below that, the broad-fallback rescan (triggered when the narrow scan
+    // finds nothing) papers over exactly this bug by re-scanning the full
+    // frontierTiles list anyway. That fallback is unconditionally disabled
+    // above the threshold (PR #980's finding) — which is why this starved
+    // permanently for ai-1's real (>500-tile) empire (266 strategic-only
+    // origins, 0 hot, #983 investigation) despite passing in a small-empire
+    // test that doesn't cross this threshold.
+    const core = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const strategicInterior = makeTile(0, 1, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const plainFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const farmTarget = makeTile(11, 10, { resource: "FARM" });
+    const fillerSettled = Array.from({ length: 600 }, (_, i) =>
+      makeTile(1000 + i, 1000, { ownerId: "ai-1", ownershipState: "SETTLED" })
+    );
+    const tilesByKey = new Map([
+      ["0,0", core],
+      ["0,1", strategicInterior],
+      ["10,10", plainFrontier],
+      ["11,10", farmTarget],
+      ...fillerSettled.map((t): [string, typeof t] => [`${t.x},${t.y}`, t])
+    ]);
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1 + fillerSettled.length,
+      townCount: 0,
+      incomePerMinute: 5,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [strategicInterior, plainFrontier],
+      hotFrontierTiles: [],
+      strategicFrontierTiles: [strategicInterior],
+      ownedTiles: [core, strategicInterior, plainFrontier, ...fillerSettled],
+      tilesByKey,
+      clientSeq: 200,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+  });
+
   it("builds a fort on an exposed settled core tile when enemies crowd the frontier", () => {
     const town = makeTile(8, 8, {
       ownerId: "ai-1",
