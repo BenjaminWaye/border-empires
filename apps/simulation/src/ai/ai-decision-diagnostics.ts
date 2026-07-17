@@ -46,6 +46,19 @@ export type AiDecisionDiagnostic = {
   /** Why each frontierOriginKeysSample tile was classified hot — see
    *  planner-candidate-index.ts's explainFrontierOriginTile. */
   frontierOriginExplanations: readonly FrontierOriginExplanation[];
+  /**
+   * Sizes of the three tile sets baseFrontierOrigins picks from, in priority
+   * order (automation-command-planner.ts): hotFrontierTiles is used if
+   * non-empty, else strategicFrontierTiles, else frontierTiles. Which one is
+   * >0 first tells you which tier actually produced frontierOriginKeysSample —
+   * without this, a plain "fell through to the full frontier list" (tier 3,
+   * hotFrontierTileCountInput 0) is indistinguishable from "these tiles are
+   * still in the cached hot set but no longer qualify live" (tier 1, >0, but
+   * frontierOriginExplanations shows reason: "none" — a stale-index signal).
+   */
+  hotFrontierTileCountInput: number;
+  strategicFrontierTileCountInput: number;
+  frontierTileCountInput: number;
   winner: string | undefined;
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
@@ -112,6 +125,9 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
     frontierOriginKeysSample: diagnostic.frontierOriginKeysSample ?? [],
     frontierOriginExplanations: diagnostic.frontierOriginExplanations ?? [],
+    hotFrontierTileCountInput: diagnostic.hotFrontierTileCountInput ?? 0,
+    strategicFrontierTileCountInput: diagnostic.strategicFrontierTileCountInput ?? 0,
+    frontierTileCountInput: diagnostic.frontierTileCountInput ?? 0,
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
