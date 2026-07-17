@@ -34,6 +34,7 @@ import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/clie
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
+import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -3029,24 +3030,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "PLAYER_STYLE") {
-      const playerId = msg.playerId as string;
-      const name = msg.name as string | undefined;
-      const color = msg.tileColor as string | undefined;
-      const visualStyle = msg.visualStyle as any;
-      const shieldUntil = msg.shieldUntil as number | undefined;
-      if (playerId && name) {
-        state.playerNames.set(playerId, name);
-        if (playerId === state.me) {
-          state.meName = name;
-          authProfileNameEl.value = name;
-        }
-      }
-      if (playerId && color) {
-        state.playerColors.set(playerId, color);
-        if (playerId === state.me) authProfileColorEl.value = color;
-      }
-      if (playerId && visualStyle) state.playerVisualStyles.set(playerId, visualStyle);
-      if (playerId && typeof shieldUntil === "number") state.playerShieldUntil.set(playerId, shieldUntil);
+      applyPlayerStyleMessage(msg, { state, authProfileNameEl, authProfileColorEl, syncAuthOverlay, renderHud });
       return;
     }
 
