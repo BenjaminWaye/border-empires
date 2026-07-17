@@ -10,6 +10,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import { type EconomicStructureType, type Terrain } from "@border-empires/shared";
 import type { DecisionClass } from "./utility/decisions.js";
+import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
@@ -96,6 +97,10 @@ export type AutomationPlannerDiagnostic = {
    *  (see baseFrontierOrigins in automation-command-planner.ts). Answers "what
    *  tile is the AI stuck scanning" without a live gRPC/SQLite lookup. */
   frontierOriginKeysSample?: string[];
+  /** Debug-only: why each frontierOriginKeysSample tile was classified hot —
+   *  recomputed live, so it also surfaces a stale hotFrontierTileKeys entry
+   *  (reason "not_owned_frontier"/"none" despite being in the sample). */
+  frontierOriginExplanations?: FrontierOriginExplanation[];
   /** Whether this tick's focus-restricted scan found any actionable frontier
    *  target, settlement candidate, or build candidate. Feeds
    *  ai-spatial-focus.ts's unproductive-streak rotation via runtime.ts.
