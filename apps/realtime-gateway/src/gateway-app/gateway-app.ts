@@ -1654,6 +1654,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           })();
           continue;
         }
+        if (event.eventType === "COMMAND_RESOLVED") {
+          void commandStore
+            .markResolved(event.commandId, Date.now())
+            .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved command"));
+          continue;
+        }
         if (event.eventType === "COMBAT_CANCELLED") {
           void commandStore
             .markResolved(event.commandId, Date.now())
