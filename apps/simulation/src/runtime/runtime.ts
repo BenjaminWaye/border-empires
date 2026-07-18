@@ -1906,7 +1906,6 @@ export class SimulationRuntime {
     });
   }
 
-
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
@@ -2018,7 +2017,7 @@ export class SimulationRuntime {
         }
       }
     }
-    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys), townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys());
+    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
     // No-alloc per-tick check: short-circuit on first player-issued lock.
     // Allocating a Set for one .has() lookup would be wasteful in the AI
@@ -2032,6 +2031,7 @@ export class SimulationRuntime {
     }
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
+      const townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
       const preplan = chooseAutomationPreplanCommand({
         playerId,
         points: player.points,
