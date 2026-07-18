@@ -48,6 +48,35 @@ describe("applyPlayerStyleMessage", () => {
     expect(syncAuthOverlay).toHaveBeenCalled();
   });
 
+  it("does not let a renderHud/syncAuthOverlay throw during a self name change escape to the caller", () => {
+    // Regression: this runs synchronously inside the WebSocket "message"
+    // listener, which has no surrounding try/catch. On Safari, a throw
+    // inside syncAuthOverlay/renderHud (e.g. a DOM/storage call hitting a
+    // locked-down browser API) used to propagate out of the whole message
+    // handler and could crash the app right after a routine profile save.
+    const state = createState();
+    const renderHud = vi.fn();
+    const syncAuthOverlay = vi.fn(() => {
+      throw new Error("simulated Safari DOM/storage failure");
+    });
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(() =>
+      applyPlayerStyleMessage(
+        { type: "PLAYER_STYLE", playerId: "player-1", name: "Wayepoint", tileColor: "#123456" },
+        { state, authProfileNameEl: { value: "" }, authProfileColorEl: { value: "" }, syncAuthOverlay, renderHud }
+      )
+    ).not.toThrow();
+
+    expect(state.meName).toBe("Wayepoint");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    // renderHud is never reached because syncAuthOverlay threw first, but the
+    // important thing is nothing escaped the call.
+    expect(renderHud).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("does not re-render the HUD for messages about other players", () => {
     const state = createState();
     const renderHud = vi.fn();

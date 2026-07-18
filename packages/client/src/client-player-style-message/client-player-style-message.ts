@@ -44,9 +44,22 @@ export const applyPlayerStyleMessage = (msg: Record<string, unknown>, deps: Appl
   // later, unrelated PLAYER_UPDATE. Skipping the re-render here left the
   // HUD/settings panel showing a stale name until some other message
   // happened to trigger renderHud().
+  //
+  // This runs synchronously inside the WebSocket "message" event listener
+  // (client-network.ts), which has no surrounding try/catch of its own. On
+  // Safari, an uncaught throw here (e.g. a DOM/storage call inside
+  // syncAuthOverlay or renderHud hitting a locked-down browser API) used to
+  // propagate out of the message handler entirely and could crash the app
+  // right after a routine profile save. Contain it here so a single
+  // rendering hiccup degrades to a logged error instead of taking the whole
+  // client down.
   if (affectsSelf) {
-    syncAuthOverlay();
-    renderHud();
+    try {
+      syncAuthOverlay();
+      renderHud();
+    } catch (error) {
+      console.error("[player-style-render-fatal]", error);
+    }
   }
   return affectsSelf;
 };
