@@ -113,6 +113,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simMusterRemoteAttackTotal = 0;
   let simMusterRemoteBlockedTotal = 0;
   let simMusterRemoteBlockedBarbarianTotal = 0;
+  let simOwnershipChangeAlertSkippedSettlementTierTotal = 0;
   let simSeasonEndSnapshotWarmTotal = 0;
   let simSeasonEndSnapshotWarmFailedTotal = 0;
   let simPostSeasonProtoTileCacheHitTotal = 0;
@@ -227,6 +228,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simMusterRemoteAttackTotal,
     simMusterRemoteBlockedTotal,
     simMusterRemoteBlockedBarbarianTotal,
+    simOwnershipChangeAlertSkippedSettlementTierTotal,
     simSeasonEndSnapshotWarmTotal,
     simSeasonEndSnapshotWarmFailedTotal,
     simPostSeasonProtoTileCacheHitTotal,
@@ -340,6 +342,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimMusterRemoteBlockedBarbarian(): void {
       simMusterRemoteBlockedBarbarianTotal += 1;
+    },
+    // Fires each time onOwnershipChange skips the Town Lost Slack alert
+    // because the captured town was SETTLEMENT tier (routine population
+    // absorption, not a genuine loss) — zero forever means the skip never engages.
+    incrementSimOwnershipChangeAlertSkippedSettlementTier(): void {
+      simOwnershipChangeAlertSkippedSettlementTierTotal += 1;
     },
     incrementSimSeasonEndSnapshotWarm(): void {
       simSeasonEndSnapshotWarmTotal += 1;

@@ -60,11 +60,16 @@ describe("onOwnershipChange townLost signal", () => {
     }
   });
 
-  it("still reports townLost when an attacker razes a defender's SETTLEMENT-tier town on capture", async () => {
+  it("still reports townLost when an attacker razes a defender's SETTLEMENT-tier town on capture, tagged for the alert to skip", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      const samples: Array<{ previousOwnerId?: string; nextOwnerId?: string; townLost: boolean }> = [];
+      const samples: Array<{
+        previousOwnerId?: string;
+        nextOwnerId?: string;
+        townLost: boolean;
+        previousTownPopulationTier?: string;
+      }> = [];
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         onOwnershipChange: (sample) => samples.push(sample),
@@ -72,8 +77,11 @@ describe("onOwnershipChange townLost signal", () => {
           tiles: [
             { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             // Player-owned SETTLEMENT-tier town: capturedTownAftermath razes
-            // SETTLEMENT-tier towns on capture, so this is a genuine
-            // town-lost event that must still trigger the alert.
+            // SETTLEMENT-tier towns on capture, so townLost is still true here
+            // (the tile genuinely lost its town structure). simulation-service.ts
+            // reads previousTownPopulationTier separately to skip the Slack
+            // alert for this tier — routine population absorption, not a
+            // defensive loss worth paging on.
             {
               x: 20,
               y: 21,
@@ -103,6 +111,7 @@ describe("onOwnershipChange townLost signal", () => {
       const captureSample = samples.find((sample) => sample.previousOwnerId === "player-2" && sample.nextOwnerId === "player-1");
       expect(captureSample).toBeDefined();
       expect(captureSample?.townLost).toBe(true);
+      expect(captureSample?.previousTownPopulationTier).toBe("SETTLEMENT");
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 21);
       expect(capturedTile?.townName).toBeUndefined();
