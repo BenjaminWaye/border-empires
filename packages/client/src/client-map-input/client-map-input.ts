@@ -53,6 +53,20 @@ export const resolveBoxSelectionMouseUpAction = (dragKeys: string[]): BoxSelecti
   return { type: "open-bulk-menu", targetKeys: dragKeys };
 };
 
+export const isDoubleTap = (args: {
+  now: number;
+  location: { x: number; y: number };
+  lastTapTime: number;
+  lastTapLocation: { x: number; y: number } | undefined;
+  maxDelayMs: number;
+  maxDistancePx: number;
+}): boolean => {
+  const { now, location, lastTapTime, lastTapLocation, maxDelayMs, maxDistancePx } = args;
+  if (lastTapTime <= 0 || !lastTapLocation) return false;
+  if (now - lastTapTime >= maxDelayMs) return false;
+  return Math.hypot(location.x - lastTapLocation.x, location.y - lastTapLocation.y) < maxDistancePx;
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -333,19 +347,24 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     () => {
       if (touchTapCandidate && !pinchStart) {
         const now = Date.now();
-        const isDoubleTap =
-          lastTapTime > 0 &&
-          now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS &&
-          lastTapLocation &&
-          Math.hypot(touchTapCandidate.x - lastTapLocation.x, touchTapCandidate.y - lastTapLocation.y) <
-            DOUBLE_TAP_MAX_DISTANCE_PX;
+        const doubleTapped = isDoubleTap({
+          now,
+          location: touchTapCandidate,
+          lastTapTime,
+          lastTapLocation,
+          maxDelayMs: DOUBLE_TAP_MAX_DELAY_MS,
+          maxDistancePx: DOUBLE_TAP_MAX_DISTANCE_PX
+        });
 
-        if (isDoubleTap) {
+        if (doubleTapped) {
           if (lastDoubleTapZoomIn) {
             state.zoom = Math.min(MAX_ZOOM, state.zoom + ZOOM_STEP);
           } else {
             state.zoom = Math.max(MIN_ZOOM, state.zoom - ZOOM_STEP);
           }
+          // Flip so the next double-tap reverses direction; only a double-tap
+          // itself should flip this, not the single taps that precede it,
+          // otherwise every double-tap gesture would zoom in only.
           lastDoubleTapZoomIn = !lastDoubleTapZoomIn;
           lastTapTime = 0;
           lastTapLocation = undefined;
@@ -366,7 +385,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
           deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
           lastTapTime = now;
           lastTapLocation = { x: touchTapCandidate.x, y: touchTapCandidate.y };
-          lastDoubleTapZoomIn = true;
         }
       }
       touchHoldStart = undefined;

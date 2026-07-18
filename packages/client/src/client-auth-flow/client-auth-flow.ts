@@ -21,6 +21,7 @@ import {
   syncAuthOverlay as syncAuthOverlayFromModule,
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "../client-auth-ui/client-auth-ui.js";
+import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { rallyCodeFromLocation } from "../client-rally-links/client-rally-links.js";
@@ -345,7 +346,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         state.authReady = true;
         state.authSessionReady = false;
         if (isMobile()) {
-          state.zoom = 44;
+          state.zoom = MOBILE_LOGIN_ZOOM;
         }
         setAuthBusy(true);
         state.authRetrying = false;
