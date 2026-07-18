@@ -101,6 +101,40 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     expect(result.diagnostic.broadFallbackSkipped).toBe(true);
   });
 
+  it("forceBroadFrontierScan surfaces the distant economic target the narrow scan alone would hide", () => {
+    // Same fixture as the tunnel-vision test above, but with the runtime-side
+    // throttle (ai-hot-frontier-streak.ts) having decided this player's been
+    // pinned on its hot origin too many consecutive ticks — this input is
+    // what forces the broad sweep to run anyway.
+    const hotOrigin = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemyNeighbor = makeTile(1, 0, { ownerId: "enemy-1" });
+    const otherFrontier = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+    const ownedTiles = [hotOrigin, otherFrontier];
+    const tilesByKey = new Map(
+      [hotOrigin, enemyNeighbor, otherFrontier, economicNeutral].map((t) => [`${t.x},${t.y}`, t])
+    );
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 1000,
+      manpower: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      hotFrontierTiles: [hotOrigin],
+      frontierTiles: ownedTiles,
+      ownedTiles,
+      tilesByKey,
+      forceBroadFrontierScan: true,
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.diagnostic.broadFallbackSkipped).toBeFalsy();
+    expect(result.diagnostic.frontierOpportunityEconomic).toBeGreaterThan(0);
+  });
+
   it("bounds the broad fallback's frontierTiles contribution to a fixed sample regardless of empire size", () => {
     // Structural-complexity guard (per docs/agents/ai-guardrails.md: prove
     // hot-path bounds with deterministic counters, not wall-clock timing).
