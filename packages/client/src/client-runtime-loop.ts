@@ -5,6 +5,7 @@ import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
+import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import {
   RENDERER_PROMPT_FPS_THRESHOLD,
   RENDERER_PROMPT_LOW_FPS_MS,
@@ -165,13 +166,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
   const draw = (): void => {
     const nowMs = performance.now();
-    performance.mark("frame-start");
     recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
     }
+    const frameStartAt = nowMs;
+    const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
@@ -784,7 +786,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         blocked: Boolean(settlementProgress)
       });
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
-    }; performance.mark("tile-start");
+    };
+    const tileStartAt = performance.now();
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
         const wx = deps.wrapX(state.camX + x);
@@ -1304,7 +1307,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         });
         drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }
-    } performance.mark("tile-end");
+    }
+    const tileEndAt = performance.now();
 
     for (const { wk, px, py, vis, t } of overlayTiles) {
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
@@ -1595,6 +1599,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     });
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
+    const frameEndAt = performance.now();
+    recordFramePhaseSample({
+      frameSetupMs: tileStartAt - frameStartAt,
+      tileRenderMs: tileEndAt - tileStartAt,
+      overlayPostMs: frameEndAt - tileEndAt,
+      totalFrameMs: frameEndAt - frameStartAt
+    });
+    recordDrawFrame(previousDrawAt, frameStartAt);
     requestAnimationFrame(draw);
   };
 
