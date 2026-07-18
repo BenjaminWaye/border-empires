@@ -309,6 +309,7 @@ import {
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
+import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
   emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
@@ -1188,6 +1189,14 @@ export class SimulationRuntime {
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
     emitShardRainHelloForImpl(this.shardRainContext(), playerId, nowMs);
+  }
+
+  currentShardRainWelcomeNotice(nowMs: number = this.now()): Record<string, unknown> {
+    return computeShardRainWelcomeNotice({
+      nowMs,
+      currentSiteCount: this.currentShardRainSiteCount,
+      currentExpiresAt: this.currentShardRainExpiresAt
+    });
   }
 
   private respawnContext(): RuntimeRespawnContext {
