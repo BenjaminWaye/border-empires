@@ -2018,7 +2018,7 @@ export class SimulationRuntime {
         }
       }
     }
-    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
+    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys), townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys());
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
     // No-alloc per-tick check: short-circuit on first player-issued lock.
     // Allocating a Set for one .has() lookup would be wasteful in the AI
@@ -2042,7 +2042,7 @@ export class SimulationRuntime {
         townCount: summary.townCount,
         incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         hasActiveLock,
-        ownedTiles,
+        ownedTiles, townTiles,
         clientSeq,
         issuedAt,
         sessionPrefix

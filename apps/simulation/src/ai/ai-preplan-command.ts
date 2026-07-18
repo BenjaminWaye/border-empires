@@ -57,6 +57,11 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   incomePerMinute?: number;
   hasActiveLock: boolean;
   ownedTiles: readonly TTile[];
+  // Pre-filtered SETTLED-with-town subset of ownedTiles (typically tens of
+  // tiles vs. thousands for a large empire), sourced from the incrementally
+  // maintained PlayerRuntimeSummary.ownedTownTierByTile map. Callers that
+  // can't cheaply provide this fall back to scanning ownedTiles below.
+  townTiles?: readonly TTile[];
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
@@ -118,7 +123,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
 
   if (!needsFood && townCount > 0) {
-    const townTierUpgrade = chooseAiTownTierUpgrade(input.ownedTiles, input.strategicResources);
+    const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.strategicResources);
     if (townTierUpgrade) {
       return {
         command: createAutomationCommand(

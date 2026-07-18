@@ -18,6 +18,7 @@ export type ResolvedPlayerTiles = {
   strategicFrontierTiles: PlannerTileView[];
   buildCandidateTiles: PlannerTileView[];
   pendingSettlementTileKeys: Set<string>;
+  townTiles: PlannerTileView[];
 };
 
 type CachedPlayerTiles = {
@@ -44,7 +45,8 @@ export const resolvePlayerTiles = (
       hotFrontierTiles: cached.hotFrontierTiles,
       strategicFrontierTiles: cached.strategicFrontierTiles,
       buildCandidateTiles: cached.buildCandidateTiles,
-      pendingSettlementTileKeys: cached.pendingSettlementTileKeys
+      pendingSettlementTileKeys: cached.pendingSettlementTileKeys,
+      townTiles: cached.townTiles
     };
   }
 
@@ -81,13 +83,22 @@ export const resolvePlayerTiles = (
 
   const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
 
+  // Small (tens of tiles) — a plain lookup loop here is fine, same as the
+  // buckets above; no separate incremental cache needed for this size.
+  const townTiles: PlannerTileView[] = [];
+  for (const k of player.townTileKeys) {
+    const t = tilesByKey.get(k);
+    if (t) townTiles.push(t);
+  }
+
   const resolved: ResolvedPlayerTiles = {
     ownedTiles,
     frontierTiles,
     hotFrontierTiles,
     strategicFrontierTiles,
     buildCandidateTiles,
-    pendingSettlementTileKeys
+    pendingSettlementTileKeys,
+    townTiles
   };
 
   cache.set(player.id, {
