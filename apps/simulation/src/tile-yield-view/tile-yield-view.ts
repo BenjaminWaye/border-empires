@@ -173,7 +173,10 @@ const wrappedAxisDistance = (a: number, b: number, span: number): number => {
  * drift out of sync again.
  */
 export const farmsteadFoodBonusPerMinute = (
-  tile: Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">,
+  // Structural param (not Pick<DomainTileState>) so both live-runtime DomainTiles
+  // and snapshot-path tiles carrying a loosely-parsed economicStructure
+  // ({ type?, status? } from economicStructureJson) can call this one helper.
+  tile: { x: number; y: number; resource?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined },
   waterworksKeys: ReadonlySet<string>
 ): number => {
   if (tile.resource !== "FARM") return 0;
