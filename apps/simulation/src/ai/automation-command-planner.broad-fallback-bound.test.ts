@@ -66,6 +66,41 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     expect(result.command).toMatchObject({ type: "EXPAND" });
   });
 
+  it("marks broadFallbackSkipped when the narrow/hot scan alone is already actionable, even though a real target sits elsewhere on the frontier", () => {
+    // The "tunnel vision" case docs/agents/topics/ai-planner.md flags as not
+    // yet fixed: baseFrontierOrigins is winner-take-all, so a hot origin with
+    // an enemy neighbor (actionable on its own, even unattackable this tick)
+    // makes hasActionableFrontierAnalysis() true and the broad sweep of the
+    // rest of the frontier never runs — even though a real economic
+    // opportunity sits on a completely different, unscanned frontier tile.
+    const hotOrigin = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemyNeighbor = makeTile(1, 0, { ownerId: "enemy-1" });
+    const otherFrontier = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+    const ownedTiles = [hotOrigin, otherFrontier];
+    const tilesByKey = new Map(
+      [hotOrigin, enemyNeighbor, otherFrontier, economicNeutral].map((t) => [`${t.x},${t.y}`, t])
+    );
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 1000,
+      manpower: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      hotFrontierTiles: [hotOrigin],
+      frontierTiles: ownedTiles,
+      ownedTiles,
+      tilesByKey,
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.diagnostic.frontierEnemyTargetCount).toBe(1);
+    expect(result.diagnostic.broadFallbackSkipped).toBe(true);
+  });
+
   it("bounds the broad fallback's frontierTiles contribution to a fixed sample regardless of empire size", () => {
     // Structural-complexity guard (per docs/agents/ai-guardrails.md: prove
     // hot-path bounds with deterministic counters, not wall-clock timing).
