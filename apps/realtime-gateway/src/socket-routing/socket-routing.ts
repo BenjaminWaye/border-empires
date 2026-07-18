@@ -8,7 +8,7 @@ type SocketSession = {
   channel: "control" | "bulk";
 };
 
-type EventType = "COMMAND_ACCEPTED" | "COMMAND_REJECTED" | "COMBAT_CANCELLED" | "COMBAT_RESOLVED" | "TILE_DELTA_BATCH" | "PLAYER_MESSAGE" | "COLLECT_RESULT" | "TECH_UPDATE" | "DOMAIN_UPDATE";
+type EventType = "COMMAND_ACCEPTED" | "COMMAND_REJECTED" | "COMMAND_RESOLVED" | "COMBAT_CANCELLED" | "COMBAT_RESOLVED" | "TILE_DELTA_BATCH" | "PLAYER_MESSAGE" | "COLLECT_RESULT" | "TECH_UPDATE" | "DOMAIN_UPDATE";
 
 const isOpenSocket = <TSocket extends SocketLike>(socket: TSocket): boolean => socket.readyState === socket.OPEN;
 
