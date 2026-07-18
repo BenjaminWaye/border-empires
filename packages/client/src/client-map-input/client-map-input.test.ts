@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM, MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { isDoubleTap, resolveBoxSelectionMouseUpAction } from "./client-map-input.js";
 
 describe("resolveBoxSelectionMouseUpAction", () => {
@@ -58,5 +59,20 @@ describe("isDoubleTap", () => {
         lastTapLocation: { x: 10, y: 10 }
       })
     ).toBe(false);
+  });
+});
+
+describe("mobile double-tap zoom values", () => {
+  // Pinned to the on-device values found via the Settings zoom debug
+  // readout: login at 58, double-tap toggles down to 26 and back to 58.
+  it("swings the mobile login zoom down to exactly 26 on the first double-tap and back on the second", () => {
+    expect(MOBILE_LOGIN_ZOOM).toBe(58);
+    expect(MOBILE_LOGIN_ZOOM - DOUBLE_TAP_ZOOM_STEP).toBe(26);
+    expect(MOBILE_LOGIN_ZOOM - DOUBLE_TAP_ZOOM_STEP + DOUBLE_TAP_ZOOM_STEP).toBe(MOBILE_LOGIN_ZOOM);
+  });
+
+  it("keeps both the login zoom and its zoomed-out counterpart within the pan/zoom bounds", () => {
+    expect(MOBILE_LOGIN_ZOOM).toBeLessThanOrEqual(MAX_ZOOM);
+    expect(MOBILE_LOGIN_ZOOM - DOUBLE_TAP_ZOOM_STEP).toBeGreaterThanOrEqual(MIN_ZOOM);
   });
 });
