@@ -870,6 +870,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onAuthRecoveryRespawn: () => { simulationMetrics.incrementSimAuthRecoveryRespawn(); },
+    onAuthRecoveryRespawnGuarded: () => { simulationMetrics.incrementSimAuthRecoveryRespawnGuarded(); },
     onOwnershipChange: (sample) => {
       const lostTown = sample.townLost;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;

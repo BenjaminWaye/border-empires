@@ -30,6 +30,8 @@ export type RuntimeRespawnContext = {
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   respawnMinimumGold: number;
+  incrementAuthRecoveryRespawn: () => void;
+  incrementAuthRecoveryRespawnGuarded: () => void;
 };
 
 export const preparePlayerRespawnNotice = (
@@ -86,7 +88,25 @@ export const ensurePlayerHasSpawnTerritory = (
   const territoryTiles = ctx.summaryForPlayer(playerId).territoryTileKeys.size;
   const hasPendingNotice = ctx.pendingRespawnNoticeByPlayerId.has(playerId);
   if (territoryTiles > 0) return false;
-  if (!player.isAi && !hasPendingNotice) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", "ensure_player_has_spawn_territory");
+  // World-sanity guard: territoryTiles reads 0 from the same in-memory
+  // ctx.tiles map that backs every other tile-ownership check, so a genuine
+  // zero for one player is trustworthy only if the world itself actually
+  // loaded. If ctx.tiles is empty, startup recovery (or a mid-session
+  // restore) has not populated territory data yet/failed to — placing a
+  // fresh auth_recovery spawn here would silently overwrite the player's
+  // real empire once the world does load. Refuse and surface it instead.
+  if (ctx.tiles.size === 0) {
+    ctx.incrementAuthRecoveryRespawnGuarded();
+    ctx.runtimeLogInfo(
+      { type: "auth_recovery_respawn_guarded", playerId, territoryTiles, worldTileCount: ctx.tiles.size },
+      "skipped auth_recovery respawn: world tiles not loaded"
+    );
+    return false;
+  }
+  if (!player.isAi) {
+    if (!hasPendingNotice) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", "ensure_player_has_spawn_territory");
+    ctx.incrementAuthRecoveryRespawn();
+  }
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
   const spawn = chooseLegacySpawnPlacement({ playerId, tiles: ctx.tiles.values(), blockedTileKeys, ...(rallyAnchor ? { rallyAnchor } : {}) });

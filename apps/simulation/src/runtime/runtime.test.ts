@@ -226,6 +226,57 @@ describe("simulation runtime", () => {
     expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
   });
 
+  it("does not respawn (world-sanity guard) when the world tile map is empty", () => {
+    // Regression: territoryTiles reads 0 from the same in-memory ctx.tiles map
+    // that backs every ownership check. If the world itself never loaded
+    // (e.g. a stale/incomplete startup recovery), that zero is not
+    // trustworthy — placing a fresh auth_recovery spawn here would silently
+    // overwrite the player's real empire once the world does load. See
+    // ensurePlayerHasSpawnTerritory's world-sanity guard.
+    let guardedCount = 0;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialState: { tiles: [], activeLocks: [] },
+      onAuthRecoveryRespawnGuarded: () => { guardedCount += 1; }
+    });
+
+    const respawned = runtime.ensurePlayerHasSpawnTerritory("returning-human");
+    expect(respawned).toBe(false);
+    expect(guardedCount).toBe(1);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "returning-human")).toHaveLength(0);
+  });
+
+  it("still respawns a genuinely zero-territory player when the world is populated", () => {
+    // The legitimate case the guard must not break: an existing/new player
+    // with no owned tiles reconnecting into a healthy, populated world.
+    let respawnCount = 0;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1")]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      },
+      onAuthRecoveryRespawn: () => { respawnCount += 1; }
+    });
+
+    const respawned = runtime.ensurePlayerHasSpawnTerritory("firebase-user-1");
+    expect(respawned).toBe(true);
+    expect(respawnCount).toBe(1);
+
+    const state = runtime.exportState();
+    expect(state.tiles.some((tile) => tile.ownerId === "firebase-user-1")).toBe(true);
+  });
+
   it("preserves recovered territory for a returning player missing from initialState.players", () => {
     // Regression: after a sim restart, recovery rebuilds per-player tile
     // summaries via lazy applyTileToPlayerSummaries even when the human
