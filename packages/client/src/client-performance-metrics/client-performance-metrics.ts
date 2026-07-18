@@ -2,8 +2,16 @@ import { getCurrentFps } from "../client-fps-monitor/client-fps-monitor.js";
 
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000;
 const FPS_SAMPLE_INTERVAL_MS = 2_000;
-const MAX_FRAME_PHASE_SAMPLES = 300;
-const MAX_DRAW_FPS_SAMPLES = 300;
+// ~1-2 minutes of real frames at 25-42fps — long enough to still hold an
+// earlier lag spike by the time a player notices and clicks Download
+// Diagnostics, short enough to stay cheap (a few dozen KB) for the session.
+const MAX_FRAME_PHASE_SAMPLES = 1_800;
+const MAX_DRAW_FPS_SAMPLES = 1_800;
+// A gap this large between rendered frames means the tab was backgrounded
+// or the browser paused rAF entirely, not that the renderer is slow —
+// without this cap one resumed-from-background frame poisons drawFps's
+// min/p50 with a near-zero outlier for as long as it stays in the buffer.
+const MAX_DRAW_FRAME_GAP_MS = 1_000;
 
 const fpsSamples: number[] = [];
 const MAX_FPS_SAMPLES = 3000;
@@ -17,7 +25,6 @@ export type FramePhaseSample = {
 
 const framePhaseSamples: FramePhaseSample[] = [];
 const drawFpsSamples: number[] = [];
-let lastDrawFrameAt = 0;
 
 let navTiming: Record<string, number | string | undefined> | undefined;
 let connectionInfo: Record<string, unknown> | undefined;
@@ -149,21 +156,22 @@ export const recordFramePhaseSample = (sample: FramePhaseSample): void => {
 // throttle bails out of) and drives the low-fps renderer-downgrade prompt.
 // This tracks the cadence of frames that actually rendered, so a reading
 // pinned near the mobile throttle's cap (25fps) reads as "hitting the
-// intentional cap," not "renderer is struggling."
-export const recordDrawFrame = (nowMs: number): void => {
-  if (lastDrawFrameAt > 0) {
-    const deltaMs = nowMs - lastDrawFrameAt;
-    if (deltaMs > 0) {
+// intentional cap," not "renderer is struggling." Takes the previous draw's
+// timestamp from the caller (which already tracks it for the throttle gate)
+// rather than duplicating that bookkeeping here.
+export const recordDrawFrame = (previousDrawAt: number, nowMs: number): void => {
+  if (previousDrawAt > 0) {
+    const deltaMs = nowMs - previousDrawAt;
+    if (deltaMs > 0 && deltaMs < MAX_DRAW_FRAME_GAP_MS) {
       drawFpsSamples.push(1000 / deltaMs);
       if (drawFpsSamples.length > MAX_DRAW_FPS_SAMPLES) drawFpsSamples.shift();
     }
   }
-  lastDrawFrameAt = nowMs;
 };
 
 const numericStats = (
   values: number[]
-): { count: number; min: number; max: number; avg: number; p50: number; p95: number } | undefined => {
+): { count: number; min: number; max: number; avg: number; p50: number; p95: number; p99: number } | undefined => {
   if (values.length === 0) return undefined;
   const sorted = [...values].sort((a, b) => a - b);
   return {
@@ -172,7 +180,8 @@ const numericStats = (
     max: sorted[sorted.length - 1]!,
     avg: sorted.reduce((a, b) => a + b, 0) / sorted.length,
     p50: percentile(sorted, 50)!,
-    p95: percentile(sorted, 95)!
+    p95: percentile(sorted, 95)!,
+    p99: percentile(sorted, 99)!
   };
 };
 
@@ -200,23 +209,17 @@ export const initPerformanceMetrics = (): void => {
 };
 
 export const snapshotPerformanceMetrics = (): Record<string, unknown> => {
-  const sorted = [...fpsSamples].sort((a, b) => a - b);
-
   const mem = (performance as unknown as Record<string, unknown>).memory as
     | { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
     | undefined;
 
   return {
-    fps: {
-      count: sorted.length,
-      min: sorted[0] ?? undefined,
-      max: sorted[sorted.length - 1] ?? undefined,
-      avg: sorted.length > 0 ? sorted.reduce((a, b) => a + b, 0) / sorted.length : undefined,
-      p50: percentile(sorted, 50),
-      p95: percentile(sorted, 95),
-      p99: percentile(sorted, 99)
-    },
+    fps: numericStats(fpsSamples),
+    fpsNote:
+      "Sampled on every requestAnimationFrame tick, including ticks the mobile frame-gap throttle skips before rendering. Reflects main-thread responsiveness/jank, not visual update rate.",
     drawFps: numericStats(drawFpsSamples),
+    drawFpsNote:
+      "Sampled once per frame that actually rendered (post-throttle). A reading pinned near the mobile cap (25fps) means the renderer is hitting its intentional cap, not struggling.",
     framePhases: snapshotFramePhases(),
     navigationTiming: navTiming,
     connection: connectionInfo,
@@ -236,7 +239,6 @@ export const resetPerformanceMetricsForTests = (): void => {
   fpsSamples.length = 0;
   framePhaseSamples.length = 0;
   drawFpsSamples.length = 0;
-  lastDrawFrameAt = 0;
   navTiming = undefined;
   connectionInfo = undefined;
   windowInfo = undefined;

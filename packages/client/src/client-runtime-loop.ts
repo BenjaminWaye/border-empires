@@ -173,6 +173,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       return;
     }
     const frameStartAt = nowMs;
+    const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
@@ -1605,7 +1606,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       overlayPostMs: frameEndAt - tileEndAt,
       totalFrameMs: frameEndAt - frameStartAt
     });
-    recordDrawFrame(frameStartAt);
+    recordDrawFrame(previousDrawAt, frameStartAt);
     requestAnimationFrame(draw);
   };
 
