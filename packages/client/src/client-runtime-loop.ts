@@ -185,6 +185,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (el.textContent !== label) el.textContent = label;
         });
       }
+      const zoomReadouts = document.querySelectorAll<HTMLElement>("[data-zoom-readout]");
+      if (zoomReadouts.length > 0) {
+        const zoomLabel = Math.round(state.zoom).toString();
+        zoomReadouts.forEach((el) => {
+          if (el.textContent !== zoomLabel) el.textContent = zoomLabel;
+        });
+      }
       if (
         !lowFpsRendererHudPinged &&
         shouldShowRendererPrompt({

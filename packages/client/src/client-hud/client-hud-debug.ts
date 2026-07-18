@@ -1,5 +1,6 @@
 import type { Auth } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
+import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { getCurrentFps } from "../client-fps-monitor/client-fps-monitor.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -93,7 +94,7 @@ export const bridgeStatusHtml = (
 };
 
 export type AuthDebugState = BridgeDebugState &
-  Pick<ClientState, "activeBackend" | "connection">;
+  Pick<ClientState, "activeBackend" | "connection" | "zoom">;
 
 export interface AuthDebugSnapshot {
   firebaseProjectId: string;
@@ -108,6 +109,8 @@ export interface AuthDebugSnapshot {
   bootstrapLabel: string;
   wsLabel: string;
   fpsLabel: string;
+  zoomLabel: string;
+  zoomRangeLabel: string;
 }
 
 export const authDebugSnapshot = (
@@ -144,6 +147,8 @@ export const authDebugSnapshot = (
   const wsLabel = state.bridgeDebugWsUrl || wsUrl;
   const fps = getCurrentFps();
   const fpsLabel = fps === undefined ? "—" : Math.round(fps).toString();
+  const zoomLabel = Math.round(state.zoom).toString();
+  const zoomRangeLabel = `${MIN_ZOOM}–${MAX_ZOOM}`;
   return {
     firebaseProjectId,
     firebaseAuthDomain,
@@ -157,6 +162,8 @@ export const authDebugSnapshot = (
     bootstrapLabel,
     wsLabel,
     fpsLabel,
+    zoomLabel,
+    zoomRangeLabel,
   };
 };
 
@@ -183,6 +190,7 @@ export const authDebugCopyPayload = (
       `Bridge ${state.bridgeDebugMode || "unknown"}`,
       `Bootstrap ${details.bootstrapLabel}`,
       `Render FPS ${details.fpsLabel}`,
+      `Zoom ${details.zoomLabel} (range ${details.zoomRangeLabel})`,
       `Season ${details.seasonId}`,
       `Runtime ${details.runtimeFingerprint}`,
       `WS ${details.wsLabel}`,
@@ -201,6 +209,7 @@ export const authDebugHtml = (details: AuthDebugSnapshot): string => {
         <div><strong>Providers</strong> ${details.providerLabel}</div>
         <div><strong>Player</strong> ${details.playerId} · ${details.playerName}</div>
         <div><strong>Render FPS</strong> <span data-fps-readout>${details.fpsLabel}</span></div>
+        <div><strong>Zoom</strong> <span data-zoom-readout>${details.zoomLabel}</span> <span class="bridge-debug-zoom-range">(range ${details.zoomRangeLabel})</span></div>
       </div>
     `;
 };

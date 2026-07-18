@@ -35,6 +35,7 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudDebugSource).toContain("export const authDebugHtml = (details: AuthDebugSnapshot): string => {");
     expect(hudDebugSource).toContain("Render FPS");
     expect(hudDebugSource).toContain("data-fps-readout");
+    expect(hudDebugSource).toContain("data-zoom-readout");
     expect(hudDebugSource).toContain("data-copy-auth-debug");
     expect(hudDebugSource).toContain("Copy Auth Debug");
     expect(hudDebugSource).toContain("details.authUid");
