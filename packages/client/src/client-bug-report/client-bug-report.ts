@@ -1,7 +1,7 @@
 import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "../client-performance-metrics/client-performance-metrics.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { serverHttpOriginFromWsUrl } from "../client-debug-bundle/client-debug-bundle.js";
+import { serverHttpOriginFromWsUrl, withTimeout, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // ---------------------------------------------------------------------------
@@ -37,10 +37,6 @@ type BugReportClientContext = {
   bridgeDebugServerBuildSha: string;
 };
 
-type JsonFetchResult =
-  | { ok: true; status: number; body: unknown }
-  | { ok: false; status?: number; error: string };
-
 export type BugReportPayload = {
   metadata: BugReportMetadata;
   description: string;
@@ -54,44 +50,12 @@ export type BugReportPayload = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const FETCH_TIMEOUT_MS = 4_000;
 const CLIENT_EVENT_LIMIT = 100;
 const MAX_DESCRIPTION_LENGTH = 1_000;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const withTimeout = async (url: string): Promise<JsonFetchResult> => {
-  const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      credentials: "omit",
-      signal: controller.signal,
-      headers: { Accept: "application/json" }
-    });
-    const body = await response.json().catch(() => undefined);
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        error: typeof (body as { message?: unknown } | undefined)?.message === "string"
-          ? (body as { message: string }).message
-          : `HTTP ${response.status}`
-      };
-    }
-    return { ok: true, status: response.status, body };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error)
-    };
-  } finally {
-    globalThis.clearTimeout(timeout);
-  }
-};
 
 const buildClientContext = (state: ClientState): BugReportClientContext => ({
   connection: state.connection,
@@ -172,13 +136,6 @@ export const submitBugReport = async (args: {
 // ---------------------------------------------------------------------------
 // Modal HTML
 // ---------------------------------------------------------------------------
-
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 
 export const bugReportModalHtml = (): string => `
   <div class="bug-report-backdrop" data-bug-report-backdrop></div>

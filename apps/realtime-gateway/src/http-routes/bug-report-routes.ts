@@ -31,6 +31,14 @@ export const setBugReportAlerter = (args: {
 const BUG_REPORT_RATE_WINDOW_MS = 60 * 60_000;
 const BUG_REPORT_RATE_MAX = 5;
 
+// Hard cap on distinct IPs tracked at once. Without this, `rateLimit` grows by
+// one entry per unique IP that ever calls this endpoint and never shrinks —
+// exactly the unbounded-Map pattern that has previously frozen the gateway
+// event loop (see docs/agents/state-and-persistence-discipline.md). Map
+// iteration order is insertion order, and we delete+re-set on every touch, so
+// the oldest key is always the least-recently-active one to evict.
+const BUG_REPORT_RATE_MAP_MAX_IPS = 2_000;
+
 const BUG_REPORT_LIFECYCLE_EVENTS = new Set([
   "player_connected", "player_disconnected", "command_submit",
   "sim_event_latency", "frontier_action_received"
@@ -58,7 +66,17 @@ export const registerBugReportRoutes = (app: FastifyInstance): void => {
       return { ok: false, error: "rate limit exceeded — try again later" };
     }
     recent.push(now);
+    // Delete-then-set moves this IP to the end of Map iteration order,
+    // marking it most-recently-active for the eviction check below.
+    rateLimit.delete(ip);
     rateLimit.set(ip, recent);
+    if (rateLimit.size > BUG_REPORT_RATE_MAP_MAX_IPS) {
+      const oldestIp = rateLimit.keys().next().value;
+      if (oldestIp !== undefined) {
+        rateLimit.delete(oldestIp);
+        app.log.warn({ trackedIps: rateLimit.size }, "bug_report_rate_map_evicted");
+      }
+    }
 
     const body = request.body && typeof request.body === "object" ? request.body as Record<string, unknown> : {};
     const description = typeof body.description === "string" ? body.description.trim() : "";
