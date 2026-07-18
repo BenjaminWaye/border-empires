@@ -9,7 +9,7 @@ import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
-import { createSlackAlerter, type SlackAlerter } from "../slack-alerts/slack-alerts.js";
+import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { initialSocialNameForSeedPlayer, resolveGatewayAuthIdentity, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -1133,7 +1133,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   registerGatewayHttpRoutes(
     app,
-    buildGatewayHttpRoutesDeps({
+    buildGatewayHttpRoutesDeps(app, {
       startupStartedAt,
       ...(options.simulationAddress ? { simulationAddress: options.simulationAddress } : {}),
       simulationSeedProfile,
@@ -1153,7 +1153,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore,
       galaxyEndorsementStore,
       authBindingStore,
-      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
+      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}), ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {})
     })
   );
 

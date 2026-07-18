@@ -30,7 +30,7 @@ type DebugBundleState = Pick<
   | "bridgeDebugSupportedMessageCount"
 >;
 
-type JsonFetchResult =
+export type JsonFetchResult =
   | { ok: true; status: number; body: unknown }
   | { ok: false; status?: number; error: string };
 
@@ -55,7 +55,7 @@ export const serverHttpOriginFromWsUrl = (wsUrl: string): string => {
   return url.origin;
 };
 
-const withTimeout = async (url: string): Promise<JsonFetchResult> => {
+export const withTimeout = async (url: string): Promise<JsonFetchResult> => {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), DEBUG_FETCH_TIMEOUT_MS);
   try {

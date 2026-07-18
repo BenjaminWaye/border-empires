@@ -15,6 +15,7 @@ import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-w
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
@@ -974,65 +975,42 @@ export const renderClientHud = (deps: HudDeps): void => {
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
         <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
+        <button type="button" class="panel-btn" data-settings-report-bug>Report Bug</button>
       </div>
     `;
     dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
   }
 
-  const acceptButtons = dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>;
-  acceptButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
-    };
-  });
-  const rejectButtons = dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>;
-  rejectButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
-    };
-  });
-  const cancelButtons = dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>;
-  cancelButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_CANCEL", requestId: id }, "Finish sign-in before changing alliance requests.");
-    };
-  });
+  // Shared binder for the near-identical accept/reject/cancel request-action
+  // buttons below (alliance + truce), which previously duplicated the same
+  // querySelectorAll/forEach/onclick shape six times.
+  const bindRequestActionButtons = (
+    selector: string,
+    datasetKey: "requestId" | "truceRequestId",
+    buildMessage: (id: string) => Record<string, unknown>,
+    failureMessage: string
+  ): void => {
+    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
+      btn.onclick = () => {
+        const id = btn.dataset[datasetKey];
+        if (!id) return;
+        sendGameMessage(buildMessage(id), failureMessage);
+      };
+    });
+  };
+  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
+  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
+
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const targetPlayerId = btn.dataset.allianceBreakPlayerId;
       if (!targetPlayerId) return;
       sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId }, "Finish sign-in before breaking alliances.");
-    };
-  });
-  const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;
-  acceptTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
-    };
-  });
-  const rejectTruceButtons = dom.hud.querySelectorAll(".reject-truce") as NodeListOf<HTMLButtonElement>;
-  rejectTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_REJECT", requestId: id }, "Finish sign-in before responding to truces.");
-    };
-  });
-  const cancelTruceButtons = dom.hud.querySelectorAll(".cancel-truce") as NodeListOf<HTMLButtonElement>;
-  cancelTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_CANCEL", requestId: id }, "Finish sign-in before changing truce requests.");
     };
   });
 
@@ -1101,6 +1079,9 @@ export const renderClientHud = (deps: HudDeps): void => {
       downloadDiagnosticsBundle(bundle);
     };
   });
+
+  // Bug report overlay
+  renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
 
   renderClientChangelogOverlay({
     state,
