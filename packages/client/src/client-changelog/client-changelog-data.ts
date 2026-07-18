@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.1",
+  version: "2026.07.18.2",
   title: "What's New",
-  summary: "Fixed the Farmstead building not increasing your empire-wide food income on the food detail panel — the +50% bonus was already working per-tile, but never made it into the totals shown to players. Also includes the previous release: display name changes now show up immediately after saving.",
+  summary: "Fixed a crash affecting some iPhone Safari players when opening the email sign-in link — the app now recovers instead of getting stuck in a repeating crash loop. Also includes the previous release: Farmstead's food bonus now shows up in your empire-wide food totals.",
   entries: [
+    {
+      introducedIn: "2026.07.18.2",
+      title: "Fixed a Safari crash loop on the email sign-in link",
+      why: "Some iPhone Safari sessions (most often when tapping the sign-in link from the Mail app) throw when the page tries to read browser storage instead of just returning empty. That unhandled error aborted the entire app before it could load, and because the failed link stayed in the address bar, reloading reproduced the identical crash every time — Safari eventually shows its own \"a problem repeatedly occurred\" page.",
+      changes: [
+        "Storage access during sign-in link handling no longer crashes the app if the browser blocks it; the login screen loads normally instead.",
+        "A failed or already-used sign-in link is now cleared from the address bar automatically, so reloading doesn't repeat the same failure.",
+        "Added a fallback error screen with a Reload button for any other unexpected startup failure, instead of a silent blank/white screen."
+      ]
+    },
     {
       introducedIn: "2026.07.18.1",
       title: "Farmstead now boosts empire-wide food income",
