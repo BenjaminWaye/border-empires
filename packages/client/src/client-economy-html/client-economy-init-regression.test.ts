@@ -3,9 +3,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+// INIT handling was extracted out of client-network.ts (over the repo's
+// file-line cap, frozen) into client-network-init-message.ts.
 const clientNetworkSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "../client-network/client-network.ts"), "utf8");
+  return readFileSync(resolve(here, "../client-network-init-message/client-network-init-message.ts"), "utf8");
 };
 
 describe("economy init regression guard", () => {
