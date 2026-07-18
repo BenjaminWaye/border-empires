@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.6",
+  version: "2026.07.18.7",
   title: "What's New",
-  summary: "Fixed Google sign-in failing with a confusing storage error inside in-app browsers like Facebook Messenger and Instagram. Also includes a fix for the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
+  summary: "Fixed the root cause of Google sign-in sometimes failing with a confusing storage error on regular mobile browsers, not just in-app browsers. Also includes the fix for known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
   entries: [
+    {
+      introducedIn: "2026.07.18.7",
+      title: "Fixed the root cause of Google sign-in's storage error on mobile browsers",
+      why: "Google sign-in's OAuth handshake round-trips through a page hosted on a different address (border-empires.firebaseapp.com) than the game itself. Some mobile browsers block that page from using the storage it needs to track the sign-in, which surfaced as Firebase's raw, confusing \"Unable to process request due to missing initial state\" error — on regular Chrome and Safari, not just in-app browsers.",
+      changes: [
+        "Google sign-in's handshake now runs on the game's own address instead of a separate one, so the browser no longer treats it as third-party storage to block.",
+        "This fixes the underlying cause for regular mobile browsers; the existing guidance for in-app browsers (Messenger, Instagram, etc.) to open the page in Chrome or Safari is unaffected."
+      ]
+    },
     {
       introducedIn: "2026.07.18.6",
       title: "Fixed Google sign-in failing inside Messenger/Instagram's in-app browser",
