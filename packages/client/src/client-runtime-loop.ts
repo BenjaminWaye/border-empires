@@ -1316,8 +1316,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
       }
     }
+    const roadOverlayEndAt = performance.now();
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
+    const tileOverlayEndAt = performance.now();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {
       debugWindow.__be3dCanvasOverlayDebug = {
@@ -1367,6 +1369,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
+    const selectionPreviewEndAt = performance.now();
 
     if (state.aetherWallTargeting.active) {
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
@@ -1457,6 +1460,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
+    const targetingUiEndAt = performance.now();
 
     const routeDash = [9, 8];
     const wrapJumpX = (WORLD_WIDTH * size) / 2;
@@ -1545,6 +1549,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
+    const routesEndAt = performance.now();
 
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
@@ -1585,6 +1590,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
       deps.ctx.restore();
     }
+    const fxEndAt = performance.now();
 
     deps.drawMiniMap();
     drawPersistentAlertLocators(state, {
@@ -1597,6 +1603,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       halfH,
       nowMs
     });
+    const minimapAlertsEndAt = performance.now();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     const frameEndAt = performance.now();
@@ -1604,7 +1611,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       frameSetupMs: tileStartAt - frameStartAt,
       tileRenderMs: tileEndAt - tileStartAt,
       overlayPostMs: frameEndAt - tileEndAt,
-      totalFrameMs: frameEndAt - frameStartAt
+      totalFrameMs: frameEndAt - frameStartAt,
+      roadOverlayMs: roadOverlayEndAt - tileEndAt,
+      tileOverlayMs: tileOverlayEndAt - roadOverlayEndAt,
+      selectionPreviewMs: selectionPreviewEndAt - tileOverlayEndAt,
+      targetingUiMs: targetingUiEndAt - selectionPreviewEndAt,
+      routesMs: routesEndAt - targetingUiEndAt,
+      fxMs: fxEndAt - routesEndAt,
+      minimapAlertsMs: minimapAlertsEndAt - fxEndAt,
+      tileDetailMs: frameEndAt - minimapAlertsEndAt
     });
     recordDrawFrame(previousDrawAt, frameStartAt);
     requestAnimationFrame(draw);
