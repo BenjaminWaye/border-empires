@@ -174,6 +174,20 @@ describe("client app runtime env", () => {
       );
     });
 
+    it("falls back to the border-empires.firebaseapp.com authDomain on a Vercel preview host, whose hostname isn't a registered Google OAuth redirect URI", async () => {
+      vi.stubGlobal("window", {
+        location: { hostname: "border-empires-client-git-some-branch-benjaminwayes-projects.vercel.app", protocol: "https:" }
+      });
+      const { initializeApp } = await import("firebase/app");
+      const { createClientFirebaseSetup } = await import("./client-app-runtime-env.js");
+
+      createClientFirebaseSetup();
+
+      expect(initializeApp).toHaveBeenCalledWith(
+        expect.objectContaining({ authDomain: "border-empires.firebaseapp.com" })
+      );
+    });
+
     it("respects an explicit VITE_FIREBASE_AUTH_DOMAIN override on a deployed host", async () => {
       const env = import.meta.env as Record<string, string | undefined>;
       env.VITE_FIREBASE_AUTH_DOMAIN = "custom-auth-domain.example.com";
