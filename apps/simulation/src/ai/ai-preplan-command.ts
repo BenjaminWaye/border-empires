@@ -29,8 +29,8 @@ type AutomationPreplanTile = {
 // population forever but never actually reach the CITY/GREAT_CITY/METROPOLIS
 // tier, missing out on the population income multiplier (townPopulationMultiplier
 // in player-update-economy.ts) that tier unlocks.
-const chooseAiTownTierUpgrade = <TTile extends AutomationPreplanTile>(
-  ownedTiles: readonly TTile[],
+const chooseAiTownTierUpgrade = (
+  ownedTiles: readonly AutomationPreplanTile[],
   strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined
 ): { x: number; y: number } | undefined => {
   const availableFood = strategicResources?.FOOD ?? 0;
@@ -117,7 +117,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
 
-  if (!needsFood) {
+  if (!needsFood && townCount > 0) {
     const townTierUpgrade = chooseAiTownTierUpgrade(input.ownedTiles, input.strategicResources);
     if (townTierUpgrade) {
       return {
