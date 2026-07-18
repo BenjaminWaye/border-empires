@@ -36,6 +36,7 @@ import {
   fedTownKeysByPlayerCache
 } from "./snapshot-tile-cache.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { farmsteadFoodBonusPerMinute } from "./tile-yield-view/tile-yield-view.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -203,11 +204,34 @@ export const converterOutputPerMinute = (structureType: string): Partial<Record<
   }
 };
 
+// Farmstead's +50% food (doubled near an active Waterworks) is applied per-tile
+// by the yield view but is NOT part of converterOutputPerMinute, so this
+// whole-world aggregate must add it separately or the food total, the fed-town
+// calc, and the economy panels all under-count Farmsteads. Waterworks only
+// boosts the SAME owner's Farmsteads, so radius keys are collected per owner.
+const applyFarmsteadFoodToProduction = (
+  production: Map<string, Record<StrategicResourceKey, number>>,
+  waterworksKeysByOwner: Map<string, Set<string>>,
+  farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }>
+): void => {
+  const emptyKeys: ReadonlySet<string> = new Set();
+  for (const farmstead of farmsteadTiles) {
+    const target = production.get(farmstead.ownerId);
+    if (!target) continue;
+    target.FOOD += farmsteadFoodBonusPerMinute(
+      { x: farmstead.x, y: farmstead.y, resource: farmstead.resource, economicStructure: { type: "FARMSTEAD", status: "active" } },
+      waterworksKeysByOwner.get(farmstead.ownerId) ?? emptyKeys
+    );
+  }
+};
+
 export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<string, Record<StrategicResourceKey, number>> => {
   const cached = strategicProductionByPlayerCache.get(runtimeState);
   if (cached) return cached;
   const production = new Map<string, Record<StrategicResourceKey, number>>();
   for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
+  const waterworksKeysByOwner = new Map<string, Set<string>>();
+  const farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }> = [];
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
     const target = production.get(tile.ownerId) ?? emptyStrategic();
@@ -217,9 +241,15 @@ export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Ma
     if (structure?.status === "active" && structure.type) {
       const output = converterOutputPerMinute(structure.type);
       for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+      if (structure.type === "WATERWORKS") {
+        (waterworksKeysByOwner.get(tile.ownerId) ?? waterworksKeysByOwner.set(tile.ownerId, new Set()).get(tile.ownerId)!).add(`${tile.x},${tile.y}`);
+      } else if (structure.type === "FARMSTEAD") {
+        farmsteadTiles.push({ ownerId: tile.ownerId, x: tile.x, y: tile.y, resource: tile.resource });
+      }
     }
     production.set(tile.ownerId, target);
   }
+  applyFarmsteadFoodToProduction(production, waterworksKeysByOwner, farmsteadTiles);
   strategicProductionByPlayerCache.set(runtimeState, production);
   return production;
 };
@@ -232,6 +262,8 @@ export const buildStrategicProductionByPlayerAsync = async (
   if (cached) return cached;
   const production = new Map<string, Record<StrategicResourceKey, number>>();
   for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
+  const waterworksKeysByOwner = new Map<string, Set<string>>();
+  const farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }> = [];
   let tileIndex = 0;
   for (const tile of runtimeState.tiles) {
     if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
@@ -243,9 +275,15 @@ export const buildStrategicProductionByPlayerAsync = async (
     if (structure?.status === "active" && structure.type) {
       const output = converterOutputPerMinute(structure.type);
       for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+      if (structure.type === "WATERWORKS") {
+        (waterworksKeysByOwner.get(tile.ownerId) ?? waterworksKeysByOwner.set(tile.ownerId, new Set()).get(tile.ownerId)!).add(`${tile.x},${tile.y}`);
+      } else if (structure.type === "FARMSTEAD") {
+        farmsteadTiles.push({ ownerId: tile.ownerId, x: tile.x, y: tile.y, resource: tile.resource });
+      }
     }
     production.set(tile.ownerId, target);
   }
+  applyFarmsteadFoodToProduction(production, waterworksKeysByOwner, farmsteadTiles);
   strategicProductionByPlayerCache.set(runtimeState, production);
   return production;
 };

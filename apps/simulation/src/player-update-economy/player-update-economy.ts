@@ -31,6 +31,7 @@ import {
 } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
+  buildFedTownKeys,
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
@@ -43,6 +44,7 @@ import {
 } from "../economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { chosenTrickleRateForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { farmsteadFoodBonusPerMinute, radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type EconomyResourceKey = StrategicResourceKey | "GOLD";
@@ -200,7 +202,7 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
 };
 
 export { townFoodUpkeepPerMinute };
-export { hasSupportedStructure } from "../economy-network/economy-network.js";
+export { buildFedTownKeys, hasSupportedStructure } from "../economy-network/economy-network.js";
 
 export const supportSummaryForTown = (
   playerId: string,
@@ -225,7 +227,8 @@ export const supportSummaryForTown = (
 
 export const buildStrategicProductionForSettledTiles = (
   summary: PlayerRuntimeSummary,
-  settledTiles: readonly DomainTileState[]
+  settledTiles: readonly DomainTileState[],
+  waterworksKeys: ReadonlySet<string> = radiusStructureKeysForSettledTiles(settledTiles).waterworksKeys
 ): Record<StrategicResourceKey, number> => {
   const strategicProductionPerMinute = {
     ...summary.strategicProductionPerMinute
@@ -238,38 +241,10 @@ export const buildStrategicProductionForSettledTiles = (
     for (const [resourceKey, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) {
       strategicProductionPerMinute[resourceKey] += amount;
     }
+    strategicProductionPerMinute.FOOD += farmsteadFoodBonusPerMinute(tile, waterworksKeys);
   }
 
   return strategicProductionPerMinute;
-};
-
-export const buildFedTownKeys = (
-  player: DomainPlayer,
-  summary: PlayerRuntimeSummary,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  strategicProductionPerMinute: Record<StrategicResourceKey, number>
-): Set<string> => {
-  const availableFood = (player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD;
-  let remainingFood = availableFood;
-  const fedTownKeys = new Set<string>();
-  // Use ownedTownTierByTile (already an index of just owned town tiles) instead
-  // of spreading all territoryTileKeys and filtering. O(towns) vs O(territory).
-  const ownedSettledTowns = [...summary.ownedTownTierByTile.keys()]
-    .map((tileKey) => tiles.get(tileKey))
-    .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
-  for (const tile of ownedSettledTowns) {
-    const upkeep = townFoodUpkeepPerMinute(tile.town?.populationTier);
-    if (upkeep <= 0) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      continue;
-    }
-    if (remainingFood + 1e-9 >= upkeep) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      remainingFood = Math.max(0, remainingFood - upkeep);
-    }
-  }
-  return fedTownKeys;
 };
 
 export const townGoldPerMinuteForPlayer = (
@@ -367,7 +342,11 @@ export const buildPlayerUpdateEconomySnapshot = (
   const orderedTownTiles = [...summary.ownedTownTierByTile.keys()]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
-  const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles);
+  // radiusStructureKeysForSettledTiles is a radius scan over every settled
+  // tile; compute it once and thread it through both the empire-wide
+  // production total and the per-tile Farmstead breakdown below.
+  const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+  const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player, summary, tiles, strategicProductionPerMinute);
   const goldSources = new Map<string, EconomyBucket>();
@@ -445,6 +424,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      addBucket(foodSources, "Farmstead", farmsteadFoodBonusPerMinute(tile, waterworksKeys), { count: 1, resourceKey: "FOOD" });
     }
   }
 

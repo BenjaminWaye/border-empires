@@ -182,6 +182,57 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     );
   });
 
+  it("regression: active Farmstead on a FARM tile adds its +50% food bonus to strategicProductionPerMinute and economyBreakdown.FOOD", () => {
+    // Bug: converterOutputPerMinute (the empire-wide production function) had
+    // no FARMSTEAD case, so the building contributed zero extra food to the
+    // "food detailed production" page even though the per-tile yield view
+    // correctly applied the +50% bonus.
+    const player = makePlayer();
+    const farmTile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      resource: "FARM",
+      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", farmTile]]);
+
+    const withFarmstead = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+    const withoutFarmstead = buildPlayerUpdateEconomySnapshot(
+      player,
+      summaryForTiles(new Map([["10,10", { ...farmTile, economicStructure: undefined }]])),
+      new Map([["10,10", { ...farmTile, economicStructure: undefined }]])
+    );
+
+    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBeGreaterThan(withoutFarmstead.strategicProductionPerMinute.FOOD);
+    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBeCloseTo(withoutFarmstead.strategicProductionPerMinute.FOOD + (48 * 0.5) / 1440, 4);
+    expect(withFarmstead.economyBreakdown.FOOD.sources).toContainEqual(
+      expect.objectContaining({ label: "Farmstead", resourceKey: "FOOD" })
+    );
+  });
+
+  it("regression: Farmstead gives no food bonus on FISH tiles", () => {
+    const player = makePlayer();
+    const fishTile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      resource: "FISH",
+      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", fishTile]]);
+
+    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+
+    expect(economy.economyBreakdown.FOOD.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Farmstead" })
+    );
+  });
+
   it("goldCapIncomePerMinute equals incomePerMinute when no cap-mult techs are active", () => {
     const player = makePlayer();
     const tiles = new Map<string, DomainTileState>([

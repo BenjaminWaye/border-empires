@@ -45,6 +45,8 @@ export type TileYieldView = {
   yieldCap: TileYieldCapView;
 };
 
+const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
+
 const strategicDailyFromResource = (resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => {
   switch (resource) {
     case "FARM":
@@ -83,7 +85,7 @@ const converterDailyOutput = (
     // (Waterworks is a radius-support building like Foundry — it boosts nearby
     //  Farmsteads rather than producing food itself.)
     case "FARMSTEAD":
-      return { FOOD: 48 * 0.5 };
+      return { FOOD: FARMSTEAD_FOOD_BONUS_PER_DAY };
     default:
       return {};
   }
@@ -158,6 +160,30 @@ const roundPositive = (value: number, digits: number): number => {
 const wrappedAxisDistance = (a: number, b: number, span: number): number => {
   const raw = Math.abs(a - b);
   return Math.min(raw, span - raw);
+};
+
+/**
+ * Farmstead's empire-wide FOOD contribution (used by the "food detailed
+ * production" breakdown / strategicProductionPerMinute in
+ * player-update-economy.ts). Mirrors the per-tile logic in
+ * `converterDailyOutput`/`buildTileYieldView` below: +50% food, FARM tiles
+ * only (FISH gets nothing), doubled again when within WATERWORKS_RADIUS of
+ * an active Waterworks. Exported here — rather than duplicated — so both
+ * the per-tile yield view and the empire-wide production total can never
+ * drift out of sync again.
+ */
+export const farmsteadFoodBonusPerMinute = (
+  // Structural param (not Pick<DomainTileState>) so both live-runtime DomainTiles
+  // and snapshot-path tiles carrying a loosely-parsed economicStructure
+  // ({ type?, status? } from economicStructureJson) can call this one helper.
+  tile: { x: number; y: number; resource?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined },
+  waterworksKeys: ReadonlySet<string>
+): number => {
+  if (tile.resource !== "FARM") return 0;
+  if (tile.economicStructure?.type !== "FARMSTEAD" || tile.economicStructure.status !== "active") return 0;
+  const withinWaterworksRadius = waterworksKeys.size > 0 && withinRadiusOfAnyKey(tile.x, tile.y, waterworksKeys, WATERWORKS_RADIUS);
+  const dailyBonus = withinWaterworksRadius ? FARMSTEAD_FOOD_BONUS_PER_DAY * WATERWORKS_OUTPUT_MULT : FARMSTEAD_FOOD_BONUS_PER_DAY;
+  return dailyBonus / 1440;
 };
 
 const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
