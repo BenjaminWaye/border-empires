@@ -214,7 +214,11 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_full_vis_inline_build_total counter",
     `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
     "# TYPE sim_auto_fill_tiles_total counter",
-    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`
+    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`,
+    "# TYPE sim_auth_recovery_respawn_total counter",
+    `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
+    "# TYPE sim_auth_recovery_respawn_guarded_total counter",
+    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
