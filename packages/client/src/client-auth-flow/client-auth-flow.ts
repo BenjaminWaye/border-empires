@@ -21,6 +21,7 @@ import {
   syncAuthOverlay as syncAuthOverlayFromModule,
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "../client-auth-ui/client-auth-ui.js";
+import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { rallyCodeFromLocation } from "../client-rally-links/client-rally-links.js";
@@ -45,6 +46,7 @@ type AuthFlowDeps = {
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
+  isMobile: () => boolean;
 };
 
 type ClientAuthFlow = {
@@ -68,7 +70,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     ws,
     wsUrl,
     requireAuthedSession,
-    renderHud
+    renderHud,
+    isMobile
   } = deps;
 
   const authSession: AuthSession = {
@@ -342,6 +345,9 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         });
         state.authReady = true;
         state.authSessionReady = false;
+        if (isMobile()) {
+          state.zoom = MOBILE_LOGIN_ZOOM;
+        }
         setAuthBusy(true);
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
