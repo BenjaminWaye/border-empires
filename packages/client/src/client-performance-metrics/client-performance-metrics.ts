@@ -26,16 +26,22 @@ const FRAME_PHASE_FIELDS = [
   "overlayPostMs",
   "totalFrameMs",
   // overlayPostMs sub-phases, in the order they run — they sum to
-  // overlayPostMs, so a spike there should show up as a spike in exactly
-  // one (or a consistent few) of these.
+  // overlayPostMs on every individual frame, so a spike there should show
+  // up as a spike in exactly one (or a consistent few) of these. overlayPostMs
+  // stays independently recorded rather than being dropped in favor of
+  // summing these percentile stats after the fact: percentiles aren't
+  // linear (p95 of a sum isn't the sum of each part's p95, since the worst
+  // frame for one sub-phase usually isn't the worst frame for another), so
+  // only overlayPostMs's own stats reflect the actual per-frame total.
   "roadOverlayMs",
   "tileOverlayMs",
-  "selectionPreviewMs",
+  "selectionOverlaysMs",
   "targetingUiMs",
   "routesMs",
   "fxMs",
   "minimapAlertsMs",
-  "tileDetailMs"
+  "tileDetailMs",
+  "cameraRefreshMs"
 ] as const;
 
 export type FramePhaseSample = Record<(typeof FRAME_PHASE_FIELDS)[number], number>;

@@ -1309,6 +1309,19 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const tileEndAt = performance.now();
+    // Sequential sub-phase timer for the rest of the frame: each phaseMs()
+    // call returns elapsed time since the PREVIOUS call (or since tileEndAt
+    // for the first one) and captures it immediately at the measurement
+    // site — unlike hand-pairing named "XEndAt" checkpoints into a
+    // subtraction expression far below, a swapped or mismatched pair here
+    // isn't possible since there's nothing to pair by hand.
+    let lastPhaseMarkAt = tileEndAt;
+    const phaseMs = (): number => {
+      const markAt = performance.now();
+      const elapsed = markAt - lastPhaseMarkAt;
+      lastPhaseMarkAt = markAt;
+      return elapsed;
+    };
 
     for (const { wk, px, py, vis, t } of overlayTiles) {
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
@@ -1316,10 +1329,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
       }
     }
-    const roadOverlayEndAt = performance.now();
+    const roadOverlayMs = phaseMs();
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
-    const tileOverlayEndAt = performance.now();
+    const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {
       debugWindow.__be3dCanvasOverlayDebug = {
@@ -1369,7 +1382,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
-    const selectionPreviewEndAt = performance.now();
+    // Covers the true-3D debug overlay write above plus the observatory-range,
+    // structure-preview, and building-placement-preview overlays — named for
+    // the whole span, not just the last of those (selectionPreviewMs would
+    // undersell what this phase actually measures).
+    const selectionOverlaysMs = phaseMs();
 
     if (state.aetherWallTargeting.active) {
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
@@ -1460,7 +1477,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
-    const targetingUiEndAt = performance.now();
+    const targetingUiMs = phaseMs();
 
     const routeDash = [9, 8];
     const wrapJumpX = (WORLD_WIDTH * size) / 2;
@@ -1549,7 +1566,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
-    const routesEndAt = performance.now();
+    const routesMs = phaseMs();
 
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
@@ -1590,7 +1607,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
       deps.ctx.restore();
     }
-    const fxEndAt = performance.now();
+    const fxMs = phaseMs();
 
     deps.drawMiniMap();
     drawPersistentAlertLocators(state, {
@@ -1603,23 +1620,29 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       halfH,
       nowMs
     });
-    const minimapAlertsEndAt = performance.now();
+    const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
+    const tileDetailMs = phaseMs();
+    // Split from tileDetailMs: maybeRefreshForCamera can fire a network
+    // send on a camera-chunk change, a fundamentally different cost than
+    // the local bookkeeping in requestVisibleTileDetails above it.
     deps.maybeRefreshForCamera(false);
-    const frameEndAt = performance.now();
+    const cameraRefreshMs = phaseMs();
+    const frameEndAt = lastPhaseMarkAt;
     recordFramePhaseSample({
       frameSetupMs: tileStartAt - frameStartAt,
       tileRenderMs: tileEndAt - tileStartAt,
       overlayPostMs: frameEndAt - tileEndAt,
       totalFrameMs: frameEndAt - frameStartAt,
-      roadOverlayMs: roadOverlayEndAt - tileEndAt,
-      tileOverlayMs: tileOverlayEndAt - roadOverlayEndAt,
-      selectionPreviewMs: selectionPreviewEndAt - tileOverlayEndAt,
-      targetingUiMs: targetingUiEndAt - selectionPreviewEndAt,
-      routesMs: routesEndAt - targetingUiEndAt,
-      fxMs: fxEndAt - routesEndAt,
-      minimapAlertsMs: minimapAlertsEndAt - fxEndAt,
-      tileDetailMs: frameEndAt - minimapAlertsEndAt
+      roadOverlayMs,
+      tileOverlayMs,
+      selectionOverlaysMs,
+      targetingUiMs,
+      routesMs,
+      fxMs,
+      minimapAlertsMs,
+      tileDetailMs,
+      cameraRefreshMs
     });
     recordDrawFrame(previousDrawAt, frameStartAt);
     requestAnimationFrame(draw);
