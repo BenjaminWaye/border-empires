@@ -169,6 +169,7 @@ type GatewayInitPayload = {
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
+  shardRainNotice?: Record<string, unknown>;
 };
 
 export const resolveDataPath = (
@@ -1041,6 +1042,7 @@ export const buildGatewayInitPayload = (
         initialState?.tiles.filter((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.townType).length ??
         seedWorld.summary.totalTownTiles,
       dockPairs
-    }
+    },
+    ...(liveWorldStatus?.shardRainNotice ? { shardRainNotice: liveWorldStatus.shardRainNotice } : {})
   };
 };
