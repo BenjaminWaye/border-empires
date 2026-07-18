@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import { type ChosenTrickleResource, type Terrain } from "@border-empires/shared";
+import { nextTownGrowthUpgrade, type ChosenTrickleResource, type PopulationTier, type Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -14,11 +14,36 @@ import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "../t
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type AutomationPreplanTile = {
+  x: number;
+  y: number;
   ownershipState?: string | undefined;
   terrain: Terrain;
-  town?: unknown;
+  town?: { populationTier?: PopulationTier | undefined; population?: number | undefined } | null | undefined;
   dockId?: string | undefined;
   resource?: string | undefined;
+};
+
+// Mirrors the manual "Upgrade Town to City / Great City / Monumental City"
+// action a human player can click (client-tile-action-logic.ts's
+// townGrowthActionForUpgrade) — without this, AI towns keep growing
+// population forever but never actually reach the CITY/GREAT_CITY/METROPOLIS
+// tier, missing out on the population income multiplier (townPopulationMultiplier
+// in player-update-economy.ts) that tier unlocks.
+const chooseAiTownTierUpgrade = (
+  ownedTiles: readonly AutomationPreplanTile[],
+  strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined
+): { x: number; y: number } | undefined => {
+  const availableFood = strategicResources?.FOOD ?? 0;
+  for (const tile of ownedTiles) {
+    if (tile.ownershipState !== "SETTLED") continue;
+    const town = tile.town;
+    if (!town?.populationTier || typeof town.population !== "number") continue;
+    const upgrade = nextTownGrowthUpgrade(town.populationTier, town.population);
+    if (!upgrade?.available) continue;
+    if (availableFood < upgrade.foodCost) continue;
+    return { x: tile.x, y: tile.y };
+  }
+  return undefined;
 };
 
 export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
@@ -91,6 +116,28 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+
+  if (!needsFood && townCount > 0) {
+    const townTierUpgrade = chooseAiTownTierUpgrade(input.ownedTiles, input.strategicResources);
+    if (townTierUpgrade) {
+      return {
+        command: createAutomationCommand(
+          input.sessionPrefix,
+          input.playerId,
+          input.clientSeq,
+          input.issuedAt,
+          "UPGRADE_TOWN_TIER",
+          { x: townTierUpgrade.x, y: townTierUpgrade.y }
+        ),
+        diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+          preplanNeedsEconomy: needsEconomy,
+          preplanNeedsFood: needsFood,
+          preplanReason: "upgrade_town_tier"
+        })
+      };
+    }
+  }
+
   const techChoice = chooseAiTechChoiceForPlayer(
     {
       id: input.playerId,
