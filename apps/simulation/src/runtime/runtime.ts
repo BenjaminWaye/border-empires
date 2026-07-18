@@ -1906,7 +1906,6 @@ export class SimulationRuntime {
     });
   }
 
-
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
@@ -2032,6 +2031,7 @@ export class SimulationRuntime {
     }
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
+      const townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
       const preplan = chooseAutomationPreplanCommand({
         playerId,
         points: player.points,
@@ -2042,7 +2042,7 @@ export class SimulationRuntime {
         townCount: summary.townCount,
         incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         hasActiveLock,
-        ownedTiles,
+        ownedTiles, townTiles,
         clientSeq,
         issuedAt,
         sessionPrefix

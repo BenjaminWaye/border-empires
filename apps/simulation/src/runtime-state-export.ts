@@ -436,6 +436,10 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
       buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
       pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
+      // Small (tens of tiles), safe to spread fresh every sync unlike the
+      // territory-sized key sets above, which is why this bypasses the
+      // incremental planner-tile-keys-cache machinery entirely.
+      townTileKeys: [...summary.ownedTownTierByTile.keys()],
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
       ...(expansionObjective ? { expansionObjective } : {}),

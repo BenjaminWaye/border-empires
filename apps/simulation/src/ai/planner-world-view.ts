@@ -77,6 +77,8 @@ export type PlannerPlayerView = {
   buildCandidateTileKeys: string[];
   /** tileKeys of in-progress settle commands (don't double-settle). */
   pendingSettlementTileKeys: string[];
+  /** SETTLED tileKeys with a town — small (tens), safe to spread fresh per sync. */
+  townTileKeys: string[];
   activeDevelopmentProcessCount: number;
   ownedStructureCounts?: PlannerOwnedStructureCounts;
   /**
