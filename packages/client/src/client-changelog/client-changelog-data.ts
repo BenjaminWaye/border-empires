@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.2",
+  version: "2026.07.18.3",
   title: "What's New",
-  summary: "Fixed a crash affecting some iPhone Safari players when opening the email sign-in link — the app now recovers instead of getting stuck in a repeating crash loop. Also includes the previous release: Farmstead's food bonus now shows up in your empire-wide food totals.",
+  summary: "Fixed another Safari crash, this time right after saving a display name change. Also includes the previous release: a Safari crash loop on the email sign-in link is fixed, and Farmstead's food bonus now shows up in your empire-wide food totals.",
   entries: [
+    {
+      introducedIn: "2026.07.18.3",
+      title: "Fixed a Safari crash right after saving your display name",
+      why: "Saving a profile/display-name change broadcasts a style update to every connected player, including yourself, which immediately re-renders your own HUD and login overlay. That re-render wasn't protected against a browser API throwing partway through (the same class of Safari storage/DOM restriction behind the email-link crash), so on some Safari sessions it could crash the app right after a successful name save.",
+      changes: [
+        "The HUD/overlay refresh that runs right after a name or color change is now contained — if a browser API throws partway through, the change still saves and the interface keeps working instead of crashing."
+      ]
+    },
     {
       introducedIn: "2026.07.18.2",
       title: "Fixed a Safari crash loop on the email sign-in link",
