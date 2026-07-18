@@ -498,6 +498,8 @@ export class SimulationRuntime {
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   private readonly onAutoFillTiles: ((count: number) => void) | undefined;
   private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
+  private readonly onAuthRecoveryRespawn: (() => void) | undefined;
+  private readonly onAuthRecoveryRespawnGuarded: (() => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -696,6 +698,8 @@ export class SimulationRuntime {
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
+    this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
+    this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
     this.onOwnershipChange = options.onOwnershipChange;
     this.onQueueDrain = options.onQueueDrain;
@@ -1206,7 +1210,9 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      respawnMinimumGold: RESPAWN_MINIMUM_GOLD
+      respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
+      incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
+      incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.()
     };
   }
 

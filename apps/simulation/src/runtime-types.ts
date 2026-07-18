@@ -231,6 +231,14 @@ export type SimulationRuntimeOptions = {
    *  AI player (no WS subscribers — see PR #732 for the same rationale
    *  applied to lock resolution). Zero forever means the skip never engages. */
   onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
+  /** Fires whenever ensurePlayerHasSpawnTerritory places a fresh auth_recovery
+   *  spawn for a human player — this overwrites their prior empire location,
+   *  so a nonzero rate is worth alerting on. */
+  onAuthRecoveryRespawn?: () => void;
+  /** Fires when the auth_recovery respawn path is suppressed by the
+   *  world-sanity guard (territory read as zero but the world tile map
+   *  itself was empty, i.e. territory data was not confirmed loaded). */
+  onAuthRecoveryRespawnGuarded?: () => void;
 };
 
 export type SimulationTileWireDelta = {
