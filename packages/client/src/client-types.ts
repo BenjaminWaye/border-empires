@@ -127,7 +127,7 @@ export type Tile = {
   fort?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
-    variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
+    variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
     completesAt?: number;
     disabledUntil?: number;
     garrison?: number;
