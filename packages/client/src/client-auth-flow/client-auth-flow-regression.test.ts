@@ -201,4 +201,38 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     expect(removeItem).toHaveBeenCalledWith("be_auth_email_link");
     expect(state.authError).toBeTruthy();
   });
+
+  it("blocks Google sign-in inside the Facebook Messenger in-app browser instead of letting it fail with a cryptic Firebase error", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { signInWithPopup } = await import("firebase/auth");
+    vi.mocked(signInWithPopup).mockClear();
+
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/116.0.0.0 Mobile Safari/537.36 [FBAN/MessengerForiOS;FBAV/400.0.0.0]"
+    );
+
+    const dom = makeDom();
+    const state = makeState();
+    state.authConfigured = true;
+    const fakeFirebaseAuth = {} as unknown as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>;
+    const fakeGoogleProvider = {} as NonNullable<Parameters<typeof createClientAuthFlow>[0]["googleProvider"]>;
+
+    const authFlow = createClientAuthFlow({
+      state,
+      dom,
+      firebaseAuth: fakeFirebaseAuth,
+      googleProvider: fakeGoogleProvider,
+      ws: { readyState: 3, OPEN: 1 } as unknown as RealtimeSocket,
+      wsUrl: "wss://border-empires.fly.dev/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false
+    });
+
+    authFlow.bindAuthUi();
+    await dom.authGoogleBtn.onclick?.(new PointerEvent("click"));
+
+    expect(signInWithPopup).not.toHaveBeenCalled();
+    expect(state.authError).toContain("Facebook Messenger");
+  });
 });
