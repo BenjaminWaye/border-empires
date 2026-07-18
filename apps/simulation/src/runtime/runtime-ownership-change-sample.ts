@@ -1,5 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
+type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
+
 export type OwnershipChangeSample = {
   tileKey: string;
   x: number;
@@ -10,7 +12,7 @@ export type OwnershipChangeSample = {
   hadTown: boolean;
   townLost: boolean;
   hadOwnershipState: string | undefined;
-  previousTownPopulationTier: string | undefined;
+  previousTownPopulationTier: TownPopulationTier | undefined;
 };
 
 // Builds the onOwnershipChange sample for a tile write, or undefined if

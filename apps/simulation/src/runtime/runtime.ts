@@ -1698,8 +1698,10 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
-    if (ownershipChangeSample) this.onOwnershipChange?.(ownershipChangeSample);
+    if (this.onOwnershipChange) {
+      const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
+      if (ownershipChangeSample) this.onOwnershipChange(ownershipChangeSample);
+    }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));

@@ -47,16 +47,25 @@ describe("resolveEnvironmentLabel", () => {
 });
 
 describe("buildTownLostAlert", () => {
-  it("marks the alert skipped and tags the log for a SETTLEMENT-tier loss", () => {
+  it("marks the alert skipped, tags the log, and omits the Slack payload for a SETTLEMENT-tier loss", () => {
     const alert = buildTownLostAlert({ ...baseSample, previousTownPopulationTier: "SETTLEMENT" }, "staging", "border-empires");
     expect(alert.skippedSettlementTier).toBe(true);
     expect(alert.logFields.alertSkippedSettlementTier).toBe(true);
+    expect(alert.slackBody).toBeUndefined();
   });
 
-  it("does not mark the alert skipped for a surviving-tier loss, and stamps the environment everywhere", () => {
+  it("does not mark the alert skipped for a surviving-tier loss, and builds a Slack payload tagged with the environment", () => {
     const alert = buildTownLostAlert({ ...baseSample, previousTownPopulationTier: "TOWN" }, "staging", "border-empires");
     expect(alert.skippedSettlementTier).toBe(false);
     expect(alert.message).toContain("(staging)");
+    expect(alert.slackBody).toBeDefined();
     expect(JSON.stringify(alert.slackBody)).toContain("staging");
+  });
+
+  it("does not repeat the environment label a second time via the label prefix (only the embedded message carries it, once)", () => {
+    const alert = buildTownLostAlert({ ...baseSample, previousTownPopulationTier: "TOWN" }, "staging", "border-empires");
+    const wrapperText = alert.slackBody?.text ?? "";
+    expect(wrapperText.match(/\(staging\)/g)).toHaveLength(1);
+    expect(wrapperText).toContain("border-empires");
   });
 });
