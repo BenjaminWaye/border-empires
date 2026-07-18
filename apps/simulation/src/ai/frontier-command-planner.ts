@@ -3,6 +3,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
 import {
   candidateKeysForOrigin,
   chebyshevWrap,
@@ -220,6 +221,19 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           capped = true;
           break;
         }
+        continue;
+      }
+
+      // A dock crossing only lands you on the linked dock tile itself when
+      // settling — you must capture that dock before claiming land beyond
+      // it. dockCrossingCandidateTileKeys() also includes the linked dock's
+      // frontier neighbors (needed so ATTACK can reach enemy land past an
+      // owned-but-hostile dock), so exclude those from EXPAND candidates
+      // unless they're also plain frontier-adjacent to `from`.
+      if (
+        !isFrontierAdjacent(from.x, from.y, target.x, target.y) &&
+        !(from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey))
+      ) {
         continue;
       }
 

@@ -1266,33 +1266,52 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("accepts dock-crossing frontier expansion to linked islands", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      seedTiles: new Map(),
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]
-      ]),
-      initialState: {
-        tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
-          { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
-          { x: 51, y: 50, terrain: "LAND" }
-        ],
-        docks: [
-          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
-          { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen: string[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event.eventType);
-    });
+  it("accepts dock-crossing frontier expansion onto the linked dock tile but not the land beside it", async () => {
+    const buildDockRuntime = () =>
+      new SimulationRuntime({
+        now: () => 1_000,
+        seedTiles: new Map(),
+        initialPlayers: new Map([
+          ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+            { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
+            { x: 51, y: 50, terrain: "LAND" }
+          ],
+          docks: [
+            { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+            { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+          ],
+          activeLocks: []
+        }
+      });
 
-    runtime.submitCommand({
-      commandId: "cmd-dock-expand",
+    // EXPAND must land on the linked dock tile (50,50) itself — you capture the
+    // dock before claiming land beyond it.
+    const acceptRuntime = buildDockRuntime();
+    const acceptSeen: string[] = [];
+    acceptRuntime.onEvent((event) => acceptSeen.push(event.eventType));
+    acceptRuntime.submitCommand({
+      commandId: "cmd-dock-expand-onto-dock",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(acceptSeen[0]).toBe("COMMAND_ACCEPTED");
+
+    // Expanding onto the land beside the dock (51,50) must be rejected — that
+    // previously let AI/barbarians settle past an uncaptured dock.
+    const rejectRuntime = buildDockRuntime();
+    const rejectSeen: string[] = [];
+    rejectRuntime.onEvent((event) => rejectSeen.push(event.eventType));
+    rejectRuntime.submitCommand({
+      commandId: "cmd-dock-expand-adjacent",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
@@ -1300,9 +1319,8 @@ describe("simulation runtime", () => {
       type: "EXPAND",
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 51, toY: 50 })
     });
-
     await Promise.resolve();
-    expect(seen[0]).toBe("COMMAND_ACCEPTED");
+    expect(rejectSeen[0]).toBe("COMMAND_REJECTED");
   });
 
   it("emits a fresh player update after collecting buffered tile yield", async () => {

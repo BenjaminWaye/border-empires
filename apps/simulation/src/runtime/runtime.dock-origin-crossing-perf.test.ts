@@ -46,6 +46,9 @@ const staleDockCrossingDurationMs = async (bulkTileCount: number): Promise<numbe
     // adjacent to the target — forces the adjacent-tile fallback to miss
     // and fall through to findOwnedDockOriginForCrossing.
     { x: 999, y: 999, terrain: "LAND" },
+    // dock-b tile itself is the only valid EXPAND dock-crossing target — you
+    // must land on the linked dock, not the land beside it (allowAdjacent is
+    // false for EXPAND). (51,50) is left here only as neighbouring scenery.
     { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
     { x: 51, y: 50, terrain: "LAND" }
   );
@@ -80,8 +83,9 @@ const staleDockCrossingDurationMs = async (bulkTileCount: number): Promise<numbe
     issuedAt: 1_000,
     type: "EXPAND",
     // fromX/fromY is stale — the client thinks it owns (999,999), but it
-    // doesn't. The runtime must recover via the dock-crossing fallback.
-    payloadJson: JSON.stringify({ fromX: 999, fromY: 999, toX: 51, toY: 50 })
+    // doesn't. The runtime must recover via the dock-crossing fallback,
+    // landing on the linked dock tile (50,50) itself.
+    payloadJson: JSON.stringify({ fromX: 999, fromY: 999, toX: 50, toY: 50 })
   });
 
   const startedAt = performance.now();
