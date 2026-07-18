@@ -1350,7 +1350,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the export. Self rank/progress fills in on the next global-status push.
     if (options?.includeWorldStatus === true && !needsFullWorldExport) {
       const summary = await readCurrentSummary();
-      return { ...snapshot, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+      return {
+        ...snapshot,
+        worldStatus: {
+          leaderboard: summary.leaderboard,
+          seasonVictory: summary.seasonVictory,
+          shardRainNotice: runtime.currentShardRainWelcomeNotice()
+        }
+      };
     }
     return snapshot;
     } finally {
@@ -2362,7 +2369,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   const cached = cacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
                   if (cached) {
                     const summary = await readCurrentSummary();
-                    return { ...cached, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+                    return {
+                      ...cached,
+                      worldStatus: {
+                        leaderboard: summary.leaderboard,
+                        seasonVictory: summary.seasonVictory,
+                        shardRainNotice: runtime.currentShardRainWelcomeNotice()
+                      }
+                    };
                   }
                   return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
                     includeWorldStatus: true,

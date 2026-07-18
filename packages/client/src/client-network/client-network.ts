@@ -163,6 +163,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       registerShardRainPingsFromAlert(state, startedAlert);
     }
   };
+  // Used for the WELCOME/INIT bootstrap notice, which is always populated
+  // (see computeShardRainWelcomeNotice) so the persistent Sharding-panel
+  // countdown has something to show on first paint — even when the next
+  // rain is many hours away. Unlike applyShardRainNotice (used for live
+  // push events), this must never pop the one-time toast alert for an
+  // "upcoming" rain on every login; the toast should only fire once a rain
+  // is actually live, or via the live near-term warning push.
+  const applyShardRainNoticeQuiet = (notice: ShardRainNoticeLike | undefined): void => {
+    if (notice?.phase === "started") {
+      applyShardRainNotice(notice);
+      return;
+    }
+    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
+      state.shardRainStatus = { key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt };
+    }
+  };
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -1227,7 +1243,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
-        applyShardRainNotice,
+        applyShardRainNotice: applyShardRainNoticeQuiet,
         logTileSync,
         logIncomingTechPayload,
         showCaptureAlertSafely,

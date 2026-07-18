@@ -4,12 +4,40 @@ import { isStagingHostname, selectBackend } from "../client-backend-selector/cli
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
 
+// The default Firebase authDomain (border-empires.firebaseapp.com) is a
+// different origin than the app itself (play.borderempires.com /
+// staging.borderempires.com). Google sign-in's OAuth handshake round-trips
+// through that authDomain's /__/auth/handler page, which needs
+// sessionStorage to track the pending operation — and mobile browsers
+// increasingly partition/block storage for that kind of third-party
+// context, surfacing as Firebase's raw "auth/missing-initial-state" error.
+// vercel.json proxies /__/auth/* and /__/firebase/* back to
+// border-empires.firebaseapp.com so the handler can be served from the
+// app's own origin instead; defaulting authDomain to the current hostname
+// here makes that handler traffic first-party and avoids the partitioning
+// entirely.
+//
+// Only applied on the two known custom domains: Google's OAuth client only
+// has redirect URIs registered for those, so any other host (localhost,
+// Vercel preview deployments like *-git-branch-*.vercel.app) must keep
+// using the firebaseapp.com default or sign-in fails immediately with
+// redirect_uri_mismatch instead of reaching the storage-partitioning bug
+// at all.
+const FALLBACK_AUTH_DOMAIN = "border-empires.firebaseapp.com";
+const CUSTOM_AUTH_DOMAIN_HOSTNAMES = new Set(["play.borderempires.com", "staging.borderempires.com"]);
+
+const defaultAuthDomain = (): string => {
+  if (typeof window === "undefined") return FALLBACK_AUTH_DOMAIN;
+  const hostname = window.location.hostname.toLowerCase();
+  return CUSTOM_AUTH_DOMAIN_HOSTNAMES.has(hostname) ? hostname : FALLBACK_AUTH_DOMAIN;
+};
+
 export const createClientFirebaseSetup = (): {
   firebaseAuth: ReturnType<typeof getAuth> | undefined;
   googleProvider: GoogleAuthProvider | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
-  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
+  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? defaultAuthDomain();
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
