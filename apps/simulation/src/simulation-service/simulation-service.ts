@@ -877,8 +877,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
       const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+      const environmentLabel =
+        process.env.NODE_ENV === "production"
+          ? "prod"
+          : process.env.NODE_ENV === "staging"
+            ? "staging"
+            : (process.env.FLY_APP_NAME ?? "unknown");
       if (lostTown) {
-        const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
+        const message = `[ownership_audit] (${environmentLabel}) TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
         log.warn(
           {
             tileKey: sample.tileKey,
@@ -887,18 +893,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             previousOwnerId: sample.previousOwnerId,
             nextOwnerId: sample.nextOwnerId,
             commandId: sample.commandId,
-            hadTown: sample.hadTown
+            hadTown: sample.hadTown,
+            environment: environmentLabel
           },
           message
         );
         if (webhookUrl) {
           const body = JSON.stringify({
-            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"}:* ${message}`,
+            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"} (${environmentLabel}):* ${message}`,
             blocks: [
-              { type: "header", text: { type: "plain_text", text: "🏚️ Town Lost" } },
+              { type: "header", text: { type: "plain_text", text: `🏚️ Town Lost [${environmentLabel}]` } },
               {
                 type: "section",
                 fields: [
+                  { type: "mrkdwn", text: `*Environment:* ${environmentLabel}` },
                   { type: "mrkdwn", text: `*Tile:* ${sample.tileKey} (${sample.x},${sample.y})` },
                   { type: "mrkdwn", text: `*Previous Owner:* ${sample.previousOwnerId}` },
                   { type: "mrkdwn", text: `*Command:* \`${sample.commandId}\`` }
