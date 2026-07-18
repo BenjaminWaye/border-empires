@@ -1263,9 +1263,9 @@ export class SimulationRuntime {
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
-      findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
+      findOwnedDockOriginForCrossing: (playerId, x, y, allowAdjacent) => this.findOwnedDockOriginForCrossing(playerId, x, y, allowAdjacent),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
+      isDockCrossingTarget: (from, x, y, allowAdjacent) => this.isDockCrossingTarget(from, x, y, allowAdjacent),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
@@ -2455,13 +2455,19 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
-  private fedTownKeysForPlayer(player: DomainPlayer, settledTiles = this.settledTilesForPlayer(player.id)): Set<string> {
+  private fedTownKeysForPlayer(
+    player: DomainPlayer,
+    settledTiles = this.settledTilesForPlayer(player.id),
+    // Optional: pass a precomputed waterworks-key set to avoid re-running the
+    // radius scan when the caller already has one (e.g. tileYieldEconomyContext).
+    waterworksKeys?: ReadonlySet<string>
+  ): Set<string> {
     const summary = this.summaryForPlayer(player.id);
     return buildFedTownKeys(
       player,
       summary,
       this.tiles,
-      buildStrategicProductionForSettledTiles(summary, settledTiles)
+      buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys)
     );
   }
 
@@ -2493,7 +2499,7 @@ export class SimulationRuntime {
       const context: RuntimeTileYieldEconomyContext = {
         player,
         townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
-        fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
+        fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles, waterworksKeys),
         // Skip expensive first-three-town key computation if the player has no
         // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
         // the key set has no effect. Skips O(towns) sort for most players.
@@ -3433,8 +3439,8 @@ export class SimulationRuntime {
     this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil));
   }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
-    return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number, allowAdjacent: boolean): boolean {
+    return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey, allowAdjacent);
   }
 
   private isAetherBridgeCrossingTarget(
@@ -3457,11 +3463,11 @@ export class SimulationRuntime {
     return false;
   }
 
-  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number, allowAdjacent: boolean): DomainTileState | undefined {
     for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
+      if (this.isDockCrossingTarget(tile, toX, toY, allowAdjacent)) return tile;
     }
     return undefined;
   }
