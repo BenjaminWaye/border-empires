@@ -4,7 +4,6 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   FORT_BUILD_MS,
-  FORT_DEFENSE_MULT,
   FRONTIER_CLAIM_COST,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
