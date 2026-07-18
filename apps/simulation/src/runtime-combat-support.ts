@@ -247,7 +247,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
         ownershipState: previousTarget.ownershipState,
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
-        hasFort: targetHasActiveFort,
+        fortVariant: targetHasActiveFort ? previousTarget.fort?.variant : undefined,
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
