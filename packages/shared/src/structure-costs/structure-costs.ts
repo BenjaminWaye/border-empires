@@ -102,12 +102,14 @@ export type FortTierInfo = {
 };
 
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
+  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 300,  iron: 15,  manpower: 150, defenseMult: 1.35 },
   FORT:             { variant: "FORT",             gold: 900,  iron: 45,  manpower: 300, defenseMult: 2.5 },
   IRON_BASTION:     { variant: "IRON_BASTION",     gold: 1800, iron: 90,  manpower: 300, defenseMult: 4 },
   THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 4200, iron: 180, manpower: 300, defenseMult: 8 },
 };
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
+  WOODEN_FORT: "Wooden Fort",
   FORT: "Fort",
   IRON_BASTION: "Iron Bastion",
   THUNDER_BASTION: "Thunder Bastion",
@@ -124,6 +126,7 @@ export const nextFortTierForUpgrade = (
   has: (id: string) => boolean,
 ): FortTierInfo | null => {
   const resolved = current ?? "FORT";
+  if (resolved === "WOODEN_FORT") return FORT_TIER_LADDER.FORT;
   if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
   if (resolved === "IRON_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   return null;

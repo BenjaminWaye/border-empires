@@ -50,6 +50,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
 }
 
 export const FORT_SPECS: Record<FortVariant, StructureSpec> = {
+  WOODEN_FORT: fortSpec("WOODEN_FORT"),
   FORT: fortSpec("FORT"),
   IRON_BASTION: fortSpec("IRON_BASTION"),
   THUNDER_BASTION: fortSpec("THUNDER_BASTION"),
