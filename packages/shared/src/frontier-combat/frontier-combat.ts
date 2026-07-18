@@ -1,7 +1,6 @@
+import type { FortVariant } from "../types.js";
 import { combatWinChance } from "../math/math.js";
 import { BREAKTHROUGH_DEBUFF_MULT } from "../config.js";
-
-export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
