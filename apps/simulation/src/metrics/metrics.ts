@@ -9,6 +9,7 @@ import {
 } from "../ai/automation-command-planner.js";
 import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
 import { createAiExperimentCounters } from "./metrics-experiment-counters.js";
+import { createOwnershipChangeAlertMetrics } from "./metrics-ownership-change-alert.js";
 import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
@@ -98,6 +99,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
   const aiExperimentCounters = createAiExperimentCounters();
+  const ownershipChangeAlertMetrics = createOwnershipChangeAlertMetrics();
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
@@ -113,7 +115,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simMusterRemoteAttackTotal = 0;
   let simMusterRemoteBlockedTotal = 0;
   let simMusterRemoteBlockedBarbarianTotal = 0;
-  let simOwnershipChangeAlertSkippedSettlementTierTotal = 0;
   let simSeasonEndSnapshotWarmTotal = 0;
   let simSeasonEndSnapshotWarmFailedTotal = 0;
   let simPostSeasonProtoTileCacheHitTotal = 0;
@@ -228,7 +229,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simMusterRemoteAttackTotal,
     simMusterRemoteBlockedTotal,
     simMusterRemoteBlockedBarbarianTotal,
-    simOwnershipChangeAlertSkippedSettlementTierTotal,
+    ...ownershipChangeAlertMetrics.snapshot(),
     simSeasonEndSnapshotWarmTotal,
     simSeasonEndSnapshotWarmFailedTotal,
     simPostSeasonProtoTileCacheHitTotal,
@@ -343,12 +344,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimMusterRemoteBlockedBarbarian(): void {
       simMusterRemoteBlockedBarbarianTotal += 1;
     },
-    // Fires each time onOwnershipChange skips the Town Lost Slack alert
-    // because the captured town was SETTLEMENT tier (routine population
-    // absorption, not a genuine loss) — zero forever means the skip never engages.
-    incrementSimOwnershipChangeAlertSkippedSettlementTier(): void {
-      simOwnershipChangeAlertSkippedSettlementTierTotal += 1;
-    },
+    incrementSimOwnershipChangeAlertSkippedSettlementTier: ownershipChangeAlertMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier,
     incrementSimSeasonEndSnapshotWarm(): void {
       simSeasonEndSnapshotWarmTotal += 1;
     },
