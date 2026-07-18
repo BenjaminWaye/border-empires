@@ -278,6 +278,11 @@ export type SimulationClientEvent =
       message: string;
     }
   | {
+      eventType: "COMMAND_RESOLVED";
+      commandId: string;
+      playerId: string;
+    }
+  | {
       eventType: "COMBAT_CANCELLED";
       commandId: string;
       playerId: string;
@@ -598,6 +603,13 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       playerId: event.player_id,
       code: event.code,
       message: event.message
+    };
+  }
+  if (event.event_type === "COMMAND_RESOLVED") {
+    return {
+      eventType: "COMMAND_RESOLVED",
+      commandId: event.command_id,
+      playerId: event.player_id
     };
   }
   // Internal-only simulation events (e.g. TILE_YIELD_ANCHOR_UPDATED) reach the
