@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.5",
+  version: "2026.07.18.6",
   title: "What's New",
-  summary: "Fixed the \"Continue\" button on this popup itself not always closing it. Also includes recent hardening against the app crashing on an unexpected server-update error, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
+  summary: "Fixed Google sign-in failing with a confusing storage error inside in-app browsers like Facebook Messenger and Instagram. Also includes a fix for the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
   entries: [
+    {
+      introducedIn: "2026.07.18.6",
+      title: "Fixed Google sign-in failing inside Messenger/Instagram's in-app browser",
+      why: "Tapping a link from Facebook Messenger, Instagram, or similar apps opens it in that app's built-in browser, which blocks the popup Google sign-in uses and silently falls back to a redirect Firebase can't complete there (its session storage is blocked or wiped mid-redirect). Players saw only Firebase's raw, confusing \"Unable to process request due to missing initial state\" error page with no way forward.",
+      changes: [
+        "Google sign-in now detects known in-app browsers (Messenger, Instagram, Line, WeChat, TikTok, Twitter/X) up front and shows a clear message asking the player to open the page in Chrome or Safari instead of attempting a sign-in that's guaranteed to fail there.",
+        "If that raw Firebase storage error still surfaces for an undetected in-app browser, it's now replaced with a friendly message pointing the player to their system browser."
+      ]
+    },
     {
       introducedIn: "2026.07.18.5",
       title: "Fixed Continue sometimes not closing this popup",

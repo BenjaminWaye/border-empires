@@ -23,6 +23,12 @@ import {
 } from "../client-auth-ui/client-auth-ui.js";
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
+import {
+  detectInAppBrowserName,
+  inAppBrowserGoogleSignInMessage,
+  isMissingInitialStateError,
+  MISSING_INITIAL_STATE_MESSAGE
+} from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { rallyCodeFromLocation } from "../client-rally-links/client-rally-links.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -267,6 +273,13 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
 
     dom.authGoogleBtn.onclick = async () => {
       if (!firebaseAuth || !googleProvider) return;
+      const inAppBrowserName =
+        typeof navigator !== "undefined" ? detectInAppBrowserName(navigator.userAgent) : undefined;
+      if (inAppBrowserName) {
+        setAuthStatus(inAppBrowserGoogleSignInMessage(inAppBrowserName), "error");
+        syncAuthOverlay();
+        return;
+      }
       authSession.emailLinkSentTo = "";
       setAuthBusy(true);
       setAuthStatus("Opening Google sign-in...");
@@ -277,7 +290,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSucceeded = true;
         setAuthStatus("Google sign-in complete. Authorizing empire...");
       } catch (error) {
-        setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.", "error");
+        const rawMessage = error instanceof Error ? error.message : "Google sign-in failed.";
+        setAuthStatus(isMissingInitialStateError(rawMessage) ? MISSING_INITIAL_STATE_MESSAGE : rawMessage, "error");
       } finally {
         if (!authSucceeded) setAuthBusy(false);
         syncAuthOverlay();
