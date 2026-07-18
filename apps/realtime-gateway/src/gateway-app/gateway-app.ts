@@ -1153,7 +1153,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore,
       galaxyEndorsementStore,
       authBindingStore,
-      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}), ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {})
+      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
+      ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
+      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => slackAlerter!.alertSeasonStarted(seasonId, force) } : {})
     })
   );
 
@@ -1456,6 +1458,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             })
           );
         }
+      }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") {
+        const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown";
+        slackAlerter?.alertPlayerRespawned(event.playerId, reason);
       }
       if (event.playerId === "__broadcast__" && event.eventType === "TILE_DELTA_BATCH") {
         const broadcastPayload = preSerializeBroadcast({
@@ -1847,7 +1853,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   const imperialWardAutoStart = startImperialWardAutoStartTimer({
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
-    startNextSeason: (force, imperialWard) => simulationClient.startNextSeason(force, imperialWard),
+    startNextSeason: async (force, imperialWard) => {
+      const result = await simulationClient.startNextSeason(force, imperialWard);
+      slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
+      return result;
+    },
     endorsementStore: galaxyEndorsementStore,
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
@@ -2562,6 +2572,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // cannot reset an active season. The resulting SEASON_ROLLOVER is
               // broadcast to every connected client.
               const result = await simulationClient.startNextSeason(false);
+              slackAlerter?.alertSeasonStarted(result.seasonId, false);
               recordGatewayEvent("info", "gateway_start_new_season_ok", {
                 playerId: session.playerId,
                 seasonId: result.seasonId

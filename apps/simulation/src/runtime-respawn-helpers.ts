@@ -69,6 +69,13 @@ export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: stri
   });
   ctx.lastRespawnNoticeByPlayerId.set(playerId, notice);
   ctx.pendingRespawnNoticeByPlayerId.delete(playerId);
+  ctx.emitEvent({
+    eventType: "PLAYER_MESSAGE",
+    commandId: `respawn-notice:${playerId}:${ctx.now()}`,
+    playerId,
+    messageType: "PLAYER_RESPAWNED",
+    payloadJson: JSON.stringify({ reason: pending.reasonCode })
+  });
 };
 
 export const ensurePlayerHasSpawnTerritory = (
