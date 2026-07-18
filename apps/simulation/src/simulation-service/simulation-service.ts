@@ -22,6 +22,7 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
+import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
@@ -876,39 +877,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const lostTown = sample.townLost;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
-      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
       if (lostTown) {
-        const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
-        log.warn(
-          {
-            tileKey: sample.tileKey,
-            x: sample.x,
-            y: sample.y,
-            previousOwnerId: sample.previousOwnerId,
-            nextOwnerId: sample.nextOwnerId,
-            commandId: sample.commandId,
-            hadTown: sample.hadTown
-          },
-          message
-        );
-        if (webhookUrl) {
-          const body = JSON.stringify({
-            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"}:* ${message}`,
-            blocks: [
-              { type: "header", text: { type: "plain_text", text: "🏚️ Town Lost" } },
-              {
-                type: "section",
-                fields: [
-                  { type: "mrkdwn", text: `*Tile:* ${sample.tileKey} (${sample.x},${sample.y})` },
-                  { type: "mrkdwn", text: `*Previous Owner:* ${sample.previousOwnerId}` },
-                  { type: "mrkdwn", text: `*Command:* \`${sample.commandId}\`` }
-                ]
-              }
-            ]
-          });
-          fetch(webhookUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(5_000) }).catch(() => {});
+        const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+        const environmentLabel = resolveEnvironmentLabel(process.env);
+        const alert = buildTownLostAlert(sample, environmentLabel, process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
+        log.warn(alert.logFields, alert.message);
+        if (alert.skippedSettlementTier) {
+          simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier();
+        } else if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(alert.slackBody),
+            signal: AbortSignal.timeout(5_000)
+          }).catch(() => {});
         }
       } else {
+        const environmentLabel = resolveEnvironmentLabel(process.env);
         log.warn(
           {
             tileKey: sample.tileKey,
@@ -917,9 +902,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             previousOwnerId: sample.previousOwnerId,
             nextOwnerId: sample.nextOwnerId,
             commandId: sample.commandId,
-            hadTown: sample.hadTown
+            hadTown: sample.hadTown,
+            environment: environmentLabel
           },
-          `[ownership_audit] SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+          `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
         );
       }
     },

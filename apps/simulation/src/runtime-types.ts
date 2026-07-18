@@ -9,6 +9,7 @@ import type { QueueLane } from "./command-lane/command-lane.js";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import type { buildConnectedTownNetworkForPlayer } from "./economy-network/economy-network.js";
 import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thread-task-tracker.js";
+import type { OwnershipChangeSample } from "./runtime/runtime-ownership-change-sample.js";
 
 export type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
@@ -171,17 +172,7 @@ export type SimulationRuntimeOptions = {
   // ensurePlayerHasSpawnTerritory in runtime.ts).
   pendingImperialWard?: { playerId: string; charges: number };
   commandTrace?: (sample: Record<string, unknown>) => void;
-  onOwnershipChange?: (sample: {
-    tileKey: string;
-    x: number;
-    y: number;
-    previousOwnerId: string | undefined;
-    nextOwnerId: string | undefined;
-    commandId: string;
-    hadTown: boolean;
-    townLost: boolean;
-    hadOwnershipState: string | undefined;
-  }) => void;
+  onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   onQueueDrain?: (sample: {
     durationMs: number;
     processedJobs: number;

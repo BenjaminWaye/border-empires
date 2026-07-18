@@ -9,6 +9,7 @@ import {
 } from "../ai/automation-command-planner.js";
 import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
 import { createAiExperimentCounters } from "./metrics-experiment-counters.js";
+import { createOwnershipChangeAlertMetrics } from "./metrics-ownership-change-alert.js";
 import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
@@ -98,6 +99,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
   const aiExperimentCounters = createAiExperimentCounters();
+  const ownershipChangeAlertMetrics = createOwnershipChangeAlertMetrics();
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
@@ -227,6 +229,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simMusterRemoteAttackTotal,
     simMusterRemoteBlockedTotal,
     simMusterRemoteBlockedBarbarianTotal,
+    ...ownershipChangeAlertMetrics.snapshot(),
     simSeasonEndSnapshotWarmTotal,
     simSeasonEndSnapshotWarmFailedTotal,
     simPostSeasonProtoTileCacheHitTotal,
@@ -341,6 +344,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimMusterRemoteBlockedBarbarian(): void {
       simMusterRemoteBlockedBarbarianTotal += 1;
     },
+    incrementSimOwnershipChangeAlertSkippedSettlementTier: ownershipChangeAlertMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier,
     incrementSimSeasonEndSnapshotWarm(): void {
       simSeasonEndSnapshotWarmTotal += 1;
     },
