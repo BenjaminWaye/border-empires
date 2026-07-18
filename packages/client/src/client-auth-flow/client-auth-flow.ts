@@ -45,6 +45,7 @@ type AuthFlowDeps = {
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
+  isMobile: () => boolean;
 };
 
 type ClientAuthFlow = {
@@ -68,7 +69,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     ws,
     wsUrl,
     requireAuthedSession,
-    renderHud
+    renderHud,
+    isMobile
   } = deps;
 
   const authSession: AuthSession = {
@@ -342,6 +344,9 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         });
         state.authReady = true;
         state.authSessionReady = false;
+        if (isMobile()) {
+          state.zoom = 44;
+        }
         setAuthBusy(true);
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
