@@ -374,6 +374,7 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
+import { buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1697,22 +1698,8 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    // A town of any tier existed and is now gone (e.g. razed on capture) —
-    // distinct from ownerId changing, since a captured town often survives.
-    const townLost = Boolean(previous?.town) && !tile.town;
-    if (previous && (previous.ownerId !== tile.ownerId || townLost)) {
-      this.onOwnershipChange?.({
-        tileKey,
-        x: tile.x,
-        y: tile.y,
-        previousOwnerId: previous.ownerId,
-        nextOwnerId: tile.ownerId,
-        commandId,
-        hadTown: Boolean(previous.town),
-        townLost,
-        hadOwnershipState: previous.ownershipState
-      });
-    }
+    const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
+    if (ownershipChangeSample) this.onOwnershipChange?.(ownershipChangeSample);
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));
