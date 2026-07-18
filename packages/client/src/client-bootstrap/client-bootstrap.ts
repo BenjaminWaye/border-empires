@@ -420,7 +420,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     } catch (error) {
       console.error("[hud-render-fatal]", error);
       setAuthStatus("The interface hit an unexpected error. Retrying UI render...", "error");
-      syncAuthOverlay();
+      try { syncAuthOverlay(); } catch (overlayError) { console.error("[hud-render-fatal-overlay]", overlayError); }
     }
   };
   renderHudImpl = renderHud;
