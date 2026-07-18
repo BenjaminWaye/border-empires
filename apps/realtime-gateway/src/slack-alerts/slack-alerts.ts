@@ -75,6 +75,10 @@ export type SlackAlerter = {
   alertSqliteRetryHigh: (ratePerMin: number) => void;
   /** Player-submitted bug report. */
   alertPlayerBugReport: (report: BugReportInput) => void;
+  /** Player was silently respawned (lost territory). */
+  alertPlayerRespawned: (playerId: string, reason: string) => void;
+  /** New season started. */
+  alertSeasonStarted: (seasonId: string, force: boolean) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -100,7 +104,9 @@ const EMOJI_BY_EVENT: Record<string, string> = {
   queue_persist_failed: ":x:",
   simulation_wake_exhausted: ":zzz:",
   machine_restart: ":arrows_counterclockwise:",
-  sqlite_retry_high: ":warning:"
+  sqlite_retry_high: ":warning:",
+  player_respawned: ":baby:",
+  season_started: ":tada:"
 };
 
 // ---------------------------------------------------------------------------
@@ -267,6 +273,8 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
     currentValue: string;
     targetLabel: string;
     triggerDetail: string;
+    /** Base event name for emoji/fix lookup, when eventKey is per-entity (e.g. `player_respawned:${playerId}`). */
+    eventName?: string;
   }): void => {
     if (!shouldFire(eventKey)) return;
     markSent(eventKey);
@@ -276,7 +284,7 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
 
     const payload = buildAlertPayload({
       appLabel,
-      eventName: eventKey,
+      eventName: input.eventName ?? eventKey,
       summary: input.summary,
       currentValue: input.currentValue,
       targetLabel: input.targetLabel,
@@ -347,6 +355,26 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
         currentValue: `${ratePerMin.toFixed(1)}/min`,
         targetLabel: "<10/min",
         triggerDetail: `rate exceeded 10/min threshold`
+      });
+    },
+
+    alertPlayerRespawned(playerId: string, reason: string): void {
+      alert(`player_respawned:${playerId}`, {
+        eventName: "player_respawned",
+        summary: `player respawned (${reason})`,
+        currentValue: reason,
+        targetLabel: "no silent respawns",
+        triggerDetail: `player ${playerId} lost territory and was respawned (reason: ${reason})`
+      });
+    },
+
+    alertSeasonStarted(seasonId: string, force: boolean): void {
+      alert(`season_started:${seasonId}`, {
+        eventName: "season_started",
+        summary: `season ${seasonId} started`,
+        currentValue: seasonId,
+        targetLabel: "n/a",
+        triggerDetail: `season started (force=${force})`
       });
     },
 

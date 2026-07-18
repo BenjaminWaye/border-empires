@@ -53,6 +53,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   authBindingStore: GatewayAuthBindingStore;
   adminApiToken?: string;
   alertPlayerBugReport?: (report: BugReportInput) => void;
+  alertSeasonStarted?: (seasonId: string, force: boolean) => void;
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -104,7 +105,11 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       const result = await ctx.simulationClient.getAiDecisionDiagnostics(playerId);
       return result.diagnostics ?? [];
     },
-    startNextSeason: (force?: boolean) => ctx.simulationClient.startNextSeason(force),
+    startNextSeason: async (force?: boolean) => {
+      const result = await ctx.simulationClient.startNextSeason(force);
+      ctx.alertSeasonStarted?.(result.seasonId, force === true);
+      return result;
+    },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
