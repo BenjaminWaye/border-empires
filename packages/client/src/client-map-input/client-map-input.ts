@@ -1,4 +1,4 @@
-import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
+import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -282,7 +282,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let lastDoubleTapZoomIn = true;
   const DOUBLE_TAP_MAX_DELAY_MS = 300;
   const DOUBLE_TAP_MAX_DISTANCE_PX = 20;
-  const ZOOM_STEP = 8;
 
   deps.canvas.addEventListener(
     "touchstart",
@@ -358,9 +357,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
 
         if (doubleTapped) {
           if (lastDoubleTapZoomIn) {
-            state.zoom = Math.min(MAX_ZOOM, state.zoom + ZOOM_STEP);
+            state.zoom = Math.min(MAX_ZOOM, state.zoom + DOUBLE_TAP_ZOOM_STEP);
           } else {
-            state.zoom = Math.max(MIN_ZOOM, state.zoom - ZOOM_STEP);
+            state.zoom = Math.max(MIN_ZOOM, state.zoom - DOUBLE_TAP_ZOOM_STEP);
           }
           // Flip so the next double-tap reverses direction; only a double-tap
           // itself should flip this, not the single taps that precede it,
