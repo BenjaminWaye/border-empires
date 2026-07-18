@@ -20,18 +20,36 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.7",
+  version: "2026.07.18.9",
   title: "What's New",
-  summary: "The Town Captured popup now shows the expected base gold production rate alongside manpower gains. Also includes a fix for Google sign-in failing with a confusing storage error inside in-app browsers like Facebook Messenger and Instagram, a fix for the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
+  summary: "The Town Captured popup now shows the expected base gold production rate alongside manpower gains. Also includes the Sharding panel now showing a countdown to the next shard rain as soon as you log in, the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, and recent hardening of server-update processing.",
   entries: [
     {
-      introducedIn: "2026.07.18.7",
+      introducedIn: "2026.07.18.9",
       title: "Town Captured popup now shows expected gold production",
       why: "The Town Captured popup told you the town would provide Manpower Cap and Manpower Regen once settled, but only mentioned gold production in a vague note — no number was shown, even though the base rate can be computed from the tier constants the client already has.",
       changes: [
         "A new Gold Production stat card shows the base gold-per-minute rate for the captured town (e.g. 2.00/m for a Town, 3.00/m for a City, up to 6.40/m for a Metropolis).",
         "Settlements show a flat 1.00/m since they have no population tier multiplier and no support requirement.",
         "The note now clarifies that support tiles and structures further multiply this base rate, matching how the manpower stats use constants derived from tier alone."
+      ]
+    },
+    {
+      introducedIn: "2026.07.18.8",
+      title: "Sharding panel now shows the next shard rain countdown on login",
+      why: "The persistent \"Shard Network\" panel could sit without a countdown for a long time after logging in — the countdown only appeared once a live server push happened to arrive, which could be minutes or hours after opening the panel.",
+      changes: [
+        "The server now includes the next scheduled shard rain (or the remaining time on an active one) in your login data, so the panel shows a countdown immediately.",
+        "The one-time popup alert still only appears when a shard rain is actually starting, not on every login."
+      ]
+    },
+    {
+      introducedIn: "2026.07.18.7",
+      title: "Fixed the root cause of Google sign-in's storage error on mobile browsers",
+      why: "Google sign-in's OAuth handshake round-trips through a page hosted on a different address (border-empires.firebaseapp.com) than the game itself. Some mobile browsers block that page from using the storage it needs to track the sign-in, which surfaced as Firebase's raw, confusing \"Unable to process request due to missing initial state\" error — on regular Chrome and Safari, not just in-app browsers.",
+      changes: [
+        "Google sign-in's handshake now runs on the game's own address instead of a separate one, so the browser no longer treats it as third-party storage to block.",
+        "This fixes the underlying cause for regular mobile browsers; the existing guidance for in-app browsers (Messenger, Instagram, etc.) to open the page in Chrome or Safari is unaffected."
       ]
     },
     {
