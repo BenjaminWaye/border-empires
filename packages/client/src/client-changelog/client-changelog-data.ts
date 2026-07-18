@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.6",
+  version: "2026.07.18.7",
   title: "What's New",
-  summary: "Fixed Google sign-in failing with a confusing storage error inside in-app browsers like Facebook Messenger and Instagram. Also includes a fix for the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
+  summary: "The Town Captured popup now shows the expected base gold production rate alongside manpower gains. Also includes a fix for Google sign-in failing with a confusing storage error inside in-app browsers like Facebook Messenger and Instagram, a fix for the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
   entries: [
+    {
+      introducedIn: "2026.07.18.7",
+      title: "Town Captured popup now shows expected gold production",
+      why: "The Town Captured popup told you the town would provide Manpower Cap and Manpower Regen once settled, but only mentioned gold production in a vague note — no number was shown, even though the base rate can be computed from the tier constants the client already has.",
+      changes: [
+        "A new Gold Production stat card shows the base gold-per-minute rate for the captured town (e.g. 2.00/m for a Town, 3.00/m for a City, up to 6.40/m for a Metropolis).",
+        "Settlements show a flat 1.00/m since they have no population tier multiplier and no support requirement.",
+        "The note now clarifies that support tiles and structures further multiply this base rate, matching how the manpower stats use constants derived from tier alone."
+      ]
+    },
     {
       introducedIn: "2026.07.18.6",
       title: "Fixed Google sign-in failing inside Messenger/Instagram's in-app browser",
