@@ -14,16 +14,22 @@ import type { ClientState } from "../client-state/client-state.js";
 // vercel.json proxies /__/auth/* and /__/firebase/* back to
 // border-empires.firebaseapp.com so the handler can be served from the
 // app's own origin instead; defaulting authDomain to the current hostname
-// here (for real deployed hosts, not local dev where there's no proxy)
-// makes that handler traffic first-party and avoids the partitioning
+// here makes that handler traffic first-party and avoids the partitioning
 // entirely.
+//
+// Only applied on the two known custom domains: Google's OAuth client only
+// has redirect URIs registered for those, so any other host (localhost,
+// Vercel preview deployments like *-git-branch-*.vercel.app) must keep
+// using the firebaseapp.com default or sign-in fails immediately with
+// redirect_uri_mismatch instead of reaching the storage-partitioning bug
+// at all.
 const FALLBACK_AUTH_DOMAIN = "border-empires.firebaseapp.com";
+const CUSTOM_AUTH_DOMAIN_HOSTNAMES = new Set(["play.borderempires.com", "staging.borderempires.com"]);
 
 const defaultAuthDomain = (): string => {
   if (typeof window === "undefined") return FALLBACK_AUTH_DOMAIN;
   const hostname = window.location.hostname.toLowerCase();
-  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
-  return isLocalHost ? FALLBACK_AUTH_DOMAIN : hostname;
+  return CUSTOM_AUTH_DOMAIN_HOSTNAMES.has(hostname) ? hostname : FALLBACK_AUTH_DOMAIN;
 };
 
 export const createClientFirebaseSetup = (): {
