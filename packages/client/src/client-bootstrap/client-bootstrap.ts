@@ -186,7 +186,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     ws,
     wsUrl,
     requireAuthedSession: (message?: string) => requireAuthedSessionImpl(message),
-    renderHud: () => renderHudImpl()
+    renderHud: () => renderHudImpl(),
+    isMobile
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
