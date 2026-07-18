@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import {
   CLIENT_CHANGELOG_STORAGE_KEY,
@@ -5,6 +6,7 @@ import {
   compareReleaseVersions,
   clientChangelogRenderSignature,
   markClientChangelogSeen,
+  renderClientChangelogOverlay,
   shouldShowClientChangelog,
   shouldRebuildClientChangelogOverlay,
   syncClientChangelogVisibility,
@@ -110,5 +112,45 @@ describe("client changelog", () => {
     expect(shouldRebuildClientChangelogOverlay({ innerHTML: "", dataset: {} }, renderSignature)).toBe(true);
     expect(shouldRebuildClientChangelogOverlay({ innerHTML: "<div></div>", dataset: { renderSig: renderSignature } }, renderSignature)).toBe(false);
     expect(shouldRebuildClientChangelogOverlay({ innerHTML: "<div></div>", dataset: { renderSig: "older" } }, renderSignature)).toBe(true);
+  });
+
+  it("hides the overlay when Continue is clicked even if the follow-up renderHud() throws", () => {
+    // Regression: "Continue does nothing" — renderClientChangelogOverlay used
+    // to rely entirely on the caller's renderHud() re-render to flip the
+    // overlay's display back to "none". renderHud() is one single huge
+    // function covering the whole HUD and is wrapped in a catch-and-log at
+    // the bootstrap level; if anything else in that render pass throws, the
+    // overlay update never happens even though the click was otherwise
+    // handled correctly (seen-version persisted). The close handler must now
+    // hide the overlay itself first, independent of renderHud() succeeding.
+    const state = createState({ seenVersion: "" });
+    const changelogOverlayEl = document.createElement("div");
+    const persistSeenVersion = vi.fn();
+    const throwingRenderHud = vi.fn(() => {
+      throw new Error("simulated unrelated HUD render failure");
+    });
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    renderClientChangelogOverlay({
+      state: state as any,
+      changelogOverlayEl: changelogOverlayEl as any,
+      buildVersion: "deadbeef",
+      persistSeenVersion,
+      renderHud: throwingRenderHud
+    });
+
+    expect(changelogOverlayEl.style.display).toBe("grid");
+    const closeBtn = changelogOverlayEl.querySelector<HTMLButtonElement>("#changelog-close");
+    expect(closeBtn).not.toBeNull();
+
+    expect(() => closeBtn?.dispatchEvent(new MouseEvent("click"))).not.toThrow();
+
+    expect(changelogOverlayEl.style.display).toBe("none");
+    expect(changelogOverlayEl.innerHTML).toBe("");
+    expect(persistSeenVersion).toHaveBeenCalledWith(CLIENT_CHANGELOG_STORAGE_KEY, LATEST_CLIENT_CHANGELOG.version);
+    expect(throwingRenderHud).toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
   });
 });
