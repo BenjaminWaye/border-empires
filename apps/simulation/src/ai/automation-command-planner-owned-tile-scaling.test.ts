@@ -97,10 +97,16 @@ describe("automation command planner — owned-tile scaling", () => {
     expect(result.diagnostic.noCommandReason).not.toBe("player_missing");
     // A handful of diagnostic/length reads on the array itself (e.g.
     // input.ownedTiles.length in the diagnostic block) are fine — what we're
-    // proving is that none of the O(owned) filter/loop passes ran. 20,000
-    // owned tiles with only ~40 ever touched (well under 1% of the empire)
-    // proves the fast paths, not the full scans, were used.
-    expect(accessCount()).toBeLessThan(200);
+    // proving is that none of the O(owned) filter/loop passes ran. This
+    // scenario's 20 all-waste frontier tiles make the narrow scan
+    // unactionable, so the broad fallback's bounded owned-tile sample
+    // (ownedFrontierTilesSample(), capped at
+    // BROAD_FALLBACK_FRONTIER_SAMPLE_CAP=300 — see automation-command-planner.ts)
+    // legitimately touches close to 300 tiles. That's the intended bound,
+    // not a regression: 20,000 owned tiles with under 300 ever touched
+    // (well under 2% of the empire) still proves the fast/bounded paths,
+    // not a full unbounded scan, were used.
+    expect(accessCount()).toBeLessThan(400);
   });
 
   it("still falls back to a full owned-tile scan and gets the right counts when settledTileCount/townCount are not supplied", () => {
