@@ -877,9 +877,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const lostTown = sample.townLost;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
-      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
-      const environmentLabel = resolveEnvironmentLabel(process.env);
       if (lostTown) {
+        const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+        const environmentLabel = resolveEnvironmentLabel(process.env);
         const alert = buildTownLostAlert(sample, environmentLabel, process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
         log.warn(alert.logFields, alert.message);
         if (alert.skippedSettlementTier) {
@@ -893,6 +893,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }).catch(() => {});
         }
       } else {
+        const environmentLabel = resolveEnvironmentLabel(process.env);
         log.warn(
           {
             tileKey: sample.tileKey,
@@ -901,9 +902,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             previousOwnerId: sample.previousOwnerId,
             nextOwnerId: sample.nextOwnerId,
             commandId: sample.commandId,
-            hadTown: sample.hadTown
+            hadTown: sample.hadTown,
+            environment: environmentLabel
           },
-          `[ownership_audit] SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+          `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
         );
       }
     },
