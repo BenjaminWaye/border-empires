@@ -111,6 +111,61 @@ describe("frontier combat", () => {
     expect(wins / samples).toBeCloseTo(preview.winChance, 2);
   });
 
+  describe("fort variants", () => {
+    it("applies 2.5x defense for FORT", () => {
+      const preview = buildFrontierCombatPreview({
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        fortVariant: "FORT"
+      });
+
+      expect(preview.defMult).toBeCloseTo(1.35 * 2.5, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 2.5, 6);
+    });
+
+    it("applies 4x defense for IRON_BASTION", () => {
+      const preview = buildFrontierCombatPreview({
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        fortVariant: "IRON_BASTION"
+      });
+
+      expect(preview.defMult).toBeCloseTo(1.35 * 4, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 4, 6);
+    });
+
+    it("applies 8x defense for THUNDER_BASTION", () => {
+      const preview = buildFrontierCombatPreview({
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        fortVariant: "THUNDER_BASTION"
+      });
+
+      expect(preview.defMult).toBeCloseTo(1.35 * 8, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 8, 6);
+    });
+
+    it("multiplies base fort defense by tech fortDefenseMult", () => {
+      const baseline = buildFrontierCombatPreview({
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        fortVariant: "IRON_BASTION"
+      });
+      const boosted = buildFrontierCombatPreview(
+        {
+          terrain: "LAND",
+          ownershipState: "SETTLED",
+          fortVariant: "IRON_BASTION"
+        },
+        { fortDefenseMult: 1.25 }
+      );
+
+      expect(baseline.defMult).toBeCloseTo(1.35 * 4, 6);
+      expect(boosted.defMult).toBeCloseTo(1.35 * 4 * 1.25, 6);
+      expect(boosted.winChance).toBeLessThan(baseline.winChance);
+    });
+  });
+
   describe("breakthrough momentum", () => {
     const now = 1_000_000;
 

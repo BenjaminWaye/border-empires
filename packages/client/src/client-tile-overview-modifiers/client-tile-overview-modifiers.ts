@@ -1,4 +1,4 @@
-import { DREAD_TOWER_ATTACK_MULT, FORT_DEFENSE_MULT, LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type TileOverviewModifier = {
@@ -22,7 +22,7 @@ const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
 const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
   if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
   if (tile.variant === "IRON_BASTION") return { reason: "Iron Bastion", effect: "4x defense", tone: "positive" };
-  return { reason: "Fort", effect: `${FORT_DEFENSE_MULT}x defense`, tone: "positive" };
+  return { reason: "Fort", effect: "2.5x defense", tone: "positive" };
 };
 
 const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
