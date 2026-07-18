@@ -8,7 +8,7 @@ import { authDebugCopyPayload, authDebugHtml, authDebugSnapshot, type AuthDebugS
 const buildAuthDebugState = (zoom: number): AuthDebugState => {
   const state = createInitialState();
   state.zoom = zoom;
-  return state as unknown as AuthDebugState;
+  return state;
 };
 
 describe("authDebugSnapshot zoom reporting", () => {
