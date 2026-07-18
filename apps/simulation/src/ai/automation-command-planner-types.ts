@@ -26,6 +26,7 @@ export const AUTOMATION_NOOP_REASONS = [
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
+  "upgrade_town_tier",
   "choose_tech",
   "choose_domain",
   "defer_no_reachable_progression",

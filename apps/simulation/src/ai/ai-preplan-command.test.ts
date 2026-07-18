@@ -21,6 +21,7 @@ const makeTile = (
       name?: string;
       type?: "MARKET" | "FARMING";
       populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+      population?: number;
     } | null;
   }> = {}
 ) => ({
@@ -242,6 +243,88 @@ describe("automation preplan command", () => {
     // techs/domains should defer to the main planner.
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.preplanReason).toBe("defer_no_reachable_progression");
+  });
+
+  it("upgrades a TOWN to CITY when population and food are sufficient, ahead of tech/domain choices", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "UPGRADE_TOWN_TIER",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    expect(result.diagnostic.preplanReason).toBe("upgrade_town_tier");
+  });
+
+  it("does not upgrade a town below the population threshold, falling through to tech choice", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 50_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
+  });
+
+  it("does not upgrade a town when the FOOD stockpile can't cover the lump-sum cost", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 100 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
   });
 
   it("reports missing progression reachability when there is nothing legal to pick", () => {
