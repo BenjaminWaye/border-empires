@@ -981,27 +981,30 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
   }
 
-  (dom.hud.querySelectorAll(".accept-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
-    };
-  });
-  (dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
-    };
-  });
-  (dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_CANCEL", requestId: id }, "Finish sign-in before changing alliance requests.");
-    };
-  });
+  // Shared binder for the near-identical accept/reject/cancel request-action
+  // buttons below (alliance + truce), which previously duplicated the same
+  // querySelectorAll/forEach/onclick shape six times.
+  const bindRequestActionButtons = (
+    selector: string,
+    datasetKey: "requestId" | "truceRequestId",
+    buildMessage: (id: string) => Record<string, unknown>,
+    failureMessage: string
+  ): void => {
+    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
+      btn.onclick = () => {
+        const id = btn.dataset[datasetKey];
+        if (!id) return;
+        sendGameMessage(buildMessage(id), failureMessage);
+      };
+    });
+  };
+  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
+  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
+
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -1010,30 +1013,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId }, "Finish sign-in before breaking alliances.");
     };
   });
-  const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;
-  acceptTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
-    };
-  });
-  const rejectTruceButtons = dom.hud.querySelectorAll(".reject-truce") as NodeListOf<HTMLButtonElement>;
-  rejectTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_REJECT", requestId: id }, "Finish sign-in before responding to truces.");
-    };
-  });
-  const cancelTruceButtons = dom.hud.querySelectorAll(".cancel-truce") as NodeListOf<HTMLButtonElement>;
-  cancelTruceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_CANCEL", requestId: id }, "Finish sign-in before changing truce requests.");
-    };
-  });
+
   const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
   authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {
     authLogoutBtn.onclick = async () => {
@@ -1102,6 +1082,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
+
   renderClientChangelogOverlay({
     state,
     changelogOverlayEl: dom.changelogOverlayEl,
