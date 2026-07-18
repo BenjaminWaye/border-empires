@@ -1,6 +1,13 @@
-import { DOCK_INCOME_PER_MIN, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import {
+  DOCK_INCOME_PER_MIN,
+  townFoodUpkeepPerMinute,
+  type DomainPlayer,
+  type DomainStrategicResourceKey,
+  type DomainTileState
+} from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 
+import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods">;
@@ -382,6 +389,37 @@ export const dockSupportedByCustomsHouse = (
     }
   }
   return false;
+};
+
+// Moved from player-update-economy.ts to keep that file from growing past
+// its line-count ceiling — no functional/behavioral change, pure relocation.
+export const buildFedTownKeys = (
+  player: DomainPlayer,
+  summary: PlayerRuntimeSummary,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  strategicProductionPerMinute: Record<DomainStrategicResourceKey, number>
+): Set<string> => {
+  const availableFood = (player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD;
+  let remainingFood = availableFood;
+  const fedTownKeys = new Set<string>();
+  // Use ownedTownTierByTile (already an index of just owned town tiles) instead
+  // of spreading all territoryTileKeys and filtering. O(towns) vs O(territory).
+  const ownedSettledTowns = [...summary.ownedTownTierByTile.keys()]
+    .map((tileKey) => tiles.get(tileKey))
+    .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"))
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+  for (const tile of ownedSettledTowns) {
+    const upkeep = townFoodUpkeepPerMinute(tile.town?.populationTier);
+    if (upkeep <= 0) {
+      fedTownKeys.add(`${tile.x},${tile.y}`);
+      continue;
+    }
+    if (remainingFood + 1e-9 >= upkeep) {
+      fedTownKeys.add(`${tile.x},${tile.y}`);
+      remainingFood = Math.max(0, remainingFood - upkeep);
+    }
+  }
+  return fedTownKeys;
 };
 
 export const dockBaseGoldPerMinuteForPlayer = (

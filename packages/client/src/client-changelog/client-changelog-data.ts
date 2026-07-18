@@ -20,10 +20,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.16.7",
+  version: "2026.07.18.1",
   title: "What's New",
-  summary: "Fixed display name changes not showing up in the HUD or settings panel after saving — the update was reaching the server, but the client didn't refresh the screen until some unrelated event happened to trigger it. Also includes the previous release: temporary diagnostic logging added to trace Survey Sweep's floating map markers.",
+  summary: "Fixed the Farmstead building not increasing your empire-wide food income on the food detail panel — the +50% bonus was already working per-tile, but never made it into the totals shown to players. Also includes the previous release: display name changes now show up immediately after saving.",
   entries: [
+    {
+      introducedIn: "2026.07.18.1",
+      title: "Farmstead now boosts empire-wide food income",
+      why: "Farmstead's +50% food bonus (doubled again near an active Waterworks) was correctly applied to the per-tile yield you'd see when inspecting a farm tile, but the empire-wide food total shown on the food detail panel was computed by a separate formula that never accounted for Farmsteads at all, so building one didn't visibly move your food income.",
+      changes: [
+        "The food detail panel and the food rate shown in the resource ribbon now include Farmstead's food bonus, matching the per-tile yield."
+      ]
+    },
+    {
+      introducedIn: "2026.07.18.1",
+      title: "Docks can no longer be bypassed by settling the land beside them",
+      why: "Expanding across a dock is only supposed to let you claim the linked dock tile itself — you have to take the dock before pushing inland. A validation gap let empires (and the AI/barbarians most of all) settle the land tiles adjacent to an uncaptured linked dock, effectively teleporting past it.",
+      changes: [
+        "Dock-crossing expansion now only lands on the linked dock tile; the neighbouring land can no longer be claimed until the dock is captured. Attacks across docks are unchanged."
+      ]
+    },
     {
       introducedIn: "2026.07.16.7",
       title: "Display name updates now show immediately",
@@ -284,48 +300,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
       ]
-    },
-    {
-      introducedIn: "2026.07.11.4",
-      title: "Fixed lingering ghost ownership after barbarians move",
-      why: "When a barbarian vacated a tile, the server correctly told the client the tile was now neutral, but a tile-merge bug quietly restored the barbarian's old ownership — so the map kept showing the tile as owned indefinitely.",
-      changes: [
-        "Tiles that lose their owner (e.g. a barbarian walking away) now clear their ownership color immediately instead of staying stuck on the previous owner."
-      ]
-    },
-    {
-      introducedIn: "2026.07.11.3",
-      title: "Fixed black gap at the shoreline",
-      why: "At low camera angles you could see a black crack where the land met the water — the terrain surface had no thickness and stopped exactly at the coast.",
-      changes: [
-        "Coastal land tiles now drop a solid wall down to below the waterline so grazing camera angles never show through to empty space at the shore."
-      ]
-    },
-    {
-      introducedIn: "2026.07.11.2",
-      title: "Shard rain countdown on the domain panel",
-      why: "There was no persistent way to see when the next shard rain was coming — only a one-time dismissible alert.",
-      changes: [
-        "The Shard Network card now shows 'Next shard rain in Xh Ym' while waiting, or 'Shard rain active — N sites — X left' while it's underway."
-      ]
-    },
-    {
-      introducedIn: "2026.07.11.2",
-      title: "Missions tab hidden",
-      why: "Missions are paused for rebalance; the tab was showing stale placeholder content.",
-      changes: [
-        "The Missions button and panel are hidden from desktop and mobile navigation. Mission state is untouched so the feature can return later."
-      ]
-    },
-    {
-      introducedIn: "2026.07.11.1",
-      title: "Fixed truce offers to AI empires in seasonal default games",
-      why: "Social state used seasonal names (e.g. \"Freja Sund\") while client sent \"AI N\" format for truce target names, causing all truce offers to AI empires to fail with \"target not found\".",
-      changes: [
-        "Aligned gateway social state AI names to \"AI N\" format matching client display names."
-      ]
     }
-    // Older entries (2026.07.09.9 and earlier) trimmed: the release-day
+    // Older entries (2026.07.11.4 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
