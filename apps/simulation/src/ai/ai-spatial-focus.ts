@@ -290,3 +290,53 @@ const setsEqual = (left: ReadonlySet<string>, right: ReadonlySet<string>): boole
   }
   return true;
 };
+
+/**
+ * Per-tick entry point runtime.ts calls to refresh a player's spatial focus.
+ * Wraps selectSpatialFocus with the persistent-map bookkeeping (clear on
+ * zero territory, write the new focus, clear the productivity cache when
+ * focus is lost) — factored out of runtime.ts (which owns the two Maps) to
+ * keep that file under the repo's line cap.
+ */
+export const refreshSpatialFocus = (params: {
+  playerId: string;
+  now: number;
+  territoryTileKeys: ReadonlySet<string>;
+  hotFrontierTileKeys: ReadonlySet<string>;
+  buildCandidateTileKeys: ReadonlySet<string>;
+  frontierTileKeys: ReadonlySet<string>;
+  focusByPlayer: Map<string, AiSpatialFocus>;
+  productiveByPlayer: Map<string, boolean>;
+}): AiSpatialFocus | undefined => {
+  const {
+    playerId, now, territoryTileKeys, hotFrontierTileKeys,
+    buildCandidateTileKeys, frontierTileKeys, focusByPlayer, productiveByPlayer
+  } = params;
+  if (territoryTileKeys.size <= 0) {
+    focusByPlayer.delete(playerId);
+    productiveByPlayer.delete(playerId);
+    return undefined;
+  }
+  const prior = focusByPlayer.get(playerId);
+  // Random jitter spreads meta-replans across AIs so they do not co-fire on
+  // the same tick. AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS is fixed; the actual
+  // jitter per refresh is uniform in [0, jitter).
+  const jitterMs = Math.floor(Math.random() * AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS);
+  const focus = selectSpatialFocus({
+    prior,
+    hotFrontierTileKeys,
+    buildCandidateTileKeys,
+    settlePendingTileKeys: frontierTileKeys,
+    ownedTileKeys: territoryTileKeys,
+    now,
+    jitterMs,
+    lastScanWasProductive: productiveByPlayer.get(playerId)
+  });
+  if (focus) {
+    focusByPlayer.set(playerId, focus);
+  } else {
+    focusByPlayer.delete(playerId);
+    productiveByPlayer.delete(playerId);
+  }
+  return focus;
+};
