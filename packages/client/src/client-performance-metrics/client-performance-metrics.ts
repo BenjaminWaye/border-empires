@@ -16,12 +16,35 @@ const MAX_DRAW_FRAME_GAP_MS = 1_000;
 const fpsSamples: number[] = [];
 const MAX_FPS_SAMPLES = 3000;
 
-export type FramePhaseSample = {
-  frameSetupMs: number;
-  tileRenderMs: number;
-  overlayPostMs: number;
-  totalFrameMs: number;
-};
+// Single source of truth for both the sample shape and which fields
+// snapshotFramePhases reports stats for — adding a phase means adding one
+// name here, not editing the type, the call site, and the stats mapping
+// separately and hoping they stay in sync.
+const FRAME_PHASE_FIELDS = [
+  "frameSetupMs",
+  "tileRenderMs",
+  "overlayPostMs",
+  "totalFrameMs",
+  // overlayPostMs sub-phases, in the order they run — they sum to
+  // overlayPostMs on every individual frame, so a spike there should show
+  // up as a spike in exactly one (or a consistent few) of these. overlayPostMs
+  // stays independently recorded rather than being dropped in favor of
+  // summing these percentile stats after the fact: percentiles aren't
+  // linear (p95 of a sum isn't the sum of each part's p95, since the worst
+  // frame for one sub-phase usually isn't the worst frame for another), so
+  // only overlayPostMs's own stats reflect the actual per-frame total.
+  "roadOverlayMs",
+  "tileOverlayMs",
+  "selectionOverlaysMs",
+  "targetingUiMs",
+  "routesMs",
+  "fxMs",
+  "minimapAlertsMs",
+  "tileDetailMs",
+  "cameraRefreshMs"
+] as const;
+
+export type FramePhaseSample = Record<(typeof FRAME_PHASE_FIELDS)[number], number>;
 
 const framePhaseSamples: FramePhaseSample[] = [];
 const drawFpsSamples: number[] = [];
@@ -187,12 +210,11 @@ const numericStats = (
 
 export const snapshotFramePhases = (): Record<string, ReturnType<typeof numericStats>> | undefined => {
   if (framePhaseSamples.length === 0) return undefined;
-  return {
-    frameSetupMs: numericStats(framePhaseSamples.map((s) => s.frameSetupMs)),
-    tileRenderMs: numericStats(framePhaseSamples.map((s) => s.tileRenderMs)),
-    overlayPostMs: numericStats(framePhaseSamples.map((s) => s.overlayPostMs)),
-    totalFrameMs: numericStats(framePhaseSamples.map((s) => s.totalFrameMs))
-  };
+  const result: Record<string, ReturnType<typeof numericStats>> = {};
+  for (const field of FRAME_PHASE_FIELDS) {
+    result[field] = numericStats(framePhaseSamples.map((s) => s[field]));
+  }
+  return result;
 };
 
 export const initPerformanceMetrics = (): void => {
