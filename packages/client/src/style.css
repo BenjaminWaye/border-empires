@@ -3082,6 +3082,10 @@ body {
   color: rgba(162, 212, 255, 0.78);
 }
 
+.bridge-debug-zoom-range {
+  color: rgba(162, 212, 255, 0.78);
+}
+
 .card p {
   margin: 4px 0 0;
   color: rgba(233, 242, 255, 0.7);
