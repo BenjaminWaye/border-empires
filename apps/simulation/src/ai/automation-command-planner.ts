@@ -201,20 +201,19 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     return ownedFrontierTilesCache;
   };
   // Bounded sibling of ownedFrontierTiles() above, for the broad fallback's
-  // origin union specifically. That union needs a backstop for callers whose
-  // input.frontierTiles is real but incomplete (see the regression test for
-  // this), but — unlike ownedFrontierTiles()'s other caller, which needs an
-  // ACCURATE count — the broad fallback only needs a bounded SAMPLE of owned
-  // FRONTIER tiles, same reasoning as BROAD_FALLBACK_FRONTIER_SAMPLE_CAP.
-  // Sampling input.ownedTiles (not just the already-sampled frontierTiles)
-  // keeps this cheap regardless of empire size instead of the O(owned) scan
-  // ownedFrontierTiles() does when no spatial focus is set.
+  // origin union. Striding ownedTiles before filtering to FRONTIER can land
+  // on zero FRONTIER tiles when they're a small minority of a mature empire
+  // — only safe when input.frontierTiles already did the real work; when
+  // it's empty (the true "incomplete input" case) fall back to the accurate
+  // ownedFrontierTiles() instead of compounding sampling error.
   let ownedFrontierTilesSampleCache: readonly TTile[] | undefined;
   const ownedFrontierTilesSample = (): readonly TTile[] => {
     if (!ownedFrontierTilesSampleCache) {
-      ownedFrontierTilesSampleCache = restrictToFocus(strideSample(input.ownedTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP)).filter(
-        (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
-      ) as readonly TTile[];
+      ownedFrontierTilesSampleCache = input.frontierTiles.length > 0
+        ? (restrictToFocus(strideSample(input.ownedTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP)).filter(
+            (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
+          ) as readonly TTile[])
+        : ownedFrontierTiles();
     }
     return ownedFrontierTilesSampleCache;
   };
