@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.4",
+  version: "2026.07.18.5",
   title: "What's New",
-  summary: "Hardened the connection to the game server so an unexpected error while processing any server update can no longer crash the app — it's now logged and the game keeps running. Also includes recent Safari-specific crash fixes for the email sign-in link and for saving a display name change.",
+  summary: "Fixed the \"Continue\" button on this popup itself not always closing it. Also includes recent hardening against the app crashing on an unexpected server-update error, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
   entries: [
+    {
+      introducedIn: "2026.07.18.5",
+      title: "Fixed Continue sometimes not closing this popup",
+      why: "Closing this popup persisted correctly (you wouldn't see it again for this release) but the on-screen close depended on a full interface refresh completing right afterward. If anything else in that refresh had a problem, the popup could stay stuck open and unresponsive to further clicks even though the click itself worked.",
+      changes: [
+        "The Continue button (and clicking outside the popup) now closes it immediately, independent of the rest of the interface refresh."
+      ]
+    },
     {
       introducedIn: "2026.07.18.4",
       title: "The game connection no longer crashes on an unexpected error",
