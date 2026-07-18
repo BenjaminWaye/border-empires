@@ -18,7 +18,11 @@ export const AIRPORT_BOMBARD_RADIUS = 30;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;
 export const DEFAULT_ZOOM = 22;
-export const MOBILE_LOGIN_ZOOM = DEFAULT_ZOOM * 2;
+// Both tuned empirically on-device via the Settings zoom debug readout,
+// not derived from DEFAULT_ZOOM — mobile screens want a level closer to
+// MAX_ZOOM than the desktop default.
+export const MOBILE_LOGIN_ZOOM = 58;
+export const DOUBLE_TAP_ZOOM_STEP = 32;
 export const GOLD_COST_EPSILON = 1e-6;
 export const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
 export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
