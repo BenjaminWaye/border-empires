@@ -156,7 +156,22 @@ export const renderClientChangelogOverlay = (deps: {
 
   const close = (): void => {
     markClientChangelogSeen(deps.state, releaseVersion, deps.persistSeenVersion);
-    deps.renderHud();
+    // Hide the overlay directly instead of relying solely on the follow-up
+    // renderHud() call to do it. renderClientHud() is a huge, single
+    // function covering the whole HUD; if anything else in that render
+    // pass throws (and it's wrapped in a catch-and-log at the bootstrap
+    // level), this overlay update would never happen and "Continue" would
+    // appear to do nothing even though the seen-version was correctly
+    // persisted. Closing here first makes the button's own effect
+    // unconditional; renderHud() still runs afterward for everything else.
+    deps.changelogOverlayEl.style.display = "none";
+    if (deps.changelogOverlayEl.innerHTML) deps.changelogOverlayEl.innerHTML = "";
+    delete deps.changelogOverlayEl.dataset.renderSig;
+    try {
+      deps.renderHud();
+    } catch (error) {
+      console.error("[changelog-close-renderhud-failed]", error);
+    }
   };
 
   const closeBtn = deps.changelogOverlayEl.querySelector("#changelog-close") as HTMLButtonElement | null;
