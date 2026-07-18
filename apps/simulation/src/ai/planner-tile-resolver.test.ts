@@ -37,6 +37,7 @@ const mkPlayer = (
   strategicFrontierTileKeys: [],
   buildCandidateTileKeys: [],
   pendingSettlementTileKeys: [],
+  townTileKeys: [],
   ...overrides
 });
 
@@ -123,7 +124,8 @@ describe("resolvePlayerTiles", () => {
       hotFrontierTileKeys: ["3,1"],
       strategicFrontierTileKeys: ["3,1"],
       buildCandidateTileKeys: ["4,1", "5,1"],
-      pendingSettlementTileKeys: ["6,1"]  // missing from map — stays in set
+      pendingSettlementTileKeys: ["6,1"],  // missing from map — stays in set
+      townTileKeys: ["4,1"]
     });
     const result = resolvePlayerTiles(player, tilesByKey, cache);
     expect(result.ownedTiles.map((t) => `${t.x},${t.y}`)).toEqual(["1,1"]);
@@ -131,6 +133,7 @@ describe("resolvePlayerTiles", () => {
     expect(result.hotFrontierTiles.map((t) => `${t.x},${t.y}`)).toEqual(["3,1"]);
     expect(result.strategicFrontierTiles.map((t) => `${t.x},${t.y}`)).toEqual(["3,1"]);
     expect(result.buildCandidateTiles.map((t) => `${t.x},${t.y}`)).toEqual(["4,1", "5,1"]);
+    expect(result.townTiles.map((t) => `${t.x},${t.y}`)).toEqual(["4,1"]);
     // pendingSettlementTileKeys is a Set from the raw keys, missing key included
     expect(result.pendingSettlementTileKeys.has("6,1")).toBe(true);
   });

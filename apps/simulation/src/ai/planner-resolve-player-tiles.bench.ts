@@ -45,6 +45,7 @@ const player: PlannerPlayerView = {
   strategicFrontierTileKeys,
   buildCandidateTileKeys,
   pendingSettlementTileKeys: [],
+  townTileKeys: [],
   ownedTileCount: N_OWNED,
   frontierTileCount: N_FRONTIER
 };
