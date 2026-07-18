@@ -107,15 +107,12 @@ import {
   planAutomationCommand,
   type AutomationPlannerDiagnostic
 } from "../ai/automation-command-planner.js";
+import { recordHotFrontierStreak, shouldForceBroadFrontierScan } from "../ai/ai-hot-frontier-streak.js";
 import { chooseAutomationPreplanCommand } from "../ai/ai-preplan-command.js";
 import { mergePreplanDiagnostic } from "./merge-preplan-diagnostic.js";
 import type { DecisionCooldownMap } from "../ai/ai-rejection-cooldown.js";
 import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js";
-import {
-  AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS,
-  selectSpatialFocus,
-  type AiSpatialFocus
-} from "../ai/ai-spatial-focus.js";
+import { refreshSpatialFocus, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
 import {
   InMemorySimulationPersistence,
   TERRITORY_AUTO_COMMAND_PREFIX,
@@ -446,6 +443,8 @@ export class SimulationRuntime {
   // sync with aiSpatialFocusByPlayer (see refreshSpatialFocusForPlayer and
   // explainNextAutomationCommand's zero-territory branch).
   private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>();
+  // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
+  private readonly aiHotFrontierStreakByPlayer = new Map<string, number>();
   // Incrementally-maintained tile key cache for the planner player-view export.
   // Each entry holds six TileKeyArrayEntry objects, updated O(1) per tile
   // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
@@ -645,33 +644,16 @@ export class SimulationRuntime {
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
     const summary = this.summaryForPlayer(playerId);
-    if (summary.territoryTileKeys.size <= 0) {
-      this.aiSpatialFocusByPlayer.delete(playerId);
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
-      return undefined;
-    }
-    const prior = this.aiSpatialFocusByPlayer.get(playerId);
-    // Random jitter spreads meta-replans across AIs so they do not co-fire on
-    // the same tick. AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS is fixed; the actual
-    // jitter per refresh is uniform in [0, jitter).
-    const jitterMs = Math.floor(Math.random() * AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS);
-    const focus = selectSpatialFocus({
-      prior,
+    return refreshSpatialFocus({
+      playerId,
+      now,
+      territoryTileKeys: summary.territoryTileKeys,
       hotFrontierTileKeys: summary.hotFrontierTileKeys,
       buildCandidateTileKeys: summary.buildCandidateTileKeys,
-      settlePendingTileKeys: summary.frontierTileKeys,
-      ownedTileKeys: summary.territoryTileKeys,
-      now,
-      jitterMs,
-      lastScanWasProductive: this.aiSpatialFocusProductiveByPlayer.get(playerId)
+      frontierTileKeys: summary.frontierTileKeys,
+      focusByPlayer: this.aiSpatialFocusByPlayer,
+      productiveByPlayer: this.aiSpatialFocusProductiveByPlayer
     });
-    if (focus) {
-      this.aiSpatialFocusByPlayer.set(playerId, focus);
-    } else {
-      this.aiSpatialFocusByPlayer.delete(playerId);
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
-    }
-    return focus;
   }
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
@@ -2007,6 +1989,7 @@ export class SimulationRuntime {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.aiSpatialFocusProductiveByPlayer.delete(playerId);
+      this.aiHotFrontierStreakByPlayer.delete(playerId);
       this.visionExpansionCache.invalidate(playerId);
       if (player.isAi) {
         const nowMs = this.now();
@@ -2050,6 +2033,7 @@ export class SimulationRuntime {
       preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) return preplan;
     }
+    const forceBroadFrontierScan = shouldForceBroadFrontierScan(this.aiHotFrontierStreakByPlayer, playerId);
     const plan = planAutomationCommand({
       playerId,
       points: player.points,
@@ -2081,6 +2065,7 @@ export class SimulationRuntime {
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
+      ...(forceBroadFrontierScan ? { forceBroadFrontierScan } : {}),
       ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
       clientSeq,
       issuedAt,
@@ -2097,6 +2082,7 @@ export class SimulationRuntime {
       // signal" (treated as productive) rather than a lock-outlasting false.
       this.aiSpatialFocusProductiveByPlayer.delete(playerId);
     }
+    recordHotFrontierStreak(this.aiHotFrontierStreakByPlayer, playerId, plan.diagnostic.broadFallbackSkipped);
     return plan;
   }
 

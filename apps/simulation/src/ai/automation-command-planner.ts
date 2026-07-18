@@ -105,6 +105,11 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // ai-spatial-focus.ts for selection. Optional so test inputs and the no-AI
   // system planner keep working unchanged.
   spatialFocusFront?: ReadonlySet<string>;
+  // Set by runtime.ts once AI_HOT_FRONTIER_MAX_STREAK_TICKS consecutive
+  // hot-only-actionable ticks pass (ai-hot-frontier-streak.ts). Forces the
+  // broad-fallback sweep below to run even though the narrow scan alone is
+  // actionable, so a persistent skirmish can't hide the rest of the frontier.
+  forceBroadFrontierScan?: boolean;
 };
 
 const emptyFrontierAnalysis = (): FrontierAnalysis => ({
@@ -293,14 +298,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         })
       : emptyFrontierAnalysis();
   let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
-  // Diagnostic-only now (see BROAD_FALLBACK_FRONTIER_SAMPLE_CAP above): the
-  // broad fallback used to be skipped outright above this owned-tile count;
-  // it now always runs, bounded by sampling input.frontierTiles instead.
-  // Kept as a field (always false) so existing diagnostic consumers/tests
-  // don't need to special-case its absence.
+  // True when the narrow/hot scan alone was already actionable, so the
+  // broad sweep below never ran ("tunnel vision" — see
+  // docs/agents/topics/ai-planner.md). Feeds sim_ai_broad_fallback_skipped_total
+  // and, via forceBroadFrontierScan above, ai-hot-frontier-streak.ts.
   let broadFallbackSkipped = false;
-  if ((canAttack || canExpand) && !frontierAnalysisActionable && input.frontierTiles.length > 0) {
-    {
+  if ((canAttack || canExpand) && input.frontierTiles.length > 0) {
+    if (frontierAnalysisActionable && !input.forceBroadFrontierScan) {
+      broadFallbackSkipped = true;
+    } else {
       // Uses ownedFrontierTilesSample() (bounded), not ownedFrontierTiles()
       // (unbounded O(owned) scan) — see that function's doc comment.
       const broadFrontierOriginsAll = dedupeTiles([
