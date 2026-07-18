@@ -275,6 +275,70 @@ describe("automation preplan command", () => {
     expect(result.diagnostic.preplanReason).toBe("upgrade_town_tier");
   });
 
+  it("prefers townTiles over ownedTiles for the town-tier-upgrade scan (perf: avoids scanning full territory)", () => {
+    // Regression for staging CPU contention: chooseAiTownTierUpgrade must
+    // scan the small pre-filtered townTiles list when provided, not the full
+    // (potentially thousands-of-tiles) ownedTiles list. Prove it by making
+    // ownedTiles contain a decoy non-town tile only, with the real upgradeable
+    // town tile present solely in townTiles — the upgrade only fires if the
+    // implementation actually consults townTiles.
+    const decoy = makeTile(9, 9, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [decoy],
+      townTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "UPGRADE_TOWN_TIER",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    expect(result.diagnostic.preplanReason).toBe("upgrade_town_tier");
+  });
+
+  it("falls back to scanning ownedTiles when townTiles is not provided", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "UPGRADE_TOWN_TIER" });
+  });
+
   it("does not upgrade a town below the population threshold, falling through to tech choice", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",

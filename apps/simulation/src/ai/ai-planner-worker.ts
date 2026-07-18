@@ -33,7 +33,7 @@ import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
-import { resolvePlayerTiles as resolvePlayerTilesFromCache } from "./planner-tile-resolver.js";
+import { resolvePlayerTiles as resolvePlayerTilesFromCache, type ResolvedPlayerTiles } from "./planner-tile-resolver.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { applyTileDelta } from "./planner-tile-delta-merge.js";
 import type { SimulationTileDelta } from "./planner-tile-delta-parse.js";
@@ -48,15 +48,7 @@ let plannerDocks: PlannerDockView[] = [];
 const playersById = new Map<string, PlannerPlayerView>();
 const rememberedVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
 const aiTrainingRecorder = createAiTrainingRecorder(process.env.SIMULATION_AI_TRAINING_RECORD_PATH);
-const playerTileCacheById = new Map<string, {
-  tileCollectionVersion: number;
-  ownedTiles: PlannerTileView[];
-  frontierTiles: PlannerTileView[];
-  hotFrontierTiles: PlannerTileView[];
-  strategicFrontierTiles: PlannerTileView[];
-  buildCandidateTiles: PlannerTileView[];
-  pendingSettlementTileKeys: Set<string>;
-}>();
+const playerTileCacheById = new Map<string, { tileCollectionVersion: number } & ResolvedPlayerTiles>();
 
 const rememberedVictoryPathCounts = (): Partial<Record<AutomationVictoryPath, number>> => {
   const counts: Partial<Record<AutomationVictoryPath, number>> = {
@@ -103,16 +95,8 @@ const resolvedPlayerScopeTileCount = (resolved: {
 
 const applyTileDeltaToMap = (delta: SimulationTileDelta): void => applyTileDelta(tilesByKey, delta);
 
-const resolvePlayerTiles = (
-  player: PlannerPlayerView
-): {
-  ownedTiles: PlannerTileView[];
-  frontierTiles: PlannerTileView[];
-  hotFrontierTiles: PlannerTileView[];
-  strategicFrontierTiles: PlannerTileView[];
-  buildCandidateTiles: PlannerTileView[];
-  pendingSettlementTileKeys: Set<string>;
-} => resolvePlayerTilesFromCache(player, tilesByKey, playerTileCacheById);
+const resolvePlayerTiles = (player: PlannerPlayerView): ResolvedPlayerTiles =>
+  resolvePlayerTilesFromCache(player, tilesByKey, playerTileCacheById);
 
 const emitDiagnostic = (sample: {
   phase:
@@ -167,7 +151,7 @@ const choosePlannerCommand = (
     rememberedVictoryPathByPlayer.delete(playerId);
   }
   const resolveTilesStartedAt = Date.now();
-  const { frontierTiles, ownedTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
+  const { frontierTiles, ownedTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys, townTiles } = resolvePlayerTiles(player);
   emitDiagnostic({
     phase: "resolve_player_tiles",
     durationMs: Math.max(0, Date.now() - resolveTilesStartedAt),
@@ -188,6 +172,7 @@ const choosePlannerCommand = (
       ...(typeof player.incomePerMinute === "number" ? { incomePerMinute: player.incomePerMinute } : {}),
       hasActiveLock: player.hasActiveLock,
       ownedTiles,
+      townTiles,
       clientSeq,
       issuedAt,
       sessionPrefix: "ai-runtime",
