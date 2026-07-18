@@ -12,6 +12,15 @@ import { type EconomicStructureType, type Terrain } from "@border-empires/shared
 import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 
+// Consecutive planner ticks an AI may spend with its narrow/hot-frontier
+// scan alone actionable (broadFallbackSkipped: true — see
+// automation-command-planner.ts) before the broad-fallback sweep of the
+// rest of its frontier is forced regardless. Mirrors ai-spatial-focus.ts's
+// AI_SPATIAL_FOCUS_MAX_UNPRODUCTIVE_STREAK idiom: bounds how long a
+// persistent border skirmish can make the rest of the empire's frontier
+// (economic opportunities, neutral towns) invisible to the planner.
+export const AI_HOT_FRONTIER_MAX_STREAK_TICKS = 5;
+
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
   "planner_error",

@@ -105,6 +105,11 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // ai-spatial-focus.ts for selection. Optional so test inputs and the no-AI
   // system planner keep working unchanged.
   spatialFocusFront?: ReadonlySet<string>;
+  // Set by runtime.ts once AI_HOT_FRONTIER_MAX_STREAK_TICKS consecutive
+  // hot-only-actionable ticks pass (ai-hot-frontier-streak.ts). Forces the
+  // broad-fallback sweep below to run even though the narrow scan alone is
+  // actionable, so a persistent skirmish can't hide the rest of the frontier.
+  forceBroadFrontierScan?: boolean;
 };
 
 const emptyFrontierAnalysis = (): FrontierAnalysis => ({
@@ -293,17 +298,13 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         })
       : emptyFrontierAnalysis();
   let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
-  // Repurposed from the old size-based skip (see BROAD_FALLBACK_FRONTIER_SAMPLE_CAP
-  // above — that skip is gone, the broad sweep is always bounded instead of
-  // disabled). Now true whenever the narrow/hot scan alone was already
-  // actionable, so the broad sweep of the rest of the frontier never even
-  // ran this tick — the winner-take-all/"tunnel vision" case documented in
-  // docs/agents/topics/ai-planner.md ("baseFrontierOrigins is winner-take-all
-  // across categories, not a union"). sim_ai_broad_fallback_skipped_total
-  // (fed by this field) is the signal for how often that happens in prod.
+  // True when the narrow/hot scan alone was already actionable, so the
+  // broad sweep below never ran ("tunnel vision" — see
+  // docs/agents/topics/ai-planner.md). Feeds sim_ai_broad_fallback_skipped_total
+  // and, via forceBroadFrontierScan above, ai-hot-frontier-streak.ts.
   let broadFallbackSkipped = false;
   if ((canAttack || canExpand) && input.frontierTiles.length > 0) {
-    if (frontierAnalysisActionable) {
+    if (frontierAnalysisActionable && !input.forceBroadFrontierScan) {
       broadFallbackSkipped = true;
     } else {
       // Uses ownedFrontierTilesSample() (bounded), not ownedFrontierTiles()
