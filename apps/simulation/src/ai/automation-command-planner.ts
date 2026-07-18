@@ -7,7 +7,7 @@ import {
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
-import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, strideSample } from "./broad-fallback-sample.js";
+import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, createOwnedFrontierTileScans, strideSample } from "./broad-fallback-sample.js";
 import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
@@ -185,38 +185,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     onFallback?.();
     return tiles;
   };
-  // Last-resort fallback for when frontierTiles/hotFrontierTiles are ALL
-  // empty. At steady state for any real empire this is never reached, so it
-  // must be lazy — this used to scan
-  // every owned tile unconditionally on every single plan regardless of
-  // empire size (a 20k-tile empire re-scanned 20k tiles for a value
-  // discarded on nearly every call).
-  let ownedFrontierTilesCache: readonly TTile[] | undefined;
-  const ownedFrontierTiles = (): readonly TTile[] => {
-    if (!ownedFrontierTilesCache) {
-      ownedFrontierTilesCache = restrictToFocus(input.ownedTiles).filter(
-        (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
-      ) as readonly TTile[];
-    }
-    return ownedFrontierTilesCache;
-  };
-  // Bounded sibling of ownedFrontierTiles() above, for the broad fallback's
-  // origin union. Striding ownedTiles before filtering to FRONTIER can land
-  // on zero FRONTIER tiles when they're a small minority of a mature empire
-  // — only safe when input.frontierTiles already did the real work; when
-  // it's empty (the true "incomplete input" case) fall back to the accurate
-  // ownedFrontierTiles() instead of compounding sampling error.
-  let ownedFrontierTilesSampleCache: readonly TTile[] | undefined;
-  const ownedFrontierTilesSample = (): readonly TTile[] => {
-    if (!ownedFrontierTilesSampleCache) {
-      ownedFrontierTilesSampleCache = input.frontierTiles.length > 0
-        ? (restrictToFocus(strideSample(input.ownedTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP)).filter(
-            (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
-          ) as readonly TTile[])
-        : ownedFrontierTiles();
-    }
-    return ownedFrontierTilesSampleCache;
-  };
+  // See broad-fallback-sample.ts for behavior/rationale (factored out to
+  // keep this file under the repo's 500-line cap).
+  const { ownedFrontierTiles, ownedFrontierTilesSample, ownedFrontierTilesComputedCount } = createOwnedFrontierTileScans({
+    ownedTiles: input.ownedTiles,
+    frontierTilesLength: input.frontierTiles.length,
+    playerId: input.playerId,
+    restrictToFocus
+  });
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
@@ -412,7 +388,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // Diagnostic-only: report the cached count without forcing computation
     // (0 means the lazy fallback was never needed this tick, which is the
     // common/healthy case for any empire with populated frontier sets).
-    ownedFrontierTileCount: ownedFrontierTilesCache?.length ?? 0,
+    ownedFrontierTileCount: ownedFrontierTilesComputedCount(),
     broadFallbackSkipped: broadFallbackSkipped || undefined,
     narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
