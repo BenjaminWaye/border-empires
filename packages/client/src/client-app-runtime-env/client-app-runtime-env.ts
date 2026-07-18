@@ -4,12 +4,34 @@ import { isStagingHostname, selectBackend } from "../client-backend-selector/cli
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
 
+// The default Firebase authDomain (border-empires.firebaseapp.com) is a
+// different origin than the app itself (play.borderempires.com /
+// staging.borderempires.com). Google sign-in's OAuth handshake round-trips
+// through that authDomain's /__/auth/handler page, which needs
+// sessionStorage to track the pending operation — and mobile browsers
+// increasingly partition/block storage for that kind of third-party
+// context, surfacing as Firebase's raw "auth/missing-initial-state" error.
+// vercel.json proxies /__/auth/* and /__/firebase/* back to
+// border-empires.firebaseapp.com so the handler can be served from the
+// app's own origin instead; defaulting authDomain to the current hostname
+// here (for real deployed hosts, not local dev where there's no proxy)
+// makes that handler traffic first-party and avoids the partitioning
+// entirely.
+const FALLBACK_AUTH_DOMAIN = "border-empires.firebaseapp.com";
+
+const defaultAuthDomain = (): string => {
+  if (typeof window === "undefined") return FALLBACK_AUTH_DOMAIN;
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+  return isLocalHost ? FALLBACK_AUTH_DOMAIN : hostname;
+};
+
 export const createClientFirebaseSetup = (): {
   firebaseAuth: ReturnType<typeof getAuth> | undefined;
   googleProvider: GoogleAuthProvider | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
-  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
+  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? defaultAuthDomain();
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
