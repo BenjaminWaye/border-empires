@@ -227,6 +227,7 @@ export type WorldStatusSnapshot = {
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
   seasonWinner?: SeasonWinnerSnapshot;
   acceptLatencyP95Ms?: number;
+  shardRainNotice?: Record<string, unknown>;
 };
 
 export type CurrentSeasonSummary = {
