@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.3",
+  version: "2026.07.18.4",
   title: "What's New",
-  summary: "Fixed another Safari crash, this time right after saving a display name change. Also includes the previous release: a Safari crash loop on the email sign-in link is fixed, and Farmstead's food bonus now shows up in your empire-wide food totals.",
+  summary: "Hardened the connection to the game server so an unexpected error while processing any server update can no longer crash the app — it's now logged and the game keeps running. Also includes recent Safari-specific crash fixes for the email sign-in link and for saving a display name change.",
   entries: [
+    {
+      introducedIn: "2026.07.18.4",
+      title: "The game connection no longer crashes on an unexpected error",
+      why: "Every update from the game server (tile changes, combat results, alliance updates, and dozens of other message types) was processed by a single handler with no error containment of its own. Any unexpected failure while handling any one of those updates — a bad payload, a browser restriction, a bug in any one of the many message types — could crash the entire app rather than just that one update failing quietly.",
+      changes: [
+        "Server-update processing is now wrapped so a failure handling any single update is logged and skipped instead of crashing the app.",
+        "The very large chunk of code that handles the initial game-state sync when you connect was also split into its own file as part of this change, with no change in behavior."
+      ]
+    },
     {
       introducedIn: "2026.07.18.3",
       title: "Fixed a Safari crash right after saving your display name",
