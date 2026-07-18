@@ -201,6 +201,7 @@ export type SimulationMetricsSnapshot = {
   simMusterRemoteAttackTotal: number;
   simMusterRemoteBlockedTotal: number;
   simMusterRemoteBlockedBarbarianTotal: number;
+  simOwnershipChangeAlertSkippedSettlementTierTotal: number;
   simSeasonEndSnapshotWarmTotal: number;
   simSeasonEndSnapshotWarmFailedTotal: number;
   /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */

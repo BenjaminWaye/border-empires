@@ -203,6 +203,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`,
     "# TYPE sim_muster_remote_blocked_barbarian_total counter",
     `sim_muster_remote_blocked_barbarian_total ${formatMetricValue(sample.simMusterRemoteBlockedBarbarianTotal)}`,
+    "# TYPE sim_ownership_change_alert_skipped_settlement_tier_total counter",
+    `sim_ownership_change_alert_skipped_settlement_tier_total ${formatMetricValue(sample.simOwnershipChangeAlertSkippedSettlementTierTotal)}`,
     "# TYPE sim_season_end_snapshot_warm_total counter",
     `sim_season_end_snapshot_warm_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmTotal)}`,
     "# TYPE sim_season_end_snapshot_warm_failed_total counter",
