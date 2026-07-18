@@ -18,7 +18,9 @@ describe("client HUD server-build debug regression", () => {
   });
 
   it("ingests serverBuildSha from the INIT message into client state", () => {
-    const networkSource = readFileSync(new URL("../client-network/client-network.ts", import.meta.url), "utf8");
+    // INIT handling was extracted out of client-network.ts (over the repo's
+    // file-line cap, frozen) into client-network-init-message.ts.
+    const networkSource = readFileSync(new URL("../client-network-init-message/client-network-init-message.ts", import.meta.url), "utf8");
 
     expect(networkSource).toContain("incomingServerBuildSha");
     expect(networkSource).toContain("state.bridgeDebugServerBuildSha");

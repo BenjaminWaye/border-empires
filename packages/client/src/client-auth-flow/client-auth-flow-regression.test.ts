@@ -9,7 +9,11 @@ const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./client-auth-flow.ts"), "utf8"),
-    readFileSync(resolve(here, "../client-network/client-network.ts"), "utf8")
+    readFileSync(resolve(here, "../client-network/client-network.ts"), "utf8"),
+    // INIT handling (including the map-reveal-on-sign-in wiring this file
+    // asserts on) was extracted out of client-network.ts, which is over the
+    // repo's file-line cap and may not grow, into its own module.
+    readFileSync(resolve(here, "../client-network-init-message/client-network-init-message.ts"), "utf8")
   ].join("\n");
 };
 
