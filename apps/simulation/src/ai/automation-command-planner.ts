@@ -293,14 +293,19 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         })
       : emptyFrontierAnalysis();
   let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
-  // Diagnostic-only now (see BROAD_FALLBACK_FRONTIER_SAMPLE_CAP above): the
-  // broad fallback used to be skipped outright above this owned-tile count;
-  // it now always runs, bounded by sampling input.frontierTiles instead.
-  // Kept as a field (always false) so existing diagnostic consumers/tests
-  // don't need to special-case its absence.
+  // Repurposed from the old size-based skip (see BROAD_FALLBACK_FRONTIER_SAMPLE_CAP
+  // above — that skip is gone, the broad sweep is always bounded instead of
+  // disabled). Now true whenever the narrow/hot scan alone was already
+  // actionable, so the broad sweep of the rest of the frontier never even
+  // ran this tick — the winner-take-all/"tunnel vision" case documented in
+  // docs/agents/topics/ai-planner.md ("baseFrontierOrigins is winner-take-all
+  // across categories, not a union"). sim_ai_broad_fallback_skipped_total
+  // (fed by this field) is the signal for how often that happens in prod.
   let broadFallbackSkipped = false;
-  if ((canAttack || canExpand) && !frontierAnalysisActionable && input.frontierTiles.length > 0) {
-    {
+  if ((canAttack || canExpand) && input.frontierTiles.length > 0) {
+    if (frontierAnalysisActionable) {
+      broadFallbackSkipped = true;
+    } else {
       // Uses ownedFrontierTilesSample() (bounded), not ownedFrontierTiles()
       // (unbounded O(owned) scan) — see that function's doc comment.
       const broadFrontierOriginsAll = dedupeTiles([
