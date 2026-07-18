@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.7",
+  version: "2026.07.18.8",
   title: "What's New",
-  summary: "Fixed the root cause of Google sign-in sometimes failing with a confusing storage error on regular mobile browsers, not just in-app browsers. Also includes the fix for known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, recent hardening of server-update processing, and Safari-specific crash fixes for the email sign-in link and saving a display name.",
+  summary: "The Sharding panel now shows a countdown to the next shard rain (or how long an active one has left) as soon as you log in, instead of staying blank until a live server push arrived. Also includes the fix for Google sign-in's storage error on regular mobile browsers, known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, and recent hardening of server-update processing.",
   entries: [
+    {
+      introducedIn: "2026.07.18.8",
+      title: "Sharding panel now shows the next shard rain countdown on login",
+      why: "The persistent \"Shard Network\" panel could sit without a countdown for a long time after logging in — the countdown only appeared once a live server push happened to arrive, which could be minutes or hours after opening the panel.",
+      changes: [
+        "The server now includes the next scheduled shard rain (or the remaining time on an active one) in your login data, so the panel shows a countdown immediately.",
+        "The one-time popup alert still only appears when a shard rain is actually starting, not on every login."
+      ]
+    },
     {
       introducedIn: "2026.07.18.7",
       title: "Fixed the root cause of Google sign-in's storage error on mobile browsers",

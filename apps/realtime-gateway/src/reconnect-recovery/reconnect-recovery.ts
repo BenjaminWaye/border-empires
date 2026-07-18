@@ -81,6 +81,7 @@ export const buildInitMessage = (
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
+  shardRainNotice?: Record<string, unknown>;
   initialState?: PlayerSubscriptionSnapshot;
 }> =>
   Promise.allSettled([
@@ -176,6 +177,7 @@ export const buildInitMessage = (
       seasonVictory: bootstrap.seasonVictory,
       ...(bootstrap.seasonWinner ? { seasonWinner: bootstrap.seasonWinner } : {}),
       mapMeta: bootstrap.mapMeta,
+      ...(bootstrap.shardRainNotice ? { shardRainNotice: bootstrap.shardRainNotice } : {}),
       ...(initialState ? { initialState } : {}),
       recovery: {
         nextClientSeq,
