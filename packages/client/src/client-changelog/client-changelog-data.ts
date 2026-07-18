@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.8",
+  version: "2026.07.18.9",
   title: "What's New",
-  summary: "The Sharding panel now shows a countdown to the next shard rain (or how long an active one has left) as soon as you log in, instead of staying blank until a live server push arrived. Also includes the fix for Google sign-in's storage error on regular mobile browsers, known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, and recent hardening of server-update processing.",
+  summary: "The Town Captured popup now shows the expected base gold production rate alongside manpower gains. Also includes the Sharding panel now showing a countdown to the next shard rain as soon as you log in, the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, and recent hardening of server-update processing.",
   entries: [
+    {
+      introducedIn: "2026.07.18.9",
+      title: "Town Captured popup now shows expected gold production",
+      why: "The Town Captured popup told you the town would provide Manpower Cap and Manpower Regen once settled, but only mentioned gold production in a vague note — no number was shown, even though the base rate can be computed from the tier constants the client already has.",
+      changes: [
+        "A new Gold Production stat card shows the base gold-per-minute rate for the captured town (e.g. 2.00/m for a Town, 3.00/m for a City, up to 6.40/m for a Metropolis).",
+        "Settlements show a flat 1.00/m since they have no population tier multiplier and no support requirement.",
+        "The note now clarifies that support tiles and structures further multiply this base rate, matching how the manpower stats use constants derived from tier alone."
+      ]
+    },
     {
       introducedIn: "2026.07.18.8",
       title: "Sharding panel now shows the next shard rain countdown on login",

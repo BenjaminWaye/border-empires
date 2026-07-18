@@ -1,6 +1,16 @@
 import { manpowerRegenWeightForSettlementIndex, TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
+import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN } from "@border-empires/game-domain";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+
+const townPopulationMultiplier = (tier: TownPopulationTier): number => {
+  switch (tier) {
+    case "CITY": return 1.5;
+    case "GREAT_CITY": return 2.5;
+    case "METROPOLIS": return 3.2;
+    default: return 1;
+  }
+};
 
 export type TownCaptureInfo = {
   x: number;
@@ -68,11 +78,19 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         const tierMeta = TOWN_MANPOWER_BY_TIER[info.populationTier];
         const manpowerCapAdded = tierMeta.cap;
         const manpowerRegenAdded = tierMeta.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
+        const isSettlement = info.populationTier === "SETTLEMENT";
+        const goldProductionBase = isSettlement
+          ? SETTLEMENT_BASE_GOLD_PER_MIN
+          : TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(info.populationTier);
         return `
         <div id="town-capture-stats">
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Population</div>
             <div class="town-capture-stat-value">${populationLabel}<span class="town-capture-stat-suffix">/${maxPopulationLabel}</span></div>
+          </div>
+          <div class="town-capture-stat">
+            <div class="town-capture-stat-label">Gold Production</div>
+            <div class="town-capture-stat-value town-capture-stat-positive">+${goldProductionBase.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Cap</div>
@@ -83,7 +101,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerRegenAdded.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
           </div>
         </div>
-        <div id="town-capture-note">Full gold production and these manpower gains begin once the town is settled and connected to supporting territory.</div>`;
+        <div id="town-capture-note">Gold production and manpower gains begin once the town is settled and connected to supporting territory. Support tiles and structures further multiply the base gold rate.</div>`;
       })();
 
   return `
@@ -169,7 +187,7 @@ const styles = `
 }
 #town-capture-owner strong { color: #ffd68f; font-weight: 800; }
 #town-capture-stats {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
 }
 #town-capture-stats.town-capture-stats-single {
   grid-template-columns: 1fr;
@@ -197,7 +215,7 @@ const styles = `
 @media (max-width: 520px) {
   #town-capture-hero { height: 140px; }
   #town-capture-name { font-size: 20px; }
-  #town-capture-stats { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  #town-capture-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
   .town-capture-stat { padding: 8px 8px; }
   .town-capture-stat-value { font-size: 14px; }
 }
