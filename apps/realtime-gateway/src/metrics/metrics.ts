@@ -71,6 +71,8 @@ export type GatewayMetricsSnapshot = {
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
+  websocketDisconnectTotal: number;
+  websocketAbnormalDisconnectTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -107,6 +109,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
+  let websocketDisconnectTotal = 0;
+  let websocketAbnormalDisconnectTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -145,7 +149,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     loginAbandonedBeforeAttachTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
-    tileDetailSelfHealTotal
+    tileDetailSelfHealTotal,
+    websocketDisconnectTotal,
+    websocketAbnormalDisconnectTotal
   });
 
   return {
@@ -230,6 +236,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     incrementTileDetailSelfHealTotal(count = 1): void {
       tileDetailSelfHealTotal += Math.max(0, Math.floor(count));
     },
+    incrementWebsocketDisconnectTotal(count = 1): void {
+      websocketDisconnectTotal += Math.max(0, Math.floor(count));
+    },
+    incrementWebsocketAbnormalDisconnectTotal(count = 1): void {
+      websocketAbnormalDisconnectTotal += Math.max(0, Math.floor(count));
+    },
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
@@ -313,7 +325,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",
         `gateway_simulation_submit_timeout_flipped_total ${formatMetricValue(sample.simulationSubmitTimeoutFlippedTotal)}`,
         "# TYPE gateway_tile_detail_self_heal_total counter",
-        `gateway_tile_detail_self_heal_total ${formatMetricValue(sample.tileDetailSelfHealTotal)}`
+        `gateway_tile_detail_self_heal_total ${formatMetricValue(sample.tileDetailSelfHealTotal)}`,
+        "# TYPE gateway_websocket_disconnect_total counter",
+        `gateway_websocket_disconnect_total ${formatMetricValue(sample.websocketDisconnectTotal)}`,
+        "# TYPE gateway_websocket_abnormal_disconnect_total counter",
+        `gateway_websocket_abnormal_disconnect_total ${formatMetricValue(sample.websocketAbnormalDisconnectTotal)}`
       ].join("\n");
     }
   };
