@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.6",
+  version: "2026.07.19.7",
   title: "What's New",
-  summary: "Fixed the alliance/truce request box suggesting an AI's real name alongside \"AI N\" and failing with \"target not found\" if you picked the real name. Also includes the fix for the Report Bug popover not accepting clicks, the \"Download Disconnect History\" button in Settings, the map remembering your last-viewed location on reconnect, and the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\".",
+  summary: "Fixed the last-viewed map location sometimes getting stuck and never updating. Also includes the fix for alliance/truce requests to AI players sometimes failing with \"target not found\", the Report Bug popover not accepting clicks, and the \"Download Disconnect History\" button in Settings.",
   entries: [
+    {
+      introducedIn: "2026.07.19.7",
+      title: "Fixed the last-viewed map location getting stuck and never updating",
+      why: "The last-viewed location was only saved when the camera crossed a full 64-tile chunk boundary, which an ordinary pan or zoom near your base routinely never does — so for a lot of play sessions the saved position never moved past wherever it was first set.",
+      changes: [
+        "Saving your last-viewed location is now decoupled from that chunk boundary — it saves on a lightweight one-second timer instead, so ordinary panning and zooming (not just big jumps) keeps it up to date.",
+        "Zoom-only changes (mouse wheel / pinch, with no panning) are now saved too, which previously never triggered a save at all."
+      ]
+    },
     {
       introducedIn: "2026.07.19.6",
       title: "Fixed alliance/truce requests to AI players sometimes failing with \"target not found\"",
