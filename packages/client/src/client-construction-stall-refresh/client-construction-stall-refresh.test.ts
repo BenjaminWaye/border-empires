@@ -47,4 +47,20 @@ describe("createStalledConstructionRefresher", () => {
     refresh(tile, "2,2", 0);
     expect(requestTileDetailIfNeeded).toHaveBeenCalledTimes(2);
   });
+
+  it("bounds the tracked tile-key map so a long session panning across many stalled tiles cannot leak unbounded memory", () => {
+    // Regression: entries for tiles that never come back with time remaining
+    // (because the forced refresh actually fixed them) were never otherwise
+    // removed from the throttle map.
+    const requestTileDetailIfNeeded = vi.fn();
+    const refresh = createStalledConstructionRefresher({ requestTileDetailIfNeeded, throttleMs: 10_000 });
+    for (let i = 0; i < 600; i += 1) {
+      refresh({ x: i, y: 0 } as Tile, `${i},0`, 0);
+    }
+    expect(requestTileDetailIfNeeded).toHaveBeenCalledTimes(600);
+    // Re-visiting the very first tile (evicted once the cap was exceeded)
+    // fires again immediately instead of staying throttled forever.
+    refresh({ x: 0, y: 0 } as Tile, "0,0", 0);
+    expect(requestTileDetailIfNeeded).toHaveBeenCalledTimes(601);
+  });
 });

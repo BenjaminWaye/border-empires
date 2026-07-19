@@ -10,6 +10,16 @@ import type { Tile } from "../client-types.js";
 // force a fresh REQUEST_TILE_DETAIL (throttled per tile) to reconcile
 // against the server's authoritative state instead of trusting a stale
 // local field indefinitely.
+// lastRefreshAtByTileKey only ever gets an entry deleted when a tile is
+// re-observed with time remaining again (a fresh build) -- once a stalled
+// tile's forced refresh actually reconciles it, constructionRemainingMsForTile
+// stops returning a value for that tile at all, so this function is never
+// called for it again and the entry would otherwise sit here forever. Cap the
+// map so a long play session panning across many stalled tiles can't leak
+// unbounded memory; entries are cheap (one timestamp) and eviction only means
+// a very stale, likely-already-fixed tile has to re-throttle from scratch.
+const MAX_TRACKED_TILE_KEYS = 500;
+
 export const createStalledConstructionRefresher = (deps: {
   requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
   throttleMs?: number;
@@ -24,6 +34,10 @@ export const createStalledConstructionRefresher = (deps: {
     const now = Date.now();
     const lastRefreshAt = lastRefreshAtByTileKey.get(tileKey) ?? 0;
     if (now - lastRefreshAt < throttleMs) return;
+    if (!lastRefreshAtByTileKey.has(tileKey) && lastRefreshAtByTileKey.size >= MAX_TRACKED_TILE_KEYS) {
+      const oldestKey = lastRefreshAtByTileKey.keys().next().value;
+      if (oldestKey !== undefined) lastRefreshAtByTileKey.delete(oldestKey);
+    }
     lastRefreshAtByTileKey.set(tileKey, now);
     deps.requestTileDetailIfNeeded(tile, { force: true });
   };
