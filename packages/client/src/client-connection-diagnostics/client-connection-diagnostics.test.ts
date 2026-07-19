@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { recordSocketDisconnect, snapshotDisconnectHistory, summarizeDisconnectHistory } from "./client-connection-diagnostics.js";
+import { buildDisconnectHistoryBundle, recordSocketDisconnect, snapshotDisconnectHistory, summarizeDisconnectHistory } from "./client-connection-diagnostics.js";
 
 describe("client connection diagnostics", () => {
   beforeEach(() => {
@@ -42,5 +42,17 @@ describe("client connection diagnostics", () => {
       recordSocketDisconnect("close", { code: 1006, connectionUptimeMs: i, debugPayload: {} });
     }
     expect(snapshotDisconnectHistory().length).toBeLessThanOrEqual(25);
+  });
+
+  it("builds a standalone downloadable bundle for the settings-panel button", () => {
+    recordSocketDisconnect("close", { code: 1006, reason: "proxy timeout", wasClean: false, connectionUptimeMs: 400, debugPayload: {} });
+    recordSocketDisconnect("close", { code: 1000, reason: "", wasClean: true, connectionUptimeMs: 60_000, debugPayload: {} });
+
+    const bundle = buildDisconnectHistoryBundle(5_000);
+    expect(bundle.capturedAtMs).toBe(5_000);
+    expect(bundle.incidentId).toEqual(expect.stringContaining("disconnects-"));
+    expect(bundle.totalRecorded).toBe(2);
+    expect(bundle.abnormalCount).toBe(1);
+    expect(bundle.entries).toHaveLength(2);
   });
 });

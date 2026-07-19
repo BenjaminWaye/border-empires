@@ -53,6 +53,18 @@ export const recordDisconnectHistory = (entry: Omit<DisconnectLogEntry, "atMs">)
 
 export const snapshotDisconnectHistory = (): DisconnectLogEntry[] => readDisconnectLog();
 
+// Standalone downloadable bundle for the settings-panel "Download Disconnect
+// History" button — a lighter-weight alternative to the full diagnostics
+// bundle (client-diagnostics.ts) for players who just want to hand over
+// evidence of frequent reconnects without a full support-ticket flow.
+export const buildDisconnectHistoryBundle = (now: number = Date.now()): Record<string, unknown> => ({
+  incidentId: `disconnects-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+  capturedAtMs: now,
+  capturedAtIso: new Date(now).toISOString(),
+  ...summarizeDisconnectHistory(),
+  entries: readDisconnectLog()
+});
+
 // Summarizes the recent disconnect history for the diagnostics bundle: total
 // count, how many were "abnormal" (no clean close), and the shortest gap
 // between consecutive disconnects (the strongest signal of a flapping
