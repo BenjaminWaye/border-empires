@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.7",
+  version: "2026.07.19.8",
   title: "What's New",
-  summary: "Fixed the last-viewed map location sometimes getting stuck and never updating. Also includes the fix for alliance/truce requests to AI players sometimes failing with \"target not found\", the Report Bug popover not accepting clicks, and the \"Download Disconnect History\" button in Settings.",
+  summary: "Fixed display name changes silently failing and reverting for some players. Also includes the fix for the last-viewed map location sometimes getting stuck, alliance/truce requests to AI players sometimes failing with \"target not found\", the Report Bug popover not accepting clicks, and the \"Download Disconnect History\" button in Settings.",
   entries: [
+    {
+      introducedIn: "2026.07.19.8",
+      title: "Fixed display name changes silently failing and reverting",
+      why: "Changing your display name in Settings also resends your current tile color in the same request. If that stored color happened to collide with another player's (more likely on a large, long-running world than on staging's small test roster), the server rejected the whole update to protect color uniqueness — silently dropping the name change along with it. The Settings page also showed a \"Display name updated\" success message the instant the request was sent, without waiting to see whether the server actually accepted it, so the failure went unnoticed until the name reverted on the next reload.",
+      changes: [
+        "The server no longer re-checks color uniqueness when your color isn't actually changing, so a name-only update can no longer be blocked by an unrelated, pre-existing color collision.",
+        "The Settings page now waits for server confirmation before showing \"Display name updated\", and shows the real rejection reason (e.g. a color conflict) if the update fails instead of claiming success."
+      ]
+    },
     {
       introducedIn: "2026.07.19.7",
       title: "Fixed the last-viewed map location getting stuck and never updating",

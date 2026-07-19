@@ -1278,6 +1278,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.name === "string") {
         state.meName = msg.name;
         authProfileNameEl.value = msg.name;
+        if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === msg.name) {
+          state.pendingDisplayNameChange = "";
+          pushFeed("Display name updated.", "info", "success");
+        }
       }
       state.level = (msg.level as number | undefined) ?? state.level;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
@@ -2384,11 +2388,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
-        setAuthStatus(
-          `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`,
-          "error"
-        );
+        const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
+        setAuthStatus(fullMessage, "error");
         syncAuthOverlay();
+        // A pending display-name change rides on the same SET_PROFILE message as
+        // the (unchanged) color, so a color-collision rejection here also means
+        // the name update was never persisted — surface that on the Settings feed
+        // too, since the auth overlay above isn't visible from there.
+        if (state.pendingDisplayNameChange) {
+          state.pendingDisplayNameChange = "";
+          pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
+        }
         return;
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
