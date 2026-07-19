@@ -2045,12 +2045,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             authTrace.setPlayerId(playerIdentity.playerId);
-            session.playerId = playerIdentity.playerId; slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
+            session.playerId = playerIdentity.playerId;
+            slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
-            // Always start a new auth with fog ON. Fog admins must explicitly
-            // re-toggle SET_FOG_DISABLED each login; the client also clears its
-            // persisted reveal preference on Firebase sign-in so it does not
-            // auto-resend the toggle.
+            // Always start a new auth with fog ON — fog admins must explicitly re-toggle
+            // SET_FOG_DISABLED each login (the client also clears its persisted reveal
+            // preference on Firebase sign-in so it does not auto-resend the toggle).
             session.fogDisabled = false;
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
@@ -3102,8 +3102,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       });
 
       // Close codes (developer.mozilla.org/docs/Web/API/CloseEvent/code): 1000/1001 are
-      // normal; anything else (1006 no-close-frame, 1011, etc.) is "abnormal" and
-      // surfaced via metrics/logs so frequent-reconnect reports can be diagnosed.
+      // normal; anything else (1006 no-close-frame, 1011, etc.) is "abnormal".
       socket.on("close", (code: number, reason: Buffer) => {
         gatewayMetrics.incrementWebsocketDisconnectTotal();
         const isNormalClose = code === 1000 || code === 1001;
@@ -3111,7 +3110,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
         const closeReason = reason?.toString("utf8").slice(0, 200) ?? "";
-        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: closeReason, sessionId: session.sessionId }); slackAlerter?.alertPlayerDisconnected(closingPlayerId, { code, reason: closeReason, isNormalClose });
+        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: closeReason, sessionId: session.sessionId });
+        slackAlerter?.alertPlayerDisconnected(closingPlayerId, { code, reason: closeReason, isNormalClose });
         // clientSeq must be real: commands has UNIQUE(player_id, client_seq); a hardcoded 0 only ever succeeded once per player, ever.
         void commandStore.nextClientSeqForPlayer(closingPlayerId).then((clientSeq) => simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
