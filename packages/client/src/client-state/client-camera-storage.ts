@@ -16,3 +16,14 @@ export const readStoredCameraLocation = (): { x: number; y: number; zoom: number
     return null;
   }
 };
+
+// Bundles the restored (or default) camera fields for createInitialState()
+// as a single spreadable object, so the caller doesn't need a local variable
+// or multiple readStoredCameraLocation() calls. cameraRestoredFromStorage is
+// consumed once by the first automatic centerOnOwnedTile() fallback in
+// client-network.ts, so a restored location isn't discarded before the
+// player's owned tiles have loaded in.
+export const cameraLocationInitialState = (): { camX: number; camY: number; zoom: number; cameraRestoredFromStorage: boolean } => {
+  const stored = readStoredCameraLocation();
+  return { camX: stored?.x ?? 0, camY: stored?.y ?? 0, zoom: stored?.zoom ?? DEFAULT_ZOOM, cameraRestoredFromStorage: stored !== null };
+};

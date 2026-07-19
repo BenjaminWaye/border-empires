@@ -1,6 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
-import { DEFAULT_ZOOM, GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { readStoredCameraLocation } from "./client-camera-storage.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { cameraLocationInitialState } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -76,7 +76,7 @@ export const storageSet = (keyName: string, value: string): void => {
   }
 };
 
-export const createInitialState = () => { const storedCameraLocation = readStoredCameraLocation(); return {
+export const createInitialState = () => ({
   me: "",
   meName: "",
   connection: "connecting" as "connecting" | "connected" | "initialized" | "disconnected",
@@ -165,8 +165,7 @@ export const createInitialState = () => { const storedCameraLocation = readStore
   localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
   tilesRevision: 0,
-  camX: storedCameraLocation?.x ?? 0, camY: storedCameraLocation?.y ?? 0, zoom: storedCameraLocation?.zoom ?? DEFAULT_ZOOM,
-  cameraRestoredFromStorage: storedCameraLocation !== null, // consumed once by centerOnOwnedTile() fallback in client-network.ts
+  ...cameraLocationInitialState(),
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],
@@ -525,5 +524,5 @@ export const createInitialState = () => { const storedCameraLocation = readStore
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0
-}; };
+});
 export type ClientState = ReturnType<typeof createInitialState>;
