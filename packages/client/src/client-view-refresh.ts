@@ -1,7 +1,16 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
+import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import type { ClientState } from "./client-state/client-state.js";
+import { storageSet, type ClientState } from "./client-state/client-state.js";
+
+// Persists the player's last-viewed map location so a reload/reconnect (or a
+// fresh login on the same browser) drops them back where they were instead
+// of always re-centering on their empire. Best-effort: storage failures are
+// swallowed by storageSet.
+export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom">): void => {
+  storageSet(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom }));
+};
 
 export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY">): void => {
   const own = [...state.tiles.values()].find((tile) => tile.ownerId === state.me);
@@ -24,6 +33,7 @@ export const requestViewRefresh = (
     | "mapRevealEnabled"
     | "camX"
     | "camY"
+    | "zoom"
     | "lastSubCx"
     | "lastSubCy"
     | "lastSubRadius"
@@ -55,6 +65,7 @@ export const requestViewRefresh = (
   state.lastSubCy = cy;
   state.lastSubRadius = effectiveRadius;
   state.lastSubAt = Date.now();
+  saveCameraLocation(state);
   deps.ws.send(
     JSON.stringify({
       type: "SUBSCRIBE_CHUNKS",

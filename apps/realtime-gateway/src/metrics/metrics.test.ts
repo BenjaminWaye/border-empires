@@ -104,4 +104,19 @@ describe("gateway metrics", () => {
     expect(exposition).toContain("gateway_reveal_chunks_sent 6");
     expect(exposition).toContain("gateway_reveal_cache_entries 1");
   });
+
+  it("tracks websocket disconnect totals, split out by abnormal closes", () => {
+    const metrics = createGatewayMetrics();
+    metrics.incrementWebsocketDisconnectTotal();
+    metrics.incrementWebsocketDisconnectTotal();
+    metrics.incrementWebsocketAbnormalDisconnectTotal();
+
+    const sample = metrics.snapshot();
+    expect(sample.websocketDisconnectTotal).toBe(2);
+    expect(sample.websocketAbnormalDisconnectTotal).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain("gateway_websocket_disconnect_total 2");
+    expect(exposition).toContain("gateway_websocket_abnormal_disconnect_total 1");
+  });
 });

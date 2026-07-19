@@ -20,10 +20,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.2",
+  version: "2026.07.19.4",
   title: "What's New",
-  summary: "Fixed forts, observatories, siege outposts, and other structures getting visually stuck at \"Remaining 00:00\" and never finishing construction on the tile detail popup.",
+  summary: "The Settings panel now has a \"Download Disconnect History\" button for handing us evidence if you're getting reconnected a lot. Also includes the map remembering your last-viewed location on reconnect, the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\", the AI-owned tile display-name fix, and the Town Captured popup's gold production stat.",
   entries: [
+    {
+      introducedIn: "2026.07.19.4",
+      title: "New \"Download Disconnect History\" button in Settings",
+      why: "Some players have reported getting reconnected frequently, but there was no easy way to hand over evidence of when and why — the technical detail (close codes, timing) was only ever visible in a developer console.",
+      changes: [
+        "Settings now has a Download Disconnect History button next to Download Diagnostics, which saves a small JSON file listing your recent disconnects (when, how long you were connected beforehand, and whether it was a normal or abnormal close).",
+        "This history is stored locally on your device and is not affected by the automatic reload that happens after a disconnect, so it can show a pattern across multiple reconnects, not just the most recent one."
+      ]
+    },
+    {
+      introducedIn: "2026.07.19.3",
+      title: "The map now remembers your last-viewed location",
+      why: "Reconnecting or reloading always re-centered the camera on your empire's tiles, even if you were looking somewhere else (scouting, checking a border, watching an ally) right before the disconnect.",
+      changes: [
+        "Your last-viewed map position and zoom are now saved automatically and restored on reconnect, reload, or the next time you log in on the same browser.",
+        "This only affects the very first auto-recenter after load — the existing \"jump to my empire\" recenter button still works exactly as before."
+      ]
+    },
     {
       introducedIn: "2026.07.19.2",
       title: "Fixed structures appearing stuck at 00:00 forever",
