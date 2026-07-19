@@ -27,6 +27,7 @@ export const GOLD_COST_EPSILON = 1e-6;
 export const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
 export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
 export const RENDERER_PROMPT_STORAGE_KEY = "border-empires-renderer-prompt-v1";
+export const CAMERA_LOCATION_STORAGE_KEY = "border-empires-camera-location-v1";
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
 export const guideSteps: GuideStep[] = [

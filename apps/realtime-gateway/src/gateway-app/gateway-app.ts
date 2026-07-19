@@ -3101,33 +3101,32 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       });
 
-      socket.on("close", () => {
+      // Close codes (developer.mozilla.org/docs/Web/API/CloseEvent/code): 1000/1001 are
+      // normal; anything else (1006 no-close-frame, 1011, etc.) is "abnormal" and
+      // surfaced via metrics/logs so frequent-reconnect reports can be diagnosed.
+      socket.on("close", (code: number, reason: Buffer) => {
+        gatewayMetrics.incrementWebsocketDisconnectTotal();
+        const isNormalClose = code === 1000 || code === 1001;
+        if (!isNormalClose) gatewayMetrics.incrementWebsocketAbnormalDisconnectTotal();
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
-        // clientSeq must be real: commands has UNIQUE(player_id, client_seq),
-        // and a hardcoded 0 here only ever succeeded once per player, ever —
-        // read commandStore's real counter instead of colliding every time.
+        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: reason?.toString("utf8").slice(0, 200) ?? "", sessionId: session.sessionId });
+        // clientSeq must be real: commands has UNIQUE(player_id, client_seq); a hardcoded 0 only ever succeeded once per player, ever.
         void commandStore.nextClientSeqForPlayer(closingPlayerId).then((clientSeq) => simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
           sessionId: session.sessionId, playerId: closingPlayerId, clientSeq, issuedAt: Date.now(),
           type: "UNWATCH_MUSTER", payloadJson: "{}"
         })).catch(() => { /* best-effort on disconnect */ });
-        void playerSubscriptions.removeSocket(closingPlayerId, socket)
-          .then(() => {
-            syncGatewaySnapshotMetricsFromCache(closingPlayerId);
-            // Prune fog-refresh bookkeeping when no fog-disabled session remains
-            // for this player — avoids unbounded growth of lastStartedAt across
-            // the gateway's lifetime.
-            const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
-              (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-            );
-            if (!stillFogDisabled) {
-              fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
-            }
-          })
-          .catch((error) => {
-            app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
-          });
+        void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
+          syncGatewaySnapshotMetricsFromCache(closingPlayerId);
+          // Prune fog-refresh bookkeeping once no fog-disabled session remains for this player.
+          const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
+            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+          );
+          if (!stillFogDisabled) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+        }).catch((error) => {
+          app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
+        });
       });
     });
   });

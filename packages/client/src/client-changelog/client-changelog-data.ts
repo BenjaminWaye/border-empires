@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.1",
+  version: "2026.07.19.2",
   title: "What's New",
-  summary: "Tapping an AI-owned tile now shows that AI's actual name instead of the generic \"AI 5\"-style label, matching what the leaderboard already shows. Also includes the Town Captured popup now showing the expected base gold production rate alongside manpower gains, the Sharding panel showing a countdown to the next shard rain as soon as you log in, and the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram.",
+  summary: "The map now remembers where you were looking — logging back in or reconnecting drops you back at your last-viewed location instead of always re-centering on your empire. Also includes the AI-owned tile display-name fix, the Town Captured popup's gold production stat, the Sharding panel's login-time countdown, and the mobile/in-app-browser Google sign-in storage fix.",
   entries: [
+    {
+      introducedIn: "2026.07.19.2",
+      title: "The map now remembers your last-viewed location",
+      why: "Reconnecting or reloading always re-centered the camera on your empire's tiles, even if you were looking somewhere else (scouting, checking a border, watching an ally) right before the disconnect.",
+      changes: [
+        "Your last-viewed map position and zoom are now saved automatically and restored on reconnect, reload, or the next time you log in on the same browser.",
+        "This only affects the very first auto-recenter after load — the existing \"jump to my empire\" recenter button still works exactly as before."
+      ]
+    },
     {
       introducedIn: "2026.07.19.1",
       title: "Tile descriptions now show the AI player's real name",
