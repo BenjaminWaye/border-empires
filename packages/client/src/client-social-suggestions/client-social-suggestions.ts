@@ -44,7 +44,12 @@ export const allianceTargetSuggestions = (state: SocialSuggestionState): string[
   }
 
   for (const entry of state.leaderboard.overall) {
-    if (entry.id === state.me) continue;
+    // AI players are already covered by the playerNames loop above with the
+    // stable "AI N" name that social-state's resolveByName expects. The
+    // leaderboard reports each AI's live seasonal name (e.g. "Freja Sund"),
+    // which is not resolvable and would otherwise be offered as a second,
+    // separate suggestion that fails with "target not found" when selected.
+    if (entry.id === state.me || entry.id.startsWith("ai-")) continue;
     pushUniqueName(names, seen, entry.name, excluded);
   }
 

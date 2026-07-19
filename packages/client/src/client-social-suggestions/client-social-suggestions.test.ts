@@ -98,6 +98,28 @@ describe("allianceTargetSuggestions", () => {
     expect(names).toEqual(["AI 1"]);
   });
 
+  it("does not offer an AI's leaderboard seasonal name as a second, unresolvable suggestion", () => {
+    const names = allianceTargetSuggestions({
+      me: "player-1",
+      meName: "Nauticus",
+      playerNames: new Map([
+        ["player-1", "Nauticus"],
+        ["ai-1", "AI 1"]
+      ]),
+      leaderboard: {
+        ...emptyLeaderboard,
+        overall: [{ id: "ai-1", name: "Freja Sund", rank: 1, score: 10, tiles: 5, incomePerMinute: 3, techs: 1 }]
+      },
+      incomingAllianceRequests: [],
+      outgoingAllianceRequests: [],
+      incomingTruceRequests: [],
+      outgoingTruceRequests: [],
+      activeTruces: []
+    });
+
+    expect(names).toEqual(["AI 1"]);
+  });
+
   it("never excludes real human players even if they have no leaderboard activity yet", () => {
     const names = allianceTargetSuggestions({
       me: "me",

@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.5",
+  version: "2026.07.19.6",
   title: "What's New",
-  summary: "Fixed the Report Bug popover so clicking the text box actually focuses it instead of clicking through to the map behind it. Also includes the \"Download Disconnect History\" button in Settings, the map remembering your last-viewed location on reconnect, the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\", the AI-owned tile display-name fix, and the Town Captured popup's gold production stat.",
+  summary: "Fixed the alliance/truce request box suggesting an AI's real name alongside \"AI N\" and failing with \"target not found\" if you picked the real name. Also includes the fix for the Report Bug popover not accepting clicks, the \"Download Disconnect History\" button in Settings, the map remembering your last-viewed location on reconnect, and the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\".",
   entries: [
+    {
+      introducedIn: "2026.07.19.6",
+      title: "Fixed alliance/truce requests to AI players sometimes failing with \"target not found\"",
+      why: "The alliance/truce target suggestion box offered two entries for the same AI player — the stable \"AI N\" name and that AI's real display name (e.g. \"Freja Sund\") shown on the leaderboard. Only \"AI N\" is recognized by the server, so picking the real name from the dropdown always failed with \"target not found\".",
+      changes: [
+        "The suggestion box now only offers the resolvable \"AI N\" name for AI players, matching what the server actually recognizes."
+      ]
+    },
     {
       introducedIn: "2026.07.19.5",
       title: "Fixed Report Bug popover not accepting clicks",
