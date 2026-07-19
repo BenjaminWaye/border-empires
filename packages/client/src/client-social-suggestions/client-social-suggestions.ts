@@ -13,13 +13,30 @@ type SocialSuggestionState = Pick<
   | "activeTruces"
 >;
 
-const pushUniqueName = (names: string[], seen: Set<string>, raw: string | undefined, excluded: Set<string>): void => {
-  const trimmed = raw?.trim();
-  if (!trimmed) return;
-  const key = trimmed.toLocaleLowerCase();
+// `value` is what actually gets submitted as the truce/alliance target
+// (must be the string social-state's resolveByName recognizes, e.g. "AI 1"
+// for an AI player); `label` is an optional human-friendly hint shown
+// alongside it in the datalist popup (e.g. an AI's real seasonal name),
+// purely cosmetic and never sent to the server.
+export type AllianceTargetSuggestion = { value: string; label?: string };
+
+const leaderboardNameForId = (state: SocialSuggestionState, playerId: string): string | undefined =>
+  state.leaderboard.overall.find((entry) => entry.id === playerId)?.name;
+
+const pushUniqueSuggestion = (
+  suggestions: AllianceTargetSuggestion[],
+  seen: Set<string>,
+  excluded: Set<string>,
+  rawValue: string | undefined,
+  rawLabel?: string
+): void => {
+  const value = rawValue?.trim();
+  if (!value) return;
+  const key = value.toLocaleLowerCase();
   if (seen.has(key) || excluded.has(key)) return;
   seen.add(key);
-  names.push(trimmed);
+  const label = rawLabel?.trim();
+  suggestions.push(label && label !== value ? { value, label } : { value });
 };
 
 // AI player ids (`ai-1` .. `ai-N`) are pre-registered on the gateway for the
@@ -31,8 +48,8 @@ const pushUniqueName = (names: string[], seen: Set<string>, raw: string | undefi
 const isEligibleAllianceTargetId = (playerId: string, activePlayerIds: ReadonlySet<string>): boolean =>
   !playerId.startsWith("ai-") || activePlayerIds.has(playerId);
 
-export const allianceTargetSuggestions = (state: SocialSuggestionState): string[] => {
-  const names: string[] = [];
+export const allianceTargetSuggestions = (state: SocialSuggestionState): AllianceTargetSuggestion[] => {
+  const suggestions: AllianceTargetSuggestion[] = [];
   const seen = new Set<string>();
   const excluded = new Set<string>(["barbarians"]);
   if (state.meName.trim()) excluded.add(state.meName.trim().toLocaleLowerCase());
@@ -40,32 +57,40 @@ export const allianceTargetSuggestions = (state: SocialSuggestionState): string[
 
   for (const [playerId, playerName] of state.playerNames.entries()) {
     if (playerId === state.me || !isEligibleAllianceTargetId(playerId, activePlayerIds)) continue;
-    pushUniqueName(names, seen, playerName, excluded);
+    // The submitted value must stay the resolvable "AI N" name; the
+    // leaderboard's real seasonal name (e.g. "Freja Sund") is only used as a
+    // display label so the request stays resolvable server-side.
+    const label = playerId.startsWith("ai-") ? leaderboardNameForId(state, playerId) : undefined;
+    pushUniqueSuggestion(suggestions, seen, excluded, playerName, label);
   }
 
   for (const entry of state.leaderboard.overall) {
     // AI players are already covered by the playerNames loop above with the
-    // stable "AI N" name that social-state's resolveByName expects. The
-    // leaderboard reports each AI's live seasonal name (e.g. "Freja Sund"),
-    // which is not resolvable and would otherwise be offered as a second,
-    // separate suggestion that fails with "target not found" when selected.
+    // stable "AI N" value (labeled with the real name); offering the real
+    // name as its own suggestion here would submit an unresolvable value.
     if (entry.id === state.me || entry.id.startsWith("ai-")) continue;
-    pushUniqueName(names, seen, entry.name, excluded);
+    pushUniqueSuggestion(suggestions, seen, excluded, entry.name);
   }
 
-  for (const request of state.incomingAllianceRequests) pushUniqueName(names, seen, request.fromName, excluded);
-  for (const request of state.outgoingAllianceRequests) pushUniqueName(names, seen, request.toName, excluded);
-  for (const request of state.incomingTruceRequests) pushUniqueName(names, seen, request.fromName, excluded);
-  for (const request of state.outgoingTruceRequests) pushUniqueName(names, seen, request.toName, excluded);
-  for (const truce of state.activeTruces) pushUniqueName(names, seen, truce.otherPlayerName, excluded);
+  for (const request of state.incomingAllianceRequests) pushUniqueSuggestion(suggestions, seen, excluded, request.fromName);
+  for (const request of state.outgoingAllianceRequests) pushUniqueSuggestion(suggestions, seen, excluded, request.toName);
+  for (const request of state.incomingTruceRequests) pushUniqueSuggestion(suggestions, seen, excluded, request.fromName);
+  for (const request of state.outgoingTruceRequests) pushUniqueSuggestion(suggestions, seen, excluded, request.toName);
+  for (const truce of state.activeTruces) pushUniqueSuggestion(suggestions, seen, excluded, truce.otherPlayerName);
 
-  return names.sort((left, right) => left.localeCompare(right));
+  return suggestions.sort((left, right) => left.value.localeCompare(right.value));
 };
 
-export const allianceTargetSuggestionOptionsHtml = (names: string[]): string =>
-  names.map((name) => `<option value="${name.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}"></option>`).join("");
+const escapeAttr = (raw: string): string =>
+  raw.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-const allianceTargetSuggestionsSignature = (names: string[]): string => names.join("\u0000");
+export const allianceTargetSuggestionOptionsHtml = (suggestions: AllianceTargetSuggestion[]): string =>
+  suggestions
+    .map(({ value, label }) => `<option value="${escapeAttr(value)}"${label ? ` label="${escapeAttr(label)}"` : ""}></option>`)
+    .join("");
+
+const allianceTargetSuggestionsSignature = (suggestions: AllianceTargetSuggestion[]): string =>
+  suggestions.map(({ value, label }) => `${value}\u0001${label ?? ""}`).join("\u0000");
 
 // Rewriting a <datalist>'s innerHTML while its backing <input list=...> is
 // open/focused closes or flickers the autocomplete popup, even when the
@@ -78,9 +103,9 @@ export const shouldRewriteAllianceTargetOptions = (
 ): boolean => datalistEl.dataset.allianceTargetsSig !== signature;
 
 export const renderAllianceTargetOptionsIfChanged = (datalistEl: HTMLDataListElement, state: SocialSuggestionState): void => {
-  const names = allianceTargetSuggestions(state);
-  const signature = allianceTargetSuggestionsSignature(names);
+  const suggestions = allianceTargetSuggestions(state);
+  const signature = allianceTargetSuggestionsSignature(suggestions);
   if (!shouldRewriteAllianceTargetOptions(datalistEl, signature)) return;
-  datalistEl.innerHTML = allianceTargetSuggestionOptionsHtml(names);
+  datalistEl.innerHTML = allianceTargetSuggestionOptionsHtml(suggestions);
   datalistEl.dataset.allianceTargetsSig = signature;
 };

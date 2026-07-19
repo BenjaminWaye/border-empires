@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.8",
+  version: "2026.07.19.9",
   title: "What's New",
-  summary: "Fixed display name changes silently failing and reverting for some players. Also includes the fix for the last-viewed map location sometimes getting stuck, alliance/truce requests to AI players sometimes failing with \"target not found\", the Report Bug popover not accepting clicks, and the \"Download Disconnect History\" button in Settings.",
+  summary: "The alliance/truce request box now shows each AI's real name (e.g. \"Freja Sund\") alongside its \"AI N\" entry, so you can tell them apart. Also includes the fix for display name changes silently failing and reverting for some players, the last-viewed map location sometimes getting stuck, and alliance/truce requests to AI players sometimes failing with \"target not found\".",
   entries: [
+    {
+      introducedIn: "2026.07.19.9",
+      title: "Alliance/truce request box now shows each AI's real name",
+      why: "The previous fix for alliance/truce requests to AI players failing with \"target not found\" made the suggestion box only offer the resolvable \"AI N\" entry, but that left no way to tell which AI empire \"AI 1\" actually was.",
+      changes: [
+        "The suggestion box now shows an AI's real name (e.g. \"Freja Sund\") alongside its \"AI N\" entry, so you can identify it while the request still submits the resolvable name the server expects."
+      ]
+    },
     {
       introducedIn: "2026.07.19.8",
       title: "Fixed display name changes silently failing and reverting",
