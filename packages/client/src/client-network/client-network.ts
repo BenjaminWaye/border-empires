@@ -36,6 +36,7 @@ import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -1918,6 +1919,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
+      const deltaTouchesOpenTileMenu = tileDeltaTouchesOpenTileMenu(state, updates, keyFor);
       for (const update of updates) {
         const gatewayNormalizedUpdate =
           ("townJson" in update ||
@@ -2108,10 +2110,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           resolvedQueuedFrontierCapture = true;
         }
       }
-      if (resolvedQueuedFrontierCapture) {
-        resolveFrontierCapture("TILE_DELTA");
-        renderHud();
-      }
+      if (resolvedQueuedFrontierCapture) resolveFrontierCapture("TILE_DELTA");
+      if (resolvedQueuedFrontierCapture || deltaTouchesOpenTileMenu) renderHud();
       return;
     }
 
