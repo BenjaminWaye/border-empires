@@ -1932,6 +1932,11 @@ export class SimulationRuntime {
     const pendingSettlement = this.pendingSettlementsByTile.get(tileKey);
     if (!pendingSettlement || pendingSettlement.ownerId === nextOwnerId) return undefined;
     this.removePendingSettlement(tileKey);
+    // The settlement never completes once the tile changes hands mid-settle
+    // (e.g. captured out from under the settling player) — refund the gold
+    // spent to start it, same as a cancelled structure build.
+    const settler = this.players.get(pendingSettlement.ownerId);
+    if (settler) settler.points += pendingSettlement.goldCost;
     this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
     return pendingSettlement;
   }
