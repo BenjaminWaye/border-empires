@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.1",
+  version: "2026.07.19.2",
   title: "What's New",
-  summary: "Tapping an AI-owned tile now shows that AI's actual name instead of the generic \"AI 5\"-style label, matching what the leaderboard already shows. Also includes the Town Captured popup now showing the expected base gold production rate alongside manpower gains, the Sharding panel showing a countdown to the next shard rain as soon as you log in, and the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram.",
+  summary: "Fixed forts, observatories, siege outposts, and other structures getting visually stuck at \"Remaining 00:00\" and never finishing construction on the tile detail popup.",
   entries: [
+    {
+      introducedIn: "2026.07.19.2",
+      title: "Fixed structures appearing stuck at 00:00 forever",
+      why: "A structure's construction progress popup only refreshed when some unrelated event happened to redraw the screen, so once the countdown hit zero it could sit there indefinitely even after the server had already finished the build — making it look like the fort would never complete.",
+      changes: [
+        "The tile detail popup now refreshes immediately when the server reports a structure finishing while that tile's menu is open.",
+        "If a structure's countdown reaches zero but its status hasn't updated yet, the client now re-checks with the server instead of trusting the stale local timer forever."
+      ]
+    },
     {
       introducedIn: "2026.07.19.1",
       title: "Tile descriptions now show the AI player's real name",

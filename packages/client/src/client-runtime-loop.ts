@@ -27,6 +27,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
+import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
@@ -131,7 +132,7 @@ type StartClientRuntimeLoopDeps = {
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
-  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
+  requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
   renderShardAlert: () => void;
@@ -157,6 +158,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
+  });
+  const drawConstructionCountdownOverlay = (t: Tile, wk: string, px: number, py: number, size: number): void => {
+    const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
+    if (remainingConstructionMs === undefined) return;
+    maybeRefreshStalledConstruction(t, wk, remainingConstructionMs);
+    if (size < 18) return;
+    const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
+    deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
+    deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
+    deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
+    deps.ctx.font = "9px monospace";
+    deps.ctx.textBaseline = "top";
+    deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
+  };
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
@@ -569,18 +586,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           lastRenderedTileStateByKey.set(renderKey, renderSignature);
         }
       }
-      if (t && vis === "visible" && t.terrain === "LAND") {
-        const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-        if (remainingConstructionMs !== undefined && size >= 18) {
-          const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-          deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-          deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-          deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-          deps.ctx.font = "9px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-        }
-      }
+      if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
       if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
         deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
         deps.ctx.beginPath();
@@ -1089,18 +1095,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.lineWidth = 1;
           }
         }
-        if (t && vis === "visible" && t.terrain === "LAND") {
-          const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-          if (remainingConstructionMs !== undefined && size >= 18) {
-            const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-            deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-            deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-            deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-            deps.ctx.font = "9px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-          }
-        }
+        if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
         if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
           deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
           deps.ctx.beginPath();
