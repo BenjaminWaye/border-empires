@@ -1036,7 +1036,10 @@ export const renderClientHud = (deps: HudDeps): void => {
         currentColor: dom.authProfileColorEl.value,
         sendGameMessage,
         updateFirebaseDisplayName: (name) => updateFirebaseDisplayNameBestEffort(firebaseAuth, name),
-        pushFeed
+        pushFeed,
+        setPendingDisplayNameChange: (name) => {
+          state.pendingDisplayNameChange = name;
+        }
       });
     };
   });
