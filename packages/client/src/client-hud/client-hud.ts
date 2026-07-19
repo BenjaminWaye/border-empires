@@ -15,6 +15,7 @@ import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-w
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
@@ -975,6 +976,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
         <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
+        <button type="button" class="panel-btn" data-settings-download-disconnect-history>Download Disconnect History</button>
         <button type="button" class="panel-btn" data-settings-report-bug>Report Bug</button>
       </div>
     `;
@@ -1072,13 +1074,11 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const settingsDownloadDiagnosticsButtons = dom.hud.querySelectorAll("[data-settings-download-diagnostics]") as NodeListOf<HTMLButtonElement>;
-  settingsDownloadDiagnosticsButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = (): void => {
-      const bundle = buildDiagnosticsBundle(state, wsUrl);
-      downloadDiagnosticsBundle(bundle);
-    };
-  });
+  // Shared binder for the settings panel's JSON-bundle download buttons.
+  const bindBundleDownloadButton = (selector: string, buildBundle: () => Record<string, unknown>): void =>
+    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn) => { btn.onclick = (): void => downloadDiagnosticsBundle(buildBundle()); });
+  bindBundleDownloadButton("[data-settings-download-diagnostics]", () => buildDiagnosticsBundle(state, wsUrl));
+  bindBundleDownloadButton("[data-settings-download-disconnect-history]", buildDisconnectHistoryBundle);
 
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });

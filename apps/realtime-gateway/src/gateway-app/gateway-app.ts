@@ -2045,7 +2045,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             authTrace.setPlayerId(playerIdentity.playerId);
-            session.playerId = playerIdentity.playerId;
+            session.playerId = playerIdentity.playerId; slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
             // Always start a new auth with fog ON. Fog admins must explicitly
             // re-toggle SET_FOG_DISABLED each login; the client also clears its
@@ -3110,7 +3110,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         if (!isNormalClose) gatewayMetrics.incrementWebsocketAbnormalDisconnectTotal();
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
-        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: reason?.toString("utf8").slice(0, 200) ?? "", sessionId: session.sessionId });
+        const closeReason = reason?.toString("utf8").slice(0, 200) ?? "";
+        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: closeReason, sessionId: session.sessionId }); slackAlerter?.alertPlayerDisconnected(closingPlayerId, { code, reason: closeReason, isNormalClose });
         // clientSeq must be real: commands has UNIQUE(player_id, client_seq); a hardcoded 0 only ever succeeded once per player, ever.
         void commandStore.nextClientSeqForPlayer(closingPlayerId).then((clientSeq) => simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,

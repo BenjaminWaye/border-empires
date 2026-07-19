@@ -79,6 +79,12 @@ export type SlackAlerter = {
   alertPlayerRespawned: (playerId: string, reason: string) => void;
   /** New season started. */
   alertSeasonStarted: (seasonId: string, force: boolean) => void;
+  /** A player's websocket closed. Fires for every disconnect (not deduped) so
+   * repeated/flapping disconnects for the same player are all visible. */
+  alertPlayerDisconnected: (playerId: string, details: { code: number; reason: string; isNormalClose: boolean }) => void;
+  /** A player's websocket authenticated (covers both first connect and every
+   * reconnect). Fires for every event (not deduped), same rationale as above. */
+  alertPlayerReconnected: (playerId: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -88,6 +94,14 @@ export type SlackAlerter = {
 const DEFAULT_DEDUPE_WINDOW_MS = 300_000; // 5 min
 const POST_TIMEOUT_MS = 5_000;
 const RECENT_EVENT_LIMIT = 5;
+// alertPlayerDisconnected/alertPlayerReconnected intentionally fire on every
+// event (no per-player dedupe — the point is showing every flap), but a
+// pathological reconnect storm (bad client, bot, or a real network outage
+// hitting every player at once) must not be able to flood the webhook. This
+// caps the two event types combined to a fixed budget per rolling minute
+// using two plain counters (not a growing map), so it can't leak memory.
+const CONNECTION_ALERT_LIMIT_PER_MIN = 30;
+const CONNECTION_ALERT_WINDOW_MS = 60_000;
 
 const SUGGESTED_FIX_BY_EVENT: Record<string, string> = {
   gateway_command_submit_latency_high: "docs/plans/2026-06-01-ai-time-budget-cap.md",
@@ -106,7 +120,9 @@ const EMOJI_BY_EVENT: Record<string, string> = {
   machine_restart: ":arrows_counterclockwise:",
   sqlite_retry_high: ":warning:",
   player_respawned: ":baby:",
-  season_started: ":tada:"
+  season_started: ":tada:",
+  player_disconnected: ":electric_plug:",
+  player_reconnected: ":link:"
 };
 
 // ---------------------------------------------------------------------------
@@ -226,6 +242,43 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
 
   // Dedupe state: eventKey → lastSentAt
   const lastSent = new Map<string, number>();
+
+  // Shared rolling-window budget for the two never-deduped connection alerts
+  // (see CONNECTION_ALERT_LIMIT_PER_MIN above). Two numbers, not a map — can't grow.
+  let connectionAlertWindowStart = 0;
+  let connectionAlertCountInWindow = 0;
+  const allowConnectionAlert = (): boolean => {
+    const nowMs = now();
+    if (nowMs - connectionAlertWindowStart >= CONNECTION_ALERT_WINDOW_MS) {
+      connectionAlertWindowStart = nowMs;
+      connectionAlertCountInWindow = 0;
+    }
+    connectionAlertCountInWindow += 1;
+    return connectionAlertCountInWindow <= CONNECTION_ALERT_LIMIT_PER_MIN;
+  };
+
+  /** Fires unconditionally (no dedupe) — used for per-event connection alerts
+   * where every occurrence matters, guarded only by allowConnectionAlert(). */
+  const alertAlways = (eventName: string, input: { summary: string; currentValue: string; targetLabel: string; triggerDetail: string }): void => {
+    if (!allowConnectionAlert()) return;
+    const metrics = options.metricsSnapshot();
+    const recentEvents = options.recentEvents().slice(-RECENT_EVENT_LIMIT);
+    const payload = buildAlertPayload({
+      appLabel,
+      eventName,
+      summary: input.summary,
+      currentValue: input.currentValue,
+      targetLabel: input.targetLabel,
+      triggerDetail: input.triggerDetail,
+      tileCount: options.tileCount?.() ?? metrics.gatewaySnapshotTileCount.p50,
+      wsSessions: options.wsSessions?.() ?? metrics.gatewayWsSessions,
+      aiPlayerCount: options.aiPlayerCount,
+      buildSha: options.buildSha,
+      recentEvents,
+      metrics
+    });
+    void post(eventName, payload);
+  };
 
   /** Check dedupe window. Returns true if the alert should fire. */
   const shouldFire = (eventKey: string): boolean => {
@@ -375,6 +428,25 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
         currentValue: seasonId,
         targetLabel: "n/a",
         triggerDetail: `season started (force=${force})`
+      });
+    },
+
+    alertPlayerDisconnected(playerId: string, details: { code: number; reason: string; isNormalClose: boolean }): void {
+      const label = details.isNormalClose ? "normal" : "abnormal";
+      alertAlways("player_disconnected", {
+        summary: `player disconnected (${label}, code ${details.code})`,
+        currentValue: `code ${details.code}${details.reason ? ` "${details.reason}"` : ""}`,
+        targetLabel: "n/a",
+        triggerDetail: `player ${playerId} websocket closed with code ${details.code} (${label})`
+      });
+    },
+
+    alertPlayerReconnected(playerId: string): void {
+      alertAlways("player_reconnected", {
+        summary: "player connected",
+        currentValue: playerId,
+        targetLabel: "n/a",
+        triggerDetail: `player ${playerId} authenticated a websocket session`
       });
     },
 

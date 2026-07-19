@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.2",
+  version: "2026.07.19.3",
   title: "What's New",
-  summary: "The map now remembers where you were looking — logging back in or reconnecting drops you back at your last-viewed location instead of always re-centering on your empire. Also includes the AI-owned tile display-name fix, the Town Captured popup's gold production stat, the Sharding panel's login-time countdown, and the mobile/in-app-browser Google sign-in storage fix.",
+  summary: "The Settings panel now has a \"Download Disconnect History\" button for handing us evidence if you're getting reconnected a lot. Also includes the map remembering your last-viewed location on reconnect, the AI-owned tile display-name fix, the Town Captured popup's gold production stat, the Sharding panel's login-time countdown, and the mobile/in-app-browser Google sign-in storage fix.",
   entries: [
+    {
+      introducedIn: "2026.07.19.3",
+      title: "New \"Download Disconnect History\" button in Settings",
+      why: "Some players have reported getting reconnected frequently, but there was no easy way to hand over evidence of when and why — the technical detail (close codes, timing) was only ever visible in a developer console.",
+      changes: [
+        "Settings now has a Download Disconnect History button next to Download Diagnostics, which saves a small JSON file listing your recent disconnects (when, how long you were connected beforehand, and whether it was a normal or abnormal close).",
+        "This history is stored locally on your device and is not affected by the automatic reload that happens after a disconnect, so it can show a pattern across multiple reconnects, not just the most recent one."
+      ]
+    },
     {
       introducedIn: "2026.07.19.2",
       title: "The map now remembers your last-viewed location",
