@@ -20,12 +20,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.3",
+  version: "2026.07.19.4",
   title: "What's New",
-  summary: "The Settings panel now has a \"Download Disconnect History\" button for handing us evidence if you're getting reconnected a lot. Also includes the map remembering your last-viewed location on reconnect, the AI-owned tile display-name fix, the Town Captured popup's gold production stat, the Sharding panel's login-time countdown, and the mobile/in-app-browser Google sign-in storage fix.",
+  summary: "The Settings panel now has a \"Download Disconnect History\" button for handing us evidence if you're getting reconnected a lot. Also includes the map remembering your last-viewed location on reconnect, the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\", the AI-owned tile display-name fix, and the Town Captured popup's gold production stat.",
   entries: [
     {
-      introducedIn: "2026.07.19.3",
+      introducedIn: "2026.07.19.4",
       title: "New \"Download Disconnect History\" button in Settings",
       why: "Some players have reported getting reconnected frequently, but there was no easy way to hand over evidence of when and why — the technical detail (close codes, timing) was only ever visible in a developer console.",
       changes: [
@@ -34,12 +34,21 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.07.19.2",
+      introducedIn: "2026.07.19.3",
       title: "The map now remembers your last-viewed location",
       why: "Reconnecting or reloading always re-centered the camera on your empire's tiles, even if you were looking somewhere else (scouting, checking a border, watching an ally) right before the disconnect.",
       changes: [
         "Your last-viewed map position and zoom are now saved automatically and restored on reconnect, reload, or the next time you log in on the same browser.",
         "This only affects the very first auto-recenter after load — the existing \"jump to my empire\" recenter button still works exactly as before."
+      ]
+    },
+    {
+      introducedIn: "2026.07.19.2",
+      title: "Fixed structures appearing stuck at 00:00 forever",
+      why: "A structure's construction progress popup only refreshed when some unrelated event happened to redraw the screen, so once the countdown hit zero it could sit there indefinitely even after the server had already finished the build — making it look like the fort would never complete.",
+      changes: [
+        "The tile detail popup now refreshes immediately when the server reports a structure finishing while that tile's menu is open.",
+        "If a structure's countdown reaches zero but its status hasn't updated yet, the client now re-checks with the server instead of trusting the stale local timer forever."
       ]
     },
     {

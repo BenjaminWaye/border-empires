@@ -4735,6 +4735,7 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().pendingSettlements).toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
       );
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(96);
 
       runtime.submitCommand({
         commandId: "ai-captures-settling-tile",
@@ -4751,6 +4752,9 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().pendingSettlements).not.toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
       );
+      // Settlement was cancelled by the capture, not completed — refund the
+      // gold that was spent to start it instead of leaving it lost forever.
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
       expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
         expect.objectContaining({ ownerId: "ai-1", ownershipState: "FRONTIER" })
       );
