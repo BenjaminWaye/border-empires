@@ -1,5 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
-import { DEFAULT_ZOOM, GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { cameraLocationInitialState } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -164,9 +165,7 @@ export const createInitialState = () => ({
   localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
   tilesRevision: 0,
-  camX: 0,
-  camY: 0,
-  zoom: DEFAULT_ZOOM,
+  ...cameraLocationInitialState(),
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],

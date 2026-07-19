@@ -18,6 +18,7 @@ import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
+import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
 import {
@@ -976,7 +977,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
-    else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    else if (!state.hasOwnedTileInCache) {
+      // Consume a one-shot skip so a restored last-viewed camera location
+      // (see client-state.ts / client-view-refresh.ts) isn't immediately
+      // discarded before the player's owned tiles have loaded in.
+      if (state.cameraRestoredFromStorage) state.cameraRestoredFromStorage = false;
+      else centerOnOwnedTile();
+    }
     if (resolvedQueuedFrontierCapture && !state.actionInFlight && !state.capture && state.actionQueue.length > 0) {
       processActionQueue();
     }
@@ -999,12 +1006,49 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud();
   };
 
+  // Tracks how long the socket was open before a close/error, so repeated
+  // short-lived connections (a flapping proxy/network) are distinguishable
+  // from a single isolated disconnect in the persisted disconnect history.
+  let wsOpenedAt = 0;
+  const connectionUptimeMs = (): number | undefined => (wsOpenedAt > 0 ? Math.max(0, Date.now() - wsOpenedAt) : undefined);
+  const debugDisconnectPayload = (currentActionKey: string): Record<string, unknown> => ({
+    currentActionKey,
+    currentAction: state.actionCurrent,
+    actionStartedAt: state.actionStartedAt,
+    actionAcceptedAck: state.actionAcceptedAck,
+    combatStartAck: state.combatStartAck,
+    capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
+  });
+  const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
+    state.connection = "disconnected";
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
+    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
+    pushFeed(feedMessage, "error", "warn");
+    if (state.authReady && !state.authSessionReady) {
+      applyLoginPhase("Connection interrupted", interruptedDetail);
+      state.authRetrying = false;
+      state.authRetryAttempt = 0;
+    }
+    clearAuthReconnectTimer();
+    scheduleReconnectReload();
+    renderHud();
+  };
+
   ws.addEventListener("open", () => {
     attackSyncLog("ws-open", {
       readyState: ws.readyState,
       authReady: state.authReady,
       authSessionReady: state.authSessionReady
     });
+    wsOpenedAt = Date.now();
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
@@ -1017,82 +1061,34 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     void authenticateSocket();
   });
 
-  ws.addEventListener("close", () => {
+  ws.addEventListener("close", (event: CloseEvent) => {
     clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    attackSyncLog("ws-close", {
-      currentActionKey,
-      currentAction: state.actionCurrent,
-      actionStartedAt: state.actionStartedAt,
-      actionAcceptedAck: state.actionAcceptedAck,
-      combatStartAck: state.combatStartAck,
-      capture: state.capture
-        ? {
-            target: state.capture.target,
-            resolvesAt: state.capture.resolvesAt
-          }
-        : undefined
+    recordSocketDisconnect("close", {
+      code: event.code,
+      reason: event.reason,
+      wasClean: event.wasClean,
+      connectionUptimeMs: connectionUptimeMs(),
+      debugPayload: debugDisconnectPayload(currentActionKey)
     });
-    state.connection = "disconnected";
-    state.actionInFlight = false;
-    state.actionAcceptedAck = false;
-    state.combatStartAck = false;
-    state.actionAcceptTimeoutHandledAt = 0;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
-    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
-    pushFeed("Connection lost. Retrying...", "error", "warn");
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase("Connection interrupted", `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`);
-      state.authRetrying = false;
-      state.authRetryAttempt = 0;
-    }
-    clearAuthReconnectTimer();
-    scheduleReconnectReload();
-    renderHud();
+    handleSocketTornDown(
+      currentActionKey,
+      "Connection lost. Retrying...",
+      `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`
+    );
   });
 
   ws.addEventListener("error", () => {
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    attackSyncLog("ws-error", {
-      currentActionKey,
-      currentAction: state.actionCurrent,
-      actionStartedAt: state.actionStartedAt,
-      actionAcceptedAck: state.actionAcceptedAck,
-      combatStartAck: state.combatStartAck,
-      capture: state.capture
-        ? {
-            target: state.capture.target,
-            resolvesAt: state.capture.resolvesAt
-          }
-        : undefined
+    recordSocketDisconnect("error", {
+      connectionUptimeMs: connectionUptimeMs(),
+      debugPayload: debugDisconnectPayload(currentActionKey)
     });
-    state.connection = "disconnected";
-    state.actionInFlight = false;
-    state.actionAcceptedAck = false;
-    state.combatStartAck = false;
-    state.actionAcceptTimeoutHandledAt = 0;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
-    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
-    pushFeed("Server unreachable. Retrying...", "error", "warn");
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase(
-        "Connection interrupted",
-        `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
-      );
-      state.authRetrying = false;
-      state.authRetryAttempt = 0;
-    }
-    clearAuthReconnectTimer();
-    scheduleReconnectReload();
-    renderHud();
+    handleSocketTornDown(
+      currentActionKey,
+      "Server unreachable. Retrying...",
+      `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
+    );
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;
