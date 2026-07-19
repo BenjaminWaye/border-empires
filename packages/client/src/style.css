@@ -807,7 +807,8 @@ body {
 #hud #intel-overlay,
 #hud #season-end-overlay,
 #hud #structure-info-overlay,
-#hud #tech-detail-overlay {
+#hud #tech-detail-overlay,
+#hud #bug-report-overlay {
   pointer-events: auto;
 }
 

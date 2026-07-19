@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.4",
+  version: "2026.07.19.5",
   title: "What's New",
-  summary: "The Settings panel now has a \"Download Disconnect History\" button for handing us evidence if you're getting reconnected a lot. Also includes the map remembering your last-viewed location on reconnect, the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\", the AI-owned tile display-name fix, and the Town Captured popup's gold production stat.",
+  summary: "Fixed the Report Bug popover so clicking the text box actually focuses it instead of clicking through to the map behind it. Also includes the \"Download Disconnect History\" button in Settings, the map remembering your last-viewed location on reconnect, the fix for forts/observatories/siege outposts getting visually stuck at \"Remaining 00:00\", the AI-owned tile display-name fix, and the Town Captured popup's gold production stat.",
   entries: [
+    {
+      introducedIn: "2026.07.19.5",
+      title: "Fixed Report Bug popover not accepting clicks",
+      why: "Clicking inside the Report Bug text box (from Settings) clicked through to the map behind it instead of focusing the textarea, making it hard to actually type a bug report.",
+      changes: [
+        "The Report Bug popover was missing from the HUD's list of interactive overlays, so it inherited pointer-events: none and passed clicks straight to the 3D map underneath. It now properly captures clicks like every other popup."
+      ]
+    },
     {
       introducedIn: "2026.07.19.4",
       title: "New \"Download Disconnect History\" button in Settings",
