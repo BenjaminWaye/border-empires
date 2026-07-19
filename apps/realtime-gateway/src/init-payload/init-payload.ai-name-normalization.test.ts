@@ -3,15 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildGatewayInitPayload } from "./init-payload.js";
 
-// The simulation's leaderboard reports seasonal display names for AI players
-// (e.g. "Freja Sund"). playerStyles feeds the client's tile-ownership name
-// lookup (packages/client/src/client-owner-name/client-owner-name.ts) and
-// must match the leaderboard's real name so a tile's owner label agrees with
-// the leaderboard instead of showing the cosmetic "AI N" fallback string.
-// Note: social-state's alliance/truce resolveByName still keys AI players by
-// "AI N" (a separate registry seeded via initialSocialNameForSeedPlayer in
-// auth-identity.ts) — that is a pre-existing, independent gap, not something
-// this test covers.
+// Regression: the simulation's leaderboard reports seasonal display names for
+// AI players (e.g. "Freja Sund") even though social state always keys AI
+// players by the stable "AI N" format. When those seasonal names leaked into
+// playerStyles/leaderboard, clients sent seasonal names in truce/alliance
+// requests and the gateway's social state failed to resolve the target,
+// surfacing as "target not found" (Group B issue #3).
 describe("gateway init AI name normalization", () => {
   const initialState: PlayerSubscriptionSnapshot = {
     playerId: "player-1",
@@ -27,10 +24,10 @@ describe("gateway init AI name normalization", () => {
     tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
   };
 
-  it("uses the live leaderboard's seasonal name for AI playerStyles, matching what the leaderboard shows", () => {
+  it("normalises AI playerStyles names to 'AI N' even when the live leaderboard reports a seasonal name", () => {
     const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, initialState, "default");
 
-    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "Freja Sund" })]));
+    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "AI 1" })]));
   });
 
   it("normalises AI leaderboard entries to 'AI N' across every leaderboard category", () => {

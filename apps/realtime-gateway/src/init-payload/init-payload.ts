@@ -796,8 +796,7 @@ export const buildGatewayInitPayload = (
     id: playerId,
     name:
       snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
-      liveVisibleNameByPlayerId.get(playerId) ??
-      (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : displayNameForSeedPlayer(playerId, playerIdentity.playerName)),
+      (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : (liveVisibleNameByPlayerId.get(playerId) ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName))),
     tileColor: hexColorForPlayerId(playerId)
   }));
 
