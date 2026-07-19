@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.7",
+  version: "2026.07.19.8",
   title: "What's New",
-  summary: "Fixed the last-viewed map location sometimes getting stuck and never updating. Also includes the fix for alliance/truce requests to AI players sometimes failing with \"target not found\", the Report Bug popover not accepting clicks, and the \"Download Disconnect History\" button in Settings.",
+  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the fix for the last-viewed map location sometimes getting stuck, alliance/truce requests to AI players sometimes failing with \"target not found\", and the Report Bug popover not accepting clicks.",
   entries: [
+    {
+      introducedIn: "2026.07.19.8",
+      title: "Reduced silent disconnects with a server-side connection keep-alive",
+      why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
+      changes: [
+        "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
+        "This requires no change on your end — it happens automatically at the network level."
+      ]
+    },
     {
       introducedIn: "2026.07.19.7",
       title: "Fixed the last-viewed map location getting stuck and never updating",
