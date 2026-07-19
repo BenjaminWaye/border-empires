@@ -12,6 +12,30 @@ export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "z
   storageSet(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom }));
 };
 
+const CAMERA_SAVE_THROTTLE_MS = 1_000;
+// Module-local throttle timer, not ClientState — this is a pure
+// implementation detail of maybeSaveCameraLocation()'s debounce, not
+// meaningful application state anything else needs to read/reset/persist.
+let lastCameraSaveAt = 0;
+
+// Deliberately independent of the chunk-subscribe cooldown in
+// requestViewRefresh(): that logic only progresses once the camera crosses a
+// full CHUNK_SIZE (64-tile) boundary, which an ordinary pan/zoom near the
+// player's base routinely never does. Saving the last-viewed location should
+// happen far more often than that, so this has its own lightweight,
+// unconditional (not gated on auth/socket/queued-action state) time-based
+// throttle instead of piggybacking on the subscribe gate.
+export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom">): void => {
+  const now = Date.now();
+  if (now - lastCameraSaveAt < CAMERA_SAVE_THROTTLE_MS) return;
+  lastCameraSaveAt = now;
+  saveCameraLocation(state);
+};
+
+export const resetCameraSaveThrottleForTests = (): void => {
+  lastCameraSaveAt = 0;
+};
+
 export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY">): void => {
   const own = [...state.tiles.values()].find((tile) => tile.ownerId === state.me);
   if (own) {
@@ -65,7 +89,6 @@ export const requestViewRefresh = (
   state.lastSubCy = cy;
   state.lastSubRadius = effectiveRadius;
   state.lastSubAt = Date.now();
-  saveCameraLocation(state);
   deps.ws.send(
     JSON.stringify({
       type: "SUBSCRIBE_CHUNKS",
@@ -77,13 +100,22 @@ export const requestViewRefresh = (
 };
 
 export const maybeRefreshForCamera = (
-  state: Pick<ClientState, "authSessionReady" | "camX" | "camY" | "lastSubCx" | "lastSubCy" | "actionInFlight" | "capture" | "actionQueue">,
+  state: Pick<
+    ClientState,
+    "authSessionReady" | "camX" | "camY" | "zoom" | "lastSubCx" | "lastSubCy" | "actionInFlight" | "capture" | "actionQueue"
+  >,
   deps: {
     ws: RealtimeSocket;
     requestViewRefresh: (radius?: number, force?: boolean) => void;
     force?: boolean;
   }
 ): void => {
+  // Runs every call regardless of auth/socket/queued-action state below —
+  // it's a pure local write, and this is called every render frame (see
+  // client-runtime-loop.ts) plus every pan/zoom input event, so it's the
+  // one place that reliably observes camera changes independent of whether
+  // a chunk-subscribe network round trip is happening.
+  maybeSaveCameraLocation(state);
   if (deps.ws.readyState !== deps.ws.OPEN) return;
   if (!state.authSessionReady) return;
   if (!deps.force && (state.actionInFlight || state.capture || state.actionQueue.length > 0)) return;
