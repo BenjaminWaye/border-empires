@@ -1,5 +1,6 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
+import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -916,7 +917,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
-      playerNameForOwner,
+      playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
       state
