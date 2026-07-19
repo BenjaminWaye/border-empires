@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.18.9",
+  version: "2026.07.19.1",
   title: "What's New",
-  summary: "The Town Captured popup now shows the expected base gold production rate alongside manpower gains. Also includes the Sharding panel now showing a countdown to the next shard rain as soon as you log in, the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram, the changelog popup's Continue button not always closing it, and recent hardening of server-update processing.",
+  summary: "Tapping an AI-owned tile now shows that AI's actual name instead of the generic \"AI 5\"-style label, matching what the leaderboard already shows. Also includes the Town Captured popup now showing the expected base gold production rate alongside manpower gains, the Sharding panel showing a countdown to the next shard rain as soon as you log in, and the fix for Google sign-in's storage error on regular mobile browsers and known in-app browsers like Facebook Messenger and Instagram.",
   entries: [
+    {
+      introducedIn: "2026.07.19.1",
+      title: "Tile descriptions now show the AI player's real name",
+      why: "Clicking a tile owned by an AI player showed a generic label like \"AI 5\" even though the leaderboard already displayed that AI's actual name (e.g. \"Freja Sund\") — the tile panel and the leaderboard were pulling from two different, inconsistent sources.",
+      changes: [
+        "Tile descriptions now show the AI's real name, matching the leaderboard.",
+        "Truce and alliance requests targeting an AI player are unaffected — they still resolve correctly, since that flow keeps using the stable identifier the server expects."
+      ]
+    },
     {
       introducedIn: "2026.07.18.9",
       title: "Town Captured popup now shows expected gold production",
@@ -297,83 +306,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
       ]
     },
-    {
-      introducedIn: "2026.07.12.7",
-      title: "Rail Depot reworked into a mustering hub",
-      why: "The Rail Depot was previously a dead structure with no real effect. It now serves as a mustering logistics hub that boosts manpower regen and speeds up outpost muster within a 50-tile radius.",
-      changes: [
-        "Each Rail Depot built adds +0.5 global manpower regen per minute.",
-        "Outposts within 50 tiles of a Rail Depot now muster at 2x speed instead of the base 1.25x.",
-        "Rail Depot has no gold upkeep — it costs 4,000 gold + 100 crystal to build."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.7",
-      title: "Fixed inaccurate siege outpost attack multiplier text",
-      why: "The client displayed stale attack multiplier values (1.25x, 2x, 3x) that didn't match the actual game constants (1.6x, 1.8x, 2.0x).",
-      changes: [
-        "Siege Outpost now correctly shows +60% offense (was +25%).",
-        "Siege Tower upgrade text now shows 1.6x to 1.8x (was 1.25x to 2x).",
-        "Dread Tower upgrade text now shows 1.8x to 2.0x (was 2x to 3x).",
-        "Tile overview badges now show the correct attack multiplier per siege variant."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.6",
-      title: "Fixed fog of war not clearing while expanding",
-      why: "A recent fix that made expand actions faster (skipping a redundant full-area rescan on every expand) accidentally also skipped sending the newly-visible fringe of land around each expand. The result: expanding into unexplored territory revealed nothing, while unrelated background activity elsewhere on the map occasionally leaked through as disconnected fogged-then-cleared patches.",
-      changes: [
-        "Expanding into unexplored territory now correctly reveals the newly-visible edge of land around your new tile again, without bringing back the slow full-area rescan that caused the original expand speed issue."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.5",
-      title: "Diagnostics bundle now includes performance metrics and frame-phase breakdown",
-      why: "When users report lag, the diagnostics download had no performance data — just connection state and identity bits. Without FPS history, frame phase timing, or load-time waterfall, there was no way to triage whether the problem was server-side, network, or client rendering.",
-      changes: [
-        "The diagnostics download (triggered via the Settings tab) now includes a load-waterfall section showing how long each login step took relative to navigation start.",
-        "Performance metrics are now collected every 2 seconds under the hood: FPS distribution (min, max, avg, p50, p95, p99), memory usage samples (last 60 snapshots), connection type, and device info. All appear in the diagnostics file.",
-        "Each rendered frame is now broken into three phases (frame setup, tile render, overlay post) measured as elapsed milliseconds, so lag can be traced to a specific phase of the draw loop."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.4",
-      title: "Auto-fill now settles enclosed frontier tiles",
-      why: "When territory sealed off a pocket of land, auto-fill was only claiming unowned tiles inside it — any of your own frontier tiles trapped in the same pocket stayed frontier and could still decay back to unowned, even though the pocket was fully enclosed by your own settled territory.",
-      changes: [
-        "Frontier tiles inside a pocket sealed off by your territory are now promoted to settled along with the unowned tiles, instead of being left as decay-vulnerable frontier."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.3",
-      title: "Emperor's Endorsement and the Imperial Ward",
-      why: "Phase 1 of the galactic meta-layer crowns the winner of the most recently ended season as \"Emperor\" for a one-hour window, letting them endorse another player who then gets Imperial Ward charges next season — a real bonus with teeth, not just a resource head start.",
-      changes: [
-        "If you're the reigning Emperor, opening your galaxy view now shows an endorsement form with a live countdown to when the window closes.",
-        "You can endorse a player by email or player ID, and change your pick as many times as you like before the window closes. If you don't act, the next season starts automatically after the hour anyway — nothing is ever blocked on the Emperor.",
-        "The endorsed player starts next season with 3 Imperial Ward charges. Activating one (from the new shield chip in your stat bar) makes every tile you own completely un-attackable for 10 minutes — you can still attack out, and there's no cooldown between charges.",
-        "The endorsement section is only visible to the Emperor — everyone else's galaxy view is unchanged."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.2",
-      title: "New Settings tab",
-      why: "Account controls (logout, debug info) were bolted onto the bottom of the Sharding panel, which had nothing to do with account settings. There was also no way to change your display name after initial setup.",
-      changes: [
-        "Added a Settings tab (gear icon) after Sharding in both the desktop panel bar and mobile nav.",
-        "Moved sign-in status, client build version, bridge/auth debug info, map reveal, and Log Out into the new Settings tab.",
-        "Added a Display Name field in Settings so you can change your name at any time, not just during initial profile setup."
-      ]
-    },
-    {
-      introducedIn: "2026.07.12.1",
-      title: "Fixed Aegis Lock and Astral Dock Launch not doing anything",
-      why: "The gateway kept two separate lists of which commands it forwards to the simulation. The two lists had drifted apart, so Aegis Lock and Astral Dock Launch actions were quietly discarded before they ever reached the simulation — no error, just nothing happened.",
-      changes: [
-        "Aegis Lock and Astral Dock Launch commands are now correctly submitted to the simulation instead of being silently ignored."
-      ]
-    }
-    // Older entries (2026.07.11.4 and earlier) trimmed: the release-day
+    // Older entries (2026.07.12.7 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
