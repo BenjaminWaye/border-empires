@@ -81,6 +81,7 @@ import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
+import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
@@ -129,6 +130,7 @@ type RealtimeGatewayAppOptions = {
   // deployment (e.g. "http://127.0.0.1:50052/metrics"). When present, the
   // gateway proxies it at /admin/runtime/metrics so it's externally reachable.
   simMetricsUrl?: string;
+  wsHeartbeatIntervalMs?: number;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -1029,6 +1031,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const fogLiveRefreshPendingByPlayerId = new Map<string, { commandId: string }>();
   const fogLiveRefreshLastStartedAtByPlayerId = new Map<string, number>();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
+  const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
   type GatewaySnapshotCacheSummary = {
     entryCount: number;
@@ -1930,15 +1933,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop();
-    imperialWardAutoStart.stop();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
-    simBacklogStatusPoller?.stop();
-    slackAlertLatencyPoll.stop();
+    simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
     databaseKeepAlive.stop();
-    gcObserver?.disconnect();
-    stopSimulationStream();
+    gcObserver?.disconnect(); wsHeartbeat.stop(); stopSimulationStream();
   });
 
   app.register(async (instance) => {
@@ -1954,7 +1954,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         canToggleFog: false,
         fogDisabled: false
       };
-      sessionsBySocket.set(socket, session);
+      sessionsBySocket.set(socket, session); wsHeartbeat.registerSocket(socket);
 
       socket.on("message", async (buffer) => {
         let messageType: string | undefined;
