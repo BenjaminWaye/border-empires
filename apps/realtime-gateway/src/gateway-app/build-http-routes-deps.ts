@@ -54,6 +54,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   adminApiToken?: string;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
+  simDiagnostics?: () => unknown[];
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -120,6 +121,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
         playerId,
         JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_rally_link" })
       ),
+    ...(ctx.simDiagnostics ? { simDiagnostics: ctx.simDiagnostics } : {}),
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
