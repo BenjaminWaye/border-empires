@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.12",
+  version: "2026.07.19.13",
   title: "What's New",
-  summary: "Fixed the last-viewed map location actually sticking now — it was being reset back to your empire on every login and reconnect. Also includes the fix for newly settled tiles staying drawn as lighter frontier land until clicked, the server keep-alive ping to reduce silent disconnects, and the alliance/truce request box now showing each AI's real name.",
+  summary: "Fixed panning/zooming feeling slightly laggy after a recent update. Also includes the last-viewed map location actually sticking now instead of resetting on every login, the fix for newly settled tiles staying drawn as lighter frontier land until clicked, and the server keep-alive ping to reduce silent disconnects.",
   entries: [
+    {
+      introducedIn: "2026.07.19.13",
+      title: "Fixed a slight lag/jump when panning or zooming the map",
+      why: "Saving your last-viewed map location wrote to the browser's local storage directly inside the map's render loop, once per second. That write itself was tiny, but doing any synchronous work inside the render loop extends that frame's render time, and it happened to land during panning/zooming often enough to feel like an occasional stutter.",
+      changes: [
+        "That save now happens off the render frame (deferred to the next idle moment), so it can no longer cause a visible hitch while panning or zooming."
+      ]
+    },
     {
       introducedIn: "2026.07.19.12",
       title: "Fixed the last-viewed map location getting reset on every login/reconnect",
