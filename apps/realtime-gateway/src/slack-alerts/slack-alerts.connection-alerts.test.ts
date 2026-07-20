@@ -69,9 +69,11 @@ describe("createSlackAlerter connection alerts", () => {
     const { captured, fetch } = captureFetch();
     const alerter = makeAlerter({ fetchImpl: fetch });
 
-    alerter.alertPlayerDisconnected("player-1", { code: 1006, reason: "abnormal closure", isNormalClose: false });
-    alerter.alertPlayerDisconnected("player-1", { code: 1006, reason: "abnormal closure", isNormalClose: false });
-    alerter.alertPlayerDisconnected("player-1", { code: 1006, reason: "abnormal closure", isNormalClose: false });
+    // 1011 (internal server error) is an alert-worthy code — see the
+    // code-filtering describe block below for the "don't alert" cases.
+    alerter.alertPlayerDisconnected("player-1", { code: 1011, reason: "server error", isNormalClose: false });
+    alerter.alertPlayerDisconnected("player-1", { code: 1011, reason: "server error", isNormalClose: false });
+    alerter.alertPlayerDisconnected("player-1", { code: 1011, reason: "server error", isNormalClose: false });
 
     await vi.waitFor(() => captured.length === 3, { timeout: 200 });
     for (const call of captured) {
@@ -83,25 +85,51 @@ describe("createSlackAlerter connection alerts", () => {
     const { captured, fetch } = captureFetch();
     const alerter = makeAlerter({ fetchImpl: fetch });
 
-    alerter.alertPlayerDisconnected("player-2", { code: 1006, reason: "proxy idle timeout", isNormalClose: false });
+    alerter.alertPlayerDisconnected("player-2", { code: 1011, reason: "internal server error", isNormalClose: false });
     await vi.waitFor(() => captured.length === 1, { timeout: 200 });
 
     const section = bodyText(captured[0]!);
     expect(section).toContain("player-2");
-    expect(section).toContain("1006");
-    expect(section).toContain("proxy idle timeout");
+    expect(section).toContain("1011");
+    expect(section).toContain("internal server error");
     expect(section).toContain("abnormal");
     expect(captured[0]!.init.body).toContain(":electric_plug:");
   });
 
-  it("labels a 1000/1001 close as normal", async () => {
-    const { captured, fetch } = captureFetch();
-    const alerter = makeAlerter({ fetchImpl: fetch });
+  describe("close-code filtering (only page for codes worth debugging)", () => {
+    it.each([
+      [1000, "normal closure"],
+      [1001, "going away"],
+      [1005, "no status received"],
+      [1006, "abnormal closure, no close frame"]
+    ])("does not alert on code %i (%s) — common background churn, not actionable", async (code) => {
+      const { captured, fetch } = captureFetch();
+      const alerter = makeAlerter({ fetchImpl: fetch });
 
-    alerter.alertPlayerDisconnected("player-3", { code: 1000, reason: "", isNormalClose: true });
-    await vi.waitFor(() => captured.length === 1, { timeout: 200 });
+      alerter.alertPlayerDisconnected("player-quiet", { code, reason: "", isNormalClose: code === 1000 || code === 1001 });
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(bodyText(captured[0]!)).toContain("normal");
+      expect(captured).toHaveLength(0);
+    });
+
+    it.each([
+      [1002, "protocol error"],
+      [1003, "unsupported data"],
+      [1007, "invalid frame payload"],
+      [1008, "policy violation"],
+      [1009, "message too big"],
+      [1010, "mandatory extension missing"],
+      [1011, "internal server error"],
+      [1015, "TLS handshake failure"]
+    ])("alerts on code %i (%s) — a real protocol/server error worth debugging", async (code) => {
+      const { captured, fetch } = captureFetch();
+      const alerter = makeAlerter({ fetchImpl: fetch });
+
+      alerter.alertPlayerDisconnected("player-loud", { code, reason: "", isNormalClose: false });
+      await vi.waitFor(() => captured.length === 1, { timeout: 200 });
+
+      expect(captured).toHaveLength(1);
+    });
   });
 
   it("alerts on every reconnect for the same player, unlike the deduped alert types", async () => {
@@ -121,7 +149,7 @@ describe("createSlackAlerter connection alerts", () => {
     const alerter = makeAlerter({ fetchImpl: fetch, now: now as () => number });
 
     for (let i = 0; i < 40; i += 1) {
-      alerter.alertPlayerDisconnected(`player-${i}`, { code: 1006, reason: "", isNormalClose: false });
+      alerter.alertPlayerDisconnected(`player-${i}`, { code: 1011, reason: "", isNormalClose: false });
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(captured.length).toBe(30);
@@ -134,7 +162,7 @@ describe("createSlackAlerter connection alerts", () => {
 
   it("is a no-op without throwing when webhookUrl is unset", () => {
     const alerter = createSlackAlerter({ metricsSnapshot: baseMetrics, recentEvents: noEvents, now: () => 1000 });
-    expect(() => alerter.alertPlayerDisconnected("player-x", { code: 1006, reason: "", isNormalClose: false })).not.toThrow();
+    expect(() => alerter.alertPlayerDisconnected("player-x", { code: 1011, reason: "", isNormalClose: false })).not.toThrow();
     expect(() => alerter.alertPlayerReconnected("player-x")).not.toThrow();
   });
 });
