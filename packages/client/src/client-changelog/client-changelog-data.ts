@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.11",
+  version: "2026.07.19.12",
   title: "What's New",
-  summary: "Fixed newly settled tiles staying drawn as lighter frontier land until you clicked them. Also includes the server keep-alive ping to reduce silent disconnects, the alliance/truce request box now showing each AI's real name, the fix for display name changes silently reverting, and the last-viewed map location sometimes getting stuck.",
+  summary: "Fixed the last-viewed map location actually sticking now — it was being reset back to your empire on every login and reconnect. Also includes the fix for newly settled tiles staying drawn as lighter frontier land until clicked, the server keep-alive ping to reduce silent disconnects, and the alliance/truce request box now showing each AI's real name.",
   entries: [
+    {
+      introducedIn: "2026.07.19.12",
+      title: "Fixed the last-viewed map location getting reset on every login/reconnect",
+      why: "A previous fix saved your last-viewed map location, but it was still being silently overwritten with your empire's location on every single login and reconnect, before you ever saw it restored — so it looked like the location was never actually being remembered.",
+      changes: [
+        "The map now correctly restores your last-viewed location on login and reconnect instead of always snapping back to your empire."
+      ]
+    },
     {
       introducedIn: "2026.07.19.11",
       title: "Fixed settled tiles still looking like frontier until you clicked them",
