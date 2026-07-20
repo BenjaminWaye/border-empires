@@ -15,8 +15,9 @@ those if this doc's fixes don't explain what you're seeing.
 ## The process model (why this is a contention problem, not a slow-code problem)
 
 The combined gateway+sim deploy (`border-empires-combined-staging`,
-`shared-cpu-1x:2048MB` = **one fractional vCPU**) runs far more concurrently-active
-OS threads than the box has cores for:
+`shared-cpu-2x:2048MB` as of 2026-07-20, was `shared-cpu-1x` before that — see
+"What's been tried" #8 below) runs far more concurrently-active OS threads than a
+single-core box has room for:
 
 | Thread | Started by | Active when |
 |---|---|---|
@@ -127,10 +128,19 @@ Shipped fixes, in order:
 6. Client_seq collision on every non-first disconnect — real, continuously-firing bug,
    unrelated to CPU but was adding SQLite constraint-violation noise (PR #947)
 7. **Pause AI/system planning during checkpoint** (`isCheckpointInFlight()` gate on
-   `aiShouldRun`/`systemShouldRun`, PR #948, 2026-07-16) — the current fix. Confirmed via
-   the isolated repro above that removing the *contention* (not the algorithm) during
-   compaction should collapse a 6.4s+ stall to ~0.5-1s. Verify via login probe +
-   `sim_checkpoint_export_ms` after 15-20+ min of sustained load before trusting it.
+   `aiShouldRun`/`systemShouldRun`, PR #948, 2026-07-16) — confirmed via the isolated
+   repro above that removing the *contention* (not the algorithm) during compaction
+   should collapse a 6.4s+ stall to ~0.5-1s.
+8. **Scale staging VM `shared-cpu-1x` -> `shared-cpu-2x` (2 vCPUs, 2026-07-20)** — the
+   current fix. Despite fix #7, `pnpm ops:staging:login-probe` regressed to 12/12
+   `TIMEOUT` (>8s each; real users saw 30s+) with `/proc/pressure/cpu` `some avg10`
+   sustained 30-55% (not a blip — avg60/avg300 climbing too) under steady-state
+   `season-20ai` load with no in-flight checkpoint. This confirms baseline per-tick
+   AI/system-planner CPU cost alone now exceeds one shared vCPU's budget, independent
+   of the checkpoint-compaction spike #7 addresses. Moving to 2 vCPUs restored
+   12/12 successful logins at ~500-800ms and dropped `some avg10` to ~6%. Treat this
+   as a stopgap, not a fix for the underlying per-tick cost — re-evaluate the P2-P4
+   levers below if 2 vCPUs stops being enough as AI density/tick rate grows.
 
 ## If it recurs — next levers (not yet built, in priority order)
 
