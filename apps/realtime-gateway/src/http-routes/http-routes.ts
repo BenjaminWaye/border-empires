@@ -88,6 +88,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
   playOrigin?: string;
+  simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   rallyLinkStore?: RallyLinkStore;
   preparePlayer?: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
@@ -175,6 +176,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       startupElapsedMs: Date.now() - deps.startupStartedAt
     },
     recentServerEvents: deps.recentEvents(),
+    simDiagnostics: deps.simDiagnostics?.(),
     attackDebug: deps.attackDebug(),
     attackTraces: deps.attackTraces(),
     runtime: {

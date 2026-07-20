@@ -129,6 +129,11 @@ type RealtimeGatewayAppOptions = {
   // deployment (e.g. "http://127.0.0.1:50052/metrics"). When present, the
   // gateway proxies it at /admin/runtime/metrics so it's externally reachable.
   simMetricsUrl?: string;
+  /** Getter returning the latest simulation worker lag-diagnostics ring buffer
+   * (forwarded via diag_buffer messages at ≤1 Hz). Returned in the debug-bundle
+   * response so client debug dumps surface sim-side event-loop blocks, GC
+   * pauses, and slow operations alongside gateway-side data. */
+  simDiagnostics?: () => unknown[];
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -1145,6 +1150,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       buildAttackTraces,
       gatewayMetrics,
       ...(options.simMetricsUrl ? { simMetricsUrl: options.simMetricsUrl } : {}),
+      ...(options.simDiagnostics ? { simDiagnostics: options.simDiagnostics } : {}),
       simulationClient,
       profileStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
@@ -1993,6 +1999,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 return;
               }
             }
+            // Phase: connecting to simulation
+            sendJson(socket, { type: "LOGIN_PHASE", title: "Connecting...", detail: "Connecting to the game simulation." });
             const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
               allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
@@ -2010,6 +2018,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "AUTH_FAIL");
               return;
             }
+            // Phase: identity verified
+            sendJson(socket, { type: "LOGIN_PHASE", title: "Verifying identity...", detail: "Your Google session is being verified." });
             let playerIdentity = { ...resolvedPlayerIdentity };
             authTrace.setPlayerId(playerIdentity.playerId);
             loginTracer.stage("auth_identity_resolved", { playerId: playerIdentity.playerId });
@@ -2044,6 +2054,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 authTrace.endStep("reconcile_auth_binding");
               }
             }
+            // Phase: auth binding reconciled
+            sendJson(socket, { type: "LOGIN_PHASE", title: "Loading your profile...", detail: "Reconciling your account binding." });
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
@@ -2057,6 +2069,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
             loginTracer.stage("profile_get_end");
+            // Phase: profile loaded
+            sendJson(socket, { type: "LOGIN_PHASE", title: "Loading your profile...", detail: "Your empire profile has been loaded." });
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
                 ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
@@ -2097,6 +2111,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: playerIdentity.playerId,
                 channel
               });
+              // Phase: preparing player
+              sendJson(socket, { type: "LOGIN_PHASE", title: "Preparing your empire...", detail: "Connecting to the simulation backend." });
               const prepareResult = await retrySimulationRpc(
                 "gateway prepare player",
                 () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
@@ -2107,6 +2123,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     channel,
                     attempt,
                     error: error instanceof Error ? error.message : String(error)
+                  });
+                  // Phase: retrying so the client doesn't sit on stale text during backoff
+                  sendJson(socket, {
+                    type: "LOGIN_PHASE",
+                    title: "Preparing your empire...",
+                    detail: `Simulation backend is slow to respond, retrying (attempt ${attempt})...`
                   });
                 }
               );
@@ -2128,6 +2150,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               markSimulationReady();
               authTrace.endStep("prepare_player");
               loginTracer.stage("prepare_player_end", { spawned: prepareResult.spawned });
+              // Phase: prepare complete, starting bootstrap
+              sendJson(socket, { type: "LOGIN_PHASE", title: "Preparing your empire...", detail: "Empire prepared. Loading your world state..." });
             } catch (error) {
               loginTracer.stage("prepare_player_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_prepare_failed", {
@@ -2212,11 +2236,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     attempt,
                     error: error instanceof Error ? error.message : String(error)
                   });
+                  // Phase: retrying so the client doesn't sit on stale text during backoff
+                  sendJson(socket, {
+                    type: "LOGIN_PHASE",
+                    title: "Loading your world state...",
+                    detail: `Simulation backend is slow to respond, retrying (attempt ${attempt})...`
+                  });
                 }
               );
               markSimulationReady();
               authTrace.endStep("bootstrap_subscribe");
               loginTracer.stage("bootstrap_subscribe_end", { tileCount: bootstrapInitialState?.tiles.length ?? 0 });
+              // Phase: bootstrap complete, starting live subscribe
+              sendJson(socket, { type: "LOGIN_PHASE", title: "Syncing empire...", detail: "Your world state loaded. Joining the simulation..." });
               if (bootstrapInitialState) {
                 recordGatewayEvent("info", "gateway_auth_bootstrap_ready", {
                   playerId: playerIdentity.playerId,
@@ -2321,69 +2353,88 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             } finally {
               clearInterval(loginProgressInterval);
             }
-            const resolveInitialStateStartedAt = Date.now();
-            const initialState = resolveInitialState({
-              playerId: playerIdentity.playerId,
-              authoritativeSnapshot: bootstrapInitialState,
-              cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
-              simulationSeedProfile,
-              allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
-              allowSeedFallback: allowNonAuthoritativeInitialState
-            });
-            recordGatewayAuthStepTiming("resolve_initial_state", Date.now() - resolveInitialStateStartedAt, {
-              playerId: playerIdentity.playerId,
-              channel,
-              tileCount: initialState?.tiles.length ?? 0
-            });
-            authTrace.startStep("hydrate_leaderboard_profiles");
-            await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
-            authTrace.endStep("hydrate_leaderboard_profiles");
-            if (session.channel === "control") {
-              authTrace.startStep("build_init");
-              const buildInitMessageStartedAt = Date.now();
-              const initMessage = await buildInitMessage(
-                playerIdentity,
-                commandStore,
-                initialState,
+            // Phase: entering the final materialize-and-send stretch. This used to be
+            // completely silent from here through INIT — resolve_initial_state, leaderboard
+            // hydration, build_init, and stringify_init could all take real time for a large
+            // empire with no client-visible feedback at all. Cover it with the same 1Hz
+            // heartbeat pattern used for live_subscribe above.
+            const finalizeStartedAt = Date.now();
+            const finalizeProgressInterval = setInterval(() => {
+              if (socket.readyState !== socket.OPEN) return;
+              const elapsedMs = Date.now() - finalizeStartedAt;
+              sendJson(socket, {
+                type: "LOGIN_PHASE",
+                title: "Finishing up...",
+                detail:
+                  elapsedMs < 3_000
+                    ? "Building your world state."
+                    : `Building session data for a large empire (${Math.round(elapsedMs / 1000)}s)…`
+              });
+            }, 1_000);
+            try {
+              const resolveInitialStateStartedAt = Date.now();
+              const initialState = resolveInitialState({
+                playerId: playerIdentity.playerId,
+                authoritativeSnapshot: bootstrapInitialState,
+                cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
                 simulationSeedProfile,
-                legacySnapshotBootstrap,
-                profileOverrides,
-                socialState,
-                session.canToggleFog
-              );
-              recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
+                allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
+                allowSeedFallback: allowNonAuthoritativeInitialState
+              });
+              recordGatewayAuthStepTiming("resolve_initial_state", Date.now() - resolveInitialStateStartedAt, {
                 playerId: playerIdentity.playerId,
                 channel,
-                tileCount: initMessage.initialState?.tiles?.length ?? 0
+                tileCount: initialState?.tiles.length ?? 0
               });
-              session.nextClientSeq = initMessage.recovery.nextClientSeq;
-              // Phase 7: include suggested colour swatches in the init payload
-              const buildTakenColorSetStartedAt = Date.now();
-              const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
-              recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
-                playerId: playerIdentity.playerId,
-                channel
-              });
-              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
-              const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
-              authTrace.endStep("build_init");
-              // Stringify the ~256KB init message off the main thread so the
-              // event loop stays free for gRPC acks and healthz during bootstrap.
-              loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
-              authTrace.startStep("stringify_init");
-              let initJson: string;
-              if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
-                initJson = JSON.stringify(initMessage);
-              } else {
-                try {
-                  initJson = await gatewayBootstrapStringifier(initMessage);
-                } catch (err) {
-                  // Worker OOM/crash — respawn is automatic; fall back to inline once.
-                  app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+              authTrace.startStep("hydrate_leaderboard_profiles");
+              await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
+              authTrace.endStep("hydrate_leaderboard_profiles");
+              if (session.channel === "control") {
+                authTrace.startStep("build_init");
+                const buildInitMessageStartedAt = Date.now();
+                const initMessage = await buildInitMessage(
+                  playerIdentity,
+                  commandStore,
+                  initialState,
+                  simulationSeedProfile,
+                  legacySnapshotBootstrap,
+                  profileOverrides,
+                  socialState,
+                  session.canToggleFog
+                );
+                recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
+                  playerId: playerIdentity.playerId,
+                  channel,
+                  tileCount: initMessage.initialState?.tiles?.length ?? 0
+                });
+                session.nextClientSeq = initMessage.recovery.nextClientSeq;
+                // Phase 7: include suggested colour swatches in the init payload
+                const buildTakenColorSetStartedAt = Date.now();
+                const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
+                recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
+                  playerId: playerIdentity.playerId,
+                  channel
+                });
+                (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+                const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
+                authTrace.endStep("build_init");
+                // Stringify the ~256KB init message off the main thread so the
+                // event loop stays free for gRPC acks and healthz during bootstrap.
+                loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
+                authTrace.startStep("stringify_init");
+                let initJson: string;
+                if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
                   initJson = JSON.stringify(initMessage);
+                } else {
+                  try {
+                    initJson = await gatewayBootstrapStringifier(initMessage);
+                  } catch (err) {
+                    // Worker OOM/crash — respawn is automatic; fall back to inline once.
+                    app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+                    initJson = JSON.stringify(initMessage);
+                  }
                 }
-              }
-              authTrace.endStep("stringify_init");
+                authTrace.endStep("stringify_init");
               loginTracer.stage("stringify_init_end", { initJsonBytes: initJson.length });
               if (socket.readyState !== socket.OPEN) {
                 // Socket closed while we were stringifying — discard silently.
@@ -2435,6 +2486,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             } else {
               loginTracer.done({ outcome: "init_sent", channel: "non_control" });
               authTrace.complete("init_sent", "non_control_channel");
+            }
+            } finally {
+              clearInterval(finalizeProgressInterval);
             }
             return;
           }
