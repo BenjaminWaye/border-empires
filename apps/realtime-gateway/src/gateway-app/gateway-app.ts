@@ -127,10 +127,9 @@ type RealtimeGatewayAppOptions = {
   fogAdminEmail?: string;
   emailAlerts?: EmailAlertConfig;
   playOrigin?: string;
-  // URL for the simulation's loopback metrics server in the combined
-  // deployment (e.g. "http://127.0.0.1:50052/metrics"). When present, the
-  // gateway proxies it at /admin/runtime/metrics so it's externally reachable.
   simMetricsUrl?: string;
+  // Getter for the sim worker's lag-diagnostics ring buffer; surfaced in the debug-bundle for triage.
+  simDiagnostics?: () => unknown[];
   wsHeartbeatIntervalMs?: number;
 };
 
@@ -1075,6 +1074,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       buildAttackTraces,
       gatewayMetrics,
       ...(options.simMetricsUrl ? { simMetricsUrl: options.simMetricsUrl } : {}),
+      ...(options.simDiagnostics ? { simDiagnostics: options.simDiagnostics } : {}),
       simulationClient,
       profileStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),

@@ -167,7 +167,8 @@ const gateway = await createRealtimeGatewayApp({
   ...(gatewayEnv.fogAdminEmail ? { fogAdminEmail: gatewayEnv.fogAdminEmail } : {}),
   ...(gatewayEnv.aiPlayerCount ? { aiPlayerCount: gatewayEnv.aiPlayerCount } : {}),
   emailAlerts: gatewayEnv.emailAlerts,
-  simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`
+  simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`,
+  simDiagnostics: () => latestSimDiagnostics
 });
 
 await gateway.start();
