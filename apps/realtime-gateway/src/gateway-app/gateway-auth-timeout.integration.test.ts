@@ -32,6 +32,29 @@ const withTimeout = async <T>(label: string, task: Promise<T>, timeoutMs = 1_500
   }
 };
 
+// LOGIN_PHASE is progress-only noise sent throughout the AUTH handler and can
+// arrive at almost any point between AUTH and INIT/ERROR — skip it so a
+// single-message wait doesn't accidentally grab a heartbeat instead of the
+// real reply.
+const nextRealMessage = async (
+  socket: TestWebSocket,
+  label: string,
+  timeoutMs?: number
+): Promise<Record<string, unknown>> => {
+  for (;;) {
+    const message = await withTimeout(
+      label,
+      new Promise<Record<string, unknown>>((resolve) => {
+        socket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), {
+          once: true
+        });
+      }),
+      timeoutMs
+    );
+    if (message.type !== "LOGIN_PHASE") return message;
+  }
+};
+
 const openSocket = async (url: string): Promise<TestWebSocket> => {
   if (!WebSocketCtor) throw new Error("global WebSocket is unavailable in this runtime");
   const socket = new WebSocketCtor(url);
@@ -123,19 +146,7 @@ describe("gateway auth timeout", () => {
     const started = await app.start();
     openApps.push(app);
     const socket = await openSocket(started.wsUrl);
-    const errorMessage = withTimeout(
-      "auth timeout error",
-      new Promise<Record<string, unknown>>((resolve) => {
-        socket.addEventListener(
-          "message",
-          (event) => {
-            resolve(JSON.parse(event.data) as Record<string, unknown>);
-          },
-          { once: true }
-        );
-      }),
-      2_000
-    );
+    const errorMessage = nextRealMessage(socket, "auth timeout error", 2_000);
 
     socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
 
@@ -180,19 +191,7 @@ describe("gateway auth timeout", () => {
     const started = await app.start();
     openApps.push(app);
     const socket = await openSocket(started.wsUrl);
-    const errorMessage = withTimeout(
-      "prepare timeout error",
-      new Promise<Record<string, unknown>>((resolve) => {
-        socket.addEventListener(
-          "message",
-          (event) => {
-            resolve(JSON.parse(event.data) as Record<string, unknown>);
-          },
-          { once: true }
-        );
-      }),
-      2_000
-    );
+    const errorMessage = nextRealMessage(socket, "prepare timeout error", 2_000);
 
     socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
 
@@ -233,19 +232,7 @@ describe("gateway auth timeout", () => {
     const started = await app.start();
     openApps.push(app);
     const socket = await openSocket(started.wsUrl);
-    const firstMessage = withTimeout(
-      "auth init after retries",
-      new Promise<Record<string, unknown>>((resolve) => {
-        socket.addEventListener(
-          "message",
-          (event) => {
-            resolve(JSON.parse(event.data) as Record<string, unknown>);
-          },
-          { once: true }
-        );
-      }),
-      3_000
-    );
+    const firstMessage = nextRealMessage(socket, "auth init after retries", 3_000);
 
     socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
 
@@ -300,31 +287,11 @@ describe("gateway auth timeout", () => {
 
     const firstSocket = await openSocket(started.wsUrl);
     firstSocket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
-    await expect(
-      withTimeout(
-        "first init",
-        new Promise<Record<string, unknown>>((resolve) => {
-          firstSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), {
-            once: true
-          });
-        }),
-        2_000
-      )
-    ).resolves.toMatchObject({ type: "INIT" });
+    await expect(nextRealMessage(firstSocket, "first init", 2_000)).resolves.toMatchObject({ type: "INIT" });
 
     const secondSocket = await openSocket(started.wsUrl);
     secondSocket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
-    await expect(
-      withTimeout(
-        "second init",
-        new Promise<Record<string, unknown>>((resolve) => {
-          secondSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), {
-            once: true
-          });
-        }),
-        2_000
-      )
-    ).resolves.toMatchObject({ type: "INIT" });
+    await expect(nextRealMessage(secondSocket, "second init", 2_000)).resolves.toMatchObject({ type: "INIT" });
     firstSocket.close();
     secondSocket.close();
 
@@ -401,15 +368,7 @@ describe("gateway auth timeout", () => {
     const controlSocket = await openSocket(`${started.wsUrl}?channel=control`);
     const bulkSocket = await openSocket(`${started.wsUrl}?channel=bulk`);
     controlSocket.send(JSON.stringify({ type: "AUTH", token: "friend-1", rallyCode: created.code }));
-    await expect(
-      withTimeout(
-        "control rally init",
-        new Promise<Record<string, unknown>>((resolve) => {
-          controlSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
-        }),
-        2_000
-      )
-    ).resolves.toMatchObject({ type: "INIT" });
+    await expect(nextRealMessage(controlSocket, "control rally init", 2_000)).resolves.toMatchObject({ type: "INIT" });
 
     bulkSocket.send(JSON.stringify({ type: "AUTH", token: "friend-1", rallyCode: created.code }));
     await waitFor("bulk rally auth", () => prepareCallsByPlayer.get("friend-1") === 2, 2_000);
@@ -460,15 +419,7 @@ describe("gateway auth timeout", () => {
     const socket = await openSocket(started.wsUrl);
     socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
 
-    await expect(
-      withTimeout(
-        "bootstrap init",
-        new Promise<Record<string, unknown>>((resolve) => {
-          socket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
-        }),
-        1_500
-      )
-    ).resolves.toMatchObject({
+    await expect(nextRealMessage(socket, "bootstrap init", 1_500)).resolves.toMatchObject({
       type: "INIT",
       player: expect.objectContaining({ id: "player-1" }),
       initialState: expect.objectContaining({
