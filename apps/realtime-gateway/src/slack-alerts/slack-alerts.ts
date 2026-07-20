@@ -94,6 +94,15 @@ export type SlackAlerter = {
 const DEFAULT_DEDUPE_WINDOW_MS = 300_000; // 5 min
 const POST_TIMEOUT_MS = 5_000;
 const RECENT_EVENT_LIMIT = 5;
+// Close codes worth paging on: protocol/data errors (1002/1003/1007-1010)
+// and unhandled server-side failures during close (1011) or a failed TLS
+// handshake (1015). Everything else — 1000/1001 normal, and especially
+// 1005/1006 (no close frame at all, the standard signature of a phone being
+// backgrounded, a laptop sleeping, a wifi handoff, or an idle proxy timeout)
+// — is common background churn, not something a human needs to see paged.
+// It's still counted in gateway_websocket_abnormal_disconnect_total for
+// aggregate-rate monitoring; it just doesn't need a Slack message per event.
+const ALERT_WORTHY_DISCONNECT_CODES = new Set([1002, 1003, 1007, 1008, 1009, 1010, 1011, 1015]);
 // alertPlayerDisconnected/alertPlayerReconnected intentionally fire on every
 // event (no per-player dedupe — the point is showing every flap), but a
 // pathological reconnect storm (bad client, bot, or a real network outage
@@ -432,6 +441,7 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
     },
 
     alertPlayerDisconnected(playerId: string, details: { code: number; reason: string; isNormalClose: boolean }): void {
+      if (!ALERT_WORTHY_DISCONNECT_CODES.has(details.code)) return;
       const label = details.isNormalClose ? "normal" : "abnormal";
       alertAlways("player_disconnected", {
         summary: `player disconnected (${label}, code ${details.code})`,
