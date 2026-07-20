@@ -62,6 +62,9 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       } satisfies Tile);
     const next = { ...current };
     mutate(next);
+    if (next.ownerId !== current.ownerId || next.ownershipState !== current.ownershipState) {
+      state.tilesRevision += 1;
+    }
     state.tiles.set(tileKey, next);
     state.discoveredTiles.add(tileKey);
     debugTileTimeline("frontier-optimistic-applied", {

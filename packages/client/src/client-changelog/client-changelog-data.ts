@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.10",
+  version: "2026.07.19.11",
   title: "What's New",
-  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the alliance/truce request box showing each AI's real name, the fix for display name changes silently failing and reverting, and the last-viewed map location sometimes getting stuck.",
+  summary: "Fixed newly settled tiles staying drawn as lighter frontier land until you clicked them. Also includes the server keep-alive ping to reduce silent disconnects, the alliance/truce request box now showing each AI's real name, the fix for display name changes silently reverting, and the last-viewed map location sometimes getting stuck.",
   entries: [
+    {
+      introducedIn: "2026.07.19.11",
+      title: "Fixed settled tiles still looking like frontier until you clicked them",
+      why: "When a settlement finished, the tile's new SETTLED status was applied optimistically without bumping the map's tile-revision counter — the only signal the 3D map's overlay rebuild watches. The ownership overlay kept drawing the tile with the lighter frontier tint until an unrelated camera pan, zoom, or tile update forced a rebuild, which is why tapping the tile appeared to \"fix\" it.",
+      changes: [
+        "Optimistic tile updates that change ownership now bump the map revision, so a tile switches to its settled look the moment settlement completes instead of waiting for the next click or camera move."
+      ]
+    },
     {
       introducedIn: "2026.07.19.10",
       title: "Reduced silent disconnects with a server-side connection keep-alive",
