@@ -746,6 +746,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
   };
+  const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= nowMs) cache.delete(key);
+    }
+  };
   const resolveHttpBearerIdentity = async (authorizationHeader: string | undefined): Promise<ResolvedGatewayAuthBinding | undefined> => {
     const token = authorizationHeader?.startsWith("Bearer ") ? authorizationHeader.slice("Bearer ".length).trim() : "";
     if (!token) return undefined;
@@ -1894,6 +1899,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     }
     sweepStalePendingInputToState(pendingInputToStateByCommandId, Date.now() - 120_000);
+    sweepExpiredCacheEntries(authBindingCache, Date.now());
+    sweepExpiredCacheEntries(profileCache, Date.now());
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
     if (gatewayMetricsLogIntervalMs > 0 && now - lastGatewayMetricsLogAt >= gatewayMetricsLogIntervalMs) {
