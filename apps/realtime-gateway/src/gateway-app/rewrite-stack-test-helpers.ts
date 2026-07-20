@@ -67,16 +67,27 @@ export const openSocket = async (url: string): Promise<BufferedSocket> => {
   );
   return {
     socket,
+    // LOGIN_PHASE is progress-only noise sent throughout the AUTH handler
+    // (see gateway-app.ts) to keep the client's busy-modal from freezing on a
+    // large empire — it can now arrive at almost any point between AUTH and
+    // INIT, so tests waiting for a specific reply must transparently skip it
+    // rather than every caller re-implementing the same filter.
     nextJsonMessage: async (label: string) => {
-      const queued = queuedMessages.shift();
-      if (queued) return JSON.parse(queued) as Record<string, unknown>;
-      const payload = await withTimeout(
-        `message ${label}`,
-        new Promise<string>((resolve) => {
-          pendingResolvers.push(resolve);
-        })
-      );
-      return JSON.parse(payload) as Record<string, unknown>;
+      for (;;) {
+        const queued = queuedMessages.shift();
+        const parsed = queued
+          ? (JSON.parse(queued) as Record<string, unknown>)
+          : (JSON.parse(
+              await withTimeout(
+                `message ${label}`,
+                new Promise<string>((resolve) => {
+                  pendingResolvers.push(resolve);
+                })
+              )
+            ) as Record<string, unknown>);
+        if (parsed.type === "LOGIN_PHASE") continue;
+        return parsed;
+      }
     }
   };
 };

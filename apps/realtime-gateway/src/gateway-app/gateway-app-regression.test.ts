@@ -15,7 +15,7 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("canToggleFog: boolean;");
     expect(source).toContain("canToggleFog: false");
     expect(source).toContain("session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);");
-    expect(source).toContain("session.canToggleFog\n              );");
+    expect(source).toContain("session.canToggleFog\n                );");
     expect(source).toContain("canToggleFog: session.canToggleFog");
     expect(source).toContain('for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId))');
     expect(source).toContain('if (options?.includeFogUpdate === true) {');

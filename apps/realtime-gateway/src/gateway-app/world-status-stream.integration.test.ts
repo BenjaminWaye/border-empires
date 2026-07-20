@@ -3,90 +3,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { anonymizedEmpireNameForId } from "@border-empires/shared";
 
 import { createRealtimeGatewayApp } from "./gateway-app.js";
+import { openSocket, closeSocket } from "./rewrite-stack-test-helpers.js";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { SimulationClientEvent } from "../sim-client/sim-client.js";
 
 process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS = "0";
 process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "999";
-
-type TestWebSocket = {
-  readonly readyState: number;
-  readonly CLOSED: number;
-  send(data: string): void;
-  close(): void;
-  addEventListener(type: "open", listener: () => void, options?: { once?: boolean }): void;
-  addEventListener(type: "message", listener: (event: { data: string }) => void, options?: { once?: boolean }): void;
-  addEventListener(type: "close", listener: () => void, options?: { once?: boolean }): void;
-};
-
-type BufferedSocket = {
-  socket: TestWebSocket;
-  nextJsonMessage: (label: string) => Promise<Record<string, unknown>>;
-};
-
-const WebSocketCtor = (globalThis as typeof globalThis & { WebSocket?: new (url: string) => TestWebSocket }).WebSocket;
-
-const withTimeout = async <T>(label: string, task: Promise<T>, timeoutMs = 1_500): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      task,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-};
-
-const openSocket = async (url: string): Promise<BufferedSocket> => {
-  if (!WebSocketCtor) throw new Error("global WebSocket is unavailable in this runtime");
-  const socket = new WebSocketCtor(url);
-  const queuedMessages: string[] = [];
-  const pendingResolvers: Array<(payload: string) => void> = [];
-  socket.addEventListener("message", (event) => {
-    const nextResolver = pendingResolvers.shift();
-    if (nextResolver) {
-      nextResolver(event.data);
-      return;
-    }
-    queuedMessages.push(event.data);
-  });
-  await withTimeout(
-    `socket open (${url})`,
-    new Promise<void>((resolve) => {
-      socket.addEventListener("open", () => resolve(), { once: true });
-    })
-  );
-  return {
-    socket,
-    nextJsonMessage: async (label: string) => {
-      const queued = queuedMessages.shift();
-      if (queued) return JSON.parse(queued) as Record<string, unknown>;
-      const payload = await withTimeout(
-        `message ${label}`,
-        new Promise<string>((resolve) => {
-          pendingResolvers.push(resolve);
-        })
-      );
-      return JSON.parse(payload) as Record<string, unknown>;
-    }
-  };
-};
-
-const closeSocket = async (socket: TestWebSocket): Promise<void> => {
-  if (socket.readyState === socket.CLOSED) return;
-  const closed = withTimeout(
-    "socket close",
-    new Promise<void>((resolve) => {
-      socket.addEventListener("close", () => resolve(), { once: true });
-    })
-  );
-  socket.close();
-  await closed;
-};
 
 describe("rewrite gateway world-status stream", () => {
   const cleanup: Array<() => Promise<void>> = [];
