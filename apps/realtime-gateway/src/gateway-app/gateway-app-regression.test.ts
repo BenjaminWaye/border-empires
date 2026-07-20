@@ -135,4 +135,20 @@ describe("gateway fog capability regression guard", () => {
       "for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);"
     );
   });
+
+  // Regression for steadily climbing prod login latency (0s -> 5s over process
+  // uptime): authBindingCache/profileCache only ever dropped a key lazily on a
+  // hit for that same key, so both Maps grew without bound for the life of the
+  // process and never shrank, inflating heap size (and GC pause cost) with
+  // cumulative distinct logins rather than concurrent load.
+  it("periodically sweeps expired authBindingCache and profileCache entries instead of growing them unbounded", () => {
+    const source = sourceFor("./gateway-app.ts");
+
+    expect(source).toContain("const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();");
+    expect(source).toContain("const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();");
+    expect(source).toContain("const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {");
+    expect(source).toContain("if (entry.expiresAt <= nowMs) cache.delete(key);");
+    expect(source).toContain("sweepExpiredCacheEntries(authBindingCache, Date.now());");
+    expect(source).toContain("sweepExpiredCacheEntries(profileCache, Date.now());");
+  });
 });

@@ -28,6 +28,7 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
         updated_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS auth_identity_bindings_player_id_idx ON auth_identity_bindings (player_id);
+      CREATE INDEX IF NOT EXISTS auth_identity_bindings_auth_email_lower_idx ON auth_identity_bindings (LOWER(auth_email));
     `);
   }
 
