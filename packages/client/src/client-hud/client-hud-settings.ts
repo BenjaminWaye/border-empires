@@ -22,6 +22,11 @@ export interface UpdateSettingsDisplayNameDeps {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   updateFirebaseDisplayName: (name: string) => Promise<void>;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
+  // Records the in-flight name so client-network can confirm success (on the
+  // matching PLAYER_UPDATE) or report failure (on a SET_PROFILE ERROR)
+  // instead of this function assuming success the instant the socket send
+  // succeeds — the gateway can still reject the whole message server-side.
+  setPendingDisplayNameChange: (name: string) => void;
 }
 
 export const updateSettingsDisplayName = async (rawName: string, deps: UpdateSettingsDisplayNameDeps): Promise<void> => {
@@ -34,11 +39,14 @@ export const updateSettingsDisplayName = async (rawName: string, deps: UpdateSet
     deps.pushFeed("Display name is unchanged.", "info", "info");
     return;
   }
+  deps.setPendingDisplayNameChange(newName);
   const sent = deps.sendGameMessage(
     { type: "SET_PROFILE", displayName: newName, color: deps.currentColor },
     "Finish sign-in before changing your display name."
   );
-  if (!sent) return;
+  if (!sent) {
+    deps.setPendingDisplayNameChange("");
+    return;
+  }
   await deps.updateFirebaseDisplayName(newName);
-  deps.pushFeed("Display name updated.", "info", "success");
 };

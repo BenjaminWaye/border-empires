@@ -2644,8 +2644,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
               return;
             }
+            // The client always resends the player's current color alongside a
+            // name-only change (SET_PROFILE has no name-only variant). Re-running
+            // the collision check against that unchanged color falsely blocks the
+            // name update whenever the player's own stored color happens to match
+            // another player's (e.g. a pre-existing duplicate from before the
+            // uniqueness check existed) — skip the check when the color isn't
+            // actually changing.
+            const existingProfile = await profileStore.get(session.playerId);
+            const existingColor = normalizeHex(existingProfile?.tileColor ?? "");
+            const colorUnchanged = existingColor !== null && existingColor === normalized;
             const taken = await buildTakenColorSet(session.playerId);
-            if (isTaken(normalized, taken)) {
+            if (!colorUnchanged && isTaken(normalized, taken)) {
               const suggestion = suggestAlternative(normalized, taken);
               gatewayMetrics.incrementColorCollisionRejectedTotal();
               sendJson(socket, {

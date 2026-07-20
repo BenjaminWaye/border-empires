@@ -20,17 +20,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.8",
+  version: "2026.07.19.9",
   title: "What's New",
-  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the fix for the last-viewed map location sometimes getting stuck, alliance/truce requests to AI players sometimes failing with \"target not found\", and the Report Bug popover not accepting clicks.",
+  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the fix for display name changes silently failing and reverting, the last-viewed map location sometimes getting stuck, and alliance/truce requests to AI players sometimes failing with \"target not found\".",
   entries: [
     {
-      introducedIn: "2026.07.19.8",
+      introducedIn: "2026.07.19.9",
       title: "Reduced silent disconnects with a server-side connection keep-alive",
       why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
       changes: [
         "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
         "This requires no change on your end — it happens automatically at the network level."
+      ]
+    },
+    {
+      introducedIn: "2026.07.19.8",
+      title: "Fixed display name changes silently failing and reverting",
+      why: "Changing your display name in Settings also resends your current tile color in the same request. If that stored color happened to collide with another player's (more likely on a large, long-running world than on staging's small test roster), the server rejected the whole update to protect color uniqueness — silently dropping the name change along with it. The Settings page also showed a \"Display name updated\" success message the instant the request was sent, without waiting to see whether the server actually accepted it, so the failure went unnoticed until the name reverted on the next reload.",
+      changes: [
+        "The server no longer re-checks color uniqueness when your color isn't actually changing, so a name-only update can no longer be blocked by an unrelated, pre-existing color collision.",
+        "The Settings page now waits for server confirmation before showing \"Display name updated\", and shows the real rejection reason (e.g. a color conflict) if the update fails instead of claiming success."
       ]
     },
     {
