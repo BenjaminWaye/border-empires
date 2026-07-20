@@ -18,6 +18,17 @@ const CAMERA_SAVE_THROTTLE_MS = 1_000;
 // meaningful application state anything else needs to read/reset/persist.
 let lastCameraSaveAt = 0;
 
+// requestAnimationFrame callback (client-runtime-loop.ts) — synchronous
+// localStorage.setItem() there directly extends that frame's render time,
+// which showed up as visible pan/zoom jank once per throttle window (a real
+// player report). requestIdleCallback moves the actual write off the render
+// frame entirely; setTimeout is the fallback for environments without it
+// (older Safari, and Node in tests).
+const scheduleOffFrame: (task: () => void) => void =
+  typeof requestIdleCallback === "function"
+    ? (task) => requestIdleCallback(task, { timeout: 500 })
+    : (task) => setTimeout(task, 0);
+
 // Deliberately independent of the chunk-subscribe cooldown in
 // requestViewRefresh(): that logic only progresses once the camera crosses a
 // full CHUNK_SIZE (64-tile) boundary, which an ordinary pan/zoom near the
@@ -29,7 +40,11 @@ export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY"
   const now = Date.now();
   if (now - lastCameraSaveAt < CAMERA_SAVE_THROTTLE_MS) return;
   lastCameraSaveAt = now;
-  saveCameraLocation(state);
+  // Snapshot now — this runs inside the render loop's rAF callback, and by
+  // the time the idle callback fires the caller's `state` object may have
+  // moved on to a newer camera position than what triggered this save.
+  const snapshot = { camX: state.camX, camY: state.camY, zoom: state.zoom };
+  scheduleOffFrame(() => saveCameraLocation(snapshot));
 };
 
 export const resetCameraSaveThrottleForTests = (): void => {
