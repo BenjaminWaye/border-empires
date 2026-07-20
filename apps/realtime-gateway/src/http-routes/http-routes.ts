@@ -88,6 +88,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
   playOrigin?: string;
+  simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   rallyLinkStore?: RallyLinkStore;
   preparePlayer?: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
@@ -127,13 +128,11 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     return authorizationHeader === `Bearer ${deps.adminApiToken}`;
   };
 
-  // NOTE: /health is intentionally O(1) — it only reads cached structs and
-  // never touches the event loop, sim RPC, or AI state, so it stays responsive
-  // even while the sim worker is saturated. It is a LIVENESS probe, not a perf
-  // signal: performance numbers (event-loop lag, sim/AI tick durations, queue
-  // backlog, command latency) live at /metrics (gateway) and
-  // /admin/runtime/metrics (gateway + sim combined). Anything reading /health
-  // for perf is reading the wrong endpoint.
+  // NOTE: /health is intentionally O(1) — it only reads cached structs and never
+  // touches the event loop, sim RPC, or AI state, so it stays responsive even while
+  // the sim worker is saturated. It is a LIVENESS probe, not a perf signal: perf
+  // numbers live at /metrics (gateway) and /admin/runtime/metrics (combined). Anything
+  // reading /health for perf is reading the wrong endpoint.
   const readHealth = () => {
     const health = deps.health();
     return {
@@ -175,6 +174,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       startupElapsedMs: Date.now() - deps.startupStartedAt
     },
     recentServerEvents: deps.recentEvents(),
+    simDiagnostics: deps.simDiagnostics?.(),
     attackDebug: deps.attackDebug(),
     attackTraces: deps.attackTraces(),
     runtime: {
