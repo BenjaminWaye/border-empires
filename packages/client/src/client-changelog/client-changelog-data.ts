@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.9",
+  version: "2026.07.19.10",
   title: "What's New",
-  summary: "The alliance/truce request box now shows each AI's real name (e.g. \"Freja Sund\") alongside its \"AI N\" entry, so you can tell them apart. Also includes the fix for display name changes silently failing and reverting for some players, the last-viewed map location sometimes getting stuck, and alliance/truce requests to AI players sometimes failing with \"target not found\".",
+  summary: "Fixed newly settled tiles staying drawn as lighter frontier land until you clicked them, at which point they snapped to their full settled look. Also includes the alliance/truce request box now showing each AI's real name, the fix for display name changes silently reverting, the last-viewed map location getting stuck, and alliance/truce requests to AI players failing with \"target not found\".",
   entries: [
+    {
+      introducedIn: "2026.07.19.10",
+      title: "Fixed settled tiles still looking like frontier until you clicked them",
+      why: "When a settlement finished, the tile's new SETTLED status was applied optimistically without bumping the map's tile-revision counter — the only signal the 3D map's overlay rebuild watches. The ownership overlay kept drawing the tile with the lighter frontier tint until an unrelated camera pan, zoom, or tile update forced a rebuild, which is why tapping the tile appeared to \"fix\" it.",
+      changes: [
+        "Optimistic tile updates that change ownership now bump the map revision, so a tile switches to its settled look the moment settlement completes instead of waiting for the next click or camera move."
+      ]
+    },
     {
       introducedIn: "2026.07.19.9",
       title: "Alliance/truce request box now shows each AI's real name",
