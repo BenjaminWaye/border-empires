@@ -347,4 +347,93 @@ describe("client optimistic state", () => {
     expect(merged.ownershipState).toBeUndefined();
     expect(merged.optimisticPending).toBeUndefined();
   });
+
+  it("bumps tilesRevision when optimistic state changes ownershipState", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      tilesRevision: 0,
+      tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "settle" })]]),
+      settledTiles: new Set<string>(),
+      discoveredTiles: new Set<string>(),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { applyOptimisticTileState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible",
+      optimisticEnabled: true
+    });
+
+    const revisionBefore = state.tilesRevision;
+    applyOptimisticTileState(12, 18, (tile) => {
+      tile.ownershipState = "SETTLED";
+    });
+
+    expect(state.tilesRevision).toBeGreaterThan(revisionBefore);
+    expect(state.tiles.get("12,18")?.ownershipState).toBe("SETTLED");
+  });
+
+  it("bumps tilesRevision when optimistic state changes ownerId", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      tilesRevision: 0,
+      tiles: new Map<string, Tile>([["12,18", baseTile()]]),
+      settledTiles: new Set<string>(),
+      discoveredTiles: new Set<string>(),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { applyOptimisticTileState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible",
+      optimisticEnabled: true
+    });
+
+    const revisionBefore = state.tilesRevision;
+    applyOptimisticTileState(12, 18, (tile) => {
+      tile.ownerId = "me";
+      tile.ownershipState = "FRONTIER";
+    });
+
+    expect(state.tilesRevision).toBeGreaterThan(revisionBefore);
+  });
+
+  it("does not bump tilesRevision when optimistic state changes only non-ownership fields", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      tilesRevision: 0,
+      tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "SETTLED" })]]),
+      settledTiles: new Set<string>(),
+      discoveredTiles: new Set<string>(),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { applyOptimisticTileState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible",
+      optimisticEnabled: true
+    });
+
+    const revisionBefore = state.tilesRevision;
+    applyOptimisticTileState(12, 18, (tile) => {
+      tile.fogged = true;
+    });
+
+    expect(state.tilesRevision).toBe(revisionBefore);
+  });
 });
