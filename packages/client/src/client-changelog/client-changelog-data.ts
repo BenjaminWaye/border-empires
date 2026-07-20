@@ -20,16 +20,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.10",
+  version: "2026.07.19.11",
   title: "What's New",
-  summary: "Fixed newly settled tiles staying drawn as lighter frontier land until you clicked them, at which point they snapped to their full settled look. Also includes the alliance/truce request box now showing each AI's real name, the fix for display name changes silently reverting, the last-viewed map location getting stuck, and alliance/truce requests to AI players failing with \"target not found\".",
+  summary: "Fixed newly settled tiles staying drawn as lighter frontier land until you clicked them. Also includes the server keep-alive ping to reduce silent disconnects, the alliance/truce request box now showing each AI's real name, the fix for display name changes silently reverting, and the last-viewed map location sometimes getting stuck.",
   entries: [
     {
-      introducedIn: "2026.07.19.10",
+      introducedIn: "2026.07.19.11",
       title: "Fixed settled tiles still looking like frontier until you clicked them",
       why: "When a settlement finished, the tile's new SETTLED status was applied optimistically without bumping the map's tile-revision counter — the only signal the 3D map's overlay rebuild watches. The ownership overlay kept drawing the tile with the lighter frontier tint until an unrelated camera pan, zoom, or tile update forced a rebuild, which is why tapping the tile appeared to \"fix\" it.",
       changes: [
         "Optimistic tile updates that change ownership now bump the map revision, so a tile switches to its settled look the moment settlement completes instead of waiting for the next click or camera move."
+      ]
+    },
+    {
+      introducedIn: "2026.07.19.10",
+      title: "Reduced silent disconnects with a server-side connection keep-alive",
+      why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
+      changes: [
+        "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
+        "This requires no change on your end — it happens automatically at the network level."
       ]
     },
     {
