@@ -208,8 +208,14 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {
     state.homeTile = homeTile;
-    state.camX = homeTile.x;
-    state.camY = homeTile.y;
+    // Don't stomp a restored last-viewed camera location (client-camera-storage.js)
+    // with the home tile on every connect/reconnect — INIT fires before the CHUNK
+    // handler's own cameraRestoredFromStorage check ever gets a chance to matter,
+    // so this was silently discarding the restore before the player ever saw it.
+    if (!state.cameraRestoredFromStorage) {
+      state.camX = homeTile.x;
+      state.camY = homeTile.y;
+    }
     state.selected = homeTile;
   }
   const appliedInitialTileCount = applyGatewayInitialState(
