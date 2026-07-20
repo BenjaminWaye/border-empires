@@ -20,17 +20,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.9",
+  version: "2026.07.19.10",
   title: "What's New",
-  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the fix for display name changes silently failing and reverting, the last-viewed map location sometimes getting stuck, and alliance/truce requests to AI players sometimes failing with \"target not found\".",
+  summary: "The server now keeps your connection alive with periodic keep-alive pings, so idle proxies/networks are less likely to silently drop you. Also includes the alliance/truce request box showing each AI's real name, the fix for display name changes silently failing and reverting, and the last-viewed map location sometimes getting stuck.",
   entries: [
     {
-      introducedIn: "2026.07.19.9",
+      introducedIn: "2026.07.19.10",
       title: "Reduced silent disconnects with a server-side connection keep-alive",
       why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
       changes: [
         "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
         "This requires no change on your end — it happens automatically at the network level."
+      ]
+    },
+    {
+      introducedIn: "2026.07.19.9",
+      title: "Alliance/truce request box now shows each AI's real name",
+      why: "The previous fix for alliance/truce requests to AI players failing with \"target not found\" made the suggestion box only offer the resolvable \"AI N\" entry, but that left no way to tell which AI empire \"AI 1\" actually was.",
+      changes: [
+        "The suggestion box now shows an AI's real name (e.g. \"Freja Sund\") alongside its \"AI N\" entry, so you can identify it while the request still submits the resolvable name the server expects."
       ]
     },
     {
