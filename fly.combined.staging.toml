@@ -94,7 +94,14 @@ primary_region = "arn"
 
 [[vm]]
   cpu_kind = "shared"
-  cpus = 1
+  # 2 vCPUs: the season-20ai staging profile runs 5 AI players + 1 barbarian whose
+  # planner/system-job/sqlite-writer/snapshot-build worker threads are frequently
+  # concurrently active. On a single fractional vCPU this starves the gateway's
+  # WS/HTTP event loop enough that login (AUTH -> simulation prepare/bootstrap RPC)
+  # regularly timed out (>30s, some login attempts never completing) while
+  # /proc/pressure/cpu showed sustained avg10 30-55%. See docs/agents/topics/
+  # staging-login-cpu-contention.md. Bumped from 1 to 2 shared vCPUs 2026-07-20.
+  cpus = 2
   # 2048mb to match prod: post-season full-visibility logins materialize the whole
   # 202,500-tile world per login; concurrent logins OOM-killed a 1024mb box. See #693.
   memory = "2048mb"
