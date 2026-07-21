@@ -33,6 +33,7 @@ const deps = (requestAttackPreviewForTarget: (tile: Tile) => void) => ({
   handleTileAction: vi.fn(),
   cancelQueuedSettlement: vi.fn(() => false),
   cancelQueuedBuild: vi.fn(() => false),
+  moveQueuedEntryToFront: vi.fn(() => false),
   sendGameMessage: vi.fn(() => true),
   applyOptimisticStructureCancel: vi.fn(),
   renderHud: vi.fn(),

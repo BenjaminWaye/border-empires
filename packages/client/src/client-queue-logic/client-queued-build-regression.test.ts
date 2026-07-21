@@ -17,7 +17,8 @@ describe("queued build regression", () => {
     const tile = { x: 2, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", regionType: "ANCIENT_HEARTLAND" } as const;
     const progress = queuedBuildProgressForTile(tile, {
       keyFor: (x, y) => `${x},${y}`,
-      queuedDevelopmentEntryForTile: () => ({ kind: "BUILD", tileKey: "2,2", label: "Observatory at (2, 2)" })
+      queuedDevelopmentEntryForTile: () => ({ kind: "BUILD", tileKey: "2,2", label: "Observatory at (2, 2)" }),
+      queuedEntryIndexForTile: () => 0
     });
     expect(progress?.title).toBe("Observatory queued");
     expect(progress?.cancelActionId).toBe("cancel_queued_build");

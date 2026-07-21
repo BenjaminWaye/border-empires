@@ -319,6 +319,9 @@ export const queuedDevelopmentEntryForTile = (state: ClientState, tileKey: strin
 export const queuedSettlementIndexForTile = (state: ClientState, tileKey: string): number =>
   queuedSettlementOrderForTile(state.developmentQueue, tileKey);
 
+export const queuedEntryIndexForTile = (state: ClientState, tileKey: string): number =>
+  state.developmentQueue.findIndex((entry) => entry.tileKey === tileKey);
+
 export const queuedBuildEntryForTile = (state: ClientState, tileKey: string): Extract<QueuedDevelopmentAction, { kind: "BUILD" }> | undefined => {
   const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey && queued.kind === "BUILD");
   return entry && entry.kind === "BUILD" ? entry : undefined;
@@ -360,6 +363,27 @@ export const cancelQueuedBuild = (
   state.developmentQueue = nextQueue;
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
+  deps.renderHud();
+  return true;
+};
+
+export const moveQueuedEntryToFront = (
+  state: ClientState,
+  tileKey: string,
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+  }
+): boolean => {
+  const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey);
+  if (!entry) return false;
+  const index = state.developmentQueue.indexOf(entry);
+  if (index <= 0) return false;
+  const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
+  nextQueue.unshift(entry);
+  state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.pushFeed(`${entry.label} moved to the front of the queue.`, "combat", "info");
   deps.renderHud();
   return true;
 };
