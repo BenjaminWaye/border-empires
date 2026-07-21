@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.2",
+  version: "2026.07.22.3",
   title: "What's New",
-  summary: "Active muster alerts on the map edge now show crossed swords instead of an exclamation mark.",
+  summary: "Light Outposts now show their attack-aura range on the 3D map, matching Siege Outposts.",
   entries: [
+    {
+      introducedIn: "2026.07.22.3",
+      title: "Light Outposts now show their attack-aura range when selected",
+      why: "Selecting a Siege Outpost on the 3D map drew a highlighted range ring showing the tiles it boosts, but selecting a Light Outpost drew nothing — even though Light Outposts grant the same kind of attack-aura bonus within the same 5-tile range.",
+      changes: [
+        "Selecting an active, owned Light Outpost now shows the same range ring as Siege Outposts, Siege Towers, and Dread Towers."
+      ]
+    },
     {
       introducedIn: "2026.07.22.2",
       title: "Crossed-swords icon for active muster alerts",
