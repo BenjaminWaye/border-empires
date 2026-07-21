@@ -244,7 +244,8 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
         neighbor.ownerId &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
         musterAmount >= input.requiredMusterForTarget(neighbor) &&
-        !input.locksByTile.has(currentKey)
+        !input.locksByTile.has(currentKey) &&
+        !input.locksByTile.has(nKey)
       ) {
         bestFrom = current;
         nearestEnemy = neighbor;
