@@ -51,6 +51,11 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly resolveBaseline: WorldgenBaselineResolver | undefined;
   private readonly onPruneFailure: ((error: unknown) => void) | undefined;
   private lastLoadedFormatVersion: number | undefined;
+  // Memoised key->tile index per baseline array (see resolveBaselineIndexFromSections).
+  private readonly baselineIndexCache = new WeakMap<
+    ReadonlyArray<RecoveredTile>,
+    ReadonlyMap<string, RecoveredTile>
+  >();
 
   constructor(
     private readonly db: DatabaseSync,
@@ -187,8 +192,21 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       worldSeed: season.worldSeed,
       ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
     });
+    // The baseline `tiles` array is immutable per season and returned by
+    // identity from resolveBaseline's own in-memory cache, so the derived
+    // key->tile index is immutable too. Rebuilding it here (202k Map.set +
+    // 202k `${x},${y}` string allocations) measured ~3.2s of synchronous
+    // main-thread block on EVERY checkpoint in prod (sim_checkpoint_export_ms
+    // slow-phase `resolve_baseline_index`), plus a large slug of transient
+    // garbage feeding the GC storm that already pins heap at the ceiling
+    // during a checkpoint. Memoise the index by the baseline array identity:
+    // a stale array reference (new season / regenerated baseline) rebuilds
+    // automatically; a WeakMap lets a superseded baseline be collected.
+    const cached = this.baselineIndexCache.get(tiles);
+    if (cached) return cached;
     const index = new Map<string, RecoveredTile>();
     for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
+    this.baselineIndexCache.set(tiles, index);
     return index;
   }
 

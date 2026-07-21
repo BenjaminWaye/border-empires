@@ -66,6 +66,26 @@ describe("compactSnapshotForStorage", () => {
     expect(overlay).not.toHaveProperty("resource");
     expect(overlay).toMatchObject({ ownerId: "ai-7", ownershipState: "SETTLED" });
   });
+
+  it("emits clear markers for baseline tiles absent from the runtime (reverse-scan fallback)", async () => {
+    // Guards the steady-state fast path: compaction skips the reverse baseline
+    // scan whenever the runtime covers every baseline tile. When a baseline
+    // tile IS missing (x=3 dropped here), the fallback must still emit its
+    // clear markers so recovery deletes the worldgen-assigned ownership.
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const compact = await compactSnapshotForStorage(
+      sections([
+        baseTile({ x: 0, y: 0, terrain: "LAND" }),
+        baseTile({ x: 1, y: 0, terrain: "WATER" }),
+        baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON" })
+        // x=3 (ai-1/SETTLED in baseline) omitted entirely from the runtime.
+      ]),
+      baseline
+    );
+    const cleared = compact.tileOverlay.find((tile) => tile.x === 3 && tile.y === 0);
+    expect(cleared).toMatchObject({ x: 3, y: 0, ownerId: null, ownershipState: null });
+  });
 });
 
 describe("expandSnapshotFromStorage", () => {
