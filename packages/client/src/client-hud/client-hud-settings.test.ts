@@ -49,7 +49,7 @@ describe("updateSettingsDisplayName", () => {
     expect(pushFeed).not.toHaveBeenCalledWith(expect.stringContaining("updated"), expect.anything(), expect.anything());
   });
 
-  it("clears the pending name when sendGameMessage fails synchronously", async () => {
+  it("clears the pending name and pushes a feed message when sendGameMessage fails synchronously", async () => {
     const sendGameMessage = vi.fn().mockReturnValue(false);
     const pushFeed = vi.fn();
     const setPendingDisplayNameChange = vi.fn();
@@ -65,6 +65,7 @@ describe("updateSettingsDisplayName", () => {
 
     expect(setPendingDisplayNameChange).toHaveBeenNthCalledWith(1, "New Name");
     expect(setPendingDisplayNameChange).toHaveBeenNthCalledWith(2, "");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Finish sign-in"), "error", "warn");
   });
 
   it("rejects names under 2 characters without sending anything", async () => {
@@ -101,7 +102,7 @@ describe("updateSettingsDisplayName", () => {
     expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("unchanged"), "info", "info");
   });
 
-  it("does not update Firebase or report success when sendGameMessage rejects (not authed)", async () => {
+  it("does not update Firebase and pushes a feed message when sendGameMessage rejects (not authed)", async () => {
     const sendGameMessage = vi.fn().mockReturnValue(false);
     const pushFeed = vi.fn();
     const updateFirebaseDisplayName = vi.fn().mockResolvedValue(undefined);
@@ -117,5 +118,6 @@ describe("updateSettingsDisplayName", () => {
 
     expect(updateFirebaseDisplayName).not.toHaveBeenCalled();
     expect(pushFeed).not.toHaveBeenCalledWith(expect.stringContaining("updated"), expect.anything(), expect.anything());
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Finish sign-in"), "error", "warn");
   });
 });
