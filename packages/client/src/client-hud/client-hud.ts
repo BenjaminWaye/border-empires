@@ -960,7 +960,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
     dom.panelSettingsEl.innerHTML = `
       <div class="card auth-settings-card">
-        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml(state, wsUrl)}
         ${mapRevealCardHtml()}
