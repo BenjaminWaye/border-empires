@@ -2043,6 +2043,7 @@ export class SimulationRuntime {
       if (preplan.command) return preplan;
     }
     const forceBroadFrontierScan = shouldForceBroadFrontierScan(this.aiHotFrontierStreakByPlayer, playerId);
+    const playerScopeKeyCount = plannerPlayerScopeKeyCount(summary);
     const plan = planAutomationCommand({
       playerId,
       points: player.points,
@@ -2064,8 +2065,8 @@ export class SimulationRuntime {
       ownedTiles,
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
-      playerScopeKeyCount: plannerPlayerScopeKeyCount(summary),
-      playerScopeTileCount: plannerPlayerScopeKeyCount(summary),
+      playerScopeKeyCount,
+      playerScopeTileCount: playerScopeKeyCount,
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
       pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
       onStrategicSnapshot: (snapshot) => {
