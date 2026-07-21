@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.3",
+  version: "2026.07.21.4",
   title: "What's New",
   summary: "Queued builds and settlements can now jump to the front of the line instead of only being cancelled.",
   entries: [
+    {
+      introducedIn: "2026.07.21.4",
+      title: "Smoother minimap on maps with a lot of unexplored fog",
+      why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
+      changes: [
+        "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
+      ]
+    },
     {
       introducedIn: "2026.07.21.3",
       title: "Move a queued build or settlement to the front of the line",
