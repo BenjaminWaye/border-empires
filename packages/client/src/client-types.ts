@@ -667,6 +667,8 @@ export type TileMenuProgressView = {
   note: string;
   cancelLabel?: string;
   cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build";
+  secondaryLabel?: string;
+  secondaryActionId?: "move_queued_entry_to_front";
 };
 
 export type TileOverviewLine = {

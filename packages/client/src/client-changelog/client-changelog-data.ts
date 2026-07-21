@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.2",
+  version: "2026.07.21.3",
   title: "What's New",
-  summary: "Display name changes now confirm before sending and show a success popup, and are limited to once per season.",
+  summary: "Queued builds and settlements can now jump to the front of the line instead of only being cancelled.",
   entries: [
+    {
+      introducedIn: "2026.07.21.3",
+      title: "Move a queued build or settlement to the front of the line",
+      why: "A tile with a queued build or settlement only offered a cancel button, even though the actual goal was usually just to get it started sooner. Now you can bump it ahead of everything else waiting for a development slot without losing its place entirely.",
+      changes: [
+        "Queued builds and queued settlements now show a \"Jump to front of queue\" button alongside the existing cancel option (hidden once the entry is already first in line)."
+      ]
+    },
     {
       introducedIn: "2026.07.21.2",
       title: "Display name changes now confirm up front and are limited to once per season",
