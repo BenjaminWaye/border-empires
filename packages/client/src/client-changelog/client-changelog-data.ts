@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.3",
+  version: "2026.07.21.4",
   title: "What's New",
-  summary: "Queued builds and settlements can now jump to the front of the line instead of only being cancelled.",
+  summary: "The Empire Integrity chip now warns you when your borders get too exposed.",
   entries: [
+    {
+      introducedIn: "2026.07.21.4",
+      title: "Low Empire Integrity now shows a dismissible warning",
+      why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
+      changes: [
+        "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
+        "Dismiss it with the × in its corner or the \"I understand\" button; it reappears if integrity recovers above 90% and later drops again."
+      ]
+    },
     {
       introducedIn: "2026.07.21.3",
       title: "Move a queued build or settlement to the front of the line",
