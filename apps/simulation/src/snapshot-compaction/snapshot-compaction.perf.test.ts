@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
-import { buildWorldgenBaselineIndex, compactSnapshotForStorage } from "./snapshot-compaction.js";
+import { buildWorldgenBaselineIndex, compactSnapshotForStorage, type TileOverlayMemo } from "./snapshot-compaction.js";
 
 type RecoveredTile = RecoveredSimulationState["tiles"][number];
 
@@ -78,5 +78,59 @@ describe("compactSnapshotForStorage — realistic-scale timing", () => {
     // synchronously — see sim_tick_duration_ms p99) and nowhere near the
     // 30s watchdog stall threshold.
     expect(elapsedMs).toBeLessThan(1000);
+  });
+
+  it("reuses the exact memoised overlay object for unmutated tiles on a repeat checkpoint", async () => {
+    // Mirrors the runtime's steady state: most tiles between two checkpoints
+    // are untouched (same object reference), only a handful mutated. Object
+    // identity is what makes the memo a correct, not approximate, cache key
+    // — see TileOverlayMemo's doc comment in snapshot-compaction.ts.
+    //
+    // Deliberately NOT a wall-clock timing assertion: this repo's own perf
+    // gates are documented to flake on a loaded box (see
+    // snapshot-compaction.perf.test.ts's sibling test above, which asserts
+    // yield count / an absolute ceiling rather than a relative speedup).
+    // Asserting object-reference reuse proves the cache actually fired
+    // without any timing sensitivity.
+    const { baselineTiles, runtimeTiles } = buildRealisticWorld();
+    const baselineIndex = buildWorldgenBaselineIndex(baselineTiles);
+    const memo: TileOverlayMemo = new WeakMap();
+
+    const first = await compactSnapshotForStorage(
+      { initialState: { tiles: runtimeTiles, activeLocks: [] }, commandEvents: [] },
+      baselineIndex,
+      undefined,
+      memo
+    );
+
+    // Mutate a small handful of tiles to new objects (as replaceTileState
+    // would); everything else keeps its object reference from `runtimeTiles`.
+    const mutatedIndexes = new Set([0, 5000, 10000]);
+    const mutatedTiles = runtimeTiles.map((tile, i) =>
+      mutatedIndexes.has(i) ? { ...tile, ownerId: `player-mutated-${i}`, ownershipState: "OWNED" as const } : tile
+    );
+
+    const second = await compactSnapshotForStorage(
+      { initialState: { tiles: mutatedTiles, activeLocks: [] }, commandEvents: [] },
+      baselineIndex,
+      undefined,
+      memo
+    );
+
+    expect(first.tileOverlay.length).toBeGreaterThan(0);
+    // An owned tile that did NOT mutate: its overlay entry must be the exact
+    // same object both times (proves the memo returned the cached diff
+    // rather than recomputing an equal-but-new object).
+    const unmutatedOwnedIndex = 7; // i % 7 === 0 in buildRealisticWorld, not in mutatedIndexes
+    const unmutatedTile = runtimeTiles[unmutatedOwnedIndex]!;
+    const firstEntry = first.tileOverlay.find((t) => t.x === unmutatedTile.x && t.y === unmutatedTile.y);
+    const secondEntry = second.tileOverlay.find((t) => t.x === unmutatedTile.x && t.y === unmutatedTile.y);
+    expect(firstEntry).toBeDefined();
+    expect(secondEntry).toBe(firstEntry);
+
+    // A tile that DID mutate must reflect the new value, not a stale cache hit.
+    const mutatedTile = mutatedTiles[0]!;
+    const mutatedEntry = second.tileOverlay.find((t) => t.x === mutatedTile.x && t.y === mutatedTile.y);
+    expect(mutatedEntry).toMatchObject({ ownerId: "player-mutated-0" });
   });
 });

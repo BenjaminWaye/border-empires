@@ -11,7 +11,8 @@ import {
   compactSnapshotForStorage,
   expandSnapshotFromStorage,
   SNAPSHOT_FORMAT_VERSION,
-  type RecoveredTile
+  type RecoveredTile,
+  type TileOverlayMemo
 } from "../snapshot-compaction/snapshot-compaction.js";
 import {
   createChunkedSnapshotStringifier,
@@ -56,6 +57,12 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     ReadonlyArray<RecoveredTile>,
     ReadonlyMap<string, RecoveredTile>
   >();
+  // Per-tile overlay-diff memo, keyed by tile object identity (see
+  // TileOverlayMemo's doc comment in snapshot-compaction.ts for why identity
+  // is a correct cache key). Long-lived on the store instance so it survives
+  // across checkpoints within a process; a restart starts with an empty
+  // memo and pays full cost once, same as baselineIndexCache.
+  private readonly tileOverlayMemo: TileOverlayMemo = new WeakMap();
 
   constructor(
     private readonly db: DatabaseSync,
@@ -94,7 +101,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
 
     const compactT0 = Date.now();
     const payload = baselineIndex
-      ? await compactSnapshotForStorage(sections, baselineIndex)
+      ? await compactSnapshotForStorage(sections, baselineIndex, undefined, this.tileOverlayMemo)
       : buildSimulationSnapshotPayload(sections);
     logSlowCheckpointPhase("compact", Date.now() - compactT0);
 
