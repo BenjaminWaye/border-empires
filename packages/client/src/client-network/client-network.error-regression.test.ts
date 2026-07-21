@@ -1557,4 +1557,44 @@ describe("client network regression guards", () => {
     expect(state.incomingAttacksByTile.get("42,77")).toBeDefined();
     expect(state.unreadAttackAlerts).toBe(1);
   });
+
+  it("clears the pending display-name change and surfaces the season-limit message on DISPLAY_NAME_LIMIT", () => {
+    const state = createState();
+    state.pendingDisplayNameChange = "New Name";
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "DISPLAY_NAME_LIMIT",
+        message: "You can only change your display name once per season. Try again next season."
+      })
+    });
+
+    expect(state.pendingDisplayNameChange).toBe("");
+    expect(deps.pushFeed).toHaveBeenCalledWith(
+      "You can only change your display name once per season. Try again next season.",
+      "error",
+      "warn"
+    );
+  });
+
+  it("pops a confirmation alert when a pending display-name change is confirmed via PLAYER_UPDATE", () => {
+    const state = createState();
+    state.pendingDisplayNameChange = "New Name";
+    const ws = new FakeWebSocket();
+    const originalWindow = (globalThis as any).window;
+    const alertSpy = vi.fn();
+    (globalThis as any).window = { ...(originalWindow ?? {}), alert: alertSpy };
+    try {
+      bindWithDeps(state, ws);
+      ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", name: "New Name" }) });
+    } finally {
+      (globalThis as any).window = originalWindow;
+    }
+
+    expect(state.pendingDisplayNameChange).toBe("");
+    expect(alertSpy).toHaveBeenCalledWith('Your display name is now "New Name".');
+  });
 });

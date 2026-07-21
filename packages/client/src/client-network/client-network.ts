@@ -1238,6 +1238,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === msg.name) {
           state.pendingDisplayNameChange = "";
           pushFeed("Display name updated.", "info", "success");
+          if (typeof window !== "undefined" && typeof window.alert === "function") {
+            window.alert(`Your display name is now "${msg.name}".`);
+          }
         }
       }
       state.level = (msg.level as number | undefined) ?? state.level;
@@ -2356,6 +2359,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state.pendingDisplayNameChange = "";
           pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
         }
+        return;
+      }
+      if (errorCode === "DISPLAY_NAME_LIMIT") {
+        state.pendingDisplayNameChange = "";
+        pushFeed(errorMessage, "error", "warn");
         return;
       }
       // A generic gateway internal error can also orphan a pending name change.

@@ -2058,4 +2058,96 @@ describe("rewrite stack integration", () => {
     }, 15_000);
   });
 
+  describe("display name change throttle", () => {
+    const cleanup: Array<() => Promise<void>> = [];
+    afterEach(async () => {
+      for (const fn of cleanup.reverse()) await fn();
+      cleanup.length = 0;
+    });
+
+    it("allows the player's initial name pick and their first rename, but rejects a second rename in the same season", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+
+      // Initial profile setup (profile not yet complete) doesn't consume the
+      // season's rename allowance.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
+
+      // First real rename of an already-complete profile: allowed, and starts
+      // the once-per-season clock.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      const renamed = await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
+      expect(renamed.name).toBe("P1 Renamed");
+
+      // Second rename attempt in the same season: rejected.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed Again", color: "#123456" }));
+      const error = await nextTypedMessage(sock, "throttled rename", "ERROR");
+      expect(error.code).toBe("DISPLAY_NAME_LIMIT");
+    }, 15_000);
+
+    it("does not throttle re-submitting the same (unchanged) name", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
+
+      // Re-sending the same name (e.g. only intending a colour change) is not
+      // a rename and should never hit the throttle.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#654321" }));
+      const style = await nextTypedMessage(sock, "unchanged-name resend", "PLAYER_STYLE");
+      expect(style.name).toBe("P1 Renamed");
+      expect(style.tileColor).toBe("#654321");
+    }, 15_000);
+  });
+
 });

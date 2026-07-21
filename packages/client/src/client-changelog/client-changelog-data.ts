@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.1",
+  version: "2026.07.21.2",
   title: "What's New",
-  summary: "Fixed the Settings \"Signed in as\" line staying on your old name after a successful display name change.",
+  summary: "Display name changes now confirm before sending and show a success popup, and are limited to once per season.",
   entries: [
+    {
+      introducedIn: "2026.07.21.2",
+      title: "Display name changes now confirm up front and are limited to once per season",
+      why: "Nothing stopped a player from renaming repeatedly, and a successful rename was easy to miss with only a feed message noting it. Settings now asks for confirmation before sending an actual rename (not the initial name pick), the server enforces one rename per season, and a successful change now also pops a clear confirmation.",
+      changes: [
+        "Clicking Update on an actual name change (not your first-time setup) now confirms first, noting the once-per-season limit, before sending the request.",
+        "The server now rejects a second rename attempt within the same season with a clear \"try again next season\" message.",
+        "A successful rename now also shows a confirmation popup with your new name, in addition to the existing feed message."
+      ]
+    },
     {
       introducedIn: "2026.07.21.1",
       title: "Fixed \"Signed in as\" showing your old name after changing it in Settings",
