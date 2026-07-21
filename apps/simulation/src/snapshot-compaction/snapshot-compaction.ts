@@ -159,14 +159,24 @@ const defaultYieldToEventLoop: CompactionYield = () =>
 //
 // The actual fix: don't yield at all. JS is single-threaded — once this
 // synchronous pass starts, NOTHING on this thread (not AI ticks, not gRPC
-// handlers) can preempt it until it finishes, which is what makes its cost
-// genuinely bounded (~100-130ms, see snapshot-compaction.perf.test.ts) no
-// matter how much AI-tick work is already queued. Yielding traded a small,
-// bounded cost for an unbounded one under exactly the AI-tick contention this
-// runs alongside. YIELD_CHUNK_SIZE stays effectively infinite for any
-// realistic world size; `yieldToEventLoop` is left in the signature purely
-// so tests can still assert on chunking behavior if the world ever grows
-// enough to need it back (with a worker, not setImmediate, next time).
+// handlers) can preempt it until it finishes, so its cost can't be inflated
+// by AI-tick contention the way the yielding version's unbounded queue-jump
+// waits were. Yielding traded a self-contained cost for an unbounded one.
+// YIELD_CHUNK_SIZE stays effectively infinite for any realistic world size;
+// `yieldToEventLoop` is left in the signature purely so tests can still assert
+// on chunking behavior if the world ever grows enough to need it back (with a
+// worker, not setImmediate, next time).
+//
+// NOTE on cost: on a cold/unloaded box this pass is ~200ms at 202,500 tiles
+// (snapshot-compaction.perf.test.ts). In prod it was measured at ~5s once the
+// sim heap sits at its ceiling (867/905 MB) and every allocation here triggers
+// GC — the pass is allocation-bound, not iteration-bound. That is why the loop
+// below now avoids materialising a 202k-entry seen-Set and skips the reverse
+// scan whenever the runtime already covers every baseline tile (the steady
+// state): fewer allocations directly shrinks the GC-amplified wall time. The
+// remaining forward pass is still O(world), so the durable fix if this grows
+// again is incremental overlay maintenance (diff per tile mutation, checkpoint
+// serialises an already-built overlay) rather than a full rescan per save.
 const YIELD_CHUNK_SIZE = Number.MAX_SAFE_INTEGER;
 
 /**
@@ -180,25 +190,44 @@ export const compactSnapshotForStorage = async (
 ): Promise<V1SnapshotPayload> => {
   const { initialState, commandEvents } = sections;
   const tileOverlay: V1OverlayTile[] = [];
-  const seenKeys = new Set<string>();
+  // Track how many DISTINCT baseline keys the runtime still covers. In the
+  // steady state the runtime never deletes tiles (there is no `this.tiles.delete`
+  // anywhere — worldgen seeds every tile and mutations only change fields in
+  // place), so `initialState.tiles` is a superset of the baseline and the
+  // "cleared tiles" reverse scan below finds nothing. Building a 202k-entry
+  // `Set<string>` of seen keys just to confirm that — on every checkpoint, at
+  // the heap ceiling where this whole pass balloons from ~200ms to ~5s of
+  // GC-bound synchronous block (prod slow-phase `compact`) — is the bulk of
+  // the allocation churn. So count matches cheaply first and only materialise
+  // the Set + reverse scan in the (never-in-practice) case where a baseline
+  // tile is genuinely missing, which is the only case that can emit an entry.
+  let matchedBaselineCount = 0;
   let i = 0;
   for (const tile of initialState.tiles) {
     if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
-    const key = tileKey(tile.x, tile.y);
-    seenKeys.add(key);
-    const overlay = buildOverlayForTile(tile, baselineIndex.get(key));
+    const baseline = baselineIndex.get(tileKey(tile.x, tile.y));
+    if (baseline !== undefined) matchedBaselineCount += 1;
+    const overlay = buildOverlayForTile(tile, baseline);
     if (overlay) tileOverlay.push(overlay);
     i += 1;
   }
-  // Tiles that exist in worldgen baseline but the runtime no longer tracks at all.
-  // Treat them as "fully cleared" — emit null markers for whatever the baseline set.
-  i = 0;
-  for (const [key, baselineTile] of baselineIndex) {
-    if (seenKeys.has(key)) continue;
-    if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
-    const overlay = buildOverlayForTile({ x: baselineTile.x, y: baselineTile.y, terrain: baselineTile.terrain }, baselineTile);
-    if (overlay) tileOverlay.push(overlay);
-    i += 1;
+  // Only if some baseline tile is unaccounted for could a "fully cleared"
+  // overlay entry be needed. matchedBaselineCount counts distinct baseline hits (tile
+  // keys are unique within the runtime map), so `< baselineIndex.size` means at
+  // least one baseline tile is absent from the runtime — rebuild the seen-set
+  // and emit clear markers for the missing tiles. Byte-for-byte identical to
+  // the previous unconditional scan; just skipped when it would be a no-op.
+  if (matchedBaselineCount < baselineIndex.size) {
+    const seenKeys = new Set<string>();
+    for (const tile of initialState.tiles) seenKeys.add(tileKey(tile.x, tile.y));
+    i = 0;
+    for (const [key, baselineTile] of baselineIndex) {
+      if (seenKeys.has(key)) continue;
+      if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
+      const overlay = buildOverlayForTile({ x: baselineTile.x, y: baselineTile.y, terrain: baselineTile.terrain }, baselineTile);
+      if (overlay) tileOverlay.push(overlay);
+      i += 1;
+    }
   }
   return {
     formatVersion: SNAPSHOT_FORMAT_VERSION,
