@@ -111,20 +111,31 @@ export const drawMiniMap = (options: {
   }
 
   if (!effectiveFogDisabled(options.state)) {
+    const fogStyle: Record<"unexplored" | "fogged", string> = {
+      unexplored: "#000000",
+      fogged: "rgba(0,0,0,0.62)"
+    };
     for (let py = 0; py < h; py += 1) {
+      const wy = Math.floor(box.y0 + (py / h) * box.h);
+      let runVis: "unexplored" | "fogged" | undefined;
+      let runStartPx = 0;
+      const flushRun = (endPx: number): void => {
+        if (runVis === undefined) return;
+        options.miniMapCtx.fillStyle = fogStyle[runVis];
+        options.miniMapCtx.fillRect(runStartPx, py, endPx - runStartPx, 1);
+      };
       for (let px = 0; px < w; px += 1) {
         const wx = Math.floor(box.x0 + (px / w) * box.w);
-        const wy = Math.floor(box.y0 + (py / h) * box.h);
         const tile = options.state.tiles.get(options.keyFor(wx, wy));
         const vis = options.tileVisibilityStateAt(wx, wy, tile);
-        if (vis === "unexplored") {
-          options.miniMapCtx.fillStyle = "#000000";
-          options.miniMapCtx.fillRect(px, py, 1, 1);
-        } else if (vis === "fogged") {
-          options.miniMapCtx.fillStyle = "rgba(0,0,0,0.62)";
-          options.miniMapCtx.fillRect(px, py, 1, 1);
+        const cellVis = vis === "visible" ? undefined : vis;
+        if (cellVis !== runVis) {
+          flushRun(px);
+          runVis = cellVis;
+          runStartPx = px;
         }
       }
+      flushRun(w);
     }
   }
 
