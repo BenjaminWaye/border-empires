@@ -20,17 +20,25 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.4",
+  version: "2026.07.21.5",
   title: "What's New",
   summary: "The Empire Integrity chip now warns you when your borders get too exposed.",
   entries: [
     {
-      introducedIn: "2026.07.21.4",
+      introducedIn: "2026.07.21.5",
       title: "Low Empire Integrity now shows a dismissible warning",
       why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
       changes: [
         "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
         "Dismiss it with the × in its corner or the \"I understand\" button; it reappears if integrity recovers above 90% and later drops again."
+      ]
+    },
+    {
+      introducedIn: "2026.07.21.4",
+      title: "Smoother minimap on maps with a lot of unexplored fog",
+      why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
+      changes: [
+        "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
       ]
     },
     {
