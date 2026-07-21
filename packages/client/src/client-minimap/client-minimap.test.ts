@@ -3,6 +3,7 @@ import type { Tile } from "../client-types.js";
 
 let miniMapTownMarkerPalette: typeof import("./client-minimap.js").miniMapTownMarkerPalette;
 let drawMiniMap: typeof import("./client-minimap.js").drawMiniMap;
+let hexWithAlpha: typeof import("../client-map-render/client-map-render.js").hexWithAlpha;
 
 beforeAll(async () => {
   class MockImage {
@@ -11,6 +12,7 @@ beforeAll(async () => {
   }
   Object.assign(globalThis, { Image: MockImage });
   ({ miniMapTownMarkerPalette, drawMiniMap } = await import("./client-minimap.js"));
+  ({ hexWithAlpha } = await import("../client-map-render/client-map-render.js"));
 });
 
 const townTile = (isFed: boolean): Tile => ({
@@ -124,6 +126,97 @@ describe("drawMiniMap fog rendering", () => {
       expect(call.w).toBe(w / 2);
       expect(call.h).toBe(1);
     }
+  });
+});
+
+const ownershipTile = (overrides: Partial<Tile>): Tile => ({
+  x: 10,
+  y: 10,
+  terrain: "LAND",
+  ...overrides
+});
+
+const drawMiniMapWithTiles = (ctx: ReturnType<typeof makeFakeCtx>, tiles: Map<string, Tile>): void => {
+  const w = 64;
+  const h = 64;
+  const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
+  const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+  const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
+
+  drawMiniMap({
+    nowMs: 10_000,
+    state: {
+      camX: 10,
+      camY: 10,
+      zoom: 1,
+      replayActive: false,
+      replayIndex: 0,
+      replayOwnershipByTile: new Map(),
+      fogDisabled: false,
+      tiles,
+      dockPairs: [],
+      shardRainPingsByTile: new Map()
+    },
+    canvas,
+    miniMapEl,
+    miniMapCtx: ctx,
+    miniMapBase,
+    miniMapBaseReady: true,
+    miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, drawAt: 0 },
+    parseKey: (key) => {
+      const parts = key.split(",").map(Number);
+      return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
+    },
+    keyFor: (x, y) => `${x},${y}`,
+    tileVisibilityStateAt: () => "visible",
+    effectiveOverlayColor: () => "#3366cc",
+    isDockRouteVisibleForPlayer: () => false,
+    hasCollectableYield: () => false,
+    replayCurrentEvent: () => undefined
+  });
+};
+
+describe("drawMiniMap live ownership tint", () => {
+  it("tints a settled owned tile with the owner color at high alpha", () => {
+    const ctx = makeFakeCtx();
+    const tile = ownershipTile({ ownerId: "p1", ownershipState: "SETTLED" });
+    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+
+    const expectedStyle = hexWithAlpha("#3366cc", 0.9);
+    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    expect(ownerCalls.length).toBeGreaterThan(0);
+  });
+
+  it("tints a frontier owned tile with the owner color at lower alpha", () => {
+    const ctx = makeFakeCtx();
+    const tile = ownershipTile({ ownerId: "p1", ownershipState: "FRONTIER" });
+    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+
+    const expectedStyle = hexWithAlpha("#3366cc", 0.6);
+    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    expect(ownerCalls.length).toBeGreaterThan(0);
+  });
+
+  it("does not tint a fogged owned tile", () => {
+    const ctx = makeFakeCtx();
+    const tile = ownershipTile({ ownerId: "p1", ownershipState: "SETTLED", fogged: true });
+    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+
+    const settledStyle = hexWithAlpha("#3366cc", 0.9);
+    const frontierStyle = hexWithAlpha("#3366cc", 0.6);
+    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
+    expect(ownerCalls).toHaveLength(0);
+  });
+
+  it("does not tint an unowned tile", () => {
+    const ctx = makeFakeCtx();
+    const tile = ownershipTile({});
+    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+
+    const settledStyle = hexWithAlpha("#3366cc", 0.9);
+    const frontierStyle = hexWithAlpha("#3366cc", 0.6);
+    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
+    expect(ownerCalls).toHaveLength(0);
   });
 });
 
