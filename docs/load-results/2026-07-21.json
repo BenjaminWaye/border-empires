@@ -1,0 +1,256 @@
+{
+  "at": "2026-07-21T05:22:33.954Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:13101/ws",
+    "startedAt": "2026-07-21T05:22:33.954Z",
+    "endedAt": "2026-07-21T05:52:36.199Z",
+    "soakMinutes": 30,
+    "minAcceptedSamples": 30,
+    "waitForResult": true,
+    "settleAfterAcceptedMs": 250,
+    "refreshOnEmptyFrontier": false,
+    "acceptedSamples": 120,
+    "acceptedP95Ms": 5,
+    "acceptedP99Ms": 11,
+    "acceptedMaxMs": 15,
+    "diagnostics": {
+      "openedSessions": 1,
+      "frontierRefreshes": 0,
+      "emptyFrontierRejections": 0,
+      "speculativeInvalidTargets": 0,
+      "resourcePauses": 0
+    },
+    "batches": [
+      {
+        "at": 1784611537369,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 5,
+        "acceptedP99Ms": 11,
+        "acceptedMaxMs": 15,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      }
+    ],
+    "batchErrors": [
+      {
+        "at": 1784611572609,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611607819,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611643023,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611678234,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611713427,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611748622,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611783807,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611818992,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611854179,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611889359,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611924535,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611959710,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784611994948,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612030125,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612065297,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612100541,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612135724,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612170910,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612206090,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612241296,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612276496,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612311690,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612346877,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612382054,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612417230,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612452404,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612487584,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612522756,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612557936,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612593109,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612628340,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612663515,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612698689,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612733922,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612769128,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612804304,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612839478,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612874652,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612909836,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612945036,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784612980229,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784613015418,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784613050590,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784613085835,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784613121015,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      },
+      {
+        "at": 1784613156193,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365\n      reject(new Error(`iteration ${iteration} timed out`));\n             ^\n\nError: iteration 1 timed out\n    at Timeout.<anonymous> (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:365:14)\n    at listOnTimeout (node:internal/timers:585:17)\n  "
+      }
+    ]
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:13101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "warmup": {
+      "ok": true,
+      "samples": 3,
+      "stableMs": 3000,
+      "timeoutMs": 30000,
+      "lastGatewayEventLoopMaxMs": 2,
+      "lastSimEventLoopMaxMs": 2
+    },
+    "sampleCount": 902,
+    "sampleErrors": [],
+    "gatewayEventLoopMaxMs": 16,
+    "simEventLoopMaxMs": 20,
+    "simHumanInteractiveBacklogMaxMs": 0,
+    "simCheckpointRssMaxMb": 471.91
+  },
+  "gates": {
+    "acceptedSamplesAtLeastMinimum": true,
+    "actionAcceptedP95Under300": true,
+    "actionAcceptedP99Under500": true,
+    "actionAcceptedMaxUnder1000": true,
+    "gatewayEventLoopMaxUnder500": true,
+    "simEventLoopMaxUnder150": true,
+    "simHumanInteractiveBacklogMaxUnder500": true,
+    "simCheckpointRssMaxUnder800": true
+  },
+  "allGatesGreen": true
+}
