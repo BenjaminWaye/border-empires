@@ -23,6 +23,7 @@ import {
   buildFrontierQueue as buildFrontierQueueFromModule,
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
   cancelQueuedBuild as cancelQueuedBuildFromModule,
+  moveQueuedEntryToFront as moveQueuedEntryToFrontFromModule,
   cleanupExpiredSettlementProgress as cleanupExpiredSettlementProgressFromModule,
   clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
   clearSettlementProgressForTile as clearSettlementProgressForTileFromModule,
@@ -39,6 +40,7 @@ import {
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
   queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
+  queuedEntryIndexForTile as queuedEntryIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
   requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
@@ -744,11 +746,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
 
+  const queuedEntryIndexForTile = (tileKey: string): number => queuedEntryIndexForTileFromModule(state, tileKey);
+
   const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
 
   const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud });
+
+  const moveQueuedEntryToFront = (tileKey: string): boolean => moveQueuedEntryToFrontFromModule(state, tileKey, { pushFeed, renderHud });
 
   const cleanupExpiredSettlementProgress = (): boolean =>
     cleanupExpiredSettlementProgressFromModule(state, { syncOptimisticSettlementTile, clearSettlementProgressByKey, requestViewRefresh });
@@ -813,13 +819,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queuedSettlementProgressForTileFromModule(tile, {
       keyFor,
       queuedDevelopmentEntryForTile,
-      queuedSettlementIndexForTile
+      queuedSettlementIndexForTile,
+      queuedEntryIndexForTile
     });
 
   const queuedBuildProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedBuildProgressForTileFromModule(tile, {
       keyFor,
-      queuedDevelopmentEntryForTile
+      queuedDevelopmentEntryForTile,
+      queuedEntryIndexForTile
     });
 
   // Pure getter used during render; the seed/clear lifecycle below decides
@@ -1059,6 +1067,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     handleTileAction,
     cancelQueuedSettlement,
     cancelQueuedBuild,
+    moveQueuedEntryToFront,
     sendGameMessage,
     applyOptimisticStructureCancel,
     renderHud,

@@ -18,6 +18,7 @@ type TileActionMenuUiDeps = {
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
+  moveQueuedEntryToFront: (tileKey: string) => boolean;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   applyOptimisticStructureCancel: (x: number, y: number) => void;
   renderHud: () => void;
@@ -112,6 +113,10 @@ export const renderTileActionMenu = (
         if (btn.dataset.progressAction === "cancel_queued_build") {
           deps.cancelQueuedBuild(deps.keyFor(tile.x, tile.y));
           deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "move_queued_entry_to_front") {
+          deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
           return;
         }
         if (btn.dataset.progressAction !== "cancel_structure_build") return;

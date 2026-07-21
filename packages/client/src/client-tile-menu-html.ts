@@ -122,6 +122,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         <div class="tile-progress-note">${view.progress.note}</div>
+        ${view.progress.secondaryLabel ? `<button class="tile-progress-secondary" type="button" data-progress-action="${view.progress.secondaryActionId ?? "move_queued_entry_to_front"}">${view.progress.secondaryLabel}</button>` : ""}
         ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="${view.progress.cancelActionId ?? "cancel_structure_build"}">${view.progress.cancelLabel}</button>` : ""}
       </div>
     `;

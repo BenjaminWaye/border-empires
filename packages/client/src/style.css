@@ -2777,6 +2777,20 @@ body {
 .tile-progress-cancel:hover {
   background: rgba(120, 20, 20, 0.26);
 }
+.tile-progress-secondary {
+  justify-self: start;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 180, 255, 0.34);
+  background: rgba(20, 60, 120, 0.18);
+  color: #d6e8ff;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tile-progress-secondary:hover {
+  background: rgba(20, 60, 120, 0.26);
+}
 .tile-action-list {
   display: grid;
   gap: 6px;

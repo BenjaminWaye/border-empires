@@ -246,11 +246,13 @@ export const queuedSettlementProgressForTile = (
     keyFor: (x: number, y: number) => string;
     queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string; optimisticKind?: string } | undefined;
     queuedSettlementIndexForTile: (tileKey: string) => number;
+    queuedEntryIndexForTile: (tileKey: string) => number;
   }
 ): TileMenuProgressView | undefined => {
   const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
   if (!entry || entry.kind !== "SETTLE") return undefined;
   const queueIndex = deps.queuedSettlementIndexForTile(entry.tileKey);
+  const isFirstInQueue = deps.queuedEntryIndexForTile(entry.tileKey) <= 0;
   return {
     title: "Settlement queued",
     detail: "This frontier tile is queued to settle as soon as a development slot becomes free.",
@@ -258,7 +260,8 @@ export const queuedSettlementProgressForTile = (
     progress: 0,
     note: "Queued settlements reserve their place in line and can be cancelled before they start.",
     cancelLabel: "Cancel queued settlement",
-    cancelActionId: "cancel_queued_settlement"
+    cancelActionId: "cancel_queued_settlement",
+    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
   };
 };
 
@@ -267,11 +270,13 @@ export const queuedBuildProgressForTile = (
   deps: {
     keyFor: (x: number, y: number) => string;
     queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string } | undefined;
+    queuedEntryIndexForTile: (tileKey: string) => number;
   }
 ): TileMenuProgressView | undefined => {
   const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
   if (!entry || entry.kind !== "BUILD") return undefined;
   const baseTitle = entry.label?.replace(/\sat\s+\(.+\)$/, "") ?? "Build";
+  const isFirstInQueue = deps.queuedEntryIndexForTile(entry.tileKey) <= 0;
   return {
     title: `${baseTitle} queued`,
     detail: "This build is queued and will start automatically when a development slot becomes free.",
@@ -279,7 +284,8 @@ export const queuedBuildProgressForTile = (
     progress: 0,
     note: "Queued builds hold their place in line and can be cancelled before they start.",
     cancelLabel: "Cancel queued build",
-    cancelActionId: "cancel_queued_build"
+    cancelActionId: "cancel_queued_build",
+    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
   };
 };
 
