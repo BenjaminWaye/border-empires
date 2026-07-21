@@ -46,6 +46,7 @@ export const updateSettingsDisplayName = async (rawName: string, deps: UpdateSet
   );
   if (!sent) {
     deps.setPendingDisplayNameChange("");
+    deps.pushFeed("Could not update display name. Finish sign-in and try again.", "error", "warn");
     return;
   }
   await deps.updateFirebaseDisplayName(newName);

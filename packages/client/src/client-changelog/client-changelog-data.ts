@@ -20,16 +20,17 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.13",
+  version: "2026.07.19.14",
   title: "What's New",
-  summary: "Fixed panning/zooming feeling slightly laggy after a recent update. Also includes the last-viewed map location actually sticking now instead of resetting on every login, the fix for newly settled tiles staying drawn as lighter frontier land until clicked, and the server keep-alive ping to reduce silent disconnects.",
+  summary: "Fixed display name updates in Settings not showing any success or error feedback when the server rejects the change or the connection is lost.",
   entries: [
     {
-      introducedIn: "2026.07.19.13",
-      title: "Fixed a slight lag/jump when panning or zooming the map",
-      why: "Saving your last-viewed map location wrote to the browser's local storage directly inside the map's render loop, once per second. That write itself was tiny, but doing any synchronous work inside the render loop extends that frame's render time, and it happened to land during panning/zooming often enough to feel like an occasional stutter.",
+      introducedIn: "2026.07.19.14",
+      title: "Fixed display name updates in Settings showing no feedback on failure",
+      why: "Changing your display name in Settings silently showed no error if the message couldn't be sent (e.g. the connection dropped between opening the panel and clicking Update), and showed no success message if the server rejected the update with a generic gateway error — the first failure was only shown on the auth overlay (which isn't visible from the Settings panel), and the second left a stale pending-state flag that could suppress feedback from future attempts.",
       changes: [
-        "That save now happens off the render frame (deferred to the next idle moment), so it can no longer cause a visible hitch while panning or zooming."
+        "Settings now shows a feed message ('Could not update display name. Finish sign-in and try again.') if the update request can't be sent, instead of silently doing nothing.",
+        "The pending-name tracker is now also cleared on a generic gateway error that isn't already handled by the color-collision path, so the next successful PLAYER_UPDATE correctly reports the display name as updated."
       ]
     },
     {

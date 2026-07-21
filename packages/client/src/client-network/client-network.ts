@@ -4,7 +4,7 @@ import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
-import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
+import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
   applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
@@ -44,49 +44,6 @@ type NetworkDeps = Record<string, any> & {
   ws: RealtimeSocket;
   wsUrl: string;
   firebaseAuth?: any;
-};
-
-const revealStatsNumberKeys = [
-  "revealedAt",
-  "tiles",
-  "settledTiles",
-  "frontierTiles",
-  "controlledTowns",
-  "incomePerMinute",
-  "techCount",
-  "gold",
-  "manpower",
-  "manpowerCap"
-] as const;
-const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
-
-const isSurveySweepPingKind = (value: unknown): value is SurveySweepPingKind =>
-  value === "resource" || value === "town";
-
-const surveySweepPingsFromPayload = (value: unknown): Array<{ x: number; y: number; kind: SurveySweepPingKind }> => {
-  if (!Array.isArray(value)) return [];
-  const out: Array<{ x: number; y: number; kind: SurveySweepPingKind }> = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    if (typeof entry.x !== "number" || typeof entry.y !== "number" || !isSurveySweepPingKind(entry.kind)) continue;
-    out.push({ x: entry.x, y: entry.y, kind: entry.kind });
-  }
-  return out;
-};
-
-const isRevealEmpireStatsView = (value: unknown): value is RevealEmpireStatsView => {
-  if (!isRecord(value)) return false;
-  if (typeof value.playerId !== "string" || typeof value.playerName !== "string") return false;
-  for (const key of revealStatsNumberKeys) {
-    if (typeof value[key] !== "number") return false;
-  }
-  if (!isRecord(value.strategicResources)) return false;
-  for (const key of revealStatsResourceKeys) {
-    if (typeof value.strategicResources[key] !== "number") return false;
-  }
-  return true;
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
@@ -2400,6 +2357,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
         }
         return;
+      }
+      // A generic gateway internal error can also orphan a pending name change.
+      // Clear it here so the next PLAYER_UPDATE doesn't silently skip its feed
+      // message, even though the error is also surfaced via the generic handler.
+      if (errorCode === "GATEWAY_INTERNAL_ERROR" && state.pendingDisplayNameChange) {
+        state.pendingDisplayNameChange = "";
+        pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
