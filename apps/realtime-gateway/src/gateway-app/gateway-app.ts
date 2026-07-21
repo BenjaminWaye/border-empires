@@ -2618,7 +2618,28 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               return;
             }
-            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized);
+            // Renames are throttled to once per season, but the player's initial
+            // profile setup (picking their first real name, gated on
+            // profileComplete not yet being true) doesn't consume that allowance —
+            // only a rename of an already-complete profile does.
+            const isRename = existingProfile?.profileComplete === true && existingProfile.name !== message.displayName;
+            let nameChangedSeasonId: string | undefined;
+            if (isRename) {
+              try {
+                nameChangedSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
+              } catch {
+                nameChangedSeasonId = undefined;
+              }
+              if (nameChangedSeasonId && existingProfile?.nameChangedSeasonId === nameChangedSeasonId) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "DISPLAY_NAME_LIMIT",
+                  message: "You can only change your display name once per season. Try again next season."
+                });
+                return;
+              }
+            }
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),

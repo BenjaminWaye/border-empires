@@ -960,7 +960,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
     dom.panelSettingsEl.innerHTML = `
       <div class="card auth-settings-card">
-        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml(state, wsUrl)}
         ${mapRevealCardHtml()}
@@ -1031,6 +1031,18 @@ export const renderClientHud = (deps: HudDeps): void => {
       // global "#id" query would always read the first copy's value instead of this one's.
       const input = updateBtn.closest(".settings-display-name-row")?.querySelector<HTMLInputElement>("[data-settings-display-name]");
       if (!input) return;
+      // Renaming an already-set name is throttled to once per season
+      // server-side (see gateway-app.ts SET_PROFILE), so warn before sending
+      // instead of letting the player discover the limit only after a
+      // rejection. Skip the prompt when there's no existing name yet
+      // (initial setup) or the value didn't actually change.
+      const trimmedNewName = input.value.trim();
+      if (state.meName && trimmedNewName !== state.meName && typeof window !== "undefined" && typeof window.confirm === "function") {
+        const confirmed = window.confirm(
+          `Change your display name to "${trimmedNewName}"? You can only change your display name once per season.`
+        );
+        if (!confirmed) return;
+      }
       await updateSettingsDisplayName(input.value, {
         currentName: state.meName,
         currentColor: dom.authProfileColorEl.value,

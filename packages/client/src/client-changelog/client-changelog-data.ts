@@ -20,10 +20,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.19.14",
+  version: "2026.07.21.2",
   title: "What's New",
-  summary: "Fixed display name updates in Settings not showing any success or error feedback when the server rejects the change or the connection is lost.",
+  summary: "Display name changes now confirm before sending and show a success popup, and are limited to once per season.",
   entries: [
+    {
+      introducedIn: "2026.07.21.2",
+      title: "Display name changes now confirm up front and are limited to once per season",
+      why: "Nothing stopped a player from renaming repeatedly, and a successful rename was easy to miss with only a feed message noting it. Settings now asks for confirmation before sending an actual rename (not the initial name pick), the server enforces one rename per season, and a successful change now also pops a clear confirmation.",
+      changes: [
+        "Clicking Update on an actual name change (not your first-time setup) now confirms first, noting the once-per-season limit, before sending the request.",
+        "The server now rejects a second rename attempt within the same season with a clear \"try again next season\" message.",
+        "A successful rename now also shows a confirmation popup with your new name, in addition to the existing feed message."
+      ]
+    },
+    {
+      introducedIn: "2026.07.21.1",
+      title: "Fixed \"Signed in as\" showing your old name after changing it in Settings",
+      why: "The \"Signed in as\" line in Settings read the auth label captured from your Firebase account at login time, which is never touched by a display name change — only the Display Name field itself (backed by a separate piece of state) updated. So a successful rename showed the new name in the input box and a \"Display name updated.\" feed message, but the line right above it kept showing the name you signed in with.",
+      changes: [
+        "\"Signed in as\" now shows your current in-game display name once it's known, instead of the name captured at login."
+      ]
+    },
     {
       introducedIn: "2026.07.19.14",
       title: "Fixed display name updates in Settings showing no feedback on failure",
@@ -325,91 +343,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "A player who hasn't set a custom display name is now registered under the same cosmetic default name shown to others (e.g. 'Nauticus'), so alliance/truce requests targeting that name resolve correctly instead of failing."
       ]
     },
-    {
-      introducedIn: "2026.07.13.8",
-      title: "Barbarian hordes multiply more slowly",
-      why: "Barbarians were multiplying too quickly, growing to 483 tiles on a recent season — far beyond the intended population cap. Each successful capture of a player tile accumulated progress, and at 3 progress they spawned a new barbarian tile. Now they need 5, slowing their growth by about 40%.",
-      changes: [
-        "Barbarian multiply threshold raised from 3 to 5 — they now need 5 captured player tiles before spawning an extra barbarian instead of 3."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.7",
-      title: "Fixed AI empires spamming rejected fort builds",
-      why: "An AI empire whose Build Fort proposal was rejected by the server had no memory of the rejection, so it re-proposed the exact same build on the very next tick — over and over, burning planner cycles instead of doing anything productive.",
-      changes: [
-        "A rejected build now puts that decision on a 10-second cooldown for that empire, so the planner picks a different action (or waits) instead of immediately retrying the same rejected build."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.6",
-      title: "Fixed AI opponents going idle for extended periods",
-      why: "An AI empire under continuous attack could cut to the front of the turn queue every tick with no fairness limit, occupying every turn indefinitely and leaving other AI empires unable to act — including ones with large gold reserves and clear expansion opportunities.",
-      changes: [
-        "An AI empire that hasn't taken a turn in 2 seconds is now guaranteed to go next, even ahead of one under active attack."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.5",
-      title: "Placement preview highlights the structures that will actually benefit",
-      why: "The Waterworks/Foundry placement radius preview showed the affected area, but not which of your existing structures inside it would actually receive the bonus — you had to know the mechanic and count tiles yourself.",
-      changes: [
-        "While placing a Foundry, every active Mine you own within its radius now highlights green.",
-        "While placing a Waterworks, every active Farmstead you own within its radius now highlights green.",
-        "Works in both the flat map and 3D view."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.4",
-      title: "Building placement mode for Waterworks and Foundry",
-      why: "Placing a radius-based structure like Waterworks or Foundry was a blind commitment — you tapped Build and hoped the tile you picked was valid, with no visibility into the actual affected area or whether the location was strategically optimal.",
-      changes: [
-        "Tapping Build on a Waterworks or Foundry now enters placement mode instead of immediately building — a radius preview appears on the map showing the affected area.",
-        "Click any valid tile to move the building there; the preview updates in real time with the correct radius for each structure.",
-        "Valid placements show the structure's color; invalid placements (wrong surface type, conflicts, missing tech) show red.",
-        "Confirm to finalize, press Escape or right-click to cancel — no commitment until you're satisfied."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.3",
-      title: "Town Captured popup now fires for neutral towns too",
-      why: "The popup only fired when the tile's previous owner was a real, different player id, to avoid firing on first-time map reveals. That over-excluded a legitimate case: claiming an already-known but unowned (neutral) town peacefully via Expand — e.g. one that decayed back to neutral, or a vacated barbarian town — never showed the popup at all.",
-      changes: [
-        "Claiming a previously-known neutral town via Expand now shows the Town Captured popup, not just combat captures from another empire.",
-        "First-time map reveals (a tile you've never seen before) still correctly don't trigger the popup, since there's no earlier state to compare against."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.2",
-      title: "Town Captured popup now fires for destroyed settlements too",
-      why: "The Town Captured popup only fired when the captured tile still had town data afterward. Combat destroys a Settlement-tier town on capture — its population disperses instead of joining the empire — so the tile legitimately ends up with no town, and the popup silently never showed for what's usually the majority of captures.",
-      changes: [
-        "Capturing a Settlement-tier town via combat now shows a 'Settlement Destroyed' variant of the popup using the town's pre-capture name, tier, and population, instead of showing nothing.",
-        "The destroyed variant explains the population dispersed rather than joining your empire, and drops the Manpower Cap/Regen stats since nothing was actually gained.",
-        "Towns that survive capture (Town tier and above) keep showing the original 'Town Captured' popup with full stats."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.1",
-      title: "Town Captured popup",
-      why: "Capturing a shard site already celebrated the moment with a popup, but capturing a town — a much bigger empire event — was silent, easy to miss in the middle of a fight, and gave no quick way to jump back to the new town.",
-      changes: [
-        "Capturing an enemy or barbarian town now shows a hero popup with town art, its name, coordinates, and tier.",
-        "The popup shows the town's population, the Manpower Cap and Manpower Regen it will add to your empire, and a note that full production resumes once it's settled and supported.",
-        "A Jump to Town button recenters the map on the captured town in case it's off-screen."
-      ]
-    },
-    {
-      introducedIn: "2026.07.13.0",
-      title: "Supply Raiding reworked into Dewildernisation — bonus vs barbarians",
-      why: "The original Supply Raiding domain boosted outpost deployment speed and reduced outpost supply upkeep, which pigeonholed it into a niche siege-outpost role that felt disconnected from its raiding theme. The domain now lives up to its name as a focused barbarian offensive bonus.",
-      changes: [
-        "Supply Raiding has been renamed to Dewildernisation — a concerted imperial campaign to push back the wilds.",
-        "Iron Bastions has been renamed to Dwarf Kingdom.",
-        "Dewildernisation now grants +50% attack power against barbarian tiles instead of the old outpost deployment and upkeep bonuses."
-      ]
-    },
-    // Older entries (2026.07.12.7 and earlier) trimmed: the release-day
+    // Older entries (2026.07.13.8 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
