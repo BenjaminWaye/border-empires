@@ -168,6 +168,63 @@ describe("muster-gated attacks", () => {
     }
   });
 
+  it("two ADVANCE flags targeting the same enemy tile do not both fire — the second finds the target already locked", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // Two owned muster flags, both adjacent to the same enemy tile (10,11).
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            {
+              x: 11,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+      await Promise.resolve();
+
+      // Only one flag should have actually fired — the other should have skipped
+      // the already-locked target instead of submitting a doomed ATTACK.
+      const lockedRejections = seen.filter(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+          event.eventType === "COMMAND_REJECTED" && event.code === "LOCKED"
+      );
+      expect(lockedRejections).toHaveLength(0);
+
+      vi.advanceTimersByTime(3_100);
+      const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+      expect(captured?.ownerId).toBe("player-1");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("capturing a tile with a muster flag broadcasts the clear with the new owner attached, not a bare neutral delta", async () => {
     // Regression: the muster-clear broadcast fired on capture used to send
     // `{x, y, musterJson: ""}` with no ownerId/ownershipState over the
