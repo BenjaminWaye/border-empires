@@ -1317,6 +1317,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
       state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      if (state.defensibilityPct >= 90) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
         state.defensibilityAnimDir = 1;
