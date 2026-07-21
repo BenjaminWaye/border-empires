@@ -1,4 +1,4 @@
-import { AUTO_FILL_ENABLED, AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
+import { AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -30,11 +30,13 @@ export const findEnclosedRegion = (
     const [x, y] = queue[head]!;
     head += 1;
     for (const [dx, dy] of DIRECTIONS) {
-      const nx = x + dx;
-      const ny = y + dy;
-      // The map edge is a leak, not a seal — a region reaching it isn't walled
-      // by terrain or our territory.
-      if (nx < 0 || nx >= WORLD_WIDTH || ny < 0 || ny >= WORLD_HEIGHT) return null;
+      // The world is toroidal: neighbours wrap across the x=0/x=WORLD_WIDTH and
+      // y=0/y=WORLD_HEIGHT seams, matching every other adjacency module
+      // (frontier-topology, encirclement, defensibility). Without this a pocket
+      // whose seal straddles the seam is wrongly treated as reaching an open map
+      // edge and never auto-fills.
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
       const key = simulationTileKey(nx, ny);
       if (region.has(key)) continue;
       const neighbor = tiles.get(key);
@@ -70,9 +72,8 @@ export const findEnclosedRegionsAdjacentTo = (
   const checkedOrigins = new Set<string>();
   const results: Array<Set<string>> = [];
   for (const [dx, dy] of DIRECTIONS) {
-    const nx = tile.x + dx;
-    const ny = tile.y + dy;
-    if (nx < 0 || nx >= WORLD_WIDTH || ny < 0 || ny >= WORLD_HEIGHT) continue;
+    const nx = wrapX(tile.x + dx, WORLD_WIDTH);
+    const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
     const key = simulationTileKey(nx, ny);
     if (checkedOrigins.has(key)) continue;
     const region = findEnclosedRegion(key, tiles, ownerId);
@@ -94,7 +95,6 @@ export const findEnclosedRegionsAdjacentTo = (
  * AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE; a pocket walled purely by the
  * player's own SETTLED tiles may grow to AUTO_FILL_MAX_REGION_SIZE. Pockets
  * bordering enemy territory are left alone. Returns the newly-settled tiles.
- * Returns an empty array immediately when AUTO_FILL_ENABLED is false.
  *
  * `recordYieldAnchors` is invoked once with every newly-settled tile key so the
  * caller can stamp their yield-collection baseline in a single batch, matching
@@ -111,7 +111,6 @@ export const applyAutoFill = (input: {
   onAutoFillTiles?: ((count: number) => void) | undefined;
   recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
 }): DomainTileState[] => {
-  if (!AUTO_FILL_ENABLED) return [];
   const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors } = input;
   const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
   const settled: DomainTileState[] = [];

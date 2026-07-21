@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { findEnclosedRegion, findEnclosedRegionsAdjacentTo } from "./runtime-auto-fill.js";
+import { describe, expect, it } from "vitest";
+import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
+import { applyAutoFill, findEnclosedRegion, findEnclosedRegionsAdjacentTo } from "./runtime-auto-fill.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -20,11 +21,23 @@ const ownedTile = (x: number, y: number, ownerId: string, partial?: Partial<Doma
 });
 
 describe("findEnclosedRegion", () => {
-  it("returns null for a tile that can reach the map boundary", () => {
+  it("seals a seam-straddling pocket by wrapping across the toroidal map edge", () => {
+    // The world is a torus: (0,0)'s west/north neighbours wrap to
+    // (WORLD_WIDTH-1, 0) and (0, WORLD_HEIGHT-1). A player SETTLED tile across
+    // the seam must seal the pocket rather than the region leaking off an
+    // imagined open edge. Regression for the pre-torus edge-as-leak bug.
     const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(1, 0), landTile(1, 0)]
+      [simulationTileKey(0, 0), landTile(0, 0)],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(WORLD_WIDTH - 1, 0), ownedTile(WORLD_WIDTH - 1, 0, "player-1")],
+      [simulationTileKey(0, WORLD_HEIGHT - 1), ownedTile(0, WORLD_HEIGHT - 1, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 0), tiles, "player-1")).toBeNull();
+    // Sealed on all four sides by our own SETTLED tiles (two of them across the
+    // seam), so the single interior tile forms a valid enclosed region.
+    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1")).toEqual(
+      new Set([simulationTileKey(0, 0)])
+    );
   });
 
   it("returns null for an already-owned origin tile", () => {
@@ -197,14 +210,24 @@ describe("findEnclosedRegion", () => {
     expect(region!.size).toBe(51);
   });
 
-  it("returns null when the region reaches the map boundary through unowned land", () => {
+  it("wraps a seam-crossing unowned corridor into one region instead of leaking off the edge", () => {
+    // Two unowned tiles adjacent across the x-seam: (0,5) and (WORLD_WIDTH-1,5).
+    // With toroidal wrapping they are neighbours, so the flood must treat them
+    // as a single connected pocket sealed by the surrounding SETTLED ring.
+    const west = WORLD_WIDTH - 1;
     const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 0), landTile(0, 0)],
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 1), landTile(1, 1)]
+      [simulationTileKey(0, 5), landTile(0, 5)],
+      [simulationTileKey(west, 5), landTile(west, 5)],
+      [simulationTileKey(1, 5), ownedTile(1, 5, "player-1")],
+      [simulationTileKey(0, 4), ownedTile(0, 4, "player-1")],
+      [simulationTileKey(0, 6), ownedTile(0, 6, "player-1")],
+      [simulationTileKey(west - 1, 5), ownedTile(west - 1, 5, "player-1")],
+      [simulationTileKey(west, 4), ownedTile(west, 4, "player-1")],
+      [simulationTileKey(west, 6), ownedTile(west, 6, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(0, 5), tiles, "player-1")).toEqual(
+      new Set([simulationTileKey(0, 5), simulationTileKey(west, 5)])
+    );
   });
 });
 
@@ -287,18 +310,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
 });
 
 describe("applyAutoFill yield-anchor stamping", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.resetModules();
-  });
-
-  it("invokes recordYieldAnchors once with every newly settled tile key (matching the settled keys)", async () => {
-    // AUTO_FILL_ENABLED is read at config import time, so stub the env and load
-    // a fresh module instance before exercising applyAutoFill.
-    vi.stubEnv("AUTO_FILL_ENABLED", "true");
-    vi.resetModules();
-    const { applyAutoFill } = await import("./runtime-auto-fill.js");
-
+  it("invokes recordYieldAnchors once with every newly settled tile key (matching the settled keys)", () => {
     // (1,1) is unowned land walled by player-1 on three sides plus the
     // captured tile (1,2), so it is a 1-tile enclosed pocket.
     const capturedTile = ownedTile(1, 2, "player-1");
@@ -326,11 +338,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
     expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
   });
 
-  it("promotes the player's own FRONTIER tiles inside a sealed pocket to SETTLED", async () => {
-    vi.stubEnv("AUTO_FILL_ENABLED", "true");
-    vi.resetModules();
-    const { applyAutoFill } = await import("./runtime-auto-fill.js");
-
+  it("promotes the player's own FRONTIER tiles inside a sealed pocket to SETTLED", () => {
     // (1,1) unowned land and (2,1) our own FRONTIER tile form the interior of a
     // pocket sealed on every outer edge by player-1's SETTLED territory plus the
     // just-captured tile (1,2). Both interior tiles should end up SETTLED.
@@ -358,32 +366,5 @@ describe("applyAutoFill yield-anchor stamping", () => {
     expect(settledKeys).toEqual([simulationTileKey(1, 1), simulationTileKey(2, 1)].sort());
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownershipState).toBe("SETTLED");
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownerId).toBe("player-1");
-  });
-
-  it("does nothing when AUTO_FILL_ENABLED is false", async () => {
-    vi.stubEnv("AUTO_FILL_ENABLED", "false");
-    vi.resetModules();
-    const { applyAutoFill } = await import("./runtime-auto-fill.js");
-
-    const capturedTile = ownedTile(1, 2, "player-1");
-    const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 2), capturedTile],
-      [simulationTileKey(1, 1), landTile(1, 1)]
-    ]);
-
-    const anchorBatches: string[][] = [];
-    const settled = applyAutoFill({
-      capturedTile,
-      ownerId: "player-1",
-      tiles,
-      replaceTileState: () => {},
-      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
-    });
-
-    expect(settled).toEqual([]);
-    expect(anchorBatches).toEqual([]);
   });
 });
