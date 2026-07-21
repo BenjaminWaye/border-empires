@@ -270,3 +270,56 @@ export const createWorkerSnapshotStringifier = (
     getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...metrics })
   });
 };
+
+/** Length of the largest top-level array in a plain object payload (0 for none/non-object). */
+const largestTopLevelArrayLength = (payload: unknown): number => {
+  if (Array.isArray(payload)) return payload.length;
+  if (payload === null || typeof payload !== "object") return 0;
+  let max = 0;
+  for (const value of Object.values(payload as Record<string, unknown>)) {
+    if (Array.isArray(value) && value.length > max) max = value.length;
+  }
+  return max;
+};
+
+export type HybridSnapshotStringifierOptions = {
+  worker: SnapshotStringifier;
+  /** Below this, stringify inline on the calling thread; at/above it, use `worker`. */
+  inlineThreshold?: number;
+};
+
+/**
+ * Routes each payload to the fast inline path or the worker based on size,
+ * instead of committing a whole process to one or the other at startup.
+ *
+ * Diagnosed live in prod: the worker stringifier exists so a genuinely huge
+ * payload (the ~18MB uncompacted fallback, when no worldgen baseline
+ * resolves) doesn't block the sim thread. But routing EVERY checkpoint
+ * through it — including the common case, a compacted overlay of a few
+ * thousand to a few tens-of-thousands of entries — pays a `postMessage`
+ * structured-clone + worker round-trip on every save regardless of size.
+ * Prod measured this `stringify` phase at 2.6s even though the compacted
+ * payload (per snapshot-stringifier's own CHUNK_THRESHOLD comment: ~1.65MB /
+ * ~5,147 elements measured a ~11ms single-shot JSON.stringify) doesn't need
+ * chunking or worker isolation at all — the clone+IPC overhead was the cost,
+ * not the serialization. Reuse the same CHUNK_THRESHOLD reasoning already
+ * established for the inline chunked stringifier: below it, a single
+ * synchronous JSON.stringify is fast and bounded; only route to the worker
+ * once a payload is large enough that inline stringify itself would risk
+ * blocking the event loop for a meaningful stretch.
+ */
+export const createHybridSnapshotStringifier = (
+  options: HybridSnapshotStringifierOptions
+): SnapshotStringifier & Partial<{ close: () => Promise<void>; getWorkerMetrics: () => WorkerMemoryMetrics }> => {
+  const inlineThreshold = options.inlineThreshold ?? CHUNK_THRESHOLD;
+  const workerStringify = options.worker as SnapshotStringifier &
+    Partial<{ close: () => Promise<void>; getWorkerMetrics: () => WorkerMemoryMetrics }>;
+  const stringify: SnapshotStringifier = async (payload) => {
+    if (largestTopLevelArrayLength(payload) < inlineThreshold) return JSON.stringify(payload);
+    return workerStringify(payload);
+  };
+  return Object.assign(stringify, {
+    ...(workerStringify.close ? { close: workerStringify.close } : {}),
+    ...(workerStringify.getWorkerMetrics ? { getWorkerMetrics: workerStringify.getWorkerMetrics } : {})
+  });
+};
