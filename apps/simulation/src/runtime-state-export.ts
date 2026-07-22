@@ -175,6 +175,18 @@ const toRuntimeExportTile = (
 export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExportState["players"] =>
   [...input.players.values()]
     .map((player) => {
+      // NOT swapped to refreshManpowerOnly, unlike the sibling planner-view
+      // exports: verified (the hard way, via 3 failing tests) that this
+      // function's full applyManpowerRegen call is relied on as one of the
+      // "real" accrual catch-up paths — e.g. chosenTrickleResource /
+      // gold-upkeep tests advance fake timers with NO other tick or command
+      // in between and then call exportState() (which routes through this
+      // function) expecting deferred accrual to have landed. Skipping accrual
+      // here would silently break that guarantee for every caller, not just
+      // tests. See visiblePlayersProjection in runtime-visible-state.ts for
+      // where the equivalent skip *was* safe to apply (self keeps full
+      // accrual there; only OTHER viewed players — who have their own command/
+      // tick path — get the cheaper refresh).
       input.applyManpowerRegen(player);
       const summary = input.summaryForPlayer(player.id);
       return {

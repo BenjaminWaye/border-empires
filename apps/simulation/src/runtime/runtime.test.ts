@@ -1556,6 +1556,64 @@ describe("simulation runtime", () => {
     expect(player?.points).toBeLessThan(960);
   });
 
+  it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
+    // Regression guard for the visiblePlayersProjection self/other split:
+    // player-1 (the requester) must still get full applyManpowerRegen (gold
+    // upkeep drains their points every export, same as before this change).
+    // player-2 (visible but not the requester) must NOT have its own upkeep
+    // drained by player-1's export — that was the whole point of switching
+    // player-2 to refreshManpowerOnly (skips the economy-accrual side effect
+    // and the tile-yield-economy/town-network rebuild it can trigger).
+    // player-2's own upkeep still applies normally once IT exports/acts.
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        ["player-1", testRuntimePlayer("player-1", { points: 1000 })],
+        ["player-2", testRuntimePlayer("player-2", { points: 1000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          },
+          {
+            x: 40,
+            y: 40,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-2" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // Both players accrue the same GARRISON_HALL gold upkeep with no offsetting
+    // yield, so absent any export at all both would drain identically.
+    currentNow += 60 * 60_000;
+
+    const visible = runtime.exportVisibleStateForPlayer("player-1");
+    const self = visible.players.find((p) => p.id === "player-1");
+    const other = visible.players.find((p) => p.id === "player-2");
+
+    expect(self?.points).toBeLessThan(1000);
+    expect(other?.points).toBe(1000);
+
+    // player-2's own upkeep still applies once THEY export/act — nothing lost,
+    // only deferred to their own path, exactly as refreshManpowerOnly's
+    // existing doc comment already guarantees for the sibling planner exports.
+    const player2Visible = runtime.exportVisibleStateForPlayer("player-2");
+    const player2Self = player2Visible.players.find((p) => p.id === "player-2");
+    expect(player2Self?.points).toBeLessThan(1000);
+  });
+
   it("drains accumulated food yield to cover food upkeep before touching the food stockpile", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
