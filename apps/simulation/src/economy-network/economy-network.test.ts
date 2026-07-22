@@ -9,7 +9,7 @@ import {
   type EconomyPlayer
 } from "./economy-network.js";
 import {
-  addSettledTileToConnectivity,
+  addCorridorTileToConnectivity,
   createTownConnectivityState,
   markTownConnectivityDirty
 } from "./town-connectivity-incremental.js";
@@ -399,72 +399,81 @@ describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
 
 describe("connected town network — incremental state fast path", () => {
   const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
-
-  it("produces the same result as the from-scratch BFS when the incremental state is dirty (forces a rebuild)", () => {
-    const tiles = new Map<string, DomainTileState>(
-      [
-        townTile(0, 0, "Alpha"),
-        townTile(1, 0, "Beta"),
-        townTile(10, 10, "Gamma")
-      ].map((tile) => [`${tile.x},${tile.y}`, tile])
-    );
-
-    const fromScratch = buildConnectedTownNetworkForPlayer(player, tiles);
-
-    const state = createTownConnectivityState();
-    const withIncremental = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-
-    expect(withIncremental).toEqual(fromScratch);
-    expect(state.dirty).toBe(false);
+  const landTile = (x: number, y: number): DomainTileState => ({
+    x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
   });
 
-  it("reuses a fresh incremental state without rebuilding, and reflects an incrementally-added town", () => {
+  // Broad equivalence with the from-scratch BFS is covered exhaustively by
+  // town-connectivity-differential.test.ts (randomized worlds + randomized
+  // mutation sequences). These cases pin the specific incremental mechanics.
+
+  it("picks up a corridor tile added incrementally, connecting two previously-separate towns", () => {
+    // Alpha(0,0) and Beta(2,0) are two apart — not 8-adjacent, and with no
+    // corridor between them they start disconnected.
     const tiles = new Map<string, DomainTileState>([
       ["0,0", townTile(0, 0, "Alpha")],
-      ["1,0", townTile(1, 0, "Beta")]
-    ]);
-
-    const state = createTownConnectivityState();
-    const first = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-    expect(first.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
-    expect(state.dirty).toBe(false);
-
-    // Simulate the runtime-tile-index-maintenance hook: a new town settles
-    // adjacent to Beta, incrementally unioned in rather than forcing a
-    // rebuild.
-    const gamma = townTile(2, 0, "Gamma");
-    tiles.set("2,0", gamma);
-    addSettledTileToConnectivity(state, "2,0");
-    expect(state.dirty).toBe(false);
-
-    const second = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-    expect(second.get("0,0")).toMatchObject({ connectedTownCount: 2 });
-    expect(second.get("2,0")).toMatchObject({ connectedTownCount: 2 });
-  });
-
-  it("forces a full rebuild after markTownConnectivityDirty instead of trusting stale unions", () => {
-    // Alpha and Gamma are only connected through Beta as a direct-adjacency
-    // bridge (Alpha<->Gamma are not themselves adjacent).
-    const tiles = new Map<string, DomainTileState>([
-      ["0,0", townTile(0, 0, "Alpha")],
-      ["1,0", townTile(1, 0, "Beta")],
-      ["2,0", townTile(2, 0, "Gamma")]
+      ["2,0", townTile(2, 0, "Beta")]
     ]);
 
     const state = createTownConnectivityState();
     const before = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-    expect(before.get("0,0")).toMatchObject({ connectedTownCount: 2 });
+    expect(before.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(state.dirty).toBe(false);
 
-    // Beta is captured/abandoned. A plain union-find can't un-union
-    // incrementally, so this must mark dirty rather than silently keep
-    // reporting Alpha<->Gamma as connected through a bridge that no longer
-    // exists.
+    // A corridor tile settles between them. This is pure growth, so the
+    // structure is updated in place — no rebuild, no dirty flag.
+    tiles.set("1,0", landTile(1, 0));
+    addCorridorTileToConnectivity(state, "1,0");
+    expect(state.dirty).toBe(false);
+
+    const after = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(after.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(after.get("2,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Alpha"] });
+  });
+
+  it("keeps real towns out of the corridor structure so they stay connectivity barriers", () => {
+    // Alpha — land — Beta — land — Gamma. Beta is a barrier, so Alpha and
+    // Gamma must NOT be connected to each other. A union-find over all
+    // settled tiles would wrongly merge all three.
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "Beta")],
+      ["3,0", landTile(3, 0)],
+      ["4,0", townTile(4, 0, "Gamma")]
+    ]);
+
+    const state = createTownConnectivityState();
+    const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+
+    expect(network.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(network.get("2,0")).toMatchObject({ connectedTownCount: 2, connectedTownNames: ["Alpha", "Gamma"] });
+    expect(network.get("4,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    // Town tiles never enter the union-find.
+    expect(state.parent.has("0,0")).toBe(false);
+    expect(state.parent.has("2,0")).toBe(false);
+  });
+
+  it("forces a full rebuild after markTownConnectivityDirty instead of trusting stale unions", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "Beta")]
+    ]);
+
+    const state = createTownConnectivityState();
+    const before = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(before.get("0,0")).toMatchObject({ connectedTownCount: 1 });
+
+    // The bridging corridor tile is captured/abandoned. A plain union-find
+    // can't un-union incrementally, so this must mark dirty rather than keep
+    // reporting Alpha<->Beta as connected through a corridor that's gone.
     tiles.delete("1,0");
     markTownConnectivityDirty(state);
 
     const rebuilt = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
     expect(rebuilt.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
     expect(rebuilt.get("2,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
-    expect(rebuilt.has("1,0")).toBe(false);
+    expect(state.parent.has("1,0")).toBe(false);
   });
 });

@@ -17,8 +17,7 @@ import {
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import {
-  addSettledTileToConnectivity,
-  markTownConnectivityDirty,
+  maintainTownConnectivityForTileChange,
   type TownConnectivityState
 } from "./economy-network/town-connectivity-incremental.js";
 import {
@@ -253,24 +252,15 @@ export const refreshEconomyCachesForTileChange = (input: {
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
 }): void => {
   const { tileKey, previous, next, players } = input;
-  // Was this tile a tracked connectivity node (owned+SETTLED+LAND) for its
-  // owner before/after this mutation? Union-find growth (addSettledTileToConnectivity)
-  // is cheap and safe; removal isn't, so any transition OUT of "tracked for
-  // this owner" just marks that owner's structure dirty for a full rebuild
-  // on next read (see town-connectivity-incremental.ts).
-  const wasTracked = Boolean(previous?.ownerId && previous.ownershipState === "SETTLED" && previous.terrain === "LAND");
-  const isTracked = Boolean(next.ownerId && next.ownershipState === "SETTLED" && next.terrain === "LAND");
-  const sameTrackedOwner = wasTracked && isTracked && previous!.ownerId === next.ownerId;
+  // Corridor union-find upkeep — shared with the progression handlers'
+  // setTileState path so the two tile-write routes can't diverge.
+  maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
 
   if (previous?.ownerId) {
     if (previous.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
       input.townNetworkCacheByPlayer.delete(previous.ownerId);
-    }
-    if (wasTracked && !sameTrackedOwner) {
-      const prevState = input.townConnectivityStateByPlayer.get(previous.ownerId);
-      if (prevState) markTownConnectivityDirty(prevState);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
@@ -282,10 +272,6 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.economySnapshotCacheByPlayer.delete(next.ownerId);
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
       input.townNetworkCacheByPlayer.delete(next.ownerId);
-    }
-    if (isTracked && !sameTrackedOwner) {
-      const nextState = input.townConnectivityStateByPlayer.get(next.ownerId);
-      if (nextState) addSettledTileToConnectivity(nextState, tileKey);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);

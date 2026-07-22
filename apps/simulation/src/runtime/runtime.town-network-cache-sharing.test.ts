@@ -207,4 +207,82 @@ describe("simulation runtime — shared town network cache", () => {
     expect(betaTown?.connectedTownCount).toBe(1);
     expect(betaTown?.connectedTownNames).toEqual(["Alpha"]);
   });
+
+  // Regression for the second tile-write path: the progression handlers use
+  // setTileState, which deliberately skips refreshEconomyCachesForTileChange.
+  // That bypassed corridor union-find maintenance, so upgrading a SETTLEMENT
+  // (a pass-through corridor tile) into a real TOWN (a connectivity BARRIER)
+  // left the two sides merged — reporting Alpha as connected to Beta straight
+  // through the new barrier, and inflating its connectedTownBonus.
+  it("treats a settlement upgraded to a real town as a connectivity barrier", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 10_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 1_000_000, WOOD: 0, STONE: 0, IRON: 0, CRYSTAL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Alpha — land — Mid(settlement) — land — Beta. While Mid is a
+          // settlement every tile between Alpha and Beta is corridor, so the
+          // two are connected through it.
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 100_000 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    // Warm the caches while Mid is still a corridor settlement.
+    runtime.applyPassiveIncome(1_000, 999_999_999);
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    runtime.submitCommand({
+      commandId: "upgrade-mid", sessionId: "session-1", playerId: "player-1", clientSeq: 1,
+      issuedAt: 60_000, type: "UPGRADE_TOWN_TIER", payloadJson: JSON.stringify({ x: 2, y: 0 })
+    });
+    await Promise.resolve();
+
+    // Upgrade Alpha too, purely to get a fresh tile delta carrying Alpha's
+    // recomputed connectivity (TOWN -> CITY keeps it a town node).
+    runtime.submitCommand({
+      commandId: "upgrade-alpha", sessionId: "session-1", playerId: "player-1", clientSeq: 2,
+      issuedAt: 60_000, type: "UPGRADE_TOWN_TIER", payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    await Promise.resolve();
+
+    const batch = seen.find(
+      (e): e is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        e.eventType === "TILE_DELTA_BATCH" && e.commandId === "upgrade-alpha"
+    );
+    const alphaDelta = batch?.tileDeltas.find((d) => d.x === 0 && d.y === 0);
+    const alphaTown = alphaDelta?.townJson ? JSON.parse(alphaDelta.townJson) : undefined;
+
+    expect(alphaTown?.populationTier).toBe("CITY");
+    // Mid is now a barrier: Alpha reaches Mid, but NOT Beta behind it.
+    expect(alphaTown?.connectedTownCount).toBe(1);
+    expect(alphaTown?.connectedTownNames).toEqual(["Mid"]);
+  });
 });
