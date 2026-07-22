@@ -70,23 +70,29 @@ const townGrowthActionForUpgrade = (
   const food = state.strategicResources?.FOOD ?? 0;
   const enabled = food >= upgrade.foodCost;
   const id =
-    upgrade.targetTier === "CITY"
-      ? "grow_town_to_city"
-      : upgrade.targetTier === "GREAT_CITY"
-        ? "grow_city_to_great_city"
-        : "grow_great_city_to_monumental_city";
+    upgrade.targetTier === "TOWN"
+      ? "grow_settlement_to_town"
+      : upgrade.targetTier === "CITY"
+        ? "grow_town_to_city"
+        : upgrade.targetTier === "GREAT_CITY"
+          ? "grow_city_to_great_city"
+          : "grow_great_city_to_monumental_city";
   const label =
-    upgrade.targetTier === "CITY"
-      ? "Upgrade Town to City"
-      : upgrade.targetTier === "GREAT_CITY"
-        ? "Upgrade City to Great City"
-        : "Upgrade Great City to Metropolis";
+    upgrade.targetTier === "TOWN"
+      ? "Upgrade Settlement to Town"
+      : upgrade.targetTier === "CITY"
+        ? "Upgrade Town to City"
+        : upgrade.targetTier === "GREAT_CITY"
+          ? "Upgrade City to Great City"
+          : "Upgrade Great City to Metropolis";
   const detail =
-    upgrade.targetTier === "CITY"
-      ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.3/m."
-      : upgrade.targetTier === "GREAT_CITY"
-        ? "Unlocks great-city income and manpower. Food upkeep rises to 0.6/m."
-        : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 1.0/m.";
+    upgrade.targetTier === "TOWN"
+      ? "Unlocks town-tier growth and upkeep."
+      : upgrade.targetTier === "CITY"
+        ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.3/m."
+        : upgrade.targetTier === "GREAT_CITY"
+          ? "Unlocks great-city income and manpower. Food upkeep rises to 0.6/m."
+          : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 1.0/m.";
   return {
     id,
     label,
