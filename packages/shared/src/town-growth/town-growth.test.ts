@@ -16,6 +16,15 @@ describe("town growth", () => {
     expect(initialTownGrowthTierCap(150_000, 10_000)).toBe("CITY");
   });
 
+  it("surfaces a free settlement-to-town upgrade regardless of population", () => {
+    expect(nextTownGrowthUpgrade("SETTLEMENT", 500)).toEqual({
+      targetTier: "TOWN",
+      requiredPopulation: 0,
+      foodCost: 0,
+      available: true
+    });
+  });
+
   it("surfaces the next manual growth step for towns and cities", () => {
     expect(nextTownGrowthUpgrade("TOWN", 120_000)).toEqual({
       targetTier: "CITY",

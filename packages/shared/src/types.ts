@@ -63,7 +63,7 @@ export type EconomicStructureType =
 export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"] as const;
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-export type TownGrowthUpgradeTier = "CITY" | "GREAT_CITY" | "METROPOLIS";
+export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
