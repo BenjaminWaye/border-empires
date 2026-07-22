@@ -109,7 +109,7 @@ describe("buildMapLoadingView", () => {
     });
   });
 
-  it("escalates to a soft hint at ~8s when connected but auth has not landed", () => {
+  it("escalates to a soft hint at ~8s when connected but auth has not landed, offering diagnostics only", () => {
     const view = buildMapLoadingView(
       {
         connection: "connected",
@@ -133,7 +133,10 @@ describe("buildMapLoadingView", () => {
     expect(view.tone).toBe("normal");
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
-    expect(view.showDiagnostics).toBe(false);
+    // Diagnostics appear at the soft-hint threshold itself (not just at the
+    // later 25s action-affordance threshold) so a login stuck anywhere in
+    // the 8-25s band — the common slow-login shape — can always grab logs.
+    expect(view.showDiagnostics).toBe(true);
   });
 
   it("exposes retry/reload/diagnostics at ~25s when connected but auth still has not landed", () => {
