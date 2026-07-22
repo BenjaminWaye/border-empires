@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.1",
+  version: "2026.07.22.2",
   title: "What's New",
-  summary: "The minimap now shows territory ownership colors, and the town capture popup shows up when you win it in a fight.",
+  summary: "Active muster alerts on the map edge now show crossed swords instead of an exclamation mark.",
   entries: [
+    {
+      introducedIn: "2026.07.22.2",
+      title: "Crossed-swords icon for active muster alerts",
+      why: "The off-screen locator arrow for an active muster used the same generic \"!\" glyph as every other alert, making it hard to tell at a glance which off-screen indicator was a muster.",
+      changes: [
+        "The off-screen locator badge for an active muster flag now shows a crossed-swords icon instead of \"!\"; other alert types are unchanged."
+      ]
+    },
     {
       introducedIn: "2026.07.22.1",
       title: "Minimap now shows territory ownership colors",
