@@ -3108,7 +3108,14 @@ export class SimulationRuntime {
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
-      invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
+      invalidateTileYieldContext: (playerId) => {
+        this.tileYieldContextCacheByPlayer.delete(playerId);
+        // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
+        // which now changes graph membership in buildConnectedTownNetworkForPlayer
+        // (settlements are excluded) — the cached network must be rebuilt too,
+        // not just the yield context that wraps it.
+        this.townNetworkCacheByPlayer.delete(playerId);
+      },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
       resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
