@@ -23,6 +23,7 @@ import {
 } from "../client-auth-ui/client-auth-ui.js";
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
+import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import {
   detectInAppBrowserName,
   inAppBrowserGoogleSignInMessage,
@@ -145,7 +146,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authColorPresetButtons: dom.authColorPresetButtons
     });
 
-  const syncAuthOverlay = (): void =>
+  const syncAuthOverlay = (): void => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
       authBusyModalEl: dom.authBusyModalEl,
@@ -162,12 +163,17 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authProfileSaveBtn: dom.authProfileSaveBtn,
       authBusyTitleEl: dom.authBusyTitleEl,
       authBusyCopyEl: dom.authBusyCopyEl,
+      authBusyDiagnosticsBtn: dom.authBusyDiagnosticsBtn,
       authStatusEl: dom.authStatusEl,
       authDebugRouteEl: dom.authDebugRouteEl,
       wsUrl,
       syncAuthPanelState,
       setAuthStatus
     });
+    dom.authBusyDiagnosticsBtn.onclick = () => {
+      downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
+    };
+  };
 
   const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);
 

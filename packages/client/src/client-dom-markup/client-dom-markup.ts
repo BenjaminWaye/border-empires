@@ -191,6 +191,7 @@ export const hudMarkup = `
           <div class="auth-busy-eyebrow">Securing session</div>
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
+          <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
         </div>
       </div>
     </div>
