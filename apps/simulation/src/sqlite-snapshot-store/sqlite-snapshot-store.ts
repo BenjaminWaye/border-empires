@@ -59,10 +59,20 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   >();
   // Per-tile overlay-diff memo, keyed by tile object identity (see
   // TileOverlayMemo's doc comment in snapshot-compaction.ts for why identity
-  // is a correct cache key). Long-lived on the store instance so it survives
-  // across checkpoints within a process; a restart starts with an empty
-  // memo and pays full cost once, same as baselineIndexCache.
-  private readonly tileOverlayMemo: TileOverlayMemo = new WeakMap();
+  // is a correct cache key). Nested under the baseline index it was computed
+  // against: a tile's correct overlay depends on BOTH the tile and the
+  // baseline, and while the baseline is immutable within a season, a season
+  // rollover swaps it. Keying the memo by baseline-index identity means a new
+  // baseline automatically gets a fresh memo — correct by construction rather
+  // than relying on tiles happening to be rebuilt on rollover. The
+  // baselineIndex is itself identity-stable across checkpoints within a
+  // season (baselineIndexCache above), so the common path is a steady hit.
+  // WeakMap on both levels lets a superseded baseline's whole memo, and any
+  // mutated tile's entry, be collected.
+  private readonly overlayMemoByBaseline = new WeakMap<
+    ReadonlyMap<string, RecoveredTile>,
+    TileOverlayMemo
+  >();
 
   constructor(
     private readonly db: DatabaseSync,
@@ -101,7 +111,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
 
     const compactT0 = Date.now();
     const payload = baselineIndex
-      ? await compactSnapshotForStorage(sections, baselineIndex, undefined, this.tileOverlayMemo)
+      ? await compactSnapshotForStorage(sections, baselineIndex, undefined, this.overlayMemoForBaseline(baselineIndex))
       : buildSimulationSnapshotPayload(sections);
     logSlowCheckpointPhase("compact", Date.now() - compactT0);
 
@@ -215,6 +225,16 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
     this.baselineIndexCache.set(tiles, index);
     return index;
+  }
+
+  /** Get-or-create the per-tile overlay memo scoped to this baseline index (see field doc). */
+  private overlayMemoForBaseline(baselineIndex: ReadonlyMap<string, RecoveredTile>): TileOverlayMemo {
+    let memo = this.overlayMemoByBaseline.get(baselineIndex);
+    if (!memo) {
+      memo = new WeakMap();
+      this.overlayMemoByBaseline.set(baselineIndex, memo);
+    }
+    return memo;
   }
 
   private async resolveBaselineForLoadedPayload(parsed: unknown): Promise<ReadonlyArray<RecoveredTile> | undefined> {

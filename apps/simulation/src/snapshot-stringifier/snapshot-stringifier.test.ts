@@ -236,6 +236,25 @@ describe("createHybridSnapshotStringifier", () => {
     expect(worker.calls).toBe(1);
   });
 
+  it("routes to the worker when the large array is nested (uncompacted `initialState.tiles` shape)", async () => {
+    // Regression guard: buildSimulationSnapshotPayload nests its ~202k-element
+    // array as `initialState.tiles`, with only small sibling arrays at the top
+    // level. A top-level-only size check would misroute this 18MB-scale payload
+    // to the inline path and block the sim event loop.
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    const payload = {
+      initialState: {
+        tiles: Array.from({ length: 500 }, (_, i) => ({ x: i, y: i })),
+        activeLocks: [],
+        players: []
+      },
+      commandEvents: [{ commandId: "c1", events: [] }]
+    };
+    await stringify(payload);
+    expect(worker.calls).toBe(1);
+  });
+
   it("exposes close/getWorkerMetrics from the wrapped worker when present", async () => {
     const realWorker = createWorkerSnapshotStringifier();
     const stringify = createHybridSnapshotStringifier({ worker: realWorker, inlineThreshold: 1 });

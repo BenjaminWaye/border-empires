@@ -271,16 +271,42 @@ export const createWorkerSnapshotStringifier = (
   });
 };
 
-/** Length of the largest top-level array in a plain object payload (0 for none/non-object). */
-const largestTopLevelArrayLength = (payload: unknown): number => {
+/**
+ * Length of the largest array reachable at the top level OR one level of
+ * object nesting below it (0 for none / non-object).
+ *
+ * MUST descend one level, not just scan top-level keys: the two payload
+ * shapes the snapshot store produces put their big array at different
+ * depths. The compacted V1 payload exposes `tileOverlay` at the top level,
+ * but the uncompacted fallback (`buildSimulationSnapshotPayload`, the ~18MB
+ * case when no worldgen baseline resolves) nests its ~202k-element array as
+ * `initialState.tiles`. A top-level-only scan would see only the small
+ * sibling arrays there and route that 18MB payload to the inline path,
+ * blocking the sim event loop — exactly what the worker exists to prevent.
+ * This mirrors the one-level descent the chunked stringifier already does
+ * (see stringifyObjectChunked's "One level deeper" branch).
+ */
+const largestArrayLength = (payload: unknown): number => {
   if (Array.isArray(payload)) return payload.length;
   if (payload === null || typeof payload !== "object") return 0;
   let max = 0;
   for (const value of Object.values(payload as Record<string, unknown>)) {
-    if (Array.isArray(value) && value.length > max) max = value.length;
+    if (Array.isArray(value)) {
+      if (value.length > max) max = value.length;
+    } else if (value !== null && typeof value === "object") {
+      for (const nested of Object.values(value as Record<string, unknown>)) {
+        if (Array.isArray(nested) && nested.length > max) max = nested.length;
+      }
+    }
   }
   return max;
 };
+
+/** Optional lifecycle handles a worker-backed stringifier exposes; a pure inline one has neither. */
+type WorkerStringifierExtras = Partial<{
+  close: () => Promise<void>;
+  getWorkerMetrics: () => WorkerMemoryMetrics;
+}>;
 
 export type HybridSnapshotStringifierOptions = {
   worker: SnapshotStringifier;
@@ -310,12 +336,11 @@ export type HybridSnapshotStringifierOptions = {
  */
 export const createHybridSnapshotStringifier = (
   options: HybridSnapshotStringifierOptions
-): SnapshotStringifier & Partial<{ close: () => Promise<void>; getWorkerMetrics: () => WorkerMemoryMetrics }> => {
+): SnapshotStringifier & WorkerStringifierExtras => {
   const inlineThreshold = options.inlineThreshold ?? CHUNK_THRESHOLD;
-  const workerStringify = options.worker as SnapshotStringifier &
-    Partial<{ close: () => Promise<void>; getWorkerMetrics: () => WorkerMemoryMetrics }>;
+  const workerStringify = options.worker as SnapshotStringifier & WorkerStringifierExtras;
   const stringify: SnapshotStringifier = async (payload) => {
-    if (largestTopLevelArrayLength(payload) < inlineThreshold) return JSON.stringify(payload);
+    if (largestArrayLength(payload) < inlineThreshold) return JSON.stringify(payload);
     return workerStringify(payload);
   };
   return Object.assign(stringify, {
