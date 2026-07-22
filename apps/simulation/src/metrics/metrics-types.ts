@@ -94,6 +94,7 @@ export const MAIN_THREAD_TASK_PHASES = [
   "cached_economy_snapshot_rebuild",
   "classify_visibility_for_player",
   "command_execution",
+  "runtime_submit_command",
   "snapshot_materialize_inline",
   "system_export_barb_activation_visible_union",
   "system_export_planner_player_views",
