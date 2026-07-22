@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.3",
+  version: "2026.07.22.1",
   title: "What's New",
-  summary: "Queued builds and settlements can now jump to the front of the line instead of only being cancelled.",
+  summary: "Active muster alerts on the map edge now show crossed swords instead of an exclamation mark.",
   entries: [
+    {
+      introducedIn: "2026.07.22.1",
+      title: "Crossed-swords icon for active muster alerts",
+      why: "The off-screen locator arrow for an active muster used the same generic \"!\" glyph as every other alert, making it hard to tell at a glance which off-screen indicator was a muster.",
+      changes: [
+        "The off-screen locator badge for an active muster flag now shows a crossed-swords icon instead of \"!\"; other alert types are unchanged."
+      ]
+    },
     {
       introducedIn: "2026.07.21.3",
       title: "Move a queued build or settlement to the front of the line",
@@ -314,44 +322,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "A rejected attack now goes on a brief cooldown instead of being immediately retried every tick — previously the AI could resubmit the same doomed attack roughly a dozen times while the earlier one was still resolving."
       ]
     },
-    {
-      introducedIn: "2026.07.15.5",
-      title: "Muster flags now arm and fire attacks independently",
-      why: "Queuing a second muster-fed attack while a first was still marching (or just fired and awaiting its result) reused a single global transit/deferred-attack slot, so the second attack overwrote the first's tracked state and the whole action queue stalled behind it — even though the server already funds and resolves each flag's attack independently.",
-      changes: [
-        "Each muster flag's marching timer and deferred attack are now tracked independently, keyed by the flag's own tile.",
-        "Arming a muster transit no longer blocks the rest of the action queue — other targets (via other flags, or direct attacks/expands) keep processing while troops are still marching.",
-        "The map supply-line overlay now shows a line for every active muster-fed attack at once instead of only the most recently queued one.",
-        "Cancelling now clears every flag still marching, not just the most recently armed one."
-      ]
-    },
-    {
-      introducedIn: "2026.07.15.4", title: "Fixed muster flags rendering behind the ownership overlay on the 3D map", why: "Muster flag meshes (renderOrder 36) were opaque-only materials, so Four.js drew them during the opaque pass — before the ownership overlay (transparent, renderOrder 6-7) in the transparent pass. The overlay then painted on top, making flags appear to sit beneath the settled/frontier tint despite having a numerically higher renderOrder.", changes: ["Muster flag pole, pennant, spike, and soldier-dot meshes now use transparent: true, moving them into the transparent pass where their renderOrder of 36 correctly places them on top of the ownership overlay."]
-    },
-    {
-      introducedIn: "2026.07.15.3", title: "Fixed truce/alliance offers to AI empires in seasonal games", why: "The 2026.07.11.1 fix aligned gateway social state AI names to \"AI N\" format, but the client's INIT payload still surfaced seasonal leaderboard names (e.g. \"Freja Sund\") in playerStyles and the leaderboard, so truce and alliance requests sent with those names still failed with \"target not found\".", changes: ["AI empire names in playerStyles and the leaderboard are now always \"AI N\", matching what the client sends in truce and alliance requests."]
-    },
-    {
-      introducedIn: "2026.07.15.2",
-      title: "Cancelling a structure build now refunds what you spent",
-      why: "Cancelling a Fort, Siege Outpost, Observatory, or economic structure while it was still under construction (or mid-upgrade) deleted the in-progress structure but never gave back the gold, manpower, or strategic resources you paid to start it — that spend was simply gone.",
-      changes: [
-        "Cancelling a build or upgrade now refunds the exact gold, manpower, and strategic resource cost (iron, supply, crystal, etc.) that was spent to start it.",
-        "Fort and Siege Outpost refunds use the tier that was actually being built, so a tech unlock partway through construction can't change what comes back.",
-        "Cancelling a structure removal (not a build) is unaffected — removals were already free to start, so there is nothing to refund there."
-      ]
-    },
-    {
-      introducedIn: "2026.07.15.1",
-      title: "Fixed alliance/truce search dropdown and target resolution",
-      why: "The alliance/truce target search box listed AI empires that had never founded a settlement this season (only pre-registered, never active), the suggestion dropdown rewrote its options on nearly every HUD render — flickering or closing an open autocomplete popup while typing — and a request could target a name (like the default 'Nauticus' shown for a player who hasn't set a display name yet) that was never actually registered under that name for alliance/truce resolution, so the request always failed with 'target not found'.",
-      changes: [
-        "AI empires that haven't settled/founded an empire yet no longer appear as alliance/truce search suggestions; only AI with real activity (tiles, income, or tech) are offered.",
-        "The suggestion dropdown now only rewrites its options when the list actually changes, instead of on every HUD render, fixing the flicker/disappearing popup while typing.",
-        "A player who hasn't set a custom display name is now registered under the same cosmetic default name shown to others (e.g. 'Nauticus'), so alliance/truce requests targeting that name resolve correctly instead of failing."
-      ]
-    },
-    // Older entries (2026.07.13.8 and earlier) trimmed: the release-day
+    // Older entries (2026.07.15.5 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
