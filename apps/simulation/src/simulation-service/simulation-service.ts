@@ -75,7 +75,10 @@ import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
-import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import {
+  createMainThreadTaskTrackerFromEnv,
+  type MainThreadTaskTracker
+} from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
@@ -434,6 +437,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  // Wraps mainThreadTasks.trackSync so every named phase (town_network_rebuild,
+  // tile_yield_economy_context_rebuild, etc.) also lands in a Prometheus
+  // quantile, not just the in-memory ring buffer mainThreadTasks itself keeps
+  // for event_loop_blocked attribution. That ring buffer already had good
+  // attribution, but only surfaces through stdout logs with ~9min retention
+  // on Fly; a live incident (2026-07-22) needed a lucky log capture to see
+  // which phase was dominating a 3s+ block. simulationMetrics is referenced
+  // here via closure (defined further below in this function) rather than
+  // passed as a parameter — safe because this function is only ever CALLED
+  // later, once simulationMetrics is fully initialised, exactly like the
+  // wrapJobRun/shouldPauseBackground closures elsewhere in this file.
+  const trackSyncMainThreadTaskWithMetrics: MainThreadTaskTracker["trackSync"] = (phase, details, task) => {
+    const startedAtMs = Date.now();
+    try {
+      return mainThreadTasks.trackSync(phase, details, task);
+    } finally {
+      simulationMetrics.observeSimMainThreadTaskMs(phase, Date.now() - startedAtMs);
+    }
+  };
   const rssHeapGapMonitor = createRssHeapGapMonitor();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
@@ -867,7 +889,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     wrapJobRun: (run, meta) => () =>
       mainThreadTasks.trackSync("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
     onVisibilityAudit: handleVisibilityAudit,
-    trackSyncMainThreadTask: mainThreadTasks.trackSync,
+    trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
         simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -2114,7 +2136,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
-        trackSyncMainThreadTask: mainThreadTasks.trackSync,
+        trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample,
         ...(pendingImperialWard ? { pendingImperialWard } : {}),
         shouldPauseBackground: () => {
