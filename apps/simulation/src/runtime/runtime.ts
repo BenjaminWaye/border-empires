@@ -76,6 +76,7 @@ import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -587,6 +588,12 @@ export class SimulationRuntime {
   // tiles + towns^2) and was being built TWICE per cache-miss cycle (once here,
   // once inside buildPlayerUpdateEconomySnapshot). Sharing cuts that in half.
   private readonly townNetworkCacheByPlayer = new Map<string, Map<string, ConnectedTownNetworkEntry>>();
+  // Incremental union-find backing buildConnectedTownNetworkForPlayer's fast
+  // path (see town-connectivity-incremental.ts) — maintained per-player by
+  // refreshEconomyCachesForTileChange on every tile mutation, so a
+  // townNetworkCacheByPlayer cache-miss can usually resolve via O(towns)
+  // union-find lookups instead of a full O(settled tiles) BFS.
+  private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
@@ -1668,12 +1675,14 @@ export class SimulationRuntime {
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
     refreshEconomyCachesForTileChange({
+      tileKey,
       previous,
       next: tile,
       players: this.players,
       economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
       tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
       townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
     });
@@ -2478,7 +2487,12 @@ export class SimulationRuntime {
     const cached = this.townNetworkCacheByPlayer.get(player.id);
     if (cached) return cached;
     const rebuild = (): Map<string, ConnectedTownNetworkEntry> => {
-      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames });
+      let incrementalState = this.townConnectivityStateByPlayer.get(player.id);
+      if (!incrementalState) {
+        incrementalState = createTownConnectivityState();
+        this.townConnectivityStateByPlayer.set(player.id, incrementalState);
+      }
+      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames, incrementalState });
       this.townNetworkCacheByPlayer.set(player.id, network);
       return network;
     };
@@ -3103,12 +3117,26 @@ export class SimulationRuntime {
       setTileState: (tileKey, tile) => {
         const previous = this.tiles.get(tileKey);
         this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile));
+        // This path deliberately skips refreshEconomyCachesForTileChange (the
+        // progression handlers invalidate the economy caches themselves), but
+        // the corridor union-find still has to be maintained: UPGRADE_TOWN_TIER
+        // crossing the SETTLEMENT boundary turns a corridor tile into a
+        // connectivity barrier, and leaving the structure merged across it
+        // inflates connectedTownCount for towns on either side.
+        maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
-      invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
+      invalidateTileYieldContext: (playerId) => {
+        this.tileYieldContextCacheByPlayer.delete(playerId);
+        // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
+        // which now changes graph membership in buildConnectedTownNetworkForPlayer
+        // (settlements are excluded) — the cached network must be rebuilt too,
+        // not just the yield context that wraps it.
+        this.townNetworkCacheByPlayer.delete(playerId);
+      },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
       resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
