@@ -141,7 +141,13 @@ export const buildMapLoadingView = (
         meta: `Login is taking longer than usual (${elapsedSeconds}s). Hang on…`,
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        // Diagnostics only (no retry/reload yet) — a slow-but-not-yet-dead
+        // auth wait is exactly the window we most want a bundle from: past
+        // SOFT_HINT (8s, abnormal for a warm login) but before
+        // ACTION_AFFORDANCE (25s, where retry/reload appear). Waiting until
+        // 25s to offer diagnostics meant anything in the 8-25s band (a very
+        // common slow-login shape) had no way to grab logs.
+        showDiagnostics: true,
         tone: "normal"
       };
     }
