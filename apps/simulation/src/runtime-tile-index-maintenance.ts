@@ -17,6 +17,10 @@ import {
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import {
+  maintainTownConnectivityForTileChange,
+  type TownConnectivityState
+} from "./economy-network/town-connectivity-incremental.js";
+import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation/territory-automation.js";
@@ -236,16 +240,22 @@ export const refreshRuntimeTileIndexesForChange = (input: {
  * (O(1) add/subtract) instead of invalidated.
  */
 export const refreshEconomyCachesForTileChange = (input: {
+  tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
   players: ReadonlyMap<string, RuntimePlayer>;
   economySnapshotCacheByPlayer: Map<string, PlayerUpdateEconomySnapshot>;
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
+  townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
 }): void => {
-  const { previous, next, players } = input;
+  const { tileKey, previous, next, players } = input;
+  // Corridor union-find upkeep — shared with the progression handlers'
+  // setTileState path so the two tile-write routes can't diverge.
+  maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
+
   if (previous?.ownerId) {
     if (previous.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
