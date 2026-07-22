@@ -29,6 +29,14 @@ export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1"
 export const RENDERER_PROMPT_STORAGE_KEY = "border-empires-renderer-prompt-v1";
 export const CAMERA_LOCATION_STORAGE_KEY = "border-empires-camera-location-v1";
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+// Shared across every "still waiting on auth/session" overlay (the initial
+// Firebase auth busy modal in client-auth-ui.ts, and the post-connect
+// map-loading overlay in client-map-loading-view.ts). A warm login on
+// staging/prod completes in well under 5s, so anything past 8s is already
+// abnormal enough to justify a low-risk "grab diagnostics" affordance, even
+// though it isn't yet long enough to offer more drastic actions like retry
+// or reload (see ACTION_AFFORDANCE_THRESHOLD_MS in client-map-loading-view.ts).
+export const AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS = 8_000;
 
 export const guideSteps: GuideStep[] = [
   {
