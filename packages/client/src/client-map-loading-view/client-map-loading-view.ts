@@ -1,3 +1,4 @@
+import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type MapLoadingView = {
@@ -16,7 +17,10 @@ export type MapLoadingView = {
 // progress, expose explicit recovery actions (retry, reload, diagnostics).
 // Decoupled from the server-side watchdog (which fires at 30s) on purpose:
 // these are pure UX timings that don't require the server to be dead.
-const SOFT_HINT_THRESHOLD_MS = 8_000;
+// SOFT_HINT_THRESHOLD_MS is shared with the earlier client-auth-ui.ts busy
+// modal (see AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS in client-constants.ts) so
+// the "past 8s is abnormal" judgment call lives in exactly one place.
+const SOFT_HINT_THRESHOLD_MS = AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS;
 const ACTION_AFFORDANCE_THRESHOLD_MS = 25_000;
 
 export const buildMapLoadingView = (

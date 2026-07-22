@@ -59,7 +59,8 @@ vi.mock("firebase/auth", () => ({
 }));
 
 describe("email-link sign-in on Safari with blocked storage", () => {
-  const makeButton = (): HTMLButtonElement => ({ disabled: false, onclick: null } as unknown as HTMLButtonElement);
+  const makeButton = (): HTMLButtonElement =>
+    ({ disabled: false, onclick: null, style: { display: "" } } as unknown as HTMLButtonElement);
   const makeInput = (): HTMLInputElement => ({ disabled: false, value: "", focus: vi.fn() } as unknown as HTMLInputElement);
   const makeElement = (): HTMLElement =>
     ({
@@ -88,6 +89,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authProfileSaveBtn: makeButton(),
       authBusyTitleEl: makeElement(),
       authBusyCopyEl: makeElement(),
+      authBusyDiagnosticsBtn: makeButton(),
       authStatusEl: makeElement(),
       authDebugRouteEl: makeElement(),
       authPanelEl: makeElement(),
