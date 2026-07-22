@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.21.5",
+  version: "2026.07.21.6",
   title: "What's New",
-  summary: "The Empire Integrity chip now warns you when your borders get too exposed.",
+  summary: "The town capture popup now shows up when you win it in a fight, not just when you settle or expand into it.",
   entries: [
+    {
+      introducedIn: "2026.07.21.6",
+      title: "Fixed: town capture popup missing after winning an attack",
+      why: "The celebratory town-capture popup only fired for tile-delta updates (EXPAND, settling), so capturing an enemy town through combat never showed it even though the capture itself worked correctly.",
+      changes: [
+        "Winning an ATTACK that captures an enemy town now shows the town capture popup, same as capturing via EXPAND or settlement."
+      ]
+    },
     {
       introducedIn: "2026.07.21.5",
       title: "Low Empire Integrity now shows a dismissible warning",
