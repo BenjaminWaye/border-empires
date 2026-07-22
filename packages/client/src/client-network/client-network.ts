@@ -35,6 +35,7 @@ import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/clie
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
+import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
@@ -852,6 +853,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
     }
     resetAttackPreviewState(state);
+    if (target) {
+      const targetKeyForCapture = keyFor(target.x, target.y);
+      emitTownCaptureIfCaptured({
+        tileUpdates: [{ x: target.x, y: target.y }],
+        previousTileByKey: new Map([
+          [targetKeyForCapture, targetBefore ? { ...(targetBefore.ownerId ? { ownerId: targetBefore.ownerId } : {}), ...(targetBefore.town ? { town: targetBefore.town } : {}) } : undefined]
+        ]),
+        tiles: state.tiles,
+        me: state.me,
+        meName: state.meName,
+        keyFor,
+        onJumpToTown: (x, y) => {
+          state.camX = x;
+          state.camY = y;
+          state.selected = { x, y };
+          requestViewRefreshSafely(1, true);
+        }
+      });
+    }
     renderHud();
   };
 
@@ -1317,6 +1337,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
       state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      if (state.defensibilityPct >= 90) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
         state.defensibilityAnimDir = 1;

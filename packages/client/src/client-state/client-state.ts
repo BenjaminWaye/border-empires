@@ -145,6 +145,7 @@ export const createInitialState = () => ({
   developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
   activeDevelopmentProcessCount: 0,
   defensibilityPct: 100,
+  integrityWarningDismissed: false,
   territoryT: 1,
   exposureE: 4,
   settledT: 1,

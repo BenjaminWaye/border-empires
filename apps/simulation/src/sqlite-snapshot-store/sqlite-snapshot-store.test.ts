@@ -159,3 +159,49 @@ describe("SqliteSimulationSnapshotStore event prune", () => {
     expect(eventIds(db)).toEqual([]);
   });
 });
+
+describe("SqliteSimulationSnapshotStore overlay memo — baseline scoping", () => {
+  type Tile = { x: number; y: number; terrain: string; ownerId?: string; ownershipState?: string };
+  const { DatabaseSync: Db } = createRequire(import.meta.url)("node:sqlite") as { DatabaseSync: DatabaseSyncCtor };
+
+  const sectionsFor = (worldSeed: number, tiles: Tile[]): SimulationSnapshotSections =>
+    ({
+      initialState: {
+        tiles,
+        players: [],
+        pendingSettlements: [],
+        activeLocks: [],
+        docks: [],
+        tileYieldCollectedAtByTile: [],
+        season: { rulesetId: "seasonal-default", worldSeed, mapStyle: "continents" }
+      }
+    }) as unknown as SimulationSnapshotSections;
+
+  it("does not return a stale overlay when the baseline changes for the same tile object", async () => {
+    const db = new Db(":memory:");
+    const snapshots = new SqliteSimulationSnapshotStore(db, {
+      // Season 1 (seed 1): (0,0) unowned. Season 2 (seed 2): (0,0) already
+      // owned by ai-1 in worldgen. Same runtime tile object across both.
+      resolveBaseline: ({ worldSeed }) =>
+        worldSeed === 1
+          ? [{ x: 0, y: 0, terrain: "LAND" }]
+          : [{ x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }]
+    });
+    await snapshots.applySchema();
+
+    // The exact same tile object reference is reused across both checkpoints,
+    // mimicking an unmutated runtime tile surviving a season rollover.
+    const sharedTile: Tile = { x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" };
+
+    const json1 = await snapshots.preparePayload(sectionsFor(1, [sharedTile]));
+    const overlay1 = (JSON.parse(json1) as { tileOverlay: Array<{ x: number; y: number; ownerId?: string }> }).tileOverlay;
+    // vs season-1 baseline (unowned), the tile diverges → overlay carries ownerId.
+    expect(overlay1).toEqual([expect.objectContaining({ x: 0, y: 0, ownerId: "ai-1" })]);
+
+    const json2 = await snapshots.preparePayload(sectionsFor(2, [sharedTile]));
+    const overlay2 = (JSON.parse(json2) as { tileOverlay: Array<unknown> }).tileOverlay;
+    // vs season-2 baseline (already ai-1), the tile MATCHES → no overlay entry.
+    // A baseline-agnostic memo would have returned the stale season-1 overlay.
+    expect(overlay2).toEqual([]);
+  });
+});
