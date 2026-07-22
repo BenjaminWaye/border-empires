@@ -8,6 +8,7 @@ import {
   DECISION_CLASSES,
   DURABLE_COMMAND_TYPES,
   LANES,
+  MAIN_THREAD_TASK_PHASES,
   type SimulationMetricsSnapshot
 } from "./metrics-types.js";
 
@@ -115,6 +116,7 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_event_store_write_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventStoreWriteMs.p95)}`,
     `sim_event_store_write_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventStoreWriteMs.p99)}`,
     "# TYPE sim_ai_planner_phase_ms gauge",
+    "# TYPE sim_main_thread_task_ms gauge",
     "# TYPE sim_runtime_drain_ms gauge",
     `sim_runtime_drain_ms{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainMs.p50)}`,
     `sim_runtime_drain_ms{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainMs.p95)}`,
@@ -160,6 +162,12 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p50\"} ${formatMetricValue(phaseSample.p50)}`);
     lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
     lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
+  }
+  for (const phase of MAIN_THREAD_TASK_PHASES) {
+    const phaseSample = sample.simMainThreadTaskMs[phase];
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p50\"} ${formatMetricValue(phaseSample.p50)}`);
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
   }
   for (const [commandType, commandSample] of Object.entries(sample.simRuntimeApplyMsByCommandType)) {
     lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p50\"} ${formatMetricValue(commandSample.p50)}`);

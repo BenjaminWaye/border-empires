@@ -17,17 +17,19 @@ import {
   AI_TICK_THROTTLE_REASONS,
   DECISION_CLASSES,
   LANES,
+  MAIN_THREAD_TASK_PHASES,
   type AiPlannerPhase,
   type AiTickThrottleReason,
   type DecisionClass,
   type DurableCommandType,
+  type MainThreadTaskPhase,
   type PrepareMetricSource,
   type SimulationSnapshotMetricSample,
   type TickSource
 } from "./metrics-types.js";
 
-export { AI_PLANNER_PHASES };
-export type { AiPlannerPhase, AiTickThrottleReason };
+export { AI_PLANNER_PHASES, MAIN_THREAD_TASK_PHASES };
+export type { AiPlannerPhase, AiTickThrottleReason, MainThreadTaskPhase };
 export type { SimulationMetricsSnapshot, SimulationSnapshotMetricSample } from "./metrics-types.js";
 
 export const createSimulationMetrics = (sampleLimit = 512) => {
@@ -73,6 +75,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simAiNoFrontierRecent: string[] = [];
   const simAiPlannerPhaseMs = new Map<AiPlannerPhase, number[]>(
     AI_PLANNER_PHASES.map((phase) => [phase, []])
+  );
+  const simMainThreadTaskMs = new Map<MainThreadTaskPhase, number[]>(
+    MAIN_THREAD_TASK_PHASES.map((phase) => [phase, []])
   );
   const simRuntimeDrainMs: number[] = [];
   const simRuntimeDrainJobsPerCall: number[] = [];
@@ -201,6 +206,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiPlannerPhaseMs: Object.fromEntries(
       AI_PLANNER_PHASES.map((phase) => [phase, quantileSample(simAiPlannerPhaseMs.get(phase) ?? [])])
     ) as Record<AiPlannerPhase, ReturnType<typeof quantileSample>>,
+    simMainThreadTaskMs: Object.fromEntries(
+      MAIN_THREAD_TASK_PHASES.map((phase) => [phase, quantileSample(simMainThreadTaskMs.get(phase) ?? [])])
+    ) as Record<MainThreadTaskPhase, ReturnType<typeof quantileSample>>,
     simRuntimeDrainMs: quantileSample(simRuntimeDrainMs),
     simRuntimeDrainJobsPerCall: quantileSample(simRuntimeDrainJobsPerCall),
     simRuntimeDrainMsByLane: Object.fromEntries(
@@ -426,6 +434,17 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimAiPlannerPhaseMs(phase: AiPlannerPhase, value: number): void {
       const target = simAiPlannerPhaseMs.get(phase);
+      if (!target) return;
+      appendSample(target, value, limit);
+    },
+    // Accepts a plain string, not the narrower MainThreadTaskPhase: the
+    // wrapper around trackSyncMainThreadTask (see simulation-service.ts)
+    // forwards whatever phase string a caller passes, which may not be one
+    // of the tracked phases below (e.g. new call sites added later). The Map
+    // lookup safely no-ops for anything outside MAIN_THREAD_TASK_PHASES
+    // rather than requiring every caller to prove its phase is tracked.
+    observeSimMainThreadTaskMs(phase: string, value: number): void {
+      const target = simMainThreadTaskMs.get(phase as MainThreadTaskPhase);
       if (!target) return;
       appendSample(target, value, limit);
     },
