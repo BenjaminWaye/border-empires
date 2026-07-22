@@ -60,7 +60,7 @@ import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recov
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
-import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
+import { seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
@@ -1495,8 +1495,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (subscriptionRegistry.subscribedPlayerIds().length === 0) return;
     if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) return;
     // Phase 3b: O(n_players) player-only fetch replaces the O(202k-tile) exportStateAsync.
-    // Season-victory objectives are served from the cached currentSummary; they stay fresh
-    // via the recomputeAndPersistCurrentSummary timer (every 5 min or on victory pressure).
+    // Non-economy objectives are served from the cached currentSummary; ECONOMIC_HEGEMONY is
+    // refreshed live below via seasonVictoryForBroadcast (single source of truth vs "Overall").
     const globalLeaderboard = buildLeaderboardFromPlayers(
       runtime.getPlayersForLeaderboard(),
       options.nonCompetitivePlayerIds
@@ -1527,7 +1527,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = mergeSelfProgress(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId));
+      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId), globalLeaderboard.overall, subscribedPlayerId);
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,

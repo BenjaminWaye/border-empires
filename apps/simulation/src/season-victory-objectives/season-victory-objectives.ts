@@ -143,6 +143,80 @@ const objectiveSelfProgressLabel = (
   return `${blocControlledTiles}/${diplomaticControlTarget} alliance-controlled land`;
 };
 
+const economicHegemonyDef = VICTORY_PRESSURE_DEFS.find((def) => def.id === "ECONOMIC_HEGEMONY")!;
+
+// Derives the Economic Hegemony objective purely from the leaderboard's live
+// incomePerMinute figures — no tile scan required. This is the single source
+// of truth: both the full computeSeasonVictory() pass (5-min cadence) and the
+// per-tick global-status broadcast (see simulation-service.ts) call this same
+// function so the leaderboard's "Overall" income and the Economic Hegemony
+// pressure card never disagree for the same player.
+export const buildEconomicHegemonyObjective = (
+  leaderboardOverall: LeaderboardOverallEntry[]
+): SeasonVictoryObjectiveSnapshot => {
+  const ranked = leaderboardOverall.slice().sort((a, b) => (b.incomePerMinute - a.incomePerMinute) || a.id.localeCompare(b.id));
+  const leader = ranked[0];
+  const runnerUp = ranked[1];
+  const leaderPlayerId = leader?.id;
+  const leaderName = leader?.name ?? "No leader";
+  const leaderValue = leader?.incomePerMinute ?? 0;
+  const progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${(runnerUp?.incomePerMinute ?? 0).toFixed(1)}`;
+  const thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
+  const conditionMet = Boolean(
+    leaderPlayerId &&
+      runnerUp &&
+      leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
+      runnerUp.incomePerMinute > 0 &&
+      leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
+  );
+  const objective: SeasonVictoryObjectiveSnapshot = {
+    id: "ECONOMIC_HEGEMONY",
+    name: economicHegemonyDef.name,
+    description: economicHegemonyDef.description,
+    leaderName,
+    progressLabel,
+    thresholdLabel,
+    holdDurationSeconds: economicHegemonyDef.holdDurationSeconds,
+    statusLabel: conditionMet ? "Threshold met" : leaderValue > 0 ? "Pressure building" : "No contender",
+    conditionMet
+  };
+  if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
+  return objective;
+};
+
+// Live self-progress label for Economic Hegemony, derived the same way as
+// buildEconomicHegemonyObjective — no tile scan, always matches the leaderboard.
+export const economicHegemonySelfProgressLabel = (
+  leaderboardOverall: LeaderboardOverallEntry[],
+  playerId: string
+): string | undefined => {
+  const entry = leaderboardOverall.find((e) => e.id === playerId);
+  return entry ? `${entry.incomePerMinute.toFixed(1)} gold/m` : undefined;
+};
+
+// Refreshes the ECONOMIC_HEGEMONY entry of an otherwise-cached seasonVictory array
+// with the live objective, and refreshes/overrides that one player's self-progress
+// label to match — called every global-status broadcast tick so the leaderboard's
+// "Overall" income and the Economic Hegemony pressure card never disagree for the
+// same player (see performGlobalStatusBroadcast in simulation-service.ts).
+export const seasonVictoryForBroadcast = (
+  cachedObjectives: SeasonVictoryObjectiveSnapshot[],
+  cachedSelfProgressLabels: Map<SeasonVictoryPathId, string> | undefined,
+  leaderboardOverall: LeaderboardOverallEntry[],
+  playerId: string
+): SeasonVictoryObjectiveSnapshot[] => {
+  const liveEconomicHegemony = buildEconomicHegemonyObjective(leaderboardOverall);
+  const objectives = cachedObjectives.map((objective) =>
+    objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
+  );
+  const liveSelfLabel = economicHegemonySelfProgressLabel(leaderboardOverall, playerId);
+  const selfProgressLabels =
+    liveEconomicHegemony.leaderPlayerId !== playerId && liveSelfLabel
+      ? new Map(cachedSelfProgressLabels).set("ECONOMIC_HEGEMONY", liveSelfLabel)
+      : cachedSelfProgressLabels;
+  return mergeSelfProgress(objectives, selfProgressLabels);
+};
+
 type SeasonVictoryContext = {
   competitivePlayerIds: Set<string>;
   playerAlliesById: Map<string, ReadonlySet<string>>;
@@ -248,6 +322,8 @@ export const computeSeasonVictory = (
   const ctx = buildSeasonVictoryContext(worldTiles, leaderboardOverall, players);
 
   const objectives = VICTORY_PRESSURE_DEFS.map((def) => {
+    if (def.id === "ECONOMIC_HEGEMONY") return buildEconomicHegemonyObjective(leaderboardOverall);
+
     let leaderPlayerId: string | undefined;
     let leaderName = "No leader";
     let leaderValue = 0;
@@ -263,22 +339,6 @@ export const computeSeasonVictory = (
       progressLabel = `${leaderValue}/${ctx.townTarget} towns`;
       thresholdLabel = `Need ${ctx.townTarget} towns`;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= ctx.townTarget);
-    } else if (def.id === "ECONOMIC_HEGEMONY") {
-      const ranked = leaderboardOverall.slice().sort((a, b) => (b.incomePerMinute - a.incomePerMinute) || a.id.localeCompare(b.id));
-      const leader = ranked[0];
-      const runnerUp = ranked[1];
-      leaderPlayerId = leader?.id;
-      leaderName = leader?.name ?? "No leader";
-      leaderValue = leader?.incomePerMinute ?? 0;
-      progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${(runnerUp?.incomePerMinute ?? 0).toFixed(1)}`;
-      thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
-      conditionMet = Boolean(
-        leaderPlayerId &&
-          runnerUp &&
-          leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
-          runnerUp.incomePerMinute > 0 &&
-          leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
-      );
     } else if (def.id === "RESOURCE_MONOPOLY") {
       const monopoly = resourceMonopolyLeader(ctx.ownedResourceCountsByPlayerId, ctx.totalResourceCounts);
       leaderPlayerId = monopoly.leaderPlayerId;

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { computeSeasonVictory, mergeSelfProgress } from "./season-victory-objectives.js";
+import {
+  buildEconomicHegemonyObjective,
+  computeSeasonVictory,
+  economicHegemonySelfProgressLabel,
+  mergeSelfProgress
+} from "./season-victory-objectives.js";
 
 type WorldTileFixture = Parameters<typeof computeSeasonVictory>[0][number];
 type LeaderboardFixture = Parameters<typeof computeSeasonVictory>[1];
@@ -35,6 +40,47 @@ describe("computeSeasonVictory", () => {
     // The objective's leader never gets their own comparison line — the client
     // already renders "Leader: You" for that case.
     expect(selfProgressLabelsByPlayerId.get("player-1")?.has("ECONOMIC_HEGEMONY")).toBe(false);
+  });
+});
+
+describe("buildEconomicHegemonyObjective", () => {
+  it("derives the same ECONOMIC_HEGEMONY objective as computeSeasonVictory from just the leaderboard", () => {
+    // Regression for the leaderboard-panel bug where the "Overall" income column
+    // (refreshed every broadcast tick from the live leaderboard) and the Economic
+    // Hegemony pressure card (only refreshed on the ~5-min recomputeAndPersistCurrentSummary
+    // cadence) showed different gold/minute numbers for the same player. The fix makes
+    // buildEconomicHegemonyObjective the single source of truth, called both by the full
+    // computeSeasonVictory() pass and directly from the live leaderboard on every broadcast
+    // tick (see simulation-service.ts performGlobalStatusBroadcast) — so they never drift.
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Alden Vale", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    const players: PlayersFixture = [
+      { id: "player-1", allies: [] },
+      { id: "player-2", allies: [] }
+    ] as PlayersFixture;
+
+    const live = buildEconomicHegemonyObjective(leaderboardOverall);
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const fromFullScan = objectives.find((objective) => objective.id === "ECONOMIC_HEGEMONY");
+
+    expect(live).toEqual(fromFullScan);
+    expect(live.progressLabel).toBe("265.0 gold/m vs 100.0");
+    expect(live.leaderPlayerId).toBe("player-1");
+  });
+
+  it("self-progress label always matches the leaderboard entry's live incomePerMinute", () => {
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Alden Vale", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    expect(economicHegemonySelfProgressLabel(leaderboardOverall, "player-2")).toBe("100.0 gold/m");
+    expect(economicHegemonySelfProgressLabel(leaderboardOverall, "unknown")).toBeUndefined();
   });
 });
 
