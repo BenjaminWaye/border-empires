@@ -307,6 +307,51 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     expect(regions[0].size).toBe(1);
     expect(regions[1].size).toBe(1);
   });
+
+  it("scanCooldown: skips re-scanning an origin that failed within the cooldown window", () => {
+    // Regression for the sim-event-loop spike caused by auto-fill going
+    // always-on (#1031): a pocket that leaks to an enemy tile (findEnclosedRegion
+    // returns null) gets re-scanned on *every* adjacent settle unless the caller
+    // opts into the cooldown cache — repeatedly paying the full BFS cost against
+    // an unfillable pocket. With the cache, a second scan of the same origin
+    // inside the cooldown window is skipped entirely (returns no regions)
+    // without touching `tiles` again.
+    const tile = ownedTile(2, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(2, 2), tile],
+      [simulationTileKey(1, 2), landTile(1, 2)],
+      [simulationTileKey(0, 2), ownedTile(0, 2, "enemy-1")]
+    ]);
+    const originCooldownUntil = new Map<string, number>();
+
+    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+      now: 1000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(first).toEqual([]);
+    expect(originCooldownUntil.get(simulationTileKey(1, 2))).toBe(4000);
+
+    // Replace (0,2) with a player-1 wall so a fresh, uncached scan would now
+    // resolve to a 1-tile region — proving the empty result below comes from
+    // the cooldown skip, not from the pocket still being unfillable.
+    tiles.set(simulationTileKey(0, 2), ownedTile(0, 2, "player-1"));
+
+    const withinCooldown = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+      now: 2000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(withinCooldown).toEqual([]);
+
+    const afterCooldown = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+      now: 4001,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(afterCooldown.length).toBe(1);
+    expect(afterCooldown[0]).toEqual(new Set([simulationTileKey(1, 2)]));
+  });
 });
 
 describe("applyAutoFill yield-anchor stamping", () => {
