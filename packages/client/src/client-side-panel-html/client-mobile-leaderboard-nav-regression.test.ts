@@ -19,7 +19,8 @@ describe("mobile leaderboard navigation regression guard", () => {
     expect(domSource).toContain('id="mobile-panel-leaderboard"');
     expect(domSource).toContain('id="mobile-panel-feed"');
     expect(navSource).toContain('if (panel === "leaderboard") return "leaderboard";');
-    expect(navSource).toContain('if (panel === "leaderboard") return \'<span class="tab-icon">🏆</span>\';');
+    expect(navSource).toContain('if (panel === "leaderboard") {');
+    expect(navSource).toContain('<span class="tab-icon">🏆</span>');
     expect(navSource).toContain('else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Activity Feed";');
     expect(styleSource).toContain("grid-template-columns: repeat(7, minmax(0, 1fr));");
   });

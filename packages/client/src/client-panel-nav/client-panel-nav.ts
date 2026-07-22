@@ -36,7 +36,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
 
 export const mobileNavLabelHtml = (
   panel: ClientState["mobilePanel"],
-  opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
+  opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number; victoryHoldAlertUnacknowledged?: boolean }
 ): string => {
   if (panel === "core") return '<span class="tab-icon">⌂</span>';
   if (panel === "tech") {
@@ -46,7 +46,11 @@ export const mobileNavLabelHtml = (
   }
   if (panel === "domains") return '<span class="tab-icon">✦</span>';
   if (panel === "social") return '<span class="tab-icon">👥</span>';
-  if (panel === "leaderboard") return '<span class="tab-icon">🏆</span>';
+  if (panel === "leaderboard") {
+    return opts?.victoryHoldAlertUnacknowledged
+      ? '<span class="tab-icon">🏆</span><span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
+      : '<span class="tab-icon">🏆</span>';
+  }
   if (panel === "settings") return '<span class="tab-icon">⚙</span>';
   const feedUnreadCount = opts?.feedUnreadCount ?? 0;
   return opts?.attackAlertUnread || feedUnreadCount > 0

@@ -135,7 +135,7 @@ type StartClientRuntimeLoopDeps = {
   requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void;
+  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
@@ -1654,7 +1654,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000);
   setInterval(() => {
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();

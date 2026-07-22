@@ -73,6 +73,70 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).toContain("<span class=\"lb-player-dot\" style=\"--player-color:#38b000\" aria-hidden=\"true\"></span><span>Alpha</span>");
   });
 
+  it("shows a hold countdown line when an objective's threshold is met and holding", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderPlayerId: "p1",
+          leaderName: "Ivan",
+          progressLabel: "87/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86_400,
+          holdRemainingSeconds: 86_280,
+          statusLabel: "Holding pressure",
+          conditionMet: true
+        }
+      ],
+      undefined
+    );
+
+    expect(html).toContain("Winning in 23h 58m unless stopped");
+  });
+
+  it("omits the hold countdown line when the objective has no active hold", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderName: "Ivan",
+          progressLabel: "20/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86_400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        }
+      ],
+      undefined
+    );
+
+    expect(html).not.toContain("Winning in");
+  });
+
   it("does not duplicate self metric rows when the player is already in the visible top five", () => {
     const html = leaderboardHtml(
       {

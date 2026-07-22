@@ -1,3 +1,4 @@
+import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import type {
   ActiveTruceView,
   ActiveAllianceBreakView,
@@ -426,6 +427,11 @@ export const leaderboardHtml = (
             <div class="pressure-meta">Leader: ${objectiveLeaderHtml(objective)} · ${objective.progressLabel}</div>
             ${shouldShowSelfProgress(objective) ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
             <div class="pressure-meta">${objective.thresholdLabel}</div>
+            ${
+              typeof objective.holdRemainingSeconds === "number"
+                ? `<div class="pressure-meta pressure-meta-countdown">Winning in ${formatHoldCountdown(objective.holdRemainingSeconds)} unless stopped</div>`
+                : ""
+            }
           </div>`
         )
         .join("")}

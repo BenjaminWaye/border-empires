@@ -465,6 +465,8 @@ bootstrapClientApp({
   captureCloseBtn: dom.captureCloseBtn,
   captureTimeEl: dom.captureTimeEl,
   shardAlertCloseBtn: dom.shardAlertCloseBtn,
+  victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn,
+  victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
   panelCloseBtn: dom.panelCloseBtn,
   panelActionButtons: dom.panelActionButtons,
   miniMapEl: dom.miniMapEl,

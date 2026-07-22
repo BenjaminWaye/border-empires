@@ -5,6 +5,7 @@ import { checkServerDeployingSession } from "../client-server-deploying-session/
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type {
   AllianceRequest,
@@ -289,10 +290,7 @@ export const createInitialState = () => ({
   settlementRepairDiagnosticKey: "" as string,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
-  pendingCollectVisibleDelta: {
-    gold: 0,
-    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
-  },
+  pendingCollectVisibleDelta: { gold: 0, strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number> },
   pendingCollectTileDelta: new Map<
     string,
     {
@@ -326,6 +324,7 @@ export const createInitialState = () => ({
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
+  victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   lastSeenRespawnNoticeId: "",

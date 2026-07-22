@@ -26,6 +26,8 @@ type UiControlsDeps = {
   placementCancelBtn: ClientDom["placementCancelBtn"];
   placementConfirmBtn: ClientDom["placementConfirmBtn"];
   shardAlertCloseBtn: ClientDom["shardAlertCloseBtn"];
+  victoryAlertCollapseBtn: ClientDom["victoryAlertCollapseBtn"];
+  victoryAlertBannerBtn: ClientDom["victoryAlertBannerBtn"];
   panelCloseBtn: ClientDom["panelCloseBtn"];
   panelActionButtons: ClientDom["panelActionButtons"];
   authColorPresetButtons: ClientDom["authColorPresetButtons"];
@@ -46,6 +48,8 @@ type UiControlsDeps = {
   cancelBuildingPlacement: () => void;
   hideShardAlert: () => void;
   renderShardAlert: () => void;
+  acknowledgeVictoryHoldAlert: () => void;
+  renderVictoryHoldAlert: () => void;
   renderCaptureProgress: () => void;
   downloadDebugBundle: () => void | Promise<void>;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
@@ -75,6 +79,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     placementCancelBtn,
     placementConfirmBtn,
     shardAlertCloseBtn,
+    victoryAlertCollapseBtn,
+    victoryAlertBannerBtn,
     panelCloseBtn,
     panelActionButtons,
     authColorPresetButtons,
@@ -94,6 +100,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     cancelBuildingPlacement,
     hideShardAlert,
     renderShardAlert,
+    acknowledgeVictoryHoldAlert,
+    renderVictoryHoldAlert,
     renderCaptureProgress,
     downloadDebugBundle,
     setActivePanel,
@@ -150,6 +158,14 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   shardAlertCloseBtn.onclick = () => {
     hideShardAlert();
     renderShardAlert();
+  };
+  victoryAlertCollapseBtn.onclick = () => {
+    acknowledgeVictoryHoldAlert();
+    renderVictoryHoldAlert();
+  };
+  victoryAlertBannerBtn.onclick = () => {
+    setActivePanel("leaderboard");
+    renderHud();
   };
   panelCloseBtn.onclick = () => {
     closeActivePanel(state);

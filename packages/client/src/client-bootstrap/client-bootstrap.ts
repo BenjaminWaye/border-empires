@@ -6,7 +6,7 @@ import {
   renderShardAlert as renderShardAlertFromModule,
   settlePixelWanderPoint as settlePixelWanderPointFromModule
 } from "../client-capture-effects/client-capture-effects.js";
-import { bindClientMapInput } from "../client-map-input/client-map-input.js";
+import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-victory-alert-bootstrap.js"; import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
@@ -332,7 +332,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       shardAlertTitleEl: dom.shardAlertTitleEl,
       shardAlertDetailEl: dom.shardAlertDetailEl
     });
-
+  const { renderVictoryHoldAlert, acknowledgeVictoryHoldAlert } = createVictoryHoldAlertHandlers(state, dom);
   const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void =>
     drawStartingExpansionArrowFromModule(ctx, px, py, size, dx, dy);
 
@@ -369,7 +369,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       renderTileActionMenu: actionFlow.renderTileActionMenu,
       tileMenuViewForTile: actionFlow.tileMenuViewForTile,
       renderCaptureProgress,
-      renderShardAlert,
+      renderShardAlert, renderVictoryHoldAlert,
       renderTechChoiceGrid: techFlow.renderTechChoiceGrid,
       techDetailsUseOverlay: techFlow.techDetailsUseOverlay,
       renderTechDetailPrompt: techFlow.renderTechDetailPrompt,
@@ -456,7 +456,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureTimeEl,
     placementCancelBtn: dom.placementCancelBtn,
     placementConfirmBtn: dom.placementConfirmBtn,
-    shardAlertCloseBtn,
+    shardAlertCloseBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
     panelCloseBtn,
     panelActionButtons,
     authColorPresetButtons,
@@ -476,7 +476,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     confirmBuildingPlacement: actionFlow.confirmBuildingPlacement,
     cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     hideShardAlert: deps.hideShardAlert,
-    renderShardAlert,
+    renderShardAlert, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
     renderCaptureProgress,
     downloadDebugBundle,
     setActivePanel,
@@ -617,7 +617,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     renderHud,
     renderCaptureProgress,
-    renderShardAlert,
+    renderShardAlert, renderVictoryHoldAlert,
     cleanupExpiredSettlementProgress: actionFlow.cleanupExpiredSettlementProgress,
     processDevelopmentQueue: actionFlow.processDevelopmentQueue,
     clearOptimisticTileState,
