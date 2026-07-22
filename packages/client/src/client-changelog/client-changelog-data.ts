@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.3",
+  version: "2026.07.22.4",
   title: "What's New",
-  summary: "Light Outposts now show their attack-aura range on the 3D map, matching Siege Outposts.",
+  summary: "The low Empire Integrity warning no longer nags you on every login.",
   entries: [
+    {
+      introducedIn: "2026.07.22.4",
+      title: "Empire Integrity warning now shows at most once every 30 days",
+      why: "Dismissing the low Empire Integrity callout only lasted until integrity recovered above 90% and dropped again, or until the page reloaded — so if integrity stayed below 90% across sessions, the callout reappeared on every login even after you'd already acknowledged it.",
+      changes: [
+        "Dismissing the Empire Integrity warning (via × or \"I understand\") now persists locally for 30 days, so it won't reappear on future logins during that window unless integrity first recovers above 90% and drops again."
+      ]
+    },
     {
       introducedIn: "2026.07.22.3",
       title: "Light Outposts now show their attack-aura range when selected",

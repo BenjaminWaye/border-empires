@@ -11,6 +11,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -1337,7 +1338,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
       state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
-      if (state.defensibilityPct >= 90) state.integrityWarningDismissed = false;
+      if (resetIntegrityWarningIfRecovered(state.defensibilityPct)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
         state.defensibilityAnimDir = 1;
@@ -1350,8 +1351,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
-      state.activeDevelopmentProcessCount =
-        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      state.activeDevelopmentProcessCount = (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       logIncomingTechPayload("PLAYER_UPDATE", {
         techIds: (msg as { techIds?: unknown }).techIds,
         techChoices: msg.techChoices,
