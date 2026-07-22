@@ -2370,6 +2370,7 @@ export class SimulationRuntime {
       ) => this.emitVisibilityAudit(visiblePlayerId, tile, tileKey, redacted, classification),
       summaryForPlayer: (summaryPlayerId: string) => this.summaryForPlayer(summaryPlayerId),
       applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
+      refreshManpowerOnly: (player: RuntimePlayer) => this.refreshManpowerOnly(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
       cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
       // Seeds the sparse-delta cache's baseline for every tile a player sees
