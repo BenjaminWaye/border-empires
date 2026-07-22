@@ -176,7 +176,7 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
-import { applyAutoFill as applyAutoFillImpl } from "../runtime-auto-fill.js";
+import { applyAutoFill as applyAutoFillImpl, AUTO_FILL_SCAN_COOLDOWN_MS } from "../runtime-auto-fill.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -537,7 +537,7 @@ export class SimulationRuntime {
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private pendingImperialWard: { playerId: string; charges: number } | undefined;
-  private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  private readonly tileYieldCollectedAtByTile = new Map<string, number>(); /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
@@ -1342,7 +1342,7 @@ export class SimulationRuntime {
       ownerId,
       tiles: this.tiles,
       replaceTileState: (k, t) => this.replaceTileState(k, t),
-      onAutoFillTiles: this.onAutoFillTiles,
+      onAutoFillTiles: this.onAutoFillTiles, scanCooldown: { now: this.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: this.autoFillOriginCooldownUntil },
       recordYieldAnchors: (keys) => {
         const t = this.now();
         for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t);

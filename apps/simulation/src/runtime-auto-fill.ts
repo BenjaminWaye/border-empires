@@ -4,10 +4,36 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 
 const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 
+// How long (ms) a scan that failed because it exceeded AUTO_FILL_MAX_REGION_SIZE
+// suppresses re-scanning the same origin tile. Auto-fill runs on every SETTLED
+// transition (a broad chokepoint), so a lone player expanding into open unowned
+// land re-pays the full O(AUTO_FILL_MAX_REGION_SIZE) BFS against the same open
+// continent on every single settle — the "broad chokepoint pays an unbounded
+// per-event cost" shape flagged in docs/agents/state-and-persistence-discipline.md,
+// and the cause of the sim-event-loop spike after auto-fill went always-on (#1031).
+//
+// CRITICAL: only size-cap failures are cached, never leak failures. A scan
+// always runs against the neighbours of a *just-settled wall tile*, and a new
+// wall is exactly what can complete a small enclosure — so caching a leak
+// failure could skip the very scan that would seal a small pocket, delaying an
+// auto-fill and letting interior FRONTIER tiles decay. A size-cap failure is
+// safe to cache because a region too large to fill (> AUTO_FILL_MAX_REGION_SIZE)
+// cannot drop under the cap from a single settle; shrinking it enough takes far
+// longer than this cooldown, over which it is re-scanned anyway.
+//
+// The caller-owned cooldown map is keyed by tile key, so it is naturally bounded
+// by world tile count like tileYieldCollectedAtByTile in runtime.ts, and is a
+// pure perf cache (not game state — never snapshotted).
+export const AUTO_FILL_SCAN_COOLDOWN_MS = 3000;
+
 export const findEnclosedRegion = (
   originKey: string,
   tiles: ReadonlyMap<string, DomainTileState>,
-  enclosingOwnerId: string
+  enclosingOwnerId: string,
+  // Optional out-param: set to true when the scan bailed specifically because the
+  // region exceeded AUTO_FILL_MAX_REGION_SIZE (as opposed to leaking to an enemy
+  // tile or being an ineligible origin). Used to gate the scan cooldown above.
+  outcome?: { hitSizeCap: boolean }
 ): Set<string> | null => {
   const origin = tiles.get(originKey);
   // The interior we flood is our own FRONTIER or unowned LAND. A SETTLED tile is
@@ -49,7 +75,10 @@ export const findEnclosedRegion = (
       // seals, since it can still decay back to unowned.
       if (neighbor && neighbor.terrain === "LAND") {
         region.add(key);
-        if (region.size > AUTO_FILL_MAX_REGION_SIZE) return null;
+        if (region.size > AUTO_FILL_MAX_REGION_SIZE) {
+          if (outcome) outcome.hitSizeCap = true;
+          return null;
+        }
         queue.push([nx, ny]);
         continue;
       }
@@ -64,10 +93,24 @@ export const findEnclosedRegion = (
   return region;
 };
 
+// A scan that bails on the size cap (a huge open region) is re-triggered on every
+// subsequent settle adjacent to that same open area, each retry re-paying the full
+// AUTO_FILL_MAX_REGION_SIZE-bounded BFS even though the region is nowhere near
+// fillable. `originCooldownUntil` lets the caller skip re-scanning such an origin
+// for a short window (see AUTO_FILL_SCAN_COOLDOWN_MS for why only size-cap failures
+// are cached — never leak failures, which must stay eagerly re-scanned so a newly
+// completed enclosure is sealed immediately). The cooldown map is keyed by tile key,
+// so it's naturally bounded by world size like `tileYieldCollectedAtByTile`, and
+// callers must not persist it — it's a pure perf cache, not game state.
 export const findEnclosedRegionsAdjacentTo = (
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>,
-  ownerId: string
+  ownerId: string,
+  options?: {
+    now: number;
+    cooldownMs: number;
+    originCooldownUntil: Map<string, number>;
+  }
 ): Array<Set<string>> => {
   const checkedOrigins = new Set<string>();
   const results: Array<Set<string>> = [];
@@ -76,12 +119,20 @@ export const findEnclosedRegionsAdjacentTo = (
     const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
     const key = simulationTileKey(nx, ny);
     if (checkedOrigins.has(key)) continue;
-    const region = findEnclosedRegion(key, tiles, ownerId);
+    if (options && (options.originCooldownUntil.get(key) ?? 0) > options.now) {
+      checkedOrigins.add(key);
+      continue;
+    }
+    const outcome = { hitSizeCap: false };
+    const region = findEnclosedRegion(key, tiles, ownerId, outcome);
     if (region) {
       for (const k of region) checkedOrigins.add(k);
       results.push(region);
     } else {
       checkedOrigins.add(key);
+      // Only size-cap failures are cached; leak failures must stay eagerly
+      // re-scanned (see AUTO_FILL_SCAN_COOLDOWN_MS).
+      if (options && outcome.hitSizeCap) options.originCooldownUntil.set(key, options.now + options.cooldownMs);
     }
   }
   return results;
@@ -110,9 +161,14 @@ export const applyAutoFill = (input: {
   replaceTileState: (key: string, tile: DomainTileState) => void;
   onAutoFillTiles?: ((count: number) => void) | undefined;
   recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
+  scanCooldown?: {
+    now: number;
+    cooldownMs: number;
+    originCooldownUntil: Map<string, number>;
+  };
 }): DomainTileState[] => {
-  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors } = input;
-  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
+  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
+  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, scanCooldown);
   const settled: DomainTileState[] = [];
   const settledKeys: string[] = [];
   for (const region of regions) {
