@@ -71,6 +71,7 @@ import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity 
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { hasActiveOwnedOutpostAura } from "../client-outpost-aura-tile/client-outpost-aura-tile.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js";
 
@@ -1312,9 +1313,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const selectedCoord = deps.state.selected;
     if (!selectedCoord) return;
     const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selectedTile?.siegeOutpost) return;
-    if (selectedTile.siegeOutpost.status !== "active") return;
-    if (selectedTile.ownerId !== deps.state.me) return;
+    if (!selectedTile || !hasActiveOwnedOutpostAura(selectedTile, deps.state.me)) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     writeObservatoryRangeGeometry(sweepRangeMarker, sweepRangeFill, selectedTile, SWEEP_RANGE_RADIUS);
   };
