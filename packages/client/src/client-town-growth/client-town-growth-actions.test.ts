@@ -43,6 +43,50 @@ const baseDeps = {
 } as const;
 
 describe("town growth tile actions", () => {
+  it("shows a free settlement-to-town upgrade regardless of population or food", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.strategicResources.FOOD = 0;
+    const tile: Tile = {
+      x: 12,
+      y: 8,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: {
+        name: "Asterford",
+        type: "MARKET",
+        baseGoldPerMinute: 2,
+        supportCurrent: 5,
+        supportMax: 5,
+        goldPerMinute: 3,
+        cap: 100,
+        isFed: true,
+        population: 500,
+        maxPopulation: 10_000_000,
+        populationGrowthPerMinute: 12,
+        populationTier: "SETTLEMENT",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    };
+
+    const action = menuActionsForSingleTile(state, tile, baseDeps as never).find((entry) => entry.id === "grow_settlement_to_town");
+
+    expect(action).toMatchObject({
+      id: "grow_settlement_to_town",
+      label: "Upgrade Settlement to Town",
+      cost: "0 food"
+    });
+    expect(action?.disabled).toBe(false);
+  });
+
   it("shows a city growth action once a town is ready", () => {
     const state = createInitialState();
     state.me = "me";

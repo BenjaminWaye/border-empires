@@ -13,6 +13,7 @@ export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
 /** Food cost to manually upgrade a town tier (lump sum). Matches game-domain TIER_UPGRADE_FOOD_COST. */
 export const TOWN_GROWTH_FOOD_COST: Record<TownGrowthUpgradeTier, number> = {
+  TOWN: 0,
   CITY: 500,
   GREAT_CITY: 2_000,
   METROPOLIS: 8_000
@@ -53,6 +54,14 @@ export const nextTownGrowthUpgrade = (
   currentTier: PopulationTier,
   population: number
 ): TownGrowthUpgradeView | undefined => {
+  if (currentTier === "SETTLEMENT") {
+    return {
+      targetTier: "TOWN",
+      requiredPopulation: 0,
+      foodCost: TOWN_GROWTH_FOOD_COST.TOWN,
+      available: true
+    };
+  }
   if (currentTier === "TOWN") {
     return {
       targetTier: "CITY",
