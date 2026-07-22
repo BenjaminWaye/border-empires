@@ -76,7 +76,7 @@ import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
-import { createTownConnectivityState, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
+import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -3117,6 +3117,13 @@ export class SimulationRuntime {
       setTileState: (tileKey, tile) => {
         const previous = this.tiles.get(tileKey);
         this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile));
+        // This path deliberately skips refreshEconomyCachesForTileChange (the
+        // progression handlers invalidate the economy caches themselves), but
+        // the corridor union-find still has to be maintained: UPGRADE_TOWN_TIER
+        // crossing the SETTLEMENT boundary turns a corridor tile into a
+        // connectivity barrier, and leaving the structure merged across it
+        // inflates connectedTownCount for towns on either side.
+        maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
