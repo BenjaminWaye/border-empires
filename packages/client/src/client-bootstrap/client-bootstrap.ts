@@ -6,7 +6,8 @@ import {
   renderShardAlert as renderShardAlertFromModule,
   settlePixelWanderPoint as settlePixelWanderPointFromModule
 } from "../client-capture-effects/client-capture-effects.js";
-import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-victory-alert-bootstrap.js"; import { bindClientMapInput } from "../client-map-input/client-map-input.js";
+import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-victory-alert-bootstrap.js";
+import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
@@ -325,7 +326,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     });
 
   const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
-
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
       shardAlertOverlayEl: dom.shardAlertOverlayEl,

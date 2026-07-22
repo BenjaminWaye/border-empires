@@ -12,7 +12,7 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { updateVictoryHoldAlert } from "../client-alerts/client-alerts.js";
+import { applySeasonVictorySnapshot, clearVictoryHoldAlert, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -1384,8 +1384,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.abilityCooldowns = (msg.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
       state.missions = (msg.missions as any[]) ?? state.missions;
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
-      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner; updateVictoryHoldAlert(state, state.seasonVictory, state.me);
+      applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
       if (myTileColor) {
@@ -1402,8 +1401,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "GLOBAL_STATUS_UPDATE") {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
-      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner; updateVictoryHoldAlert(state, state.seasonVictory, state.me);
+      applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       renderHud();
       return;
@@ -2307,8 +2305,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "SEASON_VICTORY_UPDATE") {
-      state.seasonVictory = (msg.objectives as any[]) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner; updateVictoryHoldAlert(state, state.seasonVictory, state.me);
+      applySeasonVictorySnapshot(state, msg.objectives as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       const announcement = msg.announcement as string | undefined;
       if (announcement) pushFeed(announcement, "info", "warn");
       renderHud();
@@ -2318,7 +2315,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_WINNER_CROWNED") {
       state.seasonWinner = (msg.winner as any | undefined) ?? state.seasonWinner;
       state.seasonVictory = (msg.objectives as any[] | undefined) ?? state.seasonVictory;
-      state.leaderboard = (msg.leaderboard as typeof state.leaderboard | undefined) ?? state.leaderboard; state.victoryHoldAlert = undefined; state.victoryHoldAlertCollapsed = false;
+      state.leaderboard = (msg.leaderboard as typeof state.leaderboard | undefined) ?? state.leaderboard;
+      clearVictoryHoldAlert(state);
       if (state.seasonWinner) {
         pushFeed(`${state.seasonWinner.playerName} was crowned season winner via ${state.seasonWinner.objectiveName}.`, "info", "warn");
         state.activePanel = "leaderboard";
@@ -2828,7 +2826,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
-        state.seasonVictory = []; state.victoryHoldAlert = undefined; state.victoryHoldAlertCollapsed = false; state.acknowledgedVictoryHoldAlertKeys.clear();
+        state.seasonVictory = [];
+        resetVictoryHoldAlertForNewSeason(state);
         // Reset the season-end screen so it shows again when the next season ends.
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false;
