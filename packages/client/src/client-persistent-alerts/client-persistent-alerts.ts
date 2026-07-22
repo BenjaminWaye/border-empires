@@ -132,6 +132,38 @@ const locatorEdgePoint = (
 const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; height: number }, margin: number): boolean =>
   point.sx >= margin && point.sx <= canvas.width - margin && point.sy >= margin && point.sy <= canvas.height - margin;
 
+const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
+  ctx.save();
+  ctx.strokeStyle = "#fff7d1";
+  ctx.fillStyle = "#fff7d1";
+  ctx.lineWidth = Math.max(1.5, size * 0.16);
+  ctx.lineCap = "round";
+  for (const flip of [1, -1]) {
+    ctx.save();
+    ctx.scale(flip, 1);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(size * 0.55, size * 0.55);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.55);
+    ctx.lineTo(-size * 0.55, -size * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save();
+    ctx.translate(-size * 0.42, -size * 0.42);
+    ctx.rotate(-Math.PI / 4);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, 0);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+  ctx.restore();
+};
+
 export const drawPersistentAlertLocators = (
   state: PersistentAlertState & Pick<ClientState, "camX" | "camY">,
   deps: {
@@ -196,11 +228,15 @@ export const drawPersistentAlertLocators = (
     ctx.closePath();
     ctx.fill();
     ctx.rotate(-edge.angle);
-    ctx.fillStyle = "#fff7d1";
-    ctx.font = "700 13px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", 0, 0);
+    if (alert.kind === "muster_active") {
+      drawCrossedSwordsGlyph(ctx, 9);
+    } else {
+      ctx.fillStyle = "#fff7d1";
+      ctx.font = "700 13px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("!", 0, 0);
+    }
     ctx.restore();
     drawnCount += 1;
   }
