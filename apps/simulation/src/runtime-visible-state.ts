@@ -25,6 +25,7 @@ type VisibilityPlayerProjectionDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   applyManpowerRegen: (player: RuntimePlayer) => void;
+  refreshManpowerOnly: (player: RuntimePlayer) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   cachedEconomySnapshot: (player: RuntimePlayer) => { strategicProductionPerMinute: Record<StrategicResourceKey, number> };
 };
@@ -331,7 +332,22 @@ function visiblePlayersProjection(
 ): RuntimeExportState["players"] {
   return [...input.players.values()]
     .map((player) => {
-      input.applyManpowerRegen(player);
+      // Full economy accrual (applyManpowerRegen) only for the requesting
+      // player — everyone else gets the manpower-only refresh, matching the
+      // self-only cachedEconomySnapshot() branch on strategicProductionPerMinute
+      // below, and the same skip-for-others pattern already proven safe in
+      // exportPlannerWorldView / exportPlannerPlayerViews / exportPlayerDebugSnapshot
+      // (see refreshManpowerOnly's doc comment: this export recomputing full
+      // accrual for every player, every call, is exactly what caused the prior
+      // sync_players_export event-loop block — same shape as this one, just a
+      // different export function no one had gotten to yet). The manpower
+      // number itself stays fully correct either way; only OTHER players'
+      // gold/resource accrual is deferred to their own next command or tick.
+      if (player.id === visiblePlayerId) {
+        input.applyManpowerRegen(player);
+      } else {
+        input.refreshManpowerOnly(player);
+      }
       const summary = input.summaryForPlayer(player.id);
       return {
         id: player.id,
