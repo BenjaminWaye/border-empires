@@ -174,10 +174,31 @@ const defaultYieldToEventLoop: CompactionYield = () =>
 // below now avoids materialising a 202k-entry seen-Set and skips the reverse
 // scan whenever the runtime already covers every baseline tile (the steady
 // state): fewer allocations directly shrinks the GC-amplified wall time. The
-// remaining forward pass is still O(world), so the durable fix if this grows
-// again is incremental overlay maintenance (diff per tile mutation, checkpoint
-// serialises an already-built overlay) rather than a full rescan per save.
+// forward pass is still O(world) per call, but see `TileOverlayMemo` below:
+// the per-tile diff result is memoised by tile object identity across
+// checkpoints, so only tiles that actually mutated since the last checkpoint
+// pay the `buildOverlayForTile` cost — the rest are a WeakMap hit. That's the
+// "incremental overlay maintenance" this comment used to flag as the next
+// lever; it's now the default path via `compactSnapshotForStorage`'s
+// `tileOverlayMemo` parameter.
 const YIELD_CHUNK_SIZE = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Per-tile memo of a prior compaction's diff result, keyed by the exact
+ * runtime tile object. The runtime's snapshot tile cache (see
+ * runtime.ts's `snapshotTileCache`) only creates a NEW tile object when a
+ * tile actually mutates (`replaceTileState`) — an unchanged tile keeps the
+ * same object reference across checkpoints, since `initialState.tiles`
+ * comes straight from that cache's `.values()`. That makes object identity
+ * a correct, zero-maintenance signature for "has this tile's diff already
+ * been computed": a WeakMap hit means the exact same tile object was seen
+ * before and its overlay result (or `null` for "matches baseline, no
+ * overlay entry") is still valid; a mutated tile is a new object and always
+ * misses. `undefined` from `.get()` means "never seen"; `null` is a real
+ * cached "no overlay" result, so it's stored/read explicitly rather than
+ * treated as a miss.
+ */
+export type TileOverlayMemo = WeakMap<RecoveredTile, V1OverlayTile | null>;
 
 /**
  * Compact a v0-shaped payload into v1 storage form using the worldgen baseline.
@@ -186,7 +207,8 @@ const YIELD_CHUNK_SIZE = Number.MAX_SAFE_INTEGER;
 export const compactSnapshotForStorage = async (
   sections: SimulationSnapshotSections,
   baselineIndex: ReadonlyMap<string, RecoveredTile>,
-  yieldToEventLoop: CompactionYield = defaultYieldToEventLoop
+  yieldToEventLoop: CompactionYield = defaultYieldToEventLoop,
+  tileOverlayMemo?: TileOverlayMemo
 ): Promise<V1SnapshotPayload> => {
   const { initialState, commandEvents } = sections;
   const tileOverlay: V1OverlayTile[] = [];
@@ -207,7 +229,14 @@ export const compactSnapshotForStorage = async (
     if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
     const baseline = baselineIndex.get(tileKey(tile.x, tile.y));
     if (baseline !== undefined) matchedBaselineCount += 1;
-    const overlay = buildOverlayForTile(tile, baseline);
+    let overlay: V1OverlayTile | undefined;
+    const memoed = tileOverlayMemo?.get(tile);
+    if (memoed !== undefined) {
+      overlay = memoed ?? undefined;
+    } else {
+      overlay = buildOverlayForTile(tile, baseline);
+      tileOverlayMemo?.set(tile, overlay ?? null);
+    }
     if (overlay) tileOverlay.push(overlay);
     i += 1;
   }

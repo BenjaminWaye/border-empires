@@ -270,3 +270,81 @@ export const createWorkerSnapshotStringifier = (
     getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...metrics })
   });
 };
+
+/**
+ * Length of the largest array reachable at the top level OR one level of
+ * object nesting below it (0 for none / non-object).
+ *
+ * MUST descend one level, not just scan top-level keys: the two payload
+ * shapes the snapshot store produces put their big array at different
+ * depths. The compacted V1 payload exposes `tileOverlay` at the top level,
+ * but the uncompacted fallback (`buildSimulationSnapshotPayload`, the ~18MB
+ * case when no worldgen baseline resolves) nests its ~202k-element array as
+ * `initialState.tiles`. A top-level-only scan would see only the small
+ * sibling arrays there and route that 18MB payload to the inline path,
+ * blocking the sim event loop — exactly what the worker exists to prevent.
+ * This mirrors the one-level descent the chunked stringifier already does
+ * (see stringifyObjectChunked's "One level deeper" branch).
+ */
+const largestArrayLength = (payload: unknown): number => {
+  if (Array.isArray(payload)) return payload.length;
+  if (payload === null || typeof payload !== "object") return 0;
+  let max = 0;
+  for (const value of Object.values(payload as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      if (value.length > max) max = value.length;
+    } else if (value !== null && typeof value === "object") {
+      for (const nested of Object.values(value as Record<string, unknown>)) {
+        if (Array.isArray(nested) && nested.length > max) max = nested.length;
+      }
+    }
+  }
+  return max;
+};
+
+/** Optional lifecycle handles a worker-backed stringifier exposes; a pure inline one has neither. */
+type WorkerStringifierExtras = Partial<{
+  close: () => Promise<void>;
+  getWorkerMetrics: () => WorkerMemoryMetrics;
+}>;
+
+export type HybridSnapshotStringifierOptions = {
+  worker: SnapshotStringifier;
+  /** Below this, stringify inline on the calling thread; at/above it, use `worker`. */
+  inlineThreshold?: number;
+};
+
+/**
+ * Routes each payload to the fast inline path or the worker based on size,
+ * instead of committing a whole process to one or the other at startup.
+ *
+ * Diagnosed live in prod: the worker stringifier exists so a genuinely huge
+ * payload (the ~18MB uncompacted fallback, when no worldgen baseline
+ * resolves) doesn't block the sim thread. But routing EVERY checkpoint
+ * through it — including the common case, a compacted overlay of a few
+ * thousand to a few tens-of-thousands of entries — pays a `postMessage`
+ * structured-clone + worker round-trip on every save regardless of size.
+ * Prod measured this `stringify` phase at 2.6s even though the compacted
+ * payload (per snapshot-stringifier's own CHUNK_THRESHOLD comment: ~1.65MB /
+ * ~5,147 elements measured a ~11ms single-shot JSON.stringify) doesn't need
+ * chunking or worker isolation at all — the clone+IPC overhead was the cost,
+ * not the serialization. Reuse the same CHUNK_THRESHOLD reasoning already
+ * established for the inline chunked stringifier: below it, a single
+ * synchronous JSON.stringify is fast and bounded; only route to the worker
+ * once a payload is large enough that inline stringify itself would risk
+ * blocking the event loop for a meaningful stretch.
+ */
+export const createHybridSnapshotStringifier = (
+  options: HybridSnapshotStringifierOptions
+): SnapshotStringifier & WorkerStringifierExtras => {
+  const inlineThreshold = options.inlineThreshold ?? CHUNK_THRESHOLD;
+  const workerStringify = options.worker as SnapshotStringifier & WorkerStringifierExtras;
+  const stringify: SnapshotStringifier = async (payload) => {
+    if (largestArrayLength(payload) < inlineThreshold) return JSON.stringify(payload);
+    return workerStringify(payload);
+  };
+  return Object.assign(stringify, {
+    ...(workerStringify.close ? { close: workerStringify.close } : {}),
+    ...(workerStringify.getWorkerMetrics ? { getWorkerMetrics: workerStringify.getWorkerMetrics } : {})
+  });
+};

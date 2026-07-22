@@ -20,16 +20,49 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.1",
+  version: "2026.07.22.2",
   title: "What's New",
   summary: "Active muster alerts on the map edge now show crossed swords instead of an exclamation mark.",
   entries: [
     {
-      introducedIn: "2026.07.22.1",
+      introducedIn: "2026.07.22.2",
       title: "Crossed-swords icon for active muster alerts",
       why: "The off-screen locator arrow for an active muster used the same generic \"!\" glyph as every other alert, making it hard to tell at a glance which off-screen indicator was a muster.",
       changes: [
         "The off-screen locator badge for an active muster flag now shows a crossed-swords icon instead of \"!\"; other alert types are unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.07.22.1",
+      title: "Minimap now shows territory ownership colors",
+      why: "The minimap only ever showed terrain and fog, so at a glance you couldn't tell whose territory was where without opening the full map. Owned tiles are now tinted with each empire's color, same as the main map.",
+      changes: [
+        "Settled and frontier tiles now render with the owning player's color on the minimap (settled tiles slightly more opaque than frontier tiles), respecting fog of war."
+      ]
+    },
+    {
+      introducedIn: "2026.07.21.6",
+      title: "Fixed: town capture popup missing after winning an attack",
+      why: "The celebratory town-capture popup only fired for tile-delta updates (EXPAND, settling), so capturing an enemy town through combat never showed it even though the capture itself worked correctly.",
+      changes: [
+        "Winning an ATTACK that captures an enemy town now shows the town capture popup, same as capturing via EXPAND or settlement."
+      ]
+    },
+    {
+      introducedIn: "2026.07.21.5",
+      title: "Low Empire Integrity now shows a dismissible warning",
+      why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
+      changes: [
+        "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
+        "Dismiss it with the × in its corner or the \"I understand\" button; it reappears if integrity recovers above 90% and later drops again."
+      ]
+    },
+    {
+      introducedIn: "2026.07.21.4",
+      title: "Smoother minimap on maps with a lot of unexplored fog",
+      why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
+      changes: [
+        "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
       ]
     },
     {

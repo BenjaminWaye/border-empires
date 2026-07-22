@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { bindClientNetwork } from "./client-network.js";
 import { createInitialState } from "../client-state/client-state.js";
+import * as clientTownCapture from "../client-town-capture/client-town-capture.js";
 
 class FakeWebSocket {
   static readonly OPEN = 1;
@@ -1132,6 +1133,48 @@ describe("client gateway sync regression", () => {
       townId: "town-1",
       name: "Captured Title"
     });
+  });
+
+  it("shows the town capture overlay when a COMBAT_RESULT hands us an enemy town", () => {
+    const showOverlaySpy = vi.spyOn(clientTownCapture, "showTownCaptureOverlay").mockImplementation(() => {});
+    const state = createState();
+    state.me = "player-1";
+    state.tiles.set("10,11", {
+      x: 10,
+      y: 11,
+      terrain: "LAND",
+      ownerId: "player-2",
+      ownershipState: "SETTLED",
+      town: { townId: "town-1", name: "Captured Title", type: "FARMING", populationTier: "TOWN" }
+    });
+    state.actionCurrent = { x: 10, y: 11, origin: { x: 10, y: 10 }, retries: 0, clientSeq: 9, commandId: "cmd-9", actionType: "ATTACK" };
+    state.actionTargetKey = "10,11";
+    state.actionInFlight = true;
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.capture = { startAt: 1_000, resolvesAt: 2_250, target: { x: 10, y: 11 } };
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_RESULT",
+        commandId: "cmd-9",
+        attackType: "ATTACK",
+        attackerWon: true,
+        origin: { x: 10, y: 10 },
+        target: { x: 10, y: 11 },
+        changes: [{ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" }]
+      })
+    });
+
+    expect(showOverlaySpy).toHaveBeenCalledTimes(1);
+    expect(showOverlaySpy.mock.calls[0]?.[0]).toMatchObject({
+      x: 10,
+      y: 11,
+      townName: "Captured Title"
+    });
+    showOverlaySpy.mockRestore();
   });
 
   it("preserves frontier towns during authoritative tile delta reconciliation", () => {
