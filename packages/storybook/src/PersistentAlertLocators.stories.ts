@@ -5,10 +5,39 @@ type Args = { width: number; height: number };
 const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void => {
   ctx.save();
   ctx.translate(x, y);
+  ctx.lineWidth = Math.max(1.5, size * 0.16);
+  ctx.lineCap = "round";
+  for (const flip of [1, -1]) {
+    ctx.save();
+    ctx.scale(flip, 1);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = Math.max(3, size * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(size * 0.55, size * 0.55);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.55);
+    ctx.lineTo(-size * 0.55, -size * 0.3);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(-size * 0.42, -size * 0.42);
+    ctx.rotate(-Math.PI / 4);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.lineWidth = Math.max(2.5, size * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, 0);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
   ctx.strokeStyle = "#fff7d1";
   ctx.fillStyle = "#fff7d1";
   ctx.lineWidth = Math.max(1.5, size * 0.16);
-  ctx.lineCap = "round";
   for (const flip of [1, -1]) {
     ctx.save();
     ctx.scale(flip, 1);
@@ -59,11 +88,13 @@ const drawBadge = (ctx: CanvasRenderingContext2D, x: number, y: number, radius: 
   if (glyph === "swords") {
     drawCrossedSwordsGlyph(ctx, 0, 0, radius * 0.55);
   } else {
-    ctx.fillStyle = "#fff7d1";
     ctx.font = `bold ${radius * 1.2}px system-ui`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("!", 0, radius * 0.05);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillText("!", 0, radius * 0.08);
+    ctx.fillStyle = "#fff7d1";
+    ctx.fillText("!", 0, radius * 0.04);
   }
   ctx.restore();
 };
