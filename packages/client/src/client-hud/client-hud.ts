@@ -8,6 +8,7 @@ import { revealEmpireStatsDossierHtml } from "../client-empire-intel/client-empi
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
+import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
@@ -288,7 +289,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
-  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed;
+  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed();
   const integrityWarningHtml = showIntegrityWarning
     ? `<div class="integrity-warning-tip" role="alert">
         <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
@@ -868,14 +869,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const integrityWarningDismissButtons = dom.hud.querySelectorAll(
-    "[data-dismiss-integrity-warning]"
-  ) as NodeListOf<HTMLButtonElement>;
-  integrityWarningDismissButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      state.integrityWarningDismissed = true;
-      renderClientHud(deps);
-    };
+  wireIntegrityWarningDismissButtons(dom.hud, () => {
+    state.integrityWarningDismissed = true;
+    renderClientHud(deps);
   });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
