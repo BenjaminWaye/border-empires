@@ -6,7 +6,8 @@ import {
   buildWorldgenBaselineIndex,
   compactSnapshotForStorage,
   expandSnapshotFromStorage,
-  isV1SnapshotPayload
+  isV1SnapshotPayload,
+  type TileOverlayMemo
 } from "./snapshot-compaction.js";
 
 const baseTile = (overrides: Partial<RecoveredSimulationState["tiles"][number]>) =>
@@ -85,6 +86,104 @@ describe("compactSnapshotForStorage", () => {
     );
     const cleared = compact.tileOverlay.find((tile) => tile.x === 3 && tile.y === 0);
     expect(cleared).toMatchObject({ x: 3, y: 0, ownerId: null, ownershipState: null });
+  });
+});
+
+describe("compactSnapshotForStorage — tileOverlayMemo (incremental compaction)", () => {
+  it("produces identical output whether or not a memo is supplied", async () => {
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const tiles = [
+      baseTile({ x: 0, y: 0, terrain: "LAND" }),
+      baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-2", ownershipState: "FRONTIER" })
+    ];
+    const withoutMemo = await compactSnapshotForStorage(sections(tiles), baseline);
+    const memo: TileOverlayMemo = new WeakMap();
+    const withMemo = await compactSnapshotForStorage(sections(tiles), baseline, undefined, memo);
+    expect(withMemo).toEqual(withoutMemo);
+  });
+
+  it("reuses a cached diff for a tile object seen in a prior call (cache hit)", async () => {
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const memo: TileOverlayMemo = new WeakMap();
+    // Same object reference across both checkpoint calls — mirrors the
+    // runtime's snapshotTileCache, which only creates a new tile object on
+    // mutation. An unmutated tile must hit the memo, not be recomputed.
+    // Includes the seed-owned x=3 tile so the reverse-scan fallback (a
+    // separate code path, covered elsewhere) doesn't fire and muddy this test.
+    const unchangedOwnedTile = baseTile({
+      x: 2,
+      y: 0,
+      terrain: "LAND",
+      resource: "IRON",
+      ownerId: "ai-3",
+      ownershipState: "SETTLED"
+    });
+    const restOfWorld = [...baselineTiles.filter((t) => !(t.x === 2 && t.y === 0))];
+
+    const first = await compactSnapshotForStorage(
+      sections([unchangedOwnedTile, ...restOfWorld]),
+      baseline,
+      undefined,
+      memo
+    );
+    const second = await compactSnapshotForStorage(
+      sections([unchangedOwnedTile, ...restOfWorld]),
+      baseline,
+      undefined,
+      memo
+    );
+
+    expect(second).toEqual(first);
+    expect(second.tileOverlay).toEqual([
+      expect.objectContaining({ x: 2, y: 0, ownerId: "ai-3", ownershipState: "SETTLED" })
+    ]);
+  });
+
+  it("recomputes when a tile mutates to a new object, even at the same coordinates", async () => {
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const memo: TileOverlayMemo = new WeakMap();
+    const restOfWorld = [...baselineTiles.filter((t) => !(t.x === 2 && t.y === 0))];
+
+    const beforeCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-1", ownershipState: "SETTLED" });
+    const afterCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-9", ownershipState: "SETTLED" });
+
+    const before = await compactSnapshotForStorage(sections([beforeCapture, ...restOfWorld]), baseline, undefined, memo);
+    const after = await compactSnapshotForStorage(sections([afterCapture, ...restOfWorld]), baseline, undefined, memo);
+
+    expect(before.tileOverlay).toEqual([expect.objectContaining({ x: 2, y: 0, ownerId: "ai-1" })]);
+    // A different object (new ownerId) at the same coordinates must not
+    // reuse the prior object's memoised diff.
+    expect(after.tileOverlay).toEqual([expect.objectContaining({ x: 2, y: 0, ownerId: "ai-9" })]);
+  });
+
+  it("caches a 'matches baseline, no overlay' result (null) distinctly from a cache miss", async () => {
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const memo: TileOverlayMemo = new WeakMap();
+    // Matches the baseline exactly — no overlay entry either time.
+    const unchangedBaselineTile = baseTile({ x: 0, y: 0, terrain: "LAND" });
+    const restOfWorld = [...baselineTiles.filter((t) => !(t.x === 0 && t.y === 0))];
+
+    const first = await compactSnapshotForStorage(
+      sections([unchangedBaselineTile, ...restOfWorld]),
+      baseline,
+      undefined,
+      memo
+    );
+    const second = await compactSnapshotForStorage(
+      sections([unchangedBaselineTile, ...restOfWorld]),
+      baseline,
+      undefined,
+      memo
+    );
+
+    const overlayAt = (payload: typeof first, x: number, y: number) =>
+      payload.tileOverlay.find((t) => t.x === x && t.y === y);
+    expect(overlayAt(first, 0, 0)).toBeUndefined();
+    expect(overlayAt(second, 0, 0)).toBeUndefined();
   });
 });
 

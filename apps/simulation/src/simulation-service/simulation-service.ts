@@ -31,7 +31,11 @@ import type { SimulationEventStore } from "../event-store/event-store.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
-import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import {
+  createHybridSnapshotStringifier,
+  createWorkerSnapshotStringifier,
+  type WorkerMemoryMetrics
+} from "../snapshot-stringifier/snapshot-stringifier.js";
 import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
@@ -512,12 +516,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
-  let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
+  let snapshotStringifier: ReturnType<typeof createHybridSnapshotStringifier> | undefined;
   // Only spin up a stringify worker for SQLite-backed deployments — full snapshots there are ~18MB and
   // inline JSON.stringify blocks the simulation event loop. In-memory tests stay inline.
+  //
+  // Wrapped in the hybrid router: routing EVERY checkpoint through the worker
+  // (even the common case, a compacted overlay of a few thousand entries)
+  // pays a postMessage structured-clone + IPC round-trip regardless of size.
+  // Measured live in prod at 2.6s for a payload whose own inline
+  // JSON.stringify costs ~11ms (see snapshot-stringifier.ts). The hybrid
+  // stringifier only pays the worker's cost once a payload is actually large
+  // enough to need it.
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
     try {
-      snapshotStringifier = createWorkerSnapshotStringifier();
+      snapshotStringifier = createHybridSnapshotStringifier({ worker: createWorkerSnapshotStringifier() });
     } catch (err) {
       log.error(
         { err: err instanceof Error ? err.message : String(err) },
