@@ -78,6 +78,8 @@ export const drawMiniMap = (options: {
   });
   const wxToPx = (wx: number): number => ((wx - box.x0) / box.w) * w;
   const wyToPy = (wy: number): number => ((wy - box.y0) / box.h) * h;
+  const inBox = (x: number, y: number): boolean =>
+    x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
   const baseW = options.miniMapBase.width;
   const baseH = options.miniMapBase.height;
@@ -107,6 +109,19 @@ export const drawMiniMap = (options: {
         replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6
       );
       options.miniMapCtx.fillRect(px, py, 1, 1);
+    }
+  } else {
+    for (const tile of options.state.tiles.values()) {
+      if (!tile.ownerId) continue;
+      if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+      if (!inBox(tile.x, tile.y)) continue;
+      const ox = Math.floor(wxToPx(tile.x));
+      const oy = Math.floor(wyToPy(tile.y));
+      options.miniMapCtx.fillStyle = hexWithAlpha(
+        options.effectiveOverlayColor(tile.ownerId),
+        tile.ownershipState === "SETTLED" ? 0.9 : 0.6
+      );
+      options.miniMapCtx.fillRect(ox, oy, 1, 1);
     }
   }
 
@@ -158,9 +173,6 @@ export const drawMiniMap = (options: {
   options.miniMapCtx.beginPath();
   options.miniMapCtx.arc(px, py, 2.8, 0, Math.PI * 2);
   options.miniMapCtx.fill();
-
-  const inBox = (x: number, y: number): boolean =>
-    x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
   options.miniMapCtx.fillStyle = "rgba(127, 238, 255, 0.9)";
   for (const pair of options.state.dockPairs) {
