@@ -75,7 +75,10 @@ import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
-import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import {
+  createMainThreadTaskTrackerFromEnv,
+  type MainThreadTaskTracker
+} from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
@@ -434,6 +437,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  // Wraps mainThreadTasks.trackSync so every named phase (town_network_rebuild,
+  // tile_yield_economy_context_rebuild, etc.) also lands in a Prometheus
+  // quantile, not just the in-memory ring buffer mainThreadTasks itself keeps
+  // for event_loop_blocked attribution. That ring buffer already had good
+  // attribution, but only surfaces through stdout logs with ~9min retention
+  // on Fly; a live incident (2026-07-22) needed a lucky log capture to see
+  // which phase was dominating a 3s+ block. simulationMetrics is referenced
+  // here via closure (defined further below in this function) rather than
+  // passed as a parameter — safe because this function is only ever CALLED
+  // later, once simulationMetrics is fully initialised, exactly like the
+  // wrapJobRun/shouldPauseBackground closures elsewhere in this file.
+  const trackSyncMainThreadTaskWithMetrics: MainThreadTaskTracker["trackSync"] = (phase, details, task) => {
+    const startedAtMs = Date.now();
+    try {
+      return mainThreadTasks.trackSync(phase, details, task);
+    } finally {
+      simulationMetrics.observeSimMainThreadTaskMs(phase, Date.now() - startedAtMs);
+    }
+  };
   const rssHeapGapMonitor = createRssHeapGapMonitor();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
@@ -865,9 +887,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     wrapJobRun: (run, meta) => () =>
-      mainThreadTasks.trackSync("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
+      trackSyncMainThreadTaskWithMetrics("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
     onVisibilityAudit: handleVisibilityAudit,
-    trackSyncMainThreadTask: mainThreadTasks.trackSync,
+    trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
         simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -1300,7 +1322,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
     const snapshot = useWorkerBuild
       ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
-      : mainThreadTasks.trackSync("snapshot_materialize_inline", { playerId }, () =>
+      : trackSyncMainThreadTaskWithMetrics("snapshot_materialize_inline", { playerId }, () =>
           buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts));
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
@@ -1552,7 +1574,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
     // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
     persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
-    mainThreadTasks.trackSync(
+    trackSyncMainThreadTaskWithMetrics(
       "runtime_submit_command",
       {
         commandId: command.commandId,
@@ -1705,19 +1727,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               queueDepths: () => runtime.queueDepths(),
               onEvent: (handler) => runtime.onEvent(handler),
               exportPlannerWorldView: (playerIds) =>
-                mainThreadTasks.trackSync("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerWorldView(playerIds)
                 ),
               exportPlannerPlayerViews: (playerIds) =>
-                mainThreadTasks.trackSync("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
               exportTilesForKeys: (keys) =>
-                mainThreadTasks.trackSync("ai_export_tiles_for_keys", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_tiles_for_keys", undefined, () =>
                   runtime.exportTilesForKeys(keys)
                 )
             },
-            trackSync: (phase, details, task) => mainThreadTasks.trackSync(phase, details, task),
+            trackSync: (phase, details, task) => trackSyncMainThreadTaskWithMetrics(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
@@ -1862,19 +1884,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               queueDepths: () => runtime.queueDepths(),
               onEvent: (handler) => runtime.onEvent(handler),
               exportPlannerWorldView: (playerIds) =>
-                mainThreadTasks.trackSync("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerWorldView(playerIds)
                 ),
               exportPlannerPlayerViews: (playerIds) =>
-                mainThreadTasks.trackSync("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
               getBarbActivationVisionSignature: () =>
-                mainThreadTasks.trackSync("system_get_barb_activation_vision_signature", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("system_get_barb_activation_vision_signature", undefined, () =>
                   runtime.getBarbActivationVisionSignature()
                 ),
               exportBarbActivationVisibleUnion: () =>
-                mainThreadTasks.trackSync("system_export_barb_activation_visible_union", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_barb_activation_visible_union", undefined, () =>
                   runtime.exportBarbActivationVisibleUnion()
                 )
             },
@@ -1972,7 +1994,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // Capture-reveal-only deltas skip yield, economy, and town-enrichment
       // computation.
       if (event.eventType === "TILE_DELTA_BATCH") {
-        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId, subscriberCount: subscriptionRegistry.subscribedPlayerIds().length }, () => {
+        trackSyncMainThreadTaskWithMetrics("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId, subscriberCount: subscriptionRegistry.subscribedPlayerIds().length }, () => {
           const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
           let maxFilterMs = 0;
           let slowestFilterPlayerId = "";
@@ -2114,7 +2136,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
-        trackSyncMainThreadTask: mainThreadTasks.trackSync,
+        trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample,
         ...(pendingImperialWard ? { pendingImperialWard } : {}),
         shouldPauseBackground: () => {
@@ -2764,7 +2786,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       shardRainTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          mainThreadTasks.trackSync("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
+          trackSyncMainThreadTaskWithMetrics("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
         } catch (error) {
           log.error({ err: error }, "shard rain tick failed");
         }
@@ -2788,7 +2810,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       populationGrowthTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+          const growthResult = trackSyncMainThreadTaskWithMetrics("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
           if (growthResult) {
             const { townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedCaptureShock, townsSkippedUnfed, townsSkippedLogisticCap, playersSkippedNoFedTowns, playerDiag } = growthResult;
             const anyStalled = growthStalledNoFood > 0 || townsSkippedUnfed > 0 || playersSkippedNoFedTowns > 0;
@@ -2835,7 +2857,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       orphanLockSweepTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
+          trackSyncMainThreadTaskWithMetrics("tick_orphan_lock_sweep", undefined, () => {
             const dropped = runtime.tickOrphanedLockSweep(Date.now());
             if (dropped > 0) log.error({ dropped }, "orphan-lock sweep dropped stale locks");
           });

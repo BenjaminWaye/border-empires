@@ -46,6 +46,9 @@ describe("simulation metrics", () => {
     metrics.observeSimEventStoreWriteMs(11);
     metrics.observeSimAiPlannerPhaseMs("planner_total", 13);
     metrics.observeSimAiPlannerPhaseMs("request_plan_round_trip", 21);
+    metrics.observeSimMainThreadTaskMs("town_network_rebuild", 396);
+    metrics.observeSimMainThreadTaskMs("tile_yield_economy_context_rebuild", 243);
+    metrics.observeSimMainThreadTaskMs("some_future_phase_not_yet_tracked", 999);
     metrics.observeSimRuntimeDrain({
       durationMs: 31,
       processedJobs: 1,
@@ -128,6 +131,10 @@ describe("simulation metrics", () => {
     expect(sample.simEventStoreWriteMs.p95).toBe(11);
     expect(sample.simAiPlannerPhaseMs.planner_total.p95).toBe(13);
     expect(sample.simAiPlannerPhaseMs.request_plan_round_trip.p95).toBe(21);
+    expect(sample.simMainThreadTaskMs.town_network_rebuild.p95).toBe(396);
+    expect(sample.simMainThreadTaskMs.tile_yield_economy_context_rebuild.p95).toBe(243);
+    // An untracked phase name must not throw and must not appear in the snapshot.
+    expect(Object.keys(sample.simMainThreadTaskMs)).not.toContain("some_future_phase_not_yet_tracked");
     expect(sample.simRuntimeDrainMs.p95).toBe(31);
     expect(sample.simRuntimeDrainMsByLane.ai.p95).toBe(31);
     expect(sample.simRuntimeApplyMsByCommandType.EXPAND?.p95).toBe(17);
@@ -173,6 +180,8 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_gc_pause_ms{quantile="p95"}');
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
     expect(exposition).toContain('sim_ai_planner_phase_ms{phase="request_plan_round_trip",quantile="p95"} 21');
+    expect(exposition).toContain('sim_main_thread_task_ms{phase="town_network_rebuild",quantile="p95"} 396');
+    expect(exposition).toContain('sim_main_thread_task_ms{phase="tile_yield_economy_context_rebuild",quantile="p95"} 243');
     expect(exposition).toContain('sim_runtime_drain_ms{quantile="p95"} 31');
     expect(exposition).toContain('sim_runtime_drain_ms_by_lane{lane="ai",quantile="p95"} 31');
     expect(exposition).toContain('sim_runtime_apply_ms_by_command{type="EXPAND",quantile="p95"} 17');

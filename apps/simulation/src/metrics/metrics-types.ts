@@ -77,6 +77,38 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
+// Phases passed to trackSyncMainThreadTask / mainThreadTasks.trackSync
+// throughout runtime.ts and simulation-service.ts. These already had solid
+// attribution via the event_loop_blocked log payload (mainThreadTasks.recentSince),
+// but that's an in-memory ring buffer surfaced only through stdout logs with
+// ~9min retention on Fly — a live incident (2026-07-22) traced a 20s+ gateway
+// stall to town_network_rebuild / tile_yield_economy_context_rebuild stacking
+// across many players, and the only way to see that was catching the log
+// live. Track them here too so the same signal survives as a queryable
+// Prometheus quantile, like every other per-phase timing in this file.
+export const MAIN_THREAD_TASK_PHASES = [
+  "ai_export_planner_player_views",
+  "ai_export_planner_world_view",
+  "ai_export_tiles_for_keys",
+  "apply_economy_accrual",
+  "cached_economy_snapshot_rebuild",
+  "classify_visibility_for_player",
+  "command_execution",
+  "runtime_submit_command",
+  "snapshot_materialize_inline",
+  "system_export_barb_activation_visible_union",
+  "system_export_planner_player_views",
+  "system_export_planner_world_view",
+  "system_get_barb_activation_vision_signature",
+  "tick_orphan_lock_sweep",
+  "tick_population_growth",
+  "tick_shard_rain",
+  "tile_delta_fanout",
+  "tile_yield_economy_context_rebuild",
+  "town_network_rebuild"
+] as const;
+export type MainThreadTaskPhase = (typeof MAIN_THREAD_TASK_PHASES)[number];
+
 export const AI_TICK_THROTTLE_REASONS = [
   "adaptive",
   "budget",
@@ -164,6 +196,7 @@ export type SimulationMetricsSnapshot = {
   simAiCurrentTickIntervalMs: number;
   simAiBudgetUsedMs: number;
   simAiPlannerPhaseMs: Record<AiPlannerPhase, QuantileSample>;
+  simMainThreadTaskMs: Record<MainThreadTaskPhase, QuantileSample>;
   // Per-runtime-drain histogram. submit_command on the bridge measured 92-319ms
   // p99, which we now know was the drain that runs as a microtask after each
   // submitDurableCommand. This histogram measures the drain directly:
