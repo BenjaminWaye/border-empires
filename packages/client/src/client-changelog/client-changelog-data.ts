@@ -20,10 +20,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.5",
+  version: "2026.07.22.6",
   title: "What's New",
-  summary: "Fixed the leaderboard's Economic Ascendancy card showing a stale gold/minute number.",
+  summary: "A season-victory hold-timer alert now warns every player when someone is about to win.",
   entries: [
+    {
+      introducedIn: "2026.07.22.6",
+      title: "Season-victory hold alert",
+      why: "Once a player met a victory threshold, the 24-hour hold countdown was only visible as a small text line inside the Leaderboard tab's pressure cards — easy to miss, and nothing told you a win was imminent unless you happened to open that tab.",
+      changes: [
+        "A dismissible alert card now appears the moment any player's season-victory objective starts its 24-hour hold, naming the leader, the objective, and the countdown.",
+        "After dismissing it, a slim persistent banner keeps showing \"Player winning in Xh Ym — Objective\" until the hold resolves or is broken, on both desktop and mobile.",
+        "The Leaderboard tab (desktop icon and mobile bottom-nav button) now pulses with a badge while the alert hasn't been acknowledged yet.",
+        "The Leaderboard pressure cards also now show a \"Winning in Xh Ym unless stopped\" line for any objective currently holding its threshold."
+      ]
+    },
     {
       introducedIn: "2026.07.22.5",
       title: "Fixed: Economic Ascendancy card showed a stale gold/minute figure",
