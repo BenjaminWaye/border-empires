@@ -8,6 +8,11 @@ import {
   HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
   type EconomyPlayer
 } from "./economy-network.js";
+import {
+  addSettledTileToConnectivity,
+  createTownConnectivityState,
+  markTownConnectivityDirty
+} from "./town-connectivity-incremental.js";
 
 const townTile = (x: number, y: number, name: string): DomainTileState => ({
   x,
@@ -389,5 +394,77 @@ describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
     const incomeWithExchange = dockBaseGoldPerMinuteForPlayer(dockA, player, { tiles, dockLinksByDockTileKey });
 
     expect(incomeWithExchange - incomeWithoutExchange).toBeCloseTo(HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * 2, 6);
+  });
+});
+
+describe("connected town network — incremental state fast path", () => {
+  const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
+
+  it("produces the same result as the from-scratch BFS when the incremental state is dirty (forces a rebuild)", () => {
+    const tiles = new Map<string, DomainTileState>(
+      [
+        townTile(0, 0, "Alpha"),
+        townTile(1, 0, "Beta"),
+        townTile(10, 10, "Gamma")
+      ].map((tile) => [`${tile.x},${tile.y}`, tile])
+    );
+
+    const fromScratch = buildConnectedTownNetworkForPlayer(player, tiles);
+
+    const state = createTownConnectivityState();
+    const withIncremental = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+
+    expect(withIncremental).toEqual(fromScratch);
+    expect(state.dirty).toBe(false);
+  });
+
+  it("reuses a fresh incremental state without rebuilding, and reflects an incrementally-added town", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", townTile(1, 0, "Beta")]
+    ]);
+
+    const state = createTownConnectivityState();
+    const first = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(first.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(state.dirty).toBe(false);
+
+    // Simulate the runtime-tile-index-maintenance hook: a new town settles
+    // adjacent to Beta, incrementally unioned in rather than forcing a
+    // rebuild.
+    const gamma = townTile(2, 0, "Gamma");
+    tiles.set("2,0", gamma);
+    addSettledTileToConnectivity(state, "2,0");
+    expect(state.dirty).toBe(false);
+
+    const second = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(second.get("0,0")).toMatchObject({ connectedTownCount: 2 });
+    expect(second.get("2,0")).toMatchObject({ connectedTownCount: 2 });
+  });
+
+  it("forces a full rebuild after markTownConnectivityDirty instead of trusting stale unions", () => {
+    // Alpha and Gamma are only connected through Beta as a direct-adjacency
+    // bridge (Alpha<->Gamma are not themselves adjacent).
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", townTile(1, 0, "Beta")],
+      ["2,0", townTile(2, 0, "Gamma")]
+    ]);
+
+    const state = createTownConnectivityState();
+    const before = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(before.get("0,0")).toMatchObject({ connectedTownCount: 2 });
+
+    // Beta is captured/abandoned. A plain union-find can't un-union
+    // incrementally, so this must mark dirty rather than silently keep
+    // reporting Alpha<->Gamma as connected through a bridge that no longer
+    // exists.
+    tiles.delete("1,0");
+    markTownConnectivityDirty(state);
+
+    const rebuilt = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
+    expect(rebuilt.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(rebuilt.get("2,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(rebuilt.has("1,0")).toBe(false);
   });
 });
