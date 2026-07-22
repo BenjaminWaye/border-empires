@@ -4,6 +4,18 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 
 const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 
+// How long (ms) a failed enclosure scan (leaked to enemy/open edge, or exceeded
+// the size cap) suppresses re-scanning the same origin tile. Auto-fill runs on
+// every SETTLED transition (a broad chokepoint), so settling tiles one-by-one
+// inside/around a large unfillable pocket would otherwise re-pay the full
+// O(region size) BFS cost on every single settle — the "broad chokepoint pays
+// an unbounded per-event cost" shape flagged in
+// docs/agents/state-and-persistence-discipline.md. The caller-owned cooldown
+// map is naturally bounded by world tile count, same as
+// tileYieldCollectedAtByTile in runtime.ts, and is a pure perf cache (not game
+// state — never snapshotted).
+export const AUTO_FILL_SCAN_COOLDOWN_MS = 3000;
+
 export const findEnclosedRegion = (
   originKey: string,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -64,10 +76,24 @@ export const findEnclosedRegion = (
   return region;
 };
 
+// Non-enclosing scan attempts (region leaked to an enemy tile, an open edge, or
+// exceeded the size cap) are re-triggered on every subsequent settle adjacent to
+// the same still-unfilled pocket — each retry pays the full BFS cost again even
+// though nothing about the pocket's boundary has changed. `originCooldownUntil`
+// lets the caller skip re-scanning an origin that failed recently (see the
+// state-and-persistence-discipline note on broad chokeholds paying an unbounded
+// per-event cost). The cooldown map is keyed by tile key, so it's naturally
+// bounded by world size like `tileYieldCollectedAtByTile` — callers should not
+// persist it across restarts since it's a pure perf cache, not game state.
 export const findEnclosedRegionsAdjacentTo = (
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>,
-  ownerId: string
+  ownerId: string,
+  options?: {
+    now: number;
+    cooldownMs: number;
+    originCooldownUntil: Map<string, number>;
+  }
 ): Array<Set<string>> => {
   const checkedOrigins = new Set<string>();
   const results: Array<Set<string>> = [];
@@ -76,12 +102,17 @@ export const findEnclosedRegionsAdjacentTo = (
     const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
     const key = simulationTileKey(nx, ny);
     if (checkedOrigins.has(key)) continue;
+    if (options && (options.originCooldownUntil.get(key) ?? 0) > options.now) {
+      checkedOrigins.add(key);
+      continue;
+    }
     const region = findEnclosedRegion(key, tiles, ownerId);
     if (region) {
       for (const k of region) checkedOrigins.add(k);
       results.push(region);
     } else {
       checkedOrigins.add(key);
+      options?.originCooldownUntil.set(key, options.now + options.cooldownMs);
     }
   }
   return results;
@@ -110,9 +141,14 @@ export const applyAutoFill = (input: {
   replaceTileState: (key: string, tile: DomainTileState) => void;
   onAutoFillTiles?: ((count: number) => void) | undefined;
   recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
+  scanCooldown?: {
+    now: number;
+    cooldownMs: number;
+    originCooldownUntil: Map<string, number>;
+  };
 }): DomainTileState[] => {
-  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors } = input;
-  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId);
+  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
+  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, scanCooldown);
   const settled: DomainTileState[] = [];
   const settledKeys: string[] = [];
   for (const region of regions) {
