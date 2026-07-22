@@ -17,6 +17,11 @@ import {
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import {
+  addSettledTileToConnectivity,
+  markTownConnectivityDirty,
+  type TownConnectivityState
+} from "./economy-network/town-connectivity-incremental.js";
+import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation/territory-automation.js";
@@ -236,21 +241,36 @@ export const refreshRuntimeTileIndexesForChange = (input: {
  * (O(1) add/subtract) instead of invalidated.
  */
 export const refreshEconomyCachesForTileChange = (input: {
+  tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
   players: ReadonlyMap<string, RuntimePlayer>;
   economySnapshotCacheByPlayer: Map<string, PlayerUpdateEconomySnapshot>;
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
+  townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
 }): void => {
-  const { previous, next, players } = input;
+  const { tileKey, previous, next, players } = input;
+  // Was this tile a tracked connectivity node (owned+SETTLED+LAND) for its
+  // owner before/after this mutation? Union-find growth (addSettledTileToConnectivity)
+  // is cheap and safe; removal isn't, so any transition OUT of "tracked for
+  // this owner" just marks that owner's structure dirty for a full rebuild
+  // on next read (see town-connectivity-incremental.ts).
+  const wasTracked = Boolean(previous?.ownerId && previous.ownershipState === "SETTLED" && previous.terrain === "LAND");
+  const isTracked = Boolean(next.ownerId && next.ownershipState === "SETTLED" && next.terrain === "LAND");
+  const sameTrackedOwner = wasTracked && isTracked && previous!.ownerId === next.ownerId;
+
   if (previous?.ownerId) {
     if (previous.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
       input.townNetworkCacheByPlayer.delete(previous.ownerId);
+    }
+    if (wasTracked && !sameTrackedOwner) {
+      const prevState = input.townConnectivityStateByPlayer.get(previous.ownerId);
+      if (prevState) markTownConnectivityDirty(prevState);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
@@ -262,6 +282,10 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.economySnapshotCacheByPlayer.delete(next.ownerId);
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
       input.townNetworkCacheByPlayer.delete(next.ownerId);
+    }
+    if (isTracked && !sameTrackedOwner) {
+      const nextState = input.townConnectivityStateByPlayer.get(next.ownerId);
+      if (nextState) addSettledTileToConnectivity(nextState, tileKey);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);

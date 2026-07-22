@@ -9,6 +9,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared"
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import {
+  groupTownKeysByConnectivity,
+  rebuildTownConnectivityFully,
+  type TownConnectivityState
+} from "./town-connectivity-incremental.js";
 
 export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods">;
 
@@ -83,6 +88,11 @@ export type DockEconomyContext = {
 
 export type ConnectedTownNetworkOptions = {
   maxConnectedTownNames?: number;
+  // When supplied and fresh, replaces the direct-adjacency + corridor-BFS
+  // steps with O(towns) union-find lookups (see town-connectivity-incremental.ts).
+  // Callers that don't maintain one (or existing callers/tests that predate
+  // this option) keep the original from-scratch BFS behavior unchanged.
+  incrementalState?: TownConnectivityState;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -152,6 +162,55 @@ export const buildConnectedTownNetworkForPlayer = (
     const tile = tiles.get(townKey);
     return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
   };
+
+  // Incremental fast path: when the caller maintains a TownConnectivityState
+  // (runtime.ts does, per-player) and it's still fresh, replace the
+  // direct-adjacency + corridor-BFS steps below with O(towns) union-find
+  // lookups. The union-find is kept in sync incrementally on tile-settle
+  // growth (addSettledTileToConnectivity, called from
+  // refreshEconomyCachesForTileChange) and only forces a full O(settled
+  // tiles) rebuild here after a loss-type mutation marked it dirty — growth
+  // is the dominant mutation over a game's lifetime, so this turns "full
+  // rebuild every cache-miss" into "full rebuild only after a loss event".
+  if (options.incrementalState) {
+    const state = options.incrementalState;
+    if (state.dirty) {
+      rebuildTownConnectivityFully(state, [...ownedTownKeys, ...nonTownSettledKeys]);
+    }
+    const groups = groupTownKeysByConnectivity(state, ownedTownKeys);
+    const out = new Map<string, ConnectedTownNetworkEntry>();
+    for (const members of groups.values()) {
+      if (members.length <= 1) {
+        for (const townKey of members) {
+          out.set(townKey, { connectedTownCount: 0, connectedTownBonus: connectedTownBonusForPlayer(0, player) });
+        }
+        continue;
+      }
+      const sortedMembers = [...members].sort((l, r) => l.localeCompare(r));
+      const groupClearingHouseKeys = sortedMembers.filter(hasClearingHouseAt);
+      const connectedTownCount = sortedMembers.length - 1;
+      for (const townKey of sortedMembers) {
+        const otherMembers = sortedMembers.filter((k) => k !== townKey);
+        const connectedTownNames =
+          connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
+            ? otherMembers
+                .map((k) => tiles.get(k)?.town?.name)
+                .filter((n): n is string => typeof n === "string" && n.length > 0)
+                .sort((l, r) => l.localeCompare(r))
+            : [];
+        const townClearingHouseKeys = groupClearingHouseKeys.includes(townKey)
+          ? groupClearingHouseKeys.filter((k) => k !== townKey)
+          : groupClearingHouseKeys;
+        out.set(townKey, {
+          connectedTownCount,
+          connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
+          ...(townClearingHouseKeys.length ? { connectedClearingHouseKeys: townClearingHouseKeys } : {}),
+          ...(connectedTownNames.length ? { connectedTownNames } : {})
+        });
+      }
+    }
+    return out;
+  }
 
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
   // These are connected regardless of the corridor graph. O(towns) — each
