@@ -184,35 +184,31 @@ export const buildEconomicHegemonyObjective = (
   return objective;
 };
 
-// Live self-progress label for Economic Hegemony, derived the same way as
-// buildEconomicHegemonyObjective — no tile scan, always matches the leaderboard.
-export const economicHegemonySelfProgressLabel = (
-  leaderboardOverall: LeaderboardOverallEntry[],
-  playerId: string
-): string | undefined => {
-  const entry = leaderboardOverall.find((e) => e.id === playerId);
-  return entry ? `${entry.incomePerMinute.toFixed(1)} gold/m` : undefined;
-};
+// Formats a live self-progress label for Economic Hegemony from a player's own
+// incomePerMinute — same "N.N gold/m" format as buildEconomicHegemonyObjective's
+// progressLabel, so the two always agree.
+export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
+  `${incomePerMinute.toFixed(1)} gold/m`;
 
-// Refreshes the ECONOMIC_HEGEMONY entry of an otherwise-cached seasonVictory array
-// with the live objective, and refreshes/overrides that one player's self-progress
-// label to match — called every global-status broadcast tick so the leaderboard's
-// "Overall" income and the Economic Hegemony pressure card never disagree for the
-// same player (see performGlobalStatusBroadcast in simulation-service.ts).
+// Refreshes the ECONOMIC_HEGEMONY entry of an otherwise-cached seasonVictory array with
+// the already-computed live objective, and refreshes/overrides that one player's
+// self-progress label to match. Callers must compute `liveEconomicHegemony` via
+// buildEconomicHegemonyObjective() ONCE per broadcast tick (it sorts the leaderboard) and
+// pass the same instance in for every subscribed player — do not call it per player here.
+// See performGlobalStatusBroadcast in simulation-service.ts.
 export const seasonVictoryForBroadcast = (
   cachedObjectives: SeasonVictoryObjectiveSnapshot[],
   cachedSelfProgressLabels: Map<SeasonVictoryPathId, string> | undefined,
-  leaderboardOverall: LeaderboardOverallEntry[],
-  playerId: string
+  liveEconomicHegemony: SeasonVictoryObjectiveSnapshot,
+  playerId: string,
+  playerIncomePerMinute: number | undefined
 ): SeasonVictoryObjectiveSnapshot[] => {
-  const liveEconomicHegemony = buildEconomicHegemonyObjective(leaderboardOverall);
   const objectives = cachedObjectives.map((objective) =>
     objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
   );
-  const liveSelfLabel = economicHegemonySelfProgressLabel(leaderboardOverall, playerId);
   const selfProgressLabels =
-    liveEconomicHegemony.leaderPlayerId !== playerId && liveSelfLabel
-      ? new Map(cachedSelfProgressLabels).set("ECONOMIC_HEGEMONY", liveSelfLabel)
+    liveEconomicHegemony.leaderPlayerId !== playerId && typeof playerIncomePerMinute === "number"
+      ? new Map(cachedSelfProgressLabels).set("ECONOMIC_HEGEMONY", economicHegemonySelfProgressLabel(playerIncomePerMinute))
       : cachedSelfProgressLabels;
   return mergeSelfProgress(objectives, selfProgressLabels);
 };
