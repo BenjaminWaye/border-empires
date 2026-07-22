@@ -109,19 +109,43 @@ export const buildConnectedTownNetworkForPlayer = (
 ): Map<string, ConnectedTownNetworkEntry> => {
   const maxConnectedTownNames = Math.max(0, options.maxConnectedTownNames ?? Number.POSITIVE_INFINITY);
 
-  // Partition settled land into town tiles and non-town tiles (corridor tiles).
-  // Town tiles act as both barriers and connection endpoints; non-town tiles
-  // form the land corridors connecting towns.
+  // Partition settled land into (TOWN-tier-or-higher) town tiles and
+  // everything else — non-town settled tiles AND settlement-tier towns are
+  // both "corridor" tiles here. SETTLEMENT-tier towns never use
+  // connectedTownBonus themselves (player-update-economy.ts's isSettlement
+  // early-return skips straight past it to a flat rate), so they stop being
+  // barrier/endpoint nodes and stop counting toward any OTHER town's
+  // connectedTownCount either — confirmed as the intended semantics (not a
+  // performance-only assumption) before making this change. Town tiles act
+  // as both barriers and connection endpoints; non-town tiles (now including
+  // settlements) form the land corridors connecting real towns.
   const ownedTownKeys = new Set<string>();
   const nonTownSettledKeys = new Set<string>();
   for (const tile of playerSettledTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     const k = keyFor(tile.x, tile.y);
-    if (tile.town) {
+    if (tile.town && tile.town.populationTier !== "SETTLEMENT") {
       ownedTownKeys.add(k);
     } else {
       nonTownSettledKeys.add(k);
     }
+  }
+
+  // With 0 or 1 TOWN-tier-or-higher towns, connectedTownCount is mathematically
+  // guaranteed to be 0 for all of them (there's nobody else to connect to) —
+  // skip the corridor BFS + grouping entirely rather than pay for a result we
+  // already know. This was the dominant cost in the live-captured
+  // event_loop_blocked incidents (2026-07-22): town_network_rebuild /
+  // tile_yield_economy_context_rebuild stacking across many players on every
+  // login/subscribe. The partition pass above is still O(settled tiles) —
+  // unavoidable without incremental maintenance — but it's far cheaper than
+  // the BFS + group-construction work this skips.
+  if (ownedTownKeys.size <= 1) {
+    const out = new Map<string, ConnectedTownNetworkEntry>();
+    for (const townKey of ownedTownKeys) {
+      out.set(townKey, { connectedTownCount: 0, connectedTownBonus: connectedTownBonusForPlayer(0, player) });
+    }
+    return out;
   }
 
   const hasClearingHouseAt = (townKey: string): boolean => {
@@ -287,6 +311,20 @@ export const enrichTownWithConnectedNetwork = (
   townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry> | undefined
 ): DomainTileState["town"] | undefined => {
   if (!tile.town) return undefined;
+  // SETTLEMENT-tier towns never get an entry in townNetwork (see
+  // buildConnectedTownNetworkForPlayer — they're corridor tiles, not graph
+  // nodes, since their connectedTownBonus is never read). Zero these fields
+  // explicitly rather than falling through to "return tile.town unchanged":
+  // a town that was TOWN-tier-or-higher with a real connectedTownCount and
+  // gets downgraded to SETTLEMENT (e.g. capture-aftermath tier reset) must
+  // not keep displaying its stale pre-downgrade value forever.
+  if (tile.town.populationTier === "SETTLEMENT") {
+    if (tile.town.connectedTownCount === 0 && tile.town.connectedTownBonus === 0 && !tile.town.connectedTownNames) {
+      return tile.town;
+    }
+    const { connectedTownNames: _drop, ...rest } = tile.town;
+    return { ...rest, connectedTownCount: 0, connectedTownBonus: 0 };
+  }
   const entry = townNetwork?.get(keyFor(tile.x, tile.y));
   if (!entry) return tile.town;
   return {

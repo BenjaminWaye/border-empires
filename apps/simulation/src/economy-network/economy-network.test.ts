@@ -22,6 +22,19 @@ const townTile = (x: number, y: number, name: string): DomainTileState => ({
   }
 });
 
+const settlementTile = (x: number, y: number, name: string): DomainTileState => ({
+  x,
+  y,
+  terrain: "LAND",
+  ownerId: "player-1",
+  ownershipState: "SETTLED",
+  town: {
+    name,
+    type: "FARMING",
+    populationTier: "SETTLEMENT"
+  }
+});
+
 describe("connected town network", () => {
   it("computes connected town counts by settled-land component", () => {
     const tiles = new Map<string, DomainTileState>(
@@ -99,6 +112,91 @@ describe("connected town network", () => {
     expect(network.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
     expect(network.get("2,0")).toMatchObject({ connectedTownCount: 2, connectedTownNames: ["Alpha", "Gamma"] });
     expect(network.get("4,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+  });
+
+  it("does not count SETTLEMENT-tier towns toward another town's connectedTownCount", () => {
+    // Two real towns each adjacent to a settlement, and to each other via a
+    // shared corridor tile. The settlements must not appear in either real
+    // town's connected count/names, and must not appear as entries themselves.
+    const landTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
+    });
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "Beta")],
+      ["0,1", settlementTile(0, 1, "Alpha's Hamlet")],
+      ["2,1", settlementTile(2, 1, "Beta's Hamlet")]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    expect(network.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(network.get("2,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Alpha"] });
+    expect(network.has("0,1")).toBe(false);
+    expect(network.has("2,1")).toBe(false);
+  });
+
+  it("lets a SETTLEMENT act as a pass-through corridor tile instead of a connectivity barrier", () => {
+    // Alpha — settlement — Beta, in a straight line. Before excluding
+    // settlements from the barrier/node set, the settlement tile would have
+    // blocked this path (BFS stops at town tiles); now it's just corridor.
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", settlementTile(1, 0, "Waystation")],
+      ["2,0", townTile(2, 0, "Beta")]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    expect(network.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(network.get("2,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Alpha"] });
+    expect(network.has("1,0")).toBe(false);
+  });
+
+  it("short-circuits with a zeroed entry when the player has 0 or 1 TOWN-tier-or-higher towns, ignoring settlements", () => {
+    // One real town plus several settlements: settlements can never push a
+    // real town's count above 0 here (there's no OTHER real town to connect
+    // to), so this must take the short-circuit path and return a plain
+    // zeroed entry rather than running the corridor BFS.
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", settlementTile(1, 0, "Hamlet A")],
+      ["2,0", settlementTile(2, 0, "Hamlet B")],
+      ["3,0", settlementTile(3, 0, "Hamlet C")]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    expect(network.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(network.size).toBe(1);
+  });
+
+  it("short-circuits to an empty map when the player has zero TOWN-tier-or-higher towns", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", settlementTile(0, 0, "Hamlet A")],
+      ["1,0", settlementTile(1, 0, "Hamlet B")]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    expect(network.size).toBe(0);
   });
 
   it("connects multiple towns through a shared corridor component to a shared group descriptor", () => {
