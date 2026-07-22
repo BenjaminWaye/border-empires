@@ -605,6 +605,7 @@ export type TileActionDef = {
     | "build_astral_dock"
     | "build_governors_office"
     | "build_radar_system"
+    | "grow_settlement_to_town"
     | "grow_town_to_city"
     | "grow_city_to_great_city"
     | "grow_great_city_to_monumental_city"
