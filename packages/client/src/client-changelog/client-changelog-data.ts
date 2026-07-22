@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.4",
+  version: "2026.07.22.5",
   title: "What's New",
-  summary: "The low Empire Integrity warning no longer nags you on every login.",
+  summary: "Fixed the leaderboard's Economic Ascendancy card showing a stale gold/minute number.",
   entries: [
+    {
+      introducedIn: "2026.07.22.5",
+      title: "Fixed: Economic Ascendancy card showed a stale gold/minute figure",
+      why: "The leaderboard's \"Overall\" income column refreshed every tick, but the Economic Ascendancy victory-pressure card only refreshed every ~5 minutes, so the two could show different gold/minute numbers for the same empire until the next slow recompute caught up.",
+      changes: [
+        "The Economic Ascendancy card's leader value and your own gold/minute comparison now refresh every leaderboard tick, always matching the Overall column."
+      ]
+    },
     {
       introducedIn: "2026.07.22.4",
       title: "Empire Integrity warning now shows at most once every 30 days",
