@@ -61,6 +61,7 @@ export const initClientDom = () => {
   const authBusyModalEl = requireElement<HTMLDivElement>("#auth-busy-modal");
   const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
   const authBusyCopyEl = requireElement<HTMLParagraphElement>("#auth-busy-copy");
+  const authBusyDiagnosticsBtn = requireElement<HTMLButtonElement>("#auth-busy-diagnostics");
   const authEmailSentAddressEl = requireElement<HTMLSpanElement>("#auth-email-sent-address");
   const authEmailResetBtn = requireElement<HTMLButtonElement>("#auth-email-reset");
   const authProfileNameEl = requireElement<HTMLInputElement>("#auth-profile-name");
@@ -155,6 +156,7 @@ export const initClientDom = () => {
     authGoogleBtn,
     authLoginBtn,
     authBusyCopyEl,
+    authBusyDiagnosticsBtn,
     authBusyModalEl,
     authBusyTitleEl,
     authOverlayEl,

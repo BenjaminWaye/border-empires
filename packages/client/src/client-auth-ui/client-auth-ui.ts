@@ -1,4 +1,5 @@
 import type { User } from "firebase/auth";
+import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export const setAuthStatus = (
@@ -71,6 +72,7 @@ export const syncAuthOverlay = (
     authProfileSaveBtn: HTMLButtonElement;
     authBusyTitleEl: HTMLElement;
     authBusyCopyEl: HTMLElement;
+    authBusyDiagnosticsBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
     authDebugRouteEl: HTMLElement;
     wsUrl: string;
@@ -78,8 +80,18 @@ export const syncAuthOverlay = (
     setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   }
 ): void => {
-  const authBusyElapsedSec =
-    state.authBusy && state.authBusyStartedAt > 0 ? Math.max(0, Math.floor((Date.now() - state.authBusyStartedAt) / 1000)) : 0;
+  const authBusyElapsedMs = state.authBusy && state.authBusyStartedAt > 0 ? Math.max(0, Date.now() - state.authBusyStartedAt) : 0;
+  const authBusyElapsedSec = Math.floor(authBusyElapsedMs / 1000);
+  // Same reasoning as the post-connect map-loading overlay's soft-hint stage
+  // (client-map-loading-view.ts): a login stuck here past 8s is already
+  // abnormal, so offer a low-risk "grab diagnostics" affordance immediately
+  // rather than leaving the user staring at a spinner with no recourse.
+  // This overlay never had ANY escalation before — it's the first thing
+  // shown (during raw Firebase auth / initial LOGIN_PHASE), so unlike the
+  // map-loading overlay there's no later "action affordance" stage; this is
+  // the only chance to offer help before auth resolves or the user gives up.
+  deps.authBusyDiagnosticsBtn.style.display =
+    state.authBusy && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
   const resolvedWsUrl = state.bridgeDebugWsUrl || deps.wsUrl;
   let resolvedFlyApp = "non-fly";
   try {
