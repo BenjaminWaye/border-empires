@@ -2220,8 +2220,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     ? { title: "Syncing empire...", detail: `Building snapshot for a large empire (${Math.round(elapsedMs / 1000)}s)…` }
                     : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` }
             );
+            const liveSubscribeStartedAt = Date.now();
             try {
-              await retrySimulationRpc(
+              const subscribedSnapshot = await retrySimulationRpc(
                 "gateway live subscribe player",
                 () => playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
                 simulationSubscribeTimeoutMs,
@@ -2234,6 +2235,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   });
                 }
               );
+              // Every OTHER auth step in this handler (resolve_initial_state,
+              // build_init_message, send_init, ...) gets a recordGatewayAuthStepTiming
+              // slow-step warning log, but this one — the SubscribePlayer RPC that
+              // triggers the sim's per-player visible-state export — didn't. That
+              // export yields dozens of times for a large empire (see
+              // runtime-visible-state.ts) and is documented as having caused a
+              // "26s login regression" before (event-loop-yield.ts); a live incident
+              // reproducing that exact shape (25-29s stall, zero LOGIN_PHASE updates
+              // in between) had no server-side log trail once the ~9min Fly log
+              // buffer rolled past it. Log it like its siblings so the NEXT one does.
+              recordGatewayAuthStepTiming("live_subscribe", Date.now() - liveSubscribeStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: subscribedSnapshot?.tiles?.length ?? 0
+              });
               markSimulationReady();
               authTrace.endStep("live_subscribe");
               loginTracer.stage("live_subscribe_end");
