@@ -307,6 +307,88 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     expect(regions[0].size).toBe(1);
     expect(regions[1].size).toBe(1);
   });
+
+  it("scanCooldown: caches and skips re-scanning an origin that failed on the size cap", () => {
+    // Regression for the sim-event-loop spike caused by auto-fill going
+    // always-on (#1031): a lone player expanding into open unowned land re-pays
+    // the full O(AUTO_FILL_MAX_REGION_SIZE) BFS against the same open continent
+    // on every adjacent settle. A 25x25 (=625) open unowned block next to the
+    // captured tile overflows the size cap, so the origin is cached; a second
+    // scan inside the cooldown window is skipped without re-running the BFS.
+    // (A 2-D block, not a 1-D corridor: a corridor collapses across the toroidal
+    // seam back onto the captured tile before it can exceed the cap.)
+    const captured = ownedTile(10, 9, "player-1");
+    const tiles = new Map<string, DomainTileState>([[simulationTileKey(10, 9), captured]]);
+    for (let y = 10; y <= 34; y += 1) {
+      for (let x = 10; x <= 34; x += 1) tiles.set(simulationTileKey(x, y), landTile(x, y));
+    }
+    const originCooldownUntil = new Map<string, number>();
+
+    const first = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+      now: 1000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(first).toEqual([]);
+    // Origin (10,10) overflowed the size cap → cached until now + cooldownMs.
+    expect(originCooldownUntil.get(simulationTileKey(10, 10))).toBe(4000);
+
+    // Within the window the origin is skipped; past it, it is re-scanned (and
+    // re-cached), so the guard is a bounded delay, never a permanent skip.
+    const within = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+      now: 2000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(within).toEqual([]);
+    expect(originCooldownUntil.get(simulationTileKey(10, 10))).toBe(4000);
+
+    findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+      now: 4001,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(originCooldownUntil.get(simulationTileKey(10, 10))).toBe(7001);
+  });
+
+  it("scanCooldown: does NOT cache a leak failure, so a just-completed small enclosure seals immediately", () => {
+    // The correctness guard: a scan always runs against neighbours of a
+    // just-settled wall, and a new wall is exactly what completes a small
+    // enclosure. A pocket that leaks to an enemy tile must therefore stay
+    // eagerly re-scanned — never cached — so that the moment the leak is walled
+    // off (here, the enemy tile is captured by the player) the very next settle
+    // seals it with no cooldown delay.
+    const tile = ownedTile(2, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(2, 2), tile],
+      [simulationTileKey(1, 2), landTile(1, 2)],
+      // (1,2)'s other cardinal neighbours are player walls except (0,2), the leak.
+      [simulationTileKey(1, 1), ownedTile(1, 1, "player-1")],
+      [simulationTileKey(1, 3), ownedTile(1, 3, "player-1")],
+      [simulationTileKey(0, 2), ownedTile(0, 2, "enemy-1")]
+    ]);
+    const originCooldownUntil = new Map<string, number>();
+
+    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+      now: 1000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(first).toEqual([]);
+    // Leak failure — must NOT be cached.
+    expect(originCooldownUntil.has(simulationTileKey(1, 2))).toBe(false);
+
+    // The player captures the leaking enemy tile, completing the seal. The next
+    // settle (well inside the old cooldown window) must fill immediately.
+    tiles.set(simulationTileKey(0, 2), ownedTile(0, 2, "player-1"));
+    const afterSeal = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+      now: 1500,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(afterSeal.length).toBe(1);
+    expect(afterSeal[0]).toEqual(new Set([simulationTileKey(1, 2)]));
+  });
 });
 
 describe("applyAutoFill yield-anchor stamping", () => {
