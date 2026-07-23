@@ -24,7 +24,7 @@ running, and floated five hypotheses:
 | # | Hypothesis | Grounded finding |
 |---|---|---|
 | A | Bigger gains early | Tile yields are flat by resource type regardless of when claimed (`tile-yield-view.ts:50-66`: FARM 48 FOOD/day, FISH 72, IRON 60, WOOD/FUR 60 SUPPLY, GEMS 36 CRYSTAL). No mechanic scales value up or down with game age — the "feels bigger early" effect is ordinary diminishing marginal utility, not a designed curve. |
-| B | Cost is high **relative to what you have** early, trivial later | **Confirmed structurally.** `FRONTIER_CLAIM_COST = 1` gold and `SETTLE_COST = 4` gold are flat forever (`packages/shared/src/config.ts:15,18`) — your 5th tile costs the same as your 500th. Meanwhile gold income scales with town tier/network bonuses. `docs/gold-sinks-and-converters-2026-03.md` independently confirms this: *"Gold is not scarce enough once an empire reaches strong city income... a player at 170 gold/m produces 244,800 gold/day."* Since absolute cost never rises, its weight *relative to income* strictly decays — this is the real mechanism behind "no longer feels like a decision." |
+| B | Cost is high **relative to what you have** early, trivial later | **Confirmed structurally.** `FRONTIER_CLAIM_COST = 1` gold and `SETTLE_COST = 4` gold are flat forever (`packages/shared/src/config.ts:15,18`) — your 5th tile costs the same as your 500th. Meanwhile gold income scales with town tier/network bonuses. `docs/gold-sinks-and-converters-2026-03.md` makes the same directional point ("gold stops being the limiter"), but its supporting arithmetic is now stale — see §8 below — so cite the live structure costs, not that doc's numbers, when this needs a concrete figure. Since absolute claim/settle cost never rises while income grows, its weight *relative to income* strictly decays — this is the real mechanism behind "no longer feels like a decision." |
 | C | Optimization competes with expansion | **Confirmed and mechanical, not just psychological.** Settling a claimed tile and building/upgrading a structure draw from the *same* `DEVELOPMENT_PROCESS_LIMIT` queue (base 3, `config.ts:32`) via `activeDevelopmentProcessCount` (`player-runtime-summary.ts:274-289`). The tech tree already has four "+1 development slot" doctrines — `frontier-doctrine` (tier 1), `supply-state` (tier 3), `imperial-roads-domain` (tier 4), `imperial-expansion` (tier 5) (`packages/game-domain/data/domain-tree.json`) — so a fully-teched player can reach 7 slots, not 3. **The March gold-sinks doc's "hard cap of 3" framing is stale.** The live contention is real, but partially already mitigated by tech the player may not be prioritizing or may not understand is relevant to this exact tradeoff. |
 | D | Already have enough | **Confirmed, several distinct ceilings**: empire strategic-resource storage cap = `income × 12h` (`runtime-empire-storage.ts:14-33`), per-tile yield buffers (`TILE_YIELD_CAP_GOLD=24`, `TILE_YIELD_CAP_RESOURCE=6`), per-town population caps, gold not stored beyond town cap. Converter structures (Fur/Crystal Synthesizer, Ironworks + Advanced tiers) are intentionally weak (~30-40% of a real tile's output per `server-game-constants.ts:119-124`, matching `docs/gold-sinks-and-converters-2026-03.md`'s explicit design rule not to let "rich + safe + tall" beat "controls the map") — but at scale, many converters can still let a rich, landlocked empire approximate sufficiency without new land, just less gold-efficiently. |
 | E | Repetitive | **Confirmed.** The claim action is identical every time (pay 1 gold, wait 1.25s, or 4× on forest). Only 238 resource clusters exist (`CLUSTER_COUNT_MIN/MAX = 238`, `config.ts:113-114`), each 4-8 tiles, in a 450×450 = 202,500-tile world — the overwhelming majority of claimable land carries no resource payload at all. No dedicated "where to explore" suggestion system exists; the closest thing, the Domain Progress Card (`client-domain-progress-card.ts:18-23`), only ever prompts about shard caches for doctrine progress, not general expansion. |
@@ -86,7 +86,98 @@ Ranked by how directly each would attack the mid-game plateau (not just early mo
 4. For the OIL-demand idea (D): how rare are OIL tiles in current world gen relative to the other 5 resource kinds? (Not yet checked — `CLUSTER_COUNT` breakdown in `server-worldgen-clusters.ts` should confirm before assuming OIL can bear more demand without becoming a new hard-lockout resource.)
 5. For barbarian-tile surfacing (E): would highlighting "juicy" barb tiles make barbarian clearing feel more like directed hunting (good) or just funnel all players onto the same handful of visible targets (bad, contention)? Needs playtesting intuition, not just code-reading.
 
-## 7. Reference map (open these first)
+## 7. Revision — stronger structural levers found after user pushback
+
+The §5 ideas above (UI surfacing, minor discovery chances, highlighting barb
+tiles) were correctly called out as cosmetic — they don't change the actual
+payoff math causing C/D. Deeper digging found two things worth leading with
+instead:
+
+1. **`EMPIRE_INTEGRITY_ENABLED` is a disabled, already-built system that is
+   exactly the right shape of fix, but wired to a broken input.**
+   `empireIntegrity(T, E)` (`packages/shared/src/empire-integrity.ts:11`) is
+   a direct alias for `defensibilityScore(T, E)`
+   (`packages/shared/src/math/math.ts:45-51`) — the *same* global
+   compactness metric `docs/defense-consolidation-exploration.md` already
+   proved parks every realistically-shaped empire near ~50%, non-actionable.
+   That score feeds `integrityEconomyMult` (0.85–1.15×) and
+   `integrityGrowthMult` (0.9–1.1×) — a multiplier on the player's *entire*
+   economy and growth rate (`runtime.ts:1062-1068, 1562-1573`), currently
+   gated off by the feature flag. Unlike per-tile yield (flat, capped),
+   a whole-economy multiplier never "maxes out" — so fixing the input (swap
+   in the local-support model `defense-consolidation-exploration.md` §3.1
+   already scoped: base + per-neighbour support + garrison) and enabling the
+   flag ties continued good expansion/consolidation to a live, uncapped
+   payoff. Maps to **C** (building and expanding-well both feed the same
+   number instead of competing for the same queue slot) and **E** (shape
+   now matters per-claim, so claims stop being interchangeable). Its
+   connection to **D** is weaker than it sounds — a multiplier on output you
+   don't need doesn't create craving — don't oversell that link.
+2. **Scale `DEVELOPMENT_PROCESS_LIMIT` with settlement count directly**,
+   instead of only via the four sequential, one-at-a-time-research doctrines.
+   Today more towns don't buy more concurrent build/settle throughput at
+   all — settling and building fight over the same fixed pool. If slot count
+   scaled with towns owned, settling would be *how you earn* more capacity to
+   build, aligning the two loops instead of pitting them against each other.
+   Directly targets **C**.
+3. **Loosen the explicit anti-growth tapers**: `connectedTownBonusForPlayer`
+   hard-caps at exactly 3 connected towns, giving **zero** additional bonus
+   from a 4th+ (`economy-network.ts:105-116`, steps `[0.5, 0.4, 0.3]`,
+   `connectedTownStepCount` clamps at `Math.min(3, connectedTownCount)`).
+   `manpowerRegenWeightForSettlementIndex` discounts your 6th–15th settlement
+   to 0.5× and your 16th+ to 0.2× (`config.ts:62-66`). These are literally
+   coded-in "stop rewarding more towns" rules, not emergent diminishing
+   returns — a direct, mechanical cause of **D**, not just a perception.
+   Loosening them was presumably guarded against snowballing; if idea 1's
+   Integrity multiplier ships with its own bounded 0.85–1.15 range, these
+   older per-count caps may be redundant and safe to relax.
+4. **Let surplus gold rush-buy a pending claim/settle** (pay gold to skip the
+   1.25s/60s wait). Directly converts the documented "gold stops being the
+   limiter" symptom (**D**) into fuel for faster expansion instead of an
+   unrelated pile of unspendable surplus.
+
+A manpower cost on `SETTLE` (the beta tester's own suggested fix, echoing
+open question 1 in §6) was reconsidered and set aside as a *standalone* fix:
+it adds friction to an activity players are already reluctant to do, without
+giving them a new reason to want to — it would likely suppress expansion
+further rather than restore motivation. It's a reasonable secondary tuning
+knob once ideas 1–2 make expansion worth doing again (to keep decisions
+weighty, i.e. **B**), but shouldn't lead.
+
+## 8. Verification log — check before citing
+
+Numbers below were checked directly against source after being cited
+secondhand (from a subagent transcript or from another doc) turned out
+wrong. Keep this pattern in mind: **verify tile-yield/cost/formula claims
+against the actual file before repeating them**, even when they come from
+another doc in this repo — this repo's own docs are not guaranteed current.
+
+- `docs/gold-sinks-and-converters-2026-03.md` states Farmstead=400 gold,
+  Market=600, Bank=700. **Live code** (`structure-costs.ts:37,41,45`) has
+  Farmstead=**700**, Market=**2,200**, Bank=**3,200** — 2–3× higher. That
+  doc's "612 farmsteads/day" throughput arithmetic is stale (current cost
+  implies ~349/day at the same income). The directional conclusion (gold
+  outpaces spend capacity) likely still holds; the specific figures don't.
+- Same doc states "1 FARM = 72 FOOD/day, 1 FISH = 48 FOOD/day." **Live code**
+  (`tile-yield-view.ts:52-55`) has base FARM = **48**/day, base FISH =
+  **72**/day — the reverse. The doc's 72 for FARM appears to be a farm *with
+  an active Farmstead* (48 + 24 bonus, per the code's own comment at
+  `tile-yield-view.ts:256`) without being labeled as such; its 48 for FISH
+  doesn't correspond to anything, since FISH gets no Farmstead bonus at all
+  (`tile-yield-view.ts:84`, "FISH gets nothing"). Use `tile-yield-view.ts`
+  directly, not that doc, for yield figures.
+- Confirmed accurate on direct read (safe to cite): `FRONTIER_CLAIM_COST=1`,
+  `SETTLE_COST=4`, `FRONTIER_CLAIM_MS=1250`, `SETTLE_MS=60000`,
+  `DEVELOPMENT_PROCESS_LIMIT=3`, `SEASON_LENGTH_DAYS=30`,
+  `CLUSTER_COUNT_MIN/MAX=238`; empire storage cap formula
+  (`runtime-empire-storage.ts:14-33` — note fish-derived food is excluded
+  from the food cap's basis, since it's treated as perishable and doesn't
+  extend the cap); the four `developmentProcessCapacityAdd` doctrines in
+  `domain-tree.json`; converter output constants in
+  `server-game-constants.ts:119-124` (do match the March doc's design intent
+  here, ~30-40% of a real tile).
+
+## 9. Reference map (open these first)
 
 - `packages/shared/src/config.ts` — `FRONTIER_CLAIM_COST`, `SETTLE_COST`, `DEVELOPMENT_PROCESS_LIMIT`, `CLUSTER_COUNT_*`, `SEASON_LENGTH_DAYS`, manpower tables.
 - `packages/shared/src/structure-costs/structure-costs.ts` — existing scaling patterns (doubling/incremental) to reuse or reference for B.
