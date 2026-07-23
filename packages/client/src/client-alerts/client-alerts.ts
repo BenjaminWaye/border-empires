@@ -2,9 +2,10 @@ import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
-import type { FeedEntry, FeedSeverity, FeedType, Tile } from "../client-types.js";
+import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
 type FeedMutableState = Pick<ClientState, "feed"> &
   Partial<Pick<ClientState, "activePanel" | "mobilePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
@@ -70,6 +71,61 @@ export const hideShardAlert = (
   if (state.shardAlert) state.dismissedShardAlertKeys.add(state.shardAlert.key);
   state.shardAlert = undefined;
   state.shardRainFxUntil = 0;
+};
+
+// Recomputes the season-victory hold alert whenever seasonVictory data
+// arrives from the server (see client-network.ts call sites). Re-collapses
+// automatically for objectives/leaders already acknowledged this session,
+// but never fully clears the alert while a hold is active — this is meant to
+// stay acutely visible, unlike the dismiss-and-forget shardAlert toast.
+export const updateVictoryHoldAlert = (
+  state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
+  seasonVictory: SeasonVictoryObjectiveView[],
+  selfPlayerId: string | undefined
+): void => {
+  const next = victoryHoldAlertFor(seasonVictory, selfPlayerId);
+  if (!next) {
+    state.victoryHoldAlert = undefined;
+    state.victoryHoldAlertCollapsed = false;
+    return;
+  }
+  state.victoryHoldAlert = next;
+  state.victoryHoldAlertCollapsed = state.acknowledgedVictoryHoldAlertKeys.has(next.key);
+};
+
+export const acknowledgeVictoryHoldAlert = (
+  state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">
+): void => {
+  if (state.victoryHoldAlert) state.acknowledgedVictoryHoldAlertKeys.add(state.victoryHoldAlert.key);
+  state.victoryHoldAlertCollapsed = true;
+};
+
+// Applies a leaderboard/season-victory payload and refreshes the hold alert
+// in one call — used by every client-network.ts handler that receives
+// seasonVictory + seasonWinner together, so those call sites don't need a
+// separate updateVictoryHoldAlert line each.
+export const applySeasonVictorySnapshot = (
+  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
+  seasonVictory: SeasonVictoryObjectiveView[] | undefined,
+  seasonWinner: ClientState["seasonWinner"] | undefined,
+  selfPlayerId: string | undefined
+): void => {
+  if (seasonVictory) state.seasonVictory = seasonVictory;
+  if (seasonWinner) state.seasonWinner = seasonWinner;
+  updateVictoryHoldAlert(state, state.seasonVictory, selfPlayerId);
+};
+
+// The season is decided (or about to roll over) — the hold-timer alert no longer applies.
+export const clearVictoryHoldAlert = (state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed">): void => {
+  state.victoryHoldAlert = undefined;
+  state.victoryHoldAlertCollapsed = false;
+};
+
+export const resetVictoryHoldAlertForNewSeason = (
+  state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">
+): void => {
+  clearVictoryHoldAlert(state);
+  state.acknowledgedVictoryHoldAlertKeys.clear();
 };
 
 export const showCaptureAlert = (

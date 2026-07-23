@@ -9,6 +9,12 @@ import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared"
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import {
+  findConnectivityRoot,
+  isCorridorTileForPlayer,
+  isTownNodeTileForPlayer,
+  type TownConnectivityState
+} from "./town-connectivity-incremental.js";
 
 export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods">;
 
@@ -83,6 +89,15 @@ export type DockEconomyContext = {
 
 export type ConnectedTownNetworkOptions = {
   maxConnectedTownNames?: number;
+  // When supplied, replaces the corridor-component BFS with O(towns × 8)
+  // union-find root lookups (see town-connectivity-incremental.ts). Callers
+  // that don't maintain one keep the from-scratch BFS, and both paths produce
+  // identical group descriptors and output.
+  //
+  // REQUIREMENT: a caller passing this MUST also pass a `playerSettledTiles`
+  // covering every tile the player owns. A partial set would be recorded as a
+  // clean union-find and silently under-report connectivity on later reads.
+  incrementalState?: TownConnectivityState;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -109,19 +124,43 @@ export const buildConnectedTownNetworkForPlayer = (
 ): Map<string, ConnectedTownNetworkEntry> => {
   const maxConnectedTownNames = Math.max(0, options.maxConnectedTownNames ?? Number.POSITIVE_INFINITY);
 
-  // Partition settled land into town tiles and non-town tiles (corridor tiles).
-  // Town tiles act as both barriers and connection endpoints; non-town tiles
-  // form the land corridors connecting towns.
+  // Partition settled land into (TOWN-tier-or-higher) town tiles and
+  // everything else — non-town settled tiles AND settlement-tier towns are
+  // both "corridor" tiles here. SETTLEMENT-tier towns never use
+  // connectedTownBonus themselves (player-update-economy.ts's isSettlement
+  // early-return skips straight past it to a flat rate), so they stop being
+  // barrier/endpoint nodes and stop counting toward any OTHER town's
+  // connectedTownCount either — confirmed as the intended semantics (not a
+  // performance-only assumption) before making this change. Town tiles act
+  // as both barriers and connection endpoints; non-town tiles (now including
+  // settlements) form the land corridors connecting real towns.
   const ownedTownKeys = new Set<string>();
   const nonTownSettledKeys = new Set<string>();
   for (const tile of playerSettledTiles) {
-    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-    const k = keyFor(tile.x, tile.y);
-    if (tile.town) {
-      ownedTownKeys.add(k);
-    } else {
-      nonTownSettledKeys.add(k);
+    // Shared predicates with the incremental maintenance path — see
+    // isCorridorTileForPlayer for why these must not be re-derived inline.
+    if (isTownNodeTileForPlayer(tile, player.id)) {
+      ownedTownKeys.add(keyFor(tile.x, tile.y));
+    } else if (isCorridorTileForPlayer(tile, player.id)) {
+      nonTownSettledKeys.add(keyFor(tile.x, tile.y));
     }
+  }
+
+  // With 0 or 1 TOWN-tier-or-higher towns, connectedTownCount is mathematically
+  // guaranteed to be 0 for all of them (there's nobody else to connect to) —
+  // skip the corridor BFS + grouping entirely rather than pay for a result we
+  // already know. This was the dominant cost in the live-captured
+  // event_loop_blocked incidents (2026-07-22): town_network_rebuild /
+  // tile_yield_economy_context_rebuild stacking across many players on every
+  // login/subscribe. The partition pass above is still O(settled tiles) —
+  // unavoidable without incremental maintenance — but it's far cheaper than
+  // the BFS + group-construction work this skips.
+  if (ownedTownKeys.size <= 1) {
+    const out = new Map<string, ConnectedTownNetworkEntry>();
+    for (const townKey of ownedTownKeys) {
+      out.set(townKey, { connectedTownCount: 0, connectedTownBonus: connectedTownBonusForPlayer(0, player) });
+    }
+    return out;
   }
 
   const hasClearingHouseAt = (townKey: string): boolean => {
@@ -164,41 +203,13 @@ export const buildConnectedTownNetworkForPlayer = (
   // downstream consumer for every connected town (which was a second,
   // separate O(K^2) cost layered on top, in player-update-economy.ts /
   // live-town-summary.ts).
-  const visited = new Set<string>();
-  const queue: string[] = [];
   const groupsByTown = new Map<string, TownConnectivityGroup[]>();
 
-  for (const startKey of nonTownSettledKeys) {
-    if (visited.has(startKey)) continue;
-
-    visited.add(startKey);
-    queue.length = 0;
-    queue.push(startKey);
-    let readIndex = 0;
-    const adjacentTownKeys = new Set<string>();
-
-    while (readIndex < queue.length) {
-      const current = queue[readIndex++]!;
-      const [rawX, rawY] = current.split(",");
-      const cx = Number(rawX), cy = Number(rawY);
-      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          if (dx === 0 && dy === 0) continue;
-          const nextKey = keyFor(cx + dx, cy + dy);
-          if (ownedTownKeys.has(nextKey)) {
-            adjacentTownKeys.add(nextKey);
-            continue;
-          }
-          if (!nonTownSettledKeys.has(nextKey) || visited.has(nextKey)) continue;
-          visited.add(nextKey);
-          queue.push(nextKey);
-        }
-      }
-    }
-
-    if (adjacentTownKeys.size === 0) continue;
+  // Shared by both the BFS and incremental grouping paths below, so they can
+  // only ever differ in HOW corridor components are identified — never in the
+  // group descriptors they produce or the output built from them.
+  const registerGroup = (adjacentTownKeys: ReadonlySet<string>): void => {
+    if (adjacentTownKeys.size === 0) return;
     const members = [...adjacentTownKeys].sort((l, r) => l.localeCompare(r));
     const group: TownConnectivityGroup = {
       members,
@@ -211,6 +222,113 @@ export const buildConnectedTownNetworkForPlayer = (
         groupsByTown.set(townKey, list);
       }
       list.push(group);
+    }
+  };
+
+  // The BFS is needed when there's no incremental state at all, or when a
+  // shrink-type mutation invalidated it. Otherwise corridor components are
+  // read straight off the union-find.
+  const incrementalState = options.incrementalState;
+
+  if (incrementalState && !incrementalState.dirty) {
+    // Step 2 (incremental): the caller maintains a union-find over this
+    // player's corridor tiles (see town-connectivity-incremental.ts), kept in
+    // sync on tile mutations by maintainTownConnectivityForTileChange.
+    // Corridor components are read off in O(towns × 8) — one root lookup per
+    // town neighborhood — skipping the O(corridor tiles) BFS entirely.
+    const state = incrementalState;
+    const townKeysByCorridorRoot = new Map<string, Set<string>>();
+    for (const townKey of ownedTownKeys) {
+      const [rawX, rawY] = townKey.split(",");
+      const cx = Number(rawX), cy = Number(rawY);
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const neighborKey = keyFor(cx + dx, cy + dy);
+          // Verified against the live corridor set, not just the union-find,
+          // so stale parent-map entries can never inject a phantom corridor.
+          if (!nonTownSettledKeys.has(neighborKey)) continue;
+          const root = findConnectivityRoot(state, neighborKey);
+          let townKeysForRoot = townKeysByCorridorRoot.get(root);
+          if (!townKeysForRoot) {
+            townKeysForRoot = new Set<string>();
+            townKeysByCorridorRoot.set(root, townKeysForRoot);
+          }
+          townKeysForRoot.add(townKey);
+        }
+      }
+    }
+    for (const adjacentTownKeys of townKeysByCorridorRoot.values()) registerGroup(adjacentTownKeys);
+  } else {
+    // Step 2 (from scratch): single BFS pass over connected components of
+    // non-town settled tiles — O(N) total. Every town 8-adjacent to any tile
+    // in a component is connected to every other such town through that
+    // corridor. The previous implementation materialized this as O(K^2)
+    // explicit pairs per component (a real 3+ second event-loop block was
+    // traced to this on a large contiguous empire — see runtime.ts comment at
+    // the tileYieldEconomyContextForPlayer call site). Instead, every town
+    // touching a component gets a REFERENCE to one shared group descriptor
+    // (built once, O(component's town count)), and each group's Clearing House
+    // membership is precomputed once per group rather than re-scanned by every
+    // downstream consumer for every connected town (which was a second,
+    // separate O(K^2) cost layered on top, in player-update-economy.ts /
+    // live-town-summary.ts).
+    const visited = new Set<string>();
+    const queue: string[] = [];
+
+    // When an incremental state exists but was dirty, rebuild it from THIS
+    // traversal rather than paying a second independent O(corridor tiles ×
+    // 8-neighbor) pass: the BFS already discovers exactly the components the
+    // union-find represents, so seeding is just one parent write per tile.
+    // (Measured: a separate rebuild made the dirty path ~9% slower than the
+    // plain BFS; seeding keeps it at parity.)
+    const stateToSeed = incrementalState;
+    if (stateToSeed) {
+      stateToSeed.parent.clear();
+      stateToSeed.dirty = false;
+    }
+
+    for (const startKey of nonTownSettledKeys) {
+      if (visited.has(startKey)) continue;
+
+      visited.add(startKey);
+      queue.length = 0;
+      queue.push(startKey);
+      let readIndex = 0;
+      const adjacentTownKeys = new Set<string>();
+
+      while (readIndex < queue.length) {
+        const current = queue[readIndex++]!;
+        const [rawX, rawY] = current.split(",");
+        const cx = Number(rawX), cy = Number(rawY);
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            if (dx === 0 && dy === 0) continue;
+            const nextKey = keyFor(cx + dx, cy + dy);
+            if (ownedTownKeys.has(nextKey)) {
+              adjacentTownKeys.add(nextKey);
+              continue;
+            }
+            if (!nonTownSettledKeys.has(nextKey) || visited.has(nextKey)) continue;
+            visited.add(nextKey);
+            queue.push(nextKey);
+          }
+        }
+      }
+
+      // `queue` holds exactly this component's corridor tiles, so all of them
+      // share one root. Done before registerGroup's early-return so that
+      // town-less components are recorded too — they still have to be
+      // unionable when a future tile settles next to them.
+      if (stateToSeed) {
+        const root = queue[0]!;
+        for (const componentKey of queue) stateToSeed.parent.set(componentKey, root);
+      }
+
+      registerGroup(adjacentTownKeys);
     }
   }
 
@@ -258,7 +376,14 @@ export const buildConnectedTownNetworkForPlayer = (
       for (const group of groups ?? []) {
         for (const key of group.clearingHouseKeys) if (key !== townKey) clearingHouseSet.add(key);
       }
-      clearingHouseKeys = [...clearingHouseSet];
+      // Sorted for determinism: this set accumulates across `groups`, whose
+      // discovery order differs between the BFS and incremental grouping
+      // paths (and is Set-iteration-order dependent in general). The
+      // single-group fast path above is already sorted (group.members is),
+      // so sorting here makes every entry's ordering stable — otherwise
+      // equivalent worlds could emit different tile-delta JSON and churn
+      // client state for no reason.
+      clearingHouseKeys = [...clearingHouseSet].sort((l, r) => l.localeCompare(r));
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? [...unionSet].sort((l, r) => l.localeCompare(r))
@@ -287,6 +412,20 @@ export const enrichTownWithConnectedNetwork = (
   townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry> | undefined
 ): DomainTileState["town"] | undefined => {
   if (!tile.town) return undefined;
+  // SETTLEMENT-tier towns never get an entry in townNetwork (see
+  // buildConnectedTownNetworkForPlayer — they're corridor tiles, not graph
+  // nodes, since their connectedTownBonus is never read). Zero these fields
+  // explicitly rather than falling through to "return tile.town unchanged":
+  // a town that was TOWN-tier-or-higher with a real connectedTownCount and
+  // gets downgraded to SETTLEMENT (e.g. capture-aftermath tier reset) must
+  // not keep displaying its stale pre-downgrade value forever.
+  if (tile.town.populationTier === "SETTLEMENT") {
+    if (tile.town.connectedTownCount === 0 && tile.town.connectedTownBonus === 0 && !tile.town.connectedTownNames) {
+      return tile.town;
+    }
+    const { connectedTownNames: _drop, ...rest } = tile.town;
+    return { ...rest, connectedTownCount: 0, connectedTownBonus: 0 };
+  }
   const entry = townNetwork?.get(keyFor(tile.x, tile.y));
   if (!entry) return tile.town;
   return {

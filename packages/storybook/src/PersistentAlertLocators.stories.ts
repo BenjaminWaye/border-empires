@@ -5,7 +5,6 @@ type Args = { width: number; height: number };
 const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void => {
   ctx.save();
   ctx.translate(x, y);
-  ctx.lineWidth = Math.max(1.5, size * 0.16);
   ctx.lineCap = "round";
   for (const flip of [1, -1]) {
     ctx.save();

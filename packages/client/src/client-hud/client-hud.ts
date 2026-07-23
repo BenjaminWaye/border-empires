@@ -8,6 +8,7 @@ import { revealEmpireStatsDossierHtml } from "../client-empire-intel/client-empi
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
+import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
@@ -28,6 +29,7 @@ import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtm
 import { updateSettingsDisplayName, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
+import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
 import type { StructureInfoKey } from "../client-map-display.js";
@@ -81,7 +83,7 @@ type HudDeps = {
   renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   tileMenuViewForTile: (tile: Tile) => TileMenuView;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void;
+  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   renderTechChoiceGrid: () => string;
   techDetailsUseOverlay: () => boolean;
   renderTechDetailPrompt: () => string;
@@ -168,7 +170,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderTileActionMenu,
     tileMenuViewForTile,
     renderCaptureProgress,
-    renderShardAlert,
+    renderShardAlert, renderVictoryHoldAlert,
     renderTechChoiceGrid,
     techDetailsUseOverlay,
     renderTechDetailPrompt,
@@ -288,7 +290,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
-  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed;
+  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed();
   const integrityWarningHtml = showIntegrityWarning
     ? `<div class="integrity-warning-tip" role="alert">
         <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
@@ -364,12 +366,11 @@ export const renderClientHud = (deps: HudDeps): void => {
         : '<span class="tab-icon">🔔</span>';
     }
   });
+  applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
   const coreMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='core']") as HTMLButtonElement | null;
   if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
   const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
   if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
-  const leaderboardMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='leaderboard']") as HTMLButtonElement | null;
-  if (leaderboardMobileBtn) leaderboardMobileBtn.innerHTML = mobileNavLabelHtml("leaderboard");
   const socialMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='social']") as HTMLButtonElement | null;
   if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
@@ -448,7 +449,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileCoreHelpEl.style.display = "none";
 
   safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
-  safeValue("renderShardAlert", undefined, () => renderShardAlert());
+  safeValue("renderShardAlert", undefined, () => renderShardAlert()); safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
   state.replayActive = false;
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();
@@ -868,14 +869,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const integrityWarningDismissButtons = dom.hud.querySelectorAll(
-    "[data-dismiss-integrity-warning]"
-  ) as NodeListOf<HTMLButtonElement>;
-  integrityWarningDismissButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      state.integrityWarningDismissed = true;
-      renderClientHud(deps);
-    };
+  wireIntegrityWarningDismissButtons(dom.hud, () => {
+    state.integrityWarningDismissed = true;
+    renderClientHud(deps);
   });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
