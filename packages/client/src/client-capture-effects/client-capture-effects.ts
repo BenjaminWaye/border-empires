@@ -1,6 +1,7 @@
 import { isForestTile } from "../client-constants.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
+import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -159,6 +160,42 @@ export const renderShardAlert = (
   deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
   deps.shardAlertDetailEl.textContent = shardRainAlertDetail(alert, nowMs);
   deps.shardAlertOverlayEl.style.display = "block";
+};
+
+// Renders the season-victory hold-timer alert in one of three states:
+// hidden (no hold active), expanded (full card, first time this key is
+// seen), or collapsed (slim tap-to-reopen banner, after acknowledgement).
+// Unlike renderShardAlert above, this never fully hides while a hold is
+// active — see client-state.ts victoryHoldAlert doc comment.
+export const renderVictoryHoldAlert = (
+  state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed">,
+  deps: {
+    victoryAlertOverlayEl: HTMLElement;
+    victoryAlertTitleEl: HTMLElement;
+    victoryAlertDetailEl: HTMLElement;
+    victoryAlertBannerBtn: HTMLButtonElement;
+  }
+): void => {
+  const alert = state.victoryHoldAlert;
+  if (!alert) {
+    deps.victoryAlertOverlayEl.style.display = "none";
+    deps.victoryAlertOverlayEl.classList.remove("is-collapsed");
+    deps.victoryAlertTitleEl.textContent = "";
+    deps.victoryAlertDetailEl.textContent = "";
+    deps.victoryAlertBannerBtn.textContent = "";
+    return;
+  }
+  deps.victoryAlertOverlayEl.style.display = "block";
+  deps.victoryAlertOverlayEl.dataset.state = alert.isSelfLeader ? "success" : "warn";
+  const nowMs = Date.now();
+  if (state.victoryHoldAlertCollapsed) {
+    deps.victoryAlertOverlayEl.classList.add("is-collapsed");
+    deps.victoryAlertBannerBtn.textContent = victoryHoldBannerText(alert, nowMs);
+  } else {
+    deps.victoryAlertOverlayEl.classList.remove("is-collapsed");
+    deps.victoryAlertTitleEl.textContent = victoryHoldAlertTitle(alert);
+    deps.victoryAlertDetailEl.textContent = victoryHoldAlertDetail(alert, nowMs);
+  }
 };
 
 export const drawStartingExpansionArrow = (

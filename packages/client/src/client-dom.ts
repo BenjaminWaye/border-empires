@@ -38,6 +38,11 @@ export const initClientDom = () => {
   const shardAlertTitleEl = requireElement<HTMLDivElement>("#shard-alert-title");
   const shardAlertDetailEl = requireElement<HTMLDivElement>("#shard-alert-detail");
   const shardAlertCloseBtn = requireElement<HTMLButtonElement>("#shard-alert-close");
+  const victoryAlertOverlayEl = requireElement<HTMLDivElement>("#victory-alert-overlay");
+  const victoryAlertTitleEl = requireElement<HTMLDivElement>("#victory-alert-title");
+  const victoryAlertDetailEl = requireElement<HTMLDivElement>("#victory-alert-detail");
+  const victoryAlertCollapseBtn = requireElement<HTMLButtonElement>("#victory-alert-collapse");
+  const victoryAlertBannerBtn = requireElement<HTMLButtonElement>("#victory-alert-banner");
   const mapLoadingOverlayEl = requireElement<HTMLDivElement>("#map-loading-overlay");
   const mapLoadingRowEl = requireElement<HTMLDivElement>("#map-loading-row");
   const mapLoadingSpinnerEl = requireElement<HTMLDivElement>("#map-loading-spinner");
@@ -268,6 +273,11 @@ export const initClientDom = () => {
     sidePanelEl,
     statsChipsEl,
     structureInfoOverlayEl,
+    victoryAlertOverlayEl,
+    victoryAlertTitleEl,
+    victoryAlertDetailEl,
+    victoryAlertCollapseBtn,
+    victoryAlertBannerBtn,
     techDetailOverlayEl,
     targetingOverlayEl,
     techChoiceDetailsEl,

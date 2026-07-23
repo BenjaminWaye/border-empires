@@ -20,10 +20,46 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.3",
+  version: "2026.07.22.7",
   title: "What's New",
-  summary: "Light Outposts now show their attack-aura range on the 3D map, matching Siege Outposts.",
+  summary: "A season-victory hold-timer alert now warns every player when someone is about to win.",
   entries: [
+    {
+      introducedIn: "2026.07.22.7",
+      title: "Bigger, easier-to-read off-screen alert badges",
+      why: "The off-screen locator badges for active musters and unfed towns were small enough that the crossed-swords and \"!\" glyphs were hard to make out at a glance, especially against the yellow arrow background.",
+      changes: [
+        "Alert locator badges are now larger (26px radius, up from 20px), with the arrow and glyph scaled proportionally instead of using fixed pixel sizes.",
+        "Both glyphs now have a subtle drop shadow for contrast against the arrow, matching the layered look used elsewhere in the HUD."
+      ]
+    },
+    {
+      introducedIn: "2026.07.22.6",
+      title: "Season-victory hold alert",
+      why: "Once a player met a victory threshold, the 24-hour hold countdown was only visible as a small text line inside the Leaderboard tab's pressure cards — easy to miss, and nothing told you a win was imminent unless you happened to open that tab.",
+      changes: [
+        "A dismissible alert card now appears the moment any player's season-victory objective starts its 24-hour hold, naming the leader, the objective, and the countdown.",
+        "After dismissing it, a slim persistent banner keeps showing \"Player winning in Xh Ym — Objective\" until the hold resolves or is broken, on both desktop and mobile.",
+        "The Leaderboard tab (desktop icon and mobile bottom-nav button) now pulses with a badge while the alert hasn't been acknowledged yet.",
+        "The Leaderboard pressure cards also now show a \"Winning in Xh Ym unless stopped\" line for any objective currently holding its threshold."
+      ]
+    },
+    {
+      introducedIn: "2026.07.22.5",
+      title: "Fixed: Economic Ascendancy card showed a stale gold/minute figure",
+      why: "The leaderboard's \"Overall\" income column refreshed every tick, but the Economic Ascendancy victory-pressure card only refreshed every ~5 minutes, so the two could show different gold/minute numbers for the same empire until the next slow recompute caught up.",
+      changes: [
+        "The Economic Ascendancy card's leader value and your own gold/minute comparison now refresh every leaderboard tick, always matching the Overall column."
+      ]
+    },
+    {
+      introducedIn: "2026.07.22.4",
+      title: "Empire Integrity warning now shows at most once every 30 days",
+      why: "Dismissing the low Empire Integrity callout only lasted until integrity recovered above 90% and dropped again, or until the page reloaded — so if integrity stayed below 90% across sessions, the callout reappeared on every login even after you'd already acknowledged it.",
+      changes: [
+        "Dismissing the Empire Integrity warning (via × or \"I understand\") now persists locally for 30 days, so it won't reappear on future logins during that window unless integrity first recovers above 90% and drops again."
+      ]
+    },
     {
       introducedIn: "2026.07.22.3",
       title: "Light Outposts now show their attack-aura range when selected",
