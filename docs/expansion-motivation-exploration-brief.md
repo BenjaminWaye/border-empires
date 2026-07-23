@@ -93,8 +93,13 @@ tiles) were correctly called out as cosmetic — they don't change the actual
 payoff math causing C/D. Deeper digging found two things worth leading with
 instead:
 
-1. **`EMPIRE_INTEGRITY_ENABLED` is a disabled, already-built system that is
-   exactly the right shape of fix, but wired to a broken input.**
+1. **`EMPIRE_INTEGRITY_ENABLED` is already LIVE in both prod and staging
+   (`EMPIRE_INTEGRITY_ENABLED = "true"` in both `fly.combined.toml` and
+   `fly.combined.staging.toml`) — it is not a disabled system waiting to be
+   turned on.** Correction from an earlier draft of this brief, which
+   wrongly assumed the flag's code-level default (`false` when unset) meant
+   it was off in the real deployments; it isn't — check deployment configs,
+   not just source defaults, before asserting a flag's live state.
    `empireIntegrity(T, E)` (`packages/shared/src/empire-integrity.ts:11`) is
    a direct alias for `defensibilityScore(T, E)`
    (`packages/shared/src/math/math.ts:45-51`) — the *same* global
@@ -102,13 +107,15 @@ instead:
    proved parks every realistically-shaped empire near ~50%, non-actionable.
    That score feeds `integrityEconomyMult` (0.85–1.15×) and
    `integrityGrowthMult` (0.9–1.1×) — a multiplier on the player's *entire*
-   economy and growth rate (`runtime.ts:1062-1068, 1562-1573`), currently
-   gated off by the feature flag. Unlike per-tile yield (flat, capped),
-   a whole-economy multiplier never "maxes out" — so fixing the input (swap
-   in the local-support model `defense-consolidation-exploration.md` §3.1
-   already scoped: base + per-neighbour support + garrison) and enabling the
-   flag ties continued good expansion/consolidation to a live, uncapped
-   payoff. Maps to **C** (building and expanding-well both feed the same
+   economy and growth rate (`runtime.ts:1062-1068, 1562-1573`), live in prod
+   and staging today but currently inert in practice (near-1.0× for almost
+   everyone) because its input is broken. Unlike per-tile yield (flat,
+   capped), a whole-economy multiplier never "maxes out" — so fixing the
+   input (swap in the local-support model
+   `defense-consolidation-exploration.md` §3.1 already scoped: base +
+   per-neighbour support + garrison) ties continued good
+   expansion/consolidation to a live, uncapped payoff, no flag flip needed.
+   Maps to **C** (building and expanding-well both feed the same
    number instead of competing for the same queue slot) and **E** (shape
    now matters per-claim, so claims stop being interchangeable). Its
    connection to **D** is weaker than it sounds — a multiplier on output you
