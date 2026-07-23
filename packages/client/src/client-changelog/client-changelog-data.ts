@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.6",
+  version: "2026.07.22.7",
   title: "What's New",
   summary: "A season-victory hold-timer alert now warns every player when someone is about to win.",
   entries: [
+    {
+      introducedIn: "2026.07.22.7",
+      title: "Bigger, easier-to-read off-screen alert badges",
+      why: "The off-screen locator badges for active musters and unfed towns were small enough that the crossed-swords and \"!\" glyphs were hard to make out at a glance, especially against the yellow arrow background.",
+      changes: [
+        "Alert locator badges are now larger (26px radius, up from 20px), with the arrow and glyph scaled proportionally instead of using fixed pixel sizes.",
+        "Both glyphs now have a subtle drop shadow for contrast against the arrow, matching the layered look used elsewhere in the HUD."
+      ]
+    },
     {
       introducedIn: "2026.07.22.6",
       title: "Season-victory hold alert",

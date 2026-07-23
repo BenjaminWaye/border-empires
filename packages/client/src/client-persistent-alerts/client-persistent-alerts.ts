@@ -134,10 +134,38 @@ const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; 
 
 const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
   ctx.save();
+  ctx.lineCap = "round";
+  for (const flip of [1, -1]) {
+    ctx.save();
+    ctx.scale(flip, 1);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = Math.max(3, size * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(size * 0.55, size * 0.55);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.55);
+    ctx.lineTo(-size * 0.55, -size * 0.3);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(-size * 0.42, -size * 0.42);
+    ctx.rotate(-Math.PI / 4);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.lineWidth = Math.max(2.5, size * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, 0);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
   ctx.strokeStyle = "#fff7d1";
   ctx.fillStyle = "#fff7d1";
   ctx.lineWidth = Math.max(1.5, size * 0.16);
-  ctx.lineCap = "round";
   for (const flip of [1, -1]) {
     ctx.save();
     ctx.scale(flip, 1);
@@ -198,7 +226,7 @@ export const drawPersistentAlertLocators = (
     if (isOnScreen(projected, canvas, margin)) continue;
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
-    const radius = 20;
+    const radius = 26;
     state.persistentAlertLocators.push({
       id: alert.id,
       kind: alert.kind,
@@ -213,7 +241,7 @@ export const drawPersistentAlertLocators = (
     ctx.globalAlpha = pulse;
     ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
     ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -221,21 +249,23 @@ export const drawPersistentAlertLocators = (
     ctx.rotate(edge.angle);
     ctx.fillStyle = "#ffd166";
     ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(-5, -8);
-    ctx.lineTo(-2, 0);
-    ctx.lineTo(-5, 8);
+    ctx.moveTo(radius * 0.6, 0);
+    ctx.lineTo(-radius * 0.35, -radius * 0.5);
+    ctx.lineTo(-radius * 0.15, 0);
+    ctx.lineTo(-radius * 0.35, radius * 0.5);
     ctx.closePath();
     ctx.fill();
     ctx.rotate(-edge.angle);
     if (alert.kind === "muster_active") {
-      drawCrossedSwordsGlyph(ctx, 9);
+      drawCrossedSwordsGlyph(ctx, radius * 0.55);
     } else {
-      ctx.fillStyle = "#fff7d1";
-      ctx.font = "700 13px system-ui";
+      ctx.font = `700 ${radius * 1.3}px system-ui`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("!", 0, 0);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillText("!", 0, radius * 0.05);
+      ctx.fillStyle = "#fff7d1";
+      ctx.fillText("!", 0, radius * 0.02);
     }
     ctx.restore();
     drawnCount += 1;
