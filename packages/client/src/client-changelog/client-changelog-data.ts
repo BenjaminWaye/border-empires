@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.22.7",
+  version: "2026.07.23.1",
   title: "What's New",
-  summary: "A season-victory hold-timer alert now warns every player when someone is about to win.",
+  summary: "Forests and mountains now affect vision — mountains block sight past them, forests limit sight to their edge.",
   entries: [
+    {
+      introducedIn: "2026.07.23.1",
+      title: "Terrain now blocks and limits vision",
+      why: "Vision previously ignored terrain entirely — an empire could see straight through mountain ranges and dense forest as if they were open plains, removing any tactical value from holding high ground or dense cover.",
+      changes: [
+        "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
+        "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
+      ]
+    },
     {
       introducedIn: "2026.07.22.7",
       title: "Bigger, easier-to-read off-screen alert badges",
@@ -335,71 +344,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Dock-crossing expansion now only lands on the linked dock tile; the neighbouring land can no longer be claimed until the dock is captured. Attacks across docks are unchanged."
       ]
     },
-    {
-      introducedIn: "2026.07.16.7",
-      title: "Display name updates now show immediately",
-      why: "Saving a new display name sends a PLAYER_STYLE broadcast (to everyone, including you) followed by a self-only PLAYER_UPDATE. The client updated its internal state from PLAYER_STYLE but never re-rendered the screen for it, so the Display Name field and HUD stayed on the old name until some unrelated message happened to trigger a redraw — meanwhile other parts of the UI (like the Firebase-backed \"Signed in as\") could already show the new name, making it look like the change silently failed.",
-      changes: [
-        "The client now re-renders the HUD and auth overlay immediately when a PLAYER_STYLE update is about your own name or color, instead of waiting on a later message."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.6",
-      title: "Diagnostic logging added for Survey Sweep floating markers",
-      why: "A report that Survey Sweep's floating resource/town markers don't appear on the 3D map couldn't be confirmed from code review alone — the server-side ping generation, gateway routing, and client render sync all appear correctly wired and a regression test confirms ping generation works. Console logging at each stage will show exactly where pings stop flowing (or reveal a positioning bug) the next time the ability is used.",
-      changes: [
-        "Server logs how many tiles were scanned, how many carried a resource/town, and how many were filtered out as already-visible when Survey Sweep runs.",
-        "Client logs the raw and parsed ping payload it receives, and (throttled to once per second) the marker count and computed scene position fed into the 3D render loop.",
-        "All log lines are tagged [survey-sweep-debug] for easy filtering and removal once the root cause is found."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.5",
-      title: "Waterworks food bonus doubled to +100%",
-      why: "Waterworks was underperforming relative to its cost — a 50% boost within 10 tiles didn't justify the investment for most players. Doubling it to 100% makes water infrastructure a clearly impactful food multiplier.",
-      changes: [
-        "Waterworks now boosts farmstead food production by +100% (up from +50%) within a 10-tile radius."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.4",
-      title: "Truces now block attacks, muster attacks, and observatory abilities",
-      why: "Truces were tracked only in the gateway's social layer and never synced to the simulation, so every server-side \"is this target allied or truced\" check only ever saw alliances. A truce partner could still be attacked, muster-attacked, and targeted with Reveal Empire, Reveal Empire Stats, Aether Lance, Siphon, Airport Bombard, and Imperial Exchange Levy — the truce badge was cosmetic.",
-      changes: [
-        "Truce state now syncs to the simulation on accept/break and on natural expiry, the same way alliances already do.",
-        "Attacks, muster attacks, and every ability listed above now correctly refuse to target a truce partner, matching alliance behavior."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.3",
-      title: "AI empires stop re-proposing a support structure type the town already has",
-      why: "A town below its overall support capacity doesn't mean it's missing THIS specific structure type — it might already have a granary and only need a market or bank. The AI's candidate selector didn't check for that, so it kept proposing (and getting rejected for) the same already-built structure type on repeat, every rejection-cooldown cycle, indefinitely, instead of falling through to the type it actually needed.",
-      changes: [
-        "The AI now skips any structure type the town's support tiles already have and proposes the genuinely missing type instead."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.2",
-      title: "Tier 2 domain rebalance: Cogwork Foundries and stronger peers",
-      why: "Frontier Bureau's only effect (+1 development capacity) duplicated its Tier 1 predecessor at triple the cost, and no domain in the game sped up economic structure construction. Scholastic Exchanges also carried a researchTimeMult effect that was never wired into any build/research timer, so it did nothing.",
-      changes: [
-        "Frontier Bureau is renamed Cogwork Foundries and now grants a 25% build-speed bonus to economic structures instead of +1 development capacity.",
-        "Stone Curtain's frontier defense bonus increases from +15/1.1x to +20/1.2x.",
-        "Iron Vanguard's attack bonuses vs. settled land and forts increase from 1.12x to 1.20x.",
-        "Scholastic Exchanges drops its non-functional research-speed effect; its connected-town step bonus increases from +0.1 to +0.2.",
-        "Crystal Network's reveal-upkeep discount increases from 15% to 20%, and its observatory range bonus increases from +6 to +10."
-      ]
-    },
-    {
-      introducedIn: "2026.07.16.1",
-      title: "AI empires build economic structures reliably instead of stalling out",
-      why: "The AI proposed markets/banks/granaries for any town below its support capacity without checking whether an open, already-settled neighboring tile actually existed to place the structure on (the runtime never builds these on the town tile itself). In production this meant ~99.9% of the AI's BUILD_ECONOMIC_STRUCTURE attempts were rejected, and each rejected attempt used up that turn's action instead of falling through to something the AI could actually do — leaving AI economies stalled even with gold to spend.",
-      changes: [
-        "The AI now checks for an open, correctly-assigned settled support tile before proposing a market, bank, or granary, so it stops repeatedly proposing builds the server was always going to reject.",
-        "A rejected attack now goes on a brief cooldown instead of being immediately retried every tick — previously the AI could resubmit the same doomed attack roughly a dozen times while the earlier one was still resolving."
-      ]
-    },
-    // Older entries (2026.07.15.5 and earlier) trimmed: the release-day
+    // Older entries (2026.07.16.7 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

@@ -13,6 +13,7 @@ export * from "./structure-costs/structure-costs.js";
 export * from "./structure-placement.js";
 export * from "./trickle-resources.js";
 export * from "./worldgen/worldgen.js";
+export * from "./forest-terrain/forest-terrain.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./player-display-name.js";
