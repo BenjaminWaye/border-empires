@@ -91,6 +91,7 @@ import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsS
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
@@ -421,16 +422,16 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Increments ONLY on tile ownership change (not muster/population/income
-  // ticks) — VisionExpansionCache's key, so unrelated per-tick mutations
-  // don't bust the O(territory×r²) expansion.
+  // Increments ONLY on tile ownership change (not muster/population/income ticks) — VisionExpansionCache's
+  // key, so unrelated per-tick mutations don't bust the O(territory×r²) expansion.
   private readonly territoryVersionByPlayer = new Map<string, number>();
+  private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
   private readonly visibilityCoverage = new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
     visionRadiusForPlayer: (id) => { const p = this.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
     getPlayer: (id) => this.players.get(id),
     territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
-  });
+  }, this.visionFootprintTable);
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
@@ -565,9 +566,8 @@ export class SimulationRuntime {
   // Running counter of growth ticks skipped due to insufficient food.
   // Exposed for diagnostics / metrics.
   growthStalledNoFoodCounter = 0;
-  // Per-player vision expansion cache; miss cost is O(territory×r²) and is
-  // wrapped in trackSyncMainThreadTask by classifyVisibilityForPlayer below.
-  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
+  // Per-player vision expansion cache; miss cost is O(territory×r²), wrapped in trackSyncMainThreadTask below.
+  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT, this.visionFootprintTable);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState on any
   // income/upkeep-relevant tile mutation; keyed by player ID, missing = dirty.

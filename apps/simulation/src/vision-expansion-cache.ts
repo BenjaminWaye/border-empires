@@ -23,6 +23,7 @@
 
 import { VISION_RADIUS } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { VisionFootprintTable } from "./vision-footprint-table.js";
 
 type ExpansionEntry = { sig: string; keys: ReadonlySet<string> };
 
@@ -30,10 +31,12 @@ export class VisionExpansionCache {
   private readonly cache = new Map<string, ExpansionEntry>();
   private readonly worldWidth: number;
   private readonly worldHeight: number;
+  private readonly footprintTable: VisionFootprintTable | undefined;
 
-  constructor(worldWidth: number, worldHeight: number) {
+  constructor(worldWidth: number, worldHeight: number, footprintTable?: VisionFootprintTable) {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
+    this.footprintTable = footprintTable;
   }
 
   /**
@@ -79,6 +82,12 @@ export class VisionExpansionCache {
       const x = Number(tileKey.slice(0, comma));
       const y = Number(tileKey.slice(comma + 1));
       if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      if (this.footprintTable) {
+        for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius)) {
+          result.add(simulationTileKey(((x + dx) % W + W) % W, ((y + dy) % H + H) % H));
+        }
+        continue;
+      }
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
           result.add(simulationTileKey(((x + dx) % W + W) % W, ((y + dy) % H + H) % H));
