@@ -134,7 +134,6 @@ const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; 
 
 const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
   ctx.save();
-  ctx.lineWidth = Math.max(1.5, size * 0.16);
   ctx.lineCap = "round";
   for (const flip of [1, -1]) {
     ctx.save();
