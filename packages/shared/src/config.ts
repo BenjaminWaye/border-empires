@@ -11,6 +11,11 @@ export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
 export const VISION_RADIUS = 4;
+// A vision source standing on a forest tile only sees this far, regardless
+// of the player's effective vision radius (tech/observatory bonuses). The
+// forest itself and its immediate neighbors remain visible; nothing farther
+// is dilated from that source. See vision-footprint-table.ts.
+export const FOREST_VISION_RANGE = 1;
 export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;
