@@ -46,6 +46,7 @@ import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
+import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
@@ -739,12 +740,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     });
   })();
+  const seededPlayerIds = new Set<string>();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
-    subscribePlayer: (playerId, subscriptionKey) =>
-      simulationClient.subscribePlayer(
+    subscribePlayer: (playerId, subscriptionKey) => {
+      const hasSnapshot = seededPlayerIds.has(playerId);
+      return simulationClient.subscribePlayer(
         playerId,
-        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", ...(subscriptionKey ? { subscriptionKey } : {}) })
-      ),
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, ...(subscriptionKey ? { subscriptionKey } : {}) })
+      );
+    },
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
@@ -2189,25 +2193,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
-              const seedSnapshotStartedAt = Date.now();
-              playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
-              recordGatewayAuthStepTiming("seed_snapshot", Date.now() - seedSnapshotStartedAt, {
-                playerId: playerIdentity.playerId,
+              seedBootstrapSnapshotWithDiagnostics(
+                { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
+                playerIdentity.playerId,
                 channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
-              const gatewaySnapshotDiagnosticsStartedAt = Date.now();
-              recordGatewaySnapshotDiagnostics(playerIdentity.playerId, bootstrapInitialState, {
-                trigger: "gateway_auth_bootstrap",
-                fullVisibility: false,
-                socketCount: 1,
-                payloadJsonBytes: 0
-              });
-              recordGatewayAuthStepTiming("gateway_snapshot_diagnostics", Date.now() - gatewaySnapshotDiagnosticsStartedAt, {
-                playerId: playerIdentity.playerId,
-                channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
+                bootstrapInitialState
+              );
             }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
@@ -2235,6 +2226,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   });
                 }
               );
+              if (subscribedSnapshot && subscribedSnapshot.tiles.length === 0 && bootstrapInitialState && bootstrapInitialState.tiles.length > 0) {
+                subscribedSnapshot.tiles = bootstrapInitialState.tiles;
+              }
               // Every OTHER auth step in this handler (resolve_initial_state,
               // build_init_message, send_init, ...) gets a recordGatewayAuthStepTiming
               // slow-step warning log, but this one — the SubscribePlayer RPC that
