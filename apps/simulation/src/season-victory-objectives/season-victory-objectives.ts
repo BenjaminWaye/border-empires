@@ -203,8 +203,13 @@ export const seasonVictoryForBroadcast = (
   playerId: string,
   playerIncomePerMinute: number | undefined
 ): SeasonVictoryObjectiveSnapshot[] => {
+  const cachedEconomic = cachedObjectives.find((o) => o.id === "ECONOMIC_HEGEMONY");
+  const economicWithHold =
+    cachedEconomic?.holdRemainingSeconds !== undefined
+      ? { ...liveEconomicHegemony, holdRemainingSeconds: cachedEconomic.holdRemainingSeconds, statusLabel: cachedEconomic.statusLabel }
+      : liveEconomicHegemony;
   const objectives = cachedObjectives.map((objective) =>
-    objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
+    objective.id === "ECONOMIC_HEGEMONY" ? economicWithHold : objective
   );
   const selfProgressLabels =
     liveEconomicHegemony.leaderPlayerId !== playerId && typeof playerIncomePerMinute === "number"

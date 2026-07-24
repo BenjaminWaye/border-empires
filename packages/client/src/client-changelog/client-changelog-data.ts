@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.3",
+  version: "2026.07.24.4",
   title: "What's New",
-  summary: "Watchtowers are now rarer — about 50 spread across the map instead of 150.",
+  summary: "Fixed the season-victory hold countdown disappearing on every broadcast tick after a threshold was reached.",
   entries: [
+    {
+      introducedIn: "2026.07.24.4",
+      title: "Fixed: season-victory hold countdown lost between summary refreshes",
+      why: "After a player met a season-victory threshold, the server's periodic broadcast replaced the hold-processed objective with a fresh snapshot that had no countdown — causing the client's timer to flicker in and out or disappear entirely between refreshes.",
+      changes: [
+        "The server now preserves the tracked hold countdown (holdRemainingSeconds) when refreshing the season-victory broadcast, so the timer stays visible at all times once a threshold is met."
+      ]
+    },
     {
       introducedIn: "2026.07.24.3",
       title: "Watchtowers are now rarer",
