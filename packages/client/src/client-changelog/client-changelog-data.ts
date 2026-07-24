@@ -35,6 +35,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.07.23.1",
+      title: "Terrain now blocks and limits vision",
+      why: "Vision previously ignored terrain entirely — an empire could see straight through mountain ranges and dense forest as if they were open plains, removing any tactical value from holding high ground or dense cover.",
+      changes: [
+        "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
+        "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
+      ]
+    },
+    {
       introducedIn: "2026.07.22.7",
       title: "Bigger, easier-to-read off-screen alert badges",
       why: "The off-screen locator badges for active musters and unfed towns were small enough that the crossed-swords and \"!\" glyphs were hard to make out at a glance, especially against the yellow arrow background.",

@@ -25,6 +25,7 @@ import { parentPort } from "node:worker_threads";
 import {
   ATTACK_MANPOWER_MIN,
   FRONTIER_CLAIM_COST,
+  SETTLE_COST,
   type Terrain
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
@@ -149,7 +150,7 @@ const chooseSystemCommand = (
   const ownedTiles = resolveOwnedTiles(player);
 
   const canAttack = player.points >= FRONTIER_CLAIM_COST && player.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = player.points >= FRONTIER_CLAIM_COST;
+  const canExpand = player.points >= SETTLE_COST;
 
   if (!canAttack && !canExpand) return null;
 

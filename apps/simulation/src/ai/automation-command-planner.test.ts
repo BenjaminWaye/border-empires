@@ -607,7 +607,7 @@ describe("automation command planner", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 2,
+      points: 4,
       manpower: 0,
       settledTileCount: 0,
       townCount: 0,

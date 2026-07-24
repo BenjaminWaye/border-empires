@@ -52,6 +52,7 @@ jobs:
       # fresher/larger snapshot is captured from staging.
       FIXTURE_TAG: "load-harness-fixture-v2"
       FIXTURE_ASSET: "harness-fixture-v2.db"
+      GATEWAY_SQLITE_PATH: "${{ github.workspace }}/.local-data/${{ env.FIXTURE_ASSET }}"
 
     steps:
       - name: Checkout
