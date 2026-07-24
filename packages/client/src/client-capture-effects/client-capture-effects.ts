@@ -177,7 +177,7 @@ export const renderVictoryHoldAlert = (
   }
 ): void => {
   const alert = state.victoryHoldAlert;
-  if (!alert) {
+  if (!alert || state.victoryHoldAlertCollapsed) {
     deps.victoryAlertOverlayEl.style.display = "none";
     deps.victoryAlertOverlayEl.classList.remove("is-collapsed");
     deps.victoryAlertTitleEl.textContent = "";
@@ -187,15 +187,9 @@ export const renderVictoryHoldAlert = (
   }
   deps.victoryAlertOverlayEl.style.display = "block";
   deps.victoryAlertOverlayEl.dataset.state = alert.isSelfLeader ? "success" : "warn";
-  const nowMs = Date.now();
-  if (state.victoryHoldAlertCollapsed) {
-    deps.victoryAlertOverlayEl.classList.add("is-collapsed");
-    deps.victoryAlertBannerBtn.textContent = victoryHoldBannerText(alert, nowMs);
-  } else {
-    deps.victoryAlertOverlayEl.classList.remove("is-collapsed");
-    deps.victoryAlertTitleEl.textContent = victoryHoldAlertTitle(alert);
-    deps.victoryAlertDetailEl.textContent = victoryHoldAlertDetail(alert, nowMs);
-  }
+  deps.victoryAlertOverlayEl.classList.remove("is-collapsed");
+  deps.victoryAlertTitleEl.textContent = victoryHoldAlertTitle(alert);
+  deps.victoryAlertDetailEl.textContent = victoryHoldAlertDetail(alert, Date.now());
 };
 
 export const drawStartingExpansionArrow = (
