@@ -1452,84 +1452,100 @@ All 25 domains' `effects`/`mods` objects confirmed directly from
 what they actually *do*). Real problems found — this needed to happen, not
 a formality.
 
-### 23.1 Dead effects — the mechanic they modify no longer exists `[needs a decision: repurpose or drop]`
+### 23.1 Dead effects — removed `[decided]`
 
-- **`researchTimeMult`** (Hidden Hand tier 4, Oracle State tier 5) — there
-  is no research timer under this plan (§6.2, tech completes instantly on
-  purchase). Completely inert as written.
+- **`researchTimeMult`** (Hidden Hand tier 4, Oracle State tier 5) —
+  **removed**, no replacement. No research timer exists under this plan.
 - **`revealUpkeepMult`** (Crystal Network tier 2, Oracle State tier 5) —
-  Reveal Empire's ongoing upkeep is gone; all abilities are free now (§17).
-  Inert as written.
+  **removed**, no replacement. All abilities are free now (§17), so there's
+  no upkeep left to discount. Both domains keep their other effects
+  unchanged (Crystal Network still has `observatoryRangeBonus`; Hidden Hand
+  still has `abilityCooldownMult`/`revealCapacityBonus`; Oracle State still
+  has `observatoryVisionBonus`/`abilityCooldownMult`) — this leaves those
+  three domains with fewer total effects than before, which is an accepted
+  consequence of removing dead weight rather than something requiring a
+  replacement effect.
 
-### 23.2 Scalar-upkeep effects that don't survive slots `[needs a decision per effect]`
+### 23.2 Scalar-upkeep effects — redesigned around count-based waivers `[decided]`
 
-These all reduce a *percentage* of an ongoing upkeep *quantity* — but the
-resource they discount is now a binary slot allocation, not a reducible
-amount:
+The unifying fix across all of these: instead of a *percentage* discount on
+an upkeep *quantity* that no longer exists, each becomes **"your first N
+of this structure/town don't need the slot/requirement at all."** This is
+the same shape of fix in every case — a demand-side waiver by count, not a
+supply-side percentage — and it's the pattern used consistently below:
 
-- **`fortIronUpkeepMult`** (Dwarf Kingdom tier 1 at 0.6×, Fortress Realm
-  tier 4 at 0.85×) — Fort's "iron upkeep" is just "occupies 1+ IRON slots"
-  now (§12 Fort ladder); there's no scalar quantity to shave a percentage
-  off. Candidate fix: reduce the IRON slot *count* required by higher Fort
-  tiers instead (Iron Bastion 2→1, Thunder Bastion 4→3 at a 0.6× cut,
-  rounded) — or redirect entirely, per §23.4 below.
-- **`outpostSupplyUpkeepMult`** (Supply State tier 3, 0.8×) — same problem
-  for the Siege ladder's SUPPLY slots.
-- **`supportEconomicFoodUpkeepMult`** (Treasury State tier 4, 0.9×) and
-  **`settledFoodUpkeepMult`** (Enduring Realm tier 5, 0.85×) — same problem
-  for the universal FOOD slot (§5.3). Since most structures only need
-  1 FOOD slot (can't reduce below 1), these may have nothing left to act
-  on unless retargeted at something else entirely.
-- **`granaryBonusMult`** (Merchant Houses tier 3, 1.15×) — Granary was
-  never given a special boosting effect in this plan (only Farmstead/
-  Waterworks/Mine got one, §5.2/5.3); Granary is currently just a flat
-  Tier 1 sink with a FOOD slot. This domain effect has nothing to multiply
-  unless Granary's role gets defined further, or the effect is redirected.
+- **`fortIronUpkeepMult`** → **Dwarf Kingdom (tier 1): your first 3 Forts
+  (any tier in the Fort ladder — Wooden Fort/Fort/Iron Bastion/Thunder
+  Bastion, counted in build order) need zero IRON slots for their
+  upkeep.** Also folds in `fortGoldUpkeepMult` from the same domain — Fort's
+  gold cost is already near-zero under this plan, so rather than a separate
+  manpower-cost redirect (considered, not taken), the first-3-free waiver
+  now covers Fort's entire upkeep story, iron and gold both. **Fortress
+  Realm (tier 4) extends the exemption to your first 5 Forts** — a
+  meaningful, non-redundant upgrade over Dwarf Kingdom's tier-1 version
+  rather than a duplicate of it.
+- **`outpostSupplyUpkeepMult`** → **Supply State (tier 3): your first 3
+  Siege Outposts (any tier — Siege Outpost/Siege Tower/Dread Tower) need
+  zero SUPPLY slots for their upkeep** — same waiver pattern, applied to
+  the Siege ladder.
+- **`supportEconomicFoodUpkeepMult`** → **Treasury State (tier 4): your
+  first 3 towns need 1 fewer FOOD slot** (towns need ~2 per §5.3, so this
+  drops it to 1 for those three).
+- **`settledFoodUpkeepMult`** → **Enduring Realm (tier 5): every town needs
+  1 fewer FOOD slot**, uncapped — a broader, later-tier version of Treasury
+  State's effect rather than an overlapping duplicate (Enduring Realm
+  already has its own `firstThreeTownsGoldOutputMult`, so gating this
+  effect the same way would have been redundant with its own sibling
+  effect; going empire-wide here is the meaningfully bigger tier-5 payoff).
+- **`granaryBonusMult`** → **resolved, not redesigned**: Granary's actual
+  effect is a **population growth speed boost** — this was simply missing
+  from Granary's description in §12, not missing from the game. Merchant
+  Houses (tier 3) boosts that existing bonus by 15%, unchanged, no slots
+  conflict (population growth speed is a timing multiplier, not a resource
+  quantity). §12's Granary entry should be corrected to note this effect
+  during the description-rewrite pass (§14.4).
 
-### 23.3 A concept never defined in the new system `[genuine gap]`
+### 23.3 Settled gold upkeep — removed, not redefined `[decided]`
 
-- **`settledGoldUpkeepMult`** (Provincial Governors tier 3 at 0.9×, Imperial
-  Expansion tier 5 at 0.9×, Enduring Realm tier 5 at 0.85×) — the old game
-  apparently has a generic gold upkeep scaling with total settled tiles
-  (the March 2026 doc mentions "settled land: 1/10m per 40 settled tiles").
-  This plan never explicitly carried that forward or explicitly dropped
-  it — worth a real decision (does settled land still have a small ongoing
-  gold cost at all under this rewrite, or was it implicitly removed along
-  with everything else that moved off gold?) rather than leaving three
-  domains referencing an undefined mechanic.
+**`settledGoldUpkeepMult`** (Provincial Governors tier 3, Imperial Expansion
+tier 5, Enduring Realm tier 5) — **removed entirely, no replacement.** The
+underlying mechanic (a small ongoing gold cost per settled tile) isn't
+carried forward into this plan at all; rather than force these three
+domains to redirect onto something else, they simply lose this one effect
+each and keep the rest of their kit unchanged.
 
-### 23.4 A design conflict, not just a stale number `[flagging for a deliberate call]`
+### 23.4 Frontier defense — removed `[decided]`
 
-- **`frontierDefenseAdd: 20`** (Stone Curtain tier 2, Imperial Expansion
-  tier 5) — grants real defense to **unsettled FRONTIER tiles**. This cuts
-  directly against §7.1's central argument for why settling matters (an
-  unsettled claim has zero defense — that's the reason to bother settling
-  boring, resourceless tiles at all, feeding problem D). Worth a deliberate
-  choice: keep it as a rare, expensive, tier-2/5-gated exception (defensible
-  — not every player will have it, and it's a real investment); reduce its
-  value; or repurpose the domain's effect entirely. Not something to carry
-  forward silently.
+**`frontierDefenseAdd: 20`** (Stone Curtain tier 2, Imperial Expansion
+tier 5) — **removed entirely, no replacement.** Keeps §7.1's core argument
+intact (unsettled FRONTIER tiles have zero defense, full stop — that's why
+settling boring, resourceless tiles is still a real decision). Both domains
+keep their other effects unchanged (Stone Curtain still has
+`settledDefenseNearFortMult`; Imperial Expansion still has
+`developmentProcessCapacityAdd` and, per §23.3, loses
+`settledGoldUpkeepMult` too — so Imperial Expansion is left with only its
+dev-slot effect; worth keeping in mind that this domain is now
+significantly lighter than it was, since it lost two of its three original
+effects across §23.3 and this section).
 
-### 23.5 Gold→manpower redirect candidates (the specific question asked)
+### 23.5 Resolved gold→manpower / slot redirects `[decided]`
 
-- **`fortGoldUpkeepMult: 0.6`** (Dwarf Kingdom tier 1) — **strongest
-  candidate.** Fort's gold cost is already near-zero under this plan
-  (manpower is its real cost, 300 per §12); a 40% gold-upkeep discount is
-  nearly meaningless. Recommended: redirect to **reduce Fort's manpower
-  cost by the same 0.6×** instead (300 → 180) — Fort's actual primary cost.
-- **`connectedTownStepBonusAdd: 0.2`** (Scholastic Exchanges tier 2) —
-  currently boosts the *gold*-network bonus (`connectedTownBonusForPlayer`,
-  §2). Given the new Rail Depot/Garrison Hall *manpower* network (§4.4) is
-  arguably the more central system now, this is a strong candidate to
-  duplicate onto (or redirect toward) that bonus instead — e.g. boosting
-  the +75 cap / +0.1 regen per connected Garrison Hall.
+- **`fortGoldUpkeepMult`** — folded into the Dwarf Kingdom fix in §23.2
+  above (first-3-Forts-free now covers both iron and gold), not split out
+  into a separate manpower-cost redirect.
 - **`chosenResourceTrickleOptions: {IRON:0.2, SUPPLY:0.2, CRYSTAL:0.1}`**
-  (Clockwork Stipend tier 1) — not a redirect candidate, a full break: it
-  trickles IRON/SUPPLY/CRYSTAL as stockpiled quantities that don't exist
-  under slots (§5). Needs a genuine redesign, not a tweak. A manpower
-  regen/cap trickle would fit the "stipend" name thematically and reuses
-  the same replacement pattern as the fixes above — proposed as the
-  default direction, pending confirmation.
+  (Clockwork Stipend, tier 1) → **redesigned: grants +1 SLOT of the
+  player's chosen resource (IRON, SUPPLY, or CRYSTAL — pick one), instead
+  of a flow trickle.** This is a much smaller rework than first thought —
+  the original percentages don't carry over (a slot is a discrete
+  presence/absence, not a rate, so "0.1 of a slot" doesn't mean anything),
+  but the core "choose one of three resources" flavor survives untouched.
+  Functions like a Synthesizer's bonus slot, except granted by a tier-1
+  domain instead of requiring a structure build.
+- **`connectedTownStepBonusAdd: 0.2`** (Scholastic Exchanges, tier 2) —
+  **still open, not addressed this round.** Remains flagged as a candidate
+  to duplicate/redirect onto the new manpower network bonus (§4.4)
+  alongside its existing gold-network effect, pending a decision.
 
 ### 23.6 Effects confirmed to carry over unchanged, no action needed
 
