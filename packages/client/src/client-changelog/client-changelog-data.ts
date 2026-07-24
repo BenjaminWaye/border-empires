@@ -22,12 +22,17 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.07.25.4",
   title: "What's New",
-  summary: "Base vision lowered so hills are a real strategic prize — hills are now clustered into highland regions, take longer to claim, and grant a much more meaningful vision edge. Watchtowers give you a way to peek at distant areas before deciding whether to push in.",
+  summary: "Base vision lowered so hills are a real strategic prize — hills are now clustered into highland regions, take longer to claim, and grant a much more meaningful vision edge. About 50 watchtower sites spread across the map let you peek at distant areas before deciding whether to push in.",
   entries: [
     {
       introducedIn: "2026.07.25.4",
       title: "Watchtowers now live on the map",
       why: "The watchtower scouting structure previously only existed on paper. Now it's generated into every new season's world.",
+      changes: [
+        "About 50 dormant watchtower sites are spread across the map.",
+        "Expand onto a watchtower to activate it: for ~10 seconds it reveals resources, towns, and terrain in the surrounding area, then fades back to normal fog.",
+        "Watchtowers appear on the minimap and the main map in both 2D and 3D as a brass steampunk tower with a lantern beacon that lights up on activation."
+      ]
       changes: [
         "Roughly 150 dormant watchtower sites are spread across the map.",
         "Expand onto a watchtower to activate it: for ~10 seconds it reveals resources, towns, and terrain in the surrounding area, then fades back to normal fog.",
