@@ -46,6 +46,7 @@ import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy
 import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
 import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
+import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -1295,17 +1296,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const buildOpts = {
-      includeWorldStatus: needsFullWorldExport,
-      fullVisibility: useFullVisibility,
-      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
-      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      // worldStatusRuntimeState is always === runtimeState for full-vis; the
-      // worker falls back to runtimeState automatically, so omit it here.
-      seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
-    };
+    const buildOpts = buildSnapshotBuildOptions({
+      useFullVisibility,
+      needsFullWorldExport,
+      runtimeState,
+      respawnNotice,
+      currentSeasonState,
+      nonCompetitivePlayerIds,
+      sharedFullVisibilityTiles,
+    });
     // Full-visibility builds (season-ended / spectator) bypass the worker pool.
     // For full-vis the per-tile enrichment is already memoised on the main
     // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
