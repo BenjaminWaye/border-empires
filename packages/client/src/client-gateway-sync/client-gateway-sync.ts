@@ -38,6 +38,7 @@ type NormalizedGatewayTileUpdate = {
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
   shardSite?: Tile["shardSite"] | undefined;
+  watchtower?: Tile["watchtower"] | undefined;
   muster?: Tile["muster"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
@@ -73,6 +74,7 @@ export type GatewayTileUpdate = {
   economicStructureJson?: string;
   sabotageJson?: string;
   shardSiteJson?: string;
+  watchtowerJson?: string;
   musterJson?: string;
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
@@ -284,6 +286,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
+  if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("ownershipState" in update) {

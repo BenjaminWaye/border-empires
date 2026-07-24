@@ -236,6 +236,8 @@ export interface Tile {
     amount: number;
     expiresAt?: number;
   } | null;
+  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil).
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
   town?: {
     name?: string;
     type: TownType;

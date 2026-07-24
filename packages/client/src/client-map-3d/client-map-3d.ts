@@ -58,7 +58,7 @@ import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
-import { createShardOverlay } from "../client-map-3d-shard-overlay.js";
+import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
@@ -162,7 +162,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
-  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
@@ -1440,7 +1440,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
-    shardOverlay.clear();
+    shardOverlay.clear(); watchtowerOverlay.clear();
     fortOverlay.clear();
     resourceOverlay.clear();
     attackOverlay.clear();
@@ -1659,7 +1659,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1840,7 +1840,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
-    shardOverlay.commit();
+    shardOverlay.commit(); watchtowerOverlay.commit();
     fortOverlay.commit();
     resourceOverlay.commit();
     attackOverlay.commit();
@@ -1911,7 +1911,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -2050,7 +2050,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aegisLockFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
-    shardOverlay.dispose();
+    shardOverlay.dispose(); watchtowerOverlay.dispose();
     fortOverlay.dispose();
     resourceOverlay.dispose();
     attackOverlay.dispose();
