@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.5",
+  version: "2026.07.24.6",
   title: "What's New",
-  summary: "You can now select unexplored tiles and set a waypoint toward them.",
+  summary: "Fixed waypoints failing to reach an unexplored tile when a dock jump was the only way there.",
   entries: [
+    {
+      introducedIn: "2026.07.24.6",
+      title: "Fixed: waypoints to unexplored tiles reachable only via a dock could report no path",
+      why: "The unexplored-target waypoint routing added in 2026.07.24.5 only treated the destination as reachable land in two of the three route types the planner checks (direct expansion and the final path step) — a target only reachable by jumping through your dock network was missed, incorrectly reporting no path.",
+      changes: [
+        "Waypoints toward an unexplored tile now route consistently through dock jumps, direct expansion, and the final approach alike."
+      ]
+    },
     {
       introducedIn: "2026.07.24.5",
       title: "Waypoints can now target unexplored land",
