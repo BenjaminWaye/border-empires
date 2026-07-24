@@ -63,11 +63,28 @@ describe("planWaypoint", () => {
     expect(plan.blockReason).toBe("TARGET_OWN");
   });
 
-  it("blocks when the target tile is unexplored", () => {
-    const state = stateWith([tile(3, 3, { ownerId: "me" })]);
+  it("never pre-emptively blocks an unexplored target by guessing its terrain — reaches it if a path exists", () => {
+    // The planner has no way to know (and must not guess) that (101, 101) will
+    // turn out to be a mountain or sea in reality; it only has coordinates and
+    // must attempt the path exactly as it would for confirmed land.
+    const state = stateWith([
+      tile(100, 100, { ownerId: "me" }),
+      tile(100, 101)
+    ]);
+    const plan = planWaypoint({ x: 101, y: 101 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.blockReason).toBeUndefined();
+    expect(plan.steps.length).toBeGreaterThan(0);
+  });
+
+  it("only blocks with TARGET_BARRIER once the target tile is actually discovered to be non-LAND", () => {
+    const state = stateWith([
+      tile(3, 3, { ownerId: "me" }),
+      tile(5, 5, { terrain: "MOUNTAIN" })
+    ]);
     const plan = planWaypoint({ x: 5, y: 5 }, baseDeps(state));
     expect(plan.reachable).toBe(false);
-    expect(plan.blockReason).toBe("TARGET_UNEXPLORED");
+    expect(plan.blockReason).toBe("TARGET_BARRIER");
   });
 
   it("blocks when the target is a barrier (mountain)", () => {

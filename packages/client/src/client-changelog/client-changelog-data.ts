@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.4",
+  version: "2026.07.24.5",
   title: "What's New",
-  summary: "Fixed the season-victory hold countdown disappearing on every broadcast tick after a threshold was reached.",
+  summary: "You can now select unexplored tiles and set a waypoint toward them.",
   entries: [
+    {
+      introducedIn: "2026.07.24.5",
+      title: "Waypoints can now target unexplored land",
+      why: "Clicking an unexplored tile used to deselect everything and offer no way to interact with it, even when it was clearly reachable by expanding through territory you'd already discovered.",
+      changes: [
+        "Unexplored tiles are now selectable — the tile menu shows its coordinates and an \"Unexplored\" status.",
+        "An \"Expand Here\" waypoint action is offered when a path exists from your territory, exactly like the existing distant-tile waypoint flow.",
+        "Unexplored mountain and sea tiles remain selectable too; if the target turns out to be impassable once you get close, the waypoint cancels itself automatically instead of getting stuck."
+      ]
+    },
     {
       introducedIn: "2026.07.24.4",
       title: "Fixed: season-victory hold countdown lost between summary refreshes",
