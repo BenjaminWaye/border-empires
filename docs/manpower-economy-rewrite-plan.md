@@ -112,10 +112,10 @@ new mechanic.
 |---|---|---|
 | **Expand** (claim → FRONTIER) | **10** `[decided]` | Cheapest — just claiming dirt; 0 defense, 0 yield. Deliberately matches the existing `BARBARIAN_RAID_COST = 10` `[code: config.ts]` — one shared mental model, "10 = a cheap frontier poke," across claiming land and raiding a barbarian tile. |
 | **Settle** (FRONTIER → SETTLED) | **20** `[decided]` | The growth loop we're reviving; acquisition of new capacity/slots + defense + Integrity `T`. Priced below structures on purpose. |
-| Farmstead / Camp / Mine / Granary | ~35 | Basic optimization sinks — amplify a tile you already have; pure spend, no capacity return. |
-| Market / synthesizers | ~70 | |
-| Bank / Foundry | ~180 | |
-| Fort | 300 | `[code]` already set — highest common build. |
+| Farmstead / Camp / Mine / Granary | **80** `[decided, revised up from 35 — §12]` | Basic optimization sinks — amplify a tile you already have; pure spend, no capacity return. |
+| Market / synthesizers | **150** `[revised up from 70]` | |
+| Bank / Foundry | **300** `[revised up from 180]` | |
+| Fort | 300 | `[code]` already set — highest common build, now matched by Tier 3. |
 
 **Design rule that sets the ordering:** *acquisition is always a little
 cheaper than optimization.* Settle (acquire a producing tile / new slots) <
@@ -254,9 +254,9 @@ these structures cost "gold + a slot, not manpower" to avoid a bootstrap
 trap (needing manpower to fix a manpower shortage). That's stale — it
 predates the later, load-bearing decision that *all* buildings cost
 manpower (§4.1), and the actual costs already locked in §12 confirm this:
-Garrison Hall is 70 manpower + 1 FOOD slot + 1 CRYSTAL slot, Rail Depot is
-180 manpower + 1 FOOD slot + 1 CRYSTAL slot, same as every other structure
-in that tier. The bootstrap concern turns out not to be a real trap in
+Garrison Hall is 150 manpower + 1 FOOD slot + 1 CRYSTAL slot, Rail Depot is
+300 manpower + 1 FOOD slot + 1 CRYSTAL slot (both revised up per §12), same
+as every other structure in their tiers. The bootstrap concern turns out not to be a real trap in
 practice: manpower regenerates passively regardless of what a player
 builds, so a drained player always eventually accumulates enough to build
 their way out — it just takes time, which is the intended shape of the
@@ -794,48 +794,51 @@ build-cost-plus-drain pattern entirely. The same fix applies to the
 | Wooden Fort | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
 | Light Outpost | 75g + 30mp, ×1.1/build | **30** (unchanged) | 1 FOOD slot |
 
-### Tier 1 — basic economic sinks (35 manpower)
+### Tier 1 — basic economic sinks (80 manpower) `[increased — see §9 item on structure costs]`
 
 **Universal rule (§5.3): every building draws 1 FOOD slot as ongoing
 upkeep unless it already has a different slot requirement.** Applied
-below.
+below. **Costs revised upward from an original 35** — too cheap for a
+starter tier, undermining the acquisition-cheaper-than-optimization
+ordering (§4.2) against Settle's 20. New anchor: structure tiers are round
+multiples of Settle's cost (4× here).
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Farmstead | 700g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
-| Waterworks | 600g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
-| Camp | 800g + 30 supply | **35** | 1 FOOD slot |
-| Mine | 800g + 30 iron (or crystal) | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
-| Granary | 700g + 40 food | **35** | 1 FOOD slot |
-| Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **35**, doubling scaling kept | **1 CRYSTAL slot** (already has "another slot requirement," so no food slot) — see §12.1 note. |
-| Census Hall | 900g + 30 food | **35** | 1 FOOD slot |
+| Farmstead | 700g + 20 food | **80** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
+| Waterworks | 600g + 20 food | **80** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
+| Camp | 800g + 30 supply | **80** | 1 FOOD slot |
+| Mine | 800g + 30 iron (or crystal) | **80** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
+| Granary | 700g + 40 food | **80** | 1 FOOD slot |
+| Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **80**, doubling scaling kept | **1 CRYSTAL slot** (already has "another slot requirement," so no food slot) — see §12.1 note. |
+| Census Hall | 900g + 30 food | **80** | 1 FOOD slot |
 
 *(Farmstead/Waterworks/Mine still boost the slot count of the tile/radius
 they affect, per §5.2/5.3, in addition to drawing their own 1 FOOD slot of
 upkeep — the boosting effect and the upkeep cost are separate things.)*
 
-### Tier 1.5 — mid sinks (50 manpower)
+### Tier 1.5 — mid sinks (100 manpower) `[increased, 5× Settle]`
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Seed Granary | 1,400g + 80 food | **50** | 1 FOOD slot |
-| Customs House | 1,800g + 60 crystal | **50** | 1 FOOD slot |
+| Seed Granary | 1,400g + 80 food | **100** | 1 FOOD slot |
+| Customs House | 1,800g + 60 crystal | **100** | 1 FOOD slot |
 
-### Tier 2 — trade & production infrastructure (70 manpower)
+### Tier 2 — trade & production infrastructure (150 manpower) `[increased, 7.5× Settle]`
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Market | 2,200g | **70** | 1 FOOD slot |
-| Fur Synthesizer | 2,200g | **70** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** (already has "another slot requirement," no food slot) |
-| Ironworks | 2,400g | **70** | 1 IRON slot (hard-capped) + **10 gold/day upkeep** |
-| Crystal Synthesizer | 2,800g | **70** | 1 CRYSTAL slot (hard-capped) + **20 gold/day upkeep** |
-| Garrison Hall | 2,200g + 80 crystal | **70** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
-| Governor's Office | 2,600g | **70** | 1 FOOD slot |
-| Caravanary | 2,600g | **70** | 1 FOOD slot |
-| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **70**, doubling scaling kept | **1 CRYSTAL slot** (replaces the separate per-minute upkeep, §12.1 — no food slot, already has another requirement) |
-| Clearing House | 3,000g + 80 crystal | **70** | 1 FOOD slot |
+| Market | 2,200g | **150** | 1 FOOD slot |
+| Fur Synthesizer | 2,200g | **150** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** (already has "another slot requirement," no food slot) |
+| Ironworks | 2,400g | **150** | 1 IRON slot (hard-capped) + **10 gold/day upkeep** |
+| Crystal Synthesizer | 2,800g | **150** | 1 CRYSTAL slot (hard-capped) + **20 gold/day upkeep** |
+| Garrison Hall | 2,200g + 80 crystal | **150** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
+| Governor's Office | 2,600g | **150** | 1 FOOD slot |
+| Caravanary | 2,600g | **150** | 1 FOOD slot |
+| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **150**, doubling scaling kept | **1 CRYSTAL slot** (replaces the separate per-minute upkeep, §12.1 — no food slot, already has another requirement) |
+| Clearing House | 3,000g + 80 crystal | **150** | 1 FOOD slot |
 
-### Tier 3 — major economic engines (180 manpower)
+### Tier 3 — major economic engines (300 manpower) `[increased, 15× Settle — now matches Fort]`
 
 **Crystal fix (this section): Bank, Foundry, Rail Depot, and Radar System
 now also draw 1 CRYSTAL slot, on top of their base FOOD slot** — crystal is
@@ -849,20 +852,20 @@ instead of being touched twice (Observatory, Airport) and forgotten.
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Bank | 3,200g | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Foundry | 4,500g | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Rail Depot | 4,000g + 100 crystal | **180** | Manpower-regen network booster (§4.4), already live. 1 FOOD slot + **1 CRYSTAL slot** |
-| Radar System | 4,000g + 120 crystal | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Advanced Fur Synthesizer | 4,000g + 40 supply | **180** | Still 1 SUPPLY slot (hard-capped), higher output within it + ~15 gold/day upkeep |
-| Advanced Ironworks | 4,200g + 40 iron | **180** | Still 1 IRON slot + ~15 gold/day upkeep |
-| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **180** | Still 1 CRYSTAL slot + ~25 gold/day upkeep |
+| Bank | 3,200g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Foundry | 4,500g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Rail Depot | 4,000g + 100 crystal | **300** | Network booster (§4.4, redesigned — no longer a flat regen source). 1 FOOD slot + **1 CRYSTAL slot** |
+| Radar System | 4,000g + 120 crystal | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Advanced Fur Synthesizer | 4,000g + 40 supply | **300** | Still 1 SUPPLY slot (hard-capped), higher output within it + ~15 gold/day upkeep |
+| Advanced Ironworks | 4,200g + 40 iron | **300** | Still 1 IRON slot + ~15 gold/day upkeep |
+| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **300** | Still 1 CRYSTAL slot + ~25 gold/day upkeep |
 
-### Tier 4 — elite structures (250 manpower)
+### Tier 4 — elite structures (400 manpower) `[increased, 20× Settle]`
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Exchange House | 5,000g + 120 crystal | **250** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Aether Tower | 6,000g + 160 crystal, ×1.15/build (incremental) | **250**, scaling kept | 1 FOOD slot + **1 CRYSTAL slot** |
+| Exchange House | 5,000g + 120 crystal | **400** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Aether Tower | 6,000g + 160 crystal, ×1.15/build (incremental) | **400**, scaling kept | 1 FOOD slot + **1 CRYSTAL slot** |
 
 ### Fort ladder (manpower unchanged — current design is already flat 300; slots are the new differentiator)
 
@@ -1047,6 +1050,29 @@ implementation.
   reasons and diagnostics (used in `AI_DEBUGGING.md`-style tooling) that
   currently reference gold checks need the same rename for anyone
   debugging AI behavior post-rewrite.
+
+### 14.4 Full copy rewrite checklists `[implementation task, not a design question]`
+
+Two flat, mechanical passes needed once the numbers in this plan are
+implemented — every entry already has its new figure decided in §12/§13,
+so this is a copywriting/content pass against tables that already exist,
+not something requiring further design decisions:
+
+- **Every structure's description, in both the build menu and the tech
+  tree** — all ~35 structure types in §12 (starter military, all five
+  economic tiers, the Fort and Siege ladders, monument parts and assembly)
+  need their in-game description text rewritten to reflect: the new
+  manpower cost, the new slot requirement(s), and — where changed — the
+  new gold upkeep (synthesizers) or removed upkeep (Observatory/Airport,
+  now slot-only). Wherever a structure is shown twice (build menu tooltip
+  and tech-tree unlock description), both copies need the same update, not
+  just one.
+- **Every tech's description and cost display, all 48 techs** (§13) —
+  needs the flat per-tier gold price shown instead of the old individual
+  gold+resource costs, and any description text that references a
+  strategic-resource cost (food/iron/crystal/supply) removed per §13's
+  fix, since that cost no longer applies. SHARD costs, where present,
+  stay and should remain visible.
 
 ---
 
@@ -1416,3 +1442,109 @@ town or a resource tile — and gold stays a flow resource under this whole
 redesign (§6). Siphon works exactly as it does today, no slots-awareness
 needed at all. Per §17, its old CRYSTAL activation cost is now free
 (cooldown/Observatory-gate only), same as the other sixteen abilities.
+
+---
+
+## 23. Domain effects audit — do they still make sense under this plan?
+
+All 25 domains' `effects`/`mods` objects confirmed directly from
+`domain-tree.json` (only their costs had been checked before, in §19, not
+what they actually *do*). Real problems found — this needed to happen, not
+a formality.
+
+### 23.1 Dead effects — the mechanic they modify no longer exists `[needs a decision: repurpose or drop]`
+
+- **`researchTimeMult`** (Hidden Hand tier 4, Oracle State tier 5) — there
+  is no research timer under this plan (§6.2, tech completes instantly on
+  purchase). Completely inert as written.
+- **`revealUpkeepMult`** (Crystal Network tier 2, Oracle State tier 5) —
+  Reveal Empire's ongoing upkeep is gone; all abilities are free now (§17).
+  Inert as written.
+
+### 23.2 Scalar-upkeep effects that don't survive slots `[needs a decision per effect]`
+
+These all reduce a *percentage* of an ongoing upkeep *quantity* — but the
+resource they discount is now a binary slot allocation, not a reducible
+amount:
+
+- **`fortIronUpkeepMult`** (Dwarf Kingdom tier 1 at 0.6×, Fortress Realm
+  tier 4 at 0.85×) — Fort's "iron upkeep" is just "occupies 1+ IRON slots"
+  now (§12 Fort ladder); there's no scalar quantity to shave a percentage
+  off. Candidate fix: reduce the IRON slot *count* required by higher Fort
+  tiers instead (Iron Bastion 2→1, Thunder Bastion 4→3 at a 0.6× cut,
+  rounded) — or redirect entirely, per §23.4 below.
+- **`outpostSupplyUpkeepMult`** (Supply State tier 3, 0.8×) — same problem
+  for the Siege ladder's SUPPLY slots.
+- **`supportEconomicFoodUpkeepMult`** (Treasury State tier 4, 0.9×) and
+  **`settledFoodUpkeepMult`** (Enduring Realm tier 5, 0.85×) — same problem
+  for the universal FOOD slot (§5.3). Since most structures only need
+  1 FOOD slot (can't reduce below 1), these may have nothing left to act
+  on unless retargeted at something else entirely.
+- **`granaryBonusMult`** (Merchant Houses tier 3, 1.15×) — Granary was
+  never given a special boosting effect in this plan (only Farmstead/
+  Waterworks/Mine got one, §5.2/5.3); Granary is currently just a flat
+  Tier 1 sink with a FOOD slot. This domain effect has nothing to multiply
+  unless Granary's role gets defined further, or the effect is redirected.
+
+### 23.3 A concept never defined in the new system `[genuine gap]`
+
+- **`settledGoldUpkeepMult`** (Provincial Governors tier 3 at 0.9×, Imperial
+  Expansion tier 5 at 0.9×, Enduring Realm tier 5 at 0.85×) — the old game
+  apparently has a generic gold upkeep scaling with total settled tiles
+  (the March 2026 doc mentions "settled land: 1/10m per 40 settled tiles").
+  This plan never explicitly carried that forward or explicitly dropped
+  it — worth a real decision (does settled land still have a small ongoing
+  gold cost at all under this rewrite, or was it implicitly removed along
+  with everything else that moved off gold?) rather than leaving three
+  domains referencing an undefined mechanic.
+
+### 23.4 A design conflict, not just a stale number `[flagging for a deliberate call]`
+
+- **`frontierDefenseAdd: 20`** (Stone Curtain tier 2, Imperial Expansion
+  tier 5) — grants real defense to **unsettled FRONTIER tiles**. This cuts
+  directly against §7.1's central argument for why settling matters (an
+  unsettled claim has zero defense — that's the reason to bother settling
+  boring, resourceless tiles at all, feeding problem D). Worth a deliberate
+  choice: keep it as a rare, expensive, tier-2/5-gated exception (defensible
+  — not every player will have it, and it's a real investment); reduce its
+  value; or repurpose the domain's effect entirely. Not something to carry
+  forward silently.
+
+### 23.5 Gold→manpower redirect candidates (the specific question asked)
+
+- **`fortGoldUpkeepMult: 0.6`** (Dwarf Kingdom tier 1) — **strongest
+  candidate.** Fort's gold cost is already near-zero under this plan
+  (manpower is its real cost, 300 per §12); a 40% gold-upkeep discount is
+  nearly meaningless. Recommended: redirect to **reduce Fort's manpower
+  cost by the same 0.6×** instead (300 → 180) — Fort's actual primary cost.
+- **`connectedTownStepBonusAdd: 0.2`** (Scholastic Exchanges tier 2) —
+  currently boosts the *gold*-network bonus (`connectedTownBonusForPlayer`,
+  §2). Given the new Rail Depot/Garrison Hall *manpower* network (§4.4) is
+  arguably the more central system now, this is a strong candidate to
+  duplicate onto (or redirect toward) that bonus instead — e.g. boosting
+  the +75 cap / +0.1 regen per connected Garrison Hall.
+- **`chosenResourceTrickleOptions: {IRON:0.2, SUPPLY:0.2, CRYSTAL:0.1}`**
+  (Clockwork Stipend tier 1) — not a redirect candidate, a full break: it
+  trickles IRON/SUPPLY/CRYSTAL as stockpiled quantities that don't exist
+  under slots (§5). Needs a genuine redesign, not a tweak. A manpower
+  regen/cap trickle would fit the "stipend" name thematically and reuses
+  the same replacement pattern as the fixes above — proposed as the
+  default direction, pending confirmation.
+
+### 23.6 Effects confirmed to carry over unchanged, no action needed
+
+For completeness — everything not listed above was checked and is fine as
+written: all pure combat multipliers (`attackVsSettledMult`,
+`attackVsFortsMult`, `outpostAttackMult`, the `mods.attack`/`mods.defense`
+entries), build/settle/deployment *speed* multipliers
+(`settlementSpeedMult`, `economicStructureBuildSpeedMult`,
+`fortBuildSpeedMult`, `outpostDeploymentSpeedMult` — none of these
+reference a cost, only time, which this plan doesn't touch), population
+growth/cap multipliers (`firstThreeTownsPopulationGrowthMult`,
+`populationCapFirst3TownsMult`, `growthPauseDurationMult`), remaining pure
+gold-output/cap effects where gold is still a sensible target
+(`firstThreeTownsGoldOutputMult`, `townGoldCapMult`, `marketBonusMult`,
+`dockGoldCapMult`, `dockGoldOutputMult`), `abilityCooldownMult` (abilities
+keep their cooldowns even though costs are now free, §17 — fully relevant),
+and vision/range effects (`observatoryRangeBonus`,
+`observatoryVisionBonus`, `revealCapacityBonus`).
