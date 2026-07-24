@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.25.3",
+  version: "2026.07.25.4",
   title: "What's New",
-  summary: "Base vision lowered so hills are a real strategic prize — hills are now clustered into highland regions, take longer to claim, and grant a much more meaningful vision edge.",
+  summary: "Base vision lowered so hills are a real strategic prize — hills are now clustered into highland regions, take longer to claim, and grant a much more meaningful vision edge. Watchtowers give you a way to peek at distant areas before deciding whether to push in.",
   entries: [
+    {
+      introducedIn: "2026.07.25.4",
+      title: "Watchtowers now live on the map",
+      why: "The watchtower scouting structure previously only existed on paper. Now it's generated into every new season's world.",
+      changes: [
+        "Roughly 150 dormant watchtower sites are spread across the map.",
+        "Expand onto a watchtower to activate it: for ~10 seconds it reveals resources, towns, and terrain in the surrounding area, then fades back to normal fog.",
+        "Watchtowers appear on the minimap and the main map in both 2D and 3D as a brass steampunk tower with a lantern beacon that lights up on activation."
+      ]
+    },
     {
       introducedIn: "2026.07.25.3",
       title: "Hills are now a real strategic prize",
@@ -69,6 +79,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
         "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
+      ]
       ]
     },
     {
