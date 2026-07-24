@@ -36,6 +36,8 @@ const grassShadeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const continentIndexCache = new Int16Array(WORLD_TILE_COUNT);
 const continentScoreCache = new Float32Array(WORLD_TILE_COUNT);
+const hillsCache = new Uint8Array(WORLD_TILE_COUNT);
+const hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 
 const resetWorldCaches = (): void => {
   terrainCache.fill(UNSET_U8);
@@ -47,6 +49,8 @@ const resetWorldCaches = (): void => {
   regionTypeCacheReady.fill(0);
   continentIndexCache.fill(UNSET_I16);
   continentScoreCache.fill(Number.NaN);
+  hillsCache.fill(0);
+  hillsCacheReady.fill(0);
 };
 
 export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): void => {
@@ -462,6 +466,29 @@ const isMountainCluster = (x: number, y: number): boolean => {
   const dy = y - cy;
   const d2 = dx * dx + dy * dy;
   return d2 <= r * r && d2 >= (r - 2) * (r - 2);
+};
+
+// Broad rolling hill regions on land, independent of the mountain ridge/
+// cluster placement above. Unlike mountains, hills are not a Terrain code —
+// they're a permanent-forever derived property of the coordinate (like
+// forest-ness), layered visually/mechanically on top of LAND tiles so they
+// never interact with the many `terrain === "LAND"` gates elsewhere in the
+// codebase (settling, claiming, resource clusters, etc). See hills-terrain.ts.
+export const isHillsRegionAt = (x: number, y: number): boolean => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const idx = worldIndex(wx, wy);
+  if (hillsCacheReady[idx] === 1) return hillsCache[idx] === 1;
+  let isHills = false;
+  if (terrainCodeAt(wx, wy) === TERRAIN_LAND) {
+    const macro = valueNoise(wx + 211, wy - 97, 96, worldSeed() + 811);
+    const micro = valueNoise(wx - 53, wy + 137, 34, worldSeed() + 821);
+    const hillField = macro * 0.65 + micro * 0.35;
+    isHills = hillField > 0.7;
+  }
+  hillsCache[idx] = isHills ? 1 : 0;
+  hillsCacheReady[idx] = 1;
+  return isHills;
 };
 
 export const terrainAt = (x: number, y: number): Terrain => {

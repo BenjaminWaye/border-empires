@@ -67,6 +67,7 @@ type StartClientRuntimeLoopDeps = {
   startingExpansionArrowTargets: () => Array<{ x: number; y: number; dx: number; dy: number }>;
   drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
   drawForestOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
+  drawHillsOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
   effectiveOverlayColor: (ownerId: string) => string;
   overlayVariantIndexAt: (x: number, y: number, mod: number) => number;
   dockOverlayVariants: Array<HTMLImageElement | undefined>;
@@ -837,6 +838,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawHillsOverlay(wx, wy, px, py, size);
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
