@@ -31,6 +31,7 @@ export const jsonSafeTileDeltaBatch = (
       : {}),
     ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
     ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
+    ...("watchtowerJson" in tileDelta && tileDelta.watchtowerJson === undefined ? { watchtowerJson: "" } : {}),
     ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
     ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
   }));
