@@ -449,11 +449,53 @@ Reconciliation with the slot model:
   gets *scale*. Preserves the design rule "controls the map beats rich +
   tall" `[docs/gold-sinks-and-converters-2026-03.md]`, translated from flow
   into slot terms.
-- **Keep gold upkeep**: ~10 gold/day (Fur/Iron), ~20 gold/day (Crystal)
-  `[proposed]`. Deliberately brutal for a 1-town player (10 gold/day income
-  = a single Fur/Iron synthesizer eats the whole day's gold, zero left for
-  tech — a real choice); affordable for a 5-town tall player. Correct shape
-  for "tall is viable but taxed."
+- **Keep gold upkeep**: **30 gold/day (Fur/Iron), 40 gold/day (Crystal)**
+  `[decided]`. Superseded an earlier, badly-wrong guess of ~3–4/day.
+
+**How that number was actually derived, since it's worth recording:** the
+live game's real upkeep, confirmed against in-game screenshots (not the
+code alone, see below), is 12 gold/m for Fur/Ironworks and 16 gold/m for
+Crystal Synthesizer (displayed in-game as **"Aether Condenser"** — same
+structure, different player-facing name than the internal type; worth
+knowing so nobody goes looking for "Crystal Synthesizer" in the UI) —
+17,280 gold/day and 23,040 gold/day respectively in the current economy.
+Rescaling those by the same ~288× factor used everywhere else gives ~60/80
+gold/day; halved (to avoid pricing a synthesizer out of reach for anything
+smaller than a 6-town empire, which would undercut the "tall play stays
+viable" goal this whole section exists for) gives the final **30/40**.
+
+**A real discrepancy was caught and is worth flagging as its own item,
+separate from the number above:** the live code's `player-upkeep-
+incremental.ts` computes Fur/Ironworks upkeep as `GOLD_UPKEEP / 10` = 6
+gold/m, and Crystal as 8 gold/m — both exactly half the confirmed live
+values (12 and 16). Checked `isConverterStructureType`'s only other use
+(gating the on/off toggle command) and found no multiplier that would
+explain the gap. **Root cause not found** — the live code and the live
+displayed number disagree by a clean 2×, and rather than keep debugging
+legacy code that's being fully replaced by this rewrite, the live *observed*
+numbers were trusted over the code. Also confirmed in the same pass: this
+bug is specific to converters — Farmstead's upkeep (0.1 gold/m, live)
+matches its code (`FARMSTEAD_GOLD_UPKEEP=1, /10=0.1`) exactly, so the base
+pattern isn't broken everywhere, just for Fur/Iron/Crystal Synthesizer.
+
+**Separately confirmed as a real, pre-existing bug worth fixing regardless
+of this rewrite**: `ADVANCED_FUR_SYNTHESIZER` reuses `CAMP_GOLD_UPKEEP`
+(1.2, i.e. ~17 gold/day) instead of its own rate — `ADVANCED_IRONWORKS` and
+`ADVANCED_CRYSTAL_SYNTHESIZER` both correctly reuse their own base
+structure's upkeep unchanged. This reads as a copy-paste error (an upgraded
+building costing *less* upkeep than the thing it upgrades) and should be
+fixed independent of anything else in this plan.
+
+**Implementation rule for the new system, to prevent this exact class of
+bug from recurring: use one named global constant for the upkeep interval,
+and one shared conversion function, rather than each structure type
+re-deriving "divide by 10" inline in a switch statement.** The scattered
+`CONSTANT / 10` pattern repeated per-case in `player-upkeep-incremental.ts`
+is precisely what let converters silently drift out of sync with
+everything else without being caught until checked against a live
+screenshot. Express every structure's upkeep directly in gold/day in the
+data, convert through a single canonical function, and this stops being
+possible.
 
 ---
 
@@ -549,8 +591,7 @@ uncertainty is exciting not anxious.** Concrete, reusing existing plumbing:
 
 ## 9. Open questions
 
-**Resolved since first written** (kept here so the resolution is easy to
-find, not because they're still open):
+**Resolved:**
 - ~~Exact starting manpower~~ → **decided**: capital tier cap 576, regen
   0.4/min, sized to a 40-expand/8-settle opening (§4.3).
 - ~~New/small-empire regen curve~~ → **decided**: give the starting capital
@@ -558,33 +599,49 @@ find, not because they're still open):
   mask a captured town's contribution (§4.3).
 - ~~Which structure goes dark first on slot shortfall~~ → **decided**:
   most-recently-built loses power first (§5.4).
+- ~~Does an occupied slot-tile still produce/serve anything else~~ →
+  **decided**: no — it stays spent until the structure using it is removed
+  or destroyed (§5.4).
+- ~~Tier 6–8 tech costs~~ → **decided, flattened twice**: first pass (60/90/
+  120 towns) was still rejected as "basically already won the game" once
+  checked against `TOWN_CONTROL`'s 50%-of-towns victory threshold (~150
+  towns of ~300). Final curve keeps tier 8 well clear of that line — see
+  §13 for the locked table (50/65/80 towns for tiers 6/7/8).
+- ~~Synthesizer asymmetry~~ → **decided**: gold upkeep corrected from a
+  miscalculated ~3–4/day to **30 gold/day (Fur/Iron), 40 gold/day
+  (Crystal)** — half of the strictly-rescaled live numbers, landing between
+  "too cheap to matter" and "unaffordable below a 6-town empire." See §6.4
+  for the full derivation and the live-game verification that caught the
+  original error.
+- ~~Fairness / async join~~ → **decided, no new mechanism**: covered by
+  existing systems (other players can and will target a fast-snowballing
+  early leader; the regen taper already discounts further growth past 5/15
+  towns; Empire Integrity rewards shape over raw size). No additional
+  mitigation added.
+- ~~Monument race consolation~~ → **decided**: the losing racer gets their
+  invested manpower refunded if a rival completes the same monument first
+  (§16). Raised alongside this: the monument-part cost itself (400
+  manpower) was under-priced relative to its "single largest investment in
+  the game" billing — see §16 for the corrected figures.
+- ~~Monument-dormancy hostage risk~~ → **decided, no release valve**:
+  another player can simply take the dormant monument's tile by force.
+  That's an accepted risk of racing for a season-unique prize, not a gap.
+- ~~Structure build menu location~~ → **partially resolved**: identified as
+  `client-building-placement.ts`, dispatched via `client-action-flow.ts` and
+  `client-development-queue.ts` — confirmed these are the right area, but
+  the exact cost-display line within them wasn't pinned down; verify before
+  writing copy (§14.3).
 
 **Still genuinely open:**
 
-1. **Does an occupied slot-tile still produce/serve anything else?** With
-   permanent allocation, is a tile whose slot funds a Fort still doing
-   anything else, or is that slot simply "spent"? Define precisely.
-2. **Tier 6–8 tech costs** — is 320 towns for T8 intended or should the top
-   curve flatten? (§13)
-3. **Synthesizer asymmetry** — is "can't upgrade past 1 slot" enough, or
-   should its 1 slot also cost more upkeep than a real tile's slot? (§6.4)
-4. **Fairness / async join** — a generous opening + first-mover advantage in
-   a persistent world: does a fast early player grab disproportionate land
-   before others join? Is there an existing mitigation, or is one needed?
-5. **Regen taper as whole-economy bottleneck** — the 5/15 taper was tuned
-   when manpower only gated combat. As the whole economy's throttle it bites
-   far harder; model it against realistic mid/late-season town counts before
-   trusting the current curve.
-6. **Monument race consolation** (§16) — what happens to a losing racer's
-   sunk manpower on parts if a rival finishes the same monument first?
-7. **Monument-dormancy hostage risk** (§5.4) — since only one of each
-   monument exists per season, can a player sit on a permanently-dormant
-   one (lost crystal access) and deny it to everyone else forever? Needs a
-   release-valve decision or an explicit "yes, that's the risk of racing
-   for it."
-8. **Structure build menu / onboarding copy / AI diagnostic strings**
-   (§14.3) — not yet located in the client, needed before copy can be
-   written.
+1. **Regen magnitude, once combat draws from the same pool.** Modelling
+   this (§4.3/§10) reversed an earlier wrong conclusion of mine — accounting
+   for simultaneous combat draw, the existing regen rate is likely too
+   *low*, not too generous. The fix depends on a number only the designer
+   can supply: **what sustained attacks-per-day should a player at active
+   war be able to maintain indefinitely, alongside some baseline economic
+   activity?** Once that's given, the regen-per-tier rate can be derived
+   properly instead of guessed at a second time.
 
 ---
 
@@ -772,11 +829,12 @@ instead of being touched twice (Observatory, Airport) and forgotten.
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Imperial Exchange / World Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **400 each** | 1 CRYSTAL slot each |
-| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **600** | 2 SHARD (unchanged — stays event-gated, §5.5) + **1 CRYSTAL slot, permanent upkeep, decided** |
+| Imperial Exchange / World Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **1,000 each** `[corrected — see §16]` | 1 CRYSTAL slot each |
+| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **1,600** `[corrected]` | 2 SHARD (unchanged — stays event-gated, §5.5) + **1 CRYSTAL slot, permanent upkeep, decided** |
 
-A complete monument: 4×400 (parts) + 600 (assembly) = **2,200 manpower**
-total, appropriately the single largest investment in the game. **Crystal
+A complete monument: 4×1,000 (parts) + 1,600 (assembly) = **5,600
+manpower** total — corrected upward from an original, under-priced 2,200
+(§16) — now properly the single largest investment in the game. **Crystal
 footprint while all 4 parts stand plus the assembled monument: 5 CRYSTAL
 slots total** (4 for the standing parts + 1 for the finished monument's own
 upkeep) — a serious, permanent commitment for the player holding the
@@ -815,17 +873,24 @@ unenforced, per §6.2 (no research timer).
 | 3 | **100** | Brass Drillwork, Ceramic Stores, Royal Mint, Crystal Lattices, Mercantile Ledgers, Survey Corps, Bastion Walls, Siege Towers, Convoy Logistics |
 | 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Quartermaster Corps, Deep Extraction, Seedline Granaries — 7 techs, not 8: `Overload Protocols` removed (§18, Synthesizer Overload is removed and this was its only unlock) |
 | 5 | **400** | Cipher Bureaus, Aether Engineering, Banking, Provincial Ministries, Rail Networks, Grand Synthesis, Starforged Steel |
-| 6 | **800** `[gut-check — see §9 Q5]` | Grand Cartography, Monument Cities, Standing Army, Sky Docks, Resonance Grid, Aether Towers |
-| 7 | **1,600** `[gut-check]` | Imperial Exchange, Aegis Dome, Worldbreaker Cannon, Astral Dock |
-| 8 | **3,200** `[gut-check]` | Exchange Levy Writs, Worldbreaker Ignition |
+| 6 | **500** `[decided]` | Grand Cartography, Monument Cities, Standing Army, Sky Docks, Resonance Grid, Aether Towers |
+| 7 | **650** `[decided]` | Imperial Exchange, Aegis Dome, Worldbreaker Cannon, Astral Dock |
+| 8 | **800** `[decided]` | Exchange Levy Writs, Worldbreaker Ignition |
 
 Reminder from §6.2: at 10 gold/day/town, this means 1 town sustains a
 tier-1 tech per day, 5 towns a tier-2 tech per day, 10 towns a tier-3 tech
-per day, 20 towns a tier-4, 40 towns a tier-5 — and per the §9 Q5 gut-check,
-tiers 6–8 (80/160/320 towns for 1/day pace) may be intentionally
-"season-leader only," matching how `RESOURCE_MONOPOLY` already requires 80%
-resource-type control as an endgame-only victory path. Confirm before
-shipping rather than assuming.
+per day, 20 towns a tier-4, 40 towns a tier-5.
+
+**Tiers 6–8 were flattened twice, not just once** — the original
+continued-doubling curve (80/160/320 towns) was rejected outright: 320
+towns for tier 8 is over 100% of the ~300 towns on the map, and even a
+first flattening pass (60/90/120 towns) was still too close to
+`TOWN_CONTROL`'s victory threshold (≥50% of towns, roughly 150 of ~300) —
+a player who could afford tier 8 would already be on the verge of winning
+outright via that path, making the tech a moot post-victory footnote
+rather than a real goal. **Final: 50/65/80 towns for tiers 6/7/8** — still
+clearly growing and exclusive, but reachable well before a player has
+already won by a different route.
 
 ---
 
@@ -993,14 +1058,22 @@ That's a moment worth naming, unlike the old version.
   competing build, or attacking the leader before they finish. Same
   `PLAYER_MESSAGE` broadcast plumbing as elsewhere; feeds the events log
   (§20).
-- **Open question this raises, not yet resolved:** if two players are
-  racing the same monument in parallel and one completes the assembly
-  first, what happens to the loser's already-sunk parts (up to 4 × 400
-  manpower each)? Does the loser get anything back (a partial manpower
-  refund, a consolation reward), or is that investment simply lost? This
-  is a real, painful edge case worth deciding deliberately rather than
-  defaulting silently to "lost forever," since that could feel punishing
-  enough to discourage anyone from ever attempting a monument race at all.
+- **Monument race consolation, decided**: if two players are racing the
+  same monument and one completes the assembly first, **the loser gets
+  their invested manpower refunded** on whichever parts they'd already
+  built. Losing the race isn't free of consequence (time and the queued
+  slot are still gone), but it doesn't destroy the manpower itself —
+  keeps a lost race from feeling punishing enough to make players avoid
+  attempting one at all.
+- **Monument costs were under-priced, corrected.** The original 400
+  manpower/part + 600/assembly (2,200 total) was reached by roughly scaling
+  each structure's old gold-cost band into a small number of manpower
+  "steps," not independently modelled — and for something billed as "the
+  single largest investment in the game," 400 barely clears a Bank (180)
+  or a Fort (300), which doesn't read as a capstone. **Corrected to 1,000
+  manpower per part, 1,600 for final assembly** — a complete monument now
+  totals **4×1,000 + 1,600 = 5,600 manpower**, properly the biggest single
+  commitment in the game rather than a moderate step up from a Bank.
 
 ## 17. Crystal-costing abilities — FREE, cooldown only `[decided — final, supersedes the crystal-slot draft below]`
 
@@ -1220,3 +1293,71 @@ dormancy state instead of `tile.town.isFed`, sitting alongside the existing
 unfed-town line rather than replacing it — a tile could plausibly show
 both an unfed-town line and an unpowered-structure line if a player is in
 enough trouble.
+
+---
+
+## 22. Bank and Siphon under the new system
+
+Two mechanics whose actual live behavior needed tracing before they could
+be ported — both turned out simpler than expected once the real code was
+read rather than assumed.
+
+### 22.1 Bank — unchanged effect, upkeep folds into the universal food slot
+
+Traced the real mechanic (`player-update-economy.ts:282-292`): Bank is not
+a resource-flow structure at all — it's a **gold-income multiplier on its
+town**, ×1.5 (or ×1.7 with a connected Clearing House active), stacking
+with Market's own multiplier, connected-town bonus, population tier, etc.
+**Plus a flat additive bonus on top: +1 gold/minute (or +1.5/minute with
+Clearing House)**, confirmed directly in the formula's final term
+(`+ (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0)`).
+
+- **The multiplier effect carries over unchanged** — gold remains real and
+  meaningful post-rewrite (funds tech, rush-buys, synthesizer upkeep), so
+  "a structure that boosts your gold income" keeps doing exactly the same
+  job it always did.
+- **The flat add-on rescales like everything else gold-denominated**: old
+  +1/min (or +1.5/min) is +1,440/day (or +2,160/day) in the current
+  economy; at the same ~288× factor used throughout, that becomes
+  **roughly +5 gold/day (or +7.5/day with Clearing House)** — a meaningful
+  boost against the new 10-gold/day/town base, not a rounding error.
+- **Old FOOD upkeep (0.1 gold/m — wait, food, not gold: `BANK_FOOD_UPKEEP=1`,
+  `/10` → 0.1 food/min) doesn't survive as a separate metered drain.** It
+  folds into the already-decided universal rule that every building draws
+  1 FOOD slot (§5.3) — same treatment already applied to Observatory/
+  Airport's old crystal drain (§12.1). Bank's manpower/slot cost is already
+  set in §12 Tier 3: **180 manpower + 1 FOOD slot + 1 CRYSTAL slot.**
+
+### 22.2 Siphon — works unchanged, no slot translation needed
+
+Traced the real mechanic (`runtime-siphon-command-handlers.ts`,
+`tile-yield-view.ts:242-243`): Siphon requires the caster to have a ready
+(off-cooldown) Observatory within 30 tiles of the target — its "cooldown"
+*is* an Observatory cooldown stamp, not a separate timer — and applies a
+`sabotage` effect to the target tile and its full 3×3 neighborhood for a
+duration. `SIPHON_SHARE = 1`, so the effect **completely zeroes** affected
+tiles' output for that duration, not a partial debuff.
+
+**Correcting a specific claim made about this ability**: Siphon does
+**not** transfer the removed output to the caster. The yield formula
+(`tile-yield-view.ts:243`: `goldPerMinute = (townGoldPerMinute +
+dockGoldPerMinute) * outputMultiplier`) shows the multiplier only ever
+*reduces* the target's own income — there is no step anywhere that credits
+the difference to the attacker. `sabotage.ownerId` exists purely for
+attribution (confirmed it's referenced only in a test assertion, nowhere in
+runtime economy logic) — this is a pure denial/sabotage effect, not a
+theft, in the current code. (If a screenshot shows different in-game
+copy claiming a transfer, that would be worth flagging as its own
+discrepancy the same way the synthesizer upkeep one was — but nothing in
+the traced code path supports a transfer.)
+
+**Why this needs zero translation for the slots pillar, unlike almost
+everything else touched this conversation**: the sabotage `outputMultiplier`
+is applied *only* to `goldPerMinute` (`tile-yield-view.ts:243`) — it is
+never applied to `resourceDaily` (the raw strategic-resource yield,
+computed entirely separately one line below with no sabotage term at all).
+So Siphon only ever debuffs GOLD, regardless of whether the target is a
+town or a resource tile — and gold stays a flow resource under this whole
+redesign (§6). Siphon works exactly as it does today, no slots-awareness
+needed at all. Per §17, its old CRYSTAL activation cost is now free
+(cooldown/Observatory-gate only), same as the other sixteen abilities.
