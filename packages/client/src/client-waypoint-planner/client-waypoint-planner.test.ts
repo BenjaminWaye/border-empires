@@ -242,6 +242,22 @@ describe("planWaypoint", () => {
     expect(plan.steps[1]!.target).toEqual({ x: 41, y: 40 });
   });
 
+  it("reaches an unexplored target whose only path is a dock jump (not just the 8-way and reconstruction passes)", () => {
+    // (5,5)me dock A linked to (40,40) dock B, which is itself the unexplored
+    // target — not in state.tiles at all. All three A* traversal points
+    // (8-way neighbors, dock jumps, path reconstruction) must agree that an
+    // unexplored goal is optimistically NEUTRAL, or this path is missed.
+    const tiles = [tile(5, 5, { ownerId: "me", dockId: "dockA" })];
+    const state = stateWith(tiles, "me", {
+      dockPairs: [{ ax: 5, ay: 5, bx: 40, by: 40 }]
+    });
+    const plan = planWaypoint({ x: 40, y: 40 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps.length).toBe(1);
+    expect(plan.steps[0]!.viaDock).toBe(true);
+    expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
+  });
+
   it("walks a pure diagonal target as a pure diagonal (no zigzag)", () => {
     const tiles = [tile(3, 3, { ownerId: "me" })];
     for (let i = 1; i <= 4; i += 1) {
