@@ -73,6 +73,14 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Aether Caches: steampunk salvage crates granted occasionally to active
+  // players. `aetherCacheCharges` counts unopened caches. Opening one rolls
+  // a random windfall and, for the two "next action" effects, stamps
+  // `pendingAetherCacheEffect` so the next BUILD_STRUCTURE/CHOOSE_TECH
+  // command consumes it for a free, instant result. The reveal-deposit
+  // effect resolves immediately on open and never touches this flag.
+  aetherCacheCharges?: number;
+  pendingAetherCacheEffect?: "FREE_BUILD" | "FREE_TECH";
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;

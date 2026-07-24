@@ -34,6 +34,8 @@ export type RuntimeState = {
     domainIds: string[];
     chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     imperialWardCharges?: number;
+    aetherCacheCharges?: number;
+    pendingAetherCacheEffect?: "FREE_BUILD" | "FREE_TECH";
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     vision: number;

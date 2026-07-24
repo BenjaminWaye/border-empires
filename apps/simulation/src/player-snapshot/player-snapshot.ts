@@ -261,6 +261,8 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            aetherCacheCharges: livePlayer.aetherCacheCharges ?? 0,
+            ...(livePlayer.pendingAetherCacheEffect ? { pendingAetherCacheEffect: livePlayer.pendingAetherCacheEffect } : {}),
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               IRON: livePlayer.strategicResources.IRON ?? 0,

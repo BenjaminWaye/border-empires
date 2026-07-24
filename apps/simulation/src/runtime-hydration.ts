@@ -71,6 +71,8 @@ export const createPlayersFromRecoveredState = (
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(typeof player.aetherCacheCharges === "number" ? { aetherCacheCharges: player.aetherCacheCharges } : {}),
+          ...(typeof player.pendingAetherCacheEffect === "string" ? { pendingAetherCacheEffect: player.pendingAetherCacheEffect } : {}),
           strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
         }
       ] as const;
