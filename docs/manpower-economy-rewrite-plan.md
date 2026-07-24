@@ -800,3 +800,155 @@ implementation.
   reasons and diagnostics (used in `AI_DEBUGGING.md`-style tooling) that
   currently reference gold checks need the same rename for anyone
   debugging AI behavior post-rewrite.
+
+---
+
+## 15. Imperial Exchange Levy — finalized design `[decided]`
+
+Original mechanic (`runtime-map-command-handlers.ts:298-349`): 200 CRYSTAL,
+30-min cooldown, takes 25% of a chosen strategic resource's *stockpile*
+from **every** non-allied/non-truced player simultaneously. Flagged as
+mechanically broken once strategic resources become slots (§5 — there's no
+stockpile left to take 25% of), and separately flagged as a flat,
+no-counterplay, no-decision ability unworthy of a 2,200-manpower monument.
+
+**Finalized:**
+- **Single target**, chosen by the caster (not a blanket hit on everyone).
+- **Eligibility gate unchanged**: not allied, not truced (existing check at
+  `runtime-map-command-handlers.ts:336` is fine as-is — no additional
+  war-only restriction).
+- **Takes 100% of the target's gold** (was 25% of a strategic-resource
+  stockpile) — a full wipe, not a skim. Only works because gold remains a
+  real stockpile under this redesign (§6) — every other strategic resource
+  does not, which is exactly why this had to move onto gold.
+- **Cooldown: 24 hours** (was 30 minutes) — this is now a rare, high-impact
+  strike, not a repeatable passive-income button.
+- **No escalating cost for repeat targeting** — considered, rejected. Keep
+  it simple.
+- **Offline notification is the important part, not a live warning.** When
+  a targeted player next logs in, they must see a clear message: *"You were
+  hit by an Imperial Exchange Levy while away — lost [X] gold."* This
+  matters more than any live telegraph, since a 24-hour cooldown means the
+  levy will often land while the victim isn't online. Reuse the existing
+  `PLAYER_MESSAGE` broadcast pattern already used for shard rain
+  (`messageType: "SHARD_RAIN_EVENT"`, `docs/game-mechanics.md` §12) — same
+  plumbing, new `messageType` (e.g. `IMPERIAL_EXCHANGE_LEVY_EVENT`).
+- **Activation cost**: keep 200, relabeled from CRYSTAL to **gold** (§17)
+  — a serious cost on its own (20 town-days of income at the new 10/day/
+  town rate), appropriate for an ability that can now wipe someone's entire
+  treasury.
+
+Net effect: press the button once a day at most, pick a specific rival,
+take everything they've saved, and they find out when they log back in.
+That's a moment worth naming, unlike the old version.
+
+## 16. Monument uniqueness and race visibility `[decided]`
+
+- **Cap each monument type at one per player.** Imperial Exchange, World
+  Engine, Aegis Dome, Astral Dock — a player may only ever build one of
+  each (their 4 `_PART` builds + 1 assembly). This appears to be the
+  **first genuinely empire-unique structure rule in the codebase** — no
+  existing `maxCount`/`perEmpire` constraint was found anywhere in
+  `structure-costs.ts` during earlier research in this plan; this needs a
+  new validation check, not a tuning change to an existing one.
+- **Broadcast a warning to all other players the moment a player completes
+  the *first* part** of any monument (first `IMPERIAL_EXCHANGE_PART`, etc.)
+  — e.g. *"[Player] has begun constructing an Imperial Exchange."* Creates
+  race tension and a reason to scout/contest/rush a competing monument,
+  rather than monuments being invisible until they're already a fait
+  accompli. Same `PLAYER_MESSAGE` broadcast plumbing as above.
+
+## 17. Crystal-costing abilities — all break under slots, full list `[proposed]`
+
+**This is a systemic discovery, not just an Imperial Exchange Levy
+problem.** Every ability below spends CRYSTAL as an activation fee from
+`ABILITY_DEFS` (`server-game-constants.ts:283-351`) or a dedicated map
+command — i.e., every one of them assumes crystal is a spendable stockpile.
+Once crystal becomes a slot (§5), **none of these can function as
+currently coded.** All seventeen need to move their activation fee onto
+**gold** (the only remaining stockpile currency) — proposed as a straight
+value relabel, since the existing numbers already sit in a sensible
+relative order to each other and to the new tech costs (§13):
+
+| Ability | Requires tech | Old crystal cost | New gold cost | Cooldown |
+|---|---|---|---|---|
+| Reveal Empire | cryptography | 20 (+ ongoing crystal upkeep) | **20** (+ small gold upkeep, replaces crystal upkeep) | none (toggle) |
+| Reveal Empire Stats | surveying | 15 | **15** | 5 min |
+| Survey Sweep | surveying | 30 | **30** | 12 min |
+| Aether Purge | signal-fires | 100 | **100** | 10 min |
+| Aether Bridge | navigation | 30 | **30** | 30 min |
+| Aether Wall | harborcraft | 25 | **25** | 8 min |
+| Siphon | logistics | 15 | **15** | 10 min |
+| Create Mountain | terrain-engineering | 400 | **400** | 20 min |
+| Remove Mountain | terrain-engineering | 400 | **400** | 20 min |
+| Airport Bombard | (Airport) | 200 | **200** | 20 min |
+| Deep Strike | (already costs 120 manpower) | 25 | **25** (secondary fee alongside unchanged manpower cost) | 20 min |
+| Naval Infiltration | (already costs 120 manpower) | 30 | **30** (secondary fee) | 30 min |
+| Sabotage | — | 20 | **20** | 15 min |
+| Imperial Exchange Levy | exchange-levy | 200 | **200** | **24 hr** (§15) |
+| World Engine Strike | (World Engine) | 500 | **500** | 60 min |
+| Aegis Lock | (Aegis Dome) | 220 | **220** | 60 min |
+| Astral Dock Launch | (Astral Dock) | 300 | **300** | 90 min |
+
+**Open question:** these are proposed as a straight relabel to get the
+mechanic functioning again, not independently re-modelled against the new
+10-gold/day/town income — a 400-gold Create Mountain (40 town-days of
+income) or a 500-gold World Engine Strike may be over- or under-tuned
+relative to how precious gold now is. Worth a balance pass once the core
+economy numbers are validated, not before.
+
+## 18. Synthesizer Overload — recommend removal, not redesign `[decided]`
+
+`handleOverloadSynthesizerCommand` (`runtime-economic-structure-command-
+handlers.ts:96-153`): pay `SYNTH_OVERLOAD_GOLD_COST` gold to instantly add a
+burst of resource (`FUR_SYNTHESIZER_OVERLOAD_SUPPLY` /
+`IRONWORKS_OVERLOAD_IRON` / `CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 10`) to
+your stockpile, then the synthesizer goes `inactive` for
+`SYNTH_OVERLOAD_DISABLE_MS` before recovering. Gated behind the
+`overload-protocols` tech (tier 4, listed in §13).
+
+**This is the same category of problem as Imperial Exchange Levy, but with
+no sensible replacement**, unlike the levy: the entire mechanic — burst
+extraction now, downtime later — only means something against a
+*continuous flow* you can front-load. Under slots, a synthesizer isn't a
+flow to burst; it's a binary allocation (one hard-capped slot, on or off,
+per §6.4). There's no equivalent action that preserves the "burst now,
+pay for it later" shape once there's no flow to burst.
+
+**Recommendation: remove it entirely** rather than force a redesign onto a
+model it doesn't fit. Cleanup scope:
+- Delete `handleOverloadSynthesizerCommand` and its command
+  plumbing/dispatch entries.
+- Remove the client button/ability entry.
+- Remove now-dead constants: `SYNTH_OVERLOAD_GOLD_COST`,
+  `SYNTH_OVERLOAD_DISABLE_MS`, `FUR_SYNTHESIZER_OVERLOAD_SUPPLY`,
+  `IRONWORKS_OVERLOAD_IRON`, `CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL`.
+- **The `overload-protocols` tech (tier 4) becomes purposeless** if this is
+  removed — either repurpose it to unlock something else at the same tier
+  slot, or remove the tech and adjust the tier-4 tech count/list in §13.
+  Flagging as an open question rather than deciding unilaterally.
+
+## 19. Full domain list & new costs `[proposed]`
+
+All 25 domains confirmed directly from `packages/game-domain/data/
+domain-tree.json` (5 tiers × 5 domains each). Domains differ from tech in
+one structural way worth preserving: at a given tier, each of the 5 domains
+is tied to a **different** strategic resource (food/iron/supply/crystal),
+i.e. tier is a "pick your specialization" choice, not a uniform set — so
+**leave every domain's specific resource + shard cost untouched**, exactly
+as with tech (§13), and only rescale gold, flat per tier (proposed ratio:
+roughly 4× that tier's new tech cost, matching the old data's existing
+~3–4.6× tech-to-domain ratio):
+
+| Tier | Old gold (domains) | New gold (flat, all 5 domains this tier) | Domains |
+|---|---|---|---|
+| 1 | 6,000 | **40** | Frontier Doctrine (+120 food, req. toolmaking), Dwarf Kingdom (+120 iron, req. masonry), Dewildernisation (+120 supply, req. leatherworking), Mercantile Charter (+100 crystal, req. trade), Clockwork Stipend (+120 food, req. agriculture) |
+| 2 | 14,000 | **200** | Cogwork Foundries (+220 food, +1 shard, req. logistics), Stone Curtain (+220 iron, +1 shard, req. fortified-walls), Iron Vanguard (+240 iron, +1 shard, req. bronze-working), Scholastic Exchanges (+200 crystal, +1 shard, req. ledger-keeping), Crystal Network (+180 crystal, +1 shard, req. signal-fires) |
+| 3 | 24,000 | **400** | Provincial Governors (+320 food, +2 shard, req. coinage), War Foundries (+340 iron, +2 shard, req. organized-supply), Supply State (+320 supply, +2 shard, req. organized-supply), Merchant Houses (+260 crystal, +2 shard, req. coinage), Provincial Nurseries (+340 food, +2 shard, req. pottery) |
+| 4 | 38,000–42,000 | **800** | Imperial Roads (+500 supply, +3 shard, req. imperial-roads), Fortress Realm (+540 iron, +3 shard, req. steelworking), Siege State (+220 iron/+520 supply, +3 shard, req. siegecraft), Treasury State (+180 food/+420 crystal, +3 shard, req. banking), Hidden Hand (+420 crystal, +3 shard, req. cryptography) |
+| 5 | 60,000–70,000 | **1,800** | Imperial Expansion (+700 food, +5 shard, req. civil-service), Iron Dominion (+800 iron, +5 shard, req. steelworking), Enduring Realm (+650 food/+260 crystal, +5 shard, req. civil-service), Golden Hegemony (+220 food/+600 crystal, +5 shard, req. trade-empire), Oracle State (+650 crystal, +5 shard, req. grand-cartography) |
+
+Note: `Imperial Expansion` (tier 5) and `Frontier Doctrine` (tier 1) are two
+of the four `developmentProcessCapacityAdd` doctrines referenced in §4.4 —
+their new gold costs (1,800 and 40 respectively) come from this same table,
+not a separate number.
