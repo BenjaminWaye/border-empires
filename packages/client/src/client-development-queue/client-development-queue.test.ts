@@ -13,7 +13,6 @@ import {
   restorePersistedDevelopmentQueueForPlayer
 } from "./client-development-queue.js";
 import { cancelQueuedSettlement, developmentSlotSummary, processDevelopmentQueue, queueDevelopmentAction, requestSettlement, sendDevelopmentBuild } from "../client-queue-logic/client-queue-logic.js";
-import type { RealtimeSocket } from "../client-socket-types.js";
 import type { TechInfo } from "../client-types.js";
 
 const installSessionStorageMock = () => {
@@ -188,7 +187,7 @@ describe("development queue helpers", () => {
     try {
       applyAutoSettlementQueueFromServer(state, [{ x: 9, y: 10 }], { keyFor: (x, y) => `${x},${y}` });
       const requestSettlementSpy = vi.fn(() => true);
-      const ws = { readyState: 1, OPEN: 1 } as unknown as RealtimeSocket;
+      const ws = { readyState: 1, OPEN: 1 } as unknown as import("../client-socket-types.js").RealtimeSocket;
 
       expect(
         processDevelopmentQueue(state, {
@@ -304,7 +303,7 @@ describe("development queue helpers", () => {
     });
     const pushFeed = vi.fn();
     const renderHud = vi.fn();
-    const ws = { readyState: 1, OPEN: 1 } as unknown as RealtimeSocket;
+    const ws = { readyState: 1, OPEN: 1 } as unknown as import("../client-socket-types.js").RealtimeSocket;
 
     expect(
       processDevelopmentQueue(state, {
@@ -584,7 +583,7 @@ describe("development queue helpers", () => {
     state.actionTargetKey = "2,2";
     state.developmentQueue = [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }];
     const requestSettlementSpy = vi.fn(() => true);
-    const ws = { readyState: 1, OPEN: 1 } as unknown as RealtimeSocket;
+    const ws = { readyState: 1, OPEN: 1 } as unknown as import("../client-socket-types.js").RealtimeSocket;
 
     expect(
       processDevelopmentQueue(state, {
