@@ -81,6 +81,31 @@ describe("topUpFromWaypoint", () => {
     expect(state.actionQueue).toHaveLength(0);
   });
 
+  it("cancels the waypoint and emits a feed entry once the target tile is discovered to be a mountain", () => {
+    // (5,3) was unexplored when the waypoint was set (a real mountain/sea
+    // target can never be known upfront); this simulates it now being
+    // revealed as impassable as the player's territory approached it.
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3),
+      tile(5, 3, { terrain: "MOUNTAIN" })
+    ]);
+    state.waypoint = {
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    };
+    const messages: Array<{ message: string; severity: string | undefined }> = [];
+    const ok = topUpFromWaypoint(state, keyFor, (message, _type, severity) => {
+      messages.push({ message, severity });
+    });
+    expect(ok).toBe(false);
+    expect(state.waypoint).toBeUndefined();
+    expect(state.actionQueue).toHaveLength(0);
+    expect(messages[0]?.message).toMatch(/cancelled/i);
+    expect(messages[0]?.message).toMatch(/impassable/i);
+    expect(messages[0]?.severity).toBe("warn");
+  });
+
   it("blocks allied waypoint targets without enqueueing an attack step", () => {
     const state = stateWithTiles([
       tile(3, 3, { ownerId: "me" }),
