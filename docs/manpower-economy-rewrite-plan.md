@@ -444,15 +444,19 @@ day at a given town count (at 10 gold/day/town):
 | 3 | 100 | 10 | `[proposed]` |
 | 4 | 200 | 20 | `[proposed]` |
 | 5 | 400 | 40 | `[proposed]` |
-| 6 | 800 | 80 | `[proposed — gut-check]` |
-| 7 | 1,600 | 160 | `[proposed — gut-check]` |
-| 8 | 3,200 | 320 | `[proposed — gut-check]` |
+| 6 | 500 | 50 | `[decided — §13]` |
+| 7 | 650 | 65 | `[decided — §13]` |
+| 8 | 800 | 80 | `[decided — §13]` |
 
-(5× jump T1→T2, then ×2 per tier.) **Gut-check flag:** 320 towns for T8 may
-be effectively "only the season's clear leader gets there" — could be
-intended (cf. `RESOURCE_MONOPOLY` needs 80% control) or may want flattening
-at the top. **Keep the one-research-at-a-time rule** — don't let gold buy
-parallel research (that recreates "wealth substitutes for map control").
+(5× jump T1→T2, then ×2 per tier through T5; tiers 6–8 deliberately break
+that curve.) **Tiers 6–8 were flattened, not continued-doubled** — the
+original ×2 continuation (800/1,600/3,200 gold, 80/160/320 towns) put tier 8
+past 100% of the ~300 towns on the map, and even a first flattening pass was
+still too close to `TOWN_CONTROL`'s ≥50%-of-towns victory threshold, making
+those techs post-victory footnotes. Final locked values are **500/650/800
+gold at 50/65/80 towns** — see §13 for the full reasoning. **Keep the
+one-research-at-a-time rule** — don't let gold buy parallel research (that
+recreates "wealth substitutes for map control").
 
 **Leave SHARD tech costs untouched, drop every other strategic-resource
 cost** (full reasoning and the food/iron/crystal/supply fix in §13) — tier
@@ -469,16 +473,21 @@ cost — never punish patience). Rate ~**0.5 gold per manpower point**
 `[proposed]`, anchored so a full rush of an everyday action ≈ one tier-1
 tech:
 
-| Action | Manpower | Full rush from zero |
+| Action | Manpower `[per §12]` | Full rush from zero |
 |---|---|---|
-| Settle | 20–25 | ~10–12 gold |
-| Farmstead | 35 | ~18 gold |
-| Bank | 180 | ~90 gold |
+| Settle | 20 | ~10 gold |
+| Farmstead | 80 | ~40 gold |
+| Bank | 300 | ~150 gold |
 | Fort | 300 | ~150 gold |
 
-Settle/Farmstead ≈ tier-1-tech price → a real "tech vs. rush this build"
-choice. Bank/Fort cost several days' income → a deliberate rich-empire
-splurge, not spam. (Earlier we considered a *tech-speed* rush-buy — dropped:
+(Manpower costs updated to the §12-revised figures — Farmstead 35→80, Bank
+180→300 — so the rush prices track the current build costs, not an earlier
+draft's.) Settle ≈ tier-1-tech price (10 gold) → a real "tech vs. rush this
+one settle" choice at the everyday scale. Farmstead is a few techs' worth;
+Bank/Fort cost ~15 days' income at 10 gold/day/town → a deliberate
+rich-empire splurge, not spam. The 0.5-gold-per-manpower rate is anchored on
+Settle specifically (the everyday action), so a full Settle rush stays
+exactly one tier-1 tech. (Earlier we considered a *tech-speed* rush-buy — dropped:
 with no research timer and gold now genuinely scarce, it's unnecessary
 complexity.)
 
@@ -726,7 +735,7 @@ it only needs verification during implementation, not a design decision.
 - **Slots replace an entire resource subsystem** (production, storage caps,
   converters) for 4 resource types — the largest lift; stage it behind a
   flag like muster/integrity already are.
-- **Regen taper tuning** (open Q8) — get this wrong and either new players
+- **Regen taper tuning** (§4.3, §9 regen-magnitude item) — get this wrong and either new players
   are strangled or big empires get gold-style infinite manpower (killing D).
 - **AI parity** — if the AI can't reason about manpower/slots as well as it
   reasoned about gold, AI empires regress; budget real planner work.
@@ -829,9 +838,9 @@ upkeep — the boosting effect and the upkeep cost are separate things.)*
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
 | Market | 2,200g | **150** | 1 FOOD slot |
-| Fur Synthesizer | 2,200g | **150** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** (already has "another slot requirement," no food slot) |
-| Ironworks | 2,400g | **150** | 1 IRON slot (hard-capped) + **10 gold/day upkeep** |
-| Crystal Synthesizer | 2,800g | **150** | 1 CRYSTAL slot (hard-capped) + **20 gold/day upkeep** |
+| Fur Synthesizer | 2,200g | **150** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **30 gold/day upkeep** (already has "another slot requirement," no food slot) |
+| Ironworks | 2,400g | **150** | 1 IRON slot (hard-capped) + **30 gold/day upkeep** |
+| Crystal Synthesizer | 2,800g | **150** | 1 CRYSTAL slot (hard-capped) + **40 gold/day upkeep** |
 | Garrison Hall | 2,200g + 80 crystal | **150** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
 | Governor's Office | 2,600g | **150** | 1 FOOD slot |
 | Caravanary | 2,600g | **150** | 1 FOOD slot |
@@ -856,9 +865,17 @@ instead of being touched twice (Observatory, Airport) and forgotten.
 | Foundry | 4,500g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
 | Rail Depot | 4,000g + 100 crystal | **300** | Network booster (§4.4, redesigned — no longer a flat regen source). 1 FOOD slot + **1 CRYSTAL slot** |
 | Radar System | 4,000g + 120 crystal | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Advanced Fur Synthesizer | 4,000g + 40 supply | **300** | Still 1 SUPPLY slot (hard-capped), higher output within it + ~15 gold/day upkeep |
-| Advanced Ironworks | 4,200g + 40 iron | **300** | Still 1 IRON slot + ~15 gold/day upkeep |
-| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **300** | Still 1 CRYSTAL slot + ~25 gold/day upkeep |
+| Advanced Fur Synthesizer | 4,000g + 40 supply | **300** | Still 1 SUPPLY slot (hard-capped), higher output within it + **45 gold/day upkeep** `[proposed]` |
+| Advanced Ironworks | 4,200g + 40 iron | **300** | Still 1 IRON slot + **45 gold/day upkeep** `[proposed]` |
+| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **300** | Still 1 CRYSTAL slot + **60 gold/day upkeep** `[proposed]` |
+
+*(Advanced synthesizer upkeep set at 1.5× the base rate decided in §6.4 —
+must stay **above** the base synthesizer's upkeep, since an upgraded
+building should never cost less to run than the thing it upgrades. This is
+exactly the pre-existing `ADVANCED_FUR_SYNTHESIZER`-reuses-`CAMP_GOLD_UPKEEP`
+bug flagged in §6.4; the 1.5× rule here is the deliberate fix. The exact
+multiplier is `[proposed]` and can be tuned, but the ordering constraint —
+advanced ≥ base — is not negotiable.)*
 
 ### Tier 4 — elite structures (400 manpower) `[increased, 20× Settle]`
 
@@ -1083,7 +1100,9 @@ Original mechanic (`runtime-map-command-handlers.ts:298-349`): 200 CRYSTAL,
 from **every** non-allied/non-truced player simultaneously. Flagged as
 mechanically broken once strategic resources become slots (§5 — there's no
 stockpile left to take 25% of), and separately flagged as a flat,
-no-counterplay, no-decision ability unworthy of a 2,200-manpower monument.
+no-counterplay, no-decision ability unworthy of a 5,600-manpower monument
+(the corrected monument cost, §16 — the single largest investment in the
+game).
 
 **Finalized:**
 - **Single target**, chosen by the caster (not a blanket hit on everyone).
@@ -1150,8 +1169,9 @@ That's a moment worth naming, unlike the old version.
   manpower/part + 600/assembly (2,200 total) was reached by roughly scaling
   each structure's old gold-cost band into a small number of manpower
   "steps," not independently modelled — and for something billed as "the
-  single largest investment in the game," 400 barely clears a Bank (180)
-  or a Fort (300), which doesn't read as a capstone. **Corrected to 1,000
+  single largest investment in the game," 400 barely clears a Bank or a
+  Fort (both 300 under this plan, §12), which doesn't read as a capstone.
+  **Corrected to 1,000
   manpower per part, 1,600 for final assembly** — a complete monument now
   totals **4×1,000 + 1,600 = 5,600 manpower**, properly the biggest single
   commitment in the game rather than a moderate step up from a Bank.
@@ -1543,9 +1563,20 @@ effects across §23.3 and this section).
   Functions like a Synthesizer's bonus slot, except granted by a tier-1
   domain instead of requiring a structure build.
 - **`connectedTownStepBonusAdd: 0.2`** (Scholastic Exchanges, tier 2) —
-  **still open, not addressed this round.** Remains flagged as a candidate
-  to duplicate/redirect onto the new manpower network bonus (§4.4)
-  alongside its existing gold-network effect, pending a decision.
+  **left on gold, unchanged `[decided]`.** This is the domain's only effect:
+  it adds +0.2 to *each* of the up-to-3 connected-town gold-income steps
+  (base 0.5/0.4/0.3 per step → 0.7/0.6/0.5 with the domain), so a fully
+  connected town's gold-income bonus goes from +1.2 to +2.1
+  (`economy-network.ts:105-117`, feeding town gold at
+  `player-update-economy.ts:286`). Considered redirecting/duplicating it
+  onto the new manpower network bonus (§4.4) and **rejected**: the manpower
+  network already has its own dedicated investment ladder (Rail Depot +
+  uncapped Garrison Halls), and gold stays a real, meaningful currency under
+  this plan (§6), so "reward a well-connected empire with more gold income"
+  is still a perfectly good, non-obsolete effect. It needs no translation —
+  it only ever touched gold, and gold is unaffected by the slots pillar.
+  This was the last remaining open item in the domain-effects audit; **§23
+  is now fully resolved.**
 
 ### 23.6 Effects confirmed to carry over unchanged, no action needed
 
