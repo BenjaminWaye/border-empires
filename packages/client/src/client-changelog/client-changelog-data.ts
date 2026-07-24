@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.6",
+  version: "2026.07.24.7",
   title: "What's New",
-  summary: "Fixed waypoints failing to reach an unexplored tile when a dock jump was the only way there.",
+  summary: "Fixed unexplored tiles with no waypoint available showing a confusing \"No actions available\" message instead of their status.",
   entries: [
+    {
+      introducedIn: "2026.07.24.7",
+      title: "Fixed: unexplored tiles with no waypoint showed a confusing empty-actions message",
+      why: "Clicking an unexplored tile that had no reachable waypoint (too far from your territory, or no owned territory yet) opened a menu permanently stuck on the Actions tab, which was always empty for that tile — showing the generic \"No actions available on this tile right now.\" instead of explaining the tile simply hadn't been explored yet.",
+      changes: [
+        "The unexplored-tile menu now opens on its Overview tab, so \"This tile has not been explored yet.\" is always visible.",
+        "When a waypoint is actually reachable, the menu still opens straight on the Actions tab as before, with Overview available alongside it."
+      ]
+    },
     {
       introducedIn: "2026.07.24.6",
       title: "Fixed: waypoints to unexplored tiles reachable only via a dock could report no path",
