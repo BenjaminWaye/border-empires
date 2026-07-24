@@ -42,6 +42,11 @@ import { applyPlayerStyleMessage } from "../client-player-style-message/client-p
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
 
+// After this many failed in-place reconnect attempts, fall back to a hard
+// page reload (today's behavior) rather than backing off forever — a real
+// outage should still eventually resolve via the full boot sequence.
+const MAX_INPLACE_RECONNECT_ATTEMPTS = 5;
+
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
   ws: RealtimeSocket;
@@ -361,6 +366,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   let reconnectReloadTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+  let inPlaceReconnectAttempt = 0;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
     typeof globalThis.setInterval === "function"
@@ -711,15 +717,41 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
+  const resetInPlaceReconnectAttempt = (): void => {
+    inPlaceReconnectAttempt = 0;
+  };
+
   const scheduleReconnectReload = (): void => {
     if (!state.hasEverInitialized) return;
     if (reconnectReloadTimer !== undefined) return;
+    inPlaceReconnectAttempt += 1;
+    if (inPlaceReconnectAttempt > MAX_INPLACE_RECONNECT_ATTEMPTS) {
+      window.location.reload();
+      return;
+    }
+    const baseDelayMs = Math.min(16000, 2000 * 2 ** Math.min(3, inPlaceReconnectAttempt - 1));
+    const delayMs = Math.round(baseDelayMs * (0.5 + Math.random()));
     reconnectReloadTimer = window.setTimeout(() => {
       reconnectReloadTimer = undefined;
       if (state.connection === "initialized" || state.connection === "connected") return;
-      window.location.reload();
-    }, 4000);
+      ws.reconnect();
+    }, delayMs);
   };
+
+  // Backgrounded tabs are the most common way this socket dies (OS/browser
+  // suspends the connection while hidden), and the passive path above only
+  // notices once the browser delivers a "close" event plus a backoff wait.
+  // Checking immediately on return removes that lag instead of waiting for
+  // whatever's left of the current backoff delay.
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (!state.hasEverInitialized) return;
+      if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) return;
+      clearReconnectReloadTimer();
+      ws.reconnect();
+    });
+  }
 
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);
@@ -1031,6 +1063,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
+    resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();
     resetAuthReconnectAttempt();
     if (state.authReady && !state.authSessionReady) {
