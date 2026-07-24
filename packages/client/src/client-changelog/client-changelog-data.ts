@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.1",
+  version: "2026.07.24.2",
   title: "What's New",
-  summary: "Watchtowers: a new scouting structure spread across the map that reveals nearby resources and towns when you expand onto one.",
+  summary: "Fixed the season-victory hold countdown not appearing for up to 24 hours after a threshold was reached.",
   entries: [
+    {
+      introducedIn: "2026.07.24.2",
+      title: "Fixed: season-victory hold countdown could go missing for up to 24 hours",
+      why: "The moment a player first met a season-victory threshold (e.g. reaching 200 gold/minute for Economic Ascendancy), the server's summary rebuild on that exact tick discarded the hold-timer countdown it had just computed and fell back to a generic \"Threshold met\" state with no countdown — and since the next refresh wasn't scheduled until the hold's 24-hour window was nearly over, the countdown and hold-timer alert could stay invisible for almost the entire hold.",
+      changes: [
+        "The server now always keeps the tracked hold countdown (holdRemainingSeconds) when refreshing the season-victory summary, so the hold-timer alert and \"Winning in Xh Ym\" countdown appear immediately once a threshold is met, not just near the end of the 24-hour hold."
+      ]
+    },
     {
       introducedIn: "2026.07.24.1",
       title: "New structure: Watchtowers",
