@@ -46,6 +46,7 @@ import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
+import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
@@ -2191,28 +2192,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
-            if (bootstrapInitialState) {
-              const seedSnapshotStartedAt = Date.now();
-              playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
-              seededPlayerIds.add(playerIdentity.playerId);
-              recordGatewayAuthStepTiming("seed_snapshot", Date.now() - seedSnapshotStartedAt, {
-                playerId: playerIdentity.playerId,
-                channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
-              const gatewaySnapshotDiagnosticsStartedAt = Date.now();
-              recordGatewaySnapshotDiagnostics(playerIdentity.playerId, bootstrapInitialState, {
-                trigger: "gateway_auth_bootstrap",
-                fullVisibility: false,
-                socketCount: 1,
-                payloadJsonBytes: 0
-              });
-              recordGatewayAuthStepTiming("gateway_snapshot_diagnostics", Date.now() - gatewaySnapshotDiagnosticsStartedAt, {
-                playerId: playerIdentity.playerId,
-                channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
-            }
+if (bootstrapInitialState) {
+  seedBootstrapSnapshotWithDiagnostics(
+    { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
+    playerIdentity.playerId,
+    channel,
+    bootstrapInitialState,
+  );
+}
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
             const loginProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) =>
