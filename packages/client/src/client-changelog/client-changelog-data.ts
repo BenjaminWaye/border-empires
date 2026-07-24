@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.7",
+  version: "2026.07.25.1",
   title: "What's New",
-  summary: "Fixed unexplored tiles with no waypoint available showing a confusing \"No actions available\" message instead of their status.",
+  summary: "Forests are now a real vision obstacle: looking through forest terrain cuts your sight short 1 tile past it.",
   entries: [
+    {
+      introducedIn: "2026.07.25.1",
+      title: "Forests now block vision like a lighter mountain",
+      why: "Forest terrain was previously only clamping the vision of a source tile that happened to be forest itself, which was rarely noticeable since neighboring owned tiles usually covered the same ground with their own full-radius vision. Mountains, meanwhile, fully occlude anything behind them and are highly visible. Forests needed a mechanic that actually shows up in play.",
+      changes: [
+        "Any vision ray that passes through a forest tile can now only continue 1 tile further before being cut off — a softer version of how mountains fully block vision behind them.",
+        "This is a pure terrain effect: it applies whether the forest tile is owned, enemy-owned, or unclaimed, exactly like mountains.",
+        "Standing on or owning a forest tile no longer blurs your own local vision — only looking through forest terrain toward something farther away is affected."
+      ]
+    },
     {
       introducedIn: "2026.07.24.7",
       title: "Fixed: unexplored tiles with no waypoint showed a confusing empty-actions message",
@@ -317,95 +327,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Truce and alliance requests targeting an AI player are unaffected — they still resolve correctly, since that flow keeps using the stable identifier the server expects."
       ]
     },
-    {
-      introducedIn: "2026.07.18.9",
-      title: "Town Captured popup now shows expected gold production",
-      why: "The Town Captured popup told you the town would provide Manpower Cap and Manpower Regen once settled, but only mentioned gold production in a vague note — no number was shown, even though the base rate can be computed from the tier constants the client already has.",
-      changes: [
-        "A new Gold Production stat card shows the base gold-per-minute rate for the captured town (e.g. 2.00/m for a Town, 3.00/m for a City, up to 6.40/m for a Metropolis).",
-        "Settlements show a flat 1.00/m since they have no population tier multiplier and no support requirement.",
-        "The note now clarifies that support tiles and structures further multiply this base rate, matching how the manpower stats use constants derived from tier alone."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.8",
-      title: "Sharding panel now shows the next shard rain countdown on login",
-      why: "The persistent \"Shard Network\" panel could sit without a countdown for a long time after logging in — the countdown only appeared once a live server push happened to arrive, which could be minutes or hours after opening the panel.",
-      changes: [
-        "The server now includes the next scheduled shard rain (or the remaining time on an active one) in your login data, so the panel shows a countdown immediately.",
-        "The one-time popup alert still only appears when a shard rain is actually starting, not on every login."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.7",
-      title: "Fixed the root cause of Google sign-in's storage error on mobile browsers",
-      why: "Google sign-in's OAuth handshake round-trips through a page hosted on a different address (border-empires.firebaseapp.com) than the game itself. Some mobile browsers block that page from using the storage it needs to track the sign-in, which surfaced as Firebase's raw, confusing \"Unable to process request due to missing initial state\" error — on regular Chrome and Safari, not just in-app browsers.",
-      changes: [
-        "Google sign-in's handshake now runs on the game's own address instead of a separate one, so the browser no longer treats it as third-party storage to block.",
-        "This fixes the underlying cause for regular mobile browsers; the existing guidance for in-app browsers (Messenger, Instagram, etc.) to open the page in Chrome or Safari is unaffected."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.6",
-      title: "Fixed Google sign-in failing inside Messenger/Instagram's in-app browser",
-      why: "Tapping a link from Facebook Messenger, Instagram, or similar apps opens it in that app's built-in browser, which blocks the popup Google sign-in uses and silently falls back to a redirect Firebase can't complete there (its session storage is blocked or wiped mid-redirect). Players saw only Firebase's raw, confusing \"Unable to process request due to missing initial state\" error page with no way forward.",
-      changes: [
-        "Google sign-in now detects known in-app browsers (Messenger, Instagram, Line, WeChat, TikTok, Twitter/X) up front and shows a clear message asking the player to open the page in Chrome or Safari instead of attempting a sign-in that's guaranteed to fail there.",
-        "If that raw Firebase storage error still surfaces for an undetected in-app browser, it's now replaced with a friendly message pointing the player to their system browser."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.5",
-      title: "Fixed Continue sometimes not closing this popup",
-      why: "Closing this popup persisted correctly (you wouldn't see it again for this release) but the on-screen close depended on a full interface refresh completing right afterward. If anything else in that refresh had a problem, the popup could stay stuck open and unresponsive to further clicks even though the click itself worked.",
-      changes: [
-        "The Continue button (and clicking outside the popup) now closes it immediately, independent of the rest of the interface refresh."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.4",
-      title: "The game connection no longer crashes on an unexpected error",
-      why: "Every update from the game server (tile changes, combat results, alliance updates, and dozens of other message types) was processed by a single handler with no error containment of its own. Any unexpected failure while handling any one of those updates — a bad payload, a browser restriction, a bug in any one of the many message types — could crash the entire app rather than just that one update failing quietly.",
-      changes: [
-        "Server-update processing is now wrapped so a failure handling any single update is logged and skipped instead of crashing the app.",
-        "The very large chunk of code that handles the initial game-state sync when you connect was also split into its own file as part of this change, with no change in behavior."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.3",
-      title: "Fixed a Safari crash right after saving your display name",
-      why: "Saving a profile/display-name change broadcasts a style update to every connected player, including yourself, which immediately re-renders your own HUD and login overlay. That re-render wasn't protected against a browser API throwing partway through (the same class of Safari storage/DOM restriction behind the email-link crash), so on some Safari sessions it could crash the app right after a successful name save.",
-      changes: [
-        "The HUD/overlay refresh that runs right after a name or color change is now contained — if a browser API throws partway through, the change still saves and the interface keeps working instead of crashing."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.2",
-      title: "Fixed a Safari crash loop on the email sign-in link",
-      why: "Some iPhone Safari sessions (most often when tapping the sign-in link from the Mail app) throw when the page tries to read browser storage instead of just returning empty. That unhandled error aborted the entire app before it could load, and because the failed link stayed in the address bar, reloading reproduced the identical crash every time — Safari eventually shows its own \"a problem repeatedly occurred\" page.",
-      changes: [
-        "Storage access during sign-in link handling no longer crashes the app if the browser blocks it; the login screen loads normally instead.",
-        "A failed or already-used sign-in link is now cleared from the address bar automatically, so reloading doesn't repeat the same failure.",
-        "Added a fallback error screen with a Reload button for any other unexpected startup failure, instead of a silent blank/white screen."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.1",
-      title: "Farmstead now boosts empire-wide food income",
-      why: "Farmstead's +50% food bonus (doubled again near an active Waterworks) was correctly applied to the per-tile yield you'd see when inspecting a farm tile, but the empire-wide food total shown on the food detail panel was computed by a separate formula that never accounted for Farmsteads at all, so building one didn't visibly move your food income.",
-      changes: [
-        "The food detail panel and the food rate shown in the resource ribbon now include Farmstead's food bonus, matching the per-tile yield."
-      ]
-    },
-    {
-      introducedIn: "2026.07.18.1",
-      title: "Docks can no longer be bypassed by settling the land beside them",
-      why: "Expanding across a dock is only supposed to let you claim the linked dock tile itself — you have to take the dock before pushing inland. A validation gap let empires (and the AI/barbarians most of all) settle the land tiles adjacent to an uncaptured linked dock, effectively teleporting past it.",
-      changes: [
-        "Dock-crossing expansion now only lands on the linked dock tile; the neighbouring land can no longer be claimed until the dock is captured. Attacks across docks are unchanged."
-      ]
-    },
-    // Older entries (2026.07.16.7 and earlier) trimmed: the release-day
+    // Older entries (2026.07.18.9 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]
