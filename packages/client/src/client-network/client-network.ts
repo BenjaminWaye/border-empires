@@ -31,6 +31,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
+import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -41,11 +42,6 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
-
-// After this many failed in-place reconnect attempts, fall back to a hard
-// page reload (today's behavior) rather than backing off forever — a real
-// outage should still eventually resolve via the full boot sequence.
-const MAX_INPLACE_RECONNECT_ATTEMPTS = 5;
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -364,9 +360,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     debugTileTimeline(scope, timelineArgs);
   };
 
-  let reconnectReloadTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
-  let inPlaceReconnectAttempt = 0;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
     typeof globalThis.setInterval === "function"
@@ -688,13 +682,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.queuedDevelopmentDispatchPending = false;
   };
 
-  const clearReconnectReloadTimer = (): void => {
-    if (reconnectReloadTimer !== undefined) {
-      window.clearTimeout(reconnectReloadTimer);
-      reconnectReloadTimer = undefined;
-    }
-  };
-
   const clearDeferredBootstrapRefreshTimer = (): void => {
     if (deferredBootstrapRefreshTimer !== undefined) {
       window.clearTimeout(deferredBootstrapRefreshTimer);
@@ -717,41 +704,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
-  const resetInPlaceReconnectAttempt = (): void => {
-    inPlaceReconnectAttempt = 0;
-  };
-
-  const scheduleReconnectReload = (): void => {
-    if (!state.hasEverInitialized) return;
-    if (reconnectReloadTimer !== undefined) return;
-    inPlaceReconnectAttempt += 1;
-    if (inPlaceReconnectAttempt > MAX_INPLACE_RECONNECT_ATTEMPTS) {
-      window.location.reload();
-      return;
-    }
-    const baseDelayMs = Math.min(16000, 2000 * 2 ** Math.min(3, inPlaceReconnectAttempt - 1));
-    const delayMs = Math.round(baseDelayMs * (0.5 + Math.random()));
-    reconnectReloadTimer = window.setTimeout(() => {
-      reconnectReloadTimer = undefined;
-      if (state.connection === "initialized" || state.connection === "connected") return;
-      ws.reconnect();
-    }, delayMs);
-  };
-
-  // Backgrounded tabs are the most common way this socket dies (OS/browser
-  // suspends the connection while hidden), and the passive path above only
-  // notices once the browser delivers a "close" event plus a backoff wait.
-  // Checking immediately on return removes that lag instead of waiting for
-  // whatever's left of the current backoff delay.
-  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState !== "visible") return;
-      if (!state.hasEverInitialized) return;
-      if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) return;
-      clearReconnectReloadTimer();
-      ws.reconnect();
-    });
-  }
+  const inPlaceReconnect = createInPlaceReconnectScheduler({ state, ws });
+  const clearReconnectReloadTimer = (): void => inPlaceReconnect.clear();
+  const resetInPlaceReconnectAttempt = (): void => inPlaceReconnect.resetAttempt();
+  const scheduleReconnectReload = (): void => inPlaceReconnect.schedule();
 
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);

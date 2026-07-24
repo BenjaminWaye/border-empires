@@ -374,15 +374,9 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const bindFirebaseAuth = (): void => {
     state.authConfigured = Boolean(firebaseAuth);
     if (firebaseAuth) {
-      // Firebase's persisted-session check (onAuthStateChanged below) is
-      // async, so on every boot there's a gap before we know whether the
-      // visitor is already signed in. Without this, that gap rendered the
-      // bare "Sign in to your empire" / Continue-with-Google panel first,
-      // which reads as a forced relogin — most visibly on the auto-reload
-      // that follows a dropped socket (e.g. after the tab sat hidden for a
-      // few minutes and the connection died in the background). Defaulting
-      // to busy keeps the panel covered by the spinner until we actually
-      // know there's no persisted user.
+      // Cover the raw login panel with the spinner until the async
+      // onAuthStateChanged check below confirms there's no persisted user —
+      // otherwise every boot flashes "Sign in" before settling.
       setAuthBusy(true);
       state.authBusyTitle = "Securing session";
       state.authBusyDetail = "Checking your saved session...";
