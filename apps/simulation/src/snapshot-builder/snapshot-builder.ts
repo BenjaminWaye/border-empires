@@ -18,6 +18,7 @@ export type SnapshotBuilderOptions = {
 export type WorkerBuildOptions = {
   includeWorldStatus?: boolean;
   fullVisibility?: boolean;
+  tilesAlreadyVisible?: boolean;
   sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
   seasonState?: PlayerSubscriptionSnapshot["season"];
   respawnNotice?: unknown;
