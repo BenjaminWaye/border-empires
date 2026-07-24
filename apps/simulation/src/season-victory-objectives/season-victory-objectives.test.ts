@@ -137,6 +137,38 @@ describe("seasonVictoryForBroadcast", () => {
 
     expect(result.find((o) => o.id === "ECONOMIC_HEGEMONY")?.selfProgressLabel).toBeUndefined();
   });
+
+  it("carries over holdRemainingSeconds and statusLabel from the cached objective into the live broadcast", () => {
+    const cachedWithHold = [
+      {
+        id: "ECONOMIC_HEGEMONY" as const,
+        name: "Economic Ascendancy",
+        description: "Lead the world economy.",
+        leaderName: "Freja Sund",
+        progressLabel: "237.8 gold/m vs 113.4",
+        thresholdLabel: "Need at least 200 gold/m and 33% lead",
+        holdDurationSeconds: 86400,
+        holdRemainingSeconds: 25260,
+        statusLabel: "Holding pressure",
+        conditionMet: true,
+        leaderPlayerId: "ai-4"
+      }
+    ];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "ai-4", name: "Freja Sund", tiles: 674, incomePerMinute: 237.8, techs: 28, score: 1611, rank: 1 },
+      { id: "ai-1", name: "Alden Vale", tiles: 1043, incomePerMinute: 109.2, techs: 11, score: 1458, rank: 2 }
+    ];
+    const liveEconomicHegemony = buildEconomicHegemonyObjective(leaderboardOverall);
+    expect(liveEconomicHegemony.holdRemainingSeconds).toBeUndefined();
+    expect(liveEconomicHegemony.statusLabel).toBe("Threshold met");
+
+    const result = seasonVictoryForBroadcast(cachedWithHold, undefined, liveEconomicHegemony, "player-1", 100);
+
+    const economic = result.find((o) => o.id === "ECONOMIC_HEGEMONY");
+    expect(economic?.holdRemainingSeconds).toBe(25260);
+    expect(economic?.statusLabel).toBe("Holding pressure");
+    expect(economic?.progressLabel).toBe("237.8 gold/m vs 109.2");
+  });
 });
 
 describe("mergeSelfProgress", () => {
