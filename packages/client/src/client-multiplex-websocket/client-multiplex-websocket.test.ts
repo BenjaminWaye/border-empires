@@ -1,6 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
 
+// Node (this file's test environment) has the standard Event/EventTarget
+// globals but not the WebSocket-specific CloseEvent, unlike browsers.
+if (typeof globalThis.CloseEvent === "undefined") {
+  class CloseEventPolyfill extends Event {
+    readonly code: number;
+    readonly reason: string;
+    readonly wasClean: boolean;
+    constructor(type: string, init: CloseEventInit = {}) {
+      super(type);
+      this.code = init.code ?? 0;
+      this.reason = init.reason ?? "";
+      this.wasClean = init.wasClean ?? false;
+    }
+  }
+  (globalThis as unknown as { CloseEvent: typeof CloseEventPolyfill }).CloseEvent = CloseEventPolyfill;
+}
+
 class FakeWebSocket extends EventTarget {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
@@ -134,5 +151,74 @@ describe("client-multiplex-websocket", () => {
     expect(controlCloseSpy).toHaveBeenCalledWith();
     expect(bulkCloseSpy).toHaveBeenCalledWith();
     expect(socket.readyState).toBe(socket.CLOSED);
+  });
+
+  it("opens a fresh pair of sockets on reconnect() and dispatches a new synthetic open", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [firstControl, firstBulk] = FakeWebSocket.instances;
+    firstControl?.open();
+    firstBulk?.open();
+
+    const openSpy = vi.fn();
+    socket.addEventListener("open", openSpy);
+    firstControl?.close();
+    expect(socket.readyState).toBe(socket.CLOSED);
+
+    socket.reconnect();
+    expect(socket.readyState).toBe(socket.CONNECTING);
+    expect(FakeWebSocket.instances).toHaveLength(4);
+    const [, , secondControl, secondBulk] = FakeWebSocket.instances;
+    expect(secondControl).not.toBe(firstControl);
+    expect(secondBulk).not.toBe(firstBulk);
+
+    secondControl?.open();
+    expect(socket.readyState).toBe(socket.OPEN);
+    expect(openSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a belated close from a socket generation reconnect() already superseded", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [firstControl, firstBulk] = FakeWebSocket.instances;
+    firstControl?.open();
+    firstBulk?.open();
+    firstControl?.close();
+
+    socket.reconnect();
+    const [, , secondControl] = FakeWebSocket.instances;
+    secondControl?.open();
+    expect(socket.readyState).toBe(socket.OPEN);
+
+    const closeSpy = vi.fn();
+    socket.addEventListener("close", closeSpy);
+    // A belated close event from the pre-reconnect bulk socket (e.g. a
+    // network stack finally reporting the old connection's teardown) must
+    // not corrupt the new generation's readyState or fire a spurious close.
+    firstBulk?.dispatchEvent(new CloseEvent("close", { code: 1006 }));
+
+    expect(socket.readyState).toBe(socket.OPEN);
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it("routes messages through the new sockets after reconnect()", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [firstControl, firstBulk] = FakeWebSocket.instances;
+    firstControl?.open();
+    firstBulk?.open();
+    firstControl?.close();
+
+    socket.reconnect();
+    const [, , secondControl, secondBulk] = FakeWebSocket.instances;
+    secondControl?.open();
+    secondBulk?.open();
+
+    socket.send(JSON.stringify({ type: "AUTH", token: "fresh" }));
+    expect(secondControl?.sent).toEqual([JSON.stringify({ type: "AUTH", token: "fresh" })]);
+    expect(firstControl?.sent).toEqual([]);
   });
 });
