@@ -191,10 +191,29 @@ needed now that the capital has its own correctly-sized tier.
 
 Moving the economy onto manpower means manpower needs its own investment
 ladder (as gold structures had Market/Bank). Partial foundation already
-exists — **Rail Depot** grants `RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5`
-empire-wide `[code: config.ts:161]`, part of the mustering system that is
-**live in prod and staging** (`MUSTER_SYSTEM_ENABLED = "true"` in both
-`fly.combined.toml` and `fly.combined.staging.toml`) `[code]`.
+exists — **Rail Depot already does two distinct things**, part of the
+mustering system that is **live in prod and staging**
+(`MUSTER_SYSTEM_ENABLED = "true"` in both `fly.combined.toml` and
+`fly.combined.staging.toml`) `[code]` — an earlier draft of this section
+only described the first:
+1. **Global manpower regen**: `RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5`
+   per depot, empire-wide, stacking with multiple depots
+   `[code: config.ts:161]`.
+2. **Muster speed boost**: within a 50-tile radius (`RAIL_DEPOT_MUSTER_
+   RADIUS = 50`, Chebyshev distance), a Rail Depot boosts any of your
+   outposts' manpower-muster inflow rate from the ordinary 1.25×
+   (`MUSTER_DEPOT_SPEED_MULT`, the base bonus just for being inside an
+   outpost's own 5-tile depot zone) up to 2.0× (`RAIL_DEPOT_BOOSTED_
+   MUSTER_MULT`) `[code: config.ts:162-167]` — troops build up at a
+   forward position 60% faster near a depot.
+
+That second effect matters more than it might look: mustering is exactly
+the "stockpile manpower at a forward point, then commit it in one push"
+mechanic the burst-and-recovery campaign framing (§9, regen magnitude)
+depends on. Rail Depot isn't just a generic regen building — it's
+specifically the infrastructure that makes that campaign rhythm faster,
+which is worth keeping in mind for how it's priced/positioned rather than
+treating it as interchangeable with a flat regen bump.
 
 Ladder:
 - **Local tier** (new, low): a cheap town-level structure boosting *that
