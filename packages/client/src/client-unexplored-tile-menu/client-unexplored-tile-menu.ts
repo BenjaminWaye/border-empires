@@ -34,10 +34,14 @@ export const openUnexploredTileActionMenu = (
   // toward it — at which point topUpFromWaypoint cancels the waypoint on its
   // own, having gotten as close as possible.
   const placeholder: Tile = { x: wx, y: wy, terrain: "LAND", fogged: false };
+  // Start on "overview" so a target with no reachable waypoint shows the
+  // informative "not explored yet" message instead of the generic empty-
+  // actions fallback. injectWaypointActions prepends an "actions" tab (and
+  // makes it the default) only when it actually finds a waypoint to offer.
   const view: TileMenuView = {
     title: "Unexplored",
     subtitle: `(${wx}, ${wy})`,
-    tabs: ["actions"],
+    tabs: ["overview"],
     overviewLines: [{ html: "This tile has not been explored yet." }],
     actions: [],
     buildings: [],
