@@ -256,13 +256,42 @@ instead of an abstract yield %:
 One legible mental model — "this building lets this tile support more" —
 across every resource type, instead of five different bonus formulas.
 
-### 5.3 Food as slots too
+### 5.3 Food as slots too — and the universal building upkeep `[decided]`
 
-FOOD joins the slot model on the *demand* side: **a town requires N food
+FOOD joins the slot model on the *demand* side: **a town requires ~2 food
 slots to be powered** (produce gold + manpower). This makes concrete the
 abstract `supportMax`/`supportCurrent` mechanic that already gates town gold
-`[code: game-mechanics.md §3]`. Farmstead raising a FARM tile's food-slot
-output is how you feed more towns.
+`[code: game-mechanics.md §3]`.
+
+**Every building requires 1 FOOD slot as ongoing upkeep, unless it already
+has a different slot requirement.** Structures with a natural material tie
+(Fort family → iron, Siege family → iron/supply, Synthesizers → their own
+resource, Observatory/Airport/certain elite structures → crystal, per
+§12/§17) keep that resource instead of food. Everything else in the
+structure list — Market, Bank, Governor's Office, Caravanary, Foundry,
+Census Hall, Rail Depot, Radar System, Exchange House, Aether Tower, Seed
+Granary, Clearing House, and Farmstead/Waterworks/Camp/Mine/Granary
+themselves — draws 1 FOOD slot each.
+
+**Why this is affordable despite there being only ~300 food tiles on the
+map against up to ~2,700 potential building slots (300 towns × 9
+slots/town):** food-slot *supply* isn't fixed at 1-per-tile. It scales with
+investment:
+- **Farmstead adds +2 food slots** to the FARM tile it's built on (base 1
+  → 3).
+- **Waterworks** (a radius-support structure, not tied to a resource tile
+  itself — it boosts nearby Farmsteads rather than producing food, per the
+  existing code comment at `tile-yield-view.ts:169-171`) **adds +1 food
+  slot to every Farmstead within its radius.**
+
+So a heavily-developed FARM tile can support far more than 1 building's
+worth of food upkeep — food becomes a resource you actively **build
+capacity into** (via Farmstead/Waterworks) rather than a fixed ceiling,
+which turns "do I have enough food slots to support my next building" into
+a real, ongoing decision rather than a hard wall. Exact multipliers above
+are a first-pass anchor, not modelled against the full 2,700-slot
+worst case — needs real load-testing once town-count and typical
+build-out assumptions are firmer.
 
 ### 5.4 Dormancy on shortfall (captured/under-supplied structures)
 
@@ -277,6 +306,23 @@ rest of the game.
 - **Which structure goes dark first** when supply < demand: default
   **most-recently-built loses power first** (protects long-standing
   infrastructure, predictable rule). `[proposed — genuine design choice]`
+- **New edge case, now much more consequential given the global
+  one-per-season monument cap (§16): what happens when the world's only
+  Imperial Exchange (etc.) goes dormant** because its owner lost crystal
+  access? Existing infrastructure already supports this cleanly — Imperial
+  Exchange Levy already gates on `isStructurePowered` before it can be
+  activated (`runtime-map-command-handlers.ts:321`), so "dormant from a
+  lost crystal slot" is just one more path into a check that already
+  exists — no new logic needed for the ability itself. But there's a real
+  risk worth deciding rather than defaulting into silently: since only one
+  of each monument can ever exist per season, **a careless or beaten-down
+  owner could sit on a permanently-dormant, unrecoverable monument and deny
+  it to every other player for the rest of the season**, with no way for
+  anyone else to ever build a working one. Whether that's acceptable
+  (part of the stakes of winning the race) or needs a release valve (e.g.
+  a monument dormant for N consecutive days becomes capturable/vulnerable
+  even if the tile itself wasn't lost) is an open question, not decided
+  here.
 
 ### 5.5 What stays flow-based (does NOT become slots)
 
@@ -601,63 +647,77 @@ build-cost-plus-drain pattern entirely. The same fix applies to the
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
 | Wooden Fort | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
-| Light Outpost | 75g + 30mp, ×1.1/build | **30** (unchanged) | — |
+| Light Outpost | 75g + 30mp, ×1.1/build | **30** (unchanged) | 1 FOOD slot |
 
 ### Tier 1 — basic economic sinks (35 manpower)
 
+**Universal rule (§5.3): every building draws 1 FOOD slot as ongoing
+upkeep unless it already has a different slot requirement.** Applied
+below.
+
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Farmstead | 700g + 20 food | **35** | — (boosts the tile's own FOOD slot count, per §5.2) |
-| Waterworks | 600g + 20 food | **35** | — |
-| Camp | 800g + 30 supply | **35** | — |
-| Mine | 800g + 30 iron (or crystal) | **35** | — (boosts the tile's own IRON/CRYSTAL slot count, per §5.2) |
-| Granary | 700g + 40 food | **35** | — |
-| Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **35**, doubling scaling kept | **1 CRYSTAL slot, permanently occupied while active** — see §12.1 note. Unlike Farmstead/Mine, Observatory doesn't boost a tile's slot count — it's a vision/defense structure that consumes a slot elsewhere in your empire, same as a Fort consuming an IRON slot. |
-| Census Hall | 900g + 30 food | **35** | — |
+| Farmstead | 700g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +2, per §5.2/5.3* |
+| Waterworks | 600g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +1 FOOD slot, per §5.3* |
+| Camp | 800g + 30 supply | **35** | 1 FOOD slot |
+| Mine | 800g + 30 iron (or crystal) | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
+| Granary | 700g + 40 food | **35** | 1 FOOD slot |
+| Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **35**, doubling scaling kept | **1 CRYSTAL slot** (already has "another slot requirement," so no food slot) — see §12.1 note. |
+| Census Hall | 900g + 30 food | **35** | 1 FOOD slot |
 
-*(Farmstead/Mine boost the slot count of the tile they sit on
-per §5.2 — they don't themselves consume a slot; requiring a slot to build
-the thing that creates slots would be circular.)*
+*(Farmstead/Waterworks/Mine still boost the slot count of the tile/radius
+they affect, per §5.2/5.3, in addition to drawing their own 1 FOOD slot of
+upkeep — the boosting effect and the upkeep cost are separate things.)*
 
 ### Tier 1.5 — mid sinks (50 manpower)
 
-| Structure | Old cost | New manpower |
-|---|---|---|
-| Seed Granary | 1,400g + 80 food | **50** |
-| Customs House | 1,800g + 60 crystal | **50** |
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Seed Granary | 1,400g + 80 food | **50** | 1 FOOD slot |
+| Customs House | 1,800g + 60 crystal | **50** | 1 FOOD slot |
 
 ### Tier 2 — trade & production infrastructure (70 manpower)
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Market | 2,200g | **70** | — |
-| Fur Synthesizer | 2,200g | **70** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** |
+| Market | 2,200g | **70** | 1 FOOD slot |
+| Fur Synthesizer | 2,200g | **70** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** (already has "another slot requirement," no food slot) |
 | Ironworks | 2,400g | **70** | 1 IRON slot (hard-capped) + **10 gold/day upkeep** |
 | Crystal Synthesizer | 2,800g | **70** | 1 CRYSTAL slot (hard-capped) + **20 gold/day upkeep** |
-| Garrison Hall | 2,200g + 80 crystal | **70** | Repurposed (§4.4) — manpower-**cap** booster for its town |
-| Governor's Office | 2,600g | **70** | — |
-| Caravanary | 2,600g | **70** | — |
-| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **70**, doubling scaling kept | **1 CRYSTAL slot, permanently occupied while active** (replaces the separate per-minute upkeep — same fix as Observatory, §12.1) |
-| Clearing House | 3,000g + 80 crystal | **70** | — |
+| Garrison Hall | 2,200g + 80 crystal | **70** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
+| Governor's Office | 2,600g | **70** | 1 FOOD slot |
+| Caravanary | 2,600g | **70** | 1 FOOD slot |
+| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **70**, doubling scaling kept | **1 CRYSTAL slot** (replaces the separate per-minute upkeep, §12.1 — no food slot, already has another requirement) |
+| Clearing House | 3,000g + 80 crystal | **70** | 1 FOOD slot |
 
 ### Tier 3 — major economic engines (180 manpower)
 
+**Crystal fix (this section): Bank, Foundry, Rail Depot, and Radar System
+now also draw 1 CRYSTAL slot, on top of their base FOOD slot** — crystal is
+deliberately positioned as the material that gates *advanced-tier*
+infrastructure specifically (not competing with food/iron on breadth, where
+there isn't enough of it — see the crystal-demand discussion this decision
+came from). Rail Depot in particular matters: it's part of the
+manpower-boosting tree (§4.4), so crystal now directly gates how fast a
+player can scale manpower itself, giving crystal a permanent, felt role
+instead of being touched twice (Observatory, Airport) and forgotten.
+
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Bank | 3,200g | **180** | — |
-| Foundry | 4,500g | **180** | — |
-| Rail Depot | 4,000g + 100 crystal | **180** | Manpower-regen network booster (§4.4), already live |
-| Radar System | 4,000g + 120 crystal | **180** | — |
+| Bank | 3,200g | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Foundry | 4,500g | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Rail Depot | 4,000g + 100 crystal | **180** | Manpower-regen network booster (§4.4), already live. 1 FOOD slot + **1 CRYSTAL slot** |
+| Radar System | 4,000g + 120 crystal | **180** | 1 FOOD slot + **1 CRYSTAL slot** |
 | Advanced Fur Synthesizer | 4,000g + 40 supply | **180** | Still 1 SUPPLY slot (hard-capped), higher output within it + ~15 gold/day upkeep |
 | Advanced Ironworks | 4,200g + 40 iron | **180** | Still 1 IRON slot + ~15 gold/day upkeep |
 | Advanced Crystal Synthesizer | 4,800g + 40 crystal | **180** | Still 1 CRYSTAL slot + ~25 gold/day upkeep |
 
 ### Tier 4 — elite structures (250 manpower)
 
-| Structure | Old cost | New manpower |
-|---|---|---|
-| Exchange House | 5,000g + 120 crystal | **250** |
-| Aether Tower | 6,000g + 160 crystal, ×1.15/build (incremental) | **250**, scaling kept |
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Exchange House | 5,000g + 120 crystal | **250** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Aether Tower | 6,000g + 160 crystal, ×1.15/build (incremental) | **250**, scaling kept | 1 FOOD slot + **1 CRYSTAL slot** |
 
 ### Fort ladder (manpower unchanged — current design is already flat 300; slots are the new differentiator)
 
@@ -680,10 +740,15 @@ the thing that creates slots would be circular.)*
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
 | Imperial Exchange / World Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **400 each** | 1 CRYSTAL slot each |
-| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **600** | 2 SHARD (unchanged — stays event-gated, §5.5) |
+| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **600** | 2 SHARD (unchanged — stays event-gated, §5.5) + **1 CRYSTAL slot, permanent upkeep, decided** |
 
 A complete monument: 4×400 (parts) + 600 (assembly) = **2,200 manpower**
-total, appropriately the single largest investment in the game.
+total, appropriately the single largest investment in the game. **Crystal
+footprint while all 4 parts stand plus the assembled monument: 5 CRYSTAL
+slots total** (4 for the standing parts + 1 for the finished monument's own
+upkeep) — a serious, permanent commitment for the player holding the
+world's only one of these, and exactly the kind of structure whose
+crystal-shortfall dormancy risk is flagged as an open question in §5.4.
 
 ---
 
