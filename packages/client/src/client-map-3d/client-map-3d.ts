@@ -19,7 +19,7 @@ import {
 import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
+import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -35,6 +35,7 @@ import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
 import { createForest } from "../client-map-3d-forest.js";
+import { createHillMounds } from "../client-map-3d-hills.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
@@ -132,6 +133,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // pinned coordinate — any tile whose rendered ownerId flips gets logged.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
+  const hillMounds = createHillMounds(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   // Fogged tiles get a black darkening quad (always full opacity 0.65,
   // regardless of frontier/settled -- reuses both mesh buckets identically)
@@ -1422,6 +1424,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear();
+    hillMounds.clear();
     ownershipOverlay.clear();
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
@@ -1494,6 +1497,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
         const forestTile = isForestTile(wx, wy);
+        const hillsTile = isHillsTile(wx, wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
@@ -1613,6 +1617,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (forestTile) {
           forest.addInstance(x, z, surfaceY);
+        }
+        if (hillsTile) {
+          hillMounds.addInstance(x, z, surfaceY);
         }
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy);
@@ -1820,6 +1827,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit();
+    hillMounds.commit();
     ownershipOverlay.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
@@ -2058,6 +2066,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     structureOverlay.dispose();
     defensibilityOverlay.dispose();
     forest.dispose();
+    hillMounds.dispose();
     villageEffects.dispose();
     floatingText.dispose();
     townSupportCoins.dispose();

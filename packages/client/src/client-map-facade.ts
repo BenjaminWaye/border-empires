@@ -19,6 +19,7 @@ import {
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
+  drawHillsOverlay as drawHillsOverlayOnCanvas,
   drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
   drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
   drawDockMarker as drawDockMarkerOnCanvas,
@@ -240,6 +241,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size);
+  const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
+    drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =>
     drawBarbarianSkullOverlayOnCanvas(ctx, px, py, size);
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
@@ -388,6 +391,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawAetherWallSegment,
     drawTerrainTile,
     drawForestOverlay,
+    drawHillsOverlay,
     drawBarbarianSkullOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
