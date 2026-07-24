@@ -30,7 +30,7 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.subtitle).toBe("(12, 34)");
   });
 
-  it("offers Expand Here for a reachable unexplored target — the client never guesses it might be a mountain or sea to refuse it", () => {
+  it("offers Expand Here for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
     const state = createInitialState();
     state.me = "me";
     state.tiles.set(keyFor(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "me" });
@@ -45,9 +45,13 @@ describe("openUnexploredTileActionMenu", () => {
 
     const [view] = deps.renderTileActionMenu.mock.calls[0] as [TileMenuView, number, number];
     expect(view.actions[0]?.id).toBe("expand_here");
+    expect(view.tabs[0]).toBe("actions");
+    // The "Unexplored (x, y)" info must still be reachable via the Overview tab.
+    expect(view.tabs).toContain("overview");
+    expect(state.tileActionMenu.activeTab).toBe("actions");
   });
 
-  it("offers no action for an unexplored target with no path from owned territory", () => {
+  it("shows the Overview tab (not a dead empty-actions tab) for an unexplored target with no path from owned territory", () => {
     const state = createInitialState();
     state.me = "me";
     const deps = baseDeps();
@@ -56,5 +60,12 @@ describe("openUnexploredTileActionMenu", () => {
 
     const [view] = deps.renderTileActionMenu.mock.calls[0] as [TileMenuView, number, number];
     expect(view.actions).toHaveLength(0);
+    // Regression guard: previously tabs was hardcoded to ["actions"], so an
+    // unreachable target could only ever land on a permanently-empty
+    // Actions tab and show the generic "No actions available on this tile
+    // right now." fallback instead of "This tile has not been explored yet."
+    expect(view.tabs).toEqual(["overview"]);
+    expect(state.tileActionMenu.activeTab).toBe("overview");
+    expect(view.overviewLines[0]?.html).toMatch(/not been explored yet/i);
   });
 });
