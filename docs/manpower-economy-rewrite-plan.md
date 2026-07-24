@@ -579,6 +579,23 @@ numbers as authoritative; the generic table's `WOODEN_FORT`/`SIEGE_OUTPOST`
 entries look superseded and worth deleting during implementation rather
 than carrying two sources of truth forward.
 
+### 12.1 A gap in the first pass — ongoing (not just build) crystal upkeep
+
+The original version of this table only converted **build** costs to slots
+and missed that some structures also have a separate, **ongoing per-minute
+crystal upkeep** on top of their build cost — confirmed directly:
+`OBSERVATORY_UPKEEP_PER_MIN = 0.025` and
+`AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.025` `[code: server-game-constants.ts:
+125, config.ts:87]`, both drained continuously while the structure is
+active (`player-upkeep-incremental.ts:127,157`). Under slots, this doesn't
+need a separate mechanic: **the slot occupation itself is the upkeep** —
+once a structure permanently occupies a CRYSTAL slot for as long as it
+exists (§5.1, the same rule as Fort/IRON), there is nothing left to meter
+per-minute. Observatory and Airport are updated in the tables above to
+"1 CRYSTAL slot, permanently occupied while active," replacing their old
+build-cost-plus-drain pattern entirely. The same fix applies to the
+`reveal_empire` ability's ongoing upkeep (§17).
+
 ### Starter military (already manpower-primary today — keep the pattern)
 
 | Structure | Old cost | New manpower | New slot requirement |
@@ -588,17 +605,17 @@ than carrying two sources of truth forward.
 
 ### Tier 1 — basic economic sinks (35 manpower)
 
-| Structure | Old cost | New manpower |
-|---|---|---|
-| Farmstead | 700g + 20 food | **35** |
-| Waterworks | 600g + 20 food | **35** |
-| Camp | 800g + 30 supply | **35** |
-| Mine | 800g + 30 iron (or crystal) | **35** |
-| Granary | 700g + 40 food | **35** |
-| Observatory | 800g + 45 crystal, ×2/build (doubling) | **35**, doubling scaling kept |
-| Census Hall | 900g + 30 food | **35** |
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Farmstead | 700g + 20 food | **35** | — (boosts the tile's own FOOD slot count, per §5.2) |
+| Waterworks | 600g + 20 food | **35** | — |
+| Camp | 800g + 30 supply | **35** | — |
+| Mine | 800g + 30 iron (or crystal) | **35** | — (boosts the tile's own IRON/CRYSTAL slot count, per §5.2) |
+| Granary | 700g + 40 food | **35** | — |
+| Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **35**, doubling scaling kept | **1 CRYSTAL slot, permanently occupied while active** — see §12.1 note. Unlike Farmstead/Mine, Observatory doesn't boost a tile's slot count — it's a vision/defense structure that consumes a slot elsewhere in your empire, same as a Fort consuming an IRON slot. |
+| Census Hall | 900g + 30 food | **35** | — |
 
-*(Farmstead/Mine/Observatory boost the slot count of the tile they sit on
+*(Farmstead/Mine boost the slot count of the tile they sit on
 per §5.2 — they don't themselves consume a slot; requiring a slot to build
 the thing that creates slots would be circular.)*
 
@@ -620,7 +637,7 @@ the thing that creates slots would be circular.)*
 | Garrison Hall | 2,200g + 80 crystal | **70** | Repurposed (§4.4) — manpower-**cap** booster for its town |
 | Governor's Office | 2,600g | **70** | — |
 | Caravanary | 2,600g | **70** | — |
-| Airport | 3,000g + 80 crystal, ×2/build | **70**, doubling scaling kept | — |
+| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **70**, doubling scaling kept | **1 CRYSTAL slot, permanently occupied while active** (replaces the separate per-minute upkeep — same fix as Observatory, §12.1) |
 | Clearing House | 3,000g + 80 crystal | **70** | — |
 
 ### Tier 3 — major economic engines (180 manpower)
@@ -673,7 +690,8 @@ total, appropriately the single largest investment in the game.
 ## 13. Full tech list & pricing `[gold costs decided per-tier in §6.2; resource/time costs unchanged]`
 
 Full tech list confirmed directly from `packages/game-domain/data/
-tech-tree.json` (49 techs across 8 tiers). **Gold cost is flat per tier**
+tech-tree.json`: **48 techs across 8 tiers** (49 in the live data minus
+`Overload Protocols`, removed per §18). **Gold cost is flat per tier**
 (§6.2) — every tech in a tier costs the same gold, decided already. Each
 tech individually also keeps its existing strategic-resource cost
 (food/iron/crystal/supply/shard amounts) and its `researchTimeSeconds`
@@ -686,7 +704,7 @@ affordability, they just aren't paired with a wait.
 | 1 | **10** | Agriculture, Workshop Standards, Merchant Charters, Cartography, Warbands |
 | 2 | **50** | Boiler Alchemy, Field Rigging, Stoneworks, Deep Prospecting, Irrigation, Assembly Guilds, Signal Fires, Aether Moorings |
 | 3 | **100** | Brass Drillwork, Ceramic Stores, Royal Mint, Crystal Lattices, Mercantile Ledgers, Survey Corps, Bastion Walls, Siege Towers, Convoy Logistics |
-| 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Overload Protocols, Quartermaster Corps, Deep Extraction, Seedline Granaries |
+| 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Quartermaster Corps, Deep Extraction, Seedline Granaries — 7 techs, not 8: `Overload Protocols` removed (§18, Synthesizer Overload is removed and this was its only unlock) |
 | 5 | **400** | Cipher Bureaus, Aether Engineering, Banking, Provincial Ministries, Rail Networks, Grand Synthesis, Starforged Steel |
 | 6 | **800** `[gut-check — see §9 Q5]` | Grand Cartography, Monument Cities, Standing Army, Sky Docks, Resonance Grid, Aether Towers |
 | 7 | **1,600** `[gut-check]` | Imperial Exchange, Aegis Dome, Worldbreaker Cannon, Astral Dock |
@@ -833,69 +851,99 @@ no-counterplay, no-decision ability unworthy of a 2,200-manpower monument.
   `PLAYER_MESSAGE` broadcast pattern already used for shard rain
   (`messageType: "SHARD_RAIN_EVENT"`, `docs/game-mechanics.md` §12) — same
   plumbing, new `messageType` (e.g. `IMPERIAL_EXCHANGE_LEVY_EVENT`).
-- **Activation cost**: keep 200, relabeled from CRYSTAL to **gold** (§17)
-  — a serious cost on its own (20 town-days of income at the new 10/day/
-  town rate), appropriate for an ability that can now wipe someone's entire
-  treasury.
+- **Activation cost**: revised in §17 — occupies **2 CRYSTAL slots** for
+  the full 24-hour cooldown (not a gold fee as an earlier draft of this
+  section proposed). A serious commitment on its own: tying up 2 crystal
+  slots for a full day blocks other crystal-dependent structures/abilities
+  in the meantime, appropriate for an ability that can wipe someone's
+  entire treasury.
 
 Net effect: press the button once a day at most, pick a specific rival,
 take everything they've saved, and they find out when they log back in.
 That's a moment worth naming, unlike the old version.
 
-## 16. Monument uniqueness and race visibility `[decided]`
+## 16. Monument uniqueness and race visibility `[decided — revised: GLOBAL cap]`
 
-- **Cap each monument type at one per player.** Imperial Exchange, World
-  Engine, Aegis Dome, Astral Dock — a player may only ever build one of
-  each (their 4 `_PART` builds + 1 assembly). This appears to be the
-  **first genuinely empire-unique structure rule in the codebase** — no
-  existing `maxCount`/`perEmpire` constraint was found anywhere in
-  `structure-costs.ts` during earlier research in this plan; this needs a
-  new validation check, not a tuning change to an existing one.
-- **Broadcast a warning to all other players the moment a player completes
-  the *first* part** of any monument (first `IMPERIAL_EXCHANGE_PART`, etc.)
-  — e.g. *"[Player] has begun constructing an Imperial Exchange."* Creates
-  race tension and a reason to scout/contest/rush a competing monument,
-  rather than monuments being invisible until they're already a fait
-  accompli. Same `PLAYER_MESSAGE` broadcast plumbing as above.
+- **Cap each monument type at ONE PER SEASON, globally — not per player.**
+  Revised from an earlier per-player-cap draft. There is exactly one
+  Imperial Exchange, one World Engine, one Aegis Dome, one Astral Dock
+  available in the entire world each season. Whoever completes the final
+  assembly first gets it; **no other player can ever build that monument
+  type again that season.** This is a much higher-stakes rule than a
+  per-player cap — it turns each monument into a single, contestable prize
+  rather than a personal luxury every strong empire eventually gets. This
+  remains the **first genuinely empire/season-unique structure rule in the
+  codebase** — no existing `maxCount` constraint was found anywhere in
+  `structure-costs.ts`; needs new validation logic (a season-scoped
+  "already claimed" flag per monument type, checked before allowing any
+  further `_PART` or assembly builds of that type).
+- **Broadcast a warning to all other players the moment any player
+  completes the *first* part** of any monument (first
+  `IMPERIAL_EXCHANGE_PART`, etc.) — e.g. *"[Player] has begun constructing
+  an Imperial Exchange."* Under the global cap this broadcast is no longer
+  just flavor — it's the signal that a race for a single, unrepeatable
+  prize has started, and it directly motivates scouting, rushing a
+  competing build, or attacking the leader before they finish. Same
+  `PLAYER_MESSAGE` broadcast plumbing as elsewhere; feeds the events log
+  (§20).
+- **Open question this raises, not yet resolved:** if two players are
+  racing the same monument in parallel and one completes the assembly
+  first, what happens to the loser's already-sunk parts (up to 4 × 400
+  manpower each)? Does the loser get anything back (a partial manpower
+  refund, a consolation reward), or is that investment simply lost? This
+  is a real, painful edge case worth deciding deliberately rather than
+  defaulting silently to "lost forever," since that could feel punishing
+  enough to discourage anyone from ever attempting a monument race at all.
 
-## 17. Crystal-costing abilities — all break under slots, full list `[proposed]`
+## 17. Crystal-costing abilities — consume a CRYSTAL slot for their cooldown, not gold `[decided]`
 
-**This is a systemic discovery, not just an Imperial Exchange Levy
-problem.** Every ability below spends CRYSTAL as an activation fee from
-`ABILITY_DEFS` (`server-game-constants.ts:283-351`) or a dedicated map
-command — i.e., every one of them assumes crystal is a spendable stockpile.
-Once crystal becomes a slot (§5), **none of these can function as
-currently coded.** All seventeen need to move their activation fee onto
-**gold** (the only remaining stockpile currency) — proposed as a straight
-value relabel, since the existing numbers already sit in a sensible
-relative order to each other and to the new tech costs (§13):
+**Revised from an earlier draft that proposed relabelling these onto
+gold.** Correct fix, consistent with how structures already work under
+slots (§5): activating one of these abilities **occupies 1–2 CRYSTAL
+slots for the ability's own cooldown duration**, then releases them —
+exactly the same "temporarily unavailable to anything else" logic a Fort
+already applies to an IRON slot, just time-boxed to the cooldown instead of
+"until demolished." This keeps crystal-costing abilities inside the crystal
+economy instead of diluting everything into gold, and it means **abilities
+now genuinely compete with structures and each other for the same crystal
+slots** — casting Aether Purge and building a Crystal Synthesizer draw from
+the same pool, a real tension that a flat gold fee would not have created.
 
-| Ability | Requires tech | Old crystal cost | New gold cost | Cooldown |
+All seventeen confirmed directly from `ABILITY_DEFS`
+(`server-game-constants.ts:283-351`) and the dedicated monument-ability map
+commands. Slot count is a proposed first pass — 1 slot for ordinary
+utility/combat abilities, 2 slots for the four monument-tier abilities
+(reflecting their outsized cooldowns and impact):
+
+| Ability | Requires tech | Old crystal cost | New requirement | Cooldown (unchanged) |
 |---|---|---|---|---|
-| Reveal Empire | cryptography | 20 (+ ongoing crystal upkeep) | **20** (+ small gold upkeep, replaces crystal upkeep) | none (toggle) |
-| Reveal Empire Stats | surveying | 15 | **15** | 5 min |
-| Survey Sweep | surveying | 30 | **30** | 12 min |
-| Aether Purge | signal-fires | 100 | **100** | 10 min |
-| Aether Bridge | navigation | 30 | **30** | 30 min |
-| Aether Wall | harborcraft | 25 | **25** | 8 min |
-| Siphon | logistics | 15 | **15** | 10 min |
-| Create Mountain | terrain-engineering | 400 | **400** | 20 min |
-| Remove Mountain | terrain-engineering | 400 | **400** | 20 min |
-| Airport Bombard | (Airport) | 200 | **200** | 20 min |
-| Deep Strike | (already costs 120 manpower) | 25 | **25** (secondary fee alongside unchanged manpower cost) | 20 min |
-| Naval Infiltration | (already costs 120 manpower) | 30 | **30** (secondary fee) | 30 min |
-| Sabotage | — | 20 | **20** | 15 min |
-| Imperial Exchange Levy | exchange-levy | 200 | **200** | **24 hr** (§15) |
-| World Engine Strike | (World Engine) | 500 | **500** | 60 min |
-| Aegis Lock | (Aegis Dome) | 220 | **220** | 60 min |
-| Astral Dock Launch | (Astral Dock) | 300 | **300** | 90 min |
+| Reveal Empire | cryptography | 20 (+ ongoing crystal upkeep) | **1 CRYSTAL slot, occupied for as long as the toggle is on** (replaces the ongoing upkeep drain — same fix as Observatory/Airport, §12.1) | none (toggle) |
+| Reveal Empire Stats | surveying | 15 | **1 CRYSTAL slot** for the cooldown | 5 min |
+| Survey Sweep | surveying | 30 | **1 CRYSTAL slot** | 12 min |
+| Aether Purge | signal-fires | 100 | **1 CRYSTAL slot** | 10 min |
+| Aether Bridge | navigation | 30 | **1 CRYSTAL slot** | 30 min |
+| Aether Wall | harborcraft | 25 | **1 CRYSTAL slot** | 8 min |
+| Siphon | logistics | 15 | **1 CRYSTAL slot** | 10 min |
+| Create Mountain | terrain-engineering | 400 | **2 CRYSTAL slots** (highest ordinary-tier cost) | 20 min |
+| Remove Mountain | terrain-engineering | 400 | **2 CRYSTAL slots** | 20 min |
+| Airport Bombard | (Airport) | 200 | **1 CRYSTAL slot** | 20 min |
+| Deep Strike | (already costs 120 manpower) | 25 | **1 CRYSTAL slot** (alongside unchanged manpower cost) | 20 min |
+| Naval Infiltration | (already costs 120 manpower) | 30 | **1 CRYSTAL slot** | 30 min |
+| Sabotage | — | 20 | **1 CRYSTAL slot** | 15 min |
+| Imperial Exchange Levy | exchange-levy | 200 | **2 CRYSTAL slots** | **24 hr** (§15 — supersedes the "200 gold" note there) |
+| World Engine Strike | (World Engine) | 500 | **2 CRYSTAL slots** | 60 min |
+| Aegis Lock | (Aegis Dome) | 220 | **2 CRYSTAL slots** | 60 min |
+| Astral Dock Launch | (Astral Dock) | 300 | **2 CRYSTAL slots** | 90 min |
 
-**Open question:** these are proposed as a straight relabel to get the
-mechanic functioning again, not independently re-modelled against the new
-10-gold/day/town income — a 400-gold Create Mountain (40 town-days of
-income) or a 500-gold World Engine Strike may be over- or under-tuned
-relative to how precious gold now is. Worth a balance pass once the core
-economy numbers are validated, not before.
+**Consequence worth flagging:** a player with only 1–2 CRYSTAL tiles total
+could find their entire crystal economy locked up by a single ability cast
+for its full cooldown — e.g. casting Aegis Lock ties up 2 crystal slots for
+a full hour, potentially blocking a Crystal Synthesizer build or another
+ability in the meantime. This is presumably intended scarcity (consistent
+with "scarcity is nice" from earlier in this discussion), but it means
+crystal-poor players effectively can't use monument-tier abilities and
+maintain crystal-consuming structures at the same time — worth confirming
+that's the intended trade-off before shipping.
 
 ## 18. Synthesizer Overload — recommend removal, not redesign `[decided]`
 
@@ -923,10 +971,11 @@ model it doesn't fit. Cleanup scope:
 - Remove now-dead constants: `SYNTH_OVERLOAD_GOLD_COST`,
   `SYNTH_OVERLOAD_DISABLE_MS`, `FUR_SYNTHESIZER_OVERLOAD_SUPPLY`,
   `IRONWORKS_OVERLOAD_IRON`, `CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL`.
-- **The `overload-protocols` tech (tier 4) becomes purposeless** if this is
-  removed — either repurpose it to unlock something else at the same tier
-  slot, or remove the tech and adjust the tier-4 tech count/list in §13.
-  Flagging as an open question rather than deciding unilaterally.
+- **`Overload Protocols` (tier 4 tech) is removed too, decided** — it has no
+  purpose once the ability it unlocks is gone. Tier 4 drops from 8 techs to
+  **7**, and the tech list in §13 is updated to match (48 techs total, not
+  49). No replacement tech proposed for the vacated slot — tier 4 simply
+  has one fewer tech than tiers 2 and 3.
 
 ## 19. Full domain list & new costs `[proposed]`
 
@@ -952,3 +1001,64 @@ Note: `Imperial Expansion` (tier 5) and `Frontier Doctrine` (tier 1) are two
 of the four `developmentProcessCapacityAdd` doctrines referenced in §4.4 —
 their new gold costs (1,800 and 40 respectively) come from this same table,
 not a separate number.
+
+---
+
+## 20. Events log — a persistent, scrollable "what happened while I was away" feed `[decided — new feature]`
+
+§15's original design leaned on the `PLAYER_MESSAGE` broadcast pattern for
+the Imperial Exchange Levy offline notification, treating it as a one-off
+toast. That's not sufficient on its own: a toast is ephemeral — if a player
+doesn't happen to be looking when it fires (likely, given some of these
+events land while offline), it's gone. What's needed is a **proper,
+persistent log the player can scroll back through**, not a fire-and-forget
+message. This generalizes and supersedes the plain "reuse PLAYER_MESSAGE"
+note in §15/§16.
+
+### Design
+
+- **A dedicated, always-accessible log panel** (not a transient popup).
+- **Vertical timeline layout**: an icon per event, with a line of
+  descriptive text beside it.
+- **Most recent event at the top**, scrollable downward through history.
+- **Chronological, one entry per event** — no batching/collapsing distinct
+  events into a single line.
+
+### Event types at launch
+
+1. **Imperial Exchange Levy hits** (§15) — *"You were hit by an Imperial
+   Exchange Levy by [Player] — lost [X] gold."* Also log the caster's own
+   activation as a separate, milder entry (*"You levied [Player] for [X]
+   gold"*) so both sides of the interaction are visible in their own logs.
+2. **Towns lost** — captured by another player or by barbarians. *"[Town
+   name] was captured by [Player/Barbarians]."*
+3. **Explicitly designed to be extended** — the user's own framing was "we
+   will fill it with more things," so the underlying event-log mechanism
+   should be generic (an event type + icon + text template + timestamp),
+   not hardcoded to just these two. Natural future additions once this
+   exists: monument first-part-completed broadcasts (§16), barbarian
+   multiply/walk events affecting the player's border, Ancient Ruins
+   discoveries (§7.3), tech completions, town tier-ups.
+
+### Implementation notes
+
+- **Needs real persistence, not just the existing `PLAYER_MESSAGE`
+  mechanism.** `PLAYER_MESSAGE` (used today for `SHARD_RAIN_EVENT`) appears
+  to be a live, in-session notification — it doesn't obviously give a
+  player a scrollback of everything that happened while they were logged
+  out. This log needs an append-only per-player event store that persists
+  regardless of whether the player was online when the event fired. Reuse
+  `PLAYER_MESSAGE` for the *live* toast when the player happens to be
+  online at the moment, but the **log itself must be durable**, not
+  reconstructed from transient messages.
+- **Hook point for "town lost" events**: the single tile-mutation
+  chokepoint, `SimulationRuntime.replaceTileState()`
+  (`runtime.ts:1539`), is exactly where `docs/game-mechanics.md` §12
+  already notes *"No general 'tile state mutated' event yet — adding one
+  at this point would catch every relevant change in a single emit."` This
+  log is the concrete use case that finally justifies adding that general
+  hook, rather than bolting a one-off "did a town flip ownership" check
+  somewhere else.
+- Respect the **AI CPU guardrails** (`docs/game-mechanics.md` §13,
+  `AGENTS.md`) — writing a log entry on every relevant mutation must stay
+  cheap; don't scan/rebuild anything expensive per event.
