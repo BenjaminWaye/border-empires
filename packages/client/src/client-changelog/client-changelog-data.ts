@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.23.1",
+  version: "2026.07.24.1",
   title: "What's New",
-  summary: "Forests and mountains now affect vision — mountains block sight past them, forests limit sight to their edge.",
+  summary: "Watchtowers: a new scouting structure spread across the map that reveals nearby resources and towns when you expand onto one.",
   entries: [
+    {
+      introducedIn: "2026.07.24.1",
+      title: "New structure: Watchtowers",
+      why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
+      changes: [
+        "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
+        "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
+        "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
+      ]
+    },
     {
       introducedIn: "2026.07.23.1",
       title: "Terrain now blocks and limits vision",

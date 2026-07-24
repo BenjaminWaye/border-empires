@@ -11,6 +11,13 @@ export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
 export const VISION_RADIUS = 4;
+// Watchtower sites: world-generated scouting structures, spread out at
+// roughly half the town density. `WATCHTOWER_TARGET_COEFFICIENT` is tuned so
+// a default 450x450 world (worldScale = 0.2025) yields ~150 sites.
+export const WATCHTOWER_TARGET_MIN_COUNT = 60;
+export const WATCHTOWER_TARGET_COEFFICIENT = 740;
+export const WATCHTOWER_REVEAL_RADIUS = 5;
+export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
 // A vision source standing on a forest tile only sees this far, regardless
 // of the player's effective vision radius (tech/observatory bonuses). The
 // forest itself and its immediate neighbors remain visible; nothing farther

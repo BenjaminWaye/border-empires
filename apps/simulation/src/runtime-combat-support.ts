@@ -347,6 +347,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
     ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
     ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
     ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+    ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
     ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
   };
   ctx.replaceTileState(lock.originKey, releasedOrigin);

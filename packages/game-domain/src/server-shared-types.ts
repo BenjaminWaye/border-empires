@@ -182,6 +182,7 @@ export interface SnapshotState {
   docks?: Dock[];
   towns?: TownDefinition[];
   shardSites?: ShardSiteState[];
+  watchtowerSites?: WatchtowerSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
   clusterTiles?: [TileKey, string][];
@@ -218,6 +219,7 @@ export interface SnapshotTerritorySection {
   docks?: Dock[];
   towns?: TownDefinition[];
   shardSites?: ShardSiteState[];
+  watchtowerSites?: WatchtowerSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
   clusterTiles?: [TileKey, string][];
@@ -291,6 +293,13 @@ export interface ShardSiteState {
   kind: "CACHE" | "FALL";
   amount: number;
   expiresAt?: number;
+}
+
+export interface WatchtowerSiteState {
+  tileKey: TileKey;
+  activated: boolean;
+  activatedByPlayerId?: string;
+  revealUntil?: number;
 }
 
 export interface TileHistoryState {

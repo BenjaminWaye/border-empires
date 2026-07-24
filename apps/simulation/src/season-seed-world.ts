@@ -32,15 +32,18 @@ import {
   type ShardSiteState,
   type TerrainShapeState,
   type TownDefinition,
+  type WatchtowerSiteState,
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
   createServerWorldgenTerrain,
   createServerWorldgenTowns,
+  createServerWorldgenWatchtowers,
   assignMissingTownNames
 } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js";
+import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 
 export type GeneratedSeedPlayerSummary = {
   playerId: string;
@@ -320,6 +323,7 @@ export const createSeasonSeedWorld = (
   const docksByTile = new Map<TileKey, GeneratedDockState>();
   const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
+  const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
   const playersForTerrain = new Map<string, Player>();
@@ -406,6 +410,17 @@ export const createSeasonSeedWorld = (
     clustersById,
     clusterResourceType: terrainRuntime.clusterResourceType
   });
+  const watchtowersRuntime = createServerWorldgenWatchtowers({
+    seeded01: terrainRuntime.seeded01,
+    watchtowersByTile,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainAt,
+    key,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    clusterByTile,
+    townsByTile
+  });
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
@@ -419,6 +434,7 @@ export const createSeasonSeedWorld = (
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
     townsRuntime.assignMissingTownNamesForWorld();
+    watchtowersRuntime.generateWatchtowers(worldSeed);
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
     const islandDistributionAccepted =
       (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
@@ -523,6 +539,7 @@ export const createSeasonSeedWorld = (
     const tk = key(spawn.x, spawn.y);
     ownership.set(tk, playerId);
     shardSitesByTile.delete(tk);
+    watchtowersByTile.delete(tk);
     townsByTile.set(tk, createSettlementTown(tk, townsRuntime.townTypeAt(spawn.x, spawn.y)));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
   };
@@ -547,26 +564,12 @@ export const createSeasonSeedWorld = (
     seeded01: terrainRuntime.seeded01
   });
 
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, terrainAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       const tk = tileKey(x, y);
-      const clusterId = clusterByTile.get(tk);
-      const cluster = clusterId ? clustersById.get(clusterId) : undefined;
-      const dock = docksByTile.get(tk);
-      const town = townsByTile.get(tk);
-      const ownerId = ownership.get(tk);
-      const shardSite = shardSitesByTile.get(tk);
-      tiles.set(tk, {
-        x,
-        y,
-        terrain: terrainAt(x, y),
-        ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
-        ...(dock ? { dockId: dock.dockId } : {}),
-        ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
-        ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
-        ...(town ? { town: townStateFromDefinition(town) } : {})
-      });
+      tiles.set(tk, buildSeasonSeedTile(x, y, tk, tileAssemblyDeps));
     }
   }
 
