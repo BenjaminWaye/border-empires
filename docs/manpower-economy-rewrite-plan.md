@@ -110,8 +110,8 @@ new mechanic.
 
 | Action | Manpower | Rationale |
 |---|---|---|
-| **Expand** (claim → FRONTIER) | ~10 | Cheapest — just claiming dirt; 0 defense, 0 yield. |
-| **Settle** (FRONTIER → SETTLED) | ~20–25 | The growth loop we're reviving; acquisition of new capacity/slots + defense + Integrity `T`. Priced below structures on purpose. |
+| **Expand** (claim → FRONTIER) | **10** `[decided]` | Cheapest — just claiming dirt; 0 defense, 0 yield. Deliberately matches the existing `BARBARIAN_RAID_COST = 10` `[code: config.ts]` — one shared mental model, "10 = a cheap frontier poke," across claiming land and raiding a barbarian tile. |
+| **Settle** (FRONTIER → SETTLED) | **20** `[decided]` | The growth loop we're reviving; acquisition of new capacity/slots + defense + Integrity `T`. Priced below structures on purpose. |
 | Farmstead / Camp / Mine / Granary | ~35 | Basic optimization sinks — amplify a tile you already have; pure spend, no capacity return. |
 | Market / synthesizers | ~70 | |
 | Bank / Foundry | ~180 | |
@@ -127,9 +127,9 @@ manpower via a new town" — corrected: SETTLE does **not** create a town
 resource *slots*, and towns are a separate concept. The cheap-settle
 conclusion survives on the acquisition-vs-optimization principle.)
 
-### 4.3 Starting manpower and the onboarding problem `[proposed — unresolved]`
+### 4.3 Starting manpower and the onboarding problem `[decided, pending final regen-curve implementation]`
 
-Two constraints in tension:
+Two constraints in tension, both real:
 - Players **complained when starting gold was lowered** — a stingy opening
   feels bad. Don't recreate that.
 - A generous *starting gift* does **not** recreate gold's disease (that was
@@ -140,28 +140,52 @@ Two constraints in tension:
 **Do not** copy the old 100-gold : 1/4-cost ratio (100×/25×). Applied to
 manpower costs that would be ~750–1,000 starting manpower = 40–50 instant
 settles, a real snowball/fairness problem in an async persistent world.
-That ratio was itself a symptom of the broken economy.
+That ratio was itself a symptom of the broken economy — rejected.
 
-**Back the number in from feel instead:** decide how many tiles a brand-new
-player should comfortably settle in their first sitting, then multiply.
-Current lean ~300–500 manpower (≈12–20 settles). **Exact number is an open
-question** (§9) — the user pushed back that 1,000 is too much and that the
-old lower values felt bad, so this needs a deliberate call, not a ratio.
+**The target opening, decided:** a new player should be able to **expand
+~40 tiles and settle ~8 of them** before waiting on regen. At the decided
+costs (Expand 10, Settle 20): 40×10 + 8×20 = **400 + 160 = 560 manpower.**
 
-**The "press around, run out, leave" risk is real and separate.** The
-existing regen (`MANPOWER_BASE_REGEN_PER_MINUTE = 150/720 ≈ 0.2/min`,
-~12h to fill from empty `[code: config.ts:47-50]`) was tuned for
-*combat-only* spending by established empires — it was never designed
-against a new player draining the pool in the first 10 minutes just
-exploring the UI. Under this rewrite that becomes the default new-player
-experience. Candidate fixes (not mutually exclusive):
-1. **Faster regen floor for small/new empires** (preferred) — fix the
-   underlying assumption; the slow tight curve applies once you have real
-   scale and real decisions.
-2. **Temporary onboarding regen boost** for a new account's first
-   session/day, tapering to the real rate. Keeps endgame numbers untouched.
-3. **Faster-when-empty regen curve** — recovery boost near zero, so an
-   accidental full drain isn't as punishing as a deliberate one.
+**Starting capital tier `[decided]`:** cap **576**, regen **0.4/min**
+(implies a 24h fill window, `576 = 0.4 × 1440`, a deliberate departure from
+the existing 12h-fill convention). 576 covers the 560 opening with a small
+margin.
+
+**Critical implementation trap, already found and must not be
+reintroduced:** `MANPOWER_BASE_REGEN_PER_MINUTE` is a `Math.max` **floor**
+applied *after* summing per-town regen `[code: runtime-manpower.ts:23-36]`
+— the config comment already warns *"Acts as a floor... so it must scale
+with the per-tier regen below — otherwise the tier values are masked."*
+**Do not implement the 0.4 starting regen by raising this global floor** —
+if the floor is 0.4 and a captured SETTLEMENT-tier town only contributes
+0.2, the player's *first* captured town adds **nothing** (its 0.2 sits under
+the 0.4 floor), breaking the legible "more towns = more manpower" promise
+this whole rewrite depends on for problem D.
+
+**Correct implementation:** give the **starting capital its own tier**
+(cap 576, regen 0.4/min), separate from the generic `SETTLEMENT` tier
+(cap 150, regen 0.2/min, unchanged `[code]`), and **keep the global floor
+low** (≤0.2) so it never masks a captured town's contribution. Then:
+
+| State | Regen | Gain |
+|---|---|---|
+| Starting capital only | 0.4/min | — |
+| + 1 captured/founded town (SETTLEMENT tier) | 0.6/min | **+0.2/min, +150 cap** ✓ |
+| + 2 towns | 0.8/min | +0.2/min, +150 cap ✓ |
+| ... | ... | (taper kicks in at the 6th per `manpowerRegenWeightForSettlementIndex`, unchanged) |
+
+This makes "capture a town → visibly more manpower" true from town #1
+onward, which is the whole point.
+
+**The "press around, run out, leave" risk — now resolved by the above,** not
+a separate fix needed. With cap 576 / regen 0.4, refilling after the full
+560-opening burst to "can afford one more Settle (20)" takes **~50
+minutes**, not the ~35 hours the old combat-tuned 0.2/min floor would have
+implied. A new player who overspends exploring the UI is looking at "come
+back in under an hour," not "the game is dead for a day and a half." The
+three candidate mitigations considered and superseded by this fix: a
+temporary onboarding boost, a faster-when-empty recovery curve — neither is
+needed now that the capital has its own correctly-sized tier.
 
 ### 4.4 Manpower-boosting structure tree `[proposed]`
 
@@ -531,3 +555,248 @@ uncertainty is exciting not anxious.** Concrete, reusing existing plumbing:
 5. **Resource slots** (§5) — biggest lift, flag-gated, last.
 6. **Discovery track** (§7.3) — parallel workstream, independent of the
    economy; the only thing that fixes E.
+
+---
+
+## 12. Full structure cost table `[proposed — first pass, needs real balance modelling]`
+
+All current costs verified directly against `packages/shared/src/
+structure-costs/structure-costs.ts`. New manpower numbers are derived from
+the tier anchors in §4.2, scaled against each structure's *current* gold
+cost band (a reasonable first pass, not a modelled balance). Resource costs
+convert to slot requirements per §5 (permanent allocation, not consumed
+quantities) except where noted. Gold costs are cut to a minimal/nominal
+amount or zero everywhere except synthesizers, which keep meaningful gold
+**upkeep** (§6.4) — synthesizers are the one structure type gold still gates
+on an ongoing basis.
+
+**Note on Fort/Siege data:** two cost sources exist in the codebase for Fort
+and Siege Outpost — the generic `STRUCTURE_COST_DEFINITIONS` table and the
+dedicated `FORT_TIER_LADDER` / `SIEGE_TIER_LADDER` (the latter is
+explicitly commented as *"Single source of truth... Used by the simulation,
+game-domain, and the client"*). The table below uses the tier-ladder
+numbers as authoritative; the generic table's `WOODEN_FORT`/`SIEGE_OUTPOST`
+entries look superseded and worth deleting during implementation rather
+than carrying two sources of truth forward.
+
+### Starter military (already manpower-primary today — keep the pattern)
+
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Wooden Fort | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
+| Light Outpost | 75g + 30mp, ×1.1/build | **30** (unchanged) | — |
+
+### Tier 1 — basic economic sinks (35 manpower)
+
+| Structure | Old cost | New manpower |
+|---|---|---|
+| Farmstead | 700g + 20 food | **35** |
+| Waterworks | 600g + 20 food | **35** |
+| Camp | 800g + 30 supply | **35** |
+| Mine | 800g + 30 iron (or crystal) | **35** |
+| Granary | 700g + 40 food | **35** |
+| Observatory | 800g + 45 crystal, ×2/build (doubling) | **35**, doubling scaling kept |
+| Census Hall | 900g + 30 food | **35** |
+
+*(Farmstead/Mine/Observatory boost the slot count of the tile they sit on
+per §5.2 — they don't themselves consume a slot; requiring a slot to build
+the thing that creates slots would be circular.)*
+
+### Tier 1.5 — mid sinks (50 manpower)
+
+| Structure | Old cost | New manpower |
+|---|---|---|
+| Seed Granary | 1,400g + 80 food | **50** |
+| Customs House | 1,800g + 60 crystal | **50** |
+
+### Tier 2 — trade & production infrastructure (70 manpower)
+
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Market | 2,200g | **70** | — |
+| Fur Synthesizer | 2,200g | **70** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **10 gold/day upkeep** |
+| Ironworks | 2,400g | **70** | 1 IRON slot (hard-capped) + **10 gold/day upkeep** |
+| Crystal Synthesizer | 2,800g | **70** | 1 CRYSTAL slot (hard-capped) + **20 gold/day upkeep** |
+| Garrison Hall | 2,200g + 80 crystal | **70** | Repurposed (§4.4) — manpower-**cap** booster for its town |
+| Governor's Office | 2,600g | **70** | — |
+| Caravanary | 2,600g | **70** | — |
+| Airport | 3,000g + 80 crystal, ×2/build | **70**, doubling scaling kept | — |
+| Clearing House | 3,000g + 80 crystal | **70** | — |
+
+### Tier 3 — major economic engines (180 manpower)
+
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Bank | 3,200g | **180** | — |
+| Foundry | 4,500g | **180** | — |
+| Rail Depot | 4,000g + 100 crystal | **180** | Manpower-regen network booster (§4.4), already live |
+| Radar System | 4,000g + 120 crystal | **180** | — |
+| Advanced Fur Synthesizer | 4,000g + 40 supply | **180** | Still 1 SUPPLY slot (hard-capped), higher output within it + ~15 gold/day upkeep |
+| Advanced Ironworks | 4,200g + 40 iron | **180** | Still 1 IRON slot + ~15 gold/day upkeep |
+| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **180** | Still 1 CRYSTAL slot + ~25 gold/day upkeep |
+
+### Tier 4 — elite structures (250 manpower)
+
+| Structure | Old cost | New manpower |
+|---|---|---|
+| Exchange House | 5,000g + 120 crystal | **250** |
+| Aether Tower | 6,000g + 160 crystal, ×1.15/build (incremental) | **250**, scaling kept |
+
+### Fort ladder (manpower unchanged — current design is already flat 300; slots are the new differentiator)
+
+| Variant | Old cost | New manpower | New slot requirement | Defense mult |
+|---|---|---|---|---|
+| Fort | 900g + 300mp + 45 iron, ×1.1/build | **300** (unchanged) | 1 IRON slot | 2.5× |
+| Iron Bastion | 1,800g + 300mp + 90 iron | **300** (unchanged) | 2 IRON slots | 4× |
+| Thunder Bastion | 4,200g + 300mp + 180 iron | **300** (unchanged) | 4 IRON slots | 8× |
+
+### Siege ladder (manpower unchanged — flat 60 today)
+
+| Variant | Old cost | New manpower | New slot requirement | Attack mult |
+|---|---|---|---|---|
+| Siege Outpost | 900g + 60mp + 45 supply | **60** (unchanged) | 1 SUPPLY slot | 1.6× |
+| Siege Tower | 1,800g + 60mp + 90 supply + 60 iron | **60** (unchanged) | 2 SUPPLY + 1 IRON slots | 1.8× |
+| Dread Tower | 4,200g + 60mp + 140 supply + 120 iron | **60** (unchanged) | 3 SUPPLY + 2 IRON slots | 2.0× |
+
+### Monuments — capstone (4 parts + 1 assembly each)
+
+| Structure | Old cost | New manpower | New slot requirement |
+|---|---|---|---|
+| Imperial Exchange / World Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **400 each** | 1 CRYSTAL slot each |
+| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **600** | 2 SHARD (unchanged — stays event-gated, §5.5) |
+
+A complete monument: 4×400 (parts) + 600 (assembly) = **2,200 manpower**
+total, appropriately the single largest investment in the game.
+
+---
+
+## 13. Full tech list & pricing `[gold costs decided per-tier in §6.2; resource/time costs unchanged]`
+
+Full tech list confirmed directly from `packages/game-domain/data/
+tech-tree.json` (49 techs across 8 tiers). **Gold cost is flat per tier**
+(§6.2) — every tech in a tier costs the same gold, decided already. Each
+tech individually also keeps its existing strategic-resource cost
+(food/iron/crystal/supply/shard amounts) and its `researchTimeSeconds`
+value unchanged in the data, even though neither is currently enforced by
+research completing instantly (§6.2) — the resource costs still gate
+affordability, they just aren't paired with a wait.
+
+| Tier | Gold (flat, all techs this tier) | Techs |
+|---|---|---|
+| 1 | **10** | Agriculture, Workshop Standards, Merchant Charters, Cartography, Warbands |
+| 2 | **50** | Boiler Alchemy, Field Rigging, Stoneworks, Deep Prospecting, Irrigation, Assembly Guilds, Signal Fires, Aether Moorings |
+| 3 | **100** | Brass Drillwork, Ceramic Stores, Royal Mint, Crystal Lattices, Mercantile Ledgers, Survey Corps, Bastion Walls, Siege Towers, Convoy Logistics |
+| 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Overload Protocols, Quartermaster Corps, Deep Extraction, Seedline Granaries |
+| 5 | **400** | Cipher Bureaus, Aether Engineering, Banking, Provincial Ministries, Rail Networks, Grand Synthesis, Starforged Steel |
+| 6 | **800** `[gut-check — see §9 Q5]` | Grand Cartography, Monument Cities, Standing Army, Sky Docks, Resonance Grid, Aether Towers |
+| 7 | **1,600** `[gut-check]` | Imperial Exchange, Aegis Dome, Worldbreaker Cannon, Astral Dock |
+| 8 | **3,200** `[gut-check]` | Exchange Levy Writs, Worldbreaker Ignition |
+
+Reminder from §6.2: at 10 gold/day/town, this means 1 town sustains a
+tier-1 tech per day, 5 towns a tier-2 tech per day, 10 towns a tier-3 tech
+per day, 20 towns a tier-4, 40 towns a tier-5 — and per the §9 Q5 gut-check,
+tiers 6–8 (80/160/320 towns for 1/day pace) may be intentionally
+"season-leader only," matching how `RESOURCE_MONOPOLY` already requires 80%
+resource-type control as an endgame-only victory path. Confirm before
+shipping rather than assuming.
+
+---
+
+## 14. UI, UX, and copy changes required
+
+This redesign moves manpower from a niche military stat to the game's
+primary resource, and correspondingly shrinks gold from "the currency for
+everything" to a narrow, specific role. Every surface that currently
+foregrounds gold or hides manpower needs to flip. Grouped by what's
+confirmed to exist in the code vs. what needs locating during
+implementation.
+
+### 14.1 Confirmed existing surfaces that need changes
+
+- **Manpower breakdown panel** — `playerManpowerBreakdownFromSummary()`
+  `[code: runtime-manpower.ts:56-102]` already builds a UI-ready breakdown
+  (cap/regen line items by town tier, with scaling notes like *"50%
+  scaling"* for taper-affected towns). Today this almost certainly renders
+  as a secondary/buried stat (manpower only mattered for combat). **It
+  needs promotion to a primary, always-visible HUD element** — this is now
+  the resource every action check happens against, not an occasional combat
+  stat.
+- **Tech panel** (`client-tech-html.ts`, `client-tech-panel-flow.ts`) —
+  currently renders `developmentProcessCapacityAdd` as a flat *"Development
+  slots +N"* line (`client-tech-html.ts:91`) with no framing. Needs copy
+  explaining *why* it matters (unblocks settling while building — §4.4).
+  Also needs the **affordability highlight animation** (glow/pulse the
+  instant a tech crosses from unaffordable to affordable — the "reward is
+  ready" cue from the Discovery research, §7.3).
+- **Defensibility readout** (`client-tech-panel-flow.ts:46`) — currently a
+  single global percentage that `docs/defense-consolidation-exploration.md`
+  already proved parks near ~50% for any realistic empire, reading as
+  *"you are always average"* — demoralizing and non-actionable. Once the
+  Empire Integrity input is fixed to the local-support model (§7.2), this
+  needs new copy entirely: local, actionable cues ("3 tiles are
+  undefended," "this pocket is cut off") rather than one global number.
+- **Domain Progress Card** (`client-domain-progress-card.ts:18-23`) —
+  currently only ever prompts about shard caches for doctrine progress.
+  Needs expansion if the Discovery track ships (§7.3) — Ancient Ruins hints,
+  boss-barbarian sightings, victory-path proximity.
+- **Frontier command rejection copy** — `handleSettleCommand` rejects with
+  the literal code/message `"INSUFFICIENT_GOLD"` / `"insufficient gold to
+  settle"` `[code: runtime.ts:2844]`, and `validateFrontierCommand` gates
+  EXPAND/ATTACK the same way (`packages/game-domain/src/index/index.ts:301`,
+  checking `input.actor.points`). **Every one of these becomes
+  `INSUFFICIENT_MANPOWER`** with matching copy, across every command that
+  used to check gold and now checks manpower (which, after this rewrite, is
+  nearly all of them).
+
+### 14.2 New UI needed (no existing surface to extend)
+
+- **Slot availability display** — per resource type (IRON/CRYSTAL/SUPPLY/
+  OIL/FOOD), show "N/M slots used." Needs a clear visual distinction between
+  *"all your slots are full"* (you have iron tiles, they're all committed)
+  and *"you have zero slots of this type"* (you don't own the resource at
+  all) — different problems, different player actions to fix them.
+- **Dormant/unpowered structure indicator** — a structure that's lost its
+  slot allocation (captured Fort with no Iron access, per §5.4) needs a
+  distinct greyed-out/"unpowered" visual state, plus copy explaining what's
+  missing and what to do ("needs 1 Iron slot — settle or capture an Iron
+  tile").
+- **Rush-buy prompt** (§6.3) — a "rush with gold" option on any
+  manpower-blocked action, showing the gold cost to cover just the
+  shortfall. Only ever surfaced when there *is* a shortfall — never shown
+  as a default option when the player can already afford the action
+  normally, to avoid habituating players into treating gold as the primary
+  currency again.
+- **Synthesizer tooltip copy** — needs to explicitly state the upkeep
+  (gold/day) and the hard 1-slot cap with no upgrade path, so players
+  understand up front why a Crystal Synthesizer behaves differently from a
+  Mine on a real Crystal tile (§6.4) — this is the thing that keeps tall
+  play viable, so it needs to read as a deliberate, understood trade-off,
+  not a mysteriously weak building.
+- **"Juicy" barbarian tile marker** (§7.3) — barbarian tiles holding a
+  resource/town/fort/dock already progress toward multiplying twice as fast
+  as empty ones (`+2` vs `+1`, `runtime.ts:5976`), but nothing currently
+  tells the player which barb tiles are which. A simple marker turns this
+  into directed hunting instead of a mechanic only the simulation knows
+  about.
+- **Ancient Ruins claim event** (§7.3) — if wired up, needs its own reward
+  popup/banner, reusing the shard-rain `PLAYER_MESSAGE` /
+  `SHARD_RAIN_EVENT` pattern (`docs/game-mechanics.md` §12) rather than a
+  new notification system.
+
+### 14.3 Needs locating during implementation (not yet found in this research)
+
+- **Structure build menu / action preview** — every place a player sees a
+  cost before committing (build menu, settle confirmation, expand
+  confirmation) needs the primary cost line flipped from gold to manpower,
+  with resource-slot requirements shown as a secondary badge. Exact
+  client file(s) not yet located in this research pass.
+- **First-session / tutorial / onboarding copy** — wherever new-player
+  guidance currently lives needs to teach the new mental model directly:
+  manpower funds everything physical (expand/settle/build/attack), gold
+  funds tech only, resource tiles are slots not stockpiles, and an
+  unsettled claim has zero defense. Not yet located — flag for whoever
+  picks this up to find the actual onboarding surface before writing copy.
+- **AI-facing explain/diagnostic strings** — the AI planner's rejection
+  reasons and diagnostics (used in `AI_DEBUGGING.md`-style tooling) that
+  currently reference gold checks need the same rename for anyone
+  debugging AI behavior post-rewrite.
