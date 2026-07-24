@@ -204,6 +204,41 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     expect(state.authError).toBeTruthy();
   });
 
+  it("keeps the busy spinner covering the login panel while checking for a persisted session, instead of flashing the sign-in form", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { onAuthStateChanged } = await import("firebase/auth");
+    vi.mocked(onAuthStateChanged).mockClear();
+
+    const dom = makeDom();
+    const state = makeState();
+    const fakeFirebaseAuth = {} as unknown as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>;
+
+    const authFlow = createClientAuthFlow({
+      state,
+      dom,
+      firebaseAuth: fakeFirebaseAuth,
+      ws: { readyState: 3, OPEN: 1 } as unknown as RealtimeSocket,
+      wsUrl: "wss://border-empires.fly.dev/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false
+    });
+
+    // onAuthStateChanged is async in real Firebase (it reads persisted state
+    // before calling back), so at this point nothing has resolved yet. Before
+    // the fix, authBusy stayed false here and the overlay rendered the bare
+    // "Sign in to your empire" panel until the callback fired, which reads as
+    // a forced relogin — most visibly on the auto-reload that follows a
+    // dropped socket (e.g. the tab was hidden for a few minutes and the
+    // connection died in the background). It must instead default to busy so
+    // the spinner covers the panel until we know whether a session exists.
+    authFlow.bindFirebaseAuth();
+
+    expect(onAuthStateChanged).toHaveBeenCalled();
+    expect(state.authBusy).toBe(true);
+    expect(dom.authOverlayEl.dataset.busy).toBe("true");
+  });
+
   it("blocks Google sign-in inside the Facebook Messenger in-app browser instead of letting it fail with a cryptic Firebase error", async () => {
     const { createClientAuthFlow } = await import("./client-auth-flow.js");
     const { signInWithPopup } = await import("firebase/auth");
