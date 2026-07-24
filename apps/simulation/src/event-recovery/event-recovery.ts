@@ -16,6 +16,7 @@ type RecoveredTileState = {
   resource?: DomainTileState["resource"];
   dockId?: DomainTileState["dockId"];
   shardSite?: DomainTileState["shardSite"];
+  watchtower?: DomainTileState["watchtower"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
@@ -102,6 +103,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -168,6 +170,13 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.shardSite
         ? { shardSite: existing.shardSite }
+        : {}),
+    ...("watchtowerJson" in tileDelta
+      ? (tileDelta.watchtowerJson
+          ? { watchtower: parseOptionalJson<DomainTileState["watchtower"]>(tileDelta.watchtowerJson) }
+          : {})
+      : existing?.watchtower
+        ? { watchtower: existing.watchtower }
         : {}),
     // For ownership + per-tile-structure fields, an empty-string delta value
     // means "explicit clear" (mirrors the existing shardSiteJson pattern just

@@ -22,6 +22,13 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
+// Watchtower sites: world-generated scouting structures, spread out at
+// roughly half the town density. `WATCHTOWER_TARGET_COEFFICIENT` is tuned so
+// a default 450x450 world (worldScale = 0.2025) yields ~150 sites.
+export const WATCHTOWER_TARGET_MIN_COUNT = 60;
+export const WATCHTOWER_TARGET_COEFFICIENT = 740;
+export const WATCHTOWER_REVEAL_RADIUS = 5;
+export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
 export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;
