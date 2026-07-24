@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Terrain } from "@border-empires/shared";
-import { setWorldSeed } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, setWorldSeed } from "@border-empires/shared";
 import { VisionFootprintTable } from "./vision-footprint-table.js";
 
 // Same seed/coordinate used by client-forest-3d-regression.test.ts to confirm
 // this is a real forest tile under the deterministic world generator.
 const KNOWN_FOREST_TILE = { x: 24, y: 15 };
+
+// A real hills tile (isHillsTileAt true) under seed 1, found by scanning a
+// small coordinate range — same approach as KNOWN_FOREST_TILE above.
+const KNOWN_HILLS_TILE = { x: 4, y: 15 };
 
 // A forest tile per isForestTileAt's definition (GRASS biome + DARK shade)
 // depends on the deterministic world seed. Rather than hunting for a real
@@ -119,5 +123,14 @@ describe("VisionFootprintTable", () => {
     const offsetSet = new Set(offsets.map(([dx, dy]) => `${dx},${dy}`));
     expect(offsetSet.has("1,1")).toBe(true);
     expect(offsetSet.has("2,0")).toBe(false);
+  });
+
+  it("boosts a hills source tile's vision by HILLS_VISION_BONUS", () => {
+    setWorldSeed(1);
+    const { table } = makeTable(new Set());
+    const offsets = table.getOffsets(KNOWN_HILLS_TILE.x, KNOWN_HILLS_TILE.y, 3);
+    const expectedRadius = 3 + HILLS_VISION_BONUS;
+    const expectedSide = expectedRadius * 2 + 1;
+    expect(offsets.length).toBe(expectedSide * expectedSide);
   });
 });

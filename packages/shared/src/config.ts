@@ -16,6 +16,10 @@ export const VISION_RADIUS = 4;
 // forest itself and its immediate neighbors remain visible; nothing farther
 // is dilated from that source. See vision-footprint-table.ts.
 export const FOREST_VISION_RANGE = 1;
+// A vision source standing on a hills tile sees one extra tile beyond its
+// normal effective radius (before forest clamping is applied). See
+// isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
+export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;

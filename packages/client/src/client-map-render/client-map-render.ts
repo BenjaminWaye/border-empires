@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 import type { FortificationOpening, FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
-import { isForestTile } from "../client-constants.js";
+import { isForestTile, isHillsTile } from "../client-constants.js";
 import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
@@ -620,6 +620,51 @@ export const drawForestOverlay = (
     ctx.moveTo(tx, ty - canopyH * 0.52);
     ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
     ctx.lineTo(tx + canopyW * 0.12, ty - canopyH * 0.14);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+};
+
+export const drawHillsOverlay = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number
+): void => {
+  if (isTrue3DRendererActive() || size < 12 || !isHillsTile(wx, wy)) return;
+  const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
+  const moundCount = size >= 44 ? 3 : 2;
+  const anchors: Array<[number, number, number]> =
+    moundCount === 3
+      ? [[0.28, 0.66, 0.85], [0.58, 0.56, 1], [0.78, 0.68, 0.7]]
+      : [[0.36, 0.62, 1], [0.68, 0.58, 0.78]];
+  ctx.save();
+  for (let i = 0; i < anchors.length; i += 1) {
+    const anchor = anchors[i];
+    if (!anchor) continue;
+    const [ax, ay, scale] = anchor;
+    const moundW = size * 0.34 * scale;
+    const moundH = moundW * 0.6;
+    const hx = px + size * ax;
+    const hy = py + size * ay - canopyYOffset;
+    const gradient = ctx.createLinearGradient(hx, hy - moundH, hx, hy);
+    gradient.addColorStop(0, "rgba(168, 158, 92, 0.92)");
+    gradient.addColorStop(1, "rgba(120, 112, 58, 0.9)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(hx - moundW * 0.5, hy);
+    ctx.quadraticCurveTo(hx - moundW * 0.5, hy - moundH, hx, hy - moundH);
+    ctx.quadraticCurveTo(hx + moundW * 0.5, hy - moundH, hx + moundW * 0.5, hy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(203, 196, 138, 0.5)";
+    ctx.beginPath();
+    ctx.moveTo(hx - moundW * 0.32, hy - moundH * 0.12);
+    ctx.quadraticCurveTo(hx - moundW * 0.1, hy - moundH * 0.92, hx + moundW * 0.14, hy - moundH * 0.78);
+    ctx.quadraticCurveTo(hx - moundW * 0.08, hy - moundH * 0.55, hx - moundW * 0.32, hy - moundH * 0.12);
     ctx.closePath();
     ctx.fill();
   }

@@ -7,11 +7,12 @@
  * for the common case of a tile with no forest/mountain interaction.
  *
  * How the zero-cost guarantee holds:
- * - Forest-ness and mountain adjacency are both permanent-until-terraformed
- *   properties of a tile. Forest-ness never mutates in play. Mountains only
- *   change via CREATE_MOUNTAIN/REMOVE_MOUNTAIN, which already bump the
- *   runtime's `terrainEpoch` counter — reused here as the sole invalidation
- *   signal instead of adding new mutation hooks.
+ * - Forest-ness, hills-ness, and mountain adjacency are all
+ *   permanent-until-terraformed properties of a tile. Forest-ness and
+ *   hills-ness never mutate in play. Mountains only change via
+ *   CREATE_MOUNTAIN/REMOVE_MOUNTAIN, which already bump the runtime's
+ *   `terrainEpoch` counter — reused here as the sole invalidation signal
+ *   instead of adding new mutation hooks.
  * - The overwhelming majority of tiles have no mountain anywhere within
  *   vision radius. For those, `getOffsets` returns a *shared* plain-square
  *   array (one per distinct radius, not per tile) with no per-tile Map
@@ -28,7 +29,7 @@
  */
 
 import type { Terrain } from "@border-empires/shared";
-import { FOREST_VISION_RANGE, isForestTileAt } from "@border-empires/shared";
+import { FOREST_VISION_RANGE, HILLS_VISION_BONUS, isForestTileAt, isHillsTileAt } from "@border-empires/shared";
 import { computeLosOffsets, squareOffsets } from "./vision-line-of-sight.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -64,13 +65,15 @@ export class VisionFootprintTable {
 
   /**
    * Returns the (dx, dy) offsets a vision source at (x, y) with the given
-   * base radius actually dilates into, after forest clamping and mountain
-   * occlusion. Callers wrap (x + dx, y + dy) into world bounds themselves —
-   * this mirrors the existing forEachDilatedCell contract.
+   * base radius actually dilates into, after forest clamping, the hills
+   * vision bonus, and mountain occlusion. Callers wrap (x + dx, y + dy) into
+   * world bounds themselves — this mirrors the existing forEachDilatedCell
+   * contract.
    */
   getOffsets(x: number, y: number, radius: number): ReadonlyArray<[number, number]> {
     this.invalidateIfEpochChanged();
-    const effectiveRadius = isForestTileAt(x, y) ? Math.min(radius, FOREST_VISION_RANGE) : radius;
+    const forestClampedRadius = isForestTileAt(x, y) ? Math.min(radius, FOREST_VISION_RANGE) : radius;
+    const effectiveRadius = isHillsTileAt(x, y) ? forestClampedRadius + HILLS_VISION_BONUS : forestClampedRadius;
     const key = this.packKey(x, y, effectiveRadius);
 
     const cached = this.footprintByKey.get(key);
