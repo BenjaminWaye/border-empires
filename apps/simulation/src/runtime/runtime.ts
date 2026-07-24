@@ -54,7 +54,7 @@ import {
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
-import { buildPlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
+import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
@@ -596,7 +596,7 @@ export class SimulationRuntime {
   private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
-  private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
+  private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1063,7 +1063,7 @@ export class SimulationRuntime {
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
+            return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
           }
         : undefined
     });
@@ -1568,7 +1568,7 @@ export class SimulationRuntime {
         // emitPlayerStateUpdate will emit the corrected value in the same tick.
         const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
         if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+          econMult = integrityEconomyMult(empireIntegrity(metrics.localSupportScore));
         }
       }
       const settledTiles = this.settledTilesForPlayer(player.id);
@@ -1612,7 +1612,7 @@ export class SimulationRuntime {
   private cachedDefensibilityMetrics(
     playerId: string,
     summary: PlayerRuntimeSummary
-  ): { T: number; E: number; Ts: number; Es: number } {
+  ): PlayerDefensibilityMetrics {
     const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
     if (cached) return cached;
     const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);

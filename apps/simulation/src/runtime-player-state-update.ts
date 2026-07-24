@@ -4,6 +4,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
@@ -13,7 +14,7 @@ export type RuntimePlayerStateUpdateContext = {
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  cachedDefensibilityMetrics: (playerId: string, summary: PlayerRuntimeSummary) => { T: number; E: number; Ts: number; Es: number };
+  cachedDefensibilityMetrics: (playerId: string, summary: PlayerRuntimeSummary) => PlayerDefensibilityMetrics;
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -84,6 +85,12 @@ export function emitPlayerStateUpdate(
       E: metrics.E,
       Ts: metrics.Ts,
       Es: metrics.Es,
+      // Authoritative empire-integrity percentage (local-support model,
+      // docs/manpower-economy-rewrite-plan.md §7.2) — sent alongside the raw
+      // T/E/Ts/Es counts (still used by client breakdown/tips UI) so the
+      // client can display the real mechanic instead of recomputing an
+      // approximation client-side from just two aggregate numbers.
+      integrityPct: Math.round(Math.max(0, Math.min(1, metrics.localSupportScore)) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),

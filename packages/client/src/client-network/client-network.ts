@@ -1338,7 +1338,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
       if (resetIntegrityWarningIfRecovered(state.defensibilityPct)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
