@@ -1,17 +1,29 @@
 /**
- * Pure line-of-sight math for terrain-based vision occlusion (mountains) and
- * terrain-based vision clamping (forests). No caching or map access here —
- * see vision-footprint-table.ts for the memoized, hot-path-safe wrapper that
- * decides when this module actually needs to run.
+ * Pure line-of-sight math for terrain-based vision occlusion. No caching or
+ * map access here — see vision-footprint-table.ts for the memoized,
+ * hot-path-safe wrapper that decides when this module actually needs to run.
  *
- * Mountains block vision *past* them: a ray from the source to a candidate
- * tile is blocked if any tile strictly between the two endpoints is a
- * mountain. The source tile and the candidate tile itself are never treated
- * as blockers of themselves — a mountain tile is visible; tiles behind it
- * are not (unless another unblocked ray reaches them, e.g. through a gap).
+ * Two independent occluders, both terrain effects (not ownership effects —
+ * an unowned mountain or forest occludes exactly the same as an owned one):
+ *
+ * - Mountains fully block vision *past* them: a ray from the source to a
+ *   candidate tile is blocked if any tile strictly between the two endpoints
+ *   is a mountain. The source tile and the candidate tile itself are never
+ *   treated as blockers of themselves — a mountain tile is visible; tiles
+ *   behind it are not (unless another unblocked ray reaches them, e.g.
+ *   through a gap).
+ * - Forests partially block vision: once a ray crosses a forest tile, it can
+ *   continue only FOREST_VISION_RANGE tiles further before being cut off.
+ *   The *source* tile's own forest-ness is deliberately excluded — standing
+ *   in a forest doesn't blur your own local sight, only looking THROUGH
+ *   forest terrain (yours, an enemy's, or unowned) to reach something
+ *   farther away does.
  */
 
+import { FOREST_VISION_RANGE } from "@border-empires/shared";
+
 export type MountainAt = (x: number, y: number) => boolean;
+export type ForestAt = (x: number, y: number) => boolean;
 
 /**
  * Bresenham-style integer walk from (0,0) to (dx,dy), yielding intermediate
@@ -66,12 +78,52 @@ export const squareOffsets = (radius: number): Array<[number, number]> => {
 };
 
 /**
+ * Lattice points along the ray from (0,0) to (dx,dy), INCLUDING the
+ * candidate endpoint but EXCLUDING the source. Used for forest occlusion,
+ * which (unlike mountains) needs to know exactly how far past the first
+ * forest tile the candidate sits — including when the candidate itself is
+ * the first forest tile encountered (which must stay visible, same as a
+ * mountain tile itself staying visible).
+ */
+export const pathPointsExcludingSource = (dx: number, dy: number): Array<[number, number]> => {
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  const points: Array<[number, number]> = [];
+  for (let i = 1; i <= steps; i++) {
+    points.push([Math.round((dx * i) / steps), Math.round((dy * i) / steps)]);
+  }
+  return points;
+};
+
+/**
+ * Whether a ray from source (x0, y0) to offset (dx, dy) is occluded by
+ * forest terrain: once the ray crosses a forest tile (the source tile
+ * itself never counts as that first forest tile), it can continue only
+ * FOREST_VISION_RANGE tiles further before being cut off. `forestAt`
+ * receives world-wrapped coordinates.
+ */
+export const rayIsOccludedByForest = (x0: number, y0: number, dx: number, dy: number, forestAt: ForestAt): boolean => {
+  let forestHitAtStep: number | undefined;
+  let step = 0;
+  for (const [px, py] of pathPointsExcludingSource(dx, dy)) {
+    step += 1;
+    if (forestHitAtStep === undefined && forestAt(x0 + px, y0 + py)) forestHitAtStep = step;
+    if (forestHitAtStep !== undefined && step > forestHitAtStep + FOREST_VISION_RANGE) return true;
+  }
+  return false;
+};
+
+/**
  * LOS-filtered offsets visible from (x0, y0) at `radius`: every offset in
- * the square whose ray isn't blocked by an intermediate mountain.
+ * the square whose ray isn't blocked by an intermediate mountain and isn't
+ * cut short by forest occlusion.
  */
 export const computeLosOffsets = (
   x0: number,
   y0: number,
   radius: number,
-  mountainAt: MountainAt
-): Array<[number, number]> => squareOffsets(radius).filter(([dx, dy]) => !rayIsBlockedByMountain(x0, y0, dx, dy, mountainAt));
+  mountainAt: MountainAt,
+  forestAt: ForestAt
+): Array<[number, number]> =>
+  squareOffsets(radius).filter(
+    ([dx, dy]) => !rayIsBlockedByMountain(x0, y0, dx, dy, mountainAt) && !rayIsOccludedByForest(x0, y0, dx, dy, forestAt)
+  );

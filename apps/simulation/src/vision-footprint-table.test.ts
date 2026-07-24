@@ -1,30 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Terrain } from "@border-empires/shared";
-import { setWorldSeed } from "@border-empires/shared";
 import { VisionFootprintTable } from "./vision-footprint-table.js";
 
-// Same seed/coordinate used by client-forest-3d-regression.test.ts to confirm
-// this is a real forest tile under the deterministic world generator.
-const KNOWN_FOREST_TILE = { x: 24, y: 15 };
-
-// A forest tile per isForestTileAt's definition (GRASS biome + DARK shade)
-// depends on the deterministic world seed. Rather than hunting for a real
-// forest coordinate, these tests focus on mountain occlusion (fully
-// controllable via the injected terrainAt) and verify the forest path only
-// through the exported constant contract (radius clamp), independently
-// covered by client-forest-3d-regression.test.ts and the isForestTileAt
-// definition itself.
-
-const makeTable = (mountains: Set<string>, worldWidth = 200, worldHeight = 200) => {
+const makeTable = (
+  mountains: Set<string>,
+  worldWidth = 200,
+  worldHeight = 200,
+  forests: Set<string> = new Set()
+) => {
   let epoch = 0;
   const terrainAt = vi.fn((x: number, y: number): Terrain | undefined => (mountains.has(`${x},${y}`) ? "MOUNTAIN" : "LAND"));
+  const forestAt = vi.fn((x: number, y: number): boolean => forests.has(`${x},${y}`));
   const table = new VisionFootprintTable(worldWidth, worldHeight, {
     terrainAt,
-    getTerrainEpoch: () => epoch
+    getTerrainEpoch: () => epoch,
+    forestAt
   });
   return {
     table,
     terrainAt,
+    forestAt,
     bumpEpoch: () => {
       epoch += 1;
     }
@@ -110,14 +105,57 @@ describe("VisionFootprintTable", () => {
     expect(offsetSet.has("2,0")).toBe(false); // still occluded, from the memoized entry
   });
 
-  it("clamps a forest source tile's vision to FOREST_VISION_RANGE regardless of requested radius", () => {
-    setWorldSeed(1);
-    const { table } = makeTable(new Set());
-    const offsets = table.getOffsets(KNOWN_FOREST_TILE.x, KNOWN_FOREST_TILE.y, 6);
-    // Radius clamped to 1 -> a 3x3 square (9 offsets), not the requested 13x13.
-    expect(offsets.length).toBe(3 * 3);
+  it("drops offsets cut short by an unowned forest tile within radius, keeping the forest tile itself and 1 tile past it visible", () => {
+    const { table } = makeTable(new Set(), 200, 200, new Set(["51,50"])); // forest 1 tile east
+    const offsets = table.getOffsets(50, 50, 4);
     const offsetSet = new Set(offsets.map(([dx, dy]) => `${dx},${dy}`));
-    expect(offsetSet.has("1,1")).toBe(true);
-    expect(offsetSet.has("2,0")).toBe(false);
+    expect(offsetSet.has("1,0")).toBe(true); // the forest tile itself
+    expect(offsetSet.has("2,0")).toBe(true); // 1 tile past the forest: still visible
+    expect(offsetSet.has("3,0")).toBe(false); // 2 tiles past: occluded
+    expect(offsetSet.has("-1,0")).toBe(true); // unrelated bearing, unaffected
+  });
+
+  it("does NOT clamp a source tile's own vision when the source tile is itself forest", () => {
+    // The source's own terrain never occludes its own vision (see
+    // vision-line-of-sight.ts) — standing in a forest doesn't blur your own
+    // local sight, so a forest source with no OTHER forest/mountain nearby
+    // still gets the full, unclamped square.
+    const { table } = makeTable(new Set(), 200, 200, new Set(["50,50"]));
+    const offsets = table.getOffsets(50, 50, 4);
+    expect(offsets.length).toBe(9 * 9);
+  });
+
+  it("forest occlusion never needs invalidation on a mountain-only terrain epoch change", () => {
+    // Forest is static terrain; only entries that touched a mountain go in
+    // the epoch-scoped tier. A pure forest-driven result must be unaffected
+    // (and not rescanned) by an unrelated mountain edit bumping the epoch.
+    const { table, forestAt, bumpEpoch } = makeTable(new Set(), 200, 200, new Set(["51,50"]));
+    const before = table.getOffsets(50, 50, 4);
+    const callsAfterFirst = forestAt.mock.calls.length;
+
+    bumpEpoch(); // simulates an unrelated CREATE_MOUNTAIN elsewhere in the world
+
+    const after = table.getOffsets(50, 50, 4);
+    expect(after).toBe(before); // same cached array reference, no rescan
+    expect(forestAt.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  it("mountain-touched entries ARE invalidated on epoch change even when forest is also present", () => {
+    const mountains = new Set(["49,50"]); // 1 tile west
+    const forests = new Set(["51,50"]); // 1 tile east
+    const { table, bumpEpoch } = makeTable(mountains, 200, 200, forests);
+    const before = table.getOffsets(50, 50, 4);
+    const beforeSet = new Set(before.map(([dx, dy]) => `${dx},${dy}`));
+    expect(beforeSet.has("-1,0")).toBe(true); // the mountain tile itself
+    expect(beforeSet.has("-2,0")).toBe(false); // blocked, behind the mountain
+
+    mountains.delete("49,50");
+    bumpEpoch();
+
+    const after = table.getOffsets(50, 50, 4);
+    const afterSet = new Set(after.map(([dx, dy]) => `${dx},${dy}`));
+    expect(afterSet.has("-2,0")).toBe(true); // mountain gone, now visible
+    expect(afterSet.has("2,0")).toBe(true); // forest occlusion still applies (1 tile past)
+    expect(afterSet.has("3,0")).toBe(false);
   });
 });

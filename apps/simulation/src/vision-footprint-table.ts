@@ -1,34 +1,37 @@
 /**
  * Terrain-aware vision footprint table: the set of (dx, dy) offsets a source
- * tile's vision dilates into, given forest clamping and mountain occlusion.
+ * tile's vision dilates into, given forest and mountain occlusion (see
+ * vision-line-of-sight.ts for the actual ray math).
  *
  * Performance contract: this must not add cost to the existing O(radius²)
  * per-tile hot path (tileOwnershipChanged in visibility-coverage-cache.ts)
- * for the common case of a tile with no forest/mountain interaction.
+ * for the common case of a tile with no forest/mountain interaction nearby.
  *
  * How the zero-cost guarantee holds:
- * - Forest-ness and mountain adjacency are both permanent-until-terraformed
- *   properties of a tile. Forest-ness never mutates in play. Mountains only
- *   change via CREATE_MOUNTAIN/REMOVE_MOUNTAIN, which already bump the
- *   runtime's `terrainEpoch` counter — reused here as the sole invalidation
- *   signal instead of adding new mutation hooks.
- * - The overwhelming majority of tiles have no mountain anywhere within
- *   vision radius. For those, `getOffsets` returns a *shared* plain-square
- *   array (one per distinct radius, not per tile) with no per-tile Map
- *   write at all — identical cost to the pre-LOS square-dilation loop.
- * - Only tiles that are themselves forest, or have a mountain within
- *   radius, pay a one-time O(radius²) scan/raycast, memoized forever by
- *   (x, y, radius) until the next terrain epoch. Since a given owned tile's
- *   (position, radius) pair is reused across every future
- *   capture/loss/resync of that same tile, this cost is paid at most once
- *   per distinct occluded tile+radius combination, not once per mutation.
+ * - Tiles with neither a mountain nor a forest anywhere within radius (the
+ *   common case away from that terrain) get a *shared* plain-square array
+ *   (one per distinct radius, not per tile) with no per-tile Map write at
+ *   all — identical cost to the pre-LOS square-dilation loop.
+ * - Everything else pays a one-time O(radius²) scan/raycast, memoized
+ *   forever by (x, y, radius). Since a given owned tile's (position, radius)
+ *   pair is reused across every future capture/loss/resync of that same
+ *   tile, this cost is paid at most once per distinct tile+radius
+ *   combination, not once per mutation.
+ * - Forest terrain never mutates in play, so any entry whose computation
+ *   never touched a mountain is cached in `permanentByKey` and never
+ *   invalidated. Only entries that *did* involve a mountain (which
+ *   CREATE_MOUNTAIN/REMOVE_MOUNTAIN can change) go in `epochScopedByKey`,
+ *   cleared via the runtime's existing `terrainEpoch` counter. This split
+ *   matters because forest is common terrain — without it, a single rare
+ *   mountain edit anywhere in the world would force every forest-adjacent
+ *   footprint across the whole map to be recomputed too.
  * - The memo key is a packed integer (not a template-string concatenation)
- *   so even the single Map.get() this function does on every call — clean
- *   or occluded — never allocates a string on the hot path.
+ *   so the Map.get() calls this function does on every call — clean or
+ *   occluded — never allocate a string on the hot path.
  */
 
 import type { Terrain } from "@border-empires/shared";
-import { FOREST_VISION_RANGE, isForestTileAt } from "@border-empires/shared";
+import { isForestTileAt } from "@border-empires/shared";
 import { computeLosOffsets, squareOffsets } from "./vision-line-of-sight.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -37,6 +40,8 @@ export type VisionFootprintTableDeps = {
   readonly terrainAt: (x: number, y: number) => Terrain | undefined;
   /** Bumped by the runtime on every terrain mutation; used to invalidate memoized footprints. */
   readonly getTerrainEpoch: () => number;
+  /** Forest lookup — defaults to the real (static, world-seeded) isForestTileAt; overridable for deterministic tests. */
+  readonly forestAt?: (x: number, y: number) => boolean;
 };
 
 // Radius is packed into the low bits of the memo key below; real vision
@@ -49,40 +54,52 @@ export class VisionFootprintTable {
   private readonly worldHeight: number;
   private readonly deps: VisionFootprintTableDeps;
   private readonly plainSquareByRadius = new Map<number, ReadonlyArray<[number, number]>>();
-  // Keyed by a packed (x, y, radius) integer rather than a template-string
-  // concatenation — this Map.get() runs on every getOffsets() call (hot
-  // path), so it must not allocate. `null` means "clean, use the shared
-  // plain square"; an array means "occluded, use this LOS-filtered footprint".
-  private readonly footprintByKey = new Map<number, ReadonlyArray<[number, number]> | null>();
+  // Forest-only (or fully clean) results — forest terrain is static, so
+  // these never need invalidation. `null` means "clean, use the shared
+  // plain square"; an array means "forest-occluded, use this footprint".
+  private readonly permanentByKey = new Map<number, ReadonlyArray<[number, number]> | null>();
+  // Results whose computation touched a mountain — cleared on terrainEpoch
+  // change (CREATE_MOUNTAIN/REMOVE_MOUNTAIN). Kept separate from
+  // permanentByKey so a rare mountain edit doesn't force every (much more
+  // common) forest-adjacent footprint to be recomputed too.
+  private readonly epochScopedByKey = new Map<number, ReadonlyArray<[number, number]>>();
   private epoch = -1;
+  private readonly forestAt: (x: number, y: number) => boolean;
 
   constructor(worldWidth: number, worldHeight: number, deps: VisionFootprintTableDeps) {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
     this.deps = deps;
+    this.forestAt = deps.forestAt ?? isForestTileAt;
   }
 
   /**
    * Returns the (dx, dy) offsets a vision source at (x, y) with the given
-   * base radius actually dilates into, after forest clamping and mountain
-   * occlusion. Callers wrap (x + dx, y + dy) into world bounds themselves —
-   * this mirrors the existing forEachDilatedCell contract.
+   * base radius actually dilates into, after forest and mountain occlusion.
+   * Callers wrap (x + dx, y + dy) into world bounds themselves — this
+   * mirrors the existing forEachDilatedCell contract.
    */
   getOffsets(x: number, y: number, radius: number): ReadonlyArray<[number, number]> {
     this.invalidateIfEpochChanged();
-    const effectiveRadius = isForestTileAt(x, y) ? Math.min(radius, FOREST_VISION_RANGE) : radius;
-    const key = this.packKey(x, y, effectiveRadius);
+    const key = this.packKey(x, y, radius);
 
-    const cached = this.footprintByKey.get(key);
-    if (cached !== undefined) return cached ?? this.plainSquare(effectiveRadius);
+    const permanent = this.permanentByKey.get(key);
+    if (permanent !== undefined) return permanent ?? this.plainSquare(radius);
+    const epochScoped = this.epochScopedByKey.get(key);
+    if (epochScoped !== undefined) return epochScoped;
 
-    if (!this.hasMountainWithin(x, y, effectiveRadius)) {
-      this.footprintByKey.set(key, null);
-      return this.plainSquare(effectiveRadius);
+    const { hasMountain, hasForest } = this.scanOccluders(x, y, radius);
+    if (!hasMountain && !hasForest) {
+      this.permanentByKey.set(key, null);
+      return this.plainSquare(radius);
     }
 
-    const offsets = computeLosOffsets(x, y, effectiveRadius, (mx, my) => this.mountainAt(mx, my));
-    this.footprintByKey.set(key, offsets);
+    const offsets = computeLosOffsets(x, y, radius, (mx, my) => this.mountainAt(mx, my), this.forestAt);
+    if (hasMountain) {
+      this.epochScopedByKey.set(key, offsets);
+    } else {
+      this.permanentByKey.set(key, offsets);
+    }
     return offsets;
   }
 
@@ -107,22 +124,28 @@ export class VisionFootprintTable {
     return this.deps.terrainAt(wx, wy) === "MOUNTAIN";
   }
 
-  private hasMountainWithin(x: number, y: number, radius: number): boolean {
+  /** Single O(radius²) pass detecting both occluder types, with an early exit once both are found. The source tile itself is excluded — its own terrain never occludes its own vision (see vision-line-of-sight.ts). */
+  private scanOccluders(x: number, y: number, radius: number): { hasMountain: boolean; hasForest: boolean } {
+    let hasMountain = false;
+    let hasForest = false;
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx === 0 && dy === 0) continue;
-        if (this.mountainAt(x + dx, y + dy)) return true;
+        if (!hasMountain && this.mountainAt(x + dx, y + dy)) hasMountain = true;
+        if (!hasForest && this.forestAt(x + dx, y + dy)) hasForest = true;
+        if (hasMountain && hasForest) return { hasMountain, hasForest };
       }
     }
-    return false;
+    return { hasMountain, hasForest };
   }
 
   private invalidateIfEpochChanged(): void {
     const currentEpoch = this.deps.getTerrainEpoch();
     if (currentEpoch === this.epoch) return;
     this.epoch = currentEpoch;
-    this.footprintByKey.clear();
-    // plainSquareByRadius is terrain-independent — never needs invalidation.
+    this.epochScopedByKey.clear();
+    // permanentByKey and plainSquareByRadius are both mountain-independent
+    // (forest-only or fully clean) — never need invalidation.
   }
 }
 
