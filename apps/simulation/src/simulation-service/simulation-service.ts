@@ -69,7 +69,7 @@ import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-playe
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
-import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
+import { buildArchiveRow, buildCurrentSeasonSummary, finalizeCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
@@ -1469,7 +1469,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
-    const finalSummary =
+    // Rebuild refreshes currentSeasonState.winner only; finalizeCurrentSeasonSummary always wins on seasonVictory (see its doc comment).
+    const rebuiltSummary =
       trackerResult.changed || trackerResult.crownedWinner
         ? buildCurrentSeasonSummary({
             seasonState: currentSeasonState,
@@ -1478,10 +1479,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             updatedAt: baseSummary.updatedAt,
             worldStatus
           })
-        : {
-            ...baseSummary,
-            seasonVictory: trackerResult.objectives
-          };
+        : undefined;
+    const finalSummary = finalizeCurrentSeasonSummary(baseSummary, rebuiltSummary, trackerResult.objectives);
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
