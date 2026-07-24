@@ -169,7 +169,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl, buildAutoFillRevealTileDeltas as buildAutoFillRevealTileDeltasImpl,
+  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -177,7 +177,7 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
-import { applyAutoFill as applyAutoFillImpl, AUTO_FILL_SCAN_COOLDOWN_MS } from "../runtime-auto-fill.js";
+import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -310,6 +310,12 @@ import {
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
+import {
+  activateWatchtowerAt as activateWatchtowerAtImpl,
+  tickWatchtowerReveals as tickWatchtowerRevealsImpl,
+  type PendingWatchtowerReveal,
+  type WatchtowerRevealRuntimeInput
+} from "../runtime-watchtower-reveal-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
@@ -432,6 +438,8 @@ export class SimulationRuntime {
     territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
   });
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
+  // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
+  private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -1103,6 +1111,27 @@ export class SimulationRuntime {
     tickShardRainImpl(this.shardRainContext(), nowMs);
   }
 
+  private watchtowerRevealContext(): WatchtowerRevealRuntimeInput {
+    return {
+      now: this.now,
+      tiles: this.tiles,
+      pendingWatchtowerReveals: this.pendingWatchtowerReveals,
+      visibilityCoverage: this.visibilityCoverage,
+      visionTransitionCallbacks: this.visionTransitions.callbacks,
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    };
+  }
+
+  private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void {
+    activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId);
+  }
+
+  tickWatchtowerReveals(nowMs: number = this.now()): void {
+    tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
+  }
+
   async tickTerritoryAutomation(
     nowMs: number = this.now(),
     yieldToEventLoop?: () => Promise<void>
@@ -1331,6 +1360,7 @@ export class SimulationRuntime {
       respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
+      maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -1344,39 +1374,23 @@ export class SimulationRuntime {
   }
 
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
-    const filled = applyAutoFillImpl({
-      capturedTile: settledTile,
+    emitAutoFillForSettlementImpl(
+      {
+        tiles: this.tiles,
+        replaceTileState: (k, t) => this.replaceTileState(k, t),
+        onAutoFillTiles: this.onAutoFillTiles,
+        autoFillOriginCooldownUntil: this.autoFillOriginCooldownUntil,
+        now: this.now,
+        emitEvent: (event) => this.emitEvent(event),
+        tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+        combatSupportContext: this.combatSupportContext(),
+        isAiById: (playerId) => this.players.get(playerId)?.isAi,
+        recordTileYieldCollectedAt: (k, t) => this.tileYieldCollectedAtByTile.set(k, t)
+      },
+      settledTile,
       ownerId,
-      tiles: this.tiles,
-      replaceTileState: (k, t) => this.replaceTileState(k, t),
-      onAutoFillTiles: this.onAutoFillTiles, scanCooldown: { now: this.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: this.autoFillOriginCooldownUntil },
-      recordYieldAnchors: (keys) => {
-        const t = this.now();
-        for (const k of keys) this.tileYieldCollectedAtByTile.set(k, t);
-        this.emitEvent({
-          eventType: "TILE_YIELD_ANCHOR_BATCH",
-          commandId: `auto-fill:${ownerId}:${t}`,
-          playerId: ownerId,
-          anchors: keys.map((k) => ({ tileKey: k, collectedAt: t }))
-        });
-      }
-    });
-    if (filled.length === 0) return;
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `auto-fill:${tileKey}:${this.now()}`,
-      playerId: "__broadcast__",
-      tileDeltas: filled.map((t) => ({ ...this.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined }))
-    });
-    const revealDeltas = buildAutoFillRevealTileDeltasImpl(this.combatSupportContext(), ownerId, filled, this.players.get(ownerId)?.isAi);
-    if (revealDeltas.length > 0) {
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: `auto-fill-reveal:${tileKey}:${this.now()}`,
-        playerId: ownerId,
-        tileDeltas: revealDeltas
-      });
-    }
+      tileKey
+    );
   }
   preparePlayerRespawnNotice(
     playerId: string,
