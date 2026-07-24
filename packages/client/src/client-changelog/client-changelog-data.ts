@@ -22,7 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1784923957000, // 2026.07.24.1 (restored — see 2026.07.27.2 entry below)
+    createdAt: 1784927317000, // 2026.07.24.3 (restored)
+    introducedIn: "2026.07.24.3",
+    title: "Watchtowers are now rarer",
+    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
+    changes: [
+      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
+    ]
+  },
+  {
+    createdAt: 1784923957000, // 2026.07.24.1 (restored)
     introducedIn: "2026.07.24.1",
     title: "New structure: Watchtowers",
     why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
