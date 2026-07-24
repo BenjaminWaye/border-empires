@@ -248,7 +248,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
-  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
+  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number; localSupportScore: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
 }): void => {
   const { tileKey, previous, next, players } = input;

@@ -3,7 +3,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { buildTileYieldView } from "./tile-yield-view/tile-yield-view.js";
 import { buildPlayerUpdateEconomySnapshot, refreshTownEconomyFields, type PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import { buildUpkeepAccrualSnapshot, type UpkeepAccrualSnapshot } from "./player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
+import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import { enrichTownWithConnectedNetwork } from "./economy-network/economy-network.js";
 import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
@@ -25,7 +25,7 @@ export type RuntimeEconomyAccrualContext = {
   economySnapshotCacheByPlayer: Map<string, PlayerUpdateEconomySnapshot>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
   upkeepAccrualReadCountByPlayer: Map<string, number>;
-  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
+  defensibilityMetricsCacheByPlayer: Map<string, PlayerDefensibilityMetrics>;
   lastEconomyAccrualAtByPlayer: Map<string, number>;
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -102,7 +102,7 @@ export const cachedDefensibilityMetrics = (
   ctx: RuntimeEconomyAccrualContext,
   playerId: string,
   summary: PlayerRuntimeSummary
-): { T: number; E: number; Ts: number; Es: number } => {
+): PlayerDefensibilityMetrics => {
   const cached = ctx.defensibilityMetricsCacheByPlayer.get(playerId);
   if (cached) return cached;
   const metrics = buildPlayerDefensibilityMetrics(playerId, ctx.tiles, summary.territoryTileKeys);
