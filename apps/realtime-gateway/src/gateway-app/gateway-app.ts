@@ -2192,14 +2192,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
-if (bootstrapInitialState) {
-  seedBootstrapSnapshotWithDiagnostics(
-    { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
-    playerIdentity.playerId,
-    channel,
-    bootstrapInitialState,
-  );
-}
+            if (bootstrapInitialState) {
+              seedBootstrapSnapshotWithDiagnostics(
+                { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
+                playerIdentity.playerId,
+                channel,
+                bootstrapInitialState
+              );
+            }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
             const loginProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) =>
