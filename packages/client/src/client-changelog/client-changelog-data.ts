@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.24.2",
+  version: "2026.07.24.3",
   title: "What's New",
-  summary: "Fixed the season-victory hold countdown not appearing for up to 24 hours after a threshold was reached.",
+  summary: "Watchtowers are now rarer — about 50 spread across the map instead of 150.",
   entries: [
+    {
+      introducedIn: "2026.07.24.3",
+      title: "Watchtowers are now rarer",
+      why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
+      changes: [
+        "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
+      ]
+    },
     {
       introducedIn: "2026.07.24.2",
       title: "Fixed: season-victory hold countdown could go missing for up to 24 hours",
