@@ -288,6 +288,18 @@ investment:
   Waterworks placement (and its radius) the real capacity-scaling decision
   rather than Farmstead spam.
 
+**FISH tiles get a different, fixed treatment: 2 base food slots, with no
+Farmstead or Waterworks bonus available** `[decided]`. This preserves the
+existing asymmetry already in the code — Farmstead explicitly excludes
+FISH (`tile-yield-view.ts:84`: *"Farmstead: +50% food only on FARM tiles.
+FISH gets nothing"*), and FISH's old raw yield (72/day) was already ~1.5×
+FARM's (48/day) with zero scaling either way. Carrying that forward: FARM
+starts at 1 slot but scales to 2 (Farmstead) or 4 (Waterworks-boosted
+Farmstead); FISH is a flat, reliable 2 slots forever, no investment
+possible. That gives the two tile types a real strategic difference — FISH
+is the no-effort, immediately-useful source; FARM is the one worth
+developing if you want real scale.
+
 So a heavily-developed FARM tile can support far more than 1 building's
 worth of food upkeep — food becomes a resource you actively **build
 capacity into** (via Farmstead/Waterworks) rather than a fixed ceiling,
