@@ -187,7 +187,7 @@ three candidate mitigations considered and superseded by this fix: a
 temporary onboarding boost, a faster-when-empty recovery curve — neither is
 needed now that the capital has its own correctly-sized tier.
 
-### 4.4 Manpower-boosting structure tree `[proposed]`
+### 4.4 Manpower-boosting structure tree `[decided]`
 
 Moving the economy onto manpower means manpower needs its own investment
 ladder (as gold structures had Market/Bank). Partial foundation already
@@ -196,13 +196,16 @@ empire-wide `[code: config.ts:161]`, part of the mustering system that is
 **live in prod and staging** (`MUSTER_SYSTEM_ENABLED = "true"` in both
 `fly.combined.toml` and `fly.combined.staging.toml`) `[code]`.
 
-Proposed ladder:
+Ladder:
 - **Local tier** (new, low): a cheap town-level structure boosting *that
   town's* regen.
 - **Mid tier**: repurpose **Garrison Hall** (exists `[code:
   structure-costs.ts:76]`) into a manpower-**cap** booster for its town —
-  cap and regen get separate buildings, matching that they're already
-  separate stats.
+  **+150 manpower cap, flat, to the town it's built in** `[decided]`,
+  deliberately matching the base SETTLEMENT tier's own cap exactly, so the
+  intuitive read is "a Garrison Hall gives this town an extra Settlement's
+  worth of capacity." Cap and regen get separate buildings (Garrison Hall
+  vs. Rail Depot), matching that they're already separate stats.
 - **Network tier**: **Rail Depot** as-is — empire-wide regen `[code]`.
 - **Capstone** (late tech/structure): softens the settlement-index regen
   taper *through investment* — e.g. raise the full-weight threshold from 5
@@ -210,9 +213,19 @@ Proposed ladder:
   anti-snowball job by default; gives a big invested empire an *earned* way
   past it instead of a permanent wall.
 
-**Bootstrap-trap rule:** these structures cost **gold (rescaled) + a slot**
-(IRON or SUPPLY), **not manpower** — building the thing that fixes your
-manpower shortage must not itself require the manpower you don't have.
+**Correction to an earlier draft of this section**: it previously claimed
+these structures cost "gold + a slot, not manpower" to avoid a bootstrap
+trap (needing manpower to fix a manpower shortage). That's stale — it
+predates the later, load-bearing decision that *all* buildings cost
+manpower (§4.1), and the actual costs already locked in §12 confirm this:
+Garrison Hall is 70 manpower + 1 FOOD slot + 1 CRYSTAL slot, Rail Depot is
+180 manpower + 1 FOOD slot + 1 CRYSTAL slot, same as every other structure
+in that tier. The bootstrap concern turns out not to be a real trap in
+practice: manpower regenerates passively regardless of what a player
+builds, so a drained player always eventually accumulates enough to build
+their way out — it just takes time, which is the intended shape of the
+whole system (§4.5), not a special case these two structures need an
+exception for.
 
 ### 4.5 The tension this creates (the point)
 
@@ -632,16 +645,22 @@ uncertainty is exciting not anxious.** Concrete, reusing existing plumbing:
   the exact cost-display line within them wasn't pinned down; verify before
   writing copy (§14.3).
 
-**Still genuinely open:**
+- ~~Regen magnitude~~ → **decided, framing resolved**: modelling this
+  properly (§4.3/§10) surfaced that the answer depends entirely on whether
+  war is meant to be a sustained drip or a build-up-then-commit rhythm.
+  Settled on the latter — **manpower already works everywhere else in this
+  plan as a deep reservoir with a slow refill, and combat fits that same
+  shape rather than needing its own faster-draining exception.** Concretely:
+  the existing regen-per-tier formula is kept as-is, framed explicitly as
+  funding **one real campaign (~15-20 attacks, ~1,000-1,200 manpower)
+  roughly once every 12-24 hours** for a reference 10-town empire, not
+  constant sustained skirmishing. No numeric change to the regen curve —
+  only the framing changed, which is a much cheaper thing to revisit later
+  if actual play says otherwise than re-deriving the whole curve now.
 
-1. **Regen magnitude, once combat draws from the same pool.** Modelling
-   this (§4.3/§10) reversed an earlier wrong conclusion of mine — accounting
-   for simultaneous combat draw, the existing regen rate is likely too
-   *low*, not too generous. The fix depends on a number only the designer
-   can supply: **what sustained attacks-per-day should a player at active
-   war be able to maintain indefinitely, alongside some baseline economic
-   activity?** Once that's given, the regen-per-tier rate can be derived
-   properly instead of guessed at a second time.
+**No items remain in the "still genuinely open" list** — the structure
+build-menu file location (above) is the only partially-resolved item, and
+it only needs verification during implementation, not a design decision.
 
 ---
 
