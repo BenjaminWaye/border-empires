@@ -80,6 +80,24 @@ export const buildCurrentSeasonSummary = ({
   };
 };
 
+// Composes the persisted/broadcast summary after a season-victory tracker
+// recompute. `seasonVictory` must ALWAYS come from `trackerObjectives` (the
+// hold-processed objectives — holdRemainingSeconds + "Holding..." labels),
+// never from `rebuiltSummary`'s own seasonVictory (which is only the raw,
+// pre-tracker computeSeasonVictory() output, e.g. a generic "Threshold met"
+// with no countdown). Regression: simulation-service.ts used to return
+// `rebuiltSummary` as-is on the exact tick a hold started (when the tracker
+// changed), silently discarding the tracker's countdown for up to
+// holdDurationSeconds — see simulation-service.recompute-summary.test.ts.
+export const finalizeCurrentSeasonSummary = (
+  baseSummary: CurrentSeasonSummary,
+  rebuiltSummary: CurrentSeasonSummary | undefined,
+  trackerObjectives: CurrentSeasonSummary["seasonVictory"]
+): CurrentSeasonSummary => ({
+  ...(rebuiltSummary ?? baseSummary),
+  seasonVictory: trackerObjectives
+});
+
 export const buildArchiveRow = (summary: CurrentSeasonSummary): SeasonArchiveRow => {
   const mostTerritory = topEntries(summary.byTiles);
   const mostPoints = topEntries(
