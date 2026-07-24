@@ -247,6 +247,24 @@ export class VisibilityCoverageTracker {
   }
 
   /**
+   * Adds a one-off, non-territory vision source for a single viewer (e.g. a
+   * watchtower's temporary reveal pulse). Unlike tileOwnershipChanged this is
+   * not tracked by radiusBySource — the caller is responsible for calling
+   * removeTemporaryReveal with the exact same (x, y, radius) once the effect
+   * expires (see runtime.ts's pendingWatchtowerReveals / tickWatchtowerReveals).
+   */
+  addTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter);
+  }
+
+  /** Reverses addTemporaryReveal once the timed effect expires. */
+  removeTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave);
+  }
+
+  /**
    * Call when two players become or stop being allies. Adds/removes each
    * side's entire current territory footprint to/from the other's coverage —
    * O(territory × radius²) once per alliance change (rare), instead of any
