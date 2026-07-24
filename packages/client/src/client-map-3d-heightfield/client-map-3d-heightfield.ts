@@ -34,6 +34,20 @@ export const HEIGHTFIELD_COASTAL_SEA_ELEVATION = -0.16;
 export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
 export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
 export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
+// Added to a GRASS/SAND tile's base elevation when it's a hills tile. Unlike
+// mountains, hills aren't a distinct HeightfieldTerrainKind (see
+// hills-terrain.ts) — this is a same-kind elevation bonus so the existing
+// corner-averaging below still blends a hill smoothly into its flat-grass
+// neighbours, the same way a lone mountain tile's corners blend toward grass.
+// Tall enough that a single directional sun visibly lights one side of the
+// rise and shades the other — a shallower bump reads as flat ground with a
+// texture change, not as relief.
+export const HEIGHTFIELD_HILLS_ELEVATION_BONUS = 0.55;
+// Per-tile height variance layered on top of the flat bonus above so a hills
+// region reads as a cluster of rounded rises (like Civ-style hills) instead
+// of one flat mesa with sloped edges — every tile within the region gets its
+// own small hash-seeded bump, always upward from the plateau baseline.
+const HILLS_BUMP_JITTER_MAX = 0.22;
 
 // The heightfield surface has zero thickness, and sea tiles are skipped
 // entirely so the water plane can sit on top of the hole. At grazing camera
@@ -93,10 +107,21 @@ const wrap = (n: number, dim: number): number => {
   return m < 0 ? m + dim : m;
 };
 
-const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind): number => {
+// Always >= 0 — layered on top of HEIGHTFIELD_HILLS_ELEVATION_BONUS, never
+// below it, so individual tiles within a hills region rise unevenly above
+// the shared plateau instead of dipping back toward flat grass.
+const hillsBumpJitter = (wx: number, wy: number): number => {
+  const h = ((wx * 668265263) ^ (wy * 374761393) ^ 0x9e3779b9) >>> 0;
+  return (h % 1024) / 1024 * HILLS_BUMP_JITTER_MAX;
+};
+
+const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind, isHills: boolean): number => {
   if (kind === "MOUNTAIN") {
     const h = ((wx * 73856093) ^ (wy * 19349663)) >>> 0;
     return ((h % 1024) / 1024 - 0.5) * 0.16;
+  }
+  if (isHills) {
+    return hillsBumpJitter(wx, wy);
   }
   if (kind === "GRASS" || kind === "SAND") {
     const h = ((wx * 374761393) ^ (wy * 668265263)) >>> 0;
@@ -119,6 +144,9 @@ export type HeightfieldRebuildInputs = {
   // at corners through vertex averaging. Optional so tests don't have to
   // pass it; absent → no halo.
   readonly isForestAt?: (wx: number, wy: number) => boolean;
+  // Adds HEIGHTFIELD_HILLS_ELEVATION_BONUS to a GRASS/SAND tile's elevation.
+  // Optional so tests don't have to pass it; absent → no hills bump.
+  readonly isHillsAt?: (wx: number, wy: number) => boolean;
 };
 
 const FOREST_HALO_RADIUS = 2;
@@ -373,10 +401,12 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       worldHeight,
       tileKindAt,
       isExploredAt,
-      isForestAt
+      isForestAt,
+      isHillsAt
     } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
     const forestAt = isForestAt ?? ((): boolean => false);
+    const hillsAt = isHillsAt ?? ((): boolean => false);
 
     const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
     const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
@@ -417,7 +447,10 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       const kind = tileKindAt(wx, wy);
       const variant = terrainShadeVariantAt(wx, wy);
       const [cr, cg, cb] = heightfieldTileColor(kind, variant);
-      const elevation = heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
+      const isHillsTile = (kind === "GRASS" || kind === "SAND") && hillsAt(wx, wy);
+      const hillsBonus = isHillsTile ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0;
+      const baseElevation = heightfieldTileBaseElevation(kind) + hillsBonus;
+      const elevation = baseElevation + elevationJitter(wx, wy, kind, isHillsTile);
       const isSea = kind === "SEA" || kind === "COASTAL_SEA";
       const isExplored = exploredAt(wx, wy);
       // Forest halo only matters on land grass — no point scanning sea/mountain.
@@ -432,7 +465,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         forestProx
       };
       tileSampleCache.set(cacheKey, sample);
-      elevationCache.set(elevationKey(wx, wy), heightfieldTileBaseElevation(kind));
+      elevationCache.set(elevationKey(wx, wy), baseElevation);
       return sample;
     };
 
