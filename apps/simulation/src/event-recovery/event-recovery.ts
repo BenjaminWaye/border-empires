@@ -71,6 +71,8 @@ export type RecoveredSimulationState = {
     strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
+    aetherCacheCharges?: number;
+    pendingAetherCacheEffect?: "FREE_BUILD" | "FREE_TECH";
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;

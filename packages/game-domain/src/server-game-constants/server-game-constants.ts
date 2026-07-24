@@ -161,6 +161,17 @@ export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 // no cooldown between charges — a player can burn all 3 back-to-back.
 export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;
 export const IMPERIAL_WARD_CHARGES_GRANTED = 3;
+// Aether Cache: a steampunk salvage crate granted occasionally to active
+// (non-AI, non-barbarian) players. Checked once per grant tick; small
+// per-tick odds keep it a rare windfall rather than a steady drip.
+export const AETHER_CACHE_GRANT_INTERVAL_MS = 60_000;
+export const AETHER_CACHE_GRANT_CHANCE_PER_INTERVAL = 0.01;
+export const AETHER_CACHE_MAX_CHARGES = 3;
+// Half-extent of the box scanned around the player's territory for the
+// reveal-deposit effect — mirrors SURVEY_SWEEP_HALF_EXTENT's scan shape but
+// kept separate since the cache reveal isn't gated by Surveying/an
+// observatory.
+export const AETHER_CACHE_REVEAL_HALF_EXTENT = 20;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
 export const SURVEY_SWEEP_CRYSTAL_COST = 30;

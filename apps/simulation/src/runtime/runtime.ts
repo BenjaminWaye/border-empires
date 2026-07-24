@@ -272,6 +272,10 @@ import {
 } from "../runtime-map-command-handlers.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
+  handleOpenAetherCacheCommand as handleOpenAetherCacheCommandImpl,
+  type RuntimeAetherCacheCommandContext
+} from "../runtime-aether-cache-command-handler.js";
+import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
   handleCollectShardCommand as handleCollectShardCommandImpl,
@@ -311,6 +315,7 @@ import {
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
+import { tickAetherCacheGrant as tickAetherCacheGrantImpl } from "../runtime-aether-cache-grant-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
@@ -1101,6 +1106,13 @@ export class SimulationRuntime {
 
   tickShardRain(nowMs: number = this.now()): void {
     tickShardRainImpl(this.shardRainContext(), nowMs);
+  }
+
+  tickAetherCacheGrant(): void {
+    tickAetherCacheGrantImpl({
+      players: this.players,
+      emitEvent: (event) => this.emitEvent(event)
+    });
   }
 
   async tickTerritoryAutomation(
@@ -3092,6 +3104,23 @@ export class SimulationRuntime {
     };
   }
 
+  private aetherCacheCommandContext(): RuntimeAetherCacheCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
+      emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId)
+    };
+  }
+
+  private handleOpenAetherCacheCommand(command: CommandEnvelope): void {
+    handleOpenAetherCacheCommandImpl(this.aetherCacheCommandContext(), command);
+  }
+
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
     return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
   }
@@ -3918,6 +3947,7 @@ export class SimulationRuntime {
       handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
+      handleOpenAetherCacheCommand: (command) => this.handleOpenAetherCacheCommand(command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),

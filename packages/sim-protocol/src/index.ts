@@ -308,6 +308,12 @@ export type PlayerSubscriptionSnapshot = {
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
     // message, not this snapshot field (same convention as Aegis Lock).
     imperialWardCharges?: number;
+    // Aether Cache: unopened salvage-crate count, and the pending
+    // free-build/free-tech windfall (if any) awaiting the next matching
+    // command. See DomainPlayer in @border-empires/game-domain for the
+    // canonical field docs.
+    aetherCacheCharges?: number;
+    pendingAetherCacheEffect?: "FREE_BUILD" | "FREE_TECH";
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };

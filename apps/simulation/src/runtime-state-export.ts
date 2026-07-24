@@ -75,6 +75,8 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    aetherCacheCharges?: number;
+    pendingAetherCacheEffect?: "FREE_BUILD" | "FREE_TECH";
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
   activeLocks: Array<{
@@ -213,7 +215,9 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {})
+        ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(typeof player.aetherCacheCharges === "number" ? { aetherCacheCharges: player.aetherCacheCharges } : {}),
+        ...(typeof player.pendingAetherCacheEffect === "string" ? { pendingAetherCacheEffect: player.pendingAetherCacheEffect } : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

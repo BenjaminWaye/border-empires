@@ -19,6 +19,7 @@ import {
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
+import { AETHER_CACHE_GRANT_INTERVAL_MS } from "@border-empires/game-domain";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
@@ -1151,6 +1152,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
     if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
     if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
+    if (aetherCacheGrantTicker) { clearInterval(aetherCacheGrantTicker); aetherCacheGrantTicker = undefined; }
     log.info("season ended — gameplay tickers stopped");
   };
   // Proactively build and cache full-vis snapshots for all subscribed players
@@ -1234,6 +1236,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
+  let aetherCacheGrantTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -2791,6 +2794,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
+      aetherCacheGrantTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
+        try {
+          trackSyncMainThreadTaskWithMetrics("tick_aether_cache_grant", undefined, () => runtime.tickAetherCacheGrant());
+        } catch (error) {
+          log.error({ err: error }, "aether cache grant tick failed");
+        }
+      }, AETHER_CACHE_GRANT_INTERVAL_MS);
       let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -3128,6 +3139,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
+      if (aetherCacheGrantTicker) clearInterval(aetherCacheGrantTicker);
       gcObserver?.disconnect();
       globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {

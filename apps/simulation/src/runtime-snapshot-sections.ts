@@ -77,6 +77,8 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           domainIds: [...(player.domainIds ?? [])].sort(),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(typeof player.aetherCacheCharges === "number" ? { aetherCacheCharges: player.aetherCacheCharges } : {}),
+          ...(typeof player.pendingAetherCacheEffect === "string" ? { pendingAetherCacheEffect: player.pendingAetherCacheEffect } : {}),
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
           vision: player.mods?.vision ?? 1,

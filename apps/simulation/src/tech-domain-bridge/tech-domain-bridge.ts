@@ -431,11 +431,16 @@ export const chooseTechForPlayer = (
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available)) {
+  const freeFromAetherCache = player.pendingAetherCacheEffect === "FREE_TECH";
+  if (!freeFromAetherCache && (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available))) {
     return { ok: false, reason: "requirements not met" };
   }
-  player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
-  spendStrategicResources(player, required);
+  if (freeFromAetherCache) {
+    player.pendingAetherCacheEffect = undefined;
+  } else {
+    player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
+    spendStrategicResources(player, required);
+  }
   player.techIds.add(techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
   player.mods = recomputeMods(player);

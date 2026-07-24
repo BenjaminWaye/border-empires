@@ -260,6 +260,17 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     manpowerCost = structureBuildManpowerCost(structureType);
   }
+
+  // Aether Cache windfall: the next build a player attempts after rolling
+  // FREE_BUILD is free and completes instantly. Consumed here (rather than
+  // earlier) so a rejected/invalid build attempt doesn't burn the charge.
+  const freeFromAetherCache = actor.pendingAetherCacheEffect === "FREE_BUILD";
+  if (freeFromAetherCache) {
+    goldCost = 0;
+    manpowerCost = 0;
+    strategicCost = undefined;
+  }
+
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
     return;
@@ -268,12 +279,18 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "INSUFFICIENT_MANPOWER", `need ${manpowerCost.toFixed(0)} manpower for ${structureLabel(structureType)}`);
     return;
   }
-  if (!spendStrategicCost(context, actor, command, structureType, strategicCostForStructure(structureType, strategicCost))) return;
+  if (!freeFromAetherCache && !spendStrategicCost(context, actor, command, structureType, strategicCostForStructure(structureType, strategicCost))) return;
 
-  actor.points -= goldCost;
-  actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+  if (freeFromAetherCache) {
+    actor.pendingAetherCacheEffect = undefined;
+  } else {
+    actor.points -= goldCost;
+    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+  }
 
-  const buildMs = spec.kind === "FORT"
+  const buildMs = freeFromAetherCache
+    ? 0
+    : spec.kind === "FORT"
     ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
     : spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST"
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
