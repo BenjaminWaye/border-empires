@@ -2464,6 +2464,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   }
                 : {}),
               tiles: (() => {
+                if (subscribeOptions.omitTiles) return [];
                 // Post-season: tiles are frozen and all players share identical
                 // full-visibility tiles, so marshal once and reuse.
                 if (currentSeasonState.status === "ended") {
