@@ -5,7 +5,8 @@ import {
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
   SETTLE_MS,
-  isForestTileAt
+  isForestTileAt,
+  isHillsTileAt
 } from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
@@ -77,6 +78,7 @@ export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
 export const formatManpowerAmount = (manpower: number): string => manpower.toFixed(0);
 
 export const isForestTile = isForestTileAt;
+export const isHillsTile = isHillsTileAt;
 
 export const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 4 : FRONTIER_CLAIM_MS);
 export const settleDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? SETTLE_MS * 2 : SETTLE_MS);
