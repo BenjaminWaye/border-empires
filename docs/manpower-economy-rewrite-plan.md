@@ -405,11 +405,13 @@ intended (cf. `RESOURCE_MONOPOLY` needs 80% control) or may want flattening
 at the top. **Keep the one-research-at-a-time rule** — don't let gold buy
 parallel research (that recreates "wealth substitutes for map control").
 
-**Leave strategic-resource tech costs untouched** `[code: tech-tree.json]`
-— tier 5+ techs require SHARD (1–3), which only comes from shard rain, so
-tech pace is *already* tied to active exploration. This is a working
-"exploration matters late-game" mechanic already in the tree; lean into it,
-don't dilute it.
+**Leave SHARD tech costs untouched, drop every other strategic-resource
+cost** (full reasoning and the food/iron/crystal/supply fix in §13) — tier
+5+ techs require SHARD (1–3), which only comes from shard rain, so tech
+pace is *already* tied to active exploration. That's a working "exploration
+matters late-game" mechanic already in the tree; lean into it, don't dilute
+it. FOOD/IRON/CRYSTAL/SUPPLY costs on tech, by contrast, can't survive the
+slots pillar and are dropped entirely, not left in place.
 
 ### 6.3 Rush-buy
 
@@ -545,29 +547,44 @@ uncertainty is exciting not anxious.** Concrete, reusing existing plumbing:
 
 ---
 
-## 9. Open questions (unresolved — decide before/while building)
+## 9. Open questions
 
-1. **Exact starting manpower** — back it in from "how many settles should a
-   new player get in their first sitting?" (lean 300–500, not 1,000).
-2. **New/small-empire regen curve** — which onboarding fix (§4.3 #1/#2/#3),
-   and the actual numbers. The existing 12h-fill was tuned for combat-only
-   and will strangle new players as-is.
-3. **Does an occupied slot-tile still produce/serve anything else?** With
+**Resolved since first written** (kept here so the resolution is easy to
+find, not because they're still open):
+- ~~Exact starting manpower~~ → **decided**: capital tier cap 576, regen
+  0.4/min, sized to a 40-expand/8-settle opening (§4.3).
+- ~~New/small-empire regen curve~~ → **decided**: give the starting capital
+  its own tier rather than raising the global regen floor, which would
+  mask a captured town's contribution (§4.3).
+- ~~Which structure goes dark first on slot shortfall~~ → **decided**:
+  most-recently-built loses power first (§5.4).
+
+**Still genuinely open:**
+
+1. **Does an occupied slot-tile still produce/serve anything else?** With
    permanent allocation, is a tile whose slot funds a Fort still doing
    anything else, or is that slot simply "spent"? Define precisely.
-4. **Which structure goes dark first** on slot shortfall (default: most
-   recent) — confirm.
-5. **Tier 6–8 tech costs** — is 320 towns for T8 intended or should the top
-   curve flatten?
-6. **Synthesizer asymmetry** — is "can't upgrade past 1 slot" enough, or
-   should its 1 slot also cost more upkeep than a real tile's slot?
-7. **Fairness / async join** — a generous opening + first-mover advantage in
+2. **Tier 6–8 tech costs** — is 320 towns for T8 intended or should the top
+   curve flatten? (§13)
+3. **Synthesizer asymmetry** — is "can't upgrade past 1 slot" enough, or
+   should its 1 slot also cost more upkeep than a real tile's slot? (§6.4)
+4. **Fairness / async join** — a generous opening + first-mover advantage in
    a persistent world: does a fast early player grab disproportionate land
    before others join? Is there an existing mitigation, or is one needed?
-8. **Regen taper as whole-economy bottleneck** — the 5/15 taper was tuned
+5. **Regen taper as whole-economy bottleneck** — the 5/15 taper was tuned
    when manpower only gated combat. As the whole economy's throttle it bites
    far harder; model it against realistic mid/late-season town counts before
    trusting the current curve.
+6. **Monument race consolation** (§16) — what happens to a losing racer's
+   sunk manpower on parts if a rival finishes the same monument first?
+7. **Monument-dormancy hostage risk** (§5.4) — since only one of each
+   monument exists per season, can a player sit on a permanently-dormant
+   one (lost crystal access) and deny it to everyone else forever? Needs a
+   release-valve decision or an explicit "yes, that's the risk of racing
+   for it."
+8. **Structure build menu / onboarding copy / AI diagnostic strings**
+   (§14.3) — not yet located in the client, needed before copy can be
+   written.
 
 ---
 
@@ -768,17 +785,28 @@ crystal-shortfall dormancy risk is flagged as an open question in §5.4.
 
 ---
 
-## 13. Full tech list & pricing `[gold costs decided per-tier in §6.2; resource/time costs unchanged]`
+## 13. Full tech list & pricing `[gold costs decided per-tier in §6.2; strategic-resource costs corrected below]`
 
 Full tech list confirmed directly from `packages/game-domain/data/
 tech-tree.json`: **48 techs across 8 tiers** (49 in the live data minus
 `Overload Protocols`, removed per §18). **Gold cost is flat per tier**
-(§6.2) — every tech in a tier costs the same gold, decided already. Each
-tech individually also keeps its existing strategic-resource cost
-(food/iron/crystal/supply/shard amounts) and its `researchTimeSeconds`
-value unchanged in the data, even though neither is currently enforced by
-research completing instantly (§6.2) — the resource costs still gate
-affordability, they just aren't paired with a wait.
+(§6.2) — every tech in a tier costs the same gold, decided already.
+
+**Correction to an earlier draft of this section**, caught during a later
+gap audit: this section originally said every tech "keeps its existing
+strategic-resource cost (food/iron/crystal/supply/shard amounts)...
+unchanged." That's wrong for the same reason the 17 abilities were wrong
+(§17) — `tech-tree.json` costs FOOD/IRON/CRYSTAL/SUPPLY as *quantities*
+(e.g. Agriculture costs "40 food," Iron Vanguard-tier techs cost hundreds
+of iron), and once those resources are slots, not stockpiles, there's no
+quantity left to spend. **Fix: drop the FOOD/IRON/CRYSTAL/SUPPLY cost from
+every tech entirely. Keep SHARD unchanged** — shard was never converted to
+a slot (§5.5), it stays a real, event-gated stockpile, so a tech that costs
+"1 shard" still costs 1 shard. So a tech that today costs, e.g., "14,500
+gold + 200 crystal + 1 shard" becomes, under this plan, its new flat tier
+price + 1 shard — the crystal number is dropped, not converted onto
+anything else. `researchTimeSeconds` stays present in the data but remains
+unenforced, per §6.2 (no research timer).
 
 | Tier | Gold (flat, all techs this tier) | Techs |
 |---|---|---|
@@ -932,12 +960,10 @@ no-counterplay, no-decision ability unworthy of a 2,200-manpower monument.
   `PLAYER_MESSAGE` broadcast pattern already used for shard rain
   (`messageType: "SHARD_RAIN_EVENT"`, `docs/game-mechanics.md` §12) — same
   plumbing, new `messageType` (e.g. `IMPERIAL_EXCHANGE_LEVY_EVENT`).
-- **Activation cost**: revised in §17 — occupies **2 CRYSTAL slots** for
-  the full 24-hour cooldown (not a gold fee as an earlier draft of this
-  section proposed). A serious commitment on its own: tying up 2 crystal
-  slots for a full day blocks other crystal-dependent structures/abilities
-  in the meantime, appropriate for an ability that can wipe someone's
-  entire treasury.
+- **Activation cost**: **free** — finalized in §17. Two earlier drafts of
+  this bullet (gold fee, then a 2-CRYSTAL-slot cost) are both superseded.
+  The 24-hour cooldown alone is the entire gate; a full gold wipe on a rival
+  once a day doesn't need a resource cost stacked on top of that.
 
 Net effect: press the button once a day at most, pick a specific rival,
 take everything they've saved, and they find out when they log back in.
@@ -976,55 +1002,53 @@ That's a moment worth naming, unlike the old version.
   defaulting silently to "lost forever," since that could feel punishing
   enough to discourage anyone from ever attempting a monument race at all.
 
-## 17. Crystal-costing abilities — consume a CRYSTAL slot for their cooldown, not gold `[decided]`
+## 17. Crystal-costing abilities — FREE, cooldown only `[decided — final, supersedes the crystal-slot draft below]`
 
-**Revised from an earlier draft that proposed relabelling these onto
-gold.** Correct fix, consistent with how structures already work under
-slots (§5): activating one of these abilities **occupies 1–2 CRYSTAL
-slots for the ability's own cooldown duration**, then releases them —
-exactly the same "temporarily unavailable to anything else" logic a Fort
-already applies to an IRON slot, just time-boxed to the cooldown instead of
-"until demolished." This keeps crystal-costing abilities inside the crystal
-economy instead of diluting everything into gold, and it means **abilities
-now genuinely compete with structures and each other for the same crystal
-slots** — casting Aether Purge and building a Crystal Synthesizer draw from
-the same pool, a real tension that a flat gold fee would not have created.
+**This section went through two revisions; this is the final one.** First
+draft: relabel the old crystal fee onto gold. Second draft: keep the
+ability inside the crystal economy by having it occupy 1–2 CRYSTAL slots
+for its own cooldown duration. That second draft is **not** what shipped —
+reconsidering it surfaced a real problem: it meant crystal-poor players
+(most of the playerbase, given crystal is the scarcest resource in the
+game) could be locked out of these abilities entirely, cutting against the
+"tall/non-explorer players should still have a chance" principle from
+§6.4. **Final decision: all seventeen abilities are FREE, gated only by
+their existing cooldown** — no crystal cost, no slot cost, nothing. The
+cooldowns (5 minutes to 24 hours) are already a sufficient standalone
+pacing lever.
 
-All seventeen confirmed directly from `ABILITY_DEFS`
+Crystal's demand instead comes entirely from **buildings** — Bank, Foundry,
+Rail Depot, Radar System, Exchange House, Aether Tower, and Garrison Hall
+(§12 Tier 3/4), plus Observatory, Airport, and the monument structures.
+Rail Depot and Garrison Hall matter most: they're the manpower-scaling
+structures (§4.4), so crystal ends up gating how fast a player can grow the
+game's central resource — a permanent, felt role, instead of being spread
+thin across seventeen abilities most players would rarely use.
+
+All seventeen abilities, confirmed directly from `ABILITY_DEFS`
 (`server-game-constants.ts:283-351`) and the dedicated monument-ability map
-commands. Slot count is a proposed first pass — 1 slot for ordinary
-utility/combat abilities, 2 slots for the four monument-tier abilities
-(reflecting their outsized cooldowns and impact):
+commands, simply drop their old CRYSTAL cost entirely and keep their
+existing cooldown unchanged:
 
-| Ability | Requires tech | Old crystal cost | New requirement | Cooldown (unchanged) |
+| Ability | Requires tech | Old crystal cost | New cost | Cooldown (unchanged) |
 |---|---|---|---|---|
-| Reveal Empire | cryptography | 20 (+ ongoing crystal upkeep) | **1 CRYSTAL slot, occupied for as long as the toggle is on** (replaces the ongoing upkeep drain — same fix as Observatory/Airport, §12.1) | none (toggle) |
-| Reveal Empire Stats | surveying | 15 | **1 CRYSTAL slot** for the cooldown | 5 min |
-| Survey Sweep | surveying | 30 | **1 CRYSTAL slot** | 12 min |
-| Aether Purge | signal-fires | 100 | **1 CRYSTAL slot** | 10 min |
-| Aether Bridge | navigation | 30 | **1 CRYSTAL slot** | 30 min |
-| Aether Wall | harborcraft | 25 | **1 CRYSTAL slot** | 8 min |
-| Siphon | logistics | 15 | **1 CRYSTAL slot** | 10 min |
-| Create Mountain | terrain-engineering | 400 | **2 CRYSTAL slots** (highest ordinary-tier cost) | 20 min |
-| Remove Mountain | terrain-engineering | 400 | **2 CRYSTAL slots** | 20 min |
-| Airport Bombard | (Airport) | 200 | **1 CRYSTAL slot** | 20 min |
-| Deep Strike | (already costs 120 manpower) | 25 | **1 CRYSTAL slot** (alongside unchanged manpower cost) | 20 min |
-| Naval Infiltration | (already costs 120 manpower) | 30 | **1 CRYSTAL slot** | 30 min |
-| Sabotage | — | 20 | **1 CRYSTAL slot** | 15 min |
-| Imperial Exchange Levy | exchange-levy | 200 | **2 CRYSTAL slots** | **24 hr** (§15 — supersedes the "200 gold" note there) |
-| World Engine Strike | (World Engine) | 500 | **2 CRYSTAL slots** | 60 min |
-| Aegis Lock | (Aegis Dome) | 220 | **2 CRYSTAL slots** | 60 min |
-| Astral Dock Launch | (Astral Dock) | 300 | **2 CRYSTAL slots** | 90 min |
-
-**Consequence worth flagging:** a player with only 1–2 CRYSTAL tiles total
-could find their entire crystal economy locked up by a single ability cast
-for its full cooldown — e.g. casting Aegis Lock ties up 2 crystal slots for
-a full hour, potentially blocking a Crystal Synthesizer build or another
-ability in the meantime. This is presumably intended scarcity (consistent
-with "scarcity is nice" from earlier in this discussion), but it means
-crystal-poor players effectively can't use monument-tier abilities and
-maintain crystal-consuming structures at the same time — worth confirming
-that's the intended trade-off before shipping.
+| Reveal Empire | cryptography | 20 (+ ongoing crystal upkeep) | **Free** (upkeep also dropped, not just deferred to a slot) | none (toggle) |
+| Reveal Empire Stats | surveying | 15 | **Free** | 5 min |
+| Survey Sweep | surveying | 30 | **Free** | 12 min |
+| Aether Purge | signal-fires | 100 | **Free** | 10 min |
+| Aether Bridge | navigation | 30 | **Free** | 30 min |
+| Aether Wall | harborcraft | 25 | **Free** | 8 min |
+| Siphon | logistics | 15 | **Free** | 10 min |
+| Create Mountain | terrain-engineering | 400 | **Free** | 20 min |
+| Remove Mountain | terrain-engineering | 400 | **Free** | 20 min |
+| Airport Bombard | (Airport) | 200 | **Free** | 20 min |
+| Deep Strike | (already costs 120 manpower) | 25 | **Free** (unchanged manpower cost stands alone) | 20 min |
+| Naval Infiltration | (already costs 120 manpower) | 30 | **Free** | 30 min |
+| Sabotage | — | 20 | **Free** | 15 min |
+| Imperial Exchange Levy | exchange-levy | 200 | **Free** | **24 hr** (§15 — the activation-cost note there is also corrected to Free) |
+| World Engine Strike | (World Engine) | 500 | **Free** | 60 min |
+| Aegis Lock | (Aegis Dome) | 220 | **Free** | 60 min |
+| Astral Dock Launch | (Astral Dock) | 300 | **Free** | 90 min |
 
 ## 18. Synthesizer Overload — recommend removal, not redesign `[decided]`
 
@@ -1064,11 +1088,19 @@ All 25 domains confirmed directly from `packages/game-domain/data/
 domain-tree.json` (5 tiers × 5 domains each). Domains differ from tech in
 one structural way worth preserving: at a given tier, each of the 5 domains
 is tied to a **different** strategic resource (food/iron/supply/crystal),
-i.e. tier is a "pick your specialization" choice, not a uniform set — so
-**leave every domain's specific resource + shard cost untouched**, exactly
-as with tech (§13), and only rescale gold, flat per tier (proposed ratio:
-roughly 4× that tier's new tech cost, matching the old data's existing
-~3–4.6× tech-to-domain ratio):
+i.e. tier is a "pick your specialization" choice, not a uniform set.
+
+**Correction, same fix as §13:** an earlier draft of this section said to
+leave every domain's specific resource + shard cost untouched. Wrong for
+the identical reason — the food/iron/supply/crystal amounts shown per
+domain below are quantities, and none of those four resources are
+spendable quantities anymore once slots ship. **Drop the food/iron/supply/
+crystal amount from every domain. Keep SHARD unchanged** (shard isn't a
+slot, §5.5) and rescale gold, flat per tier (proposed ratio: roughly 4×
+that tier's new tech cost, matching the old data's existing ~3–4.6×
+tech-to-domain ratio). The specific resource listed per domain below is
+kept in the table as a record of each domain's *thematic* tie (which
+"specialization" it represents), not as a cost that still applies:
 
 | Tier | Old gold (domains) | New gold (flat, all 5 domains this tier) | Domains |
 |---|---|---|---|
