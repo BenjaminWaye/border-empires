@@ -12,7 +12,7 @@ import { createNextFrontierCommandIdentity } from "../client-frontier-command/cl
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
-import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
@@ -740,7 +740,7 @@ export const topUpFromWaypoint = (
 
   const plan = planWaypoint(target, { state, keyFor });
   waypoint.plan = plan;
-  if (!plan.reachable) return false;
+  if (!plan.reachable) return cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
