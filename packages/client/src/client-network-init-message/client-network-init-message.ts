@@ -58,6 +58,13 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     appendFeedEntry
   } = deps;
 
+  // Captured before hasEverInitialized flips below, so the home-tile-snap
+  // guard further down can tell "very first INIT of this browser session"
+  // apart from a reconnect's INIT (in-place reconnect can now deliver a
+  // second INIT within the same session — see client-multiplex-websocket.ts
+  // reconnect()). Only the first INIT should ever be allowed to move the
+  // camera; a reconnect must leave it wherever the player was looking.
+  const isFirstInitThisSession = !state.hasEverInitialized;
   clearDeferredBootstrapRefreshTimer();
   state.connection = "initialized";
   state.serverDeploying = false;
@@ -224,7 +231,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // with the home tile on every connect/reconnect — INIT fires before the CHUNK
     // handler's own cameraRestoredFromStorage check ever gets a chance to matter,
     // so this was silently discarding the restore before the player ever saw it.
-    if (!state.cameraRestoredFromStorage) {
+    // Also never snap on a reconnect's INIT (isFirstInitThisSession false) — the
+    // camera already reflects wherever the player was before the drop.
+    if (isFirstInitThisSession && !state.cameraRestoredFromStorage) {
       state.camX = homeTile.x;
       state.camY = homeTile.y;
     }
