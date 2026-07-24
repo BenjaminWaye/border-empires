@@ -277,12 +277,16 @@ themselves — draws 1 FOOD slot each.
 map against up to ~2,700 potential building slots (300 towns × 9
 slots/town):** food-slot *supply* isn't fixed at 1-per-tile. It scales with
 investment:
-- **Farmstead adds +2 food slots** to the FARM tile it's built on (base 1
-  → 3).
+- **Farmstead adds +1 food slot** to the FARM tile it's built on (base 1
+  → 2).
 - **Waterworks** (a radius-support structure, not tied to a resource tile
   itself — it boosts nearby Farmsteads rather than producing food, per the
-  existing code comment at `tile-yield-view.ts:169-171`) **adds +1 food
-  slot to every Farmstead within its radius.**
+  existing code comment at `tile-yield-view.ts:169-171`) **adds +2 food
+  slots to every Farmstead within its radius.** Waterworks is now the
+  bigger multiplier of the pair — a Farmstead alone gets a modest bump, but
+  a Farmstead *within Waterworks range* jumps from 2 to 4 slots, making
+  Waterworks placement (and its radius) the real capacity-scaling decision
+  rather than Farmstead spam.
 
 So a heavily-developed FARM tile can support far more than 1 building's
 worth of food upkeep — food becomes a resource you actively **build
@@ -657,8 +661,8 @@ below.
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Farmstead | 700g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +2, per §5.2/5.3* |
-| Waterworks | 600g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +1 FOOD slot, per §5.3* |
+| Farmstead | 700g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
+| Waterworks | 600g + 20 food | **35** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
 | Camp | 800g + 30 supply | **35** | 1 FOOD slot |
 | Mine | 800g + 30 iron (or crystal) | **35** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
 | Granary | 700g + 40 food | **35** | 1 FOOD slot |
