@@ -739,12 +739,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     });
   })();
+  const seededPlayerIds = new Set<string>();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
-    subscribePlayer: (playerId, subscriptionKey) =>
-      simulationClient.subscribePlayer(
+    subscribePlayer: (playerId, subscriptionKey) => {
+      const hasSnapshot = seededPlayerIds.has(playerId);
+      return simulationClient.subscribePlayer(
         playerId,
-        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", ...(subscriptionKey ? { subscriptionKey } : {}) })
-      ),
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, ...(subscriptionKey ? { subscriptionKey } : {}) })
+      );
+    },
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
@@ -2191,6 +2194,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             if (bootstrapInitialState) {
               const seedSnapshotStartedAt = Date.now();
               playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+              seededPlayerIds.add(playerIdentity.playerId);
               recordGatewayAuthStepTiming("seed_snapshot", Date.now() - seedSnapshotStartedAt, {
                 playerId: playerIdentity.playerId,
                 channel,
@@ -2235,6 +2239,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   });
                 }
               );
+              if (subscribedSnapshot && subscribedSnapshot.tiles.length === 0 && bootstrapInitialState && bootstrapInitialState.tiles.length > 0) {
+                subscribedSnapshot.tiles = bootstrapInitialState.tiles;
+              }
               // Every OTHER auth step in this handler (resolve_initial_state,
               // build_init_message, send_init, ...) gets a recordGatewayAuthStepTiming
               // slow-step warning log, but this one — the SubscribePlayer RPC that
