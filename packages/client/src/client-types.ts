@@ -86,6 +86,8 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
+  // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";

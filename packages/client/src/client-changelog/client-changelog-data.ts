@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1784923957000, // 2026.07.24.1 (restored — see 2026.07.27.2 entry below)
+    introducedIn: "2026.07.24.1",
+    title: "New structure: Watchtowers",
+    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
+    changes: [
+      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
+      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
+      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
+    ]
+  },
+  {
     createdAt: 1785129932105,
     introducedIn: "2026.07.27.1",
     title: "Fixed: unexplored-tile waypoints stopped working entirely",
@@ -159,7 +170,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785147877000, // 2026.07.27.2
     introducedIn: "2026.07.27.2",
     title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
     why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
