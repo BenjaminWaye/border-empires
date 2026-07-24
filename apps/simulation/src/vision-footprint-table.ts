@@ -28,6 +28,18 @@
  * - The memo key is a packed integer (not a template-string concatenation)
  *   so the Map.get() calls this function does on every call — clean or
  *   occluded — never allocate a string on the hot path.
+ *
+ * Bound on `permanentByKey`/`epochScopedByKey` growth: since forest is common
+ * terrain (unlike sparse mountains), a much larger fraction of ever-touched
+ * tiles now get a real cached entry here, and neither map ever evicts.
+ * Unlike a request-driven cache this is NOT unbounded by load/time, though:
+ * the key space is capped by (world tile count) × (distinct radius values
+ * ever queried) — both hard, finite ceilings for a fixed world size — the
+ * same bound VisionExpansionCache/VisibilityCoverageCache already rely on
+ * for their own per-player O(territory) storage. In practice the number of
+ * distinct radii is small (a handful of tech/observatory-derived integers),
+ * so total entries stay well under (world tiles), not anywhere near the
+ * theoretical (world tiles × distinct radii) ceiling.
  */
 
 import type { Terrain } from "@border-empires/shared";

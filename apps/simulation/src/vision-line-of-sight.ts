@@ -27,8 +27,9 @@ export type ForestAt = (x: number, y: number) => boolean;
 
 /**
  * Bresenham-style integer walk from (0,0) to (dx,dy), yielding intermediate
- * lattice points only (excluding both endpoints). Used to sample the terrain
- * a ray from a vision source to a candidate offset actually crosses.
+ * lattice points only (excluding both endpoints). Exported for testability
+ * and as documentation of the ray-walk shape; `rayIsBlockedByMountain` walks
+ * the same math inline (no allocation) rather than calling this.
  */
 export const intermediateRayPoints = (dx: number, dy: number): Array<[number, number]> => {
   const steps = Math.max(Math.abs(dx), Math.abs(dy));
@@ -48,6 +49,13 @@ export const intermediateRayPoints = (dx: number, dy: number): Array<[number, nu
  * world-wrapped coordinates and should consult the live (mutable) tile
  * terrain, not static worldgen — CREATE_MOUNTAIN/REMOVE_MOUNTAIN mutate a
  * tile's terrain in place.
+ *
+ * Walks the ray inline rather than via `intermediateRayPoints` — this and
+ * `rayIsOccludedByForest` both run once per candidate offset for every
+ * occluded tile+radius footprint computation (O(radius²) offsets, now a much
+ * larger set of tiles than mountain-only since forest is common terrain), so
+ * avoiding an array allocation per offset per occluder here measurably cuts
+ * GC pressure on that one-time (memoized) computation.
  */
 export const rayIsBlockedByMountain = (
   x0: number,
@@ -56,7 +64,10 @@ export const rayIsBlockedByMountain = (
   dy: number,
   mountainAt: MountainAt
 ): boolean => {
-  for (const [px, py] of intermediateRayPoints(dx, dy)) {
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  for (let i = 1; i < steps; i++) {
+    const px = Math.round((dx * i) / steps);
+    const py = Math.round((dy * i) / steps);
     if (mountainAt(x0 + px, y0 + py)) return true;
   }
   return false;
@@ -79,11 +90,11 @@ export const squareOffsets = (radius: number): Array<[number, number]> => {
 
 /**
  * Lattice points along the ray from (0,0) to (dx,dy), INCLUDING the
- * candidate endpoint but EXCLUDING the source. Used for forest occlusion,
- * which (unlike mountains) needs to know exactly how far past the first
- * forest tile the candidate sits — including when the candidate itself is
- * the first forest tile encountered (which must stay visible, same as a
- * mountain tile itself staying visible).
+ * candidate endpoint but EXCLUDING the source — the shape forest occlusion
+ * needs (unlike mountains, it cares whether the candidate itself is the
+ * first forest tile encountered, which must stay visible). Exported for
+ * testability/documentation; `rayIsOccludedByForest` walks the same math
+ * inline (no allocation) rather than calling this.
  */
 export const pathPointsExcludingSource = (dx: number, dy: number): Array<[number, number]> => {
   const steps = Math.max(Math.abs(dx), Math.abs(dy));
@@ -99,15 +110,17 @@ export const pathPointsExcludingSource = (dx: number, dy: number): Array<[number
  * forest terrain: once the ray crosses a forest tile (the source tile
  * itself never counts as that first forest tile), it can continue only
  * FOREST_VISION_RANGE tiles further before being cut off. `forestAt`
- * receives world-wrapped coordinates.
+ * receives world-wrapped coordinates. Walks the ray inline rather than via
+ * `pathPointsExcludingSource` — see the perf note on `rayIsBlockedByMountain`.
  */
 export const rayIsOccludedByForest = (x0: number, y0: number, dx: number, dy: number, forestAt: ForestAt): boolean => {
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
   let forestHitAtStep: number | undefined;
-  let step = 0;
-  for (const [px, py] of pathPointsExcludingSource(dx, dy)) {
-    step += 1;
-    if (forestHitAtStep === undefined && forestAt(x0 + px, y0 + py)) forestHitAtStep = step;
-    if (forestHitAtStep !== undefined && step > forestHitAtStep + FOREST_VISION_RANGE) return true;
+  for (let i = 1; i <= steps; i++) {
+    const px = Math.round((dx * i) / steps);
+    const py = Math.round((dy * i) / steps);
+    if (forestHitAtStep === undefined && forestAt(x0 + px, y0 + py)) forestHitAtStep = i;
+    if (forestHitAtStep !== undefined && i > forestHitAtStep + FOREST_VISION_RANGE) return true;
   }
   return false;
 };
