@@ -1127,3 +1127,48 @@ note in §15/§16.
 - Respect the **AI CPU guardrails** (`docs/game-mechanics.md` §13,
   `AGENTS.md`) — writing a log entry on every relevant mutation must stay
   cheap; don't scan/rebuild anything expensive per event.
+
+---
+
+## 21. Missing-upkeep indicators — floating badge + detail-panel line `[decided]`
+
+This is the UI for the dormancy state introduced in §5.4 (a structure that
+lost its slot allocation goes dormant, not destroyed). **Both pieces the
+user asked for already have a directly-reusable existing pattern** — this
+is an extension, not new UI from scratch.
+
+### 21.1 Floating badge above the tile (3D map)
+
+`createUnfedBadgeOverlay` (`client-map-3d-unfed-badge-overlay.ts`) already
+implements exactly this for unfed towns: a shield-shaped badge floats above
+the tile, bobbing gently, showing a resource icon with a red diagonal
+prohibition slash over it — driven by `tile.town && !tile.town.isFed`. It's
+currently **hardcoded to the food emoji** (🍞, matching `client-panel-html.
+ts`'s resource icon set).
+
+**Extension needed:** generalize the overlay to accept *which* resource
+icon to draw, instead of a fixed food glyph, and drive it from the
+dormancy condition (§5.4: slot demand > supply for that structure) rather
+than only `!tile.town.isFed`. The icon set to draw from already exists and
+needs no new assets — `client-panel-html.ts:296-299`: 🍞 Food, ⛏ Iron,
+💎 Crystal, 🦊 Supply. A dormant Fort missing its IRON slot gets the same
+shield-plus-slash treatment with ⛏ instead of 🍞; a dormant Bank missing
+CRYSTAL gets 💎; etc. Same `InstancedMesh`/canvas-texture machinery,
+parameterized instead of duplicated per resource.
+
+### 21.2 Detail panel line (tile description screen)
+
+`client-tile-menu-view.ts:420` already has the exact pattern for an unfed
+town: a plain conditional text line pushed into the panel —
+`pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby
+fish or grain.")`.
+
+**Extension needed:** add an equivalent conditional line for a dormant
+*structure* (as opposed to an unfed *town* — a related but distinct
+condition once slots exist): something like *"This [Structure name] is
+unpowered — missing 1 [resource] slot. Settle or capture a [resource] tile
+to restore it."* Same `pushLine` mechanism, gated on the structure's
+dormancy state instead of `tile.town.isFed`, sitting alongside the existing
+unfed-town line rather than replacing it — a tile could plausibly show
+both an unfed-town line and an unpowered-structure line if a player is in
+enough trouble.
