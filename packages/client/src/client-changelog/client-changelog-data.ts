@@ -33,11 +33,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Expand onto a watchtower to activate it: for ~10 seconds it reveals resources, towns, and terrain in the surrounding area, then fades back to normal fog.",
         "Watchtowers appear on the minimap and the main map in both 2D and 3D as a brass steampunk tower with a lantern beacon that lights up on activation."
       ]
-      changes: [
-        "Roughly 150 dormant watchtower sites are spread across the map.",
-        "Expand onto a watchtower to activate it: for ~10 seconds it reveals resources, towns, and terrain in the surrounding area, then fades back to normal fog.",
-        "Watchtowers appear on the minimap and the main map in both 2D and 3D as a brass steampunk tower with a lantern beacon that lights up on activation."
-      ]
     },
     {
       introducedIn: "2026.07.25.3",
@@ -84,7 +79,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
         "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
-      ]
       ]
     },
     {
