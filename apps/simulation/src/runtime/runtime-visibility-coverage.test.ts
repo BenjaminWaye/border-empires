@@ -101,8 +101,8 @@ describe("simulation runtime — incremental visibility coverage", () => {
         activeLocks: []
       }
     });
-    // Base vision radius is 4 — a delta 5 tiles out should start invisible.
-    const delta = { x: 15, y: 10, terrain: "LAND" as const };
+    // Base vision radius is 1 — a delta 2 tiles out should start invisible.
+    const delta = { x: 12, y: 10, terrain: "LAND" as const };
     expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([]);
 
     // "cartography" grants visionRadiusBonus: 1, has no prereqs.
@@ -167,17 +167,17 @@ describe("simulation runtime — incremental visibility coverage", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
     });
 
-    const delta = { x: 12, y: 10, terrain: "LAND" as const, ownerId: "player-2" };
+    const delta = { x: 11, y: 10, terrain: "LAND" as const, ownerId: "player-2" };
     const filtered = runtime.filterTileDeltasForPlayer([delta], "player-1");
 
     expect(filtered).toEqual([delta]);
-    const audit = audits.find((entry) => entry.tileKey === "12,10");
+    const audit = audits.find((entry) => entry.tileKey === "11,10");
     expect(audit).toBeDefined();
     expect(audit?.reasons).toEqual(["coverage-cache"]);
   });

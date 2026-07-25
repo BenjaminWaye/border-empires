@@ -8,8 +8,11 @@ import { VisionFootprintTable } from "./vision-footprint-table.js";
 const KNOWN_FOREST_TILE = { x: 24, y: 15 };
 
 // A real hills tile (isHillsTileAt true) under seed 1, found by scanning a
-// small coordinate range — same approach as KNOWN_FOREST_TILE above.
-const KNOWN_HILLS_TILE = { x: 4, y: 15 };
+// small coordinate range — same approach as KNOWN_FOREST_TILE above. Hills
+// are now concentrated in the BROKEN_HIGHLANDS region with only rare
+// scattering elsewhere, so this coordinate had to move once that region
+// weighting was introduced (see isHillsRegionAt in worldgen.ts).
+const KNOWN_HILLS_TILE = { x: 99, y: 57 };
 
 // A forest tile per isForestTileAt's definition (GRASS biome + DARK shade)
 // depends on the deterministic world seed. Rather than hunting for a real
