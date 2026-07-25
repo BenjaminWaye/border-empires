@@ -720,7 +720,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         foodUpkeepPerMinute: 0.1
       })
     );
-    expect(town?.goldPerMinute).toBeCloseTo(7.45);
+    expect(town?.goldPerMinute).toBeCloseTo(1.5207, 4);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
@@ -1272,4 +1272,3 @@ describe("buildLivePlayerEconomySnapshot (Clockwork Stipend trickle)", () => {
     );
   });
 });
-

@@ -1421,7 +1421,7 @@ describe("simulation runtime", () => {
       })
     );
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as { gold?: number };
-    expect(payload.gold).toBeGreaterThan(0.9);
+    expect(payload.gold).toBeGreaterThan(0); // was >0.9 pre-gold-rescope (§6.1); just assert some gold was credited
   });
 
   it("drains food upkeep continuously so net-negative food balances actually decrement", async () => {
@@ -1791,12 +1791,12 @@ describe("simulation runtime", () => {
 
   it("does not auto-expand onto worthless plain frontier land without an expansion objective", () => {
     // Plain neutral tiles (no resource/town/dock) must not be expanded unless the planner
-    // has an expansionObjective pointing toward them. Without one, the AI should produce
-    // no command rather than burning 1 gold on a tile that decays in ~10 minutes.
+    // has an expansionObjective pointing toward them. points: 0 keeps "nothing affordable"
+    // true even though tech is cheap now (gold rescope, §6) — otherwise the AI would fall back to CHOOSE_TECH.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -5379,7 +5379,7 @@ describe("simulation runtime", () => {
     const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
 
     expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
-    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4);
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4 / 288); // was 15.4 pre-gold-rescope (§6.1)
   });
 
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
@@ -8040,11 +8040,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(centerDelta).toBeDefined();
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
     // The gateway-side tile-detail-snapshot still computes them from buildTileYieldView.
-    // Persisted goldPerMinute was 0.5; live recompute must override it. Exact
-    // value depends on the gold formula, just assert it's the recomputed one
-    // (not the stale stub).
+    // Persisted goldPerMinute was 0.5; live recompute must override it (now far below 0.5
+    // post-gold-rescope, §6.1) — just assert it's the recomputed one, not a magnitude.
     const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
-    expect(refreshedTown?.goldPerMinute).toBeGreaterThan(0.5);
+    expect(refreshedTown?.goldPerMinute).not.toBe(0.5);
   });
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
@@ -8209,8 +8208,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
     // Now the load-bearing assertion: gpm must reflect that bonus.
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
-    // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
-    expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
+    // TOWN_BASE_GOLD_PER_MIN * 1.0 (support) * 1.0 (TOWN tier popMult) * 2.2 (connected bonus)
+    // = 4.4 pre-gold-rescope; TOWN_BASE_GOLD_PER_MIN is now cut 288x (§6.1), so 4.4 / 288.
+    expect(town?.goldPerMinute).toBeCloseTo(4.4 / 288, 5);
   });
 
   it("keeps ownerId/ownershipState in a tile delta even when an unrelated later event re-touches the same tile (#774/#777/#779 regression)", async () => {

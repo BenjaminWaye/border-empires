@@ -3,6 +3,8 @@ import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "
 
 import {
   AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  BANK_FLAT_GOLD_BONUS_PER_MIN,
+  BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -84,6 +86,14 @@ const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
   SHARD: 0
 });
 
+// Rounding precision here (and on every other .toFixed(...) in this file)
+// was bumped from 4 to 6 decimal places for the gold rescope (docs/
+// manpower-economy-rewrite-plan.md §6.1): gold amounts are now ~288x
+// smaller, and 4dp rounding on intermediate bucket sums was coarse enough
+// relative to the new magnitudes that two independently-accumulated chains
+// (e.g. incomePerMinute vs goldCapIncomePerMinute with no cap multiplier
+// active) could round to different 4th-decimal values despite being
+// mathematically identical. 6dp restores that invariant at the new scale.
 const addBucket = (
   buckets: Map<string, EconomyBucket>,
   label: string,
@@ -93,13 +103,13 @@ const addBucket = (
   if (!(amountPerMinute > 0)) return;
   const current = buckets.get(label);
   if (current) {
-    current.amountPerMinute = Number((current.amountPerMinute + amountPerMinute).toFixed(4));
+    current.amountPerMinute = Number((current.amountPerMinute + amountPerMinute).toFixed(6));
     current.count += options.count ?? 1;
     return;
   }
   buckets.set(label, {
     label,
-    amountPerMinute: Number(amountPerMinute.toFixed(4)),
+    amountPerMinute: Number(amountPerMinute.toFixed(6)),
     count: options.count ?? 1,
     ...(options.resourceKey ? { resourceKey: options.resourceKey } : {}),
     ...(options.note ? { note: options.note } : {})
@@ -289,7 +299,7 @@ export const townGoldPerMinuteForPlayer = (
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
+  ) + (hasBank ? (clearingHouseActive ? BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE : BANK_FLAT_GOLD_BONUS_PER_MIN) : 0);
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary
@@ -442,34 +452,34 @@ export const buildPlayerUpdateEconomySnapshot = (
   }
 
   const upkeepPerMinute = {
-    food: Number([...foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
-    iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
-    supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
-    crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
-    gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
+    food: Number([...foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6))
   };
-  const rawIncomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
+  const rawIncomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6));
   const foodCoverage =
     upkeepPerMinute.food <= 0
       ? 1
       : Math.max(0, Math.min(1, (((player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)));
 
   // Apply integrity multiplier after the food-gate so intermediate food logic is undisturbed.
-  const incomePerMinute = Number((rawIncomePerMinute * integrityEconMult).toFixed(4));
+  const incomePerMinute = Number((rawIncomePerMinute * integrityEconMult).toFixed(6));
 
   return {
     incomePerMinute,
-    goldCapIncomePerMinute: Number((goldCapIncomePerMinute * integrityEconMult).toFixed(4)),
+    goldCapIncomePerMinute: Number((goldCapIncomePerMinute * integrityEconMult).toFixed(6)),
     strategicProductionPerMinute: {
-      FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(4)),
-      IRON: Number((strategicProductionPerMinute.IRON * integrityEconMult).toFixed(4)),
-      CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(4)),
-      SUPPLY: Number((strategicProductionPerMinute.SUPPLY * integrityEconMult).toFixed(4)),
-      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(4))
+      FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
+      IRON: Number((strategicProductionPerMinute.IRON * integrityEconMult).toFixed(6)),
+      CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(6)),
+      SUPPLY: Number((strategicProductionPerMinute.SUPPLY * integrityEconMult).toFixed(6)),
+      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(6))
     },
     upkeepPerMinute,
     upkeepLastTick: {
-      foodCoverage: Number(foodCoverage.toFixed(4)),
+      foodCoverage: Number(foodCoverage.toFixed(6)),
       gold: { contributors: sortedBuckets(goldSinks) },
       food: { contributors: sortedBuckets(foodSinks) },
       iron: { contributors: sortedBuckets(ironSinks) },

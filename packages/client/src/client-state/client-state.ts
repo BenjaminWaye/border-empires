@@ -122,8 +122,7 @@ export const createInitialState = () => ({
     foodCoverage: 1
   },
   foodCoverageWarned: false,
-  goldAnimUntil: 0,
-  goldAnimDir: 0 as -1 | 0 | 1,
+  goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: {
@@ -178,6 +177,7 @@ export const createInitialState = () => ({
   imperialWardActiveUntil: undefined as number | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
+  techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
   currentResearch: undefined as PendingResearch | undefined,
   domainChoices: [] as string[],
   domainCatalog: [] as DomainInfo[],

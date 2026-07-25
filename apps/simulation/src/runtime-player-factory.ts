@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP, STARTING_GOLD } from "@border-empires/game-domain";
 
 import type { RuntimePlayer } from "./runtime-types.js";
 
@@ -24,7 +24,7 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
   isAi: false,
   name: playerId,
-  points: 100,
+  points: STARTING_GOLD,
   manpower: MANPOWER_BASE_CAP,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),

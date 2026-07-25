@@ -41,7 +41,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 500,
+      // 0, not the old 500: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13), so 500 would now
+      // legitimately afford a tech instead of proving "no affordable
+      // progression" defers to the main planner.
+      points: 0,
       techIds: [],
       domainIds: [],
       strategicResources: {},
@@ -97,7 +101,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 100,
+      // 5, not the old 100: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13) — 100 would now
+      // afford it. 5 still covers a cheap expand while keeping tech
+      // genuinely unaffordable, preserving this test's premise.
+      points: 5,
       techIds: [],
       domainIds: [],
       strategicResources: { FOOD: 80, CRYSTAL: 40 },

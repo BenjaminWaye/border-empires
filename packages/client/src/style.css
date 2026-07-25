@@ -4156,11 +4156,8 @@ body {
   pointer-events: auto;
 }
 
-.tech-card.blocked,
-.tech-card.owned,
-.tech-card.pending {
-  cursor: default;
-}
+.tech-card.blocked, .tech-card.owned, .tech-card.pending { cursor: default; }
+.tech-card-affordable-pulse { animation: valuePulseUp 0.55s ease-out 2; } /* "reward is ready", §7.3 */
 
 .tech-card-top {
   display: flex;

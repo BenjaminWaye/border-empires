@@ -346,12 +346,11 @@ export const chooseAiTechChoiceForPlayer = (
       };
     })
     // Affordable techs win over unaffordable ones regardless of score, so a
-    // gold-only fallback is preferred over a higher-scored option the player
-    // can't actually pay for. Without this, an AI with 74k gold but zero
-    // IRON/CRYSTAL/SUPPLY locks at preplan=tech_unaffordable forever because
-    // the top-scored tech needs a strategic resource it lacks. When nothing is
-    // affordable, score order is preserved so the diagnostic still surfaces
-    // the most-wanted-but-blocked tech.
+    // cheaper fallback is preferred over a pricier higher-scored option the
+    // player can't pay for (techs below tier 5 are gold-only now, §6.2/§13
+    // of manpower-economy-rewrite-plan.md — per-tier gold scarcity is the
+    // trigger). When nothing is affordable, score order is preserved so the
+    // diagnostic still surfaces the most-wanted-but-blocked tech.
     .sort((left, right) =>
       Number(right.affordable) - Number(left.affordable) ||
       right.score - left.score ||

@@ -44,8 +44,12 @@ describe("buildTileYieldView", () => {
       ])
     });
 
-    expect(view?.yieldRate.goldPerMinute).toBe(0.75);
-    expect(view?.yield?.gold).toBe(0.75);
+    // 0.75 was the pre-gold-rescope figure; DOCK_INCOME_PER_MIN is now cut
+    // 288x (docs/manpower-economy-rewrite-plan.md §6.1), and both fields
+    // round to their own fixed precision (roundPositive, tile-yield-view.ts)
+    // — 4 digits for the rate, 3 for the 1-minute-elapsed accumulated yield.
+    expect(view?.yieldRate.goldPerMinute).toBe(0.0026);
+    expect(view?.yield?.gold).toBe(0.003);
   });
 
   it("uses the authoritative town income formula for buffered town gold", () => {
@@ -90,8 +94,14 @@ describe("buildTileYieldView", () => {
       fedTownKeys
     });
 
-    expect(view?.yieldRate.goldPerMinute).toBe(expectedGoldPerMinute);
-    expect(view?.yield?.gold).toBe(expectedGoldPerMinute);
+    // buildTileYieldView rounds the displayed rate (roundPositive, 4 digits)
+    // — under the gold rescope (docs/manpower-economy-rewrite-plan.md §6.1)
+    // the raw computed value now has many more significant decimals than
+    // before, so the rounded display and the raw formula output are no
+    // longer byte-identical; toBeCloseTo asserts they round to the same
+    // value instead of exact equality.
+    expect(view?.yieldRate.goldPerMinute).toBeCloseTo(expectedGoldPerMinute, 4);
+    expect(view?.yield?.gold).toBeCloseTo(expectedGoldPerMinute, 3);
   });
 
   it("clamps elapsed time at OFFLINE_YIELD_ACCUM_MAX_MS so a stale anchor cannot exceed 12h of yield", () => {
