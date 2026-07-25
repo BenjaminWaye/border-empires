@@ -7,9 +7,11 @@ import {
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
+  HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
   grassShadeAt,
+  isHillsTileAt,
   landBiomeAt,
   terrainAt
 } from "@border-empires/shared";
@@ -108,9 +110,8 @@ export const handleFrontierCommandImpl = (
     grassShadeAt(to.x, to.y) === "DARK";
   const expandClaimDurationMs =
     actionType === "EXPAND"
-      ? isForestTarget
-        ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT
-        : FRONTIER_CLAIM_MS
+      ? (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
+        (isHillsTileAt(to.x, to.y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
       : undefined;
   const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)

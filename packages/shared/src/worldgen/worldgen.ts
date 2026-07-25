@@ -468,12 +468,11 @@ const isMountainCluster = (x: number, y: number): boolean => {
   return d2 <= r * r && d2 >= (r - 2) * (r - 2);
 };
 
-// Broad rolling hill regions on land, independent of the mountain ridge/
-// cluster placement above. Unlike mountains, hills are not a Terrain code —
-// they're a permanent-forever derived property of the coordinate (like
-// forest-ness), layered visually/mechanically on top of LAND tiles so they
-// never interact with the many `terrain === "LAND"` gates elsewhere in the
-// codebase (settling, claiming, resource clusters, etc). See hills-terrain.ts.
+// Broad rolling hill regions on land — a permanent-forever derived property
+// of the coordinate (like forest-ness, see hills-terrain.ts). Concentrated
+// in BROKEN_HIGHLANDS the same way grassShadeAt concentrates forest in
+// DEEP_FOREST (lower threshold = more of the region qualifies), with a much
+// rarer scattering elsewhere so standalone hills still turn up off-region.
 export const isHillsRegionAt = (x: number, y: number): boolean => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -484,7 +483,8 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
     const macro = valueNoise(wx + 211, wy - 97, 96, worldSeed() + 811);
     const micro = valueNoise(wx - 53, wy + 137, 34, worldSeed() + 821);
     const hillField = macro * 0.65 + micro * 0.35;
-    isHills = hillField > 0.7;
+    const hillThreshold = regionTypeAt(wx, wy) === "BROKEN_HIGHLANDS" ? 0.42 : 0.86;
+    isHills = hillField > hillThreshold;
   }
   hillsCache[idx] = isHills ? 1 : 0;
   hillsCacheReady[idx] = 1;
