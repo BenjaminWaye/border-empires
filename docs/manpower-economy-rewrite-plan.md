@@ -1595,3 +1595,154 @@ gold-output/cap effects where gold is still a sensible target
 keep their cooldowns even though costs are now free, §17 — fully relevant),
 and vision/range effects (`observatoryRangeBonus`,
 `observatoryVisionBonus`, `revealCapacityBonus`).
+
+---
+
+## 24. Gold-rescale blast radius — other systems that read `incomePerMinute`/gold `[found during implementation, partially decided]`
+
+Implementing §6.1 (cutting `TOWN_BASE_GOLD_PER_MIN`/`SETTLEMENT_BASE_GOLD_PER_MIN`/
+`DOCK_INCOME_PER_MIN` ~288×) surfaced several **other systems that read the
+same `incomePerMinute`/gold numbers as absolute thresholds**, calibrated to
+the old ~1–20 gold/min scale. These aren't part of §6's original scope (which
+only named the income-source constants themselves) but they consume those
+numbers downstream and silently break once the source shrinks. Found via
+code audit, not exhaustively via a repo-wide grep for every literal — treat
+this list as a strong starting point for implementation, not a guarantee
+every consumer is listed.
+
+### 24.1 Economic Hegemony victory condition — now unreachable `[open — needs a decision]`
+
+`SEASON_VICTORY_ECONOMY_MIN_INCOME = 200` (gold/min) and
+`SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33`
+(`server-game-constants.ts`), consumed by `buildEconomicHegemonyObjective`
+(`season-victory-objectives.ts`): the leader must reach 200 gold/min **and**
+lead the runner-up by 33% to trigger the hold-duration countdown. At the old
+scale this was a genuine late-game target; post-rescale, 200 gold/min would
+require an economy ~288× bigger than anything else in the new economy
+produces — permanently unreachable, silently disabling this entire victory
+path. **Needs a new absolute threshold sized to the new ~10 gold/day/town
+(≈0.007 gold/min/town) baseline**, not a decision this plan has made yet —
+flagging back rather than guessing, since "how many towns' worth of lead
+should trigger a hegemony countdown" is a real balance call, and gold's
+new job (tech/rush-buys/synthesizer upkeep, §6) makes "economic dominance"
+mean something different than it used to (it no longer reflects raw
+expansion size the way it did when gold scaled directly with tile count).
+
+### 24.2 Respawn minimum gold `[open — needs a decision]`
+
+`RESPAWN_MINIMUM_GOLD = 100` (`runtime.ts`) is floored onto a respawning
+player's `points` in both `respawnPlayerOnUnownedLand` and
+`respawnIfEliminated` (`runtime-respawn-helpers.ts`) — untouched by the
+rescale. Unlike §24.1, this isn't obviously broken (100 gold at the *new*
+scale is a meaningful grant — 10 tier-1 techs' worth, §13), but it was never
+deliberately chosen against the new numbers either; it's worth an explicit
+gut-check rather than assuming the old value still makes sense by
+coincidence.
+
+### 24.3 Elimination detection itself is NOT gold-based — confirmed sound `[verified, no bug]`
+
+Checked directly, since this was flagged as a concern: the actual
+"is this player eliminated" signal is `territoryTileKeys.size === 0`
+(owns zero tiles) everywhere it's checked (`respawnIfEliminated`,
+`ensurePlayerHasSpawnTerritory`, `world-status-snapshot.ts`'s
+`hasZeroActivity`) — gold/income is never the primary elimination trigger.
+The one place gold income participates is `ensureGrossIncomeSettlementForPlayer`
+(`runtime.ts`), which force-respawns a player who **owns territory but has
+literally zero income** (a stuck/soft-locked state) — this reads
+`incomePerMinuteForPlayer()`, which returns the full-precision (6dp,
+post-§24.4-fix) snapshot value directly, not a rounded display figure, so a
+tiny-but-real new-economy income (e.g. 0.003/min) still correctly reads as
+"not zero" and does not fire. **No fix needed here** — this system already
+does the right thing.
+
+### 24.4 `estimatedIncomePerMinuteForPlayer` rounds to 2dp — a real bug, same class as the collect-tile-yield fix `[decided: fix]`
+
+`runtime.ts`'s `estimatedIncomePerMinuteForPlayer()` (distinct from
+`incomePerMinuteForPlayer()` in §24.3) does
+`Math.round(goldIncomePerMinute * incomeMult * 100) / 100` — 2 decimal
+places. At the old scale this was harmless (typical values were 1–20+,
+losing sub-cent precision never mattered); at the new scale, typical values
+are ~0.003–0.05/min, which **rounds to exactly 0.00 for most players, most
+of the time.** This feeds the leaderboard (`incomePerMinute` shown to
+players and consumed by §24.1's victory leaderboard), the AI player-metrics
+export, and — critically — every AI heuristic listed in §24.5 that reads
+`player.incomePerMinute`. This is the same class of bug already found and
+fixed once this session (`collectTileYield`'s floor-to-cents, `runtime.ts`)
+— **decided: bump to 6dp**, matching the precision convention established in
+`player-update-economy.ts`'s `addBucket` and applied consistently everywhere
+else gold got touched this session.
+
+### 24.5 AI planner gold-income heuristics — multiple hardcoded thresholds, now permanently tripped `[open — needs a decision on target/currency]`
+
+Found more than one instance, not a single spot — cataloging all of them:
+
+- **`economyWeak()`, duplicated in two files** (`ai-economic-heuristics.ts`,
+  shared by `automation-command-planner.ts` and `ai-preplan-command.ts`;
+  and a second, separately-hand-written copy in `structure-command-planner.ts`
+  that should have imported the shared one but didn't): both compute
+  `incomePerMinute < Math.max(3, settledTileCount * 0.45)`. Post-rescale,
+  `incomePerMinute` is always ~0.003–0.05, so this is **always true** now —
+  the AI permanently believes its economy is weak regardless of actual
+  state, which happens to be a *safe* default (biases toward building more
+  economy) but is no longer a real signal.
+- **Three `incomePerMinute` thresholds in `automation-strategic-snapshot.ts`**:
+  `growthFoundationEstablished = hasActiveTown || hasActiveDock ||
+  incomePerMinute >= 10` (degrades gracefully — the other two OR'd
+  conditions are structural, not gold-based, so this one just becomes dead
+  weight); `opportunisticBreakPressure`'s `... && incomePerMinute >= 10`
+  (an AND-gate, so this one silently and permanently disables that whole
+  branch of AI combat-posture logic — more consequential than the OR case).
+- **`leaderboardScoreFor()` in `world-status-snapshot.ts`**:
+  `settledTileCount + incomePerMinute * 3 + techCount * 8` — the income
+  term's contribution to the ranking score effectively vanishes at the new
+  scale, silently turning the leaderboard into a tiles+techs-only ranking.
+
+**The open decision, not yet made**: the user's instinct is that these
+should become **manpower** checks instead of gold checks (e.g. "~40 mp" as a
+starting-point number for `economyWeak`'s role) — consistent with this
+plan's central thesis that manpower, not gold, is now the scarce resource
+that should gate expansion/building decisions (§2, §4.5). That's a
+plausible direction (manpower is the resource these heuristics *should*
+arguably have been gating on all along, once building costs move onto
+manpower in §4), but:
+- `economyWeak`/`growthFoundationEstablished` currently gate *economic
+  structure* decisions, which under §4.1 also cost manpower going forward —
+  so a manpower-based health check would need to land *together with* §4
+  (manpower structure costs), not before, or it would be checking a
+  resource that doesn't yet gate anything.
+- Converting `opportunisticBreakPressure` and `leaderboardScoreFor` to
+  manpower isn't obviously right the same way — one is a combat-posture
+  signal (arguably should stay income/tempo-based, just rescaled rather than
+  swapped to a different resource entirely) and the other is a display
+  ranking (arguably should track *something* about economic output, and
+  manpower is a capacity/pool, not an output rate, so it may not translate
+  directly to "score").
+
+**Not resolved here** — needs the same explicit-decision treatment every
+other number in this plan got, per-heuristic, likely sequenced alongside
+§4/§5 rather than fixed in isolation now.
+
+### 24.6 Confirmed unaffected — no change needed
+
+- **Population-tier gold multiplier** (`townPopulationMultiplier`:
+  ×1/1.5/2.5/3.2 for TOWN/CITY/GREAT_CITY/METROPOLIS,
+  `player-update-economy.ts`) — untouched, and needs no change: it's a
+  *relative* multiplier applied on top of `TOWN_BASE_GOLD_PER_MIN`, so it
+  automatically scales down with the base rate. A METROPOLIS still produces
+  exactly 3.2× whatever a TOWN produces.
+- **Manpower by population tier** (`TOWN_MANPOWER_BY_TIER`: caps
+  150/300/600/1,200/2,400 for SETTLEMENT/TOWN/CITY/GREAT_CITY/METROPOLIS,
+  `config.ts`) — **deliberately untouched in this step.** Manpower amounts
+  are §3/§4 territory (manpower economy + structure costs), not §6 (gold
+  rescope); confirmed no gold-rescale change accidentally touched these.
+- **Starting income**: no separate "starting income" constant exists or was
+  added — a new player's passive income is purely emergent from their
+  starting SETTLEMENT-tier capital: `SETTLEMENT_BASE_GOLD_PER_MIN` (now
+  1/288 gold/min ≈ **~5 gold/day**), preserving the old 1:2
+  SETTLEMENT:TOWN ratio. Combined with the 10-gold lump-sum starting balance
+  (§6.1), a new player can afford their first tier-1 tech (10 gold)
+  immediately and roughly one more every ~2 days from passive income alone
+  before founding a real town. **Not a deliberate target** — it's what fell
+  out of the uniform ÷288 scaling, not a number chosen against a stated
+  "new players should be able to afford X per Y time" goal the way §4.3
+  worked out starting manpower. Flagged, not decided.
