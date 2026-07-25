@@ -64,12 +64,21 @@ describe("topUpFromWaypoint", () => {
   });
 
   it("updates the plan to blocked when no path remains and enqueues nothing", () => {
+    // (5,3) fully enclosed by mountains on all 8 sides — since unexplored
+    // terrain is now optimistically passable, a partial barrier would no
+    // longer isolate it (there's always a way around through the
+    // surrounding unexplored land), so every neighbor must be walled.
     const state = stateWithTiles([
       tile(3, 3, { ownerId: "me" }),
+      tile(4, 2, { terrain: "MOUNTAIN" }),
+      tile(5, 2, { terrain: "MOUNTAIN" }),
+      tile(6, 2, { terrain: "MOUNTAIN" }),
       tile(4, 3, { terrain: "MOUNTAIN" }),
+      tile(6, 3, { terrain: "MOUNTAIN" }),
       tile(5, 3),
       tile(4, 4, { terrain: "MOUNTAIN" }),
-      tile(5, 4, { terrain: "MOUNTAIN" })
+      tile(5, 4, { terrain: "MOUNTAIN" }),
+      tile(6, 4, { terrain: "MOUNTAIN" })
     ]);
     state.waypoint = {
       target: { x: 5, y: 3 },
@@ -79,6 +88,31 @@ describe("topUpFromWaypoint", () => {
     expect(ok).toBe(false);
     expect(state.waypoint?.plan.reachable).toBe(false);
     expect(state.actionQueue).toHaveLength(0);
+  });
+
+  it("cancels the waypoint and emits a feed entry once the target tile is discovered to be a mountain", () => {
+    // (5,3) was unexplored when the waypoint was set (a real mountain/sea
+    // target can never be known upfront); this simulates it now being
+    // revealed as impassable as the player's territory approached it.
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3),
+      tile(5, 3, { terrain: "MOUNTAIN" })
+    ]);
+    state.waypoint = {
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    };
+    const messages: Array<{ message: string; severity: string | undefined }> = [];
+    const ok = topUpFromWaypoint(state, keyFor, (message, _type, severity) => {
+      messages.push({ message, severity });
+    });
+    expect(ok).toBe(false);
+    expect(state.waypoint).toBeUndefined();
+    expect(state.actionQueue).toHaveLength(0);
+    expect(messages[0]?.message).toMatch(/cancelled/i);
+    expect(messages[0]?.message).toMatch(/impassable/i);
+    expect(messages[0]?.severity).toBe("warn");
   });
 
   it("blocks allied waypoint targets without enqueueing an attack step", () => {
