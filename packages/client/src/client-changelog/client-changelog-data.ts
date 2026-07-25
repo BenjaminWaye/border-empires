@@ -20,10 +20,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.25.1",
+  version: "2026.07.25.2",
   title: "What's New",
-  summary: "Logging in with a large empire is now much faster — several redundant steps in the login pipeline were removed.",
+  summary: "Fixed waypoints to distant unexplored tiles reporting no path even when a route existed.",
   entries: [
+    {
+      introducedIn: "2026.07.25.2",
+      title: "Fixed: waypoints to distant unexplored tiles could report no path even though one existed",
+      why: "The 2026.07.24.5 unexplored-waypoint fix only treated the destination tile itself as reachable land — it still assumed every other unexplored tile in between was a wall. That made \"Expand Here\" work when the target was directly adjacent to your territory, but fail for anything farther away, since almost any real route to unscouted land crosses other unscouted tiles too.",
+      changes: [
+        "Waypoints toward any unexplored tile now treat every undiscovered tile along the route the same optimistic way as the destination — reachable, until real data proves otherwise."
+      ]
+    },
     {
       introducedIn: "2026.07.25.1",
       title: "Faster login for large empires",
