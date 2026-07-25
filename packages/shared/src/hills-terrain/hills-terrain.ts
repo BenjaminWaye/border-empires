@@ -9,7 +9,7 @@
  * both a dark forest (vision-clamping) and a hill (vision-boosting).
  */
 
-import { isHillsRegionAt } from "../worldgen/worldgen.js";
+import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
 import { isForestTileAt } from "../forest-terrain/forest-terrain.js";
 
 export const isHillsTileAt = (x: number, y: number): boolean => isHillsRegionAt(x, y) && !isForestTileAt(x, y);

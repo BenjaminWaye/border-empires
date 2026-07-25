@@ -5,11 +5,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
 let CURRENT_WORLD_STYLE: WorldStyle = "continents";
-const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
+export const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
 const UNSET_U8 = 255;
 const UNSET_I16 = -2;
 const TERRAIN_SEA = 0;
-const TERRAIN_LAND = 1;
+export const TERRAIN_LAND = 1;
 const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
@@ -36,8 +36,6 @@ const grassShadeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const continentIndexCache = new Int16Array(WORLD_TILE_COUNT);
 const continentScoreCache = new Float32Array(WORLD_TILE_COUNT);
-const hillsCache = new Uint8Array(WORLD_TILE_COUNT);
-const hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 
 const resetWorldCaches = (): void => {
   terrainCache.fill(UNSET_U8);
@@ -49,8 +47,6 @@ const resetWorldCaches = (): void => {
   regionTypeCacheReady.fill(0);
   continentIndexCache.fill(UNSET_I16);
   continentScoreCache.fill(Number.NaN);
-  hillsCache.fill(0);
-  hillsCacheReady.fill(0);
 };
 
 export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): void => {
@@ -59,9 +55,9 @@ export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): vo
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
-const worldSeed = (): number => CURRENT_WORLD_SEED;
+export const worldSeed = (): number => CURRENT_WORLD_SEED;
 const TAU = Math.PI * 2;
-const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
+export const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 
 const encodeTerrain = (terrain: Terrain): number => {
   if (terrain === "LAND") return TERRAIN_LAND;
@@ -89,7 +85,7 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   return TERRAIN_LAND;
 };
 
-const terrainCodeAt = (x: number, y: number): number => {
+export const terrainCodeAt = (x: number, y: number): number => {
   const idx = worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
   const cached = terrainCache[idx] ?? UNSET_U8;
   if (cached !== UNSET_U8) return cached;
@@ -142,7 +138,7 @@ const seeded01 = (x: number, y: number, seed: number): number => {
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
-const valueNoise = (x: number, y: number, cell: number, seed: number): number => {
+export const valueNoise = (x: number, y: number, cell: number, seed: number): number => {
   const gx = Math.floor(x / cell);
   const gy = Math.floor(y / cell);
   const tx = (x % cell) / cell;
@@ -466,29 +462,6 @@ const isMountainCluster = (x: number, y: number): boolean => {
   const dy = y - cy;
   const d2 = dx * dx + dy * dy;
   return d2 <= r * r && d2 >= (r - 2) * (r - 2);
-};
-
-// Broad rolling hill regions on land — a permanent-forever derived property
-// of the coordinate (like forest-ness, see hills-terrain.ts). Concentrated
-// in BROKEN_HIGHLANDS the same way grassShadeAt concentrates forest in
-// DEEP_FOREST (lower threshold = more of the region qualifies), with a much
-// rarer scattering elsewhere so standalone hills still turn up off-region.
-export const isHillsRegionAt = (x: number, y: number): boolean => {
-  const wx = wrapX(x, WORLD_WIDTH);
-  const wy = wrapY(y, WORLD_HEIGHT);
-  const idx = worldIndex(wx, wy);
-  if (hillsCacheReady[idx] === 1) return hillsCache[idx] === 1;
-  let isHills = false;
-  if (terrainCodeAt(wx, wy) === TERRAIN_LAND) {
-    const macro = valueNoise(wx + 211, wy - 97, 96, worldSeed() + 811);
-    const micro = valueNoise(wx - 53, wy + 137, 34, worldSeed() + 821);
-    const hillField = macro * 0.65 + micro * 0.35;
-    const hillThreshold = regionTypeAt(wx, wy) === "BROKEN_HIGHLANDS" ? 0.42 : 0.86;
-    isHills = hillField > hillThreshold;
-  }
-  hillsCache[idx] = isHills ? 1 : 0;
-  hillsCacheReady[idx] = 1;
-  return isHills;
 };
 
 export const terrainAt = (x: number, y: number): Terrain => {
