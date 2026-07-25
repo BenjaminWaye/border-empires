@@ -29,7 +29,7 @@ Many agents and humans edit, merge, push, and deploy this repo concurrently. Tre
 
 - One worktree per agent. Never edit files in a directory another agent is also editing.
 - If a file you just wrote is being modified back (a "linter or other agent reverted my change" signal), stop editing in that directory and confirm with the user. You are racing another writer.
-- Do not edit `packages/client/src/client-changelog.ts` until your branch is ready to merge. Two agents both choosing the same `version` is a structural collision; the changelog should be the **last** file you touch on a branch.
+- `packages/client/src/client-changelog/client-changelog-data.ts` is append-only and timestamp-sorted, so two agents adding entries in parallel no longer collide on list position or a shared `version` field. It's still fine to add your entry any time during the branch, including early.
 
 ## Merge conflicts
 

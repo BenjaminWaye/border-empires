@@ -502,7 +502,7 @@ export const createInitialState = () => ({
   },
   changelog: {
     open: false,
-    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
+    seenAt: Number(storageGet(CLIENT_CHANGELOG_STORAGE_KEY)) || 0,
     scrollTop: 0
   },
   rendererPrompt: {
