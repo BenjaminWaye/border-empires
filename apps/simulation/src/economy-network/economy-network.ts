@@ -495,7 +495,7 @@ export const dockConnectedOwnedSettledCount = (
  * rewrite — CUSTOMS_HOUSE_GOLD_UPKEEP was charged with no matching income.
  * See docs/plans/2026-07-06-radius-yield-delivery.md Phase 5.
  */
-export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1;
+export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1 / 288; // same divisor as DOCK_INCOME_PER_MIN, §6.1
 
 /**
  * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by

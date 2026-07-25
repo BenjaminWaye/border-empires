@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP, STARTING_GOLD, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { createSeasonSeedWorld } from "../season-seed-world.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 
@@ -54,7 +54,7 @@ const createPlayer = (id: string, isAi: boolean): DomainPlayer => ({
   id,
   isAi,
   name: id,
-  points: 100,
+  points: STARTING_GOLD,
   manpower: MANPOWER_BASE_CAP,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),

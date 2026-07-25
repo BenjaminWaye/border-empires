@@ -75,9 +75,12 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ])
     });
 
-    expect(economy.incomePerMinute).toBe(1.5);
+    // 1.5 was the pre-gold-rescope figure; DOCK_INCOME_PER_MIN is now cut
+    // 288x (docs/manpower-economy-rewrite-plan.md §6.1), with each dock's
+    // contribution rounded to 6dp as it's accumulated into the bucket.
+    expect(economy.incomePerMinute).toBe(0.005208);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Docks", amountPerMinute: 1.5, count: 2 })
+      expect.objectContaining({ label: "Docks", amountPerMinute: 0.005208, count: 2 })
     );
   });
 
@@ -110,9 +113,11 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
 
-    expect(economy.incomePerMinute).toBe(6);
+    // 6 was the pre-gold-rescope figure; TOWN_BASE_GOLD_PER_MIN is now cut
+    // 288x (docs/manpower-economy-rewrite-plan.md §6.1).
+    expect(economy.incomePerMinute).toBe(0.020834);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Towns", amountPerMinute: 6, count: 2 })
+      expect.objectContaining({ label: "Towns", amountPerMinute: 0.020834, count: 2 })
     );
   });
 
@@ -176,9 +181,11 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
 
-    expect(economy.incomePerMinute).toBeCloseTo(15.4);
+    // 15.4 was the pre-gold-rescope figure; town/settlement base gold
+    // income is now cut 288x (docs/manpower-economy-rewrite-plan.md §6.1).
+    expect(economy.incomePerMinute).toBeCloseTo(15.4 / 288, 5);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Towns", amountPerMinute: 15.4, count: 4 })
+      expect.objectContaining({ label: "Towns", amountPerMinute: expect.closeTo(15.4 / 288, 5), count: 4 })
     );
   });
 
@@ -240,7 +247,14 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ["20,10", { x: 20, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
     ]);
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-    expect(economy.goldCapIncomePerMinute).toBe(economy.incomePerMinute);
+    // toBeCloseTo, not toBe: incomePerMinute and goldCapIncomePerMinute are
+    // independently accumulated (separate bucket chains), so even at 6dp
+    // rounding (bumped from 4dp for the gold rescope, §6.1 — see addBucket's
+    // comment) they can land a unit apart in the last decimal despite being
+    // mathematically identical with no cap multiplier active. This was
+    // already true pre-rescale; it just wasn't visible until gold's new,
+    // much smaller magnitude made the relative rounding noise non-trivial.
+    expect(economy.goldCapIncomePerMinute).toBeCloseTo(economy.incomePerMinute, 4);
   });
 
   it("goldCapIncomePerMinute is higher than incomePerMinute when dockGoldCapMult is active", () => {

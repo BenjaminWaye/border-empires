@@ -43,6 +43,7 @@ type TechTreeArgs = {
   viewportHeight: number;
   isMobile: boolean;
   techTreeZoom?: number;
+  pulseUntilByTechId?: ReadonlyMap<string, number>; // "reward is ready" pulse, §7.3 — tech id -> pulse-expiry ms
 };
 
 type TechAgeMeta = {
@@ -186,11 +187,10 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
         )
         .map((tech) => {
           const selected = args.techUiSelectedId === tech.id ? " selected" : "";
-          const isOwned = ownedTechIds.includes(tech.id);
-          const owned = isOwned ? " owned" : "";
+          const isOwned = ownedTechIds.includes(tech.id); const owned = isOwned ? " owned" : "";
           const isPending = args.isPendingTechUnlock(tech.id);
-          const available = techCardIsAvailable(tech, true, isPending) ? " available" : "";
-          const blocked = isOwned || available || isPending ? "" : " blocked";
+          const available = techCardIsAvailable(tech, true, isPending) ? " available" : ""; const blocked = isOwned || available || isPending ? "" : " blocked";
+          const pulsing = (args.pulseUntilByTechId?.get(tech.id) ?? 0) > Date.now() ? " tech-card-affordable-pulse" : ""; // §7.3
           const researchingThis = args.currentResearch?.techId === tech.id;
           const researchRemaining =
             researchingThis && typeof args.currentResearch?.completesAt === "number"
@@ -214,7 +214,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
                   ? " tech-card-cost-blocked"
                   : "";
           const passiveSummary = formatTechPassiveSummary(tech);
-          return `<button class="tech-card${selected}${owned}${available}${blocked}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
+          return `<button class="tech-card${selected}${owned}${available}${blocked}${pulsing}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
             <div class="tech-card-top">
               <strong>${tech.name}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>

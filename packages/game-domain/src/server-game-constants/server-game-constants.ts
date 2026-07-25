@@ -45,13 +45,17 @@ export const SHARD_RAIN_SITE_MIN = 3;
 export const SHARD_RAIN_SITE_MAX = 6;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 export const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
-export const STARTING_GOLD = 100;
+// Gold rescope (docs/manpower-economy-rewrite-plan.md §6.1): every passive gold-income
+// source below divides by this to preserve their relative balance while cutting the
+// absolute magnitude — TOWN_BASE_GOLD_PER_MIN's old 2/min (~2,880/day/town) -> ~10/day.
+export const GOLD_RESCALE_DIVISOR = 288;
+export const STARTING_GOLD = 10;
 export const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
 export const BARBARIAN_MAINTENANCE_INTERVAL_MS = 10_000;
 export const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
 export const PVP_REWARD_MULT = 0.55;
-export const TOWN_BASE_GOLD_PER_MIN = 2;
-export const DOCK_INCOME_PER_MIN = 0.5;
+export const TOWN_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR;
+export const DOCK_INCOME_PER_MIN = 0.5 / GOLD_RESCALE_DIVISOR;
 export const FORT_BUILD_IRON_COST = 45;
 export const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 export const SYNTH_OVERLOAD_GOLD_COST = 12_500;
@@ -102,7 +106,11 @@ export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MIN
 export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = SHARED_RAIL_DEPOT_MANPOWER_REGEN_PER_MIN;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
-export const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
+export const SETTLEMENT_BASE_GOLD_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
+// Bank's flat additive gold/min bonus (§22.1): old +1/min (+1.5/min w/ Clearing House)
+// rescales to ~+5/day (~+7.5/day) — meaningful against the new ~10 gold/day/town base.
+export const BANK_FLAT_GOLD_BONUS_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
+export const BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE = 1.5 / GOLD_RESCALE_DIVISOR;
 export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
 export const IRONWORKS_GOLD_UPKEEP = 60;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;

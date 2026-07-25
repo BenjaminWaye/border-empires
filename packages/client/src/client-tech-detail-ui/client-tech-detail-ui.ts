@@ -169,7 +169,7 @@ export const renderTechChoiceGrid = (deps: {
     techUiSelectedId: string;
     techRootId: string | undefined;
     currentResearch: { techId?: string; completesAt?: number } | null | undefined;
-    techTreeZoom: number;
+    techTreeZoom: number; techAffordablePulseUntilByTechId: ReadonlyMap<string, number>;
   };
   effectiveOwnedTechIds: () => string[];
   effectiveTechChoices: () => string[];
@@ -201,7 +201,7 @@ export const renderTechChoiceGrid = (deps: {
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
         isMobile: deps.isMobile,
-        techTreeZoom: deps.state.techTreeZoom
+        techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       })
     : renderCompactTechChoiceGridHtml({
         techCatalog: deps.state.techCatalog,
@@ -220,7 +220,7 @@ export const renderTechChoiceGrid = (deps: {
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
         isMobile: deps.isMobile,
-        techTreeZoom: deps.state.techTreeZoom
+        techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       });
 
 export const selectedTechInfo = (deps: {

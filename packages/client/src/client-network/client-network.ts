@@ -18,7 +18,7 @@ import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
-import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
+import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
@@ -1362,7 +1362,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         availableTechPicks: msg.availableTechPicks
       });
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
-      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog; updateTechAffordabilityPulses(state, Date.now());
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
