@@ -30,6 +30,7 @@ import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js
 import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
+import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
@@ -120,6 +121,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
@@ -1407,18 +1409,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
       return visibility === "visible" || visibility === "fogged";
     };
-    heightfield.rebuild({
-      camX: deps.state.camX,
-      camY: deps.state.camY,
-      halfW,
-      halfH,
-      worldWidth: WORLD_WIDTH,
-      worldHeight: WORLD_HEIGHT,
-      tileKindAt: heightfieldKindAt,
-      isExploredAt: isExploredForHeightfield,
-      isForestAt: isForestTile,
-      isHillsAt: isHillsTile
-    });
+    // Shared window params for both the main sculpted grid and the separate
+    // hills dome layer (client-map-3d-hills.ts) — hills are excluded from
+    // the former and drawn entirely by the latter, so both must rebuild
+    // against the exact same visible window every frame.
+    const sharedTerrainWindow = {
+      camX: deps.state.camX, camY: deps.state.camY, halfW, halfH,
+      worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
+      tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
+    };
+    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
+    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
 
     mountainMassifs.clear();
     villageEffects.clear();
@@ -1612,9 +1613,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        if (forestTile) {
-          forest.addInstance(x, z, surfaceY);
-        }
+        if (forestTile) forest.addInstance(x, z, surfaceY);
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
@@ -2064,6 +2063,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townSupportCoins.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
+    hillTerrain.dispose();
     heightfield.dispose();
     atmosphere.dispose();
     glCanvas.remove();

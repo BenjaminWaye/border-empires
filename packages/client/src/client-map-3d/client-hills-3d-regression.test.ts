@@ -36,8 +36,10 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillCalls: number
 };
 
 // Same seed used by client-forest-3d-regression.test.ts and
-// vision-footprint-table.test.ts's KNOWN_HILLS_TILE.
-const seededHillsTile = { x: 4, y: 15 };
+// vision-footprint-table.test.ts's KNOWN_HILLS_TILE — moved together with
+// that constant once hills were concentrated into the BROKEN_HIGHLANDS
+// region (see isHillsRegionAt in worldgen.ts).
+const seededHillsTile = { x: 99, y: 57 };
 
 beforeAll(async () => {
   class MockImage {

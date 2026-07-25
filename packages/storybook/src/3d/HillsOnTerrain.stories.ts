@@ -1,15 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { DirectionalLight } from "three";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
-// This story renders hills the way the game actually composes them: the
-// heightfield raises a hills tile's elevation (HEIGHTFIELD_HILLS_ELEVATION_BONUS
-// plus a per-tile HILLS_BUMP_JITTER on the GRASS/SAND base), blended smoothly
-// into flat neighbours by the heightfield's own corner averaging. There is no
-// separate "hill" prop — sculpted, shaded terrain carries the whole effect,
-// the same way Civ-style hills are just raised, unevenly-lit ground rather
-// than a shape sitting on top of it.
+// Hills tiles are excluded from the main heightfield grid and rendered by a
+// separate dome mesh (client-map-3d-hills.ts) whose every attribute —
+// height, colour, normals — is stitched to the main grid's real per-corner
+// data instead of invented locally, so a hill blends seamlessly into flat
+// ground (including grass/sand borders) with no visible seam.
 //
 // Patterns are defined in *absolute* world tile coords centered on CENTER,
 // not on (0, 0) — the heightfield wraps negative offsets from camX/camY into
@@ -21,7 +20,7 @@ import { createStage, wrapWithCleanup } from "../three-stage.js";
 // actual 3D scene position so the framing looks the same either way.
 const CENTER = 100;
 
-type TerrainPattern = "patch" | "ridge" | "scattered";
+type TerrainPattern = "single" | "onSandBorder" | "patch" | "ridge" | "scattered";
 
 type Args = {
   pattern: TerrainPattern;
@@ -30,34 +29,40 @@ type Args = {
   cameraTilt: number;
 };
 
-// A round hill patch in the middle of an otherwise flat grass field, with a
-// sand strip along one edge so you can see the bump against two biomes.
 const isHillsForPattern = (pattern: TerrainPattern) => (wx: number, wy: number): boolean => {
   const x = wx - CENTER;
   const y = wy - CENTER;
   switch (pattern) {
+    case "single":
+      // Exactly one hills tile in an otherwise flat field.
+      return x === 0 && y === 0;
+    case "onSandBorder":
+      // A single hills tile straddling the grass/sand line below — the key
+      // test for whether the dome's edge colour actually blends toward
+      // sand instead of showing one fixed biome tint.
+      return x === 0 && y === 0;
     case "patch":
       return Math.hypot(x, y) < 4;
     case "ridge":
       return Math.abs(x - y) < 2 && Math.hypot(x, y) < 9;
     case "scattered": {
-      // A handful of small, separated blobs rather than one contiguous mass —
-      // closer to how the noise-based in-game placement actually scatters
-      // hill regions across a grass field.
-      const blobs: ReadonlyArray<[number, number, number]> = [
-        [-6, -5, 2.2],
-        [4, -6, 1.8],
-        [-3, 4, 2.4],
-        [6, 3, 1.6]
+      // A handful of separated single-tile hills — closer to how the
+      // noise-based in-game placement scatters hill tiles across a field.
+      const points: ReadonlyArray<[number, number]> = [
+        [-6, -5], [4, -6], [-3, 4], [6, 3], [0, -8], [-8, 1]
       ];
-      return blobs.some(([bx, by, r]) => Math.hypot(x - bx, y - by) < r);
+      return points.some(([px, py]) => px === x && py === y);
     }
   }
 };
 
 // Biome is independent of hills placement — a sand strip along one edge so
-// the elevation bump is visible against two different ground textures.
-const tileKindAt = (wx: number, _wy: number): HeightfieldTerrainKind => (wx - CENTER > 7 ? "SAND" : "GRASS");
+// the dome is visible against two different ground textures. onSandBorder
+// puts the sand line directly through the single hill tile's own footprint.
+const tileKindAt = (pattern: TerrainPattern) => (wx: number, _wy: number): HeightfieldTerrainKind => {
+  const boundary = pattern === "onSandBorder" ? CENTER : CENTER + 7;
+  return wx - boundary >= 0 ? "SAND" : "GRASS";
+};
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({
@@ -66,7 +71,7 @@ const render = (args: Args): HTMLElement => {
     background: "#1a2030"
   });
   // The stage's default lighting (ambient 0.55 + a mild sun) is too flat to
-  // read subtle terrain relief — normal-based shading needs a directional
+  // read terrain relief clearly — normal-based shading needs a directional
   // light strong enough, relative to ambient, to visibly darken the side of
   // a rise facing away from it. This mirrors the real game's atmosphere sun
   // (client-map-3d-atmosphere.ts), which is far stronger than the generic
@@ -79,21 +84,25 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.setGridlinesVisible(args.showGridlines);
 
+  const hillTerrain = createHillTerrain(stage.scene, 512, hf.material);
+
   const isHillsAt = isHillsForPattern(args.pattern);
-  hf.rebuild({
+  const shared = {
     camX: CENTER,
     camY: CENTER,
     halfW: 12,
     halfH: 12,
     worldWidth: 240,
     worldHeight: 240,
-    tileKindAt,
-    isHillsAt
-  });
+    tileKindAt: tileKindAt(args.pattern)
+  };
+  hf.rebuild({ ...shared, isHillsAt });
+  hillTerrain.rebuild({ ...shared, isHillsAt });
 
   return wrapWithCleanup(stage, [
     () => { stage.scene.remove(hf.mesh, hf.skirtMesh, hf.gridlines, raking); },
-    hf.dispose
+    hf.dispose,
+    hillTerrain.dispose
   ]);
 };
 
@@ -103,24 +112,26 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "Hills rendered the way the game actually composes them: the heightfield raises a hills tile's elevation (HEIGHTFIELD_HILLS_ELEVATION_BONUS plus a per-tile bump) on top of the GRASS/SAND base, smoothly blended into flat neighbours by the heightfield's normal corner-averaging. No separate prop — the sculpted, shaded terrain is the whole effect."
+          "Hills are drawn by a separate dome mesh, but every attribute at its edges (height, colour, normals) is stitched to the main heightfield's real per-corner data — so an isolated hill pops cleanly out of flat ground with no seam, and blends toward sand correctly if it sits near a biome border."
       }
     }
   },
   argTypes: {
-    pattern: { control: "inline-radio", options: ["patch", "ridge", "scattered"] },
+    pattern: { control: "inline-radio", options: ["single", "onSandBorder", "patch", "ridge", "scattered"] },
     showGridlines: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 8, max: 60, step: 2 } },
     cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
   },
-  args: { pattern: "patch", showGridlines: false, cameraDistance: 22, cameraTilt: 0.55 },
+  args: { pattern: "single", showGridlines: true, cameraDistance: 12, cameraTilt: 0.55 },
   render
 };
 
 export default meta;
 type Story = StoryObj<Args>;
 
-export const HillPatch: Story = {};
-export const HillRidge: Story = { args: { pattern: "ridge", cameraDistance: 30 } };
-export const ScatteredHills: Story = { args: { pattern: "scattered", cameraDistance: 34 } };
-export const LowAngle: Story = { args: { pattern: "patch", cameraTilt: 0.2, cameraDistance: 16 } };
+export const SingleHill: Story = {};
+export const SingleHillOnSandBorder: Story = { args: { pattern: "onSandBorder", cameraDistance: 10 } };
+export const HillPatch: Story = { args: { pattern: "patch", cameraDistance: 22, showGridlines: false } };
+export const HillRidge: Story = { args: { pattern: "ridge", cameraDistance: 30, showGridlines: false } };
+export const ScatteredHills: Story = { args: { pattern: "scattered", cameraDistance: 34, showGridlines: false } };
+export const LowAngle: Story = { args: { pattern: "single", cameraTilt: 0.2, cameraDistance: 10, showGridlines: false } };
