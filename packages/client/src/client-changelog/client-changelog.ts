@@ -1,13 +1,14 @@
 import type { ClientState, storageSet } from "../client-state/client-state.js";
-import { LATEST_CLIENT_CHANGELOG, type ClientChangelogEntry, type ClientChangelogRelease } from "./client-changelog-data.js";
+import { CLIENT_CHANGELOG_ENTRIES, type ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const CLIENT_CHANGELOG_STORAGE_KEY = "border-empires-client-changelog-seen-v1";
+export const CLIENT_CHANGELOG_STORAGE_KEY = "border-empires-client-changelog-seen-v2";
+export const CLIENT_CHANGELOG_TITLE = "What's New";
 const CLIENT_CHANGELOG_SCROLL_SELECTOR = ".changelog-modal-scroll";
 
 // Release entry data lives in client-changelog-data.ts (kept separate so
 // this rendering/visibility module stays well under the file line cap).
-export { LATEST_CLIENT_CHANGELOG };
-export type { ClientChangelogEntry, ClientChangelogRelease };
+export { CLIENT_CHANGELOG_ENTRIES };
+export type { ClientChangelogEntry };
 
 const escapeHtml = (value: string): string =>
   value
@@ -17,54 +18,43 @@ const escapeHtml = (value: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
-const parseReleaseVersion = (releaseVersion: string): number[] =>
-  releaseVersion
-    .split(".")
-    .map((part) => Number.parseInt(part, 10))
-    .filter((part) => Number.isFinite(part));
+// Entries are authored in any order (append-only, no merge conflicts over
+// list position). This is the single place that imposes newest-first order
+// for display.
+export const sortedClientChangelogEntries = (
+  entries: ClientChangelogEntry[] = CLIENT_CHANGELOG_ENTRIES
+): ClientChangelogEntry[] => [...entries].sort((left, right) => right.createdAt - left.createdAt);
 
-export const compareReleaseVersions = (left: string, right: string): number => {
-  const leftParts = parseReleaseVersion(left);
-  const rightParts = parseReleaseVersion(right);
-  const width = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < width; index += 1) {
-    const leftPart = leftParts[index] ?? 0;
-    const rightPart = rightParts[index] ?? 0;
-    if (leftPart !== rightPart) return leftPart - rightPart;
-  }
-  return 0;
-};
+export const latestClientChangelogTimestamp = (entries: ClientChangelogEntry[] = CLIENT_CHANGELOG_ENTRIES): number =>
+  entries.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0);
 
 export const unseenClientChangelogEntries = (
-  seenVersion: string,
-  entries: ClientChangelogEntry[] = LATEST_CLIENT_CHANGELOG.entries
-): ClientChangelogEntry[] => {
-  if (!seenVersion) return entries;
-  return entries.filter((entry) => compareReleaseVersions(entry.introducedIn, seenVersion) > 0);
-};
+  seenAt: number,
+  entries: ClientChangelogEntry[] = CLIENT_CHANGELOG_ENTRIES
+): ClientChangelogEntry[] => sortedClientChangelogEntries(entries).filter((entry) => entry.createdAt > seenAt);
 
 export const shouldShowClientChangelog = (
   state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
-  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version
-): boolean => state.authSessionReady && !state.profileSetupRequired && state.changelog.seenVersion !== releaseVersion;
+  latestAt: number = latestClientChangelogTimestamp()
+): boolean => state.authSessionReady && !state.profileSetupRequired && state.changelog.seenAt < latestAt;
 
 export const syncClientChangelogVisibility = (
   state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
-  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version
+  latestAt: number = latestClientChangelogTimestamp()
 ): boolean => {
-  state.changelog.open = shouldShowClientChangelog(state, releaseVersion);
+  state.changelog.open = shouldShowClientChangelog(state, latestAt);
   return state.changelog.open;
 };
 
 export const markClientChangelogSeen = (
   state: Pick<ClientState, "changelog">,
-  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version,
-  persistSeenVersion: typeof storageSet
+  latestAt: number = latestClientChangelogTimestamp(),
+  persistSeenAt: typeof storageSet
 ): void => {
   state.changelog.open = false;
-  state.changelog.seenVersion = releaseVersion;
+  state.changelog.seenAt = latestAt;
   state.changelog.scrollTop = 0;
-  persistSeenVersion(CLIENT_CHANGELOG_STORAGE_KEY, releaseVersion);
+  persistSeenAt(CLIENT_CHANGELOG_STORAGE_KEY, String(latestAt));
 };
 
 const changelogBodyHtml = (entries: ClientChangelogEntry[]): string =>
@@ -89,31 +79,32 @@ const changelogBodyHtml = (entries: ClientChangelogEntry[]): string =>
     )
     .join("");
 
-export const clientChangelogRenderSignature = (releaseVersion: string, buildVersion: string): string =>
-  `${releaseVersion}:${buildVersion}`;
+export const clientChangelogRenderSignature = (latestAt: number, buildVersion: string): string =>
+  `${latestAt}:${buildVersion}`;
 
 export const shouldRebuildClientChangelogOverlay = (
   overlayEl: Pick<HTMLDivElement, "innerHTML" | "dataset">,
   renderSignature: string
 ): boolean => overlayEl.innerHTML === "" || overlayEl.dataset.renderSig !== renderSignature;
 
+const changelogSummary = (unseenCount: number, totalCount: number): string => {
+  if (unseenCount === totalCount) return `Here's what's changed recently — ${totalCount} update${totalCount === 1 ? "" : "s"}.`;
+  if (unseenCount === 1) return "This popup shows the single release-note entry you haven't seen yet.";
+  return `This popup shows the ${unseenCount} release-note entries you haven't seen yet.`;
+};
+
 export const renderClientChangelogOverlay = (deps: {
   state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">;
   changelogOverlayEl: HTMLDivElement;
   buildVersion: string;
-  persistSeenVersion: typeof storageSet;
+  persistSeenAt: typeof storageSet;
   renderHud: () => void;
 }): void => {
-  const releaseVersion = LATEST_CLIENT_CHANGELOG.version;
-  const renderSignature = clientChangelogRenderSignature(releaseVersion, deps.buildVersion);
-  const unseenEntries = unseenClientChangelogEntries(deps.state.changelog.seenVersion);
-  const summary =
-    unseenEntries.length === LATEST_CLIENT_CHANGELOG.entries.length
-      ? LATEST_CLIENT_CHANGELOG.summary
-      : unseenEntries.length === 1
-        ? "This popup now shows only the single release-note entry you have not seen yet."
-        : `This popup now shows the ${unseenEntries.length} release-note entries you have not seen yet.`;
-  const isOpen = syncClientChangelogVisibility(deps.state, releaseVersion);
+  const latestAt = latestClientChangelogTimestamp();
+  const renderSignature = clientChangelogRenderSignature(latestAt, deps.buildVersion);
+  const unseenEntries = unseenClientChangelogEntries(deps.state.changelog.seenAt);
+  const summary = changelogSummary(unseenEntries.length, CLIENT_CHANGELOG_ENTRIES.length);
+  const isOpen = syncClientChangelogVisibility(deps.state, latestAt);
   deps.changelogOverlayEl.style.display = isOpen ? "grid" : "none";
   if (!isOpen) {
     if (deps.changelogOverlayEl.innerHTML) deps.changelogOverlayEl.innerHTML = "";
@@ -122,18 +113,19 @@ export const renderClientChangelogOverlay = (deps: {
   }
 
   if (shouldRebuildClientChangelogOverlay(deps.changelogOverlayEl, renderSignature)) {
+    const latestEntry = unseenEntries[0] ?? sortedClientChangelogEntries()[0];
     deps.changelogOverlayEl.innerHTML = `
       <div class="changelog-backdrop" id="changelog-backdrop"></div>
       <div class="changelog-modal card" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
         <div class="changelog-topbar">
           <div class="changelog-topbar-copy">
-            <div class="changelog-kicker">Release ${escapeHtml(releaseVersion)} • Build ${escapeHtml(deps.buildVersion)}</div>
+            <div class="changelog-kicker">Release ${escapeHtml(latestEntry?.introducedIn ?? "")} • Build ${escapeHtml(deps.buildVersion)}</div>
             <span class="changelog-unseen-count">${unseenEntries.length} new ${unseenEntries.length === 1 ? "entry" : "entries"}</span>
           </div>
           <button id="changelog-close" class="panel-btn changelog-primary-btn" type="button">Continue</button>
         </div>
         <div class="changelog-modal-scroll">
-          <h2 id="changelog-title" class="changelog-title">${escapeHtml(LATEST_CLIENT_CHANGELOG.title)}</h2>
+          <h2 id="changelog-title" class="changelog-title">${escapeHtml(CLIENT_CHANGELOG_TITLE)}</h2>
           <p class="changelog-summary">${escapeHtml(summary)}</p>
           <div class="changelog-entry-list">
             ${changelogBodyHtml(unseenEntries)}
@@ -155,13 +147,13 @@ export const renderClientChangelogOverlay = (deps: {
   }
 
   const close = (): void => {
-    markClientChangelogSeen(deps.state, releaseVersion, deps.persistSeenVersion);
+    markClientChangelogSeen(deps.state, latestAt, deps.persistSeenAt);
     // Hide the overlay directly instead of relying solely on the follow-up
     // renderHud() call to do it. renderClientHud() is a huge, single
     // function covering the whole HUD; if anything else in that render
     // pass throws (and it's wrapped in a catch-and-log at the bootstrap
     // level), this overlay update would never happen and "Continue" would
-    // appear to do nothing even though the seen-version was correctly
+    // appear to do nothing even though the seen timestamp was correctly
     // persisted. Closing here first makes the button's own effect
     // unconditional; renderHud() still runs afterward for everything else.
     deps.changelogOverlayEl.style.display = "none";
