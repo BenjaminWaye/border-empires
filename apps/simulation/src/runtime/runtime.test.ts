@@ -588,7 +588,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 14, y: 10, terrain: "LAND" },
+          { x: 11, y: 10, terrain: "LAND" },
           { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -599,7 +599,7 @@ describe("simulation runtime", () => {
 
     expect(visibleState.tiles).toEqual([
       expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-      expect.objectContaining({ x: 14, y: 10, terrain: "LAND" })
+      expect.objectContaining({ x: 11, y: 10, terrain: "LAND" })
     ]);
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
@@ -691,7 +691,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: [
@@ -713,7 +713,7 @@ describe("simulation runtime", () => {
 
     runtime.exportVisibleStateForPlayer("player-1");
 
-    const radiusAudit = audits.find((entry) => entry.tileKey === "12,10");
+    const radiusAudit = audits.find((entry) => entry.tileKey === "11,10");
     expect(radiusAudit).toBeDefined();
     expect(radiusAudit?.playerId).toBe("player-1");
     expect(radiusAudit?.reasons).toEqual(["radius:self"]);
@@ -738,7 +738,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -757,7 +757,7 @@ describe("simulation runtime", () => {
       },
       // Player-2 captured a tile inside player-1's vision radius.
       {
-        x: 12,
+        x: 11,
         y: 10,
         terrain: "LAND" as const,
         ownerId: "player-2",
@@ -776,11 +776,11 @@ describe("simulation runtime", () => {
 
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
 
-    expect(filtered.map((delta) => `${delta.x},${delta.y}`).sort()).toEqual(["10,10", "12,10"]);
+    expect(filtered.map((delta) => `${delta.x},${delta.y}`).sort()).toEqual(["10,10", "11,10"]);
     expect(filtered.some((delta) => delta.x === 50 && delta.y === 50)).toBe(false);
     const ownDelta = filtered.find((delta) => delta.x === 10 && delta.y === 10);
     expect(ownDelta?.ownerId).toBe("player-1");
-    const visibleOpponent = filtered.find((delta) => delta.x === 12 && delta.y === 10);
+    const visibleOpponent = filtered.find((delta) => delta.x === 11 && delta.y === 10);
     expect(visibleOpponent?.townJson).toEqual(expect.any(String));
   });
 
@@ -874,9 +874,9 @@ describe("simulation runtime", () => {
     // their own region), so the post-flip ownerId attached to each delta
     // doesn't grant retroactive vision.
     const deltas = [
-      { x: 12, y: 10, terrain: "LAND" as const, ownerId: "player-3", ownershipState: "SETTLED", townJson: "{}" },
-      { x: 102, y: 100, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED", townJson: "{}" },
-      { x: 202, y: 200, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED", townJson: "{}" }
+      { x: 11, y: 10, terrain: "LAND" as const, ownerId: "player-3", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 101, y: 100, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 201, y: 200, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED", townJson: "{}" }
     ];
 
     const p1Filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
@@ -886,16 +886,16 @@ describe("simulation runtime", () => {
     // Each subscriber sees exactly the one delta in their vision radius and
     // no others — proving the leak from cross-region opponent activity is
     // closed even with multiple subscribers in a single batch.
-    expect(p1Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["12,10"]);
-    expect(p2Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["102,100"]);
-    expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["202,200"]);
+    expect(p1Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["11,10"]);
+    expect(p2Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["101,100"]);
+    expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["201,200"]);
   });
 
   it("filterTileDeltasForPlayer eager and lazy paths agree on large delta batches", () => {
     // The eager fast path kicks in when tileDeltas.length >= 16. This test
     // builds a batch large enough to trip the threshold and confirms the
-    // visible-set output matches the lazy path on a smaller slice (R=4, so
-    // tiles at Chebyshev distance ≤ 4 from an owned tile are visible).
+    // visible-set output matches the lazy path on a smaller slice (R=1, so
+    // tiles at Chebyshev distance ≤ 1 from an owned tile are visible).
     const makePlayer = (id: string) => ({
       id,
       isAi: false,
@@ -923,7 +923,7 @@ describe("simulation runtime", () => {
       }
     });
 
-    // Build 25 deltas: mix of tiles inside player-1's vision (Chebyshev ≤ 4
+    // Build 25 deltas: mix of tiles inside player-1's vision (Chebyshev ≤ 1
     // from 10,10) and tiles outside it. The eager path must drop the same
     // tiles as the lazy path would.
     const deltas: Array<{ x: number; y: number; terrain: "LAND"; ownerId: string; ownershipState: "SETTLED" }> = [];
@@ -938,8 +938,8 @@ describe("simulation runtime", () => {
 
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
     const visibleXs = filtered.map((delta) => delta.x).sort((a, b) => a - b);
-    // Player-1 owns (10,10) with vision radius 4 → x in [6..14] visible at y=10.
-    expect(visibleXs).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    // Player-1 owns (10,10) with vision radius 1 → x in [9..11] visible at y=10.
+    expect(visibleXs).toEqual([9, 10, 11]);
     expect(filtered.some((delta) => delta.y === 200)).toBe(false);
   });
 

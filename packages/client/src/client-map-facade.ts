@@ -33,6 +33,7 @@ import {
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render/client-map-render.js";
+import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-render-hills-overlay.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -240,6 +241,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size);
+  const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
+    drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =>
     drawBarbarianSkullOverlayOnCanvas(ctx, px, py, size);
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
@@ -388,6 +391,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawAetherWallSegment,
     drawTerrainTile,
     drawForestOverlay,
+    drawHillsOverlay,
     drawBarbarianSkullOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,

@@ -76,7 +76,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     maybeRefreshForCamera,
     shouldPreserveOptimisticExpandByKey,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     dockOverlayVariants,
@@ -561,7 +561,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     crystalTargetingTone: actionFlow.crystalTargetingTone,
     startingExpansionArrowTargets: originSelection.startingExpansionArrowTargets,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     // The 3D dock overlay supersedes the SVG dock icons when the true-3D

@@ -35,8 +35,8 @@ describe("runtime.exportBarbActivationVisibleUnion", () => {
         tiles: [
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          // Within player-1's radius-4 bubble (distance 2) — must be visible.
-          { x: 52, y: 52, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
+          // Within player-1's radius-1 bubble (distance 1) — must be visible.
+          { x: 51, y: 51, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
           // Far from every non-barb player — must not be visible.
           { x: 100, y: 100, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
         ],
@@ -45,7 +45,7 @@ describe("runtime.exportBarbActivationVisibleUnion", () => {
     });
 
     const union = runtime.exportBarbActivationVisibleUnion();
-    expect(union.keys).toContain("52,52");
+    expect(union.keys).toContain("51,51");
     expect(union.keys).not.toContain("100,100");
     // Non-barb-owned tiles never appear, even though they're the ones whose
     // vision makes barb tiles eligible.
