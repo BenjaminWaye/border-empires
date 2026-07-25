@@ -310,27 +310,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       'This only affects the very first auto-recenter after load — the existing "jump to my empire" recenter button still works exactly as before.'
     ]
   },
-  {
-    createdAt: 1784419320000, // 2026.07.19.2
-    introducedIn: "2026.07.19.2",
-    title: "Fixed structures appearing stuck at 00:00 forever",
-    why: "A structure's construction progress popup only refreshed when some unrelated event happened to redraw the screen, so once the countdown hit zero it could sit there indefinitely even after the server had already finished the build — making it look like the fort would never complete.",
-    changes: [
-      "The tile detail popup now refreshes immediately when the server reports a structure finishing while that tile's menu is open.",
-      "If a structure's countdown reaches zero but its status hasn't updated yet, the client now re-checks with the server instead of trusting the stale local timer forever."
-    ]
-  },
-  {
-    createdAt: 1784419260000, // 2026.07.19.1
-    introducedIn: "2026.07.19.1",
-    title: "Tile descriptions now show the AI player's real name",
-    why: 'Clicking a tile owned by an AI player showed a generic label like "AI 5" even though the leaderboard already displayed that AI\'s actual name (e.g. "Freja Sund") — the tile panel and the leaderboard were pulling from two different, inconsistent sources.',
-    changes: [
-      "Tile descriptions now show the AI's real name, matching the leaderboard.",
-      "Truce and alliance requests targeting an AI player are unaffected — they still resolve correctly, since that flow keeps using the stable identifier the server expects."
-    ]
-  },
-  // Older entries (2026.07.18.9 and earlier) trimmed: the release-day
+  // Older entries (2026.07.19.2 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
 ];
