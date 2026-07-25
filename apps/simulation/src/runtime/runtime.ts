@@ -2577,7 +2577,7 @@ export class SimulationRuntime {
   private estimatedIncomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     const incomeMult = player?.mods?.income ?? 1;
-    return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 100) / 100;
+    return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 1e6) / 1e6; // was 2dp; rounded most income to 0.00 post-rescale (§24.4)
   }
 
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
@@ -3409,7 +3409,7 @@ export class SimulationRuntime {
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
-    const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
+    const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
       ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
