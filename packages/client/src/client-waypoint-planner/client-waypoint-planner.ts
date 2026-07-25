@@ -33,11 +33,14 @@ export type WaypointStep = {
   viaDock: boolean;
 };
 
+// TARGET_UNEXPLORED is intentionally absent: an unexplored target is never
+// pre-emptively blocked (see planWaypoint below) — it's attempted exactly
+// like any other coordinate, and can only ever resolve to NO_PATH or, once
+// discovered, TARGET_BARRIER/TARGET_OWN/TARGET_ALLIED/TARGET_TRUCED.
 export type WaypointBlockReason =
   | "NO_PATH"
   | "TARGET_OWN"
   | "TARGET_BARRIER"
-  | "TARGET_UNEXPLORED"
   | "TARGET_ALLIED"
   | "TARGET_TRUCED"
   | "NO_OWNED_TERRITORY";
@@ -258,12 +261,28 @@ export const planWaypoint = (
   if (!me) return blockedPlan("NO_OWNED_TERRITORY");
 
   const goalTile = state.tiles.get(keyFor(goalX, goalY));
+  // Unexplored targets skip every check below — never pre-emptively refuse a
+  // guess. The A* below (classifyForSearch) optimistically treats ANY
+  // undiscovered tile as reachable NEUTRAL, goal included; once real data
+  // reveals a barrier, a later re-plan returns TARGET_BARRIER and the caller
+  // (topUpFromWaypoint) cancels, keeping whatever ground was captured.
+  const goalUnexplored = !goalTile;
   const alliedPlayerIds = alliedPlayerIdsOf(state);
-  if (!goalTile) return blockedPlan("TARGET_UNEXPLORED");
-  if (goalTile.terrain !== "LAND") return blockedPlan("TARGET_BARRIER");
-  if (goalTile.ownerId === me) return blockedPlan("TARGET_OWN");
-  if (goalTile.ownerId && alliedPlayerIds.has(goalTile.ownerId)) return blockedPlan("TARGET_ALLIED");
-  if (goalTile.ownerId && truceTargetIds.has(goalTile.ownerId)) return blockedPlan("TARGET_TRUCED");
+  if (!goalUnexplored) {
+    if (goalTile.terrain !== "LAND") return blockedPlan("TARGET_BARRIER");
+    if (goalTile.ownerId === me) return blockedPlan("TARGET_OWN");
+    if (goalTile.ownerId && alliedPlayerIds.has(goalTile.ownerId)) return blockedPlan("TARGET_ALLIED");
+    if (goalTile.ownerId && truceTargetIds.has(goalTile.ownerId)) return blockedPlan("TARGET_TRUCED");
+  }
+
+  // Any tile absent from state.tiles is undiscovered, not just the
+  // destination — reaching a distant target means crossing other
+  // undiscovered tiles too, which get the same optimistic treatment (a known
+  // tile, e.g. a confirmed mountain/sea/enemy, still classifies for real).
+  const classifyForSearch = (tile: Tile | undefined, x: number, y: number): ClassifiedTile =>
+    !tile
+      ? { kind: "NEUTRAL", durationMs: expandDurationMsAt(x, y) }
+      : classifyTile(tile, x, y, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
 
   // Collect sources: all currently-owned land tiles (gScore 0 each).
   // A source remains valid even if fogged — the server may reject the
@@ -339,7 +358,7 @@ export const planWaypoint = (
       const ny = wrapY(cy + dy, WORLD_HEIGHT);
       const neighborIdx = worldIndex(nx, ny);
       const neighborTile = state.tiles.get(keyFor(nx, ny));
-      const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
+      const classified = classifyForSearch(neighborTile, nx, ny);
       if (classified.kind === "IMPASSABLE") continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
@@ -364,7 +383,7 @@ export const planWaypoint = (
         for (const destIdx of links) {
           const { x: dxw, y: dyw } = coordFromIndex(destIdx);
           const destTile = state.tiles.get(keyFor(dxw, dyw));
-          const classified = classifyTile(destTile, dxw, dyw, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
+          const classified = classifyForSearch(destTile, dxw, dyw);
           if (classified.kind === "IMPASSABLE") continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
@@ -412,7 +431,7 @@ export const planWaypoint = (
     const prev = coordFromIndex(prevIdx);
     const next = coordFromIndex(nextIdx);
     const nextTile = state.tiles.get(keyFor(next.x, next.y));
-    const classified = classifyTile(nextTile, next.x, next.y, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
+    const classified = classifyForSearch(nextTile, next.x, next.y);
     if (classified.kind === "OWN" || classified.kind === "IMPASSABLE") {
       // Should not happen — A* never traverses impassable, and own tiles
       // are sources which terminate reconstruction.
@@ -462,4 +481,17 @@ export const planWaypoint = (
     plan.firstAttackFromExistingFrontier = firstAttackFromExistingFrontier;
   }
   return plan;
+};
+
+type WaypointPushFeed = (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+
+// TARGET_BARRIER only fires once a target is confirmed non-LAND (never
+// guessed for still-unexplored targets) — cancel rather than stay stuck.
+// Always returns false so callers can use it as their own tick result.
+export const cancelWaypointOnBarrierBlock = (state: Pick<ClientState, "waypoint">, plan: WaypointPlan, target: { x: number; y: number }, pushFeed: WaypointPushFeed): false => {
+  if (plan.blockReason === "TARGET_BARRIER") {
+    pushFeed(`Waypoint cancelled at (${target.x}, ${target.y}) — turned out to be impassable. Got as close as possible.`, "info", "warn");
+    state.waypoint = undefined;
+  }
+  return false;
 };
