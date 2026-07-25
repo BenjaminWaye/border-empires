@@ -1119,7 +1119,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     state,
     changelogOverlayEl: dom.changelogOverlayEl,
     buildVersion: CLIENT_BUILD_VERSION,
-    persistSeenVersion: storageSet,
+    persistSeenAt: storageSet,
     renderHud: () => renderClientHud(deps)
   });
 

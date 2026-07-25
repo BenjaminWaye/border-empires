@@ -191,12 +191,12 @@ After a PR merges, remove the worktree and branch before marking the task done. 
 
 ## Client Release Notes
 
-When shipping a user-facing client update, update `packages/client/src/client-changelog.ts` in the same branch:
+When shipping a user-facing client update, add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch:
 
-- Bump the changelog `version` so users who already saw the previous release only see the popup for the new release.
-- Each entry: `introducedIn`, `title`, `why`, `changes`.
+- Each entry: `createdAt` (`Date.now()`), `introducedIn`, `title`, `why`, `changes`.
+- Entries are unordered in the source — append yours anywhere; `client-changelog.ts` sorts by `createdAt` before rendering. There's no shared `version` field, so parallel branches adding entries don't conflict.
 - Write both why the change was made and what changed.
-- `pnpm check:client-changelog` fails when product code changes on a branch without a changelog update and version bump.
+- `pnpm check:client-changelog` fails when product code changes on a branch without a new changelog entry (a new `createdAt` timestamp).
 
 ---
 
