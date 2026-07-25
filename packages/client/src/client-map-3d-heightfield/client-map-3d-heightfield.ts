@@ -10,13 +10,21 @@ import {
 } from "three";
 import {
   createTerrainDetailMaps,
-  legacy3DTerrainPalette,
   type TerrainDetailMaps
 } from "../client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
-
-export type HeightfieldTerrainKind = "GRASS" | "SAND" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
+import {
+  elevationJitter,
+  heightfieldTileBaseElevation,
+  heightfieldTileColor,
+  wrap,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  type HeightfieldTerrainKind
+} from "../client-map-3d-heightfield-terrain.js";
+// Re-exported so existing consumers (client-map-3d-hills.ts, storybook,
+// this module's own test) keep importing terrain data from here.
+export * from "../client-map-3d-heightfield-terrain.js";
 
 // A vertex shared by N tiles takes the mean of their elevations/colors, so
 // two mountain tiles raise their shared edge to a ridge while a lone
@@ -26,16 +34,6 @@ const VERT_DIM = HEIGHTFIELD_MAX_TILES_PER_AXIS + 1;
 const VERT_COUNT = VERT_DIM * VERT_DIM;
 const QUAD_COUNT = HEIGHTFIELD_MAX_TILES_PER_AXIS * HEIGHTFIELD_MAX_TILES_PER_AXIS;
 const MAX_INDEX_COUNT = QUAD_COUNT * 6;
-
-export const HEIGHTFIELD_DEEP_SEA_ELEVATION = -0.36;
-export const HEIGHTFIELD_COASTAL_SEA_ELEVATION = -0.16;
-export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
-export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
-export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
-// A hills tile's peak elevation. Hills aren't rendered by this grid at all
-// (client-map-3d-hills.ts draws a dome instead), kept below
-// HEIGHTFIELD_MOUNTAIN_ELEVATION as a lesser landform.
-export const HEIGHTFIELD_HILLS_ELEVATION_BONUS = 0.45;
 
 // The heightfield surface has zero thickness, and sea tiles are skipped
 // entirely so the water plane can sit on top of the hole. At grazing camera
@@ -47,72 +45,6 @@ export const HEIGHTFIELD_HILLS_ELEVATION_BONUS = 0.45;
 // canvas.
 const SKIRT_BOTTOM_Y = -0.6;
 const SKIRT_SHADE = 0.55;
-
-export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): number => {
-  switch (kind) {
-    case "MOUNTAIN":
-      return HEIGHTFIELD_MOUNTAIN_ELEVATION;
-    case "GRASS":
-      return HEIGHTFIELD_GRASS_ELEVATION;
-    case "SAND":
-      return HEIGHTFIELD_SAND_ELEVATION;
-    case "COASTAL_SEA":
-      return HEIGHTFIELD_COASTAL_SEA_ELEVATION;
-    case "SEA":
-      return HEIGHTFIELD_DEEP_SEA_ELEVATION;
-  }
-};
-
-const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [128, 120, 124];
-const MOUNTAIN_ROCK_DARK: [number, number, number] = [98, 92, 96];
-const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDark;
-const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
-// Distinct turquoise for the shoreline so it reads clearly through the
-// transparent water plane and contrasts with the darker deep-sea floor.
-const COASTAL_SEA_FLOOR: [number, number, number] = [188, 162, 112];
-const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
-
-// Exported so client-map-3d-hills.ts can stitch its dome's edges to a real
-// neighbour's exact colour instead of a single fixed grass/sand tint.
-export const heightfieldTileColor = (
-  kind: HeightfieldTerrainKind,
-  variant: 0 | 1 | 2
-): [number, number, number] => {
-  switch (kind) {
-    case "MOUNTAIN":
-      return variant === 0 ? MOUNTAIN_ROCK_DARK : MOUNTAIN_ROCK_LIGHT;
-    case "GRASS":
-      return variant === 0 ? GRASS_TINT_DEEP : variant === 1 ? GRASS_TINT_LIGHT : GRASS_TINT_DEEP;
-    case "SAND":
-      return legacy3DTerrainPalette.sand;
-    case "COASTAL_SEA":
-      return COASTAL_SEA_FLOOR;
-    case "SEA":
-      return DEEP_SEA_FLOOR;
-  }
-};
-
-const wrap = (n: number, dim: number): number => {
-  const m = n % dim;
-  return m < 0 ? m + dim : m;
-};
-
-const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind): number => {
-  if (kind === "MOUNTAIN") {
-    const h = ((wx * 73856093) ^ (wy * 19349663)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.16;
-  }
-  if (kind === "GRASS" || kind === "SAND") {
-    const h = ((wx * 374761393) ^ (wy * 668265263)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.05;
-  }
-  return 0;
-};
-
-// Flat elevation ignoring any hills bonus; lets client-map-3d-hills.ts
-// blend its dome edges against real jittered neighbours, not a flat seam.
-export const heightfieldFlatTileElevation = (wx: number, wy: number, kind: HeightfieldTerrainKind): number =>
-  heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
 
 export type HeightfieldRebuildInputs = {
   readonly camX: number;

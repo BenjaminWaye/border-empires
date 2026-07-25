@@ -1409,10 +1409,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
       return visibility === "visible" || visibility === "fogged";
     };
-    // Shared window params for both the main sculpted grid and the separate
-    // hills dome layer (client-map-3d-hills.ts) — hills are excluded from
-    // the former and drawn entirely by the latter, so both must rebuild
-    // against the exact same visible window every frame.
+    // Shared window params for the main sculpted grid and the separate hills
+    // dome layer (client-map-3d-hills.ts, which draws what the grid excludes)
+    // — both must rebuild against the exact same visible window every frame.
     const sharedTerrainWindow = {
       camX: deps.state.camX, camY: deps.state.camY, halfW, halfH,
       worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,

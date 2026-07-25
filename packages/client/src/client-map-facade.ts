@@ -19,7 +19,6 @@ import {
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
-  drawHillsOverlay as drawHillsOverlayOnCanvas,
   drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
   drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
   drawDockMarker as drawDockMarkerOnCanvas,
@@ -34,6 +33,7 @@ import {
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render/client-map-render.js";
+import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-render-hills-overlay.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";

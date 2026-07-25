@@ -51,7 +51,7 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
           { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
           { x: 11, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const },
           // Neutral tile inside vision radius.
-          { x: 13, y: 10, terrain: "LAND" as const },
+          { x: 12, y: 10, terrain: "LAND" as const },
           // Enemy territory far outside vision — must stay hidden on both paths.
           { x: 60, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const },
           { x: 61, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const }
@@ -86,7 +86,7 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
       expect(snapshot.tiles.some((tile) => tile.x === 60 && tile.y === 60)).toBe(false);
       expect(snapshot.tiles.some((tile) => tile.x === 61 && tile.y === 60)).toBe(false);
       expect(snapshot.tiles.some((tile) => tile.x === 10 && tile.y === 10)).toBe(true);
-      expect(snapshot.tiles.some((tile) => tile.x === 13 && tile.y === 10)).toBe(true);
+      expect(snapshot.tiles.some((tile) => tile.x === 12 && tile.y === 10)).toBe(true);
     }
   });
 

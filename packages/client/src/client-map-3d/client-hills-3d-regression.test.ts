@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-let drawHillsOverlay: typeof import("../client-map-render/client-map-render.js").drawHillsOverlay;
+let drawHillsOverlay: typeof import("../client-map-render-hills-overlay.js").drawHillsOverlay;
 let setTrue3DRendererActive: typeof import("../client-renderer-mode.js").setTrue3DRendererActive;
 let hillsConstants: typeof import("../client-constants.js");
 let setWorldSeed: typeof import("@border-empires/shared").setWorldSeed;
@@ -38,7 +38,7 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillCalls: number
 // Same seed used by client-forest-3d-regression.test.ts and
 // vision-footprint-table.test.ts's KNOWN_HILLS_TILE — moved together with
 // that constant once hills were concentrated into the BROKEN_HIGHLANDS
-// region (see isHillsRegionAt in worldgen.ts).
+// region (see isHillsRegionAt in worldgen-hills.ts).
 const seededHillsTile = { x: 99, y: 57 };
 
 beforeAll(async () => {
@@ -52,7 +52,7 @@ beforeAll(async () => {
   Object.assign(globalThis, { Image: MockImage });
   ({ setWorldSeed } = await import("@border-empires/shared"));
   setWorldSeed(1);
-  ({ drawHillsOverlay } = await import("../client-map-render/client-map-render.js"));
+  ({ drawHillsOverlay } = await import("../client-map-render-hills-overlay.js"));
   ({ setTrue3DRendererActive } = await import("../client-renderer-mode.js"));
   hillsConstants = await import("../client-constants.js");
   expect(hillsConstants.isHillsTile(seededHillsTile.x, seededHillsTile.y)).toBe(true);
