@@ -11,7 +11,7 @@ type TileMap = Map<string, Tile>;
 type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
-const useTerrainReliefRenderer = isCanvasReliefRendererMode;
+export const useTerrainReliefRenderer = isCanvasReliefRendererMode;
 const overlayAssetVersion = "20260406a";
 const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
@@ -141,7 +141,7 @@ const tint = (r: number, g: number, b: number, delta: number): [number, number, 
   clamp255(b + delta)
 ];
 const terrainTextures = new Map<TerrainTextureId, HTMLCanvasElement>();
-const terrainReliefPx = (wx: number, wy: number, terrain: Tile["terrain"], size: number): number => {
+export const terrainReliefPx = (wx: number, wy: number, terrain: Tile["terrain"], size: number): number => {
   if (terrain === "SEA" || terrain === "COASTAL_SEA") return Math.max(1, Math.floor(size * 0.08));
   if (terrain === "MOUNTAIN") return Math.max(3, Math.floor(size * 0.3));
   const groupedNoise = Math.abs(Math.sin(wx * 0.77 + wy * 1.13) + Math.cos(wx * 0.51 - wy * 0.89)) * 0.5;

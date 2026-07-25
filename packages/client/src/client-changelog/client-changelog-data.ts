@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.25.2",
+  version: "2026.07.25.3",
   title: "What's New",
-  summary: "Fixed waypoints to distant unexplored tiles reporting no path even when a route existed.",
+  summary: "Base vision lowered so hills are a real strategic prize — hills are now clustered into highland regions, take longer to claim, and grant a much more meaningful vision edge.",
   entries: [
+    {
+      introducedIn: "2026.07.25.3",
+      title: "Hills are now a real strategic prize",
+      why: "Hills granted only a modest, easily-ignored vision bump, were scattered uniformly across the whole map instead of forming meaningful highland regions, and cost the same to claim as flat ground — nothing made fighting for high ground feel worthwhile.",
+      changes: [
+        "Base vision range lowered to 1 tile, so the hills vision bonus is now a real difference-maker: standing on a hill sees 2 tiles out instead of 1.",
+        "Hills now cluster into highland regions (much like forests cluster into deep-forest regions), with only a rare scattering of standalone hills elsewhere.",
+        "Expanding onto a hills tile now takes 1.5 seconds longer than claiming flat ground, reflecting the rougher terrain."
+      ]
+    },
     {
       introducedIn: "2026.07.25.2",
       title: "Fixed: waypoints to distant unexplored tiles could report no path even though one existed",
@@ -40,6 +50,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Duplicate sign-in requests during a single connection are now deduplicated on both the client and the server, so one login no longer triggers two full snapshot builds.",
         "The live subscription no longer re-marshals your entire visible tile set when the bootstrap snapshot already delivered it.",
         "The snapshot builder skips a redundant vision-coverage recompute on fog-of-war logins, cutting seconds off large-empire snapshot builds."
+      ]
+    },
+    {
+      introducedIn: "2026.07.24.1",
+      title: "Hills terrain: +1 vision, visible in 2D and 3D",
+      why: "The map previously had no way to reward holding high ground — every land tile granted the same vision range regardless of terrain relief.",
+      changes: [
+        "Hills tiles now grant +1 extra vision range to whoever is standing on them.",
+        "In the 3D map, hills raise the ground itself into a distinct flat-topped rise — even a single, isolated hills tile pops fully out of completely flat surrounding ground.",
+        "In the 2D map, hills tiles are marked with a rolling-mound icon."
       ]
     },
     {
