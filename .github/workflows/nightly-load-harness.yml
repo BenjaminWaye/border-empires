@@ -52,7 +52,15 @@ jobs:
       # fresher/larger snapshot is captured from staging.
       FIXTURE_TAG: "load-harness-fixture-v2"
       FIXTURE_ASSET: "harness-fixture-v2.db"
-      GATEWAY_SQLITE_PATH: "${{ github.workspace }}/.local-data/${{ env.FIXTURE_ASSET }}"
+      # NOTE: job-level `env:` cannot self-reference the `env` context (per
+      # GitHub's context-availability rules, `env` is not available while
+      # `jobs.<job_id>.env` itself is being evaluated). The previous
+      # `${{ env.FIXTURE_ASSET }}` expression here made this workflow file
+      # fail validation, which caused GitHub to log a "No jobs were run"
+      # failure for every push across the whole repo (not just this
+      # workflow's own schedule/workflow_dispatch triggers). Keep this as a
+      # literal path built from FIXTURE_ASSET's value, not an env expression.
+      GATEWAY_SQLITE_PATH: "${{ github.workspace }}/.local-data/harness-fixture-v2.db"
 
     steps:
       - name: Checkout
