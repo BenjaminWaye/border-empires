@@ -9,6 +9,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearCameraLocation } from "../client-view-refresh.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -96,6 +97,17 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.me === incomingPlayerId &&
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
+  // If the season changed since the camera was last saved, discard the
+  // persisted camera location so the INIT handler centers on the home tile
+  // instead of restoring stale coordinates from a previous season.
+  if (
+    Boolean(incomingSeason?.seasonId) &&
+    state.bridgeDebugSeasonId !== "" &&
+    state.bridgeDebugSeasonId !== incomingSeason?.seasonId
+  ) {
+    clearCameraLocation();
+    state.cameraRestoredFromStorage = false;
+  }
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
     Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)

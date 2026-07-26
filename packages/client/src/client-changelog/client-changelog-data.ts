@@ -200,117 +200,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1784420040000, // 2026.07.19.14
-    introducedIn: "2026.07.19.14",
-    title:
-      "Fixed display name updates in Settings showing no feedback on failure",
-    why: "Changing your display name in Settings silently showed no error if the message couldn't be sent (e.g. the connection dropped between opening the panel and clicking Update), and showed no success message if the server rejected the update with a generic gateway error — the first failure was only shown on the auth overlay (which isn't visible from the Settings panel), and the second left a stale pending-state flag that could suppress feedback from future attempts.",
+    createdAt: Date.now(),
+    introducedIn: "2026.07.26.1",
+    title: "Fixed seeing darkness after a new season starts",
+    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
     changes: [
-      "Settings now shows a feed message ('Could not update display name. Finish sign-in and try again.') if the update request can't be sent, instead of silently doing nothing.",
-      "The pending-name tracker is now also cleared on a generic gateway error that isn't already handled by the color-collision path, so the next successful PLAYER_UPDATE correctly reports the display name as updated."
+      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
     ]
   },
-  {
-    createdAt: 1784419920000, // 2026.07.19.12
-    introducedIn: "2026.07.19.12",
-    title:
-      "Fixed the last-viewed map location getting reset on every login/reconnect",
-    why: "A previous fix saved your last-viewed map location, but it was still being silently overwritten with your empire's location on every single login and reconnect, before you ever saw it restored — so it looked like the location was never actually being remembered.",
-    changes: [
-      "The map now correctly restores your last-viewed location on login and reconnect instead of always snapping back to your empire."
-    ]
-  },
-  {
-    createdAt: 1784419860000, // 2026.07.19.11
-    introducedIn: "2026.07.19.11",
-    title:
-      "Fixed settled tiles still looking like frontier until you clicked them",
-    why: "When a settlement finished, the tile's new SETTLED status was applied optimistically without bumping the map's tile-revision counter — the only signal the 3D map's overlay rebuild watches. The ownership overlay kept drawing the tile with the lighter frontier tint until an unrelated camera pan, zoom, or tile update forced a rebuild, which is why tapping the tile appeared to \"fix\" it.",
-    changes: [
-      "Optimistic tile updates that change ownership now bump the map revision, so a tile switches to its settled look the moment settlement completes instead of waiting for the next click or camera move."
-    ]
-  },
-  {
-    createdAt: 1784419800000, // 2026.07.19.10
-    introducedIn: "2026.07.19.10",
-    title:
-      "Reduced silent disconnects with a server-side connection keep-alive",
-    why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
-    changes: [
-      "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
-      "This requires no change on your end — it happens automatically at the network level."
-    ]
-  },
-  {
-    createdAt: 1784419740000, // 2026.07.19.9
-    introducedIn: "2026.07.19.9",
-    title: "Alliance/truce request box now shows each AI's real name",
-    why: 'The previous fix for alliance/truce requests to AI players failing with "target not found" made the suggestion box only offer the resolvable "AI N" entry, but that left no way to tell which AI empire "AI 1" actually was.',
-    changes: [
-      'The suggestion box now shows an AI\'s real name (e.g. "Freja Sund") alongside its "AI N" entry, so you can identify it while the request still submits the resolvable name the server expects.'
-    ]
-  },
-  {
-    createdAt: 1784419680000, // 2026.07.19.8
-    introducedIn: "2026.07.19.8",
-    title: "Fixed display name changes silently failing and reverting",
-    why: "Changing your display name in Settings also resends your current tile color in the same request. If that stored color happened to collide with another player's (more likely on a large, long-running world than on staging's small test roster), the server rejected the whole update to protect color uniqueness — silently dropping the name change along with it. The Settings page also showed a \"Display name updated\" success message the instant the request was sent, without waiting to see whether the server actually accepted it, so the failure went unnoticed until the name reverted on the next reload.",
-    changes: [
-      "The server no longer re-checks color uniqueness when your color isn't actually changing, so a name-only update can no longer be blocked by an unrelated, pre-existing color collision.",
-      'The Settings page now waits for server confirmation before showing "Display name updated", and shows the real rejection reason (e.g. a color conflict) if the update fails instead of claiming success.'
-    ]
-  },
-  {
-    createdAt: 1784419620000, // 2026.07.19.7
-    introducedIn: "2026.07.19.7",
-    title:
-      "Fixed the last-viewed map location getting stuck and never updating",
-    why: "The last-viewed location was only saved when the camera crossed a full 64-tile chunk boundary, which an ordinary pan or zoom near your base routinely never does — so for a lot of play sessions the saved position never moved past wherever it was first set.",
-    changes: [
-      "Saving your last-viewed location is now decoupled from that chunk boundary — it saves on a lightweight one-second timer instead, so ordinary panning and zooming (not just big jumps) keeps it up to date.",
-      "Zoom-only changes (mouse wheel / pinch, with no panning) are now saved too, which previously never triggered a save at all."
-    ]
-  },
-  {
-    createdAt: 1784419560000, // 2026.07.19.6
-    introducedIn: "2026.07.19.6",
-    title:
-      'Fixed alliance/truce requests to AI players sometimes failing with "target not found"',
-    why: 'The alliance/truce target suggestion box offered two entries for the same AI player — the stable "AI N" name and that AI\'s real display name (e.g. "Freja Sund") shown on the leaderboard. Only "AI N" is recognized by the server, so picking the real name from the dropdown always failed with "target not found".',
-    changes: [
-      'The suggestion box now only offers the resolvable "AI N" name for AI players, matching what the server actually recognizes.'
-    ]
-  },
-  {
-    createdAt: 1784419500000, // 2026.07.19.5
-    introducedIn: "2026.07.19.5",
-    title: "Fixed Report Bug popover not accepting clicks",
-    why: "Clicking inside the Report Bug text box (from Settings) clicked through to the map behind it instead of focusing the textarea, making it hard to actually type a bug report.",
-    changes: [
-      "The Report Bug popover was missing from the HUD's list of interactive overlays, so it inherited pointer-events: none and passed clicks straight to the 3D map underneath. It now properly captures clicks like every other popup."
-    ]
-  },
-  {
-    createdAt: 1784419440000, // 2026.07.19.4
-    introducedIn: "2026.07.19.4",
-    title: 'New "Download Disconnect History" button in Settings',
-    why: "Some players have reported getting reconnected frequently, but there was no easy way to hand over evidence of when and why — the technical detail (close codes, timing) was only ever visible in a developer console.",
-    changes: [
-      "Settings now has a Download Disconnect History button next to Download Diagnostics, which saves a small JSON file listing your recent disconnects (when, how long you were connected beforehand, and whether it was a normal or abnormal close).",
-      "This history is stored locally on your device and is not affected by the automatic reload that happens after a disconnect, so it can show a pattern across multiple reconnects, not just the most recent one."
-    ]
-  },
-  {
-    createdAt: 1784419380000, // 2026.07.19.3
-    introducedIn: "2026.07.19.3",
-    title: "The map now remembers your last-viewed location",
-    why: "Reconnecting or reloading always re-centered the camera on your empire's tiles, even if you were looking somewhere else (scouting, checking a border, watching an ally) right before the disconnect.",
-    changes: [
-      "Your last-viewed map position and zoom are now saved automatically and restored on reconnect, reload, or the next time you log in on the same browser.",
-      'This only affects the very first auto-recenter after load — the existing "jump to my empire" recenter button still works exactly as before.'
-    ]
-  },
-  // Older entries (2026.07.19.2 and earlier) trimmed: the release-day
+  // Older entries (2026.07.19.14 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
 ];
