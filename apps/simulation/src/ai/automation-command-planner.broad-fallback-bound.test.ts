@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 import { planAutomationCommand } from "./automation-command-planner.js";
 
 const makeTile = (
@@ -85,7 +86,7 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 1000,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       hotFrontierTiles: [hotOrigin],
@@ -118,7 +119,7 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 1000,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       hotFrontierTiles: [hotOrigin],

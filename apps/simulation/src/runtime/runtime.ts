@@ -22,7 +22,7 @@ import {
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST,
+  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
   SETTLE_COST,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -1981,7 +1981,7 @@ export class SimulationRuntime {
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
-      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST,
+      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= EXPAND_MANPOWER_COST,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
   }

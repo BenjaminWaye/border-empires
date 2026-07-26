@@ -2,6 +2,8 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   AI_AUTO_CLAIM_GOLD_RESERVE,
+  AI_AUTO_CLAIM_MANPOWER_RESERVE,
+  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -86,21 +88,25 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           _claimAnchorScanMs += Date.now() - _tAnchor;
           continue;
         }
-        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold so auto-claim
-        // (which runs every tick, unconditionally) can never outpace the AI's
-        // own income and starve it of the SETTLE_COST needed to convert a
-        // claimed FRONTIER tile into an income-producing town. Human players
-        // keep the original FRONTIER_CLAIM_COST-only floor.
+        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold / AI_AUTO_CLAIM_
+        // MANPOWER_RESERVE manpower so auto-claim (which runs every tick,
+        // unconditionally) can never outpace the AI's own income/regen and
+        // starve it of the SETTLE cost needed to convert a claimed FRONTIER
+        // tile into an income-producing town. Human players keep the original
+        // FRONTIER_CLAIM_COST/EXPAND_MANPOWER_COST-only floors.
         const claimGoldFloor = actor.isAi ? AI_AUTO_CLAIM_GOLD_RESERVE : FRONTIER_CLAIM_COST;
+        const claimManpowerFloor = actor.isAi ? AI_AUTO_CLAIM_MANPOWER_RESERVE : EXPAND_MANPOWER_COST;
         for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
           _claimCandidatesEvaluated++;
           if (actor.points < claimGoldFloor) break;
+          if (actor.manpower < claimManpowerFloor) break;
           if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
           const target = input.tiles.get(targetKey);
           if (!isAutoClaimTarget(target)) continue;
           autoClaimedKeys.add(targetKey);
           actor.points -= FRONTIER_CLAIM_COST;
+          actor.manpower -= EXPAND_MANPOWER_COST;
           claimCommandId ??= input.nextTerritoryAutomationCommandId("frontier", playerId, "batch", input.nowMs);
           const claimedTile: DomainTileState = {
             ...target,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
 import { planAutomationCommand } from "./automation-command-planner.js";
@@ -64,7 +64,7 @@ describe("automation command planner", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       hasActiveLock: false,
       activeDevelopmentProcessCount: 2,
       frontierTiles: [],
@@ -557,7 +557,7 @@ describe("automation command planner", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 100,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 2,
       townCount: 0,
       incomePerMinute: 4,
@@ -608,7 +608,7 @@ describe("automation command planner", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 2,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 0,
       townCount: 0,
       incomePerMinute: 4,
@@ -632,4 +632,3 @@ describe("automation command planner", () => {
     });
   });
 });
-
