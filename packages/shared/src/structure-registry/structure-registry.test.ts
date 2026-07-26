@@ -104,7 +104,9 @@ describe("siege outpost cost parity against SIEGE_TIER_LADDER", () => {
 test("OBSERVATORY cost matches existing constants", () => {
   const spec = STRUCTURE_REGISTRY["OBSERVATORY"];
   expect(spec.cost.gold).toBe(800);
-  expect(spec.cost.manpower).toBe(0);
+  // Manpower-economy rewrite Step 4 (docs/manpower-economy-rewrite-plan.md §4.1/§4.4, §12):
+  // Observatory is a Tier 1 economic sink, now 80 manpower.
+  expect(spec.cost.manpower).toBe(80);
   expect(spec.cost.strategic).toEqual({ CRYSTAL: 45 });
 });
 
