@@ -16,6 +16,7 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
@@ -235,6 +236,12 @@ const manpowerRequirements = (
   target: DomainTileState
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
+  if (actionType === "EXPAND") {
+    // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2):
+    // claiming a frontier tile is the cheapest manpower-gated action, deliberately
+    // matching BARBARIAN_RAID_COST.
+    return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
+  }
   return {
     manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN * attackMultiplier : 0,
     manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST * attackMultiplier : 0
@@ -329,7 +336,10 @@ export const validateFrontierCommand = (
     return {
       ok: false,
       code: "INSUFFICIENT_MANPOWER",
-      message: `need ${manpowerMin.toFixed(0)} manpower to launch attack`
+      message:
+        input.actionType === "EXPAND"
+          ? `need ${manpowerMin.toFixed(0)} manpower to claim frontier`
+          : `need ${manpowerMin.toFixed(0)} manpower to launch attack`
     };
   }
   if (input.defenderIsAlliedOrTruced) {

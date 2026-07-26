@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, MUSTER_TILE_CAP, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -98,11 +98,16 @@ describe("muster accumulation tick", () => {
       }
     });
     await setMuster(runtime, 10, 10, 1);
-    // Advance a very long time so accumulation would vastly exceed the cap.
-    // A single SETTLEMENT gives a manpower cap of 150 (== MUSTER_TILE_CAP for reference).
+    // Advance a very long time so accumulation would vastly exceed any real cap.
+    // Production inflow is bounded by the player's actual manpower cap (see
+    // headroom in runtime-muster-tick.ts), not the MUSTER_TILE_CAP constant —
+    // that constant isn't enforced anywhere in the muster-tick code, so assert
+    // against the real cap directly rather than a coincidental constant value
+    // (docs/manpower-economy-rewrite-plan.md §4.3 changed what that coincidence was).
+    const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
-    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(MUSTER_TILE_CAP, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap, 5);
   });
 
   it("splits throughput across two flags so each fills at half rate", async () => {

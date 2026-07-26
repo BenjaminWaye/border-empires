@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { WorldStyle } from "@border-empires/shared";
 
 import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
@@ -57,7 +57,7 @@ const createRuntimePlayer = (id: string): DomainPlayer => ({
   isAi: false,
   name: seasonalPlayerNameForId(id),
   points: id === "barbarian-1" ? 100 : 100,
-  manpower: id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : MANPOWER_BASE_CAP,
+  manpower: id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : STARTING_CAPITAL_MANPOWER_CAP,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
