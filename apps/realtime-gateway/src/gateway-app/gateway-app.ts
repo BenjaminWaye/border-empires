@@ -2933,6 +2933,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // A timeout or gRPC error here just means the muster panel won't refresh
             // live for this session; the client can re-open the menu to retry.
             try {
+              // clientSeq stays 0 by design: the simulation exempts
+              // WATCH_MUSTER/UNWATCH_MUSTER from durable persistence (they are
+              // ephemeral view toggles), so the commands-table UNIQUE
+              // (player_id, client_seq) index never sees them.
               await withTimeout(
                 simulationClient.submitCommand({
                   commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
@@ -2952,6 +2956,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "UNWATCH_MUSTER") {
             // Best-effort unsubscribe — failure must not produce GATEWAY_INTERNAL_ERROR.
             try {
+              // clientSeq 0 is fine here — see WATCH_MUSTER above.
               await withTimeout(
                 simulationClient.submitCommand({
                   commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
@@ -3102,12 +3107,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         const closeReason = reason?.toString("utf8").slice(0, 200) ?? "";
         recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: closeReason, sessionId: session.sessionId });
         slackAlerter?.alertPlayerDisconnected(closingPlayerId, { code, reason: closeReason, isNormalClose });
-        // clientSeq must be real: commands has UNIQUE(player_id, client_seq); a hardcoded 0 only ever succeeded once per player, ever.
-        void commandStore.nextClientSeqForPlayer(closingPlayerId).then((clientSeq) => simulationClient.submitCommand({
+        // clientSeq 0 by design: the simulation exempts UNWATCH_MUSTER from
+        // durable persistence (ephemeral view toggle), so no UNIQUE
+        // (player_id, client_seq) row is ever written for it — no need to
+        // burn a store round-trip allocating a real sequence here.
+        void simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
-          sessionId: session.sessionId, playerId: closingPlayerId, clientSeq, issuedAt: Date.now(),
+          sessionId: session.sessionId, playerId: closingPlayerId, clientSeq: 0, issuedAt: Date.now(),
           type: "UNWATCH_MUSTER", payloadJson: "{}"
-        })).catch(() => { /* best-effort on disconnect */ });
+        }).catch(() => { /* best-effort on disconnect */ });
         void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
           syncGatewaySnapshotMetricsFromCache(closingPlayerId);
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
