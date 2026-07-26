@@ -1014,6 +1014,36 @@ implementation.
   `INSUFFICIENT_MANPOWER`** with matching copy, across every command that
   used to check gold and now checks manpower (which, after this rewrite, is
   nearly all of them).
+- **Detailed resource/gold breakdown panel** — `renderEconomyPanelHtml`
+  (`client-economy-html.ts`, aliased `ln` at its call site), backed by the
+  `EconomyBreakdown` type (`client-economy-model.ts`) and populated from the
+  simulation's `addBucket`/`EconomyBreakdown` construction in
+  `player-update-economy.ts` (`goldSources`/`upkeep` buckets like `"Docks
+  +X/m"`, `"Towns +X/m"`), wired open via the HUD stat chips
+  (`client-hud.ts`, `data-economy-open="GOLD"` /
+  `data-economy-focus="<RESOURCE>"`). Today it renders a summary card per
+  resource (GOLD/FOOD/IRON/CRYSTAL/SUPPLY: stock, cap, gross income/min,
+  upkeep/min, net/min) plus a two-column detail view ("Income Sources" /
+  "Upkeep") for whichever resource is focused. **This needs two distinct
+  updates, on two different timelines**:
+  1. Gold's own rescale (§6.1, already shipped in Step 2) needs no panel
+     change — the panel reads live server data, so it already displays the
+     smaller numbers correctly. No action item here beyond verifying via
+     playtest that a ~10 gold/day figure doesn't get clipped/truncated by a
+     display format tuned for the old 4-5-digit numbers.
+  2. Once resource slots ship (§5, Step 5): FOOD/IRON/CRYSTAL/SUPPLY stop
+     being stock+cap+income/min+upkeep/min flows entirely — the summary
+     card and detail view's "Income Sources"/"Upkeep" columns don't apply to
+     a slot resource (there's no rate to show). These four resources' cards
+     need a **different rendering mode** in the same panel: slot count used
+     vs. available (reusing the "N/M slots used" format from §14.2 below),
+     with the detail view listing which structures/tiles occupy slots
+     instead of a gold/min bucket list. GOLD (and SHARD) keep the existing
+     flow-based rendering unchanged, since neither becomes a slot (§5.5) —
+     so this panel ends up needing **two rendering modes side by side**,
+     not a wholesale replacement. Exact split point in
+     `client-economy-html.ts` not yet identified — flag for whoever
+     implements §5 to locate before touching this file.
 
 ### 14.2 New UI needed (no existing surface to extend)
 
