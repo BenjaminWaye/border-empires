@@ -2828,9 +2828,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
         resetVictoryHoldAlertForNewSeason(state);
-        // Reset the season-end screen so it shows again when the next season ends.
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false;
+        try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();
