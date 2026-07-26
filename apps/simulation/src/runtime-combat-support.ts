@@ -262,7 +262,15 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const manpowerDelta = lock.actionType === "ATTACK" ? -attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss
+  // formula like ATTACK's — it always succeeds against neutral land (see the
+  // `attackerWon: true` override above), so the full lock.manpowerCost is paid.
+  const manpowerDelta =
+    lock.actionType === "ATTACK"
+      ? -attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
+      : lock.actionType === "EXPAND"
+        ? -lock.manpowerCost
+        : 0;
   const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey);
   const result: LockedFrontierCombatResult = {
     attackType: lock.actionType,

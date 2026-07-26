@@ -159,10 +159,7 @@ import {
 } from "../runtime-hydration.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import {
-  settlementBaseDurationMsForTile,
-  settlementDurationMsForPlayer
-} from "../runtime-settlement-rules.js";
+import { applySettleCost, refundSettleCost, settleRejectionForActor, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
@@ -1945,7 +1942,7 @@ export class SimulationRuntime {
     // (e.g. captured out from under the settling player) — refund the gold
     // spent to start it, same as a cancelled structure build.
     const settler = this.players.get(pendingSettlement.ownerId);
-    if (settler) settler.points += pendingSettlement.goldCost;
+    if (settler) refundSettleCost(settler, pendingSettlement.goldCost, this.playerManpowerCap(settler));
     this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
     return pendingSettlement;
   }
@@ -2757,7 +2754,7 @@ export class SimulationRuntime {
   }): void {
     const actor = this.players.get(input.playerId);
     if (!actor) return;
-    actor.points -= SETTLE_COST;
+    applySettleCost(actor);
     const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
     const resolvesAt = input.startedAt + settleDurationMs;
     this.addPendingSettlement({
@@ -2841,7 +2838,7 @@ export class SimulationRuntime {
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
-    if (actor.points < SETTLE_COST) { this.rejectCommand(command, "INSUFFICIENT_GOLD", "insufficient gold to settle"); return; }
+    const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
 
     this.startSettlementProcess({
       commandId: command.commandId,
@@ -2868,7 +2865,7 @@ export class SimulationRuntime {
     if (!actor?.isAi) return 0;
     let settledCount = 0;
     for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
-      if (actor.points < SETTLE_COST) break;
+      if (settleRejectionForActor(actor)) break;
       if (!this.hasAvailableDevelopmentSlot(playerId)) break;
       const targetKey = simulationTileKey(x, y);
       const target = this.tiles.get(targetKey);

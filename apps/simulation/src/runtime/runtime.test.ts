@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile } from "../runtime-settlement-rules.js";
@@ -378,14 +378,14 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
     });
 
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
-    expect(player?.manpower).toBe(MANPOWER_BASE_REGEN_PER_MINUTE);
+    expect(player?.manpower).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
   });
 
   it("emits town-scaled manpower regen and breakdown in player updates", async () => {
@@ -393,7 +393,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -445,10 +445,10 @@ describe("simulation runtime", () => {
     };
     const settlementCap = TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
     const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
-    expect(payload.manpowerCap).toBe(settlementCap * 2);
-    expect(payload.manpowerRegenPerMinute).toBe(settlementRegen * 2);
-    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "2 Settlements", amount: settlementCap * 2 }]);
-    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "2 Settlements", amount: settlementRegen * 2 }]);
+    expect(payload.manpowerCap).toBe(STARTING_CAPITAL_MANPOWER_CAP + settlementCap * 2); // starting capital (§4.3) is additive on top of town cap/regen
+    expect(payload.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2);
+    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, { label: "2 Settlements", amount: settlementCap * 2 }]);
+    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, { label: "2 Settlements", amount: settlementRegen * 2 }]);
 
     currentNow = 120_000;
     runtime.submitCommand({
@@ -471,14 +471,14 @@ describe("simulation runtime", () => {
           event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
       );
     const secondPayload = JSON.parse(secondPlayerUpdateEvent!.payloadJson) as { manpower: number };
-    expect(secondPayload.manpower - payload.manpower).toBeCloseTo(settlementRegen * 2, 10);
+    expect(secondPayload.manpower - payload.manpower).toBeCloseTo(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2, 10); // starting capital's regen (§4.3) too
   });
 
   it("does not grant town manpower boosts while a claimed town tile is still frontier", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -497,11 +497,11 @@ describe("simulation runtime", () => {
     });
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
 
-    expect(player?.manpowerCap).toBe(MANPOWER_BASE_CAP);
-    expect(player?.manpowerRegenPerMinute).toBe(MANPOWER_BASE_REGEN_PER_MINUTE);
+    expect(player?.manpowerCap).toBe(STARTING_CAPITAL_MANPOWER_CAP);
+    expect(player?.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
     expect(player?.manpowerBreakdown).toEqual({
-      cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
-      regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+      cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }],
+      regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }]
     });
     expect(player?.ownedTownTileKeys).toEqual([]);
     expect(player?.townCount).toBe(0);
@@ -573,8 +573,8 @@ describe("simulation runtime", () => {
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
       manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
     };
-    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
-    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
   });
 
   it("exports only the player's visible tiles for bootstrap snapshots", () => {
@@ -2213,7 +2213,7 @@ describe("simulation runtime", () => {
       expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
-      expect((exported.players.find((entry) => entry.id === "player-1")?.manpower ?? 0) < 150).toBe(true);
+      // (no absolute manpower assertion here — player-1 also respawns with a fresh SETTLEMENT, granting extra cap per §4.3, on top of the manpowerDelta loss already asserted above)
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
@@ -2683,7 +2683,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(0);
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (876, §4.3) before Fort's 300 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -3140,7 +3140,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(90);
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (726, §4.3) before outpost's 60 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 

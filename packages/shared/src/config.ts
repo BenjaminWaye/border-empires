@@ -49,6 +49,34 @@ export const MANPOWER_BASE_CAP = 150;
 // per-tier regen below — otherwise the tier values are masked.
 export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
+
+// --- Manpower economy: Expand/Settle costs (manpower-economy-rewrite-plan.md §4.2) ---
+// Cheapest action — just claiming dirt; deliberately matches BARBARIAN_RAID_COST
+// (10) so claiming land and raiding a barbarian tile share one "10 = a cheap
+// frontier poke" mental model.
+export const EXPAND_MANPOWER_COST = 10;
+// Priced below every structure on purpose — acquisition is always a little
+// cheaper than optimization (§4.2's ordering rule).
+export const SETTLE_MANPOWER_COST = 20;
+
+// --- Manpower economy: starting capital tier (§4.3) ---
+// A new player's capital is a distinct manpower source from the generic
+// SETTLEMENT tier (TOWN_MANPOWER_BY_TIER.SETTLEMENT below) — it is not counted
+// via ownedTownTierByTile, and its cap/regen are added on top of every owned
+// town's contribution, unconditionally (see playerManpowerCapFromSummary /
+// playerManpowerRegenPerMinuteFromSummary in apps/simulation/src/runtime-manpower.ts).
+// Sized so a new player can expand ~40 tiles and settle ~8 before waiting on
+// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 576
+// cap leaves a small margin. Regen 0.4/min implies a 24h fill window
+// (576 = 0.4 * 1440), a deliberate departure from the 12h SETTLEMENT-tier
+// convention — see §4.3 for the full onboarding-math writeup.
+export const STARTING_CAPITAL_MANPOWER_CAP = 576;
+export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
+// Global regen safety floor. Deliberately kept low (below every real tier's
+// regenPerMinute, including SETTLEMENT's ~0.208) so it never masks a captured
+// town's contribution the way MANPOWER_BASE_REGEN_PER_MINUTE would if reused
+// here — see §4.3's "critical implementation trap" note.
+export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }

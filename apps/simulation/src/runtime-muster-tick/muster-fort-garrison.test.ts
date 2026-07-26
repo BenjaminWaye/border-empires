@@ -32,10 +32,14 @@ const fortGarrison = (runtime: SimulationRuntime, x: number, y: number): number 
 
 describe("Phase 7: fort garrison containers", () => {
   it("fort fills from overflow when the player pool is at cap", () => {
+    // Manpower must be at/above the player's full cap (STARTING_CAPITAL_MANPOWER_CAP
+    // + this tile's SETTLEMENT tier, per docs/manpower-economy-rewrite-plan.md §4.3)
+    // for the "player pool is at cap" overflow precondition this test exercises to
+    // actually hold.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", { ...makePlayer("player-1", 500), manpower: 500 }]
+        ["player-1", { ...makePlayer("player-1", 1_000), manpower: 1_000 }]
       ]),
       initialState: {
         tiles: [
@@ -69,7 +73,7 @@ describe("Phase 7: fort garrison containers", () => {
     const buildRuntimeWithForts = (fortCount: 1 | 2) =>
       new SimulationRuntime({
         now: () => 1_000,
-        initialPlayers: new Map([["player-1", { ...makePlayer("player-1", 500), manpower: 500 }]]),
+        initialPlayers: new Map([["player-1", { ...makePlayer("player-1", 1_000), manpower: 1_000 }]]),
         initialState: {
           tiles: [
             {

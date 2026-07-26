@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
 import { buildLivePlayerEconomySnapshot } from "../live-snapshot-view/live-snapshot-view.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
@@ -1194,11 +1194,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
     expect(snapshot.player).toEqual(
       expect.objectContaining({
-        manpowerCap: settlementCap * 2,
-        manpowerRegenPerMinute: settlementRegen * 2,
+        // Starting capital (§4.3) is additive on top of every owned town's cap/regen.
+        manpowerCap: STARTING_CAPITAL_MANPOWER_CAP + settlementCap * 2, manpowerRegenPerMinute: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2,
         manpowerBreakdown: {
-          cap: [{ label: "2 Settlements", amount: settlementCap * 2 }],
-          regen: [{ label: "2 Settlements", amount: settlementRegen * 2 }]
+          cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, { label: "2 Settlements", amount: settlementCap * 2 }],
+          regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, { label: "2 Settlements", amount: settlementRegen * 2 }]
         }
       })
     );
