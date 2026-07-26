@@ -1,9 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import {
-  ATTACK_MANPOWER_MIN,
-  DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST
-} from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST } from "@border-empires/shared";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
@@ -199,7 +195,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     restrictToFocus
   });
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = input.points >= FRONTIER_CLAIM_COST;
+  const canExpand = input.points >= FRONTIER_CLAIM_COST && input.manpower >= EXPAND_MANPOWER_COST;
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
   // e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's

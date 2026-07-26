@@ -3,12 +3,12 @@ import {
   type TownGrowthUpgradeView,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  FORT_BUILD_MS,
+  EXPAND_MANPOWER_COST, FORT_BUILD_MS,
   FRONTIER_CLAIM_COST,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
   OBSERVATORY_BUILD_MS,
-  SETTLE_COST,
+  SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
@@ -692,15 +692,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    const hasGold = state.gold >= FRONTIER_CLAIM_COST;
+    const hasGold = state.gold >= FRONTIER_CLAIM_COST; const hasManpower = state.manpower >= EXPAND_MANPOWER_COST;
     const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
     const out: TileActionDef[] = [
       {
         id: "settle_land",
         label: "Settle Land",
         ...tileActionAvailability(
-          reachable && hasGold,
-          !reachable ? "Must touch your territory" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          reachable && hasGold && hasManpower,
+          !reachable ? "Must touch your territory" : !hasManpower ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
           frontierCostLabel
         )
       }
@@ -1036,9 +1036,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Settle Land",
         detail: deps.buildDetailTextForAction("settle_land", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          canAffordCost(state.gold, SETTLE_COST),
-          `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
+          canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
+          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
+          `${SETTLE_COST} gold, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
           slots,
           deps
         )
@@ -1057,8 +1057,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: `Settle Connected (${actionableKeys.length})`,
           detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            canAffordCost(state.gold, SETTLE_COST),
-            `Need ${SETTLE_COST} gold`,
+            canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
+            state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
             `${totalCost} gold total • fills slots, rest queue`,
             slots,
             deps

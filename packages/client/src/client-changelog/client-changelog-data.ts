@@ -31,7 +31,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Claiming a frontier tile now costs 10 manpower; settling a claimed tile now costs 20 manpower, in addition to their existing (now much smaller) gold costs.",
         "A new player starts with a larger manpower pool (576, regenerating at 0.4/min) so early expansion still feels generous — sized to cover roughly 40 claims and 8 settles before waiting on regen.",
-        "Capturing or founding a new town immediately adds that town's own manpower cap and regen on top of your starting pool, instead of being masked by it."
+        "Capturing or founding a new town immediately adds that town's own manpower cap and regen on top of your starting pool, instead of being masked by it.",
+        "The map, waypoint planner, and bulk auto-settle queue all now show and respect the real manpower cost, so they no longer offer an expand/settle you can't actually afford."
       ]
     },
     {

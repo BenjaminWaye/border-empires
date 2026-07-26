@@ -58,6 +58,16 @@ export const EXPAND_MANPOWER_COST = 10;
 // Priced below every structure on purpose — acquisition is always a little
 // cheaper than optimization (§4.2's ordering rule).
 export const SETTLE_MANPOWER_COST = 20;
+/**
+ * AI-only reserve, manpower analogue of AI_AUTO_CLAIM_GOLD_RESERVE (below):
+ * the automatic per-tick frontier auto-claim stops spending manpower on new
+ * claims once an AI player's manpower would drop below this floor. Sized to
+ * SETTLE_MANPOWER_COST for the same reason the gold reserve exists — without
+ * it, auto-claim (which fires every tick, unconditionally, well before the
+ * AI's own deliberate SETTLE decision runs) could drain manpower down to
+ * near-zero every tick, starving the AI of the manpower a SETTLE needs.
+ */
+export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
 
 // --- Manpower economy: starting capital tier (§4.3) ---
 // A new player's capital is a distinct manpower source from the generic

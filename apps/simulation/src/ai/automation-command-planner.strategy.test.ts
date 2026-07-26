@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
 import { planAutomationCommand } from "./automation-command-planner.js";
@@ -334,7 +335,7 @@ describe("automation command planner strategic parity", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 80,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 7,
@@ -413,7 +414,7 @@ describe("automation command planner strategic parity", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       techIds: ["masonry"],
       strategicResources: { IRON: 60 },
       settledTileCount: 5,
