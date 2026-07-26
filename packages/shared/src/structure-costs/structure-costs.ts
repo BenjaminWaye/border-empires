@@ -25,6 +25,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   },
   OBSERVATORY: {
     baseGoldCost: 800,
+    manpowerCost: 80,
     resourceCost: { resource: "CRYSTAL", amount: 45 },
     scaling: { kind: "doubling" }
   },
@@ -34,23 +35,31 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     resourceCost: { resource: "SUPPLY", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  FARMSTEAD: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 20 } },
-  WATERWORKS: { baseGoldCost: 600, resourceCost: { resource: "FOOD", amount: 20 } },
-  CAMP: { baseGoldCost: 800, resourceCost: { resource: "SUPPLY", amount: 30 } },
-  MINE: { baseGoldCost: 800, resourceCost: { resource: "IRON", amount: 30 }, resourceOptions: ["IRON", "CRYSTAL"] },
-  MARKET: { baseGoldCost: 2_200 },
-  GRANARY: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 40 } },
-  SEED_GRANARY: { baseGoldCost: 1_400, resourceCost: { resource: "FOOD", amount: 80 } },
-  CENSUS_HALL: { baseGoldCost: 900, resourceCost: { resource: "FOOD", amount: 30 } },
-  BANK: { baseGoldCost: 3_200 },
-  CLEARING_HOUSE: { baseGoldCost: 3_000, resourceCost: { resource: "CRYSTAL", amount: 80 } },
+  // Manpower costs below implement docs/manpower-economy-rewrite-plan.md §4.1/§4.4
+  // and the full table in §12: every economic structure now costs manpower as
+  // its primary cost, in round tiers (80/100/150/300/400) anchored to Settle's
+  // 20 (acquisition always a little cheaper than optimization, §4.2's ordering
+  // rule). Resource costs are left as-is here — converting them to the slot
+  // model is §5 (Step 5), out of scope for this pass.
+  FARMSTEAD: { baseGoldCost: 700, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
+  WATERWORKS: { baseGoldCost: 600, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
+  CAMP: { baseGoldCost: 800, manpowerCost: 80, resourceCost: { resource: "SUPPLY", amount: 30 } },
+  MINE: { baseGoldCost: 800, manpowerCost: 80, resourceCost: { resource: "IRON", amount: 30 }, resourceOptions: ["IRON", "CRYSTAL"] },
+  MARKET: { baseGoldCost: 2_200, manpowerCost: 150 },
+  GRANARY: { baseGoldCost: 700, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
+  SEED_GRANARY: { baseGoldCost: 1_400, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
+  CENSUS_HALL: { baseGoldCost: 900, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
+  BANK: { baseGoldCost: 3_200, manpowerCost: 300 },
+  CLEARING_HOUSE: { baseGoldCost: 3_000, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {
     baseGoldCost: 3_000,
+    manpowerCost: 150,
     resourceCost: { resource: "CRYSTAL", amount: 80 },
     scaling: { kind: "doubling" }
   },
   AETHER_TOWER: {
     baseGoldCost: 6_000,
+    manpowerCost: 400,
     resourceCost: { resource: "CRYSTAL", amount: 160 },
     scaling: { kind: "incremental", rate: 0.15 }
   },
@@ -64,28 +73,28 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  FUR_SYNTHESIZER: { baseGoldCost: 2_200 },
-  ADVANCED_FUR_SYNTHESIZER: { baseGoldCost: 4_000, resourceCost: { resource: "SUPPLY", amount: 40 } },
-  IRONWORKS: { baseGoldCost: 2_400 },
-  ADVANCED_IRONWORKS: { baseGoldCost: 4_200, resourceCost: { resource: "IRON", amount: 40 } },
-  CRYSTAL_SYNTHESIZER: { baseGoldCost: 2_800 },
-  ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 4_800, resourceCost: { resource: "CRYSTAL", amount: 40 } },
-  CARAVANARY: { baseGoldCost: 2_600 },
-  FOUNDRY: { baseGoldCost: 4_500 },
-  EXCHANGE_HOUSE: { baseGoldCost: 5_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
-  GARRISON_HALL: { baseGoldCost: 2_200, resourceCost: { resource: "CRYSTAL", amount: 80 } },
-  CUSTOMS_HOUSE: { baseGoldCost: 1_800, resourceCost: { resource: "CRYSTAL", amount: 60 } },
-  RAIL_DEPOT: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 100 } },
-  GOVERNORS_OFFICE: { baseGoldCost: 2_600 },
-  RADAR_SYSTEM: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
-  IMPERIAL_EXCHANGE_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
-  WORLD_ENGINE_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
-  AEGIS_DOME_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
-  ASTRAL_DOCK_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
-  IMPERIAL_EXCHANGE: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
-  WORLD_ENGINE: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
-  AEGIS_DOME: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
-  ASTRAL_DOCK: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } }
+  FUR_SYNTHESIZER: { baseGoldCost: 2_200, manpowerCost: 150 },
+  ADVANCED_FUR_SYNTHESIZER: { baseGoldCost: 4_000, manpowerCost: 300, resourceCost: { resource: "SUPPLY", amount: 40 } },
+  IRONWORKS: { baseGoldCost: 2_400, manpowerCost: 150 },
+  ADVANCED_IRONWORKS: { baseGoldCost: 4_200, manpowerCost: 300, resourceCost: { resource: "IRON", amount: 40 } },
+  CRYSTAL_SYNTHESIZER: { baseGoldCost: 2_800, manpowerCost: 150 },
+  ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 4_800, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
+  CARAVANARY: { baseGoldCost: 2_600, manpowerCost: 150 },
+  FOUNDRY: { baseGoldCost: 4_500, manpowerCost: 300 },
+  EXCHANGE_HOUSE: { baseGoldCost: 5_000, manpowerCost: 400, resourceCost: { resource: "CRYSTAL", amount: 120 } },
+  GARRISON_HALL: { baseGoldCost: 2_200, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
+  CUSTOMS_HOUSE: { baseGoldCost: 1_800, manpowerCost: 100, resourceCost: { resource: "CRYSTAL", amount: 60 } },
+  RAIL_DEPOT: { baseGoldCost: 4_000, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 100 } },
+  GOVERNORS_OFFICE: { baseGoldCost: 2_600, manpowerCost: 150 },
+  RADAR_SYSTEM: { baseGoldCost: 4_000, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 120 } },
+  IMPERIAL_EXCHANGE_PART: { baseGoldCost: 8_000, manpowerCost: 1_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  WORLD_ENGINE_PART: { baseGoldCost: 8_000, manpowerCost: 1_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  AEGIS_DOME_PART: { baseGoldCost: 8_000, manpowerCost: 1_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  ASTRAL_DOCK_PART: { baseGoldCost: 8_000, manpowerCost: 1_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  IMPERIAL_EXCHANGE: { baseGoldCost: 18_000, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  WORLD_ENGINE: { baseGoldCost: 18_000, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  AEGIS_DOME: { baseGoldCost: 18_000, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  ASTRAL_DOCK: { baseGoldCost: 18_000, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
 };
 
 // ── Fort tier ladder ───────────────────────────────────────────────
