@@ -97,6 +97,10 @@ type GatewayInitPayload = {
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
     strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    resourceSlots: {
+      supply: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+      demand: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+    };
     economyBreakdown?: Record<string, unknown>;
     upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
@@ -920,6 +924,13 @@ export const buildGatewayInitPayload = (
         liveSnapshotPlayer?.strategicProductionPerMinute ??
         bootstrapProfile?.strategicProductionPerMinute ??
         { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      // Legacy season-bootstrap profiles predate the slots pillar (§5) and
+      // never carry resourceSlots -- only the live snapshot path does.
+      resourceSlots:
+        liveSnapshotPlayer?.resourceSlots ?? {
+          supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+          demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        },
       ...(
         liveSnapshotPlayer?.economyBreakdown
           ? { economyBreakdown: liveSnapshotPlayer.economyBreakdown }
