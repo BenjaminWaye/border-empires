@@ -81,7 +81,6 @@ import { createSeededAiTruceResponder, extractTruceRequestFromPayloads } from ".
 import { createLoginQueue } from "../login-queue/login-queue.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
-
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
   initSent: boolean;
@@ -2307,7 +2306,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               clearInterval(loginProgressInterval);
             }
             const resolveInitialStateStartedAt = Date.now();
-            const initialState = resolveInitialState({
+            let initialState = resolveInitialState({
               playerId: playerIdentity.playerId,
               authoritativeSnapshot: bootstrapInitialState,
               cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
@@ -2324,6 +2323,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
             authTrace.endStep("hydrate_leaderboard_profiles");
             if (session.channel === "control") {
+              initialState = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId) ?? initialState;
               authTrace.startStep("build_init");
               const buildInitMessageStartedAt = Date.now();
               const initMessage = await buildInitMessage(
