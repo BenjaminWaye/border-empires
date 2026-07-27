@@ -181,6 +181,24 @@ function strategicCostForStructure(
   return { [strategicDef.resourceCost.resource]: strategicDef.resourceCost.amount };
 }
 
+// Step 5 item 3 (Slice A): FOOD/IRON/CRYSTAL/SUPPLY are retired as a
+// spendable build-time stockpile -- hasFreeResourceSlots (§5.1) is the real
+// gate for those four keys now. SHARD stays a real spend (monument
+// assembly, §5.5 -- event-gated, not slot-shaped, never a stockpile in the
+// first place). Exported so applyStructureCancelRefund's refund builders
+// (runtime-structure-lifecycle-command-handlers.ts) apply the identical
+// filter and can never refund a key that build time never actually spent.
+const RETIRED_STOCKPILE_RESOURCE_KEYS: ReadonlySet<StrategicResourceKey> = new Set(["FOOD", "IRON", "CRYSTAL", "SUPPLY"]);
+
+export function stripRetiredStockpileCost(cost: StrategicCost | undefined): StrategicCost {
+  const filtered: StrategicCost = {};
+  if (!cost) return filtered;
+  for (const resource of Object.keys(cost) as StrategicResourceKey[]) {
+    if (!RETIRED_STOCKPILE_RESOURCE_KEYS.has(resource)) filtered[resource] = cost[resource] ?? 0;
+  }
+  return filtered;
+}
+
 function spendStrategicCost(
   context: RuntimeStructureCommandContext,
   actor: DomainPlayer,
@@ -366,15 +384,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   if (!hasFreeResourceSlots(context, command, structureType, slotStructureType, target, spec.tileField)) return;
-  // NOTE: the strategicCost stockpile spend below is still the OLD IRON/CRYSTAL/SUPPLY
-  // economy (structure-slots.ts's header comment: "build-time resourceCost fields for
-  // FOOD/IRON/CRYSTAL/SUPPLY are retired by this module"). It stays wired up alongside
-  // the new slot check above rather than being removed here — tearing out the stockpile
-  // system itself (stockpile fields, production, storage caps, refund-on-cancel credits)
-  // is plan item 4, a separate and much larger change entangled with ~40 test files
-  // (plan handoff item 7); removing it prematurely here would desync
-  // applyStructureCancelRefund's refund math from what was actually charged.
-  if (!spendStrategicCost(context, actor, command, structureType, strategicCostForStructure(structureType, strategicCost))) return;
+  // Step 5 item 3 (Slice A): hasFreeResourceSlots above is now the ONLY gate
+  // for FOOD/IRON/CRYSTAL/SUPPLY at build time -- stripRetiredStockpileCost
+  // strips those keys out before spendStrategicCost ever sees them, so the
+  // build-time stockpile check/spend is fully retired for them. SHARD still
+  // spends normally (monument assembly). The stockpile *fields themselves*
+  // (production, storage caps, ability/tech spend paths) are untouched here
+  // — that's the larger, separate remainder of plan item 4.
+  if (!spendStrategicCost(context, actor, command, structureType, stripRetiredStockpileCost(strategicCostForStructure(structureType, strategicCost)))) return;
 
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);

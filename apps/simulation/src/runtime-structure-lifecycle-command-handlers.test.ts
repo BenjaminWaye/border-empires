@@ -116,7 +116,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
 }
 
 describe("handleCancelFortBuildCommand refunds", () => {
-  it("refunds the exact FORT tier gold, manpower, and iron on cancel", () => {
+  it("refunds the exact FORT tier gold and manpower on cancel (IRON is a retired stockpile key -- never spent, so never refunded, per Step 5 item 3)", () => {
     const player = makePlayer({ points: 100, manpower: 50 });
     const tile = makeTile({ fort: { ownerId: PLAYER_ID, status: "under_construction", variant: "FORT", completesAt: 5_000 } });
     const { context, tiles, playerStateUpdateCount } = createContext(player, tile);
@@ -126,12 +126,12 @@ describe("handleCancelFortBuildCommand refunds", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(player.points).toBe(100 + tier.gold);
     expect(player.manpower).toBe(50 + tier.manpower);
-    expect(player.strategicResources?.IRON).toBe(tier.iron);
+    expect(player.strategicResources?.IRON).toBeUndefined();
     expect(tiles.get(simulationTileKey(5, 5))?.fort).toBeUndefined();
     expect(playerStateUpdateCount()).toBe(1);
   });
 
-  it("refunds the upgraded tier (not the base tier) when cancelling an IRON_BASTION build", () => {
+  it("refunds the upgraded tier's gold/manpower (not the base tier) when cancelling an IRON_BASTION build, still no IRON refund", () => {
     const player = makePlayer({ points: 0, manpower: 0 });
     const tile = makeTile({ fort: { ownerId: PLAYER_ID, status: "under_construction", variant: "IRON_BASTION", completesAt: 5_000 } });
     const { context } = createContext(player, tile);
@@ -141,7 +141,7 @@ describe("handleCancelFortBuildCommand refunds", () => {
     const tier = FORT_TIER_LADDER.IRON_BASTION;
     expect(player.points).toBe(tier.gold);
     expect(player.manpower).toBe(tier.manpower);
-    expect(player.strategicResources?.IRON).toBe(tier.iron);
+    expect(player.strategicResources?.IRON).toBeUndefined();
   });
 
   it("does not refund when there is no fort under construction", () => {
@@ -158,7 +158,7 @@ describe("handleCancelFortBuildCommand refunds", () => {
 });
 
 describe("handleCancelSiegeOutpostBuildCommand refunds", () => {
-  it("refunds gold, manpower, and supply for the stored siege tier", () => {
+  it("refunds gold and manpower for the stored siege tier (SUPPLY/IRON are retired stockpile keys -- never spent, per Step 5 item 3)", () => {
     const player = makePlayer({ points: 20, manpower: 5 });
     const tile = makeTile({
       siegeOutpost: { ownerId: PLAYER_ID, status: "under_construction", variant: "SIEGE_TOWER", completesAt: 5_000 }
@@ -170,14 +170,14 @@ describe("handleCancelSiegeOutpostBuildCommand refunds", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(player.points).toBe(20 + tier.gold);
     expect(player.manpower).toBe(5 + tier.manpower);
-    expect(player.strategicResources?.SUPPLY).toBe(tier.supply);
-    expect(player.strategicResources?.IRON).toBe(tier.iron);
+    expect(player.strategicResources?.SUPPLY).toBeUndefined();
+    expect(player.strategicResources?.IRON).toBeUndefined();
     expect(tiles.get(simulationTileKey(5, 5))?.siegeOutpost).toBeUndefined();
   });
 });
 
 describe("handleCancelStructureBuildCommand refunds", () => {
-  it("refunds gold (accounting for the owned-count index already including this build), manpower, and strategic cost for an economic structure", () => {
+  it("refunds gold (accounting for the owned-count index already including this build) and manpower for an economic structure; FOOD is a retired stockpile key, never refunded (Step 5 item 3)", () => {
     const player = makePlayer({ points: 500, manpower: 0 });
     const tile = makeTile({
       economicStructure: { ownerId: PLAYER_ID, type: "GRANARY", status: "under_construction", completesAt: 5_000 }
@@ -193,22 +193,22 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     const expectedGold = structureBuildGoldCost("GRANARY", 1); // existingCount - 1
     const expectedManpower = structureBuildManpowerCost("GRANARY");
     const costDef = structureCostDefinition("GRANARY");
+    expect(costDef.resourceCost?.resource).toBe("FOOD"); // sanity: GRANARY's only cost key is a retired one
     expect(player.points).toBe(500 + expectedGold);
     expect(player.manpower).toBe(expectedManpower);
-    expect(player.strategicResources?.[costDef.resourceCost!.resource]).toBe(costDef.resourceCost!.amount);
+    expect(player.strategicResources?.FOOD).toBeUndefined();
     expect(tiles.get(simulationTileKey(5, 5))?.economicStructure).toBeUndefined();
   });
 
-  it("refunds an OBSERVATORY build's gold/crystal cost on cancel", () => {
+  it("refunds an OBSERVATORY build's gold/manpower cost on cancel; CRYSTAL is a retired stockpile key, never refunded (Step 5 item 3)", () => {
     const player = makePlayer({ points: 800, manpower: 0 });
     const tile = makeTile({ observatory: { ownerId: PLAYER_ID, status: "under_construction", completesAt: 5_000 } });
     const { context } = createContext(player, tile);
 
     handleCancelStructureBuildCommand(context, makeCommand());
 
-    const costDef = structureCostDefinition("OBSERVATORY");
     expect(player.points).toBe(800 + structureBuildGoldCost("OBSERVATORY", 0));
-    expect(player.strategicResources?.CRYSTAL).toBe(costDef.resourceCost!.amount);
+    expect(player.strategicResources?.CRYSTAL).toBeUndefined();
   });
 
   it("does NOT refund when cancelling a structure removal in progress (removal was never paid for)", () => {
