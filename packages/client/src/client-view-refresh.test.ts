@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { maybeRefreshForCamera, maybeSaveCameraLocation, resetCameraSaveThrottleForTests, saveCameraLocation } from "./client-view-refresh.js";
+import { clearCameraLocation, maybeRefreshForCamera, maybeSaveCameraLocation, resetCameraSaveThrottleForTests, saveCameraLocation } from "./client-view-refresh.js";
 import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 
@@ -13,6 +13,7 @@ const fakeSocket = (readyState: number): RealtimeSocket => ({
   readyState,
   send: () => {},
   close: () => {},
+  reconnect: () => {},
   addEventListener: () => {},
   removeEventListener: () => {}
 });
@@ -168,5 +169,19 @@ describe("camera location save", () => {
   it("saveCameraLocation itself still writes unconditionally and synchronously (used directly where needed)", () => {
     saveCameraLocation({ camX: 7, camY: 8, zoom: 15 });
     expect(readSaved()).toEqual({ x: 7, y: 8, zoom: 15 });
+  });
+
+  it("clearCameraLocation removes the persisted camera location from localStorage", () => {
+    saveCameraLocation({ camX: 100, camY: 200, zoom: 40 });
+    expect(readSaved()).toEqual({ x: 100, y: 200, zoom: 40 });
+
+    clearCameraLocation();
+    expect(readSaved()).toBeUndefined();
+  });
+
+  it("clearCameraLocation is safe to call when nothing is stored", () => {
+    expect(readSaved()).toBeUndefined();
+    expect(() => clearCameraLocation()).not.toThrow();
+    expect(readSaved()).toBeUndefined();
   });
 });

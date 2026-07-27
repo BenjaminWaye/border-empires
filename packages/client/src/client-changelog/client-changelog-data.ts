@@ -22,6 +22,45 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785130609961, // 2026.07.27.1
+    introducedIn: "2026.07.27.1",
+    title: "Fixed: large-empire logins could still stall for 15+ seconds",
+    why: "The 2026.07.25.1 duplicate-sign-in fix defined guards on both the client and the gateway, but neither was actually wired into the real login path — the client kept sending sign-in through its original unguarded code, and the gateway never checked its guard flag. A duplicate sign-in message (e.g. a flaky mobile connection triggering a reconnect while the first attempt was still finishing) could still run two full, concurrent login pipelines against the same connection, doubling snapshot-build work and sometimes leaving the connection stuck on the loading screen indefinitely.",
+    changes: [
+      "The client's duplicate-sign-in guard is now actually used on every sign-in attempt, including the very first one after opening Google sign-in.",
+      "The gateway now also drops a duplicate sign-in message on the same connection instead of processing it a second time in parallel.",
+      "Fixed a related gateway bug where a player's connection was permanently treated as \"already has data cached\" after their first login, even after a disconnect cleared that cache — a flaky connection with repeated drops could end up requesting an empty world snapshot with nothing to fill it back in."
+    ]
+  },
+  {
+    createdAt: 1785147877000, // 2026.07.27.2
+    introducedIn: "2026.07.27.2",
+    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
+    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
+    changes: [
+      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
+      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
+    ]
+  },
+  {
+    createdAt: 1785129932105, // 2026.07.27.1
+    introducedIn: "2026.07.27.1",
+    title: "Fixed: unexplored-tile waypoints stopped working entirely",
+    why: "An unrelated merge on client-action-flow.ts accidentally reverted the unexplored-tile waypoint feature back to its pre-feature state — clicking an unexplored tile went back to silently doing nothing (no menu, no selection) instead of opening the \"Unexplored\" menu with an Expand Here option.",
+    changes: [
+      "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
+    ]
+  },
+  {
+    createdAt: 1785096000000, // 2026.07.26.1
+    introducedIn: "2026.07.26.1",
+    title: "Fixed seeing darkness after a new season starts",
+    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
+    changes: [
+      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
+    ]
+  },
+  {
     createdAt: 1784937780000, // 2026.07.25.3
     introducedIn: "2026.07.25.3",
     title: "Hills are now a real strategic prize",
@@ -50,6 +89,26 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Duplicate sign-in requests during a single connection are now deduplicated on both the client and the server, so one login no longer triggers two full snapshot builds.",
       "The live subscription no longer re-marshals your entire visible tile set when the bootstrap snapshot already delivered it.",
       "The snapshot builder skips a redundant vision-coverage recompute on fog-of-war logins, cutting seconds off large-empire snapshot builds."
+    ]
+  },
+  {
+    createdAt: 1784927317000, // 2026.07.24.3 (restored)
+    introducedIn: "2026.07.24.3",
+    title: "Watchtowers are now rarer",
+    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
+    changes: [
+      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
+    ]
+  },
+  {
+    createdAt: 1784923957000, // 2026.07.24.1 (restored)
+    introducedIn: "2026.07.24.1",
+    title: "New structure: Watchtowers",
+    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
+    changes: [
+      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
+      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
+      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
     ]
   },
   {
@@ -140,177 +199,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settled and frontier tiles now render with the owning player's color on the minimap (settled tiles slightly more opaque than frontier tiles), respecting fog of war."
     ]
   },
-  {
-    createdAt: 1784592360000, // 2026.07.21.6
-    introducedIn: "2026.07.21.6",
-    title: "Fixed: town capture popup missing after winning an attack",
-    why: "The celebratory town-capture popup only fired for tile-delta updates (EXPAND, settling), so capturing an enemy town through combat never showed it even though the capture itself worked correctly.",
-    changes: [
-      "Winning an ATTACK that captures an enemy town now shows the town capture popup, same as capturing via EXPAND or settlement."
-    ]
-  },
-  {
-    createdAt: 1784592300000, // 2026.07.21.5
-    introducedIn: "2026.07.21.5",
-    title: "Low Empire Integrity now shows a dismissible warning",
-    why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
-    changes: [
-      "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
-      'Dismiss it with the × in its corner or the "I understand" button; it reappears if integrity recovers above 90% and later drops again.'
-    ]
-  },
-  {
-    createdAt: 1784592240000, // 2026.07.21.4
-    introducedIn: "2026.07.21.4",
-    title: "Smoother minimap on maps with a lot of unexplored fog",
-    why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
-    changes: [
-      "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
-    ]
-  },
-  {
-    createdAt: 1784592180000, // 2026.07.21.3
-    introducedIn: "2026.07.21.3",
-    title: "Move a queued build or settlement to the front of the line",
-    why: "A tile with a queued build or settlement only offered a cancel button, even though the actual goal was usually just to get it started sooner. Now you can bump it ahead of everything else waiting for a development slot without losing its place entirely.",
-    changes: [
-      'Queued builds and queued settlements now show a "Jump to front of queue" button alongside the existing cancel option (hidden once the entry is already first in line).'
-    ]
-  },
-  {
-    createdAt: 1784592120000, // 2026.07.21.2
-    introducedIn: "2026.07.21.2",
-    title:
-      "Display name changes now confirm up front and are limited to once per season",
-    why: "Nothing stopped a player from renaming repeatedly, and a successful rename was easy to miss with only a feed message noting it. Settings now asks for confirmation before sending an actual rename (not the initial name pick), the server enforces one rename per season, and a successful change now also pops a clear confirmation.",
-    changes: [
-      "Clicking Update on an actual name change (not your first-time setup) now confirms first, noting the once-per-season limit, before sending the request.",
-      'The server now rejects a second rename attempt within the same season with a clear "try again next season" message.',
-      "A successful rename now also shows a confirmation popup with your new name, in addition to the existing feed message."
-    ]
-  },
-  {
-    createdAt: 1784592060000, // 2026.07.21.1
-    introducedIn: "2026.07.21.1",
-    title:
-      'Fixed "Signed in as" showing your old name after changing it in Settings',
-    why: 'The "Signed in as" line in Settings read the auth label captured from your Firebase account at login time, which is never touched by a display name change — only the Display Name field itself (backed by a separate piece of state) updated. So a successful rename showed the new name in the input box and a "Display name updated." feed message, but the line right above it kept showing the name you signed in with.',
-    changes: [
-      '"Signed in as" now shows your current in-game display name once it\'s known, instead of the name captured at login.'
-    ]
-  },
-  {
-    createdAt: 1784420040000, // 2026.07.19.14
-    introducedIn: "2026.07.19.14",
-    title:
-      "Fixed display name updates in Settings showing no feedback on failure",
-    why: "Changing your display name in Settings silently showed no error if the message couldn't be sent (e.g. the connection dropped between opening the panel and clicking Update), and showed no success message if the server rejected the update with a generic gateway error — the first failure was only shown on the auth overlay (which isn't visible from the Settings panel), and the second left a stale pending-state flag that could suppress feedback from future attempts.",
-    changes: [
-      "Settings now shows a feed message ('Could not update display name. Finish sign-in and try again.') if the update request can't be sent, instead of silently doing nothing.",
-      "The pending-name tracker is now also cleared on a generic gateway error that isn't already handled by the color-collision path, so the next successful PLAYER_UPDATE correctly reports the display name as updated."
-    ]
-  },
-  {
-    createdAt: 1784419920000, // 2026.07.19.12
-    introducedIn: "2026.07.19.12",
-    title:
-      "Fixed the last-viewed map location getting reset on every login/reconnect",
-    why: "A previous fix saved your last-viewed map location, but it was still being silently overwritten with your empire's location on every single login and reconnect, before you ever saw it restored — so it looked like the location was never actually being remembered.",
-    changes: [
-      "The map now correctly restores your last-viewed location on login and reconnect instead of always snapping back to your empire."
-    ]
-  },
-  {
-    createdAt: 1784419860000, // 2026.07.19.11
-    introducedIn: "2026.07.19.11",
-    title:
-      "Fixed settled tiles still looking like frontier until you clicked them",
-    why: "When a settlement finished, the tile's new SETTLED status was applied optimistically without bumping the map's tile-revision counter — the only signal the 3D map's overlay rebuild watches. The ownership overlay kept drawing the tile with the lighter frontier tint until an unrelated camera pan, zoom, or tile update forced a rebuild, which is why tapping the tile appeared to \"fix\" it.",
-    changes: [
-      "Optimistic tile updates that change ownership now bump the map revision, so a tile switches to its settled look the moment settlement completes instead of waiting for the next click or camera move."
-    ]
-  },
-  {
-    createdAt: 1784419800000, // 2026.07.19.10
-    introducedIn: "2026.07.19.10",
-    title:
-      "Reduced silent disconnects with a server-side connection keep-alive",
-    why: "Some players reported getting disconnected and reconnected frequently. Many of these had no close reason at all — the signature of an idle connection being silently dropped by a network or proxy without either side being told, rather than a real server problem.",
-    changes: [
-      "The server now sends a lightweight keep-alive ping to every connection every 30 seconds. This both keeps idle-timeout proxies from treating the connection as inactive and lets the server notice and clean up truly dead connections faster.",
-      "This requires no change on your end — it happens automatically at the network level."
-    ]
-  },
-  {
-    createdAt: 1784419740000, // 2026.07.19.9
-    introducedIn: "2026.07.19.9",
-    title: "Alliance/truce request box now shows each AI's real name",
-    why: 'The previous fix for alliance/truce requests to AI players failing with "target not found" made the suggestion box only offer the resolvable "AI N" entry, but that left no way to tell which AI empire "AI 1" actually was.',
-    changes: [
-      'The suggestion box now shows an AI\'s real name (e.g. "Freja Sund") alongside its "AI N" entry, so you can identify it while the request still submits the resolvable name the server expects.'
-    ]
-  },
-  {
-    createdAt: 1784419680000, // 2026.07.19.8
-    introducedIn: "2026.07.19.8",
-    title: "Fixed display name changes silently failing and reverting",
-    why: "Changing your display name in Settings also resends your current tile color in the same request. If that stored color happened to collide with another player's (more likely on a large, long-running world than on staging's small test roster), the server rejected the whole update to protect color uniqueness — silently dropping the name change along with it. The Settings page also showed a \"Display name updated\" success message the instant the request was sent, without waiting to see whether the server actually accepted it, so the failure went unnoticed until the name reverted on the next reload.",
-    changes: [
-      "The server no longer re-checks color uniqueness when your color isn't actually changing, so a name-only update can no longer be blocked by an unrelated, pre-existing color collision.",
-      'The Settings page now waits for server confirmation before showing "Display name updated", and shows the real rejection reason (e.g. a color conflict) if the update fails instead of claiming success.'
-    ]
-  },
-  {
-    createdAt: 1784419620000, // 2026.07.19.7
-    introducedIn: "2026.07.19.7",
-    title:
-      "Fixed the last-viewed map location getting stuck and never updating",
-    why: "The last-viewed location was only saved when the camera crossed a full 64-tile chunk boundary, which an ordinary pan or zoom near your base routinely never does — so for a lot of play sessions the saved position never moved past wherever it was first set.",
-    changes: [
-      "Saving your last-viewed location is now decoupled from that chunk boundary — it saves on a lightweight one-second timer instead, so ordinary panning and zooming (not just big jumps) keeps it up to date.",
-      "Zoom-only changes (mouse wheel / pinch, with no panning) are now saved too, which previously never triggered a save at all."
-    ]
-  },
-  {
-    createdAt: 1784419560000, // 2026.07.19.6
-    introducedIn: "2026.07.19.6",
-    title:
-      'Fixed alliance/truce requests to AI players sometimes failing with "target not found"',
-    why: 'The alliance/truce target suggestion box offered two entries for the same AI player — the stable "AI N" name and that AI\'s real display name (e.g. "Freja Sund") shown on the leaderboard. Only "AI N" is recognized by the server, so picking the real name from the dropdown always failed with "target not found".',
-    changes: [
-      'The suggestion box now only offers the resolvable "AI N" name for AI players, matching what the server actually recognizes.'
-    ]
-  },
-  {
-    createdAt: 1784419500000, // 2026.07.19.5
-    introducedIn: "2026.07.19.5",
-    title: "Fixed Report Bug popover not accepting clicks",
-    why: "Clicking inside the Report Bug text box (from Settings) clicked through to the map behind it instead of focusing the textarea, making it hard to actually type a bug report.",
-    changes: [
-      "The Report Bug popover was missing from the HUD's list of interactive overlays, so it inherited pointer-events: none and passed clicks straight to the 3D map underneath. It now properly captures clicks like every other popup."
-    ]
-  },
-  {
-    createdAt: 1784419440000, // 2026.07.19.4
-    introducedIn: "2026.07.19.4",
-    title: 'New "Download Disconnect History" button in Settings',
-    why: "Some players have reported getting reconnected frequently, but there was no easy way to hand over evidence of when and why — the technical detail (close codes, timing) was only ever visible in a developer console.",
-    changes: [
-      "Settings now has a Download Disconnect History button next to Download Diagnostics, which saves a small JSON file listing your recent disconnects (when, how long you were connected beforehand, and whether it was a normal or abnormal close).",
-      "This history is stored locally on your device and is not affected by the automatic reload that happens after a disconnect, so it can show a pattern across multiple reconnects, not just the most recent one."
-    ]
-  },
-  {
-    createdAt: 1784419380000, // 2026.07.19.3
-    introducedIn: "2026.07.19.3",
-    title: "The map now remembers your last-viewed location",
-    why: "Reconnecting or reloading always re-centered the camera on your empire's tiles, even if you were looking somewhere else (scouting, checking a border, watching an ally) right before the disconnect.",
-    changes: [
-      "Your last-viewed map position and zoom are now saved automatically and restored on reconnect, reload, or the next time you log in on the same browser.",
-      'This only affects the very first auto-recenter after load — the existing "jump to my empire" recenter button still works exactly as before.'
-    ]
-  },
-  // Older entries (2026.07.19.2 and earlier) trimmed: the release-day
+  // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
 ];

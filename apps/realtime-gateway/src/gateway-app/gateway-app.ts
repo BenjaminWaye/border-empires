@@ -48,6 +48,7 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
+import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
@@ -94,7 +95,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
   canToggleFog: boolean;
-  fogDisabled: boolean;
+  fogDisabled: boolean; authInProgress: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -741,7 +742,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     });
   })();
-  const seededPlayerIds = new Set<string>();
+  const { seededPlayerIds, evictSeededPlayerId } = createSeededPlayerTracker((playerId) => playerSubscriptions.socketsForPlayer(playerId));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId, subscriptionKey) => {
       const hasSnapshot = seededPlayerIds.has(playerId);
@@ -1890,7 +1891,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         pendingPayloads: [],
         channel,
         canToggleFog: false,
-        fogDisabled: false
+        fogDisabled: false, authInProgress: false
       };
       sessionsBySocket.set(socket, session); wsHeartbeat.registerSocket(socket);
 
@@ -1913,7 +1914,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const message = parsed.data;
           messageType = message.type;
           if (message.type === "AUTH") {
-            recordGatewayEvent("info", "gateway_auth", { channel });
+            if (!claimAuthSlot(session, channel, recordGatewayEvent)) return;
+            try { recordGatewayEvent("info", "gateway_auth", { channel });
             const loginCorrelationId = crypto.randomUUID();
             const authTrace = slowLoginAlerter.begin(channel, loginCorrelationId);
             const loginTracer = createRequestTracer({
@@ -2234,16 +2236,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               if (subscribedSnapshot && subscribedSnapshot.tiles.length === 0 && bootstrapInitialState && bootstrapInitialState.tiles.length > 0) {
                 subscribedSnapshot.tiles = bootstrapInitialState.tiles;
               }
-              // Every OTHER auth step in this handler (resolve_initial_state,
-              // build_init_message, send_init, ...) gets a recordGatewayAuthStepTiming
-              // slow-step warning log, but this one — the SubscribePlayer RPC that
-              // triggers the sim's per-player visible-state export — didn't. That
-              // export yields dozens of times for a large empire (see
-              // runtime-visible-state.ts) and is documented as having caused a
-              // "26s login regression" before (event-loop-yield.ts); a live incident
-              // reproducing that exact shape (25-29s stall, zero LOGIN_PHASE updates
-              // in between) had no server-side log trail once the ~9min Fly log
-              // buffer rolled past it. Log it like its siblings so the NEXT one does.
+              // Every OTHER auth step here gets a recordGatewayAuthStepTiming slow-step
+              // warning, but this one -- the SubscribePlayer RPC driving the sim's
+              // per-player visible-state export, which yields dozens of times for a
+              // large empire (runtime-visible-state.ts) and previously caused a "26s
+              // login regression" (event-loop-yield.ts) with no server-side log trail
+              // once the ~9min Fly log buffer rolled past it -- didn't. Log it too.
               recordGatewayAuthStepTiming("live_subscribe", Date.now() - liveSubscribeStartedAt, {
                 playerId: playerIdentity.playerId,
                 channel,
@@ -2262,7 +2260,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
                 app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
               });
-              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
+              evictSeededPlayerId(playerIdentity.playerId); sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("live_subscribe", false);
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
@@ -2282,11 +2280,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // below throws (resolveInitialState/hydrate/buildInitMessage/buildTakenColorSet
             // are not guarded individually) — an uncaught rejection here is caught by the
             // outer socket.on("message") try/catch, which has no reference to this timer,
-            // so without this try/finally the interval would leak forever, still firing
-            // LOGIN_PHASE sends every second for the life of the process.
+            // Without this try/finally, the interval fires LOGIN_PHASE every second forever.
             try {
               const resolveInitialStateStartedAt = Date.now();
-              const initialState = resolveInitialState({
+              let initialState = resolveInitialState({
                 playerId: playerIdentity.playerId,
                 authoritativeSnapshot: bootstrapInitialState,
                 cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
@@ -2303,6 +2300,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
               if (session.channel === "control") {
+                // Refresh only tiles (the field that goes stale during a slow bootstrap_subscribe,
+                // causing EXPAND_TARGET_OWNED) from the live subscribe cache -- it never sets
+                // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
+                const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
+                if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
                 authTrace.startStep("build_init");
                 const buildInitMessageStartedAt = Date.now();
                 const initMessage = await buildInitMessage(
@@ -2404,6 +2406,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               clearInterval(finalizeProgressInterval);
             }
             return;
+            } finally { releaseAuthSlot(session, "AUTH"); }
           }
 
           if (!session.playerId) {
@@ -3111,15 +3114,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
           syncGatewaySnapshotMetricsFromCache(closingPlayerId);
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
-          // Prune fog-refresh bookkeeping once no fog-disabled session remains for this player.
-          if (!remainingSockets.some((playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true)) {
-            fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
-          }
-          // Bounded map (see command-rate-limiter.ts) -- evict once this was the player's last socket.
+          if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+          evictSeededPlayerId(closingPlayerId);
           if (remainingSockets.length === 0) commandRateLimiter.releasePlayer(closingPlayerId);
-        }).catch((error) => {
-          app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
-        });
+        }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
       });
     });
   });

@@ -31,6 +31,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
+import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -59,7 +60,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
@@ -359,7 +360,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     debugTileTimeline(scope, timelineArgs);
   };
 
-  let reconnectReloadTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
@@ -682,13 +682,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.queuedDevelopmentDispatchPending = false;
   };
 
-  const clearReconnectReloadTimer = (): void => {
-    if (reconnectReloadTimer !== undefined) {
-      window.clearTimeout(reconnectReloadTimer);
-      reconnectReloadTimer = undefined;
-    }
-  };
-
   const clearDeferredBootstrapRefreshTimer = (): void => {
     if (deferredBootstrapRefreshTimer !== undefined) {
       window.clearTimeout(deferredBootstrapRefreshTimer);
@@ -711,15 +704,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
-  const scheduleReconnectReload = (): void => {
-    if (!state.hasEverInitialized) return;
-    if (reconnectReloadTimer !== undefined) return;
-    reconnectReloadTimer = window.setTimeout(() => {
-      reconnectReloadTimer = undefined;
-      if (state.connection === "initialized" || state.connection === "connected") return;
-      window.location.reload();
-    }, 4000);
-  };
+  const inPlaceReconnect = createInPlaceReconnectScheduler({ state, ws });
+  const clearReconnectReloadTimer = (): void => inPlaceReconnect.clear();
+  const resetInPlaceReconnectAttempt = (): void => inPlaceReconnect.resetAttempt();
+  const scheduleReconnectReload = (): void => inPlaceReconnect.schedule();
 
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);
@@ -999,7 +987,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
   });
   const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
-    state.connection = "disconnected";
+    clearAuthInFlight?.(); state.connection = "disconnected";
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
@@ -1031,6 +1019,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
+    resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();
     resetAuthReconnectAttempt();
     if (state.authReady && !state.authSessionReady) {
@@ -1216,7 +1205,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
-      applyInitMessage(msg, {
+      clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
         applyShardRainNotice: applyShardRainNoticeQuiet,
@@ -1911,7 +1900,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update ||
+            "shardSiteJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
@@ -2341,7 +2330,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         state.pendingCollectVisibleKeys.clear();
         revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
@@ -2828,9 +2817,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
         resetVictoryHoldAlertForNewSeason(state);
-        // Reset the season-end screen so it shows again when the next season ends.
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false;
+        try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();

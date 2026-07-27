@@ -13,6 +13,13 @@ export const CHUNK_SIZE = 64;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,
 // visible incentive to hold hilly ground — 1 base + 1 hills bonus = 2.
 export const VISION_RADIUS = 1;
+// Watchtower sites: world-generated scouting structures, spread out across
+// the map. `WATCHTOWER_TARGET_COEFFICIENT` is tuned so a default 450x450
+// world (worldScale = 0.2025) yields ~50 sites.
+export const WATCHTOWER_TARGET_MIN_COUNT = 25;
+export const WATCHTOWER_TARGET_COEFFICIENT = 247;
+export const WATCHTOWER_REVEAL_RADIUS = 5;
+export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
 // A vision source standing on a forest tile only sees this far, regardless
 // of the player's effective vision radius (tech/observatory bonuses). The
 // forest itself and its immediate neighbors remain visible; nothing farther
