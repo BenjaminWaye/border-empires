@@ -20,10 +20,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.26.1",
+  version: "2026.07.27.1",
   title: "What's New",
-  summary: "Expanding and settling land now costs manpower, not just gold.",
+  summary: "Every structure build now shows and requires its real manpower cost.",
   entries: [
+    {
+      introducedIn: "2026.07.27.1",
+      title: "Manpower now gates every structure build",
+      why: "Structure build costs already draw manpower (Market, Bank, Farmstead, synthesizers, and everything else), but the build menu only checked gold, so it offered builds you couldn't actually afford until the server rejected them. This closes that gap for the roughly 30 remaining economic structures, matching the fix already shipped for Expand/Settle.",
+      changes: [
+        "Every economic structure's build/upgrade option (Market, Bank, Farmstead, Camp, Mine, Granary, Census Hall, Clearing House, Caravanary, all three Synthesizers and their Advanced upgrades, Exchange House, Rail Depot, Garrison Hall, Governor's Office, Foundry, Waterworks, Radar System, Airport, Aether Tower, Customs House, and all four monument parts) now checks and displays its manpower cost, not just gold and strategic resources.",
+        "The build menu now tells you specifically when you're short on manpower instead of only ever citing gold or a resource."
+      ]
+    },
     {
       introducedIn: "2026.07.26.1",
       title: "Expand and Settle now cost manpower",
