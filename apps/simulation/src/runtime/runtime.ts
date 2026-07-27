@@ -444,26 +444,15 @@ export class SimulationRuntime {
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
-  // Bounded per-AI focus front (BFS of owned tiles around a persistent
-  // hot-frontier origin) used to cap planner CPU. Refreshed each tick from
-  // refreshSpatialFocusForPlayer; cleared automatically when the player owns
-  // no territory.
+  // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; refreshed via refreshSpatialFocusForPlayer, cleared once the player owns no territory.
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
-  // Cached from the previous tick's planAutomationCommand diagnostic; feeds
-  // selectSpatialFocus's unproductive-streak rotation. A missing entry means
-  // "no signal yet", which selectSpatialFocus treats as productive. Kept in
-  // sync with aiSpatialFocusByPlayer (see refreshSpatialFocusForPlayer and
-  // explainNextAutomationCommand's zero-territory branch).
+  // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
   private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>();
   // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
   private readonly aiHotFrontierStreakByPlayer = new Map<string, number>();
-  // Incrementally-maintained tile key cache for the planner player-view export.
-  // Each entry holds six TileKeyArrayEntry objects, updated O(1) per tile
-  // mutation (swap-with-last-then-pop) instead of rebuilt O(territory) per
-  // miss. Populated lazily via plannerPlayerTileKeys, kept live via mutation hooks.
+  // Incrementally-maintained planner player-view tile key cache: six TileKeyArrayEntry objects per entry, updated O(1) per tile mutation instead of rebuilt O(territory) per miss.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
-  // Bundles the four maps above by reference for plannerPlayerTileKeys; built
-  // once since the Maps themselves are never reassigned, only mutated.
+  // Bundles the four maps above by reference for plannerPlayerTileKeys; built once since the Maps themselves are never reassigned, only mutated.
   private readonly plannerPlayerTileKeysContext: PlannerPlayerTileKeysContext = {
     tileKeyCacheByPlayer: this.plannerPlayerTileKeyCacheByPlayer,
     tileCollectionVersionByPlayer: this.plannerPlayerTileCollectionVersionByPlayer,
@@ -471,10 +460,7 @@ export class SimulationRuntime {
     topologyDirtyTilesByPlayer: this.plannerPlayerTopologyDirtyTilesByPlayer
   };
   private readonly locksByTile: Map<string, LockRecord>;
-  // Deduplicated view of locksByTile keyed by commandId.  A single lock is
-  // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
-  // unique-lock iteration for exportState's activeLocks projection, replacing
-  // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
+  // Deduplicated view of locksByTile keyed by commandId (a lock is stored under TWO tile keys — originKey + targetKey); gives O(1) unique-lock iteration for exportState's activeLocks projection.
   private readonly locksByCommandId = new Map<string, LockRecord>();
   private readonly frontierTilesByOwner = new Map<string, Set<string>>();
   private readonly deltaBuffer = new CommandDeltaBuffer();
