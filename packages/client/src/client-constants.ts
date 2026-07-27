@@ -70,7 +70,7 @@ export const guideSteps: GuideStep[] = [
 ];
 
 export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
-export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 10;
+export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 20;
 
 export const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
