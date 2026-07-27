@@ -206,6 +206,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   musterTilesByOwner: Map<string, Set<string>>;
   fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
+  garrisonHallTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -224,6 +225,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
+  refreshGarrisonHallIndexForTile(input);
 };
 
 /**
@@ -454,6 +456,35 @@ const refreshRailDepotIndexForTile = (input: {
   if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
   if (prevActive && prevOwnerId) input.railDepotTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.railDepotTilesByOwner, input.tileKey, nextOwnerId);
+};
+
+// Garrison Hall's flat manpower-cap bonus (§4.4) is a plain per-structure
+// count, not tied to any specific town — GARRISON_HALL uses "same_tile"
+// placement (structure-placement-metadata.json), unlike RAIL_DEPOT/
+// CLEARING_HOUSE's "town_support" mode, so it can sit on any settled/
+// resource/support/dock tile with no adjacency to a town at all. A
+// per-town, adjacency-based scan (like the Rail Depot/Clearing House
+// network membership check) would silently miss any Garrison Hall not
+// built next to a town.
+const isGarrisonHallActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.economicStructure?.type === "GARRISON_HALL" &&
+  tile.economicStructure.ownerId === ownerId &&
+  tile.economicStructure.status === "active";
+
+const refreshGarrisonHallIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  garrisonHallTilesByOwner: Map<string, Set<string>>;
+}): void => {
+  const prevOwnerId = input.previous?.ownerId;
+  const nextOwnerId = input.next.ownerId;
+  const prevActive = input.previous && prevOwnerId ? isGarrisonHallActive(input.previous, prevOwnerId) : false;
+  const nextActive = nextOwnerId ? isGarrisonHallActive(input.next, nextOwnerId) : false;
+  if (!prevActive && !nextActive) return;
+  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+  if (prevActive && prevOwnerId) input.garrisonHallTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.garrisonHallTilesByOwner, input.tileKey, nextOwnerId);
 };
 
 const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, ownerId: string): void => {

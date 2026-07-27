@@ -6,6 +6,8 @@ import {
   dockBaseGoldPerMinuteForPlayer,
   dockSupportedByCustomsHouse,
   HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
+  railDepotAlreadyInNetwork,
+  railDepotNetworkGarrisonHallCountForPlayer,
   type EconomyPlayer
 } from "./economy-network.js";
 import {
@@ -256,6 +258,53 @@ describe("connected town network", () => {
     expect(network.get("2,0")!.connectedClearingHouseKeys).toEqual([chTownKey]);
   });
 
+  it("propagates Garrison Hall and Rail Depot membership through a shared corridor group (§4.4)", () => {
+    // Same star layout as the Clearing House test above, but one town has a
+    // Garrison Hall and another has a Rail Depot on their support tiles.
+    const landTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
+    });
+
+    const garrisonHallTownKey = "0,0";
+    const railDepotTownKey = "2,0";
+    const garrisonHallSupportTile: DomainTileState = {
+      x: 0, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "player-1", type: "GARRISON_HALL" as const, status: "active" as const }
+    };
+    const railDepotSupportTile: DomainTileState = {
+      x: 2, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "player-1", type: "RAIL_DEPOT" as const, status: "active" as const }
+    };
+
+    const tiles = new Map<string, DomainTileState>([
+      [garrisonHallTownKey, townTile(0, 0, "GH-Town")],
+      ["0,2", townTile(0, 2, "North")],
+      ["2,2", townTile(2, 2, "East")],
+      [railDepotTownKey, townTile(2, 0, "RD-Town")],
+      ["1,1", landTile(1, 1)],
+      ["0,-1", garrisonHallSupportTile],
+      ["2,-1", railDepotSupportTile]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    // Each town excludes itself from its own connected-membership lists.
+    expect(network.get(garrisonHallTownKey)!.connectedGarrisonHallKeys).toBeUndefined();
+    expect(network.get(garrisonHallTownKey)!.connectedRailDepotKeys).toEqual([railDepotTownKey]);
+    expect(network.get(railDepotTownKey)!.connectedRailDepotKeys).toBeUndefined();
+    expect(network.get(railDepotTownKey)!.connectedGarrisonHallKeys).toEqual([garrisonHallTownKey]);
+
+    // The other two towns (no structures of their own) see both.
+    for (const key of ["0,2", "2,2"]) {
+      expect(network.get(key)!.connectedGarrisonHallKeys).toEqual([garrisonHallTownKey]);
+      expect(network.get(key)!.connectedRailDepotKeys).toEqual([railDepotTownKey]);
+    }
+  });
+
   it("computes connectivity in O(N) for large empires (regression: O(K^2) pairwise loop removed)", () => {
     // 1000 corridor tiles + 100 towns in one giant connected component.
     // Layout stays within [0,199] range to avoid WORLD_WIDTH wrapping issues.
@@ -294,6 +343,81 @@ describe("connected town network", () => {
 
     // Should complete in well under 500ms — old O(K^2) was multiple seconds.
     expect(durationMs).toBeLessThan(500);
+  });
+});
+
+describe("Rail Depot network manpower bonus (§4.4)", () => {
+  const landTile = (x: number, y: number): DomainTileState => ({
+    x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
+  });
+  const garrisonHallSupportTile = (x: number, y: number): DomainTileState => ({
+    x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "player-1", type: "GARRISON_HALL" as const, status: "active" as const }
+  });
+  const railDepotSupportTile = (x: number, y: number): DomainTileState => ({
+    x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "player-1", type: "RAIL_DEPOT" as const, status: "active" as const }
+  });
+
+  it("counts the Rail Depot's own town's Garrison Hall plus every connected one, summed across Rail-Depot-hosting towns", () => {
+    // Two separate networks: network A has a Rail Depot + 2 Garrison Halls
+    // (one on the depot's own town, one on a connected town); network B has
+    // no Rail Depot at all, so its Garrison Hall must NOT be counted.
+    const tiles = new Map<string, DomainTileState>([
+      // Network A: RD-Town(0,0) — corridor(1,0) — GH-Town(2,0), RD-Town has its own Garrison Hall too.
+      // Both support tiles must be within 8-neighbor range of (0,0) — not just "nearby".
+      ["0,0", { ...townTile(0, 0, "RD-Town"), ownerId: "player-1" }],
+      ["0,-1", railDepotSupportTile(0, -1)],
+      ["-1,-1", garrisonHallSupportTile(-1, -1)],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "GH-Town")],
+      ["2,-1", garrisonHallSupportTile(2, -1)],
+      // Network B: isolated single town with a Garrison Hall, no Rail Depot.
+      ["10,10", townTile(10, 10, "Lone-GH-Town")],
+      ["10,9", garrisonHallSupportTile(10, 9)]
+    ]);
+
+    const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
+    const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
+
+    const count = railDepotNetworkGarrisonHallCountForPlayer(
+      "player-1",
+      tiles,
+      network,
+      ["0,0", "2,0", "10,10"]
+    );
+
+    // RD-Town's own Garrison Hall (1) + GH-Town's connected one (1) = 2.
+    // Lone-GH-Town's Garrison Hall doesn't count — no Rail Depot in its network.
+    expect(count).toBe(2);
+  });
+
+  it("returns 0 when the player has no Rail Depot anywhere", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "GH-Town")],
+      ["0,-1", garrisonHallSupportTile(0, -1)]
+    ]);
+    const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
+    const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
+
+    expect(railDepotNetworkGarrisonHallCountForPlayer("player-1", tiles, network, ["0,0"])).toBe(0);
+  });
+
+  it("railDepotAlreadyInNetwork is true at the Rail Depot's own town and every connected town, false elsewhere", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "RD-Town")],
+      ["0,-1", railDepotSupportTile(0, -1)],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "Connected-Town")],
+      // Separate, unconnected town.
+      ["10,10", townTile(10, 10, "Other-Town")]
+    ]);
+    const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
+    const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
+
+    expect(railDepotAlreadyInNetwork("player-1", "0,0", tiles, network)).toBe(true);
+    expect(railDepotAlreadyInNetwork("player-1", "2,0", tiles, network)).toBe(true);
+    expect(railDepotAlreadyInNetwork("player-1", "10,10", tiles, network)).toBe(false);
   });
 });
 
