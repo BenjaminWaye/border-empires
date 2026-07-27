@@ -18,6 +18,7 @@ export * from "./hills-terrain/hills-terrain.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./player-display-name.js";
+export * from "./dev-queue/dev-queue.js";
 export * from "./town-growth/town-growth.js";
 export * from "./structure-registry/structure-registry.js";
 export * from "./structure-registry-index.js";

@@ -1,5 +1,12 @@
 export type QueuedCornerBadgeKind = "FRONTIER" | "SETTLEMENT" | "BUILD";
 
+/**
+ * "queued"  = server-confirmed slot (durable) -- solid border, full-opacity badge.
+ * "planned" = client-local wishlist entry, not yet confirmed by the server --
+ *             dashed border, muted badge, so it reads as provisional.
+ */
+export type QueuedCornerBadgeEntryState = "queued" | "planned";
+
 export type QueuedCornerBadgeLayout = {
   border:
     | {
@@ -8,6 +15,7 @@ export type QueuedCornerBadgeLayout = {
         y: number;
         width: number;
         height: number;
+        dashed: boolean;
       }
     | undefined;
   badge:
@@ -21,6 +29,7 @@ export type QueuedCornerBadgeLayout = {
         height: number;
         textX: number;
         textY: number;
+        opacity: number;
       }
     | undefined;
 };
@@ -33,6 +42,7 @@ type QueuedCornerBadgeLayoutArgs = {
   size: number;
   isTrue3D: boolean;
   blocked: boolean;
+  entryState?: QueuedCornerBadgeEntryState;
 };
 
 const QUEUED_CORNER_BADGE_STYLE: Record<
@@ -63,10 +73,12 @@ export const queuedCornerBadgeLayout = ({
   py,
   size,
   isTrue3D,
-  blocked
+  blocked,
+  entryState = "queued"
 }: QueuedCornerBadgeLayoutArgs): QueuedCornerBadgeLayout | undefined => {
   if (ordinal === undefined || blocked) return undefined;
   const style = QUEUED_CORNER_BADGE_STYLE[kind];
+  const isPlanned = entryState === "planned";
   return {
     border: isTrue3D
       ? undefined
@@ -75,7 +87,8 @@ export const queuedCornerBadgeLayout = ({
           x: px + 2,
           y: py + 2,
           width: size - 5,
-          height: size - 5
+          height: size - 5,
+          dashed: isPlanned
         },
     badge:
       size >= 14
@@ -98,7 +111,10 @@ export const queuedCornerBadgeLayout = ({
               width: badgeWidth,
               height: badgeHeight,
               textX: badgeX + Math.round(badgeWidth * 0.5),
-              textY: badgeY + Math.round(badgeHeight * 0.5) + 1
+              textY: badgeY + Math.round(badgeHeight * 0.5) + 1,
+              // Planned entries are not yet confirmed by the server, so they
+              // read as provisional/muted next to solid, full-opacity queued badges.
+              opacity: isPlanned ? 0.62 : 1
             };
           })()
         : undefined
@@ -110,12 +126,17 @@ export const drawQueuedCornerBadge = (
   layout: QueuedCornerBadgeLayout | undefined
 ): void => {
   if (layout?.border) {
+    ctx.save();
     ctx.strokeStyle = layout.border.strokeStyle;
     ctx.lineWidth = 2;
+    if (layout.border.dashed) ctx.setLineDash([4, 3]);
     ctx.strokeRect(layout.border.x, layout.border.y, layout.border.width, layout.border.height);
+    ctx.restore();
     ctx.lineWidth = 1;
   }
   if (!layout?.badge) return;
+  ctx.save();
+  ctx.globalAlpha = layout.badge.opacity;
   ctx.fillStyle = layout.badge.background;
   ctx.fillRect(layout.badge.x, layout.badge.y, layout.badge.width, layout.badge.height);
   ctx.fillStyle = layout.badge.foreground;
@@ -125,4 +146,5 @@ export const drawQueuedCornerBadge = (
   ctx.fillText(layout.badge.text, layout.badge.textX, layout.badge.textY);
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "start";
+  ctx.restore();
 };
