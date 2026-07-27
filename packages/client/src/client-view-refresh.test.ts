@@ -13,6 +13,7 @@ const fakeSocket = (readyState: number): RealtimeSocket => ({
   readyState,
   send: () => {},
   close: () => {},
+  reconnect: () => {},
   addEventListener: () => {},
   removeEventListener: () => {}
 });

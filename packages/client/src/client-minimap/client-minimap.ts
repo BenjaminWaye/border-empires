@@ -256,6 +256,32 @@ export const drawMiniMap = (options: {
     options.miniMapCtx.arc(tx, ty, 3.4 + pingPhase * 2.1, 0, Math.PI * 2);
     options.miniMapCtx.stroke();
   }
+
+  // Watchtowers: a dim marker while dormant, and — for ~10s right after a
+  // player expands onto one — a bright expanding pulse ring over the
+  // revealed 10x10-ish area (matches the 3D flicker; see
+  // client-map-3d-watchtower-overlay.ts).
+  for (const tile of options.state.tiles.values()) {
+    if (!tile.watchtower) continue;
+    if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
+    if (!inBox(tile.x, tile.y)) continue;
+    const tx = Math.floor(wxToPx(tile.x));
+    const ty = Math.floor(wyToPy(tile.y));
+    const revealing = typeof tile.watchtower.revealUntil === "number" && tile.watchtower.revealUntil > options.nowMs;
+    // Brass/amber palette to match the steampunk 3D lantern beacon.
+    options.miniMapCtx.fillStyle = tile.watchtower.activated ? "rgba(255, 190, 110, 0.95)" : "rgba(150, 120, 80, 0.75)";
+    options.miniMapCtx.beginPath();
+    options.miniMapCtx.arc(tx, ty, 2, 0, Math.PI * 2);
+    options.miniMapCtx.fill();
+    if (revealing) {
+      options.miniMapCtx.strokeStyle = `rgba(255, 179, 71, ${0.5 + pingPhase * 0.35})`;
+      options.miniMapCtx.lineWidth = 1.4;
+      options.miniMapCtx.beginPath();
+      options.miniMapCtx.arc(tx, ty, 5 + pingPhase * 3, 0, Math.PI * 2);
+      options.miniMapCtx.stroke();
+    }
+  }
+
   options.miniMapCtx.restore();
 
   return true;
