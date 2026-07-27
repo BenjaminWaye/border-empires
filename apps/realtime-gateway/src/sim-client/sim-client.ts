@@ -616,12 +616,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       playerId: event.player_id
     };
   }
-  // Internal-only simulation events (e.g. TILE_YIELD_ANCHOR_UPDATED) reach the
-  // gateway over the same gRPC stream but have no client-facing payload. We
-  // used to fall through to COMMAND_REJECTED, which made every accrual-time
-  // anchor update appear at the client as an empty-code, empty-message ERROR
-  // (#233 filtered AI cross-talk but these are tagged with the human's
-  // playerId, so the per-player filter doesn't help).
+  // Internal-only simulation events (e.g. TILE_YIELD_ANCHOR_UPDATED) reach the gateway over the same gRPC stream but have no client-facing payload — falling through to COMMAND_REJECTED made every accrual-time anchor update appear as an empty-code, empty-message client ERROR.
   return undefined;
 };
 

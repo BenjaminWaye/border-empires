@@ -338,14 +338,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in
-      // 3D mode so the icon-only summary remains visible when zoomed
-      // out (parallels drawResourceCornerMarker for resource tiles).
+      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
         deps.drawDockMarker(px, py, size);
       }
-      // The 3D dock overlay supersedes the SVG dock icon (and its
-      // fallback placeholder) when the true-3D renderer is mounted.
+      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
       if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
@@ -1316,12 +1313,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const tileEndAt = performance.now();
-    // Sequential sub-phase timer for the rest of the frame: each phaseMs()
-    // call returns elapsed time since the PREVIOUS call (or since tileEndAt
-    // for the first one) and captures it immediately at the measurement
-    // site — unlike hand-pairing named "XEndAt" checkpoints into a
-    // subtraction expression far below, a swapped or mismatched pair here
-    // isn't possible since there's nothing to pair by hand.
+    // Sequential sub-phase timer for the rest of the frame: each phaseMs() call returns elapsed time since the previous call (or tileEndAt for the first), captured immediately — no hand-paired "XEndAt" checkpoints to mismatch.
     let lastPhaseMarkAt = tileEndAt;
     const phaseMs = (): number => {
       const markAt = performance.now();

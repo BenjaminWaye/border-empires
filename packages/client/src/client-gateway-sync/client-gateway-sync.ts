@@ -331,14 +331,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
 
   const existing = deps.state.tiles.get(tileKey);
 
-  // Broadcast-only ghost-ownership cleanup: the sim sends this to every player
-  // regardless of visibility (see tile-delta-visibility-filter.ts). It must
-  // update stale ownership on a tile we already know about, but must NEVER
-  // discover or unfog a tile — that would lift fog-of-war on tiles we can't see.
+  // Broadcast-only ghost-ownership cleanup: sent to every player regardless of visibility (see tile-delta-visibility-filter.ts). Must update stale ownership on a tile we already know about, but must NEVER discover or unfog a tile.
   if (update.ownershipClearOnly === true) {
-    // Nothing to correct if we've never seen the tile, or it's already
-    // unowned — return without a revision bump so a flood of distant
-    // barbarian clears can't churn re-renders.
+    // Nothing to correct if never seen or already unowned — skip the revision bump so a flood of distant barbarian clears can't churn re-renders.
     if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) {
       if (tileMatchesDebugKey(update.x, update.y, 1)) {
         debugTileLog("ownership-clear-only-skip", {

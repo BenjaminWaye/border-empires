@@ -411,15 +411,8 @@ export const createSeasonSeedWorld = (
     clusterResourceType: terrainRuntime.clusterResourceType
   });
   const watchtowersRuntime = createServerWorldgenWatchtowers({
-    seeded01: terrainRuntime.seeded01,
-    watchtowersByTile,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    terrainAt,
-    key,
-    docksByTile: docksByTile as Map<TileKey, never>,
-    clusterByTile,
-    townsByTile
+    seeded01: terrainRuntime.seeded01, watchtowersByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
+    docksByTile: docksByTile as Map<TileKey, never>, clusterByTile, townsByTile
   });
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };

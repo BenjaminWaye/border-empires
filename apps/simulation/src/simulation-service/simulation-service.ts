@@ -412,20 +412,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const verboseSnapshotDiagnostics = process.env.SIMULATION_VERBOSE_SNAPSHOT_DIAGNOSTICS === "1";
   const slowSnapshotBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_SNAPSHOT_BUILD_WARN_MS ?? 100));
   const simulationMetricsLogIntervalMs = Math.max(0, Number(process.env.SIMULATION_METRICS_LOG_INTERVAL_MS ?? 0));
-  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH"
-  // diagnostic. Set 0 to disable. Captures total + max-per-subscriber filter
-  // time so we can tell whether filterTileDeltasForPlayer is the source of
-  // simulation event-loop stalls under heavy combat load.
+  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH" diagnostic (0 disables); captures total + max-per-subscriber filter time to attribute event-loop stalls to filterTileDeltasForPlayer under heavy combat.
   const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
-  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see
-  // SqliteWriterChannel.onWriteTimed). Discriminates "the SQL write itself was
-  // slow" (workMs) from "the worker was still busy with a prior message when
-  // this one arrived" (queueWaitMs) — a multi-second appendEvent round trip
-  // looks identical in the event_store diagnostic either way.
+  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see SqliteWriterChannel.onWriteTimed) — discriminates a slow SQL write (workMs) from the worker still being busy with a prior message (queueWaitMs).
   const slowWriterQueueWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_WRITER_QUEUE_WARN_MS ?? 50));
-  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
-  // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
-  // under heavy combat the build itself (before fanout) could block the loop.
+  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic — each human capture builds (2*VISION_RADIUS+1)² tile deltas, which could block the loop under heavy combat.
   const slowCaptureRevealBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_CAPTURE_REVEAL_BUILD_WARN_MS ?? 20));
   const captureRevealBuildSample = (sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }): void => {
     if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;

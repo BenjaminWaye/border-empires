@@ -225,11 +225,7 @@ export interface Tile {
     baseGoldPerMinute: number;
     goldPerMinute: number;
     connectedDockCount: number;
-    modifiers?: Array<{
-      label: string;
-      percent: number;
-      deltaGoldPerMinute: number;
-    }>;
+    modifiers?: Array<{ label: string; percent: number; deltaGoldPerMinute: number }>;
   };
   shardSite?: {
     kind: ShardSiteKind;
