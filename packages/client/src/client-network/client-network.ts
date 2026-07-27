@@ -59,7 +59,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
@@ -999,7 +999,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
   });
   const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
-    state.connection = "disconnected";
+    clearAuthInFlight?.(); state.connection = "disconnected";
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
@@ -1216,7 +1216,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
-      applyInitMessage(msg, {
+      clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
         applyShardRainNotice: applyShardRainNoticeQuiet,
@@ -2341,7 +2341,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         state.pendingCollectVisibleKeys.clear();
         revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";

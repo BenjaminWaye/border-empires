@@ -61,7 +61,7 @@ const createMesh = (maxTiles: number, opacity: number): {
     transparent: true,
     opacity,
     depthWrite: false,
-    depthTest: true,
+    depthTest: false,
     side: DoubleSide
   });
   const mesh = new Mesh(geometry, material);

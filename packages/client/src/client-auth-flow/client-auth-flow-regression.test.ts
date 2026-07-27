@@ -9,6 +9,7 @@ const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./client-auth-flow.ts"), "utf8"),
+    readFileSync(resolve(here, "./client-authenticate-socket.ts"), "utf8"),
     readFileSync(resolve(here, "../client-network/client-network.ts"), "utf8"),
     // INIT handling (including the map-reveal-on-sign-in wiring this file
     // asserts on) was extracted out of client-network.ts, which is over the
@@ -22,7 +23,13 @@ describe("client auth flow regression guard", () => {
     const source = clientSource();
 
     expect(source).toContain('state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";');
-    expect(source).toContain("authSession.token = await user.getIdToken();");
+    // Initial bootstrap routes through the guarded authenticateSocket with no
+    // args — createSocketAuthenticator defaults forceRefresh to false, so
+    // this uses the cached token (authenticateSocket(true) is reserved for
+    // the retry-after-failure path checked below). The guard also means this
+    // can never race a duplicate AUTH send from the reconnect scheduler.
+    expect(source).toContain("await authenticateSocket();");
+    expect(source).toContain("authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);");
     expect(source).toContain("void authenticateSocket(true)");
     expect(source).not.toContain("authSession.token = await user.getIdToken(true);");
   });
