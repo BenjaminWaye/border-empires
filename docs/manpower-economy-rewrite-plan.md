@@ -1167,6 +1167,39 @@ implementation.
   narrower shape first — or give `live-economy-snapshot.ts` its own
   economicStructure-aware tile view the way this session's `resourceSlotsForPlayer`
   does), but out of scope for this slice.
+
+  **Post-fix self-review (same session) caught and fixed two more real
+  gaps in the `resourceSlots` wiring above, both now closed:**
+  1. `apps/realtime-gateway/src/subscription-snapshot-sync/subscription-snapshot-sync.ts`
+     is a SEPARATE, gateway-side copy of the `PLAYER_UPDATE`-merge logic
+     already fixed in `apps/simulation/src/subscription-snapshot-cache/
+     subscription-snapshot-cache.ts` — used as the fallback snapshot cache
+     served on reconnect when the simulation is unreachable
+     (`resolveInitialState`'s `allowCachedSnapshotFallback`). It was missing
+     the `resourceSlots` merge, so a reconnect during a simulation outage
+     would have served a stale `resourceSlots` value and reintroduced the
+     exact client build-affordability bug this field exists to fix. Fixed
+     with the identical merge line; regression test added to both files'
+     `.test.ts` siblings.
+  2. `emitPlayerStateUpdate` (which now calls `resourceSlotSupplyForPlayer`/
+     `resourceSlotDemandForPlayer` every time it runs) isn't only called
+     once per `BUILD_STRUCTURE` command — `runtime-passive-income.ts` also
+     calls it on the periodic income tick for every active player. Before
+     this fix, both functions did an uncached O(territory) rescan, so this
+     turned a once-per-build cost into a per-tick-per-player cost. Fixed by
+     adding `resourceSlotSupplyCacheByPlayer`/`resourceSlotDemandCacheByPlayer`
+     to `SimulationRuntime`, invalidated inside `refreshEconomyCachesForTileChange`
+     (`runtime-tile-index-maintenance.ts`) — supply is gated on SETTLED
+     ownership same as `economySnapshotCacheByPlayer` (it only reads settled
+     resource tiles), demand invalidates unconditionally same as
+     `defensibilityMetricsCacheByPlayer` (Siege Outposts can sit on FRONTIER
+     tiles, so a frontier-only mutation can still change demand). Full test
+     suite re-verified green after this change, including the existing
+     multi-step "build Fort on the empire's only IRON slot → second Fort
+     rejected → remove first → second now succeeds"
+     (`build-structure-parity.test.ts`) end-to-end test, which exercises
+     exactly this cache-invalidate-then-reread path and would have caught a
+     wrong invalidation gate.
 - **First-session / tutorial / onboarding copy** — wherever new-player
   guidance currently lives needs to teach the new mental model directly:
   manpower funds everything physical (expand/settle/build/attack), gold

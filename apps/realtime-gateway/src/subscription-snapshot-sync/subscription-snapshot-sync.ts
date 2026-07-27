@@ -132,6 +132,9 @@ export const applyPlayerMessageToSnapshot = (
         ...(payload.strategicProductionPerMinute && typeof payload.strategicProductionPerMinute === "object"
           ? { strategicProductionPerMinute: payload.strategicProductionPerMinute as PlayerStateSnapshot["strategicProductionPerMinute"] }
           : {}),
+        ...(payload.resourceSlots && typeof payload.resourceSlots === "object"
+          ? { resourceSlots: payload.resourceSlots as NonNullable<PlayerStateSnapshot["resourceSlots"]> }
+          : {}),
         ...(typeof payload.developmentProcessLimit === "number" ? { developmentProcessLimit: payload.developmentProcessLimit } : {}),
         ...(typeof payload.activeDevelopmentProcessCount === "number"
           ? { activeDevelopmentProcessCount: payload.activeDevelopmentProcessCount }
