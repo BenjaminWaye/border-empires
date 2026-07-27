@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { drawMiniMap } from "@client/client-minimap.js";
+import { drawMiniMap } from "@client/client-minimap/client-minimap.js";
 import type { Tile } from "@client/client-types.js";
 
 /**

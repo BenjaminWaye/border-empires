@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785200500000, // 2026.07.27.4
+    introducedIn: "2026.07.27.4",
+    title: "Fixed: territory ownership overlay didn't follow the hill's shape",
+    why: "The 3D hills dome mesh rises above the flat terrain grid, but the ownership overlay (and its fogged-tile variants) drew one flat plane between a tile's 4 corners regardless. On a hill, that plane either sank into the dome or floated as a flat plate poking above/through it, instead of tracing the hill's actual curve.",
+    changes: [
+      "Owned hill tiles now render their ownership tint draped over the hill's real curved surface, matching the terrain exactly instead of a flat plane cutting through it.",
+      "Applies to the normal ownership overlay and both fogged-tile ownership overlays (last-witnessed owner tint on tiles you no longer have vision of)."
+    ]
+  },
+  {
     createdAt: 1785130609961, // 2026.07.27.1
     introducedIn: "2026.07.27.1",
     title: "Fixed: large-empire logins could still stall for 15+ seconds",
@@ -130,73 +140,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
       "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
-    ]
-  },
-  {
-    createdAt: 1784678820000, // 2026.07.22.7
-    introducedIn: "2026.07.22.7",
-    title: "Bigger, easier-to-read off-screen alert badges",
-    why: 'The off-screen locator badges for active musters and unfed towns were small enough that the crossed-swords and "!" glyphs were hard to make out at a glance, especially against the yellow arrow background.',
-    changes: [
-      "Alert locator badges are now larger (26px radius, up from 20px), with the arrow and glyph scaled proportionally instead of using fixed pixel sizes.",
-      "Both glyphs now have a subtle drop shadow for contrast against the arrow, matching the layered look used elsewhere in the HUD."
-    ]
-  },
-  {
-    createdAt: 1784678760000, // 2026.07.22.6
-    introducedIn: "2026.07.22.6",
-    title: "Season-victory hold alert",
-    why: "Once a player met a victory threshold, the 24-hour hold countdown was only visible as a small text line inside the Leaderboard tab's pressure cards — easy to miss, and nothing told you a win was imminent unless you happened to open that tab.",
-    changes: [
-      "A dismissible alert card now appears the moment any player's season-victory objective starts its 24-hour hold, naming the leader, the objective, and the countdown.",
-      'After dismissing it, a slim persistent banner keeps showing "Player winning in Xh Ym — Objective" until the hold resolves or is broken, on both desktop and mobile.',
-      "The Leaderboard tab (desktop icon and mobile bottom-nav button) now pulses with a badge while the alert hasn't been acknowledged yet.",
-      'The Leaderboard pressure cards also now show a "Winning in Xh Ym unless stopped" line for any objective currently holding its threshold.'
-    ]
-  },
-  {
-    createdAt: 1784678700000, // 2026.07.22.5
-    introducedIn: "2026.07.22.5",
-    title: "Fixed: Economic Ascendancy card showed a stale gold/minute figure",
-    why: 'The leaderboard\'s "Overall" income column refreshed every tick, but the Economic Ascendancy victory-pressure card only refreshed every ~5 minutes, so the two could show different gold/minute numbers for the same empire until the next slow recompute caught up.',
-    changes: [
-      "The Economic Ascendancy card's leader value and your own gold/minute comparison now refresh every leaderboard tick, always matching the Overall column."
-    ]
-  },
-  {
-    createdAt: 1784678640000, // 2026.07.22.4
-    introducedIn: "2026.07.22.4",
-    title: "Empire Integrity warning now shows at most once every 30 days",
-    why: "Dismissing the low Empire Integrity callout only lasted until integrity recovered above 90% and dropped again, or until the page reloaded — so if integrity stayed below 90% across sessions, the callout reappeared on every login even after you'd already acknowledged it.",
-    changes: [
-      'Dismissing the Empire Integrity warning (via × or "I understand") now persists locally for 30 days, so it won\'t reappear on future logins during that window unless integrity first recovers above 90% and drops again.'
-    ]
-  },
-  {
-    createdAt: 1784678580000, // 2026.07.22.3
-    introducedIn: "2026.07.22.3",
-    title: "Light Outposts now show their attack-aura range when selected",
-    why: "Selecting a Siege Outpost on the 3D map drew a highlighted range ring showing the tiles it boosts, but selecting a Light Outpost drew nothing — even though Light Outposts grant the same kind of attack-aura bonus within the same 5-tile range.",
-    changes: [
-      "Selecting an active, owned Light Outpost now shows the same range ring as Siege Outposts, Siege Towers, and Dread Towers."
-    ]
-  },
-  {
-    createdAt: 1784678520000, // 2026.07.22.2
-    introducedIn: "2026.07.22.2",
-    title: "Crossed-swords icon for active muster alerts",
-    why: 'The off-screen locator arrow for an active muster used the same generic "!" glyph as every other alert, making it hard to tell at a glance which off-screen indicator was a muster.',
-    changes: [
-      'The off-screen locator badge for an active muster flag now shows a crossed-swords icon instead of "!"; other alert types are unchanged.'
-    ]
-  },
-  {
-    createdAt: 1784678460000, // 2026.07.22.1
-    introducedIn: "2026.07.22.1",
-    title: "Minimap now shows territory ownership colors",
-    why: "The minimap only ever showed terrain and fog, so at a glance you couldn't tell whose territory was where without opening the full map. Owned tiles are now tinted with each empire's color, same as the main map.",
-    changes: [
-      "Settled and frontier tiles now render with the owning player's color on the minimap (settled tiles slightly more opaque than frontier tiles), respecting fog of war."
     ]
   },
   {
