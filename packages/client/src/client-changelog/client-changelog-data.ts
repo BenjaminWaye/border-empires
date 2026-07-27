@@ -22,32 +22,42 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1784927317000, // 2026.07.24.3 (restored)
-    introducedIn: "2026.07.24.3",
-    title: "Watchtowers are now rarer",
-    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
+    createdAt: 1785130609961, // 2026.07.27.1
+    introducedIn: "2026.07.27.1",
+    title: "Fixed: large-empire logins could still stall for 15+ seconds",
+    why: "The 2026.07.25.1 duplicate-sign-in fix defined guards on both the client and the gateway, but neither was actually wired into the real login path — the client kept sending sign-in through its original unguarded code, and the gateway never checked its guard flag. A duplicate sign-in message (e.g. a flaky mobile connection triggering a reconnect while the first attempt was still finishing) could still run two full, concurrent login pipelines against the same connection, doubling snapshot-build work and sometimes leaving the connection stuck on the loading screen indefinitely.",
     changes: [
-      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
+      "The client's duplicate-sign-in guard is now actually used on every sign-in attempt, including the very first one after opening Google sign-in.",
+      "The gateway now also drops a duplicate sign-in message on the same connection instead of processing it a second time in parallel.",
+      "Fixed a related gateway bug where a player's connection was permanently treated as \"already has data cached\" after their first login, even after a disconnect cleared that cache — a flaky connection with repeated drops could end up requesting an empty world snapshot with nothing to fill it back in."
     ]
   },
   {
-    createdAt: 1784923957000, // 2026.07.24.1 (restored)
-    introducedIn: "2026.07.24.1",
-    title: "New structure: Watchtowers",
-    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
+    createdAt: 1785147877000, // 2026.07.27.2
+    introducedIn: "2026.07.27.2",
+    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
+    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
     changes: [
-      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
-      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
-      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
+      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
+      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
     ]
   },
   {
-    createdAt: 1785129932105,
+    createdAt: 1785129932105, // 2026.07.27.1
     introducedIn: "2026.07.27.1",
     title: "Fixed: unexplored-tile waypoints stopped working entirely",
     why: "An unrelated merge on client-action-flow.ts accidentally reverted the unexplored-tile waypoint feature back to its pre-feature state — clicking an unexplored tile went back to silently doing nothing (no menu, no selection) instead of opening the \"Unexplored\" menu with an Expand Here option.",
     changes: [
       "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
+    ]
+  },
+  {
+    createdAt: 1785096000000, // 2026.07.26.1
+    introducedIn: "2026.07.26.1",
+    title: "Fixed seeing darkness after a new season starts",
+    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
+    changes: [
+      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
     ]
   },
   {
@@ -79,6 +89,26 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Duplicate sign-in requests during a single connection are now deduplicated on both the client and the server, so one login no longer triggers two full snapshot builds.",
       "The live subscription no longer re-marshals your entire visible tile set when the bootstrap snapshot already delivered it.",
       "The snapshot builder skips a redundant vision-coverage recompute on fog-of-war logins, cutting seconds off large-empire snapshot builds."
+    ]
+  },
+  {
+    createdAt: 1784927317000, // 2026.07.24.3 (restored)
+    introducedIn: "2026.07.24.3",
+    title: "Watchtowers are now rarer",
+    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
+    changes: [
+      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
+    ]
+  },
+  {
+    createdAt: 1784923957000, // 2026.07.24.1 (restored)
+    introducedIn: "2026.07.24.1",
+    title: "New structure: Watchtowers",
+    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
+    changes: [
+      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
+      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
+      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
     ]
   },
   {
@@ -167,25 +197,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The minimap only ever showed terrain and fog, so at a glance you couldn't tell whose territory was where without opening the full map. Owned tiles are now tinted with each empire's color, same as the main map.",
     changes: [
       "Settled and frontier tiles now render with the owning player's color on the minimap (settled tiles slightly more opaque than frontier tiles), respecting fog of war."
-    ]
-  },
-  {
-    createdAt: 1785096000000, // 2026.07.26.1
-    introducedIn: "2026.07.26.1",
-    title: "Fixed seeing darkness after a new season starts",
-    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
-    changes: [
-      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
-    ]
-  },
-  {
-    createdAt: 1785147877000, // 2026.07.27.2
-    introducedIn: "2026.07.27.2",
-    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
-    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
-    changes: [
-      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
-      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

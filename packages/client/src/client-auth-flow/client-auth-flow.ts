@@ -31,9 +31,9 @@ import {
   MISSING_INITIAL_STATE_MESSAGE
 } from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
-import { rallyCodeFromLocation } from "../client-rally-links/client-rally-links.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { createSocketAuthenticator } from "./client-authenticate-socket.js";
 
 export type AuthSession = {
   token: string;
@@ -64,6 +64,7 @@ type ClientAuthFlow = {
   authLabelForUser: (user: User) => string;
   seedProfileSetupFields: (name?: string, color?: string) => void;
   authenticateSocket: (forceRefresh?: boolean) => Promise<void>;
+  clearAuthInFlight: () => void;
   bindAuthUi: () => void;
   bindFirebaseAuth: () => void;
 };
@@ -188,13 +189,13 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       color
     );
 
-  const authenticateSocket = async (forceRefresh = false): Promise<void> => {
-    if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
-    authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
-    authSession.uid = firebaseAuth.currentUser.uid;
-    const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
-    ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
-  };
+  // Guards against a duplicate AUTH send on the same socket (e.g. the
+  // reconnect scheduler's retry racing the onAuthStateChanged handler below,
+  // or Firebase firing onAuthStateChanged more than once for the same sign-in).
+  // clearAuthInFlight must be called by the caller (client-network.ts) on
+  // INIT/ERROR/close/error so a rejected or dropped login doesn't get stuck
+  // unable to retry.
+  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession);
 
   const setAuthBusy = (busy: boolean): void => {
     state.authBusy = busy;
@@ -434,14 +435,15 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
-          authSession.token = await user.getIdToken();
-          authSession.uid = user.uid;
           state.authBusyTitle = "Connecting your empire...";
           state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
           setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
           if (ws.readyState === ws.OPEN) {
-            const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
-            ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
+            // Routed through the guarded authenticateSocket (not a direct
+            // ws.send here) so this can never race a concurrent AUTH send
+            // from the reconnect scheduler or a second onAuthStateChanged
+            // firing for the same sign-in.
+            await authenticateSocket();
           } else {
             setAuthBusy(true);
             state.authBusyTitle = "Securing session";
@@ -493,6 +495,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     authLabelForUser,
     seedProfileSetupFields,
     authenticateSocket,
+    clearAuthInFlight,
     bindAuthUi,
     bindFirebaseAuth
   };
