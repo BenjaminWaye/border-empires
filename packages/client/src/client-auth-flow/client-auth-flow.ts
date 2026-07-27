@@ -374,6 +374,14 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
 
   const bindFirebaseAuth = (): void => {
     state.authConfigured = Boolean(firebaseAuth);
+    if (firebaseAuth) {
+      // Cover the raw login panel with the spinner until the async
+      // onAuthStateChanged check below confirms there's no persisted user —
+      // otherwise every boot flashes "Sign in" before settling.
+      setAuthBusy(true);
+      state.authBusyTitle = "Securing session";
+      state.authBusyDetail = "Checking your saved session...";
+    }
     syncAuthOverlay();
 
     if (firebaseAuth) {

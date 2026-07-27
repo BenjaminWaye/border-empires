@@ -44,6 +44,12 @@ export type RuntimeLockResolutionContext = {
   respawnIfEliminated: (playerId: string, commandId: string) => void;
   ensureGrossIncomeSettlementForPlayer: (playerId: string, commandId: string) => boolean;
   applyBreachToNeighbors?: ((capturedTile: DomainTileState, attackerId: string) => DomainTileState[]) | undefined;
+  // Activates a dormant watchtower (see server-worldgen-watchtowers.ts / the
+  // Tile.watchtower feature) the first time a player expands onto its tile:
+  // grants that player a one-time 10-second vision pulse over the
+  // surrounding area, then reverts to normal fog-of-war. No-op if the tile
+  // has no watchtower or it was already activated.
+  maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -145,6 +151,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
+      ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedStructureFields(previousTarget, lock.playerId),
       ownerId: lock.playerId,
@@ -160,6 +167,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
+    if (lock.actionType === "EXPAND") {
+      context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+    }
 
     let tileDeltas: SimulationTileWireDelta[];
     // Only human captors get the vision-radius capture-reveal square; AI-
@@ -278,6 +288,7 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
         ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
         ...(defenderTile.town ? { town: defenderTile.town } : {}),
         ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
+        ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
         ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
       };
       context.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
