@@ -268,7 +268,7 @@ const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   gold: tier.gold,
   iron: tier.iron,
   defenseMult: tier.defenseMult,
-  summary: `${tier.gold} gold + ${tier.manpower} manpower + ${tier.iron} IRON`,
+  summary: [...(tier.gold > 0 ? [`${tier.gold} gold`] : []), `${tier.manpower} manpower`, `${tier.iron} IRON`].join(" + "),
 });
 
 const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
@@ -293,9 +293,12 @@ const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
   supply: tier.supply,
   iron: tier.iron,
   attackMult: tier.attackMult,
-  summary: tier.iron > 0
-    ? `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY + ${tier.iron} IRON`
-    : `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY`,
+  summary: [
+    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
+    `${tier.manpower} manpower`,
+    `${tier.supply} SUPPLY`,
+    ...(tier.iron > 0 ? [`${tier.iron} IRON`] : [])
+  ].join(" + "),
 });
 
 const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
@@ -1300,7 +1303,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               imperialExchangePartCount >= 3 &&
               !imperialExchangeBuilt &&
               !tile.siegeOutpost &&
-              !tile.observatory,
+              !tile.observatory &&
+              state.manpower >= structureBuildManpowerCost("IMPERIAL_EXCHANGE") &&
+              (state.strategicResources.SHARD ?? 0) >= 2,
             !state.techIds.includes("urban-markets")
               ? "Requires Imperial Exchange"
               : imperialExchangeBuilt
@@ -1309,8 +1314,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Build 3 Imperial Exchange parts first"
                   : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
-                    : "Unavailable",
-            `Free after 3 parts • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE") / 60000)}m`,
+                    : state.manpower < structureBuildManpowerCost("IMPERIAL_EXCHANGE")
+                      ? `Need ${structureBuildManpowerCost("IMPERIAL_EXCHANGE")} manpower`
+                      : "Need 2 SHARD",
+            `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE") / 60000)}m • build 3 parts first`,
             slots,
             deps
           )
@@ -1326,7 +1333,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               worldEnginePartCount >= 3 &&
               !worldEngineBuilt &&
               !tile.siegeOutpost &&
-              !tile.observatory,
+              !tile.observatory &&
+              state.manpower >= structureBuildManpowerCost("WORLD_ENGINE") &&
+              (state.strategicResources.SHARD ?? 0) >= 2,
             !state.techIds.includes("world-engine")
               ? "Requires Worldbreaker Cannon"
                 : worldEngineBuilt
@@ -1335,8 +1344,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Build 3 Worldbreaker Cannon parts first"
                   : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
-                    : "Unavailable",
-            `Free after 3 parts • ${Math.round(economicStructureBuildMs("WORLD_ENGINE") / 60000)}m`,
+                    : state.manpower < structureBuildManpowerCost("WORLD_ENGINE")
+                      ? `Need ${structureBuildManpowerCost("WORLD_ENGINE")} manpower`
+                      : "Need 2 SHARD",
+            `${deps.structureCostText("WORLD_ENGINE")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE") / 60000)}m • build 3 parts first`,
             slots,
             deps
           )
@@ -1352,7 +1363,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               aegisDomePartCount >= 3 &&
               !aegisDomeBuilt &&
               !tile.siegeOutpost &&
-              !tile.observatory,
+              !tile.observatory &&
+              state.manpower >= structureBuildManpowerCost("AEGIS_DOME") &&
+              (state.strategicResources.SHARD ?? 0) >= 2,
             !state.techIds.includes("aegis-dome")
               ? "Requires Aegis Dome"
               : aegisDomeBuilt
@@ -1361,8 +1374,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Build 3 Aegis Dome parts first"
                   : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
-                    : "Unavailable",
-            `Free after 3 parts • ${Math.round(economicStructureBuildMs("AEGIS_DOME") / 60000)}m`,
+                    : state.manpower < structureBuildManpowerCost("AEGIS_DOME")
+                      ? `Need ${structureBuildManpowerCost("AEGIS_DOME")} manpower`
+                      : "Need 2 SHARD",
+            `${deps.structureCostText("AEGIS_DOME")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME") / 60000)}m • build 3 parts first`,
             slots,
             deps
           )
@@ -1378,7 +1393,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               astralDockPartCount >= 3 &&
               !astralDockBuilt &&
               !tile.siegeOutpost &&
-              !tile.observatory,
+              !tile.observatory &&
+              state.manpower >= structureBuildManpowerCost("ASTRAL_DOCK") &&
+              (state.strategicResources.SHARD ?? 0) >= 2,
             !state.techIds.includes("astral-dock")
               ? "Requires Astral Dock"
               : astralDockBuilt
@@ -1387,8 +1404,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Build 3 Astral Dock parts first"
                   : tile.siegeOutpost || tile.observatory
                     ? "Tile already has structure"
-                    : "Unavailable",
-            `Free after 3 parts • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m`,
+                    : state.manpower < structureBuildManpowerCost("ASTRAL_DOCK")
+                      ? `Need ${structureBuildManpowerCost("ASTRAL_DOCK")} manpower`
+                      : "Need 2 SHARD",
+            `${deps.structureCostText("ASTRAL_DOCK")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m • build 3 parts first`,
             slots,
             deps
           )
@@ -1552,15 +1571,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure &&
               state.techIds.includes("agriculture") &&
-              state.gold >= 700 &&
+              state.gold >= deps.structureGoldCost("FARMSTEAD") &&
               state.manpower >= structureBuildManpowerCost("FARMSTEAD") &&
               (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("agriculture")
                 ? "Requires Agriculture"
-                : state.gold < 700
-                  ? "Need 700 gold"
+                : state.gold < deps.structureGoldCost("FARMSTEAD")
+                  ? `Need ${deps.structureGoldCost("FARMSTEAD")} gold`
                   : state.manpower < structureBuildManpowerCost("FARMSTEAD")
                     ? `Need ${structureBuildManpowerCost("FARMSTEAD")} manpower`
                     : "Need 20 FOOD",
@@ -1581,15 +1600,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure &&
               state.techIds.includes("leatherworking") &&
-              state.gold >= 800 &&
+              state.gold >= deps.structureGoldCost("CAMP") &&
               state.manpower >= structureBuildManpowerCost("CAMP") &&
               (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
                 ? "Requires Leatherworking"
-                : state.gold < 800
-                  ? "Need 800 gold"
+                : state.gold < deps.structureGoldCost("CAMP")
+                  ? `Need ${deps.structureGoldCost("CAMP")} gold`
                   : state.manpower < structureBuildManpowerCost("CAMP")
                     ? `Need ${structureBuildManpowerCost("CAMP")} manpower`
                     : "Need 30 SUPPLY",
@@ -1608,15 +1627,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure &&
               state.techIds.includes("mining") &&
-              state.gold >= 800 &&
+              state.gold >= deps.structureGoldCost("MINE") &&
               state.manpower >= structureBuildManpowerCost("MINE") &&
               (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("mining")
                 ? "Requires Mining"
-                : state.gold < 800
-                  ? "Need 800 gold"
+                : state.gold < deps.structureGoldCost("MINE")
+                  ? `Need ${deps.structureGoldCost("MINE")} gold`
                   : state.manpower < structureBuildManpowerCost("MINE")
                     ? `Need ${structureBuildManpowerCost("MINE")} manpower`
                     : `Need 30 ${matchingNeed}`,
@@ -1675,7 +1694,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasGranary &&
               state.techIds.includes("pottery") &&
-              state.gold >= 700 &&
+              state.gold >= deps.structureGoldCost("GRANARY") &&
               state.manpower >= structureBuildManpowerCost("GRANARY") &&
               (state.strategicResources.FOOD ?? 0) >= 40,
             supportPlacementBlocked
@@ -1684,8 +1703,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
                   ? "Requires Pottery"
-                  : state.gold < 700
-                    ? "Need 700 gold"
+                  : state.gold < deps.structureGoldCost("GRANARY")
+                    ? `Need ${deps.structureGoldCost("GRANARY")} gold`
                     : state.manpower < structureBuildManpowerCost("GRANARY")
                       ? `Need ${structureBuildManpowerCost("GRANARY")} manpower`
                       : "Need 40 FOOD",
@@ -1702,7 +1721,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasCensusHall &&
               state.techIds.includes("census-records") &&
-              state.gold >= 900 &&
+              state.gold >= deps.structureGoldCost("CENSUS_HALL") &&
               state.manpower >= structureBuildManpowerCost("CENSUS_HALL") &&
               (state.strategicResources.FOOD ?? 0) >= 30,
             supportPlacementBlocked
@@ -1711,8 +1730,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Census Hall"
                 : !state.techIds.includes("census-records")
                   ? "Requires Census Records"
-                  : state.gold < 900
-                    ? "Need 900 gold"
+                  : state.gold < deps.structureGoldCost("CENSUS_HALL")
+                    ? `Need ${deps.structureGoldCost("CENSUS_HALL")} gold`
                     : state.manpower < structureBuildManpowerCost("CENSUS_HALL")
                       ? `Need ${structureBuildManpowerCost("CENSUS_HALL")} manpower`
                       : "Need 30 FOOD",
@@ -1729,7 +1748,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasBank &&
               state.techIds.includes("coinage") &&
-              state.gold >= 3200 &&
+              state.gold >= deps.structureGoldCost("BANK") &&
               state.manpower >= structureBuildManpowerCost("BANK"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1737,8 +1756,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
-                  : state.gold < 3200
-                    ? "Need 3200 gold"
+                  : state.gold < deps.structureGoldCost("BANK")
+                    ? `Need ${deps.structureGoldCost("BANK")} gold`
                     : `Need ${structureBuildManpowerCost("BANK")} manpower`,
             `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income • 0.1 food/min`,
             slots,
@@ -1753,7 +1772,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasClearingHouse &&
               state.techIds.includes("banking") &&
-              state.gold >= 3000 &&
+              state.gold >= deps.structureGoldCost("CLEARING_HOUSE") &&
               state.manpower >= structureBuildManpowerCost("CLEARING_HOUSE") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 80,
             supportPlacementBlocked
@@ -1762,8 +1781,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Clearing House"
                 : !state.techIds.includes("banking")
                   ? "Requires Banking"
-                  : state.gold < 3000
-                    ? "Need 3000 gold"
+                  : state.gold < deps.structureGoldCost("CLEARING_HOUSE")
+                    ? `Need ${deps.structureGoldCost("CLEARING_HOUSE")} gold`
                     : state.manpower < structureBuildManpowerCost("CLEARING_HOUSE")
                       ? `Need ${structureBuildManpowerCost("CLEARING_HOUSE")} manpower`
                       : "Need 80 CRYSTAL",
@@ -1804,7 +1823,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasFurSynth &&
               state.techIds.includes("workshops") &&
-              state.gold >= 2200 &&
+              state.gold >= deps.structureGoldCost("FUR_SYNTHESIZER") &&
               state.manpower >= structureBuildManpowerCost("FUR_SYNTHESIZER"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1812,8 +1831,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Fur Synthesizer"
                 : !state.techIds.includes("workshops")
                   ? "Requires Workshops"
-                  : state.gold < 2200
-                    ? "Need 2200 gold"
+                  : state.gold < deps.structureGoldCost("FUR_SYNTHESIZER")
+                    ? `Need ${deps.structureGoldCost("FUR_SYNTHESIZER")} gold`
                     : `Need ${structureBuildManpowerCost("FUR_SYNTHESIZER")} manpower`,
             `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 6 gold/min`,
             slots,
@@ -1828,7 +1847,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasIronworks &&
               state.techIds.includes("alchemy") &&
-              state.gold >= 2400 &&
+              state.gold >= deps.structureGoldCost("IRONWORKS") &&
               state.manpower >= structureBuildManpowerCost("IRONWORKS"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1836,8 +1855,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Ironworks"
                 : !state.techIds.includes("alchemy")
                   ? "Requires Alchemy"
-                  : state.gold < 2400
-                    ? "Need 2400 gold"
+                  : state.gold < deps.structureGoldCost("IRONWORKS")
+                    ? `Need ${deps.structureGoldCost("IRONWORKS")} gold`
                     : `Need ${structureBuildManpowerCost("IRONWORKS")} manpower`,
             `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 6 gold/min`,
             slots,
@@ -1852,7 +1871,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasCrystalSynth &&
               state.techIds.includes("crystal-lattices") &&
-              state.gold >= 2800 &&
+              state.gold >= deps.structureGoldCost("CRYSTAL_SYNTHESIZER") &&
               state.manpower >= structureBuildManpowerCost("CRYSTAL_SYNTHESIZER"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1860,8 +1879,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Aether Condenser"
                 : !state.techIds.includes("crystal-lattices")
                   ? "Requires Crystal Lattices"
-                  : state.gold < 2800
-                    ? "Need 2800 gold"
+                  : state.gold < deps.structureGoldCost("CRYSTAL_SYNTHESIZER")
+                    ? `Need ${deps.structureGoldCost("CRYSTAL_SYNTHESIZER")} gold`
                     : `Need ${structureBuildManpowerCost("CRYSTAL_SYNTHESIZER")} manpower`,
             `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 8 gold/min`,
             slots,
@@ -1876,7 +1895,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasExchangeHouse &&
               state.techIds.includes("imperial-roads") &&
-              state.gold >= 5000 &&
+              state.gold >= deps.structureGoldCost("EXCHANGE_HOUSE") &&
               state.manpower >= structureBuildManpowerCost("EXCHANGE_HOUSE") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 120,
             supportPlacementBlocked
@@ -1885,8 +1904,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Exchange House"
                 : !state.techIds.includes("imperial-roads")
                   ? "Requires Monument Cities"
-                  : state.gold < 5000
-                    ? "Need 5000 gold"
+                  : state.gold < deps.structureGoldCost("EXCHANGE_HOUSE")
+                    ? `Need ${deps.structureGoldCost("EXCHANGE_HOUSE")} gold`
                     : state.manpower < structureBuildManpowerCost("EXCHANGE_HOUSE")
                       ? `Need ${structureBuildManpowerCost("EXCHANGE_HOUSE")} manpower`
                       : "Need 120 CRYSTAL",
@@ -1903,7 +1922,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked &&
               !townHasRailDepot &&
               state.techIds.includes("global-trade-networks") &&
-              state.gold >= 4000 &&
+              state.gold >= deps.structureGoldCost("RAIL_DEPOT") &&
               state.manpower >= structureBuildManpowerCost("RAIL_DEPOT") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 100,
             supportPlacementBlocked
@@ -1912,8 +1931,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Rail Depot"
                 : !state.techIds.includes("global-trade-networks")
                   ? "Requires Rail Networks"
-                  : state.gold < 4000
-                    ? "Need 4000 gold"
+                  : state.gold < deps.structureGoldCost("RAIL_DEPOT")
+                    ? `Need ${deps.structureGoldCost("RAIL_DEPOT")} gold`
                     : state.manpower < structureBuildManpowerCost("RAIL_DEPOT")
                       ? `Need ${structureBuildManpowerCost("RAIL_DEPOT")} manpower`
                       : "Need 100 CRYSTAL",
@@ -1934,7 +1953,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("urban-markets") &&
-              state.gold >= 8000 &&
+              state.gold >= deps.structureGoldCost("IMPERIAL_EXCHANGE_PART") &&
               state.manpower >= structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 180,
             supportPlacementBlocked
@@ -1945,8 +1964,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("urban-markets")
                     ? "Requires Imperial Exchange"
-                    : state.gold < 8000
-                      ? "Need 8000 gold"
+                    : state.gold < deps.structureGoldCost("IMPERIAL_EXCHANGE_PART")
+                      ? `Need ${deps.structureGoldCost("IMPERIAL_EXCHANGE_PART")} gold`
                       : state.manpower < structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART")
                         ? `Need ${structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART")} manpower`
                         : "Need 180 CRYSTAL",
@@ -1967,7 +1986,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("world-engine") &&
-              state.gold >= 8000 &&
+              state.gold >= deps.structureGoldCost("WORLD_ENGINE_PART") &&
               state.manpower >= structureBuildManpowerCost("WORLD_ENGINE_PART") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 180,
             supportPlacementBlocked
@@ -1978,8 +1997,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("world-engine")
                     ? "Requires Worldbreaker Cannon"
-                    : state.gold < 8000
-                      ? "Need 8000 gold"
+                    : state.gold < deps.structureGoldCost("WORLD_ENGINE_PART")
+                      ? `Need ${deps.structureGoldCost("WORLD_ENGINE_PART")} gold`
                       : state.manpower < structureBuildManpowerCost("WORLD_ENGINE_PART")
                         ? `Need ${structureBuildManpowerCost("WORLD_ENGINE_PART")} manpower`
                         : "Need 180 CRYSTAL",
@@ -2000,7 +2019,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("aegis-dome") &&
-              state.gold >= 8000 &&
+              state.gold >= deps.structureGoldCost("AEGIS_DOME_PART") &&
               state.manpower >= structureBuildManpowerCost("AEGIS_DOME_PART") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 180,
             supportPlacementBlocked
@@ -2011,8 +2030,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("aegis-dome")
                     ? "Requires Aegis Dome"
-                    : state.gold < 8000
-                      ? "Need 8000 gold"
+                    : state.gold < deps.structureGoldCost("AEGIS_DOME_PART")
+                      ? `Need ${deps.structureGoldCost("AEGIS_DOME_PART")} gold`
                       : state.manpower < structureBuildManpowerCost("AEGIS_DOME_PART")
                         ? `Need ${structureBuildManpowerCost("AEGIS_DOME_PART")} manpower`
                         : "Need 180 CRYSTAL",
@@ -2033,7 +2052,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("astral-dock") &&
-              state.gold >= 8000 &&
+              state.gold >= deps.structureGoldCost("ASTRAL_DOCK_PART") &&
               state.manpower >= structureBuildManpowerCost("ASTRAL_DOCK_PART") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 180,
             supportPlacementBlocked
@@ -2044,8 +2063,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("astral-dock")
                     ? "Requires Astral Dock"
-                    : state.gold < 8000
-                      ? "Need 8000 gold"
+                    : state.gold < deps.structureGoldCost("ASTRAL_DOCK_PART")
+                      ? `Need ${deps.structureGoldCost("ASTRAL_DOCK_PART")} gold`
                       : state.manpower < structureBuildManpowerCost("ASTRAL_DOCK_PART")
                         ? `Need ${structureBuildManpowerCost("ASTRAL_DOCK_PART")} manpower`
                         : "Need 180 CRYSTAL",
@@ -2063,15 +2082,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure &&
               state.techIds.includes("harborcraft") &&
-              state.gold >= 1800 &&
+              state.gold >= deps.structureGoldCost("CUSTOMS_HOUSE") &&
               state.manpower >= structureBuildManpowerCost("CUSTOMS_HOUSE") &&
               (state.strategicResources.CRYSTAL ?? 0) >= 60,
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("harborcraft")
                 ? "Requires Aether Moorings"
-                : state.gold < 1800
-                  ? "Need 1800 gold"
+                : state.gold < deps.structureGoldCost("CUSTOMS_HOUSE")
+                  ? `Need ${deps.structureGoldCost("CUSTOMS_HOUSE")} gold`
                   : state.manpower < structureBuildManpowerCost("CUSTOMS_HOUSE")
                     ? `Need ${structureBuildManpowerCost("CUSTOMS_HOUSE")} manpower`
                     : "Need 60 CRYSTAL",

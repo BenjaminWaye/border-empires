@@ -102,10 +102,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Monumental City.";
-  if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange for free after finishing three parts.";
-  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon for free after finishing three parts.";
-  if (actionId === "build_aegis_dome") return "Place the final Aegis Dome for free after finishing three parts.";
-  if (actionId === "build_astral_dock") return "Place the final Astral Dock for free after finishing three parts.";
+  if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange after finishing three parts.";
+  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon after finishing three parts.";
+  if (actionId === "build_aegis_dome") return "Place the final Aegis Dome after finishing three parts.";
+  if (actionId === "build_astral_dock") return "Place the final Astral Dock after finishing three parts.";
   if (actionId === "imperial_exchange_levy_food") return "Seize every rival empire's stored FOOD at once.";
   if (actionId === "imperial_exchange_levy_iron") return "Seize every rival empire's stored IRON at once.";
   if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
