@@ -2194,6 +2194,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
+            // Bulk: identity + attachSocket suffices; skip heavy pipeline.
+            if (channel === "bulk") { loginTracer.done({ outcome: "auth_resolved", channel: "non_control" }); authTrace.complete("auth_resolved", "non_control_channel"); return; }
             if (bootstrapInitialState) {
               seedBootstrapSnapshotWithDiagnostics(
                 { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
@@ -2294,109 +2296,104 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.startStep("hydrate_leaderboard_profiles");
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
-              if (session.channel === "control") {
-                // Refresh only tiles (the field that goes stale during a slow bootstrap_subscribe,
-                // causing EXPAND_TARGET_OWNED) from the live subscribe cache -- it never sets
-                // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
-                const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
-                if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
-                authTrace.startStep("build_init");
-                const buildInitMessageStartedAt = Date.now();
-                const initMessage = await buildInitMessage(
-                  playerIdentity,
-                  commandStore,
-                  initialState,
-                  simulationSeedProfile,
-                  legacySnapshotBootstrap,
-                  profileOverrides,
-                  socialState,
-                  session.canToggleFog
-                );
-                recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
-                  playerId: playerIdentity.playerId,
-                  channel,
-                  tileCount: initMessage.initialState?.tiles?.length ?? 0
-                });
-                session.nextClientSeq = initMessage.recovery.nextClientSeq;
-                // Phase 7: include suggested colour swatches in the init payload
-                const buildTakenColorSetStartedAt = Date.now();
-                const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
-                recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
-                  playerId: playerIdentity.playerId,
-                  channel
-                });
-                (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
-                const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
-                authTrace.endStep("build_init");
-                // Stringify the ~256KB init message off the main thread so the
-                // event loop stays free for gRPC acks and healthz during bootstrap.
-                loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
-                authTrace.startStep("stringify_init");
-                let initJson: string;
-                if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
-                  initJson = JSON.stringify(initMessage);
-                } else {
-                  try {
-                    initJson = await gatewayBootstrapStringifier(initMessage);
-                  } catch (err) {
-                    // Worker OOM/crash — respawn is automatic; fall back to inline once.
-                    app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
-                    initJson = JSON.stringify(initMessage);
-                  }
-                }
-                authTrace.endStep("stringify_init");
-                loginTracer.stage("stringify_init_end", { initJsonBytes: initJson.length });
-                if (socket.readyState !== socket.OPEN) {
-                  // Socket closed while we were stringifying — discard silently.
-                  authTrace.complete("rejected", "socket_closed_before_init");
-                  return;
-                }
-                // initSent must be set only after the init leaves the socket so
-                // that payloads arriving during the stringify await stay queued in
-                // pendingPayloads rather than racing ahead of the init message.
-                loginTracer.stage("send_init_start", { initJsonBytes: initJson.length });
-                session.initSent = true;
-                recordGatewayEvent(
-                  initInitialTileCount ? "info" : "warn",
-                  "gateway_init_sent",
-                  {
-                    playerId: playerIdentity.playerId,
-                    channel,
-                    initialTileCount: initInitialTileCount,
-                    initJsonBytes: initJson.length,
-                    playerPayloadPresent: Boolean(initMessage.player),
-                    seasonId: initMessage.runtimeIdentity.seasonId,
-                    runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
-                    snapshotLabel: initMessage.runtimeIdentity.snapshotLabel ?? "",
-                    simulationConnected: simulationHealth.connected,
-                    simulationLastError: simulationHealth.lastError ?? ""
-                  }
-                );
-                const sendInitStartedAt = Date.now();
-                socket.send(initJson);
-                recordGatewayAuthStepTiming("send_init", Date.now() - sendInitStartedAt, {
-                  playerId: playerIdentity.playerId,
-                  channel,
-                  initJsonBytes: initJson.length,
-                  initialTileCount: initInitialTileCount
-                });
-                const flushPendingStartedAt = Date.now();
-                for (const payload of session.pendingPayloads) {
-                  sendJson(socket, payload);
-                  recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
-                }
-                recordGatewayAuthStepTiming("flush_pending_payloads", Date.now() - flushPendingStartedAt, {
-                  playerId: playerIdentity.playerId,
-                  channel,
-                  pendingPayloadCount: session.pendingPayloads.length
-                });
-                session.pendingPayloads = [];
-                loginTracer.done({ outcome: "init_sent" });
-                authTrace.complete("init_sent");
+              // Refresh only tiles (the field that goes stale during a slow bootstrap_subscribe,
+              // causing EXPAND_TARGET_OWNED) from the live subscribe cache -- it never sets
+              // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
+              const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
+              if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
+              authTrace.startStep("build_init");
+              const buildInitMessageStartedAt = Date.now();
+              const initMessage = await buildInitMessage(
+                playerIdentity,
+                commandStore,
+                initialState,
+                simulationSeedProfile,
+                legacySnapshotBootstrap,
+                profileOverrides,
+                socialState,
+                session.canToggleFog
+              );
+              recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: initMessage.initialState?.tiles?.length ?? 0
+              });
+              session.nextClientSeq = initMessage.recovery.nextClientSeq;
+              // Phase 7: include suggested colour swatches in the init payload
+              const buildTakenColorSetStartedAt = Date.now();
+              const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
+              recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel
+              });
+              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
+              authTrace.endStep("build_init");
+              // Stringify the ~256KB init message off the main thread so the
+              // event loop stays free for gRPC acks and healthz during bootstrap.
+              loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
+              authTrace.startStep("stringify_init");
+              let initJson: string;
+              if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
+                initJson = JSON.stringify(initMessage);
               } else {
-                loginTracer.done({ outcome: "init_sent", channel: "non_control" });
-                authTrace.complete("init_sent", "non_control_channel");
+                try {
+                  initJson = await gatewayBootstrapStringifier(initMessage);
+                } catch (err) {
+                  // Worker OOM/crash — respawn is automatic; fall back to inline once.
+                  app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+                  initJson = JSON.stringify(initMessage);
+                }
               }
+              authTrace.endStep("stringify_init");
+              loginTracer.stage("stringify_init_end", { initJsonBytes: initJson.length });
+              if (socket.readyState !== socket.OPEN) {
+                // Socket closed while we were stringifying — discard silently.
+                authTrace.complete("rejected", "socket_closed_before_init");
+                return;
+              }
+              // initSent must be set only after the init leaves the socket so
+              // that payloads arriving during the stringify await stay queued in
+              // pendingPayloads rather than racing ahead of the init message.
+              loginTracer.stage("send_init_start", { initJsonBytes: initJson.length });
+              session.initSent = true;
+              recordGatewayEvent(
+                initInitialTileCount ? "info" : "warn",
+                "gateway_init_sent",
+                {
+                  playerId: playerIdentity.playerId,
+                  channel,
+                  initialTileCount: initInitialTileCount,
+                  initJsonBytes: initJson.length,
+                  playerPayloadPresent: Boolean(initMessage.player),
+                  seasonId: initMessage.runtimeIdentity.seasonId,
+                  runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
+                  snapshotLabel: initMessage.runtimeIdentity.snapshotLabel ?? "",
+                  simulationConnected: simulationHealth.connected,
+                  simulationLastError: simulationHealth.lastError ?? ""
+                }
+              );
+              const sendInitStartedAt = Date.now();
+              socket.send(initJson);
+              recordGatewayAuthStepTiming("send_init", Date.now() - sendInitStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                initJsonBytes: initJson.length,
+                initialTileCount: initInitialTileCount
+              });
+              const flushPendingStartedAt = Date.now();
+              for (const payload of session.pendingPayloads) {
+                sendJson(socket, payload);
+                recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
+              }
+              recordGatewayAuthStepTiming("flush_pending_payloads", Date.now() - flushPendingStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                pendingPayloadCount: session.pendingPayloads.length
+              });
+              session.pendingPayloads = [];
+              loginTracer.done({ outcome: "init_sent" });
+              authTrace.complete("init_sent");
             } finally {
               clearInterval(finalizeProgressInterval);
             }
