@@ -13,6 +13,8 @@ export interface RealtimeSocket {
   readonly readyState: number;
   send(data: string): void;
   close(code?: number, reason?: string): void;
+  /** Reopens fresh underlying connection(s) in place; callers should only call this when readyState !== OPEN. */
+  reconnect(): void;
   addEventListener<K extends keyof RealtimeSocketEventMap>(
     type: K,
     listener: (event: RealtimeSocketEventMap[K]) => void

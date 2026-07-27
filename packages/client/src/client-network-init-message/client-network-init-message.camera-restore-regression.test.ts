@@ -125,6 +125,31 @@ describe("INIT camera-restore regression", () => {
     expect(state.camX).toBe(40);
     expect(state.camY).toBe(40);
   });
+
+  it("does not re-snap the camera to the home tile on a second INIT from an in-place reconnect", () => {
+    // In-place reconnect (client-multiplex-websocket.ts reconnect()) can now
+    // deliver a second INIT within the same browser session. Before this
+    // guard (isFirstInitThisSession), cameraRestoredFromStorage is already
+    // consumed to false by the first CHUNK batch (client-network.ts:~980),
+    // so a naive reconnect would find the flag false and snap back to the
+    // home tile, discarding wherever the player had moved the camera.
+    const state = createState();
+    state.cameraRestoredFromStorage = false;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+
+    // Player pans away, then the socket reconnects and a second INIT arrives.
+    state.camX = 900;
+    state.camY = -200;
+    sendInit(ws);
+
+    expect(state.camX).toBe(900);
+    expect(state.camY).toBe(-200);
+  });
 });
 
 // Regression: when a player returns after a season has rolled over, the stored

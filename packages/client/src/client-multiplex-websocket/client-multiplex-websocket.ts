@@ -28,13 +28,18 @@ const isSendableCloseCode = (code: number | undefined): code is number =>
   code === 1000 || (typeof code === "number" && code >= 3000 && code <= 4999);
 
 export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
-  const controlSocket = new WebSocket(channelUrl(baseUrl, "control"));
-  const bulkSocket = new WebSocket(channelUrl(baseUrl, "bulk"));
   const eventTarget = new EventTarget();
   let readyState: number = WebSocket.CONNECTING;
   let syntheticOpenDispatched = false;
   let syntheticClosed = false;
   let latestAuthPayload: string | undefined;
+  // Bumped on every reconnect() so listeners bound to a superseded pair of
+  // sockets (e.g. a belated "close" from the socket reconnect() just tore
+  // down) can tell they're stale and ignore the event instead of corrupting
+  // the new generation's readyState/open-dispatch bookkeeping.
+  let generation = 0;
+  let controlSocket: WebSocket;
+  let bulkSocket: WebSocket;
 
   const maybeDispatchOpen = (): void => {
     if (syntheticOpenDispatched) return;
@@ -70,18 +75,22 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     bulkSocket.send(latestAuthPayload);
   };
 
-  const bindChannelSocket = (socket: WebSocket): void => {
-    socket.addEventListener("open", maybeDispatchOpen);
+  const bindChannelSocket = (socket: WebSocket, socketGeneration: number, isBulk: boolean): void => {
     socket.addEventListener("open", () => {
-      if (socket === bulkSocket) maybeSyncBulkAuth();
+      if (socketGeneration !== generation) return;
+      maybeDispatchOpen();
+      if (isBulk) maybeSyncBulkAuth();
     });
     socket.addEventListener("message", (event) => {
+      if (socketGeneration !== generation) return;
       eventTarget.dispatchEvent(new MessageEvent<string>("message", { data: String(event.data) }));
     });
     socket.addEventListener("error", () => {
+      if (socketGeneration !== generation) return;
       eventTarget.dispatchEvent(new Event("error"));
     });
     socket.addEventListener("close", (event) => {
+      if (socketGeneration !== generation) return;
       if (!syntheticClosed) {
         readyState = WebSocket.CLOSING;
         closeUnderlyingSockets(event.code || undefined, event.reason || undefined);
@@ -90,8 +99,14 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     });
   };
 
-  bindChannelSocket(controlSocket);
-  bindChannelSocket(bulkSocket);
+  const createChannelSocket = (channel: Channel): WebSocket => {
+    const socket = new WebSocket(channelUrl(baseUrl, channel));
+    bindChannelSocket(socket, generation, channel === "bulk");
+    return socket;
+  };
+
+  controlSocket = createChannelSocket("control");
+  bulkSocket = createChannelSocket("bulk");
 
   const sendOnChannel = (channel: Channel, payload: string, allowControlFallback = true): void => {
     const socket = channel === "control" ? controlSocket : bulkSocket;
@@ -126,6 +141,24 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
       if (syntheticClosed) return;
       readyState = WebSocket.CLOSING;
       closeUnderlyingSockets(code, reason);
+    },
+    reconnect() {
+      generation += 1;
+      try {
+        controlSocket.close();
+      } catch {
+        // Already closed/closing — nothing to release.
+      }
+      try {
+        bulkSocket.close();
+      } catch {
+        // Already closed/closing — nothing to release.
+      }
+      syntheticOpenDispatched = false;
+      syntheticClosed = false;
+      readyState = WebSocket.CONNECTING;
+      controlSocket = createChannelSocket("control");
+      bulkSocket = createChannelSocket("bulk");
     },
     addEventListener(type, listener) {
       eventTarget.addEventListener(type, listener as EventListener);

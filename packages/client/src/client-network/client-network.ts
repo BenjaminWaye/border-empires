@@ -31,6 +31,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
+import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -359,7 +360,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     debugTileTimeline(scope, timelineArgs);
   };
 
-  let reconnectReloadTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
@@ -682,13 +682,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.queuedDevelopmentDispatchPending = false;
   };
 
-  const clearReconnectReloadTimer = (): void => {
-    if (reconnectReloadTimer !== undefined) {
-      window.clearTimeout(reconnectReloadTimer);
-      reconnectReloadTimer = undefined;
-    }
-  };
-
   const clearDeferredBootstrapRefreshTimer = (): void => {
     if (deferredBootstrapRefreshTimer !== undefined) {
       window.clearTimeout(deferredBootstrapRefreshTimer);
@@ -711,15 +704,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
-  const scheduleReconnectReload = (): void => {
-    if (!state.hasEverInitialized) return;
-    if (reconnectReloadTimer !== undefined) return;
-    reconnectReloadTimer = window.setTimeout(() => {
-      reconnectReloadTimer = undefined;
-      if (state.connection === "initialized" || state.connection === "connected") return;
-      window.location.reload();
-    }, 4000);
-  };
+  const inPlaceReconnect = createInPlaceReconnectScheduler({ state, ws });
+  const clearReconnectReloadTimer = (): void => inPlaceReconnect.clear();
+  const resetInPlaceReconnectAttempt = (): void => inPlaceReconnect.resetAttempt();
+  const scheduleReconnectReload = (): void => inPlaceReconnect.schedule();
 
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);
@@ -1031,6 +1019,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
+    resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();
     resetAuthReconnectAttempt();
     if (state.authReady && !state.authSessionReady) {
@@ -1911,7 +1900,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update ||
+            "shardSiteJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
