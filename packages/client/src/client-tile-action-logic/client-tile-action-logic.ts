@@ -1173,22 +1173,25 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const hasTech = state.techIds.includes("cartography");
       const observatoryGoldCost = deps.structureGoldCost("OBSERVATORY");
       const hasGold = state.gold >= observatoryGoldCost;
+      const hasManpower = state.manpower >= structureBuildManpowerCost("OBSERVATORY");
       const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= 45;
       out.push({
         id: "build_observatory",
         label: "Build Observatory",
         detail: deps.buildDetailTextForAction("build_observatory", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasCrystal && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+          hasTech && hasGold && hasManpower && hasCrystal && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
           !hasTech
             ? "Requires Cartography"
             : tile.fort || tile.siegeOutpost || tile.economicStructure
               ? "Tile already has structure"
               : !hasGold
                 ? `Need ${observatoryGoldCost} gold`
-                : !hasCrystal
-                  ? "Need 45 CRYSTAL"
-                  : "Unavailable",
+                : !hasManpower
+                  ? `Need ${structureBuildManpowerCost("OBSERVATORY")} manpower`
+                  : !hasCrystal
+                    ? "Need 45 CRYSTAL"
+                    : "Unavailable",
           `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 0.025 crystal/min`,
           slots,
           deps
