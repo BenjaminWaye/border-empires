@@ -1,4 +1,12 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
+const clientSource = (filename: string): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, filename), "utf8");
+};
 
 let drawHillsOverlay: typeof import("../client-map-render-hills-overlay.js").drawHillsOverlay;
 let setTrue3DRendererActive: typeof import("../client-renderer-mode.js").setTrue3DRendererActive;
@@ -79,5 +87,18 @@ describe("3d hills rendering regression guard", () => {
     drawHillsOverlay(mock.ctx, seededHillsTile.x, seededHillsTile.y, 0, 0, 48);
 
     expect(mock.fillCalls).toBe(0);
+  });
+
+  it("ownership overlay material uses depthTest:false to stay visible on top of hill domes", () => {
+    const overlaySource = clientSource("../client-map-3d-ownership-overlay.ts");
+    expect(overlaySource).toContain("depthTest: false,");
+    // depthWrite: false is already set — verify both so neither regresses.
+    expect(overlaySource).toContain("depthWrite: false,");
+  });
+
+  it("surfaceY includes HEIGHTFIELD_HILLS_ELEVATION_BONUS on hill tiles so structures sit above hill domes", () => {
+    const mapSource = clientSource("../client-map-3d/client-map-3d.ts");
+    expect(mapSource).toContain("HEIGHTFIELD_HILLS_ELEVATION_BONUS");
+    expect(mapSource).toContain("isHillsTile(wx, wy) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0");
   });
 });

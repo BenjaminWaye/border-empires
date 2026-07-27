@@ -26,6 +26,7 @@ import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-b
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -337,14 +338,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in
-      // 3D mode so the icon-only summary remains visible when zoomed
-      // out (parallels drawResourceCornerMarker for resource tiles).
+      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
         deps.drawDockMarker(px, py, size);
       }
-      // The 3D dock overlay supersedes the SVG dock icon (and its
-      // fallback placeholder) when the true-3D renderer is mounted.
+      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
       if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
@@ -436,6 +434,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -1008,6 +1008,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
+
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
           const marker = Math.max(4, Math.floor(size * 0.22));
@@ -1311,12 +1313,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const tileEndAt = performance.now();
-    // Sequential sub-phase timer for the rest of the frame: each phaseMs()
-    // call returns elapsed time since the PREVIOUS call (or since tileEndAt
-    // for the first one) and captures it immediately at the measurement
-    // site — unlike hand-pairing named "XEndAt" checkpoints into a
-    // subtraction expression far below, a swapped or mismatched pair here
-    // isn't possible since there's nothing to pair by hand.
+    // Sequential sub-phase timer for the rest of the frame: each phaseMs() call returns elapsed time since the previous call (or tileEndAt for the first), captured immediately — no hand-paired "XEndAt" checkpoints to mismatch.
     let lastPhaseMarkAt = tileEndAt;
     const phaseMs = (): number => {
       const markAt = performance.now();

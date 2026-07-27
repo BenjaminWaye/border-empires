@@ -133,6 +133,7 @@ message TileDelta {
   // ownership_state, terrain) rather than a proto enum.
   string visibility_state = 25;
   uint64 breach_shock_until = 26;
+  optional string watchtower_json = 27;
 }
 
 message DockRoute {
