@@ -1534,6 +1534,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // of their last-witnessed owner -- no roads, structures, units,
           // or FX, since we no longer have live data for any of that. This
           // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
+          const fogIsHill = isHillsTile(wx, wy);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner01Y = heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1542,17 +1543,30 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fx1 = x + 0.5;
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
-          fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+          if (fogIsHill) {
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false);
+          } else {
+            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+          }
           if (terrain === "LAND" && ownerId) {
             const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));
-            fogOwnershipOverlay.addTile(
-              fx0, fogCorner00Y, fz0,
-              fx1, fogCorner10Y, fz0,
-              fx0, fogCorner01Y, fz1,
-              fx1, fogCorner11Y, fz1,
-              fogOwnerColor,
-              ownershipState === "FRONTIER"
-            );
+            if (fogIsHill) {
+              fogOwnershipOverlay.addHillTile(
+                fx0, fx1, fz0, fz1,
+                fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
+                fogOwnerColor,
+                ownershipState === "FRONTIER"
+              );
+            } else {
+              fogOwnershipOverlay.addTile(
+                fx0, fogCorner00Y, fz0,
+                fx1, fogCorner10Y, fz0,
+                fx0, fogCorner01Y, fz1,
+                fx1, fogCorner11Y, fz1,
+                fogOwnerColor,
+                ownershipState === "FRONTIER"
+              );
+            }
           }
           continue;
         }
@@ -1771,6 +1785,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // base elevations of the 4 surrounding tiles, which sat
           // below the rendered surface near coast/explored boundaries
           // and let the overlay sink under the heightfield.
+          // Hills are a separate dome mesh layered on top of the flat
+          // heightfield (see client-map-3d-hills.ts), so cornerYAt alone
+          // never reflects their raised surface. Each tile's quad has
+          // private, unshared corner vertices, so it's safe to bump the
+          // whole quad up to clear the dome peak without creating seams.
           const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1779,14 +1798,25 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const x1 = x + 0.5;
           const z0 = z - 0.5;
           const z1 = z + 0.5;
-          ownershipOverlay.addTile(
-            x0, corner00Y, z0,
-            x1, corner10Y, z0,
-            x0, corner01Y, z1,
-            x1, corner11Y, z1,
-            ownerColor,
-            ownershipState === "FRONTIER"
-          );
+          if (isHillsTile(wx, wy)) {
+            // Drape the overlay over the dome's own curve instead of
+            // bridging it with one flat plane (see addHillTile).
+            ownershipOverlay.addHillTile(
+              x0, x1, z0, z1,
+              corner00Y, corner10Y, corner01Y, corner11Y,
+              ownerColor,
+              ownershipState === "FRONTIER"
+            );
+          } else {
+            ownershipOverlay.addTile(
+              x0, corner00Y, z0,
+              x1, corner10Y, z0,
+              x0, corner01Y, z1,
+              x1, corner11Y, z1,
+              ownerColor,
+              ownershipState === "FRONTIER"
+            );
+          }
           if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
               ...selectedOwnershipDebug,

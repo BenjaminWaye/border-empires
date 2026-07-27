@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785185403697, // 2026.07.27.3
+    introducedIn: "2026.07.27.3",
+    title: "Fixed: territory ownership overlay didn't follow the hill's shape",
+    why: "The 3D hills dome mesh rises above the flat terrain grid, but the ownership overlay (and its fogged-tile variants) drew one flat plane between a tile's 4 corners regardless. On a hill, that plane either sank into the dome or floated as a flat plate poking above/through it, instead of tracing the hill's actual curve.",
+    changes: [
+      "Owned hill tiles now render their ownership tint draped over the hill's real curved surface, matching the terrain exactly instead of a flat plane cutting through it.",
+      "Applies to the normal ownership overlay and both fogged-tile ownership overlays (last-witnessed owner tint on tiles you no longer have vision of)."
+    ]
+  },
+  {
     createdAt: 1785130609961, // 2026.07.27.1
     introducedIn: "2026.07.27.1",
     title: "Fixed: large-empire logins could still stall for 15+ seconds",
