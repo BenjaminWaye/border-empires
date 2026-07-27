@@ -1,6 +1,9 @@
 import { AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { buildAutoFillRevealTileDeltas, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
+import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 
@@ -198,4 +201,64 @@ export const applyAutoFill = (input: {
     recordYieldAnchors?.(settledKeys);
   }
   return settled;
+};
+
+/**
+ * Runtime glue for applyAutoFill: runs the enclosed-region scan for a
+ * just-settled tile, then emits the resulting TILE_DELTA_BATCH (broadcast)
+ * plus a capture-reveal batch scoped to the settling player, if any tiles
+ * were filled. Extracted out of runtime.ts (SimulationRuntime.emitAutoFillForSettlement)
+ * so runtime.ts doesn't grow for this — see AGENTS.md's file-size discipline.
+ */
+export const emitAutoFillForSettlement = (
+  input: {
+    tiles: ReadonlyMap<string, DomainTileState>;
+    replaceTileState: (key: string, tile: DomainTileState) => void;
+    onAutoFillTiles: ((count: number) => void) | undefined;
+    autoFillOriginCooldownUntil: Map<string, number>;
+    now: () => number;
+    emitEvent: (event: SimulationEvent) => void;
+    tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+    combatSupportContext: RuntimeCombatSupportContext;
+    isAiById: (playerId: string) => boolean | undefined;
+    recordTileYieldCollectedAt: (tileKey: string, collectedAt: number) => void;
+  },
+  settledTile: DomainTileState,
+  ownerId: string,
+  tileKey: string
+): void => {
+  const filled = applyAutoFill({
+    capturedTile: settledTile,
+    ownerId,
+    tiles: input.tiles,
+    replaceTileState: input.replaceTileState,
+    onAutoFillTiles: input.onAutoFillTiles,
+    scanCooldown: { now: input.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: input.autoFillOriginCooldownUntil },
+    recordYieldAnchors: (keys) => {
+      const t = input.now();
+      for (const k of keys) input.recordTileYieldCollectedAt(k, t);
+      input.emitEvent({
+        eventType: "TILE_YIELD_ANCHOR_BATCH",
+        commandId: `auto-fill:${ownerId}:${t}`,
+        playerId: ownerId,
+        anchors: keys.map((k) => ({ tileKey: k, collectedAt: t }))
+      });
+    }
+  });
+  if (filled.length === 0) return;
+  input.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `auto-fill:${tileKey}:${input.now()}`,
+    playerId: "__broadcast__",
+    tileDeltas: filled.map((t) => ({ ...input.tileDeltaFromState(t), ownerId: t.ownerId ?? undefined, ownershipState: t.ownershipState ?? undefined }))
+  });
+  const revealDeltas = buildAutoFillRevealTileDeltas(input.combatSupportContext, ownerId, filled, input.isAiById(ownerId));
+  if (revealDeltas.length > 0) {
+    input.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `auto-fill-reveal:${tileKey}:${input.now()}`,
+      playerId: ownerId,
+      tileDeltas: revealDeltas
+    });
+  }
 };

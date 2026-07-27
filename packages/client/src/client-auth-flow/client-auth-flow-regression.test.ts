@@ -9,6 +9,7 @@ const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./client-auth-flow.ts"), "utf8"),
+    readFileSync(resolve(here, "./client-authenticate-socket.ts"), "utf8"),
     readFileSync(resolve(here, "../client-network/client-network.ts"), "utf8"),
     // INIT handling (including the map-reveal-on-sign-in wiring this file
     // asserts on) was extracted out of client-network.ts, which is over the
@@ -22,7 +23,13 @@ describe("client auth flow regression guard", () => {
     const source = clientSource();
 
     expect(source).toContain('state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";');
-    expect(source).toContain("authSession.token = await user.getIdToken();");
+    // Initial bootstrap routes through the guarded authenticateSocket with no
+    // args — createSocketAuthenticator defaults forceRefresh to false, so
+    // this uses the cached token (authenticateSocket(true) is reserved for
+    // the retry-after-failure path checked below). The guard also means this
+    // can never race a duplicate AUTH send from the reconnect scheduler.
+    expect(source).toContain("await authenticateSocket();");
+    expect(source).toContain("authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);");
     expect(source).toContain("void authenticateSocket(true)");
     expect(source).not.toContain("authSession.token = await user.getIdToken(true);");
   });
@@ -202,6 +209,41 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     // repeat the same failure on the next reload.
     expect(removeItem).toHaveBeenCalledWith("be_auth_email_link");
     expect(state.authError).toBeTruthy();
+  });
+
+  it("keeps the busy spinner covering the login panel while checking for a persisted session, instead of flashing the sign-in form", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { onAuthStateChanged } = await import("firebase/auth");
+    vi.mocked(onAuthStateChanged).mockClear();
+
+    const dom = makeDom();
+    const state = makeState();
+    const fakeFirebaseAuth = {} as unknown as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>;
+
+    const authFlow = createClientAuthFlow({
+      state,
+      dom,
+      firebaseAuth: fakeFirebaseAuth,
+      ws: { readyState: 3, OPEN: 1 } as unknown as RealtimeSocket,
+      wsUrl: "wss://border-empires.fly.dev/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false
+    });
+
+    // onAuthStateChanged is async in real Firebase (it reads persisted state
+    // before calling back), so at this point nothing has resolved yet. Before
+    // the fix, authBusy stayed false here and the overlay rendered the bare
+    // "Sign in to your empire" panel until the callback fired, which reads as
+    // a forced relogin — most visibly on the auto-reload that follows a
+    // dropped socket (e.g. the tab was hidden for a few minutes and the
+    // connection died in the background). It must instead default to busy so
+    // the spinner covers the panel until we know whether a session exists.
+    authFlow.bindFirebaseAuth();
+
+    expect(onAuthStateChanged).toHaveBeenCalled();
+    expect(state.authBusy).toBe(true);
+    expect(dom.authOverlayEl.dataset.busy).toBe("true");
   });
 
   it("blocks Google sign-in inside the Facebook Messenger in-app browser instead of letting it fail with a cryptic Firebase error", async () => {

@@ -191,7 +191,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isMobile
   });
 
-  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
+  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;
   [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) => mount({ firebaseAuth, wsUrl }));
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
@@ -492,7 +492,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,

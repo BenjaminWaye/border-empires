@@ -114,6 +114,7 @@ import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, que
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -1094,20 +1095,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
-    const selected = singleTargetKey
-      ? state.tiles.get(singleTargetKey)
-      : state.selected
-        ? state.tiles.get(keyFor(state.selected.x, state.selected.y))
-        : undefined;
+    const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
+    const selected = state.tiles.get(selectedKey);
+    // Waypoint actions need only coordinates, so unexplored targets (absent from state.tiles) still work.
+    const selectedCoords = selected ?? (singleTargetKey ? parseKey(singleTargetKey) : state.selected);
     const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
     const fromBulk = bulkKeys.length > 0;
-    const targets = fromBulk ? bulkKeys : selected ? [keyFor(selected.x, selected.y)] : [];
+    const targets = fromBulk ? bulkKeys : selectedCoords ? [keyFor(selectedCoords.x, selectedCoords.y)] : [];
     if (targets.length === 0) {
       hideTileActionMenu();
       return;
     }
 
-    if (handleWaypointAction({ state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
 
     if (actionId === "settle_connected_frontier" && selected) {
       const origSelected = { x: selected.x, y: selected.y };
@@ -1780,7 +1780,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (vis === "unexplored") {
-      state.selected = undefined;
+      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
     }
