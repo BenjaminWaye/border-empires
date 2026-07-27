@@ -1857,7 +1857,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queueSpecificTargets,
     attackQueueFailureReason,
     dropQueuedTargetKeyIfAbsent,
-    reconcileActionQueue,
+    reconcileActionQueue, processPendingMusterAttacks,
     requestSettlement,
     sendDevelopmentBuild,
     processDevelopmentQueue,

@@ -147,7 +147,7 @@ type StartClientRuntimeLoopDeps = {
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   reconcileActionQueue: () => void;
-  sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+  processPendingMusterAttacks: () => void; sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
 };
 
@@ -1665,15 +1665,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
       deps.renderHud();
     }
-    // Fire whichever muster flags' transit windows have expired. Each flag
-    // arms/marches independently of the others and of the single
-    // actionInFlight slot; fireDueMusterTransits only claims that slot for
-    // the one attack it actually sends this tick.
+    // Fire whichever muster flags' transit windows have expired; each flag arms/marches
+    // independently and only claims actionInFlight for the one attack it actually sends.
     fireDueMusterTransits(state, {
       keyFor: deps.keyFor,
       sendDeferredAttack: deps.sendDeferredAttack,
       requestViewRefresh: deps.requestViewRefresh
     });
+    if (state.pendingMusterAttacks.length > 0) deps.processPendingMusterAttacks(); // queued muster attacks share this heartbeat
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
