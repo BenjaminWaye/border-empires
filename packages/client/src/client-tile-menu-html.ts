@@ -113,8 +113,17 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
+    const queueState = view.progress.queueState;
+    const cardStateClass = queueState && queueState !== "active" ? ` is-${queueState}` : "";
+    const stateBadge =
+      queueState === "planned"
+        ? `<div class="tile-progress-state-badge is-planned">Planned &middot; local only</div>`
+        : queueState === "queued"
+          ? `<div class="tile-progress-state-badge is-queued">Queued &middot; server confirmed</div>`
+          : "";
     return `
-      <div class="tile-progress-card">
+      <div class="tile-progress-card${cardStateClass}">
+        ${stateBadge}
         <div class="tile-progress-title">${view.progress.title}</div>
         <div class="tile-progress-detail">${view.progress.detail}</div>
         <div class="tile-progress-meta">

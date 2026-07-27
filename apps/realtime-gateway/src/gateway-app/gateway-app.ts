@@ -25,6 +25,7 @@ import {
   type EmailAlertOutcome
 } from "../email-alerts/email-alerts.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
+import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
@@ -949,6 +950,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const REVEAL_REQUEST_COOLDOWN_MS = 5_000;
   const activeRevealStreamSockets = new Set<import("ws").WebSocket>();
   const lastRevealRequestMsByPlayerId = new Map<string, number>();
+  // Bounds the flood a single connection can push at the simulation: idempotency/dedup
+  // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
+  // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
+  const commandRateLimiter = new CommandRateLimiter({ capacity: 20, refillPerSecond: 5 });
   // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
   // world changes, but doing that synchronously inside the per-batch event
   // handler blocks the gateway loop for hundreds of ms × N batches per second
@@ -2901,18 +2906,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
           };
-          const dispatchDurableCommand = (
-            type: DurableCommandType,
-            payload: Record<string, unknown>,
-            withMetadata = false
-          ): Promise<void> =>
-            trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) },
-                submitDeps
-              )
-            );
+          const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
+          };
           if (message.type === "SETTLE") {
             await dispatchDurableCommand("SETTLE", { x: message.x, y: message.y }, true);
           } else if (message.type === "BUILD_FORT") {
@@ -3113,11 +3110,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         })).catch(() => { /* best-effort on disconnect */ });
         void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
           syncGatewaySnapshotMetricsFromCache(closingPlayerId);
+          const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
           // Prune fog-refresh bookkeeping once no fog-disabled session remains for this player.
-          const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
-            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-          );
-          if (!stillFogDisabled) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+          if (!remainingSockets.some((playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true)) {
+            fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+          }
+          // Bounded map (see command-rate-limiter.ts) -- evict once this was the player's last socket.
+          if (remainingSockets.length === 0) commandRateLimiter.releasePlayer(closingPlayerId);
         }).catch((error) => {
           app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
         });
