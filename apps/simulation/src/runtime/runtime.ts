@@ -88,6 +88,11 @@ import {
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
+import {
+  resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
+  resourceSlotSupplyForPlayer as resourceSlotSupplyForPlayerImpl,
+  type ResourceSlotTotals
+} from "../resource-slot-view/resource-slot-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
@@ -2469,6 +2474,28 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
+  // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
+  // tiles too — Siege Outposts (structureShowsOnTile) can be built on an
+  // owned, unsettled tile, so resourceSlotDemandForPlayer needs every tile
+  // that could be carrying a structure, not just settled ones.
+  private ownedTilesForPlayer(playerId: string): DomainTileState[] {
+    return [...this.summaryForPlayer(playerId).territoryTileKeys]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId));
+  }
+
+  // §5.6 v1 scope: global per-resource pool, recomputed on demand rather
+  // than incrementally indexed (see resource-slot-view.ts's header comment).
+  private resourceSlotSupplyForPlayer(playerId: string): ResourceSlotTotals {
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys);
+  }
+
+  private resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals {
+    return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId);
+  }
+
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
     return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
       .map((tileKey) => this.tiles.get(tileKey))
@@ -3679,6 +3706,8 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
       supportedDockKeysForTile: (playerId, x, y) => this.supportedDockKeysForTile(playerId, x, y),
       economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),

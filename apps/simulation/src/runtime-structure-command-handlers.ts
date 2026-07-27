@@ -11,11 +11,15 @@ import {
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
+  structureSlotRequirements,
+  SYNTHESIZER_STRUCTURE_TYPES,
   type BuildableStructureType,
-  type EconomicStructureType
+  type EconomicStructureType,
+  type SlotStructureType
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
+import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
@@ -37,6 +41,13 @@ export type RuntimeStructureCommandContext = {
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   ownedStructureCountForPlayer: (playerId: string, type: BuildableStructureType) => number;
+  // §5 (resource slots): the player's current global slot supply/demand
+  // pool (§5.6 v1 scope). Demand includes the structure this command would
+  // replace on the SAME tile field (upgrades overwrite it synchronously —
+  // see currentTileFieldSlotRequirements), so hasFreeResourceSlots nets that
+  // back out before checking the new structure's requirement fits.
+  resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
+  resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
   supportedTownKeysForTile: (playerId: string, x: number, y: number) => string[];
   supportedDockKeysForTile: (playerId: string, x: number, y: number) => string[];
   economicStructureForSupportedTown: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
@@ -162,6 +173,42 @@ function spendStrategicCost(
   return true;
 }
 
+// §5.1/§5.6: a structure permanently occupies a slot of its required
+// resource(s) for as long as it exists — construction just needs a free
+// slot at build time, no stockpile spend. `tileField`/`target` let an
+// in-place upgrade (Fort/Siege tier ladders, granary Advanced pair) net out
+// the requirement it's about to overwrite on its own tile, so it only needs
+// *additional* capacity for the delta, not the new tier's full requirement
+// stacked on top of the old one it's replacing.
+//
+// Synthesizers (SYNTHESIZER_STRUCTURE_TYPES) skip this gate entirely: per
+// §6.4 they're a slot *source*, not a consumer (resource-slot-view.ts) — a
+// landlocked player with zero free slots of that resource must still be
+// able to build the one synthesizer that grants them their first one.
+function hasFreeResourceSlots(
+  context: RuntimeStructureCommandContext,
+  command: CommandEnvelope,
+  structureType: BuildableStructureType,
+  slotStructureType: SlotStructureType,
+  target: DomainTileState,
+  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+): boolean {
+  if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
+  const requirements = structureSlotRequirements(slotStructureType);
+  if (requirements.length === 0) return true;
+  const supply = context.resourceSlotSupplyForPlayer(command.playerId);
+  const demand = context.resourceSlotDemandForPlayer(command.playerId);
+  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
+  for (const req of requirements) {
+    const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
+    if (freeExcludingThisTile < req.count) {
+      rejectCommand(context, command, "INSUFFICIENT_SLOT", `no free ${req.resource} slot for ${structureLabel(structureType)}`);
+      return false;
+    }
+  }
+  return true;
+}
+
 export function handleBuildStructureCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
   const payload = parseBuildStructurePayload(command.payloadJson);
@@ -258,16 +305,19 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   let goldCost: number;
   let manpowerCost: number;
   let strategicCost = spec.cost.strategic as StrategicCost | undefined;
+  let slotStructureType: SlotStructureType = structureType;
   if (spec.kind === "FORT") {
     const fortTier = target.fort ? nextFortTierForUpgrade(target.fort.variant, hasTech)! : bestFortTierForTech(hasTech);
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
     strategicCost = { IRON: fortTier.iron };
+    slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST") {
     const siegeTier = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)! : bestSiegeTierForTech(hasTech);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
     strategicCost = { SUPPLY: siegeTier.supply, ...(siegeTier.iron > 0 ? { IRON: siegeTier.iron } : {}) };
+    slotStructureType = siegeTier.variant;
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     manpowerCost = structureBuildManpowerCost(structureType);
@@ -280,6 +330,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "INSUFFICIENT_MANPOWER", `need ${manpowerCost.toFixed(0)} manpower for ${structureLabel(structureType)}`);
     return;
   }
+  if (!hasFreeResourceSlots(context, command, structureType, slotStructureType, target, spec.tileField)) return;
+  // NOTE: the strategicCost stockpile spend below is still the OLD IRON/CRYSTAL/SUPPLY
+  // economy (structure-slots.ts's header comment: "build-time resourceCost fields for
+  // FOOD/IRON/CRYSTAL/SUPPLY are retired by this module"). It stays wired up alongside
+  // the new slot check above rather than being removed here — tearing out the stockpile
+  // system itself (stockpile fields, production, storage caps, refund-on-cancel credits)
+  // is plan item 4, a separate and much larger change entangled with ~40 test files
+  // (plan handoff item 7); removing it prematurely here would desync
+  // applyStructureCancelRefund's refund math from what was actually charged.
   if (!spendStrategicCost(context, actor, command, structureType, strategicCostForStructure(structureType, strategicCost))) return;
 
   actor.points -= goldCost;
