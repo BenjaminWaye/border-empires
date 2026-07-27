@@ -378,4 +378,80 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(tile?.economicStructureJson).toContain('"type":"ADVANCED_FUR_SYNTHESIZER"');
   });
+
+  // §6.4: synthesizers are hard-capped at 1 per family, forever — this is
+  // the empire-wide enforcement added alongside the slot-supply reading of
+  // §6.4 (a synthesizer grants +1 SUPPLY/IRON/CRYSTAL with no cap of its
+  // own in resource-slot-view.ts, so nothing else stops unbounded stacking).
+  it("rejects a second FUR_SYNTHESIZER in a different town when one is already owned", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "FUR_SYNTHESIZER" as const, status: "active" as const } },
+          { x: 20, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
+          { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        ],
+        activeLocks: [],
+      },
+    });
+
+    const rejections: Array<{ code: string; message: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code, message: event.message });
+    });
+    runtime.submitCommand({
+      commandId: "fs-dupe-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 20, y: 9, structureType: "FUR_SYNTHESIZER" }),
+    });
+    await Promise.resolve();
+
+    expect(rejections).toEqual([{ code: "BUILD_INVALID", message: "already own a fur synthesizer — only one allowed per empire" }]);
+    const secondTile = runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10);
+    expect(secondTile?.economicStructureJson).toBeUndefined();
+  });
+
+  it("allows a fresh FUR_SYNTHESIZER build when none is owned yet", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        ],
+        activeLocks: [],
+      },
+    });
+
+    const rejections: Array<{ code: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code });
+    });
+    runtime.submitCommand({
+      commandId: "fs-fresh-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FUR_SYNTHESIZER" }),
+    });
+    await Promise.resolve();
+
+    expect(rejections).toEqual([]);
+    const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.economicStructureJson).toContain('"type":"FUR_SYNTHESIZER"');
+  });
 });

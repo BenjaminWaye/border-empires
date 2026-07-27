@@ -77,6 +77,27 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
   });
 
+  it("§5.3: an active Farmstead built on a FISH tile (placement-legal per structure-placement-metadata.json) does NOT boost it past the fixed 2", () => {
+    const totals = resourceSlotSupplyForPlayer([
+      tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })
+    ]);
+    expect(totals.FOOD).toBe(2);
+  });
+
+  it("an active Mine on a GEMS tile (placement-legal alongside IRON) boosts CRYSTAL, not IRON", () => {
+    const totals = resourceSlotSupplyForPlayer([
+      tile({ x: 5, y: 5, resource: "GEMS", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } })
+    ]);
+    expect(totals).toEqual({ FOOD: 0, IRON: 0, CRYSTAL: 2, SUPPLY: 0 });
+  });
+
+  it("an active Camp on a FUR tile boosts SUPPLY same as on WOOD", () => {
+    const totals = resourceSlotSupplyForPlayer([
+      tile({ x: 5, y: 5, resource: "FUR", economicStructure: { ownerId: "p1", type: "CAMP", status: "active" } })
+    ]);
+    expect(totals.SUPPLY).toBe(2);
+  });
+
   it("§6.4: an active synthesizer grants +1 slot of its own resource, even on a tile with no matching resource", () => {
     const totals = resourceSlotSupplyForPlayer([
       tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FUR_SYNTHESIZER", status: "active" } }),
