@@ -65,7 +65,7 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
   kind: "OUTPOST",
   variant: "LIGHT_OUTPOST",
   cost: {
-    gold: 75,
+    gold: 0,
     manpower: 30,
   },
   buildMs: LIGHT_OUTPOST_BUILD_MS,

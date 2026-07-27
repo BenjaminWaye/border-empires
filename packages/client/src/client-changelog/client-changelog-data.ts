@@ -20,10 +20,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.27.1",
+  version: "2026.07.27.2",
   title: "What's New",
-  summary: "Every structure build now shows and requires its real manpower cost.",
+  summary: "Building no longer costs gold — manpower is the only build price now.",
   entries: [
+    {
+      introducedIn: "2026.07.27.2",
+      title: "Structures no longer cost gold to build",
+      why: "Gold income was cut about 288x in an earlier update so a strong empire could no longer coast on it forever, but every structure's build-gold price stayed at its old, pre-cut value — Bank was still 3,200 gold against an economy earning roughly 10 gold/day/town. That made every structure both far too expensive in gold and, on top of that, also required its full manpower price, a double-tax nobody could realistically pay. Gold now only matters for tech, rush-buys, and a few structures' ongoing upkeep, never for the act of building.",
+      changes: [
+        "Every structure's build gold cost is now 0 — manpower (and, for some structures, a strategic resource) is the entire build price.",
+        "This includes Forts, Siege Outposts, Light/Wooden Outposts, and all four monument parts and their final assemblies, not just the everyday economic buildings.",
+        "The four monument assemblies (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) are no longer mislabeled \"Free after 3 parts\" — they show and require their real manpower + SHARD cost.",
+        "Cost displays across the build menu no longer show a stray \"0 gold +\" — the gold clause disappears entirely when it's zero."
+      ]
+    },
     {
       introducedIn: "2026.07.27.1",
       title: "Manpower now gates every structure build",

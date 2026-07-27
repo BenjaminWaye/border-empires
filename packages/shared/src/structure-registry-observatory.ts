@@ -13,7 +13,7 @@ export const OBSERVATORY_SPEC: StructureSpec = {
   type: "OBSERVATORY",
   kind: "OBSERVATORY",
   cost: {
-    gold: 800,
+    gold: 0,
     manpower: 80,
     strategic: { CRYSTAL: 45 },
   },
