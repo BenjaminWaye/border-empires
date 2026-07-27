@@ -52,14 +52,11 @@ export const totalsFromSlotRequirements = (requirements: readonly StructureSlotR
  * player's settled tiles (shared with the legacy yield view so both can
  * never disagree on "which Waterworks are active").
  *
- * KNOWN GAP, not addressed by this function: §6.4's "hard-capped at 1,
- * forever" isn't enforced anywhere yet — nothing currently stops a player
- * from building a Fur Synthesizer in two different towns, which would (by
- * design here) grant +2 SUPPLY instead of the intended +1. This function
- * sums whatever synthesizers actually exist rather than silently clamping,
- * so the gap is visible in the numbers instead of masked. The build-time
- * empire-wide "already own one of this family" check belongs in the
- * structure command handler, not here — left for a follow-up.
+ * §6.4's "hard-capped at 1, forever" is enforced empire-wide at build time
+ * (synthesizerFamilyAlreadyOwnedElsewhere in runtime-structure-command-
+ * handlers.ts), not here — this function just sums whatever synthesizers
+ * actually exist, so if that build-time gate is ever bypassed the resulting
+ * over-count is visible in the numbers rather than silently masked.
  */
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
@@ -78,7 +75,14 @@ export const resourceSlotSupplyForPlayer = (
     const base = BASE_SLOTS_BY_TILE_RESOURCE[tile.resource];
     if (!base) continue;
     let slots = base.baseSlots;
-    const boost = structureType ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
+    // FARMSTEAD is placement-legal on both FARM and FISH tiles (structure-
+    // placement-metadata.json's FARMSTEAD.resourceTypes), but §5.3 is explicit
+    // that FISH is a fixed 2 slots forever, "no Farmstead or Waterworks bonus
+    // available" — unlike MINE (legally on IRON or GEMS) and CAMP (WOOD or
+    // FUR), which stay resource-agnostic on purpose since both of their valid
+    // tile types scale normally, FARMSTEAD's own boost must NOT apply on FISH.
+    const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
+    const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
     if (
       structureType === "FARMSTEAD" &&

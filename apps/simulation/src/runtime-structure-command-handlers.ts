@@ -140,6 +140,37 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   return undefined;
 }
 
+// §6.4: "hard-capped at 1, forever" — a player may never own more than one
+// synthesizer of a given family (base + Advanced count as the same slot,
+// since Advanced replaces base in place). Base+Advanced pairs, keyed either
+// way so a lookup on either member finds the whole family.
+const SYNTHESIZER_FAMILY: Partial<Record<BuildableStructureType, readonly BuildableStructureType[]>> = {
+  FUR_SYNTHESIZER: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER"],
+  ADVANCED_FUR_SYNTHESIZER: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER"],
+  IRONWORKS: ["IRONWORKS", "ADVANCED_IRONWORKS"],
+  ADVANCED_IRONWORKS: ["IRONWORKS", "ADVANCED_IRONWORKS"],
+  CRYSTAL_SYNTHESIZER: ["CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"],
+  ADVANCED_CRYSTAL_SYNTHESIZER: ["CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"]
+};
+
+// `upgrading` is true exactly when this build is the in-place Advanced
+// upgrade of the synthesizer already standing on THIS tile — that's the one
+// case allowed to "already own one." Any other synthesizer build (fresh, or
+// on a different tile) is blocked once the player owns any member of the
+// same family anywhere, since resourceSlotSupplyForPlayer grants +1 SUPPLY/
+// IRON/CRYSTAL per synthesizer with no cap of its own (resource-slot-view.ts).
+function synthesizerFamilyAlreadyOwnedElsewhere(
+  context: RuntimeStructureCommandContext,
+  playerId: string,
+  structureType: BuildableStructureType,
+  upgrading: boolean
+): boolean {
+  if (upgrading) return false;
+  const family = SYNTHESIZER_FAMILY[structureType];
+  if (!family) return false;
+  return family.some((member) => context.ownedStructureCountForPlayer(playerId, member) > 0);
+}
+
 function strategicCostForStructure(
   structureType: BuildableStructureType,
   registryStrategicCost: StrategicCost | undefined
@@ -289,6 +320,10 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST" && target.siegeOutpost?.ownerId === command.playerId);
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || target.economicStructure || (target.fort && spec.kind !== "ECONOMIC"))) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
+    return;
+  }
+  if (synthesizerFamilyAlreadyOwnedElsewhere(context, command.playerId, structureType, upgrading)) {
+    rejectCommand(context, command, "BUILD_INVALID", `already own a ${structureLabel(upgradeBaseType(structureType) ?? structureType)} — only one allowed per empire`);
     return;
   }
 
