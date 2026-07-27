@@ -152,6 +152,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Login stalls for large empires should be significantly shorter on mobile and slow connections."
     ]
   },
+  {
+    createdAt: 1785097225841, // 2026.07.26.2
+    introducedIn: "2026.07.26.2",
+    title: "Snappier actions during heavy fights",
+    why: "Closing a tile menu or clicking a non-muster tile sent a pointless \"stop watching muster\" request to the server every single time — even when you were never watching one. During rapid attacking this fired several times a second, and each one cost the server a full command round-trip that always failed, adding to server-side delays that could make combat results arrive late.",
+    changes: [
+      "The client now only tells the server to stop watching a muster flag when it actually started watching one.",
+      "Server-side: muster watch toggles are no longer written to the command database at all — they are view state, not game actions — eliminating a steady stream of database errors."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
