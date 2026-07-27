@@ -158,7 +158,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
     ]
   },
-  // Older entries (2026.07.19.14 and earlier) trimmed: the release-day
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.07.27.2",
+    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
+    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
+    changes: [
+      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
+      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
+    ]
+  },
+  // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
 ];
