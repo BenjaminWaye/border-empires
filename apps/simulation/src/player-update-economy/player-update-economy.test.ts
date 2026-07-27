@@ -436,17 +436,17 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
   });
 
   it("high mult scales up strategicProductionPerMinute values", () => {
-    const ironTile: DomainTileState = {
-      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON"
+    const farmTile: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM"
     };
     const tiles = new Map<string, DomainTileState>([
       ["10,10", makeSettledTownTile(10, 10)],
-      ["11,10", ironTile]
+      ["11,10", farmTile]
     ]);
     const summary = summaryForTiles(tiles);
     const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
     const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
-    expect(boosted.strategicProductionPerMinute.IRON).toBeGreaterThan(base.strategicProductionPerMinute.IRON);
+    expect(boosted.strategicProductionPerMinute.FOOD).toBeGreaterThan(base.strategicProductionPerMinute.FOOD);
   });
 
   it("low mult (< 1) reduces incomePerMinute", () => {

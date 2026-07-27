@@ -49,20 +49,14 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   SHARD: 0
 });
 
+// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
+// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
 const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | string | undefined): number => {
   switch (resource) {
     case "FARM":
       return 48 / 1440;
     case "FISH":
       return 72 / 1440;
-    case "IRON":
-      return 60 / 1440;
-    case "WOOD":
-      return 60 / 1440;
-    case "FUR":
-      return 60 / 1440;
-    case "GEMS":
-      return 36 / 1440;
     default:
       return 0;
   }
@@ -73,13 +67,6 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | string
     case "FARM":
     case "FISH":
       return "FOOD";
-    case "IRON":
-      return "IRON";
-    case "GEMS":
-      return "CRYSTAL";
-    case "WOOD":
-    case "FUR":
-      return "SUPPLY";
     default:
       return undefined;
   }

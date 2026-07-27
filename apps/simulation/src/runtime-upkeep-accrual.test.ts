@@ -34,13 +34,13 @@ const goldTownTile = (x: number, y: number, ownerId: string): DomainTileState =>
   town: { type: "MARKET", populationTier: "SETTLEMENT" }
 });
 
-const ironResourceTile = (x: number, y: number, ownerId: string): DomainTileState => ({
+const farmResourceTile = (x: number, y: number, ownerId: string): DomainTileState => ({
   x,
   y,
   terrain: "LAND",
   ownerId,
   ownershipState: "SETTLED",
-  resource: "IRON"
+  resource: "FARM"
 });
 
 const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
@@ -176,20 +176,20 @@ describe("consumeUpkeepFromTileYield", () => {
     expect(tileYieldCollectedAtByTile.get(tileKey(0, 0))).toBe(newAnchor);
   });
 
-  it("drains strategic need (IRON) from a resource tile", () => {
+  it("drains strategic need (FOOD) from a resource tile", () => {
     const player = testPlayer("player-1");
     const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 4 * 60 * 60_000; // 4 hours -> 10 IRON buffered (well under the 20 cap)
-    const tile = ironResourceTile(0, 0, "player-1");
+    const lastCollectedAt = nowMs - 4 * 60 * 60_000; // 4 hours -> 8 FOOD buffered (well under the cap)
+    const tile = farmResourceTile(0, 0, "player-1");
     const { ctx, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
     tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), IRON: 4 };
+    const need: UpkeepNeed = { ...emptyNeed(), FOOD: 4 };
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
-    expect(need.IRON).toBe(0);
+    expect(need.FOOD).toBe(0);
   });
 
   it("leaves remaining need untouched once tile yield is exhausted", () => {

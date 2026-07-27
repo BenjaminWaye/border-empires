@@ -8,19 +8,16 @@ import {
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   DOCK_INCOME_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP,
-  IRONWORKS_IRON_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
@@ -119,20 +116,14 @@ const addBucket = (
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => (right.amountPerMinute - left.amountPerMinute) || left.label.localeCompare(right.label));
 
+// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
+// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
 const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | undefined): number => {
   switch (resource) {
     case "FARM":
       return 48 / 1440;
     case "FISH":
       return 72 / 1440;
-    case "IRON":
-      return 60 / 1440;
-    case "WOOD":
-      return 60 / 1440;
-    case "FUR":
-      return 60 / 1440;
-    case "GEMS":
-      return 36 / 1440;
     default:
       return 0;
   }
@@ -143,33 +134,14 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
     case "FARM":
     case "FISH":
       return "FOOD";
-    case "IRON":
-      return "IRON";
-    case "GEMS":
-      return "CRYSTAL";
-    case "WOOD":
-    case "FUR":
-      return "SUPPLY";
     default:
       return undefined;
   }
 };
 
-const converterOutputPerMinute = (structureType: string): Partial<Record<StrategicResourceKey, number>> => {
-  switch (structureType) {
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER":
-      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY / 1440 };
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS":
-      return { IRON: IRONWORKS_IRON_PER_DAY / 1440 };
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 };
-    default:
-      return {};
-  }
-};
+// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
+// stockpiled resource (§5.6) — nothing left to convert.
+const converterOutputPerMinute = (_structureType: string): Partial<Record<StrategicResourceKey, number>> => ({});
 
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<EconomyResourceKey, number>> => {
   switch (structureType) {

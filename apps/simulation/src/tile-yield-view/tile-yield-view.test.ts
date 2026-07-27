@@ -276,7 +276,10 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(144);
   });
 
-  it("MINE applies STRUCTURE_OUTPUT_MULT (x1.5) to base IRON output: 60 -> 90/day", () => {
+  // IRON/CRYSTAL/SUPPLY are slot-based, not tile-yield-produced (§5.1/§5.6) —
+  // MINE/CAMP/IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer emit a
+  // strategicPerDay entry for these keys.
+  it("MINE on an IRON tile produces no IRON strategicPerDay (slot-based, not yield-based)", () => {
     const mineTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -287,10 +290,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", mineTile]]);
     const view = buildTileYieldView(mineTile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBe(90);
+    expect(view?.yieldRate.strategicPerDay?.IRON).toBeUndefined();
   });
 
-  it("CAMP applies STRUCTURE_OUTPUT_MULT (x1.5) to base SUPPLY output: 60 -> 90/day", () => {
+  it("CAMP on a WOOD tile produces no SUPPLY strategicPerDay (slot-based, not yield-based)", () => {
     const campTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -301,68 +304,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", campTile]]);
     const view = buildTileYieldView(campTile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBe(90);
+    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBeUndefined();
   });
 
-  it("MINE with an active FOUNDRY in range multiplies IRON by FOUNDRY_OUTPUT_MULT on top of STRUCTURE_OUTPUT_MULT: 60 x1.5 x2 = 180/day", () => {
-    const mineTile: DomainTileState = {
-      x: 5, y: 5,
-      terrain: "LAND",
-      ownerId: player.id,
-      ownershipState: "SETTLED",
-      resource: "IRON",
-      economicStructure: { type: "MINE", status: "active", ownerId: player.id }
-    };
-    const foundryTile: DomainTileState = {
-      x: 8, y: 5,
-      terrain: "LAND",
-      ownerId: player.id,
-      ownershipState: "SETTLED",
-      economicStructure: { type: "FOUNDRY", status: "active", ownerId: player.id }
-    };
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", mineTile],
-      ["8,5", foundryTile]
-    ]);
-    const view = buildTileYieldView(mineTile, 0, 1440 * 60000, {
-      player,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      foundryKeys: new Set(["8,5"])
-    });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBe(180);
-  });
-
-  it("MINE outside FOUNDRY_RADIUS is unaffected by the foundry (stays at 90/day, STRUCTURE_OUTPUT_MULT only)", () => {
-    const mineTile: DomainTileState = {
-      x: 5, y: 5,
-      terrain: "LAND",
-      ownerId: player.id,
-      ownershipState: "SETTLED",
-      resource: "IRON",
-      economicStructure: { type: "MINE", status: "active", ownerId: player.id }
-    };
-    const farFoundryTile: DomainTileState = {
-      x: 50, y: 5,
-      terrain: "LAND",
-      ownerId: player.id,
-      ownershipState: "SETTLED",
-      economicStructure: { type: "FOUNDRY", status: "active", ownerId: player.id }
-    };
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", mineTile],
-      ["50,5", farFoundryTile]
-    ]);
-    const view = buildTileYieldView(mineTile, 0, 1440 * 60000, {
-      player,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      foundryKeys: new Set(["50,5"])
-    });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBe(90);
-  });
-
-  it("ADVANCED_IRONWORKS uses the advanced constant (21.6/day), not the basic one (18/day)", () => {
+  it("ADVANCED_IRONWORKS produces no IRON strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -372,10 +317,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBe(21.6);
+    expect(view?.yieldRate.strategicPerDay?.IRON).toBeUndefined();
   });
 
-  it("ADVANCED_FUR_SYNTHESIZER uses the advanced constant (21.6/day)", () => {
+  it("ADVANCED_FUR_SYNTHESIZER produces no SUPPLY strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -385,10 +330,10 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBe(21.6);
+    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBeUndefined();
   });
 
-  it("ADVANCED_CRYSTAL_SYNTHESIZER uses the advanced constant (14.4/day)", () => {
+  it("ADVANCED_CRYSTAL_SYNTHESIZER produces no CRYSTAL strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -398,7 +343,7 @@ describe("buildTileYieldView", () => {
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.CRYSTAL).toBe(14.4);
+    expect(view?.yieldRate.strategicPerDay?.CRYSTAL).toBeUndefined();
   });
 
   describe("tileYieldNeedsServerAuthority predicate", () => {
@@ -414,15 +359,21 @@ describe("buildTileYieldView", () => {
       expect(tileYieldNeedsServerAuthority({ dockId: "dock-a" })).toBe(true);
     });
 
-    it("is true for an active MINE", () => {
+    it("is true for an active FARMSTEAD", () => {
       expect(
-        tileYieldNeedsServerAuthority({ economicStructure: { type: "MINE", status: "active", ownerId: "player-1" } })
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "FARMSTEAD", status: "active", ownerId: "player-1" } })
       ).toBe(true);
     });
 
     it("is false for an inactive (e.g. under-construction) strategic structure", () => {
       expect(
-        tileYieldNeedsServerAuthority({ economicStructure: { type: "MINE", status: "under_construction", ownerId: "player-1" } })
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "FARMSTEAD", status: "under_construction", ownerId: "player-1" } })
+      ).toBe(false);
+    });
+
+    it("is false for a MINE (no longer strategic-affecting — IRON is slot-based, not yield-based)", () => {
+      expect(
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "MINE", status: "active", ownerId: "player-1" } })
       ).toBe(false);
     });
 
