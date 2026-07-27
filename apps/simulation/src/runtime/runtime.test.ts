@@ -6660,11 +6660,12 @@ describe("simulation runtime", () => {
     });
   });
 
-  it("subscription snapshot includes synthesizer crystal regen without COLLECT_VISIBLE", () => {
-    // Regression: strategicProductionPerMinute in subscription snapshots was
-    // sourced from summary.strategicProductionPerMinute (terrain-only), so
-    // players with CRYSTAL_SYNTHESIZER but no GEMS tiles saw 0 crystal regen
-    // on connect until COLLECT_VISIBLE fired emitPlayerStateUpdate.
+  it("CRYSTAL_SYNTHESIZER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
+    // Was: "subscription snapshot includes synthesizer crystal regen without
+    // COLLECT_VISIBLE" — CRYSTAL_SYNTHESIZER's tile-production accrual was
+    // retired under the manpower-economy rewrite (docs/manpower-economy-
+    // rewrite-plan.md §5.6); the field/spend stays live for abilities/tech,
+    // but nothing feeds it from this structure anymore.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
@@ -6688,8 +6689,7 @@ describe("simulation runtime", () => {
     const state = runtime.exportVisibleStateForPlayer("player-1");
     const player = state.players.find((p) => p.id === "player-1");
     expect(player).toBeDefined();
-    // Crystal synthesizer outputs CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 per minute.
-    expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBeGreaterThan(0);
+    expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBe(0);
   });
 
   it("chosenTrickleResource round-trips through snapshot and trickle is credited after recovery", () => {
