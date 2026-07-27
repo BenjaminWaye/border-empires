@@ -51,6 +51,7 @@ import {
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
+import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -106,11 +107,10 @@ import {
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
   ownTownEconomyFieldsPartial,
-  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
-  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
+import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
@@ -1215,14 +1215,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "collect_yield" && fromBulk) {
-      let n = 0;
-      for (const k of targets) {
-        const t = state.tiles.get(k);
-        if (!t || t.ownerId !== state.me) continue;
-        sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y });
-        n += 1;
-      }
-      pushFeed(`Collecting from ${n} selected tiles.`, "info", "info");
+      // Bulk box-selection can cover up to 2500 tiles (client-drag-selection.ts) -- fire
+      // these as one synchronous burst of COLLECT_TILE messages and the gateway's
+      // per-player rate limiter will just reject most of them. Pace it client-side instead.
+      const ownedTiles = targets.map((k) => state.tiles.get(k)).filter((t): t is Tile => t !== undefined && t.ownerId === state.me);
+      dispatchPaced(ownedTiles, (t) => sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y }));
+      pushFeed(`Collecting from ${ownedTiles.length} selected tiles.`, "info", "info");
       hideTileActionMenu();
       return;
     }

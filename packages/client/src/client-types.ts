@@ -37,8 +37,7 @@ export type OptimisticStructureKind =
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE"
-  | "AEGIS_DOME";
+  | "WORLD_ENGINE" | "AEGIS_DOME";
 
 export type TileUpkeepEntry = {
   label: string;
@@ -670,6 +669,7 @@ export type TileMenuProgressView = {
   cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build";
   secondaryLabel?: string;
   secondaryActionId?: "move_queued_entry_to_front";
+  queueState?: "planned" | "queued" | "active"; // planned = client-local wishlist; queued = server-confirmed & durable
 };
 
 export type TileOverviewLine = {

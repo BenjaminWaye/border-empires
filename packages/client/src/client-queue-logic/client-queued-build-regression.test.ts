@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { queuedBuildOrderForTile, hasQueuedBuildForTile } from "../client-development-queue/client-development-queue.js";
-import { queuedBuildProgressForTile, tileMenuViewForTile } from "../client-tile-menu-view/client-tile-menu-view.js";
+import { tileMenuViewForTile } from "../client-tile-menu-view/client-tile-menu-view.js";
+import { queuedBuildProgressForTile } from "../client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 
 describe("queued build regression", () => {
   it("detects queued builds for a tile", () => {
