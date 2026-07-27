@@ -2200,7 +2200,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             // Bulk: identity + attachSocket suffices; skip heavy pipeline.
-            if (channel === "bulk") { loginTracer.done({ outcome: "auth_resolved", channel: "non_control" }); authTrace.complete("auth_resolved", "non_control_channel"); return; }
+            if (channel === "bulk") { loginTracer.done({ outcome: "init_sent", channel: "non_control" }); authTrace.complete("init_sent", "non_control_channel"); return; }
             if (bootstrapInitialState) {
               seedBootstrapSnapshotWithDiagnostics(
                 { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
