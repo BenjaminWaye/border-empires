@@ -2599,6 +2599,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
           showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
         }
+      } else if (errorCode === "INSUFFICIENT_SLOT") {
+        // Same fix as INSUFFICIENT_GOLD directly above, same reason: a
+        // resource-slot rejection (docs/manpower-economy-rewrite-plan.md §5 —
+        // runtime-structure-command-handlers.ts's hasFreeResourceSlots) is a
+        // BUILD-only rejection whose COMMAND_REJECTED event carries no x/y,
+        // so it doesn't match isStructureActionError's errorTileKey lookup
+        // below. Without this, the optimistic under-construction ghost this
+        // build's own optimistic() call already drew never gets cleared, and
+        // the tile menu keeps showing a structure that was never actually built.
+        const attempt = state.lastDevelopmentAttempt;
+        if (attempt?.tileKey) {
+          clearOptimisticTileStateSafely(attempt.tileKey, true);
+          state.lastDevelopmentAttempt = undefined;
+        }
+        state.queuedDevelopmentDispatchPending = false;
+        showCaptureAlertSafely("Construction failed", errorMessage, "warn");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);

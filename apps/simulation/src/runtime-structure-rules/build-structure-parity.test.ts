@@ -455,3 +455,87 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     expect(tile?.economicStructureJson).toContain('"type":"FUR_SYNTHESIZER"');
   });
 });
+
+// §5.1: "occupies a slot for as long as it exists" — demand is derived live
+// from tile state (resource-slot-view.ts has no persisted "occupied slot"
+// record), so removing a structure should free its slot automatically with
+// no extra removal-side code. Verifies that claim end-to-end rather than by
+// inspection only.
+describe("BUILD_STRUCTURE parity — resource slots free on removal", () => {
+  it("a slot occupied by a removed Fort becomes free again once removal completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", {
+          id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+          techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local", allies: new Set<string>(),
+          strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+        }]]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
+            { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
+            // Only 1 IRON slot in the whole empire — exactly enough for one Fort.
+            { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          ],
+          activeLocks: [],
+        },
+      });
+
+      const rejections: Array<{ code: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code });
+      });
+
+      runtime.submitCommand({
+        commandId: "slot-free-1a", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"under_construction"');
+
+      // The one IRON slot is already spoken for (by the under_construction
+      // Fort — occupation starts at build time, not completion) — a second
+      // Fort elsewhere must be rejected.
+      runtime.submitCommand({
+        commandId: "slot-free-2a", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(rejections).toEqual([{ code: "INSUFFICIENT_SLOT" }]);
+      expect(runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10)?.fortJson).toBeUndefined();
+
+      // Finish building the first Fort, then remove it entirely.
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"active"');
+
+      runtime.submitCommand({
+        commandId: "slot-free-3a", sessionId: "session-1", playerId: "player-1", clientSeq: 3, issuedAt: 1_000,
+        type: "REMOVE_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10 }),
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toBeUndefined();
+
+      // The IRON slot is free again with no removal-side slot bookkeeping at
+      // all — the second Fort build should now succeed.
+      runtime.submitCommand({
+        commandId: "slot-free-2b", sessionId: "session-1", playerId: "player-1", clientSeq: 4, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10)?.fortJson).toContain('"status":"under_construction"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
