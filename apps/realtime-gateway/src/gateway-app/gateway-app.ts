@@ -2231,16 +2231,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               if (subscribedSnapshot && subscribedSnapshot.tiles.length === 0 && bootstrapInitialState && bootstrapInitialState.tiles.length > 0) {
                 subscribedSnapshot.tiles = bootstrapInitialState.tiles;
               }
-              // Every OTHER auth step in this handler (resolve_initial_state,
-              // build_init_message, send_init, ...) gets a recordGatewayAuthStepTiming
-              // slow-step warning log, but this one — the SubscribePlayer RPC that
-              // triggers the sim's per-player visible-state export — didn't. That
-              // export yields dozens of times for a large empire (see
-              // runtime-visible-state.ts) and is documented as having caused a
-              // "26s login regression" before (event-loop-yield.ts); a live incident
-              // reproducing that exact shape (25-29s stall, zero LOGIN_PHASE updates
-              // in between) had no server-side log trail once the ~9min Fly log
-              // buffer rolled past it. Log it like its siblings so the NEXT one does.
+              // Every OTHER auth step here gets a recordGatewayAuthStepTiming slow-step
+              // warning, but this one -- the SubscribePlayer RPC driving the sim's
+              // per-player visible-state export, which yields dozens of times for a
+              // large empire (runtime-visible-state.ts) and previously caused a "26s
+              // login regression" (event-loop-yield.ts) with no server-side log trail
+              // once the ~9min Fly log buffer rolled past it -- didn't. Log it too.
               recordGatewayAuthStepTiming("live_subscribe", Date.now() - liveSubscribeStartedAt, {
                 playerId: playerIdentity.playerId,
                 channel,
@@ -2299,7 +2295,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
               if (session.channel === "control") {
-                initialState = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId) ?? initialState;
+                // Refresh only tiles (the field that goes stale during a slow bootstrap_subscribe,
+                // causing EXPAND_TARGET_OWNED) from the live subscribe cache -- it never sets
+                // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
+                const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
+                if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
                 authTrace.startStep("build_init");
                 const buildInitMessageStartedAt = Date.now();
                 const initMessage = await buildInitMessage(
