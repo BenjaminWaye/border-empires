@@ -75,7 +75,7 @@ import {
   buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, hasSupportedStructure, railDepotAlreadyInNetwork, railDepotNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
@@ -485,6 +485,10 @@ export class SimulationRuntime {
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
   // Index of active Rail Depot tiles per owner (mustering logistics hub).
   private readonly railDepotTilesByOwner = new Map<string, Set<string>>();
+  // Index of active Garrison Hall tiles per owner (§4.4 flat manpower-cap
+  // bonus) — a plain per-structure count, not town-adjacency-scoped, since
+  // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
+  private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
   // Tracks muster manpower reserved by in-flight attacks (remote muster).
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
@@ -834,6 +838,12 @@ export class SimulationRuntime {
       if (tile.economicStructure?.type === "RAIL_DEPOT" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
         let set = this.railDepotTilesByOwner.get(tile.economicStructure.ownerId);
         if (!set) { set = new Set<string>(); this.railDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
+        set.add(tileKey);
+      }
+      // Populate garrisonHallTilesByOwner index (§4.4 flat manpower-cap bonus).
+      if (tile.economicStructure?.type === "GARRISON_HALL" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.garrisonHallTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
     }
@@ -1764,7 +1774,8 @@ export class SimulationRuntime {
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner,
-      railDepotTilesByOwner: this.railDepotTilesByOwner
+      railDepotTilesByOwner: this.railDepotTilesByOwner,
+      garrisonHallTilesByOwner: this.garrisonHallTilesByOwner
     });
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
@@ -2505,36 +2516,35 @@ export class SimulationRuntime {
   }
 
   // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
-  // bonus and the Rail Depot network cap/regen bonus both require scanning
-  // the player's own towns for GARRISON_HALL/RAIL_DEPOT support structures on
-  // top of the (already-cached) connected-town network — cached the same way
-  // as cachedTownNetworkForPlayer, invalidated at the same tile-mutation
-  // chokepoint, so a manpower read (called many times per tick, per the
-  // guardrails in docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map
-  // lookup on every call except an actual cache-miss.
+  // bonus is a plain per-structure count (garrisonHallTilesByOwner) — NOT
+  // town-adjacency-scoped, because GARRISON_HALL uses "same_tile" placement
+  // (structure-placement-metadata.json) and can sit on any settled/resource/
+  // support/dock tile with no town nearby at all, unlike RAIL_DEPOT/
+  // CLEARING_HOUSE's "town_support" mode. The Rail Depot network bonus is
+  // separate: it only amplifies Garrison Halls built adjacent to (supporting)
+  // a town inside a Rail-Depot-having network — see
+  // railDepotNetworkGarrisonHallCountForPlayer. Cached and invalidated at the
+  // same tile-mutation chokepoint as the town-network cache, so a manpower
+  // read (called many times per tick, per the guardrails in
+  // docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map lookup except on
+  // an actual cache-miss.
   private cachedManpowerStructureBonusForPlayer(
     player: RuntimePlayer
   ): { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number } {
     const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
     if (cached) return cached;
-    const summary = this.summaryForPlayer(player.id);
-    let garrisonHallCount = 0;
-    let hasAnyRailDepot = false;
-    for (const townKey of summary.ownedTownTierByTile.keys()) {
-      const tile = this.tiles.get(townKey);
-      if (!tile) continue;
-      if (hasSupportedStructure(player.id, tile, "GARRISON_HALL", this.tiles)) garrisonHallCount += 1;
-      if (hasSupportedStructure(player.id, tile, "RAIL_DEPOT", this.tiles)) hasAnyRailDepot = true;
-    }
+    const garrisonHallCount = this.garrisonHallTilesByOwner.get(player.id)?.size ?? 0;
+    const hasAnyRailDepot = (this.railDepotTilesByOwner.get(player.id)?.size ?? 0) > 0;
     // Only touch the connected-town network when the player actually has a
     // Rail Depot — the common case (none yet) skips it entirely, which
-    // matters for two reasons: it keeps this O(towns) instead of O(settled
+    // matters for two reasons: it keeps this O(1) instead of O(settled
     // tiles + towns²) for most players, and it avoids pre-warming
     // townNetworkCacheByPlayer as a side effect of a manpower read (this
     // fires during SimulationRuntime construction too, before
     // trackSyncMainThreadTask is safe to route through — see below).
     let railDepotNetworkGarrisonHallCount = 0;
     if (hasAnyRailDepot) {
+      const summary = this.summaryForPlayer(player.id);
       const settledTiles = this.settledTilesForPlayer(player.id);
       // Reuse the shared town-network cache if it's already warm, but do NOT
       // go through cachedTownNetworkForPlayer's trackSyncMainThreadTask

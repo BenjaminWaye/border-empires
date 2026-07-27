@@ -65,7 +65,17 @@ export const hasSupportedStructure = (
   playerId: string,
   tile: DomainTileState,
   structureType: string,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  // Callers checking for a live, functioning bonus (Clearing House gold,
+  // Garrison Hall/Rail Depot manpower) want the default active-only
+  // semantics. Callers enforcing a *uniqueness* constraint (§4.4: "only one
+  // Rail Depot per network") need under_construction to count too — the
+  // build handler never re-validates uniqueness at completion
+  // (completeStructureBuild in runtime-structure-command-handlers.ts just
+  // flips status to active unconditionally), so two Rail Depot builds
+  // submitted before either finishes would otherwise both pass validation
+  // and leave the network with two permanent depots.
+  includeUnderConstruction = false
 ): boolean => {
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -73,7 +83,9 @@ export const hasSupportedStructure = (
       const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
       if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
       if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      if (neighbor.economicStructure?.ownerId === playerId && neighbor.economicStructure.status === "active" && neighbor.economicStructure.type === structureType) return true;
+      const structure = neighbor.economicStructure;
+      if (structure?.ownerId !== playerId || structure.type !== structureType) continue;
+      if (structure.status === "active" || (includeUnderConstruction && structure.status === "under_construction")) return true;
     }
   }
   return false;
@@ -177,14 +189,26 @@ export const buildConnectedTownNetworkForPlayer = (
     return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
   };
 
+  // GARRISON_HALL uses "same_tile" placement (structure-placement-metadata.json),
+  // unlike CLEARING_HOUSE/RAIL_DEPOT's "town_support" mode — it can sit
+  // directly ON the town tile itself, not just on an adjacent support tile,
+  // so both must be checked here.
   const hasGarrisonHallAt = (townKey: string): boolean => {
     const tile = tiles.get(townKey);
-    return tile ? hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles) : false;
+    if (!tile) return false;
+    const onTownTileItself =
+      tile.economicStructure?.ownerId === player.id &&
+      tile.economicStructure.type === "GARRISON_HALL" &&
+      tile.economicStructure.status === "active";
+    return onTownTileItself || hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles);
   };
 
+  // Rail Depot membership is purely a uniqueness signal (feeds
+  // railDepotAlreadyInNetwork, never a bonus amount), so it counts
+  // under_construction too — see hasSupportedStructure's doc comment.
   const hasRailDepotAt = (townKey: string): boolean => {
     const tile = tiles.get(townKey);
-    return tile ? hasSupportedStructure(player.id, tile, "RAIL_DEPOT", tiles) : false;
+    return tile ? hasSupportedStructure(player.id, tile, "RAIL_DEPOT", tiles, true) : false;
   };
 
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
@@ -481,10 +505,14 @@ export const railDepotNetworkGarrisonHallCountForPlayer = (
 };
 
 /**
- * True when `townKey`'s connected-town network already has an active Rail
- * Depot — either at the town itself or at any town in its network. Checked
- * before allowing a new Rail Depot build (§4.4: "only one Rail Depot may be
- * built per connected-town network").
+ * True when `townKey`'s connected-town network already has a Rail Depot —
+ * either at the town itself or at any town in its network — active OR still
+ * under_construction. Checked before allowing a new Rail Depot build (§4.4:
+ * "only one Rail Depot may be built per connected-town network"). Counting
+ * under_construction matters: completeStructureBuild never re-validates
+ * uniqueness when a build finishes, so if this only checked "active", two
+ * Rail Depot builds submitted before either completes would both pass and
+ * leave the network with two permanent depots.
  */
 export const railDepotAlreadyInNetwork = (
   playerId: string,
@@ -493,7 +521,7 @@ export const railDepotAlreadyInNetwork = (
   townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>
 ): boolean => {
   const tile = tiles.get(townKey);
-  if (tile && hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles)) return true;
+  if (tile && hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, true)) return true;
   const entry = townNetwork.get(townKey);
   return Boolean(entry?.connectedRailDepotKeys?.length);
 };
