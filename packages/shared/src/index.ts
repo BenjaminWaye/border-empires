@@ -10,6 +10,7 @@ export type { AetherWallDirection } from "./aether-wall/aether-wall.js";
 export * from "./math/math.js";
 export * from "./exposure/exposure.js";
 export * from "./structure-costs/structure-costs.js";
+export * from "./structure-slots/structure-slots.js";
 export * from "./structure-placement.js";
 export * from "./trickle-resources.js";
 export * from "./worldgen/worldgen.js";
