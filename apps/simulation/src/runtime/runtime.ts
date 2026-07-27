@@ -75,7 +75,7 @@ import {
   buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, hasSupportedStructure, railDepotAlreadyInNetwork, railDepotNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
@@ -591,6 +591,10 @@ export class SimulationRuntime {
   // townNetworkCacheByPlayer cache-miss can usually resolve via O(towns)
   // union-find lookups instead of a full O(settled tiles) BFS.
   private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
+  // §4.4 manpower structure bonuses (Garrison Hall flat cap + Rail Depot
+  // network cap/regen) — invalidated alongside townNetworkCacheByPlayer since
+  // it's derived from that same network plus a Garrison Hall/Rail Depot scan.
+  private readonly manpowerStructureBonusCacheByPlayer = new Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>();
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
@@ -1476,12 +1480,13 @@ export class SimulationRuntime {
 
   private playerManpowerCap(player: RuntimePlayer): number {
     if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id));
+    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
-    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), depotCount);
+    const { railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), railDepotNetworkGarrisonHallCount);
   }
 
   playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
@@ -1490,8 +1495,8 @@ export class SimulationRuntime {
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
-    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), depotCount);
+    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -1681,7 +1686,8 @@ export class SimulationRuntime {
       townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
-      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2498,6 +2504,89 @@ export class SimulationRuntime {
       : rebuild();
   }
 
+  // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
+  // bonus and the Rail Depot network cap/regen bonus both require scanning
+  // the player's own towns for GARRISON_HALL/RAIL_DEPOT support structures on
+  // top of the (already-cached) connected-town network — cached the same way
+  // as cachedTownNetworkForPlayer, invalidated at the same tile-mutation
+  // chokepoint, so a manpower read (called many times per tick, per the
+  // guardrails in docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map
+  // lookup on every call except an actual cache-miss.
+  private cachedManpowerStructureBonusForPlayer(
+    player: RuntimePlayer
+  ): { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number } {
+    const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
+    if (cached) return cached;
+    const summary = this.summaryForPlayer(player.id);
+    let garrisonHallCount = 0;
+    let hasAnyRailDepot = false;
+    for (const townKey of summary.ownedTownTierByTile.keys()) {
+      const tile = this.tiles.get(townKey);
+      if (!tile) continue;
+      if (hasSupportedStructure(player.id, tile, "GARRISON_HALL", this.tiles)) garrisonHallCount += 1;
+      if (hasSupportedStructure(player.id, tile, "RAIL_DEPOT", this.tiles)) hasAnyRailDepot = true;
+    }
+    // Only touch the connected-town network when the player actually has a
+    // Rail Depot — the common case (none yet) skips it entirely, which
+    // matters for two reasons: it keeps this O(towns) instead of O(settled
+    // tiles + towns²) for most players, and it avoids pre-warming
+    // townNetworkCacheByPlayer as a side effect of a manpower read (this
+    // fires during SimulationRuntime construction too, before
+    // trackSyncMainThreadTask is safe to route through — see below).
+    let railDepotNetworkGarrisonHallCount = 0;
+    if (hasAnyRailDepot) {
+      const settledTiles = this.settledTilesForPlayer(player.id);
+      // Reuse the shared town-network cache if it's already warm, but do NOT
+      // go through cachedTownNetworkForPlayer's trackSyncMainThreadTask
+      // wrapper on a cold cache: playerManpowerCap (and so this method) fires
+      // during SimulationRuntime construction (applyManpowerRegen for
+      // initial players), before simulation-service.ts's module-level
+      // `simulationMetrics` has finished initializing — routing an uncached
+      // rebuild through that instrumentation this early throws a
+      // temporal-dead-zone ReferenceError. Building directly still populates
+      // townNetworkCacheByPlayer, so later, instrumented callers still get a
+      // cache hit.
+      const townNetwork = this.townNetworkCacheByPlayer.get(player.id) ?? this.rebuildTownNetworkUninstrumented(player, settledTiles);
+      railDepotNetworkGarrisonHallCount = railDepotNetworkGarrisonHallCountForPlayer(
+        player.id,
+        this.tiles,
+        townNetwork,
+        summary.ownedTownTierByTile.keys()
+      );
+    }
+    const result = { garrisonHallCount, railDepotNetworkGarrisonHallCount };
+    this.manpowerStructureBonusCacheByPlayer.set(player.id, result);
+    return result;
+  }
+
+  // Same rebuild as cachedTownNetworkForPlayer, without the
+  // trackSyncMainThreadTask wrapper — see cachedManpowerStructureBonusForPlayer
+  // for why an uninstrumented path is needed here.
+  private rebuildTownNetworkUninstrumented(
+    player: DomainPlayer,
+    settledTiles: readonly DomainTileState[]
+  ): Map<string, ConnectedTownNetworkEntry> {
+    let incrementalState = this.townConnectivityStateByPlayer.get(player.id);
+    if (!incrementalState) {
+      incrementalState = createTownConnectivityState();
+      this.townConnectivityStateByPlayer.set(player.id, incrementalState);
+    }
+    const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 0, incrementalState });
+    this.townNetworkCacheByPlayer.set(player.id, network);
+    return network;
+  }
+
+  // §4.4: "only one Rail Depot may be built per connected-town network" —
+  // checked at build time (see resolveTownSupportTarget in
+  // runtime-structure-command-handlers.ts).
+  private railDepotAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
+    return railDepotAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
+  }
+
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
     const cached = this.tileYieldContextCacheByPlayer.get(player.id);
     if (cached) return cached;
@@ -3133,6 +3222,7 @@ export class SimulationRuntime {
         // (settlements are excluded) — the cached network must be rebuilt too,
         // not just the yield context that wraps it.
         this.townNetworkCacheByPlayer.delete(playerId);
+        this.manpowerStructureBonusCacheByPlayer.delete(playerId);
       },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
       resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
@@ -3584,6 +3674,7 @@ export class SimulationRuntime {
       economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),
       firstAvailableTownSupportTile: (playerId, townKey, structureType) => this.firstAvailableTownSupportTile(playerId, townKey, structureType),
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
+      railDepotAlreadyInNetwork: (playerId, townKey) => this.railDepotAlreadyInNetworkForPlayer(playerId, townKey),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),

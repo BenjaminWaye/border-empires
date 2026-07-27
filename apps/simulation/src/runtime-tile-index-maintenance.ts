@@ -250,6 +250,10 @@ export const refreshEconomyCachesForTileChange = (input: {
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number; localSupportScore: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
+  // §4.4 Rail Depot network manpower bonus — invalidated alongside
+  // townNetworkCacheByPlayer since it's derived from the same network build
+  // plus a Garrison Hall/Rail Depot structure scan over the same tiles.
+  manpowerStructureBonusCacheByPlayer?: Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
@@ -261,6 +265,7 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
       input.townNetworkCacheByPlayer.delete(previous.ownerId);
+      input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
@@ -272,6 +277,7 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.economySnapshotCacheByPlayer.delete(next.ownerId);
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
       input.townNetworkCacheByPlayer.delete(next.ownerId);
+      input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);

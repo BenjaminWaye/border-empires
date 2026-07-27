@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.27.2",
+  version: "2026.07.27.3",
   title: "What's New",
-  summary: "Building no longer costs gold — manpower is the only build price now.",
+  summary: "Garrison Hall and Rail Depot now actually boost your manpower.",
   entries: [
+    {
+      introducedIn: "2026.07.27.3",
+      title: "Garrison Hall and Rail Depot now grant real manpower bonuses",
+      why: "Garrison Hall previously did nothing but cost resources and gold upkeep — its old \"+20% defense\" description was never actually implemented. Rail Depot's manpower regen was a flat bonus per depot with no cap on how many you could spam. This wires up the manpower structure tree the economy rewrite was missing: acquiring towns still grows your manpower on its own, but investing in Garrison Halls and a connected Rail Depot network now gives a real, earned way to grow further.",
+      changes: [
+        "Garrison Hall now grants +150 manpower cap to the town it's built in, unconditionally.",
+        "Rail Depot no longer gives a flat manpower regen bonus per depot. Instead, only one Rail Depot may be built per connected-town network, and it amplifies every Garrison Hall already in that network: +75 manpower cap and +0.1 manpower/min, per Garrison Hall, with no cap on how many Garrison Halls can contribute.",
+        "Trying to build a second Rail Depot in a network that already has one is now rejected — build menus and the manpower breakdown panel reflect the new bonuses."
+      ]
+    },
     {
       introducedIn: "2026.07.27.2",
       title: "Structures no longer cost gold to build",
