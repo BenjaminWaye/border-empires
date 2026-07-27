@@ -240,9 +240,17 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     expect(events[0]?.code).toBe("UNKNOWN_STRUCTURE");
   });
 
-  // Atomic spend: alphabetic-first resource (IRON) succeeds, later (SUPPLY)
-  // fails. Without atomic pre-check, IRON is silently stolen.
-  it("preserves IRON when SUPPLY is insufficient for SIEGE_TOWER upgrade", async () => {
+  // Step 5 item 3 (Slice A): SUPPLY/IRON stockpile amounts no longer gate a
+  // build at all -- hasFreeResourceSlots (slot supply/demand) is the real
+  // gate now, and stripRetiredStockpileCost means spendStrategicCost never
+  // even sees FOOD/IRON/CRYSTAL/SUPPLY. This test used to prove the atomic
+  // check-then-spend pre-check prevented a partial stockpile spend when IRON
+  // succeeded but SUPPLY failed; that scenario can no longer occur for these
+  // four keys since nothing is spent from the stockpile for them any more.
+  // Rewritten to prove the inverse: an upgrade with plenty of slot supply
+  // succeeds despite near-empty legacy stockpile balances, and those balances
+  // are left completely untouched (proving they were never read as a gate).
+  it("SIEGE_TOWER upgrade succeeds on slot supply alone, ignoring near-empty legacy SUPPLY/IRON stockpile balances", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -251,9 +259,9 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
         domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        // SIEGE_TOWER costs: SUPPLY 90 + IRON 60
-        // Alphabetically: [IRON, SUPPLY]. IRON is sufficient, SUPPLY is not.
-        // Atomic path: IRON stays at 100. Broken path: IRON drops to 40.
+        // SIEGE_TOWER's old stockpile cost was SUPPLY 90 + IRON 60 -- far more
+        // than these balances. The build must succeed anyway: slots, not
+        // stockpile, are the real gate now.
         strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 10, SHARD: 0 },
       }]]),
       initialState: {
@@ -277,10 +285,14 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     });
     await Promise.resolve();
 
-    expect(events[0]?.code).toBe("BUILD_INVALID");
+    expect(events).toEqual([]);
+    const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.siegeOutpostJson).toContain('"variant":"SIEGE_TOWER"');
     const player = runtime.exportState().players.find((p) => p.id === "player-1");
-    // IRON must still be 100 — atomic pre-check prevented the spend.
+    // Legacy stockpile balances must be completely untouched -- nothing is
+    // spent from them for this build any more.
     expect(player?.strategicResources?.IRON).toBe(100);
+    expect(player?.strategicResources?.SUPPLY).toBe(10);
   });
 });
 

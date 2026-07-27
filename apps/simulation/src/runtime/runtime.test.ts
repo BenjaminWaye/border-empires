@@ -3387,7 +3387,13 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("does not lose SUPPLY when IRON is insufficient for a siege upgrade", async () => {
+  // Step 5 item 3 (Slice A): FOOD/IRON/CRYSTAL/SUPPLY stockpile amounts no
+  // longer gate a build (stripRetiredStockpileCost strips them before
+  // spendStrategicCost ever sees them) -- hasFreeResourceSlots is the real
+  // gate now. This test used to prove a low IRON stockpile blocked the build
+  // and left SUPPLY untouched; rewritten to prove the build now succeeds on
+  // slot supply alone, and both legacy stockpile balances stay untouched.
+  it("SIEGE_TOWER upgrade succeeds on slot supply alone, leaving legacy SUPPLY/IRON stockpile balances untouched", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3395,8 +3401,8 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            // enough SUPPLY, not enough IRON
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 100, IRON: 10 } })
+            // Both far below the old SIEGE_TOWER stockpile cost (SUPPLY 90, IRON 60).
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 5, IRON: 10 } })
           ]
         ]),
         initialState: {
@@ -3428,12 +3434,14 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      expect(events).toHaveLength(1);
-      expect(events[0].code).toBe("BUILD_INVALID");
-      expect(events[0].message).toBe("insufficient IRON for siege outpost");
-      // SUPPLY must be unchanged — no silent resource theft.
+      expect(events).toEqual([]);
+      const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      // Legacy stockpile balances must be completely untouched -- nothing is
+      // spent from them for this build any more.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
-      expect(player.strategicResources.SUPPLY).toBe(100);
+      expect(player.strategicResources.SUPPLY).toBe(5);
+      expect(player.strategicResources.IRON).toBe(10);
     } finally {
       vi.useRealTimers();
     }
