@@ -43,7 +43,15 @@ const buildTwoTownNetworkRuntime = () => {
         { x: 17, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 18, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 19, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 20, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Town B", type: "FARMING", populationTier: "TOWN" } }
+        { x: 20, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Town B", type: "FARMING", populationTier: "TOWN" } },
+        // §5 resource slots: Garrison Hall and Rail Depot both draw 1 FOOD +
+        // 1 CRYSTAL slot (§12's "crystal fix"). Both need real supply here, or
+        // every build in this file gets rejected with INSUFFICIENT_SLOT before
+        // ever reaching the manpower-bonus behavior under test.
+        { x: 21, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 22, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 23, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 24, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
       ],
       activeLocks: []
     }

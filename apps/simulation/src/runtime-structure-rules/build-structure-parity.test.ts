@@ -19,7 +19,10 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+        ],
         activeLocks: [],
       },
     });
@@ -47,7 +50,11 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+        ],
         activeLocks: [],
       },
     });
@@ -76,7 +83,11 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
           strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
         }]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          ],
           activeLocks: [],
         },
       });
@@ -116,6 +127,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
         activeLocks: [],
@@ -146,6 +158,9 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+          { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
         ],
         activeLocks: [],
@@ -176,6 +191,8 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
         ],
         activeLocks: [],
       },
@@ -242,6 +259,9 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+          { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
         ],
         activeLocks: [],
@@ -275,7 +295,13 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         techRootId: "rewrite-local", allies: new Set<string>(),
         strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },
       }]]),
-      initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+        ],
+        activeLocks: [],
+      },
     });
 
     runtime.submitCommand({
@@ -306,6 +332,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         ],
         activeLocks: [],
       },

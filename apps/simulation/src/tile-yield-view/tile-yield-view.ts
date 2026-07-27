@@ -186,7 +186,10 @@ export const farmsteadFoodBonusPerMinute = (
   return dailyBonus / 1440;
 };
 
-const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
+// Exported for reuse by resource-slot-view.ts (§5.3's Waterworks->Farmstead
+// FOOD-slot bonus needs the exact same wrapped-radius test as the legacy
+// gold/strategic yield bonus, to avoid the two ever drifting apart).
+export const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
   for (const candidateKey of candidateKeys) {
     const comma = candidateKey.indexOf(",");
     if (comma < 0) continue;

@@ -2653,7 +2653,8 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2708,7 +2709,9 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2752,7 +2755,9 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2887,7 +2892,11 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2941,7 +2950,9 @@ describe("simulation runtime", () => {
               ownershipState: "SETTLED",
               town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
               economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3064,7 +3075,8 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Lookout", type: "MARKET", populationTier: "TOWN" }
-            }
+            },
+            { x: 13, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []
         }
@@ -3117,7 +3129,8 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED"
-            }
+            },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }
           ],
           activeLocks: []
         }
@@ -3165,7 +3178,10 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3203,7 +3219,10 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3332,7 +3351,12 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3377,7 +3401,12 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3551,7 +3580,9 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []
         }
@@ -8246,7 +8277,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Regression Town", type: "MARKET", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
