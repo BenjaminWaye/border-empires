@@ -1082,11 +1082,48 @@ implementation.
 
 ### 14.3 Needs locating during implementation (not yet found in this research)
 
-- **Structure build menu / action preview** — every place a player sees a
-  cost before committing (build menu, settle confirmation, expand
-  confirmation) needs the primary cost line flipped from gold to manpower,
-  with resource-slot requirements shown as a secondary badge. Exact
-  client file(s) not yet located in this research pass.
+- **Structure build menu / action preview — LOCATED, and now a live bug, not
+  just stale copy** `[found during Step 5 item 4 Slice A]`: the file is
+  `packages/client/src/client-tile-action-logic/client-tile-action-logic.ts`
+  (~35 `build_*` action ids, each with its own inline
+  `state.strategicResources.<RESOURCE> >= <old cost>` affordability check
+  feeding `disabled`/`disabledReason` via `tileActionAvailabilityWithDevelopmentSlot`
+  — e.g. `hasIron` at line ~1150 for the Fort ladder, `hasCrystal` at ~1180 for
+  Observatory, similar checks for every Tier 1-4 economic structure, both
+  synthesizer families, and the four monument parts). These checks still gate
+  on the *old* FOOD/IRON/CRYSTAL/SUPPLY stockpile amounts. Once Step 5 item 4
+  Slice A landed (build-time stockpile spend retired server-side,
+  `stripRetiredStockpileCost` in `runtime-structure-command-handlers.ts`), this
+  stopped being a merely-stale cost display and became a real functional
+  regression: **the client can now show a build action as disabled/unaffordable
+  (and block the click) in cases the server would actually allow**, because the
+  server no longer requires the stockpile amount these checks test for — only
+  a free resource *slot*, which the client never checks at all here. Concretely:
+  a player who just settled their first IRON tile has an immediate free IRON
+  slot server-side (§5.1's whole point — a slot never caps out, it's
+  available the instant you have the tile) but ~0 accumulated IRON stockpile,
+  so the Fort build button stays greyed out client-side until enough legacy
+  production accrues — directly undermining the feature's own design intent.
+  Ability-cost checks in the same file (Aether Lance/Wall/Bridge, Survey
+  Sweep, Reveal Empire, Imperial Exchange Levy, Terrain Shaping, etc., and all
+  of `client-crystal-targeting.ts`) are a different, legitimate case — those
+  still spend a real CRYSTAL stockpile server-side via
+  `context.spendStrategicResource` in ability/map handlers, untouched by Slice
+  A — **do not touch those when fixing this**. The identical bug also exists
+  in `packages/client/src/client-structure-effects/client-structure-effects.ts`'s
+  `canBuildPlacementStructure` (used for the WATERWORKS/FOUNDRY
+  placement-mode build flow, called from `client-tile-action-logic.ts:1457`)
+  — its `costDef.resourceCost`-vs-`strategicResources` check at
+  `client-structure-effects.ts:259-262` needs the same fix. Fixing this properly means, for
+  each `build_*` action only: replacing the stockpile-amount check with the
+  same free-slot logic `hasFreeResourceSlots` already uses server-side
+  (`resourceSlotSupplyForPlayer`/`resourceSlotDemandForPlayer`, currently
+  simulation-only — the client will need its own equivalent read of
+  `state.strategicResources`-adjacent slot data, likely a new wire field), and
+  updating each action's cost/detail text from "Need 45 CRYSTAL" to a slot
+  count. Sized similarly to §14.1 item 2's panel work, not a quick patch —
+  budget it as its own slice alongside (or before) the panel work, since it's
+  now correctness, not just cosmetics.
 - **First-session / tutorial / onboarding copy** — wherever new-player
   guidance currently lives needs to teach the new mental model directly:
   manpower funds everything physical (expand/settle/build/attack), gold
