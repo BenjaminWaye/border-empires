@@ -3474,7 +3474,14 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED"
-            }
+            },
+            // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more — supply
+            // it or the build rejects with INSUFFICIENT_SLOT.
+            { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
           ],
           activeLocks: []
         }
@@ -3590,6 +3597,9 @@ describe("simulation runtime", () => {
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
             },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            // §5.3: the town draws 2 FOOD slots, GARRISON_HALL draws 1 more.
+            { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []

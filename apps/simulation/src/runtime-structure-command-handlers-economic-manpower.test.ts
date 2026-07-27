@@ -38,6 +38,14 @@ const buildRuntimeWithManpower = (startingManpower: number, extraTiles: Array<Re
           town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" }
         },
         { x: 16, y: 17, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        // FOOD slot supply for the town's own 2-slot demand (§5.3) plus
+        // whatever the structure under test draws — without this, every
+        // build here would reject with INSUFFICIENT_SLOT before manpower is
+        // ever checked.
+        { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         ...extraTiles
       ],
       activeLocks: []

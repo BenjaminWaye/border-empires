@@ -146,3 +146,11 @@ export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, 
 };
 
 export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
+
+// §5.3: "a town requires ~2 food slots to be powered (produce gold +
+// manpower)" — the town itself, separate from any structure sitting on its
+// tile, which already draws its own 1 FOOD slot via STRUCTURE_SLOT_REQUIREMENTS
+// above if it has an economicStructure. Domain effects (supportEconomicFoodUpkeepMult,
+// settledFoodUpkeepMult — plan §23.2) reduce this per-town for specific
+// players; this constant is the base, pre-domain-effect count.
+export const TOWN_FOOD_SLOT_DEMAND = 2;
