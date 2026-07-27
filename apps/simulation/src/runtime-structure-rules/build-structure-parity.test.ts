@@ -344,7 +344,10 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more.
           { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         ],
         activeLocks: [],
       },

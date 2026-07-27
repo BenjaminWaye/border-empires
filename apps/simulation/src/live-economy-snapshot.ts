@@ -173,7 +173,7 @@ export const buildLivePlayerEconomySnapshot = (
 // compute different numbers for the same territory.
 type SlotTileEconomicStructure = DomainTileState["economicStructure"];
 type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
-type OwnedSlotTile = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
+type OwnedSlotTile = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
 
 const resourceSlotsForPlayer = (
   playerId: string,
@@ -191,7 +191,10 @@ const resourceSlotsForPlayer = (
       fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
       siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
-      economicStructure
+      economicStructure,
+      town: parseTown(tile),
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
     });
   }
   const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);

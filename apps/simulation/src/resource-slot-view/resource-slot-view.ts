@@ -16,6 +16,7 @@ import {
   BASE_SLOTS_BY_TILE_RESOURCE,
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
+  TOWN_FOOD_SLOT_DEMAND,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   structureSlotRequirements,
   type BuildableStructureType,
@@ -109,9 +110,15 @@ export const resourceSlotSupplyForPlayer = (
  * per §6.4 they're a supply *source* (see resourceSlotSupplyForPlayer), not
  * a demand consumer, despite having an entry in STRUCTURE_SLOT_REQUIREMENTS
  * (needed there for their own build-time gate and gold-upkeep lookup).
+ *
+ * A settled, owned town itself also draws TOWN_FOOD_SLOT_DEMAND FOOD slots
+ * (§5.3: "a town requires ~2 food slots to be powered") — separate from,
+ * and additive with, any economicStructure sitting on that same tile.
  */
 export const resourceSlotDemandForPlayer = (
-  ownedTiles: Iterable<Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">>,
+  ownedTiles: Iterable<
+    Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">
+  >,
   playerId: string
 ): ResourceSlotTotals => {
   const totals = emptyResourceSlotTotals();
@@ -124,6 +131,9 @@ export const resourceSlotDemandForPlayer = (
     if (tile.siegeOutpost?.ownerId === playerId) add((tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType);
     if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
       add(tile.economicStructure.type as SlotStructureType);
+    }
+    if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
+      totals.FOOD += TOWN_FOOD_SLOT_DEMAND;
     }
   }
   return totals;

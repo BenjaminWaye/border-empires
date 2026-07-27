@@ -123,6 +123,59 @@ describe("resourceSlotSupplyForPlayer", () => {
 });
 
 describe("resourceSlotDemandForPlayer", () => {
+  it("a settled, owned town draws 2 FOOD slots (§5.3)", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        {
+          x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED",
+          town: { type: "FARMING", populationTier: "TOWN", name: "Town" }
+        } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals.FOOD).toBe(2);
+  });
+
+  it("town FOOD demand is additive with a structure sitting on the same tile", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        {
+          x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED",
+          town: { type: "MARKET", populationTier: "TOWN", name: "Town" },
+          economicStructure: { ownerId: "p1", type: "MARKET", status: "active" }
+        } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals.FOOD).toBe(2 + 1);
+  });
+
+  it("ignores a town on a FRONTIER (not yet SETTLED) tile", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        {
+          x: 0, y: 0, ownerId: "p1", ownershipState: "FRONTIER",
+          town: { type: "FARMING", populationTier: "TOWN", name: "Town" }
+        } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals.FOOD).toBe(0);
+  });
+
+  it("ignores a town owned by a different player", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        {
+          x: 0, y: 0, ownerId: "someone-else", ownershipState: "SETTLED",
+          town: { type: "FARMING", populationTier: "TOWN", name: "Town" }
+        } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals.FOOD).toBe(0);
+  });
+
   it("sums FORT/IRON_BASTION/THUNDER_BASTION at their own tier-specific IRON cost", () => {
     const totals = resourceSlotDemandForPlayer(
       [
