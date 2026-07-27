@@ -1082,48 +1082,91 @@ implementation.
 
 ### 14.3 Needs locating during implementation (not yet found in this research)
 
-- **Structure build menu / action preview — LOCATED, and now a live bug, not
-  just stale copy** `[found during Step 5 item 4 Slice A]`: the file is
-  `packages/client/src/client-tile-action-logic/client-tile-action-logic.ts`
-  (~35 `build_*` action ids, each with its own inline
-  `state.strategicResources.<RESOURCE> >= <old cost>` affordability check
-  feeding `disabled`/`disabledReason` via `tileActionAvailabilityWithDevelopmentSlot`
-  — e.g. `hasIron` at line ~1150 for the Fort ladder, `hasCrystal` at ~1180 for
-  Observatory, similar checks for every Tier 1-4 economic structure, both
-  synthesizer families, and the four monument parts). These checks still gate
-  on the *old* FOOD/IRON/CRYSTAL/SUPPLY stockpile amounts. Once Step 5 item 4
-  Slice A landed (build-time stockpile spend retired server-side,
-  `stripRetiredStockpileCost` in `runtime-structure-command-handlers.ts`), this
-  stopped being a merely-stale cost display and became a real functional
-  regression: **the client can now show a build action as disabled/unaffordable
-  (and block the click) in cases the server would actually allow**, because the
-  server no longer requires the stockpile amount these checks test for — only
-  a free resource *slot*, which the client never checks at all here. Concretely:
-  a player who just settled their first IRON tile has an immediate free IRON
-  slot server-side (§5.1's whole point — a slot never caps out, it's
-  available the instant you have the tile) but ~0 accumulated IRON stockpile,
-  so the Fort build button stays greyed out client-side until enough legacy
-  production accrues — directly undermining the feature's own design intent.
-  Ability-cost checks in the same file (Aether Lance/Wall/Bridge, Survey
-  Sweep, Reveal Empire, Imperial Exchange Levy, Terrain Shaping, etc., and all
-  of `client-crystal-targeting.ts`) are a different, legitimate case — those
-  still spend a real CRYSTAL stockpile server-side via
-  `context.spendStrategicResource` in ability/map handlers, untouched by Slice
-  A — **do not touch those when fixing this**. The identical bug also exists
-  in `packages/client/src/client-structure-effects/client-structure-effects.ts`'s
-  `canBuildPlacementStructure` (used for the WATERWORKS/FOUNDRY
-  placement-mode build flow, called from `client-tile-action-logic.ts:1457`)
-  — its `costDef.resourceCost`-vs-`strategicResources` check at
-  `client-structure-effects.ts:259-262` needs the same fix. Fixing this properly means, for
-  each `build_*` action only: replacing the stockpile-amount check with the
-  same free-slot logic `hasFreeResourceSlots` already uses server-side
-  (`resourceSlotSupplyForPlayer`/`resourceSlotDemandForPlayer`, currently
-  simulation-only — the client will need its own equivalent read of
-  `state.strategicResources`-adjacent slot data, likely a new wire field), and
-  updating each action's cost/detail text from "Need 45 CRYSTAL" to a slot
-  count. Sized similarly to §14.1 item 2's panel work, not a quick patch —
-  budget it as its own slice alongside (or before) the panel work, since it's
-  now correctness, not just cosmetics.
+- **Structure build menu / action preview — FIXED** `[Step 5 item 1, this
+  session]`: every `build_*`/`upgrade_*` action in
+  `client-tile-action-logic.ts` and `canBuildPlacementStructure` in
+  `client-structure-effects.ts` now gate on real slot availability instead of
+  the retired stockpile amounts. New wire field `resourceSlots: { supply,
+  demand }` (`Record<SlotResource, number>` each) threaded through both
+  server snapshot paths — the live incremental path
+  (`runtime-player-state-update.ts`'s `emitPlayerStateUpdate`, reusing the
+  Runtime class's existing `resourceSlotSupplyForPlayer`/
+  `resourceSlotDemandForPlayer` private methods) and the cold/reconnect path
+  (`live-economy-snapshot.ts`'s new `resourceSlotsForPlayer`, which
+  deliberately does NOT reuse `settledDomainTilesByPlayerId`/
+  `domainTilesByKey` — see the flagged bug below for why) — down through
+  `sim-protocol`'s `PlayerSubscriptionSnapshot.player.resourceSlots`,
+  `subscription-snapshot-cache.ts`'s `PLAYER_UPDATE` merge, and
+  `apps/realtime-gateway/src/init-payload/init-payload.ts`'s INIT payload, to
+  `ClientState.resourceSlots` (`client-state.ts`,
+  `client-network-init-message.ts`, `client-network.ts`).
+  Client-side: two new helpers in `client-tile-action-logic.ts`
+  (`hasFreeResourceSlots` / `missingResourceSlotReason`), both built on
+  `structureSlotRequirements` from `@border-empires/shared` (the same
+  authoritative table `hasFreeResourceSlots` uses server-side) — including
+  the in-place-upgrade netting for the Fort/Siege tier ladders (mirrors
+  `currentTileFieldSlotRequirements`) and the synthesizer skip (a synthesizer
+  provides a slot, never consumes one, §6.4). Fixing this against the
+  authoritative table (rather than just swapping each check's resource key
+  1:1) surfaced several checks that were wrong in more ways than "stale
+  amount": `CAMP` and `MINE` were gated on SUPPLY/IRON-or-CRYSTAL but the
+  table says both draw a FOOD slot (§5.3's "boosting structures draw FOOD
+  unless they have a natural material tie"); `CUSTOMS_HOUSE` was gated on
+  CRYSTAL but the table's documented quirk (`structure-slots.ts`) says FOOD;
+  `BANK`/`MARKET`/`GOVERNORS_OFFICE`/`CARAVANARY`/`CLEARING_HOUSE`/
+  `FOUNDRY`/`WOODEN_FORT` had no resource check at all client-side (some
+  never did, some lost theirs to drift) despite the table requiring one; the
+  four monument *assemblies* (`IMPERIAL_EXCHANGE` etc, not the parts) were
+  checking their real SHARD stockpile spend but had no CRYSTAL slot check
+  even though the table lists one. All of these are now checked. The
+  `upgrade_fur_synthesizer`/`upgrade_ironworks`/`upgrade_crystal_synthesizer`
+  Advanced-tier upgrades had a stockpile check that should never have gated
+  anything (Advanced synthesizers are still synthesizer-family, still
+  slot-exempt) — removed entirely rather than converted. Cost/detail text
+  ("Need 45 CRYSTAL" → "Need a free CRYSTAL slot", "45 IRON" → "1 IRON slot")
+  updated at every touched site, plus centrally in
+  `client-app-runtime-display-support.ts`'s `structureCostText` (its
+  no-override default fallback now reads `structureSlotRequirements` instead
+  of the retired `structureCostDefinition().resourceCost`, so every action
+  relying on the default — not just the ones with an explicit inline
+  override — shows correct slot text). Ability-cost checks (Aether Lance/
+  Wall/Bridge, Survey Sweep, Reveal Empire, Imperial Exchange Levy, Terrain
+  Shaping, Siphon, City Overclock, `client-crystal-targeting.ts`) and the
+  town-growth FOOD stockpile check (`townGrowthActionForUpgrade`, spent via a
+  still-live `UPGRADE_TOWN_TIER` handler untouched by Slice A) were
+  deliberately left alone — confirmed by tracing each to its own still-live
+  stockpile spend, not assumed. One fixture test
+  (`client-tile-action-support.test.ts`) needed a `resourceSlots.supply.FOOD`
+  seed now that the gate is real, same pattern as the ~20 tests Slice A
+  itself updated. Full test suite green in all four packages after this
+  change (shared 312/312, game-domain 30/30, simulation 1490/1491 pre-existing
+  skip, client 1021/1022 pre-existing `client-multiplex-websocket` jsdom
+  `CloseEvent` failure — both matching the baseline before this change).
+
+  **New bug found, NOT fixed here (flagging, not fixing, per the "don't
+  casually touch adjacent behavior" discipline):** while wiring the
+  cold/reconnect path, `live-economy-snapshot.ts`'s existing (pre-this-session)
+  `farmsteadWaterworksKeys` computation —
+  `radiusStructureKeysForSettledTiles(settledDomainTilesByPlayerId.get(playerId) ?? [])`
+  — is silently always empty. `settledDomainTilesByPlayerId` is built via
+  `toDomainTile` (`snapshot-tile-cache.ts`), which never sets
+  `economicStructure` on the returned `DomainTileState`s, but
+  `radiusStructureKeysForSettledTiles` needs `economicStructure` to find
+  active Waterworks tiles. Net effect: the Farmstead/Waterworks food bonus in
+  the *reconnect-snapshot* economy breakdown (`buildLivePlayerEconomySnapshot`,
+  used by `buildPlayerSubscriptionSnapshot` for login/reconnect) silently
+  never applies the Waterworks-radius doubling that the live incremental path
+  (`player-update-economy.ts`, which threads its own correctly-built
+  `waterworksKeys` through) does apply — a real economy-breakdown-panel
+  display bug on reconnect, pre-dating this session, unrelated to the slots
+  fix (the new `resourceSlotsForPlayer` added this session deliberately
+  builds its own economicStructure-carrying tile view instead of reusing
+  `settledDomainTilesByPlayerId`, specifically to avoid inheriting this bug).
+  Worth its own small fix (either add `economicStructure` to
+  `toDomainTile`'s output — check for other callers relying on its current
+  narrower shape first — or give `live-economy-snapshot.ts` its own
+  economicStructure-aware tile view the way this session's `resourceSlotsForPlayer`
+  does), but out of scope for this slice.
 - **First-session / tutorial / onboarding copy** — wherever new-player
   guidance currently lives needs to teach the new mental model directly:
   manpower funds everything physical (expand/settle/build/attack), gold

@@ -7,6 +7,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
+import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
@@ -16,6 +17,8 @@ export type RuntimePlayerStateUpdateContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   cachedDefensibilityMetrics: (playerId: string, summary: PlayerRuntimeSummary) => PlayerDefensibilityMetrics;
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
+  resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
+  resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
@@ -78,6 +81,10 @@ export function emitPlayerStateUpdate(
         SHARD: player.strategicResources?.SHARD ?? 0
       },
       strategicProductionPerMinute: economy.strategicProductionPerMinute,
+      resourceSlots: {
+        supply: context.resourceSlotSupplyForPlayer(playerId),
+        demand: context.resourceSlotDemandForPlayer(playerId)
+      },
       economyBreakdown: economy.economyBreakdown,
       upkeepPerMinute: economy.upkeepPerMinute,
       upkeepLastTick: economy.upkeepLastTick,

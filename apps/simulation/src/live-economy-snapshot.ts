@@ -1,5 +1,5 @@
 import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
-import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT } from "@border-empires/game-domain";
+import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
 import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -37,6 +37,7 @@ import {
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 import { farmsteadFoodBonusPerMinute, radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { resourceSlotDemandForPlayer, resourceSlotSupplyForPlayer } from "./resource-slot-view/resource-slot-view.js";
 
 export const buildLivePlayerEconomySnapshot = (
   playerId: string,
@@ -62,6 +63,7 @@ export const buildLivePlayerEconomySnapshot = (
   // player's settled tiles, so the Farmstead breakdown below matches the total.
   const { waterworksKeys: farmsteadWaterworksKeys } = radiusStructureKeysForSettledTiles(settledDomainTilesByPlayerId.get(playerId) ?? []);
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
+  const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -150,7 +152,7 @@ export const buildLivePlayerEconomySnapshot = (
   }
 
   return buildEconomyResult({
-    player, strategicProductionPerMinute,
+    player, strategicProductionPerMinute, resourceSlots,
     goldSources, goldSinks, foodSources, foodSinks,
     ironSources, ironSinks, crystalSources, crystalSinks,
     supplySources, supplySinks, shardSources,
@@ -158,9 +160,51 @@ export const buildLivePlayerEconomySnapshot = (
   });
 };
 
+// §5 (resource slots): the cold/reconnect snapshot path has no live
+// DomainTileState territory index to reuse — runtimeState.tiles carries
+// fort/observatory/siegeOutpost/economicStructure as JSON strings, and
+// domainTilesByKey/settledDomainTilesByPlayerId (snapshot-tile-cache.ts)
+// deliberately don't parse economicStructure (toDomainTile omits it), so
+// they can't be reused here without silently under-counting synthesizer/
+// Mine/Farmstead/Camp supply and structure demand. Parse a player-scoped
+// view directly from the wire-shaped tiles instead, then hand it to the
+// same pure resourceSlotSupplyForPlayer/resourceSlotDemandForPlayer the
+// live runtime uses for the build-time gate, so the two paths can never
+// compute different numbers for the same territory.
+type SlotTileEconomicStructure = DomainTileState["economicStructure"];
+type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
+type OwnedSlotTile = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
+
+const resourceSlotsForPlayer = (
+  playerId: string,
+  runtimeState: RuntimeState
+): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer> } => {
+  const settledSlotTiles: SettledSlotTile[] = [];
+  const ownedSlotTiles: OwnedSlotTile[] = [];
+  for (const tile of runtimeState.tiles) {
+    if (tile.ownerId !== playerId) continue;
+    const economicStructure = parseStructure<SlotTileEconomicStructure>(tile.economicStructureJson);
+    if (tile.ownershipState === "SETTLED") {
+      settledSlotTiles.push({ x: tile.x, y: tile.y, resource: tile.resource as DomainTileState["resource"], economicStructure });
+    }
+    ownedSlotTiles.push({
+      fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
+      observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
+      siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      economicStructure
+    });
+  }
+  const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  return {
+    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys),
+    demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId)
+  };
+};
+
 type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
   strategicProductionPerMinute: { FOOD: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
+  resourceSlots: LivePlayerEconomySnapshot["resourceSlots"];
   goldSources: Map<string, EconomyBucket>;
   goldSinks: Map<string, EconomyBucket>;
   foodSources: Map<string, EconomyBucket>;
@@ -205,6 +249,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
       SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
     },
+    resourceSlots: args.resourceSlots,
     upkeepPerMinute,
     upkeepLastTick: {
       foodCoverage: Number(foodCoverage.toFixed(4)),

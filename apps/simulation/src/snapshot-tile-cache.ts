@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
@@ -83,6 +83,7 @@ export type UpkeepLastTick = {
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
   economyBreakdown: EconomyBreakdown;

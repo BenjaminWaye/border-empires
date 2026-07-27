@@ -269,6 +269,7 @@ export const buildPlayerSubscriptionSnapshot = (
               SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
             strategicProductionPerMinute,
+            resourceSlots: liveEconomy.resourceSlots,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,

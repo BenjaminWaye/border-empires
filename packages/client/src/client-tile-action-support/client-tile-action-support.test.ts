@@ -240,6 +240,9 @@ describe("town support tile actions", () => {
     clientState.me = "me";
     clientState.gold = 500;
     clientState.techIds = ["trade"];
+    // §5 (resource slots): MARKET needs a free FOOD slot at build time now
+    // that the old FOOD stockpile check is retired (Step 5 item 4 Slice A).
+    clientState.resourceSlots.supply.FOOD = 1;
     const supportTile: Tile = { x: 210, y: 149, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
     const town = (x: number, y: number): Tile => ({
       x,

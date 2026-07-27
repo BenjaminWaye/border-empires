@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, MonumentalStructureType, PlayerRespawnNotice, VisibilityState, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -288,6 +288,15 @@ export type PlayerSubscriptionSnapshot = {
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
     strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+    // per-resource supply/demand pool (§5.6 v1 scope) — the same numbers
+    // hasFreeResourceSlots gates BUILD_STRUCTURE on server-side. Lets the
+    // client check real slot availability for FOOD/IRON/CRYSTAL/SUPPLY
+    // instead of the retired stockpile amounts (§14.3).
+    resourceSlots?: {
+      supply: Record<SlotResource, number>;
+      demand: Record<SlotResource, number>;
+    };
     economyBreakdown?: Record<string, unknown>;
     upkeepPerMinute?: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
