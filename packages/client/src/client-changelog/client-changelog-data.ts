@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785129932105,
+    introducedIn: "2026.07.27.1",
+    title: "Fixed: unexplored-tile waypoints stopped working entirely",
+    why: "An unrelated merge on client-action-flow.ts accidentally reverted the unexplored-tile waypoint feature back to its pre-feature state — clicking an unexplored tile went back to silently doing nothing (no menu, no selection) instead of opening the \"Unexplored\" menu with an Expand Here option.",
+    changes: [
+      "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
+    ]
+  },
+  {
     createdAt: 1784937780000, // 2026.07.25.3
     introducedIn: "2026.07.25.3",
     title: "Hills are now a real strategic prize",
@@ -141,66 +150,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1784592360000, // 2026.07.21.6
-    introducedIn: "2026.07.21.6",
-    title: "Fixed: town capture popup missing after winning an attack",
-    why: "The celebratory town-capture popup only fired for tile-delta updates (EXPAND, settling), so capturing an enemy town through combat never showed it even though the capture itself worked correctly.",
-    changes: [
-      "Winning an ATTACK that captures an enemy town now shows the town capture popup, same as capturing via EXPAND or settlement."
-    ]
-  },
-  {
-    createdAt: 1784592300000, // 2026.07.21.5
-    introducedIn: "2026.07.21.5",
-    title: "Low Empire Integrity now shows a dismissible warning",
-    why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
-    changes: [
-      "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
-      'Dismiss it with the × in its corner or the "I understand" button; it reappears if integrity recovers above 90% and later drops again.'
-    ]
-  },
-  {
-    createdAt: 1784592240000, // 2026.07.21.4
-    introducedIn: "2026.07.21.4",
-    title: "Smoother minimap on maps with a lot of unexplored fog",
-    why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
-    changes: [
-      "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
-    ]
-  },
-  {
-    createdAt: 1784592180000, // 2026.07.21.3
-    introducedIn: "2026.07.21.3",
-    title: "Move a queued build or settlement to the front of the line",
-    why: "A tile with a queued build or settlement only offered a cancel button, even though the actual goal was usually just to get it started sooner. Now you can bump it ahead of everything else waiting for a development slot without losing its place entirely.",
-    changes: [
-      'Queued builds and queued settlements now show a "Jump to front of queue" button alongside the existing cancel option (hidden once the entry is already first in line).'
-    ]
-  },
-  {
-    createdAt: 1784592120000, // 2026.07.21.2
-    introducedIn: "2026.07.21.2",
-    title:
-      "Display name changes now confirm up front and are limited to once per season",
-    why: "Nothing stopped a player from renaming repeatedly, and a successful rename was easy to miss with only a feed message noting it. Settings now asks for confirmation before sending an actual rename (not the initial name pick), the server enforces one rename per season, and a successful change now also pops a clear confirmation.",
-    changes: [
-      "Clicking Update on an actual name change (not your first-time setup) now confirms first, noting the once-per-season limit, before sending the request.",
-      'The server now rejects a second rename attempt within the same season with a clear "try again next season" message.',
-      "A successful rename now also shows a confirmation popup with your new name, in addition to the existing feed message."
-    ]
-  },
-  {
-    createdAt: 1784592060000, // 2026.07.21.1
-    introducedIn: "2026.07.21.1",
-    title:
-      'Fixed "Signed in as" showing your old name after changing it in Settings',
-    why: 'The "Signed in as" line in Settings read the auth label captured from your Firebase account at login time, which is never touched by a display name change — only the Display Name field itself (backed by a separate piece of state) updated. So a successful rename showed the new name in the input box and a "Display name updated." feed message, but the line right above it kept showing the name you signed in with.',
-    changes: [
-      '"Signed in as" now shows your current in-game display name once it\'s known, instead of the name captured at login.'
-    ]
-  },
-  {
-    createdAt: Date.now(),
+    createdAt: 1785096000000, // 2026.07.26.1
     introducedIn: "2026.07.26.1",
     title: "Fixed seeing darkness after a new season starts",
     why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
