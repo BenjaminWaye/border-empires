@@ -26,6 +26,13 @@ export type ConnectedTownNetworkEntry = {
   // not by having every consumer re-scan a full connectedTownKeys list. Bounded
   // by the actual number of Clearing Houses nearby, not by connectedTownCount.
   connectedClearingHouseKeys?: string[];
+  // Same precomputation, for Garrison Hall — feeds the Rail Depot network
+  // manpower bonus (docs/manpower-economy-rewrite-plan.md §4.4): a Rail Depot
+  // amplifies every Garrison Hall in its connected-town network, uncapped.
+  connectedGarrisonHallKeys?: string[];
+  // Same precomputation, for Rail Depot — used to enforce "only one Rail
+  // Depot per connected-town network" at build time (§4.4).
+  connectedRailDepotKeys?: string[];
   connectedTownNames?: string[];
 };
 
@@ -80,6 +87,8 @@ type TownConnectivityGroup = {
   // size) instead of O(towns_in_component²).
   members: string[];
   clearingHouseKeys: string[];
+  garrisonHallKeys: string[];
+  railDepotKeys: string[];
 };
 
 export type DockEconomyContext = {
@@ -168,6 +177,16 @@ export const buildConnectedTownNetworkForPlayer = (
     return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
   };
 
+  const hasGarrisonHallAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles) : false;
+  };
+
+  const hasRailDepotAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "RAIL_DEPOT", tiles) : false;
+  };
+
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
   // These are connected regardless of the corridor graph. O(towns) — each
   // town has at most 8 neighbors, so this step alone can never be quadratic.
@@ -213,7 +232,9 @@ export const buildConnectedTownNetworkForPlayer = (
     const members = [...adjacentTownKeys].sort((l, r) => l.localeCompare(r));
     const group: TownConnectivityGroup = {
       members,
-      clearingHouseKeys: members.filter(hasClearingHouseAt)
+      clearingHouseKeys: members.filter(hasClearingHouseAt),
+      garrisonHallKeys: members.filter(hasGarrisonHallAt),
+      railDepotKeys: members.filter(hasRailDepotAt)
     };
     for (const townKey of members) {
       let list = groupsByTown.get(townKey);
@@ -347,6 +368,8 @@ export const buildConnectedTownNetworkForPlayer = (
 
     let connectedTownCount: number;
     let clearingHouseKeys: string[];
+    let garrisonHallKeys: string[];
+    let railDepotKeys: string[];
     let memberKeysForNames: string[] | undefined;
 
     if (direct.size === 0 && groups && groups.length === 1) {
@@ -355,6 +378,12 @@ export const buildConnectedTownNetworkForPlayer = (
       clearingHouseKeys = group.clearingHouseKeys.includes(townKey)
         ? group.clearingHouseKeys.filter((k) => k !== townKey)
         : group.clearingHouseKeys;
+      garrisonHallKeys = group.garrisonHallKeys.includes(townKey)
+        ? group.garrisonHallKeys.filter((k) => k !== townKey)
+        : group.garrisonHallKeys;
+      railDepotKeys = group.railDepotKeys.includes(townKey)
+        ? group.railDepotKeys.filter((k) => k !== townKey)
+        : group.railDepotKeys;
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? group.members.filter((k) => k !== townKey)
@@ -362,6 +391,8 @@ export const buildConnectedTownNetworkForPlayer = (
     } else if (direct.size === 0 && (!groups || groups.length === 0)) {
       connectedTownCount = 0;
       clearingHouseKeys = [];
+      garrisonHallKeys = [];
+      railDepotKeys = [];
       memberKeysForNames = undefined;
     } else {
       const unionSet = new Set<string>(direct);
@@ -376,6 +407,16 @@ export const buildConnectedTownNetworkForPlayer = (
       for (const group of groups ?? []) {
         for (const key of group.clearingHouseKeys) if (key !== townKey) clearingHouseSet.add(key);
       }
+      const garrisonHallSet = new Set<string>();
+      for (const key of direct) if (hasGarrisonHallAt(key)) garrisonHallSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.garrisonHallKeys) if (key !== townKey) garrisonHallSet.add(key);
+      }
+      const railDepotSet = new Set<string>();
+      for (const key of direct) if (hasRailDepotAt(key)) railDepotSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.railDepotKeys) if (key !== townKey) railDepotSet.add(key);
+      }
       // Sorted for determinism: this set accumulates across `groups`, whose
       // discovery order differs between the BFS and incremental grouping
       // paths (and is Set-iteration-order dependent in general). The
@@ -384,6 +425,8 @@ export const buildConnectedTownNetworkForPlayer = (
       // equivalent worlds could emit different tile-delta JSON and churn
       // client state for no reason.
       clearingHouseKeys = [...clearingHouseSet].sort((l, r) => l.localeCompare(r));
+      garrisonHallKeys = [...garrisonHallSet].sort((l, r) => l.localeCompare(r));
+      railDepotKeys = [...railDepotSet].sort((l, r) => l.localeCompare(r));
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? [...unionSet].sort((l, r) => l.localeCompare(r))
@@ -401,10 +444,58 @@ export const buildConnectedTownNetworkForPlayer = (
       connectedTownCount,
       connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
       ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
+      ...(garrisonHallKeys.length ? { connectedGarrisonHallKeys: garrisonHallKeys } : {}),
+      ...(railDepotKeys.length ? { connectedRailDepotKeys: railDepotKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {})
     });
   }
   return out;
+};
+
+/**
+ * docs/manpower-economy-rewrite-plan.md §4.4: Rail Depot is the enabler of a
+ * network-wide manpower bonus. For every one of the player's own towns that
+ * itself hosts an active Rail Depot, count that town's own Garrison Hall (if
+ * any) plus every Garrison Hall in its connected-town network — summed
+ * across all of the player's Rail-Depot-hosting towns. Correct as long as
+ * "only one Rail Depot per network" (see railDepotAlreadyInNetwork, enforced
+ * at build time) holds — otherwise a second Rail Depot inside an
+ * already-covered network would double-count that network's Garrison Halls.
+ */
+export const railDepotNetworkGarrisonHallCountForPlayer = (
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  ownedTownTileKeys: Iterable<string>
+): number => {
+  let total = 0;
+  for (const townKey of ownedTownTileKeys) {
+    const tile = tiles.get(townKey);
+    if (!tile || !hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles)) continue;
+    const entry = townNetwork.get(townKey);
+    total +=
+      (entry?.connectedGarrisonHallKeys?.length ?? 0) +
+      (hasSupportedStructure(playerId, tile, "GARRISON_HALL", tiles) ? 1 : 0);
+  }
+  return total;
+};
+
+/**
+ * True when `townKey`'s connected-town network already has an active Rail
+ * Depot — either at the town itself or at any town in its network. Checked
+ * before allowing a new Rail Depot build (§4.4: "only one Rail Depot may be
+ * built per connected-town network").
+ */
+export const railDepotAlreadyInNetwork = (
+  playerId: string,
+  townKey: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>
+): boolean => {
+  const tile = tiles.get(townKey);
+  if (tile && hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles)) return true;
+  const entry = townNetwork.get(townKey);
+  return Boolean(entry?.connectedRailDepotKeys?.length);
 };
 
 export const enrichTownWithConnectedNetwork = (

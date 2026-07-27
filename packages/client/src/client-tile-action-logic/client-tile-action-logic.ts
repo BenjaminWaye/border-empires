@@ -1490,7 +1490,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("GARRISON_HALL")
                     ? `Need ${structureBuildManpowerCost("GARRISON_HALL")} manpower`
                     : "Need 80 CRYSTAL",
-            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +20% defense within 10 tiles • 2.5 gold/min`,
+            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +75 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network • 2.5 gold/min`,
             slots,
             deps
           )
@@ -1936,7 +1936,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("RAIL_DEPOT")
                       ? `Need ${structureBuildManpowerCost("RAIL_DEPOT")} manpower`
                       : "Need 100 CRYSTAL",
-            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • +0.5 manpower regen • boosts outpost muster within 50 tiles • auto-settles nearest frontier within 20 tiles every 10m • +10 connected-town income points`,
+            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+75 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`,
             slots,
             deps
           )

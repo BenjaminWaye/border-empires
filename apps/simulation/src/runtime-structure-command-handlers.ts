@@ -42,6 +42,10 @@ export type RuntimeStructureCommandContext = {
   economicStructureForSupportedTown: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   firstAvailableTownSupportTile: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   assignedTownKeyForSupportTile: (playerId: string, x: number, y: number) => string | undefined;
+  // §4.4 (docs/manpower-economy-rewrite-plan.md): "only one Rail Depot may be
+  // built per connected-town network" — true when townKey's own network
+  // already has an active Rail Depot, at that town or any town it's connected to.
+  railDepotAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
@@ -93,6 +97,10 @@ function resolveTownSupportTarget(
       rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
       return undefined;
     }
+    if (economicType === "RAIL_DEPOT" && context.railDepotAlreadyInNetwork(command.playerId, townKey)) {
+      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
+      return undefined;
+    }
     const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, economicType);
     if (!supportTarget) {
       rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
@@ -104,6 +112,10 @@ function resolveTownSupportTarget(
   const supportedTownKey = context.assignedTownKeyForSupportTile(command.playerId, target.x, target.y);
   if (supportedTownKey && context.economicStructureForSupportedTown(command.playerId, supportedTownKey, economicType)) {
     rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
+    return undefined;
+  }
+  if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
+    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
     return undefined;
   }
   return target;

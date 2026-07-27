@@ -1,7 +1,9 @@
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import {
+  GARRISON_HALL_MANPOWER_CAP_BONUS,
   MANPOWER_REGEN_GLOBAL_FLOOR,
-  RAIL_DEPOT_MANPOWER_REGEN_PER_MIN,
+  RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL,
+  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL,
   STARTING_CAPITAL_MANPOWER_CAP,
   STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE,
   TOWN_MANPOWER_BY_TIER,
@@ -20,17 +22,31 @@ type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
 // (e.g. a first SETTLEMENT town would add nothing if its regen sat under the
 // floor); additive keeps "capture a town -> visibly more manpower" true from
 // town #1 onward.
-export const playerManpowerCapFromSummary = (summary: PlayerRuntimeSummary): number => {
+// §4.4: Garrison Hall grants a flat, unconditional manpower-cap bonus to
+// the town it's built in (docs/manpower-economy-rewrite-plan.md §4.4) —
+// garrisonHallCount is a simple count of the player's own Garrison Halls,
+// regardless of network. railDepotNetworkGarrisonHallCount is the sum,
+// across every one of the player's Rail-Depot-anchored connected-town
+// networks, of the Garrison Halls in that network (see
+// railDepotNetworkGarrisonHallCountForPlayer in economy-network.ts) — kept
+// as a separate parameter since it uses a different per-Garrison-Hall rate.
+export const playerManpowerCapFromSummary = (
+  summary: PlayerRuntimeSummary,
+  garrisonHallCount = 0,
+  railDepotNetworkGarrisonHallCount = 0
+): number => {
   let cap = 0;
   for (const tier of summary.ownedTownTierByTile.values()) {
     cap += TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
   }
+  cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
+  cap += railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
 export const playerManpowerRegenPerMinuteFromSummary = (
   summary: PlayerRuntimeSummary,
-  railDepotCount = 0
+  railDepotNetworkGarrisonHallCount = 0
 ): number => {
   let regen = 0;
   let index = 0;
@@ -39,8 +55,8 @@ export const playerManpowerRegenPerMinuteFromSummary = (
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
-  const depotBonus = railDepotCount * RAIL_DEPOT_MANPOWER_REGEN_PER_MIN;
-  return Math.max(MANPOWER_REGEN_GLOBAL_FLOOR, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + regen + depotBonus);
+  const railDepotNetworkBonus = railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL;
+  return Math.max(MANPOWER_REGEN_GLOBAL_FLOOR, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + regen + railDepotNetworkBonus);
 };
 
 const townTierLabel = (tier: TownTier, count: number): string => {
@@ -63,7 +79,8 @@ const manpowerRegenWeightNote = (weight: number): string | undefined => {
 
 export const playerManpowerBreakdownFromSummary = (
   summary: PlayerRuntimeSummary,
-  railDepotCount = 0
+  garrisonHallCount = 0,
+  railDepotNetworkGarrisonHallCount = 0
 ): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
@@ -95,14 +112,28 @@ export const playerManpowerBreakdownFromSummary = (
       ...(note ? { note } : {})
     };
   });
-  if (railDepotCount > 0) {
-    regenLines.push({ label: "Rail Depot", amount: railDepotCount * RAIL_DEPOT_MANPOWER_REGEN_PER_MIN });
+  const capLinesWithGarrisonHall =
+    garrisonHallCount > 0
+      ? [...capLines, { label: "Garrison Hall", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
+      : capLines;
+  if (railDepotNetworkGarrisonHallCount > 0) {
+    regenLines.push({
+      label: "Rail Depot Network",
+      amount: railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL
+    });
   }
+  const capLinesWithRailDepotNetwork =
+    railDepotNetworkGarrisonHallCount > 0
+      ? [
+          ...capLinesWithGarrisonHall,
+          { label: "Rail Depot Network", amount: railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
+        ]
+      : capLinesWithGarrisonHall;
   // Starting Capital is always present (§4.3) — unlike the old floor-based
   // "Base minimum" fallback, it's listed unconditionally alongside any town
   // lines rather than only appearing when there are no towns.
   return {
-    cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, ...capLines],
+    cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, ...capLinesWithRailDepotNetwork],
     regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, ...regenLines]
   };
 };

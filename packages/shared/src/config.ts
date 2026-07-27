@@ -195,8 +195,15 @@ export const MUSTER_DEPOT_SPEED_MULT = 1.25;
 export const OUTPOST_DEPOT_RADIUS = 5;
 
 // --- Rail Depot mustering hub ---
-// Global manpower regen bonus per Rail Depot built.
-export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5;
+// docs/manpower-economy-rewrite-plan.md §4.4: Garrison Hall grants a flat,
+// unconditional manpower-cap bonus to the town it's built in, regardless of
+// network. Rail Depot no longer grants its own flat per-depot regen (the old
+// RAIL_DEPOT_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a
+// network-wide bonus: one Rail Depot per connected-town network amplifies
+// every Garrison Hall already in that network, uncapped in count.
+export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
+export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 75;
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
 // Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.

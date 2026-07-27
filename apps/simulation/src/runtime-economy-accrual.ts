@@ -36,17 +36,28 @@ export type RuntimeEconomyAccrualContext = {
   tileYieldEconomyContextForPlayer: (player: DomainPlayer) => RuntimeTileYieldEconomyContext;
   tileYieldCollectedAt: (tileKey: string, ownerId?: string) => number | undefined;
   emitEvent: (event: SimulationEvent) => void;
-  railDepotCountForPlayer: (playerId: string) => number;
+  // §4.4 manpower structure bonuses (Garrison Hall flat cap + Rail Depot
+  // network cap/regen) — see cachedManpowerStructureBonusForPlayer in
+  // runtime.ts for the live, cached implementation this mirrors.
+  manpowerStructureBonusForPlayer: (playerId: string) => { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number };
 };
 
-export const playerManpowerCap = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): number =>
-  player.id === "barbarian-1" ? Number.MAX_SAFE_INTEGER : playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id));
+export const playerManpowerCap = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): number => {
+  if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
+  const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = ctx.manpowerStructureBonusForPlayer(player.id);
+  return playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
+};
 
 export const playerManpowerRegenPerMinute = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): number =>
-  playerManpowerRegenPerMinuteFromSummary(ctx.summaryForPlayer(player.id), ctx.railDepotCountForPlayer(player.id));
+  playerManpowerRegenPerMinuteFromSummary(
+    ctx.summaryForPlayer(player.id),
+    ctx.manpowerStructureBonusForPlayer(player.id).railDepotNetworkGarrisonHallCount
+  );
 
-export const playerManpowerBreakdown = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): ManpowerBreakdown =>
-  playerManpowerBreakdownFromSummary(ctx.summaryForPlayer(player.id), ctx.railDepotCountForPlayer(player.id));
+export const playerManpowerBreakdown = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer): ManpowerBreakdown => {
+  const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = ctx.manpowerStructureBonusForPlayer(player.id);
+  return playerManpowerBreakdownFromSummary(ctx.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
+};
 
 export const effectiveRuntimeManpowerAt = (ctx: RuntimeEconomyAccrualContext, player: RuntimePlayer, nowMs: number): number =>
   effectiveManpowerAt(player, playerManpowerCap(ctx, player), playerManpowerRegenPerMinute(ctx, player), nowMs);
