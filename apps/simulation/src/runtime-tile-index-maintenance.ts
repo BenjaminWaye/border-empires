@@ -11,6 +11,7 @@ import {
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { ConnectedTownNetworkEntry } from "./economy-network/economy-network.js";
+import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import {
   addTileUpkeepToCache,
   removeTileUpkeepFromCache,
@@ -256,6 +257,13 @@ export const refreshEconomyCachesForTileChange = (input: {
   // townNetworkCacheByPlayer since it's derived from the same network build
   // plus a Garrison Hall/Rail Depot structure scan over the same tiles.
   manpowerStructureBonusCacheByPlayer?: Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>;
+  // §5 (resource slots). Supply only depends on SETTLED resource tiles, so it
+  // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
+  // Demand depends on fort/siegeOutpost/economicStructure on ANY owned tile
+  // (Siege Outposts can be FRONTIER, resource-slot-view.ts), so it's invalidated
+  // unconditionally alongside defensibilityMetricsCacheByPlayer instead.
+  resourceSlotSupplyCacheByPlayer?: Map<string, ResourceSlotTotals>;
+  resourceSlotDemandCacheByPlayer?: Map<string, ResourceSlotTotals>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
@@ -268,8 +276,10 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
       input.townNetworkCacheByPlayer.delete(previous.ownerId);
       input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
+      input.resourceSlotSupplyCacheByPlayer?.delete(previous.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
+    input.resourceSlotDemandCacheByPlayer?.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
@@ -280,8 +290,10 @@ export const refreshEconomyCachesForTileChange = (input: {
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
       input.townNetworkCacheByPlayer.delete(next.ownerId);
       input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
+      input.resourceSlotSupplyCacheByPlayer?.delete(next.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
+    input.resourceSlotDemandCacheByPlayer?.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
     if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);

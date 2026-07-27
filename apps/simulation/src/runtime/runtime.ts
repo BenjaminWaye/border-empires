@@ -607,6 +607,18 @@ export class SimulationRuntime {
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
+  // §5 (resource slots) supply/demand caches. emitPlayerStateUpdate calls
+  // these on every command AND on the periodic income tick (runtime-passive-
+  // income.ts) for every player, so an uncached O(territory) rescan here
+  // would be a real per-tick cost at scale, unlike hasFreeResourceSlots'
+  // once-per-build call. Supply only depends on SETTLED resource tiles, so
+  // it's invalidated on the same SETTLED-gated trigger as
+  // economySnapshotCacheByPlayer. Demand depends on fort/siegeOutpost/
+  // economicStructure on ANY owned tile (Siege Outposts can be FRONTIER,
+  // resource-slot-view.ts), so it must invalidate unconditionally like
+  // defensibilityMetricsCacheByPlayer does, not gated on SETTLED.
+  private readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
+  private readonly resourceSlotDemandCacheByPlayer = new Map<string, ResourceSlotTotals>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1702,7 +1714,9 @@ export class SimulationRuntime {
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
-      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer
+      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+      resourceSlotSupplyCacheByPlayer: this.resourceSlotSupplyCacheByPlayer,
+      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2484,16 +2498,27 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId));
   }
 
-  // §5.6 v1 scope: global per-resource pool, recomputed on demand rather
-  // than incrementally indexed (see resource-slot-view.ts's header comment).
+  // §5.6 v1 scope: global per-resource pool, cached per-player rather than
+  // incrementally indexed (see resource-slot-view.ts's header comment).
+  // Caching added because emitPlayerStateUpdate calls this on the periodic
+  // income tick for every player, not just once per BUILD_STRUCTURE command
+  // — see the cache field comments above for the invalidation gates.
   private resourceSlotSupplyForPlayer(playerId: string): ResourceSlotTotals {
+    const cached = this.resourceSlotSupplyCacheByPlayer.get(playerId);
+    if (cached) return cached;
     const settledTiles = this.settledTilesForPlayer(playerId);
     const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys);
+    const result = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys);
+    this.resourceSlotSupplyCacheByPlayer.set(playerId, result);
+    return result;
   }
 
   private resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals {
-    return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId);
+    const cached = this.resourceSlotDemandCacheByPlayer.get(playerId);
+    if (cached) return cached;
+    const result = resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId);
+    this.resourceSlotDemandCacheByPlayer.set(playerId, result);
+    return result;
   }
 
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
