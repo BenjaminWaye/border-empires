@@ -240,54 +240,9 @@ export const constructionProgressForTile = (
   return undefined;
 };
 
-export const queuedSettlementProgressForTile = (
-  tile: Tile,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string; optimisticKind?: string } | undefined;
-    queuedSettlementIndexForTile: (tileKey: string) => number;
-    queuedEntryIndexForTile: (tileKey: string) => number;
-  }
-): TileMenuProgressView | undefined => {
-  const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
-  if (!entry || entry.kind !== "SETTLE") return undefined;
-  const queueIndex = deps.queuedSettlementIndexForTile(entry.tileKey);
-  const isFirstInQueue = deps.queuedEntryIndexForTile(entry.tileKey) <= 0;
-  return {
-    title: "Settlement queued",
-    detail: "This frontier tile is queued to settle as soon as a development slot becomes free.",
-    remainingLabel: queueIndex >= 0 ? `Queue #${queueIndex + 1}` : "Queued",
-    progress: 0,
-    note: "Queued settlements reserve their place in line and can be cancelled before they start.",
-    cancelLabel: "Cancel queued settlement",
-    cancelActionId: "cancel_queued_settlement",
-    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
-  };
-};
-
-export const queuedBuildProgressForTile = (
-  tile: Tile,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string } | undefined;
-    queuedEntryIndexForTile: (tileKey: string) => number;
-  }
-): TileMenuProgressView | undefined => {
-  const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
-  if (!entry || entry.kind !== "BUILD") return undefined;
-  const baseTitle = entry.label?.replace(/\sat\s+\(.+\)$/, "") ?? "Build";
-  const isFirstInQueue = deps.queuedEntryIndexForTile(entry.tileKey) <= 0;
-  return {
-    title: `${baseTitle} queued`,
-    detail: "This build is queued and will start automatically when a development slot becomes free.",
-    remainingLabel: "Queued",
-    progress: 0,
-    note: "Queued builds hold their place in line and can be cancelled before they start.",
-    cancelLabel: "Cancel queued build",
-    cancelActionId: "cancel_queued_build",
-    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
-  };
-};
+// queuedSettlementProgressForTile / queuedBuildProgressForTile moved to
+// ../client-tile-menu-queue-progress/client-tile-menu-queue-progress.ts
+// (this file is already over the 500-line growth cap).
 
 // Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, etc.)
 // only ride the snapshot and REQUEST_TILE_DETAIL responses — they are NOT in

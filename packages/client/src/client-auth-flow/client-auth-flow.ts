@@ -9,11 +9,8 @@ import {
   signInWithEmailLink,
   signInWithPopup,
   updateProfile,
-  type Auth,
-  type GoogleAuthProvider,
   type User
 } from "firebase/auth";
-import type { initClientDom } from "../client-dom.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
   seedProfileSetupFields as seedProfileSetupFieldsFromModule,
@@ -32,42 +29,10 @@ import {
 } from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
-import type { ClientState } from "../client-state/client-state.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
-export type AuthSession = {
-  token: string;
-  uid: string;
-  emailLinkSentTo: string;
-  emailLinkPending: boolean;
-};
-
-type ClientDom = ReturnType<typeof initClientDom>;
-
-type AuthFlowDeps = {
-  state: ClientState;
-  dom: ClientDom;
-  firebaseAuth?: Auth;
-  googleProvider?: GoogleAuthProvider | undefined;
-  ws: RealtimeSocket;
-  wsUrl: string;
-  requireAuthedSession: (message?: string) => boolean;
-  renderHud: () => void;
-  isMobile: () => boolean;
-};
-
-type ClientAuthFlow = {
-  authSession: AuthSession;
-  setAuthStatus: (message: string, tone?: "normal" | "error") => void;
-  syncAuthPanelState: () => void;
-  syncAuthOverlay: () => void;
-  authLabelForUser: (user: User) => string;
-  seedProfileSetupFields: (name?: string, color?: string) => void;
-  authenticateSocket: (forceRefresh?: boolean) => Promise<void>;
-  clearAuthInFlight: () => void;
-  bindAuthUi: () => void;
-  bindFirebaseAuth: () => void;
-};
+export type { AuthSession } from "./client-auth-flow-types.js";
 
 export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const {
