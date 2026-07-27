@@ -47,6 +47,7 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
+import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
@@ -93,7 +94,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
   canToggleFog: boolean;
-  fogDisabled: boolean;
+  fogDisabled: boolean; authInProgress: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -740,7 +741,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     });
   })();
-  const seededPlayerIds = new Set<string>();
+  const { seededPlayerIds, evictSeededPlayerId } = createSeededPlayerTracker((playerId) => playerSubscriptions.socketsForPlayer(playerId));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId, subscriptionKey) => {
       const hasSnapshot = seededPlayerIds.has(playerId);
@@ -1885,7 +1886,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         pendingPayloads: [],
         channel,
         canToggleFog: false,
-        fogDisabled: false
+        fogDisabled: false, authInProgress: false
       };
       sessionsBySocket.set(socket, session); wsHeartbeat.registerSocket(socket);
 
@@ -1908,7 +1909,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const message = parsed.data;
           messageType = message.type;
           if (message.type === "AUTH") {
-            recordGatewayEvent("info", "gateway_auth", { channel });
+            if (!claimAuthSlot(session, channel, recordGatewayEvent)) return;
+            try { recordGatewayEvent("info", "gateway_auth", { channel });
             const loginCorrelationId = crypto.randomUUID();
             const authTrace = slowLoginAlerter.begin(channel, loginCorrelationId);
             const loginTracer = createRequestTracer({
@@ -2257,7 +2259,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
                 app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
               });
-              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
+              evictSeededPlayerId(playerIdentity.playerId); sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("live_subscribe", false);
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
@@ -2277,11 +2279,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // below throws (resolveInitialState/hydrate/buildInitMessage/buildTakenColorSet
             // are not guarded individually) — an uncaught rejection here is caught by the
             // outer socket.on("message") try/catch, which has no reference to this timer,
-            // so without this try/finally the interval would leak forever, still firing
-            // LOGIN_PHASE sends every second for the life of the process.
+            // Without this try/finally, the interval fires LOGIN_PHASE every second forever.
             try {
               const resolveInitialStateStartedAt = Date.now();
-              const initialState = resolveInitialState({
+              let initialState = resolveInitialState({
                 playerId: playerIdentity.playerId,
                 authoritativeSnapshot: bootstrapInitialState,
                 cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
@@ -2298,6 +2299,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
               if (session.channel === "control") {
+                initialState = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId) ?? initialState;
                 authTrace.startStep("build_init");
                 const buildInitMessageStartedAt = Date.now();
                 const initMessage = await buildInitMessage(
@@ -2399,6 +2401,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               clearInterval(finalizeProgressInterval);
             }
             return;
+            } finally { releaseAuthSlot(session, "AUTH"); }
           }
 
           if (!session.playerId) {
@@ -3118,9 +3121,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
           );
           if (!stillFogDisabled) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
-        }).catch((error) => {
-          app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
-        });
+          evictSeededPlayerId(closingPlayerId);
+        }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
       });
     });
   });
