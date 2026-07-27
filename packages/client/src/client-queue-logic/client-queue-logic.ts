@@ -1,5 +1,5 @@
 import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   clearSkippedAutoSettlementTileKeyForPlayer,
@@ -10,7 +10,6 @@ import {
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
-import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -1055,11 +1054,6 @@ export const processActionQueue = (
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
   topUpFromWaypoint(state, deps.keyFor, deps.pushFeed);
   let deferredFrontierSyncTargets = 0;
-  // Arming a muster transit doesn't dispatch a real network send (see
-  // below), so the loop keeps going past it; track whether we armed
-  // anything so callers still see "started" work even when nothing was
-  // actually sent to the server this pass.
-  let armedMuster = false;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];
     if (!next) return false;
@@ -1407,29 +1401,28 @@ export const processActionQueue = (
           deps.renderHud();
           continue;
         }
-        // Flag found within range — arm the transit and defer the send.
-        // Arming doesn't hold the single actionInFlight lock (nothing is
-        // sent to the server yet), so the queue keeps processing: other
-        // targets can arm their own flags in the same pass instead of
-        // being blocked behind this one attack's march.
-        armMusterTransit(state, deps.keyFor, {
-          musterX: closest.tile.x,
-          musterY: closest.tile.y,
-          fromX: from.x,
-          fromY: from.y,
-          toX: to.x,
-          toY: to.y,
-          transitTiles: closest.dist,
-          commandId,
-          clientSeq
-        });
-        armedMuster = true;
-        deps.pushFeed(
-          `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — troops marching (${Math.round((closest.dist * MUSTER_TRANSIT_MS_PER_TILE) / 1000)}s transit)`,
-          "combat",
-          "info"
+        // Flag found within range — queue the attack and let it fire once
+        // the existing flag accumulates enough manpower.
+        state.capture = undefined;
+        state.actionInFlight = false;
+        state.actionCurrent = undefined;
+        state.actionTargetKey = "";
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.queuedTargetKeys.delete(targetKey);
+        const musterTileKey = deps.keyFor(closest.tile.x, closest.tile.y);
+        const alreadyPending = state.pendingMusterAttacks.some(
+          (e) => e.targetX === to.x && e.targetY === to.y
         );
-        state.selected = { x: to.x, y: to.y };
+        if (!alreadyPending) {
+          state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
+          deps.pushFeed(
+            `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack queued`,
+            "combat",
+            "info"
+          );
+        }
         deps.renderHud();
         continue;
       }
@@ -1455,7 +1448,7 @@ export const processActionQueue = (
     deps.renderHud();
     return true;
   }
-  return armedMuster;
+  return false;
 };
 
 export const requestAttackPreviewForHover = (
