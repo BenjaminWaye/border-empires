@@ -28,11 +28,13 @@ import {
   STRUCTURE_REGISTRY,
   structureBuildManpowerCost,
   rushBuyPriceGold,
+  structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
   type BuildableStructureType,
-  type EconomicStructureType
+  type EconomicStructureType,
+  type SlotStructureType
 } from "@border-empires/shared";
 import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
@@ -95,7 +97,9 @@ import {
 import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
 import {
   resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
+  resourceSlotDormantContributorsForPlayer as resourceSlotDormantContributorsForPlayerImpl,
   resourceSlotSupplyForPlayer as resourceSlotSupplyForPlayerImpl,
+  type ResourceSlotDormancy,
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
@@ -627,6 +631,10 @@ export class SimulationRuntime {
   // defensibilityMetricsCacheByPlayer does, not gated on SETTLED.
   private readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
   private readonly resourceSlotDemandCacheByPlayer = new Map<string, ResourceSlotTotals>();
+  // §5.4 dormancy: derived from both supply and demand, so it must be
+  // invalidated on the union of their triggers — piggybacks on the demand
+  // cache's unconditional (not SETTLED-gated) invalidation below.
+  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1724,7 +1732,8 @@ export class SimulationRuntime {
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
       manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
       resourceSlotSupplyCacheByPlayer: this.resourceSlotSupplyCacheByPlayer,
-      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer
+      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
+      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2527,6 +2536,40 @@ export class SimulationRuntime {
     const result = resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId);
     this.resourceSlotDemandCacheByPlayer.set(playerId, result);
     return result;
+  }
+
+  // §5.4: which structures/towns are dormant right now because their
+  // resource is short. Cached like supply/demand above — invalidated
+  // whenever either of those would be (see resourceSlotDormancyCacheByPlayer's
+  // field comment).
+  private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
+    const cached = this.resourceSlotDormancyCacheByPlayer.get(playerId);
+    if (cached) return cached;
+    const supply = this.resourceSlotSupplyForPlayer(playerId);
+    const result = resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply);
+    this.resourceSlotDormancyCacheByPlayer.set(playerId, result);
+    return result;
+  }
+
+  isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
+    const structure = this.tiles.get(tileKey)?.[field];
+    if (!structure || structure.ownerId !== playerId) return false;
+    const slotType: SlotStructureType =
+      field === "fort" || field === "siegeOutpost"
+        ? ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType
+        : field === "observatory"
+          ? ("OBSERVATORY" as SlotStructureType)
+          : ((structure as { type: string }).type as SlotStructureType);
+    const requirements = structureSlotRequirements(slotType);
+    if (requirements.length === 0) return false;
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    const key = `${tileKey}:${field}`;
+    return requirements.some((req) => dormancy[req.resource].has(key));
+  }
+
+  isTownFoodDormant(playerId: string, tileKey: string): boolean {
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    return dormancy.FOOD.has(`${tileKey}:town`);
   }
 
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {

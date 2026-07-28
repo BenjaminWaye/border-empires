@@ -3,6 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import {
   currentTileFieldSlotRequirements,
   resourceSlotDemandForPlayer,
+  resourceSlotDormantContributorsForPlayer,
   resourceSlotSupplyForPlayer,
   totalsFromSlotRequirements
 } from "./resource-slot-view.js";
@@ -267,6 +268,52 @@ describe("currentTileFieldSlotRequirements", () => {
     expect(currentTileFieldSlotRequirements({} as DomainTileState, "economicStructure", "p1")).toEqual([]);
     const target = { economicStructure: { ownerId: "someone-else", type: "MARKET", status: "active" } } as PartialTile as DomainTileState;
     expect(currentTileFieldSlotRequirements(target, "economicStructure", "p1")).toEqual([]);
+  });
+});
+
+describe("resourceSlotDormantContributorsForPlayer", () => {
+  it("marks nothing dormant when supply covers demand", () => {
+    const tiles = [tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } })];
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormancy.IRON.size).toBe(0);
+  });
+
+  it("marks only the newest-activated Fort dormant when IRON supply is short by one", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } }),
+      tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 200 } })
+    ];
+    // demand = 2 IRON (1 per Fort), supply = 1 -> short by 1, newest (activatedAt 200) goes dormant
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 });
+    expect([...dormancy.IRON]).toEqual(["1,0:fort"]);
+  });
+
+  it("a structure needing multiple resources is only dormant for the resource that's actually short", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "BANK", status: "active", activatedAt: 100 } })
+    ];
+    // BANK needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 });
+    expect([...dormancy.FOOD]).toEqual(["0,0:economicStructure"]);
+    expect(dormancy.CRYSTAL.size).toBe(0);
+  });
+
+  it("protects a town's FOOD demand ahead of a newer building's when FOOD is short", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
+      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MARKET", status: "active", activatedAt: 500 } })
+    ];
+    // Town demands 2 FOOD (always ranked oldest), Market demands 1 FOOD. Total demand 3, supply 2 -> short by 1.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 2, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect([...dormancy.FOOD]).toEqual(["1,0:economicStructure"]);
+  });
+
+  it("skips synthesizers entirely (they provide supply, never consume it, so never go dormant)", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", activatedAt: 100 } })
+    ];
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormancy.IRON.size).toBe(0);
   });
 });
 

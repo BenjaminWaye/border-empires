@@ -6245,6 +6245,55 @@ describe("simulation runtime", () => {
     expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
   });
 
+  describe("§5.4 dormancy on resource-slot shortfall", () => {
+    it("marks only the newest of two Forts dormant when there's just one IRON slot", () => {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 100 } },
+            { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 200 } }
+          ],
+          activeLocks: []
+        }
+      });
+      expect(runtime.isStructureDormant("player-1", "1,0", "fort")).toBe(false);
+      expect(runtime.isStructureDormant("player-1", "2,0", "fort")).toBe(true);
+    });
+
+    it("a town's FOOD demand is protected ahead of a newer FOOD-slot building", () => {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
+            {
+              x: 2,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      // Supply = 2 FOOD slots (bare FISH tile). Demand = 2 (town) + 1 (Market) = 3, short by 1 —
+      // shedding just the newer Market covers it, so the town isn't touched.
+      expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
+      expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
+    });
+  });
+
   it("rejects AIRPORT_BOMBARD without a powering Aether Tower", async () => {
     const runtime = buildAetherTowerRuntime({ omitTower: true });
     const events: Array<Record<string, unknown>> = [];

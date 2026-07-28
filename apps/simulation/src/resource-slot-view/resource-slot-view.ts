@@ -26,6 +26,7 @@ import {
 } from "@border-empires/shared";
 import { WATERWORKS_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
+import { simulationTileKey } from "../seed-state/seed-state.js";
 
 const SYNTHESIZER_TYPE_SET: ReadonlySet<string> = new Set(SYNTHESIZER_STRUCTURE_TYPES);
 
@@ -157,6 +158,94 @@ export const resourceSlotDemandForPlayer = (
  * (The synthesizer Advanced-tier pairs never reach this — hasFreeResourceSlots
  * skips the gate entirely for SYNTHESIZER_STRUCTURE_TYPES.)
  */
+// §5.4: dormancy on slot shortfall. When a resource's total demand exceeds
+// its supply (lost a tile, over-captured), the newest built-or-captured
+// structure loses power first (decided tie-break; the plan's own "Open
+// questions" resolution log also settles the monument-hostage follow-on
+// question: no release valve needed, a dormant monument is just a normal
+// capture target — §9). A structure's `activatedAt` (set on build completion
+// and refreshed on capture, see capture-structures.ts/runtime-structure-
+// command-handlers.ts) is the recency signal; each contributor is identified
+// as `${tileKey}:${field}` so a multi-resource structure (e.g. Bank needs
+// FOOD+CRYSTAL) can be dormant for one of its resources independently of the
+// other, and callers union across resources to ask "is this structure
+// dormant at all."
+//
+// Towns are a deliberate exception to the recency ordering: they don't carry
+// an activatedAt (founding/growth isn't tracked as a timestamp today), and
+// losing a whole town's income outright is a much bigger deal than one
+// building going dark, so town FOOD demand is pinned as the oldest
+// (least-likely-to-go-dormant) contributor rather than competing on equal
+// footing with buildings. Flagged here as a simplification, not a plan
+// requirement — the plan doesn't specify town-vs-building ordering.
+export type DormancyContributorField = "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town";
+export type ResourceSlotDormancy = Record<SlotResource, ReadonlySet<string>>;
+
+const TOWN_FOOD_DEMAND_ACTIVATED_AT = 0;
+
+type DormancyContributor = {
+  key: string;
+  resource: SlotResource;
+  count: number;
+  activatedAt: number;
+};
+
+export const emptyResourceSlotDormancy = (): ResourceSlotDormancy => ({
+  FOOD: new Set(),
+  IRON: new Set(),
+  CRYSTAL: new Set(),
+  SUPPLY: new Set()
+});
+
+export const resourceSlotDormantContributorsForPlayer = (
+  ownedTiles: Iterable<
+    Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">
+  >,
+  playerId: string,
+  supply: ResourceSlotTotals
+): ResourceSlotDormancy => {
+  const contributors: DormancyContributor[] = [];
+  const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
+    for (const req of structureSlotRequirements(type)) {
+      contributors.push({ key: `${tileKey}:${field}`, resource: req.resource, count: req.count, activatedAt });
+    }
+  };
+  for (const tile of ownedTiles) {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (tile.fort?.ownerId === playerId) {
+      addContributor(tileKey, "fort", (tile.fort.variant ?? "FORT") as SlotStructureType, tile.fort.activatedAt ?? 0);
+    }
+    if (tile.observatory?.ownerId === playerId) {
+      addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
+    }
+    if (tile.siegeOutpost?.ownerId === playerId) {
+      addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
+    }
+    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
+      addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
+    }
+    if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
+      contributors.push({ key: `${tileKey}:town`, resource: "FOOD", count: TOWN_FOOD_SLOT_DEMAND, activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT });
+    }
+  }
+
+  const dormancy = emptyResourceSlotDormancy();
+  for (const resource of Object.keys(dormancy) as SlotResource[]) {
+    const forResource = contributors.filter((c) => c.resource === resource);
+    const totalDemand = forResource.reduce((sum, c) => sum + c.count, 0);
+    let shortfall = totalDemand - supply[resource];
+    if (shortfall <= 0) continue;
+    const newestFirst = [...forResource].sort((a, b) => b.activatedAt - a.activatedAt || a.key.localeCompare(b.key));
+    const dormantKeys = dormancy[resource] as Set<string>;
+    for (const contributor of newestFirst) {
+      if (shortfall <= 0) break;
+      dormantKeys.add(contributor.key);
+      shortfall -= contributor.count;
+    }
+  }
+  return dormancy;
+};
+
 export const currentTileFieldSlotRequirements = (
   target: Pick<DomainTileState, "fort" | "siegeOutpost" | "economicStructure">,
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure",
