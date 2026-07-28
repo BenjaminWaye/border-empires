@@ -1,23 +1,25 @@
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FLAT_GOLD_BONUS_PER_MIN,
   BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   DOCK_INCOME_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  IRONWORKS_GOLD_UPKEEP,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
@@ -26,6 +28,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
+  UPKEEP_MINUTES_PER_DAY,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import {
@@ -147,12 +150,12 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
     case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
     case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
+    case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
@@ -326,9 +329,6 @@ export const buildPlayerUpdateEconomySnapshot = (
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
-  const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
-  const fortIronUpkeepMult = multiplicativeEffectForPlayer(player, "fortIronUpkeepMult");
-  const outpostSupplyUpkeepMult = multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult");
   // Iterate the Set directly rather than spreading it — avoids a 250k-element
   // intermediate array allocation at scale. Same result, O(territory) either way
   // but no GC pressure from the spread.
@@ -370,7 +370,6 @@ export const buildPlayerUpdateEconomySnapshot = (
   let goldCapIncomePerMinute = 0;
 
   for (const tile of settledTiles) {
-    addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
     const resourceKey = strategicResourceForTile(tile.resource);
     const resourceRate = strategicProductionPerMinuteForResource(tile.resource);
     if (resourceKey && resourceRate > 0) {
@@ -414,17 +413,14 @@ export const buildPlayerUpdateEconomySnapshot = (
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
       goldCapIncomePerMinute += dockGoldPerMinute * dockGoldCapMult;
     }
-    if (tile.fort?.ownerId === player.id && tile.fort.status === "active") {
-      addBucket(goldSinks, "Fort", 1 * fortGoldUpkeepMult, { count: 1 });
-      addBucket(ironSinks, "Fort", 0.025 * fortIronUpkeepMult, { count: 1 });
-    }
-    if (tile.siegeOutpost?.ownerId === player.id && tile.siegeOutpost.status === "active") {
-      addBucket(goldSinks, "Siege outpost", 1, { count: 1 });
-      addBucket(supplySinks, "Siege outpost", 0.025 * outpostSupplyUpkeepMult, { count: 1 });
-    }
-    if (tile.observatory?.ownerId === player.id && tile.observatory.status === "active") {
-      addBucket(crystalSinks, "Observatory", OBSERVATORY_UPKEEP_PER_MIN, { count: 1 });
-    }
+    // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
+    // Observatory (CRYSTAL slot) no longer carry a separate per-minute
+    // flow drain — the slot occupation itself is the upkeep, so no bucket
+    // is added here. The fortGoldUpkeepMult/fortIronUpkeepMult/
+    // outpostSupplyUpkeepMult domain effects (Dwarf Kingdom/Fortress
+    // Realm/Supply State) are now fully inert — their only consumer was
+    // this removed upkeep; §23.2 (docs/manpower-economy-rewrite-plan.md)
+    // still needs its own redesign into count-based slot waivers.
     const structure = tile.economicStructure;
     if (structure?.ownerId === player.id && structure.status === "active") {
       const upkeep = structureUpkeepPerMinute(structure.type);

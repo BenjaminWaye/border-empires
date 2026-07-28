@@ -1530,7 +1530,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 0 }
           },
           {
             x: 6,
@@ -1538,22 +1538,22 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
-    // 60 min elapse: town yields ~60 gold, GARRISON_HALL draws 2.5
-    // gold/min (~150 gold). Yield covers part of it; the ~90 gold
-    // deficit hits the stockpile, so points drops below 1000 but stays
-    // well above 0.
+    // 60 min elapse: town yields nothing, FUR_SYNTHESIZER draws the
+    // §6.4-decided 30 gold/day (= 30/1440 gold/min) in upkeep — the only
+    // structure family that still carries an ongoing gold drain post-§12.1.
+    // No yield to cover it, so the (small) deficit hits the stockpile.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(850);
-    expect(player?.points).toBeLessThan(960);
+    expect(player?.points).toBeGreaterThan(998);
+    expect(player?.points).toBeLessThan(999);
   });
 
   it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
@@ -1581,7 +1581,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
           },
           {
             x: 40,
@@ -1589,13 +1589,14 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-2" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-2" }
           }
         ],
         activeLocks: []
       }
     });
-    // Both players accrue the same GARRISON_HALL gold upkeep with no offsetting
+    // Both players accrue the same FUR_SYNTHESIZER gold upkeep (§6.4 — the
+    // one structure family still gated on ongoing gold) with no offsetting
     // yield, so absent any export at all both would drain identically.
     currentNow += 60 * 60_000;
 
@@ -1685,17 +1686,20 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
     // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
-    // before any drain); GARRISON_HALL draws 150 gold. Accrual consumes
-    // 150 from the buffer and advances the tile's anchor. A subsequent
-    // COLLECT_TILE should only see the ~460 leftover — never the full
-    // 610 — which would happen if the anchor hadn't moved.
+    // before any drain); FUR_SYNTHESIZER draws the §6.4-decided 30
+    // gold/day (~1.25 gold over 60 min) — the only structure family that
+    // still carries an ongoing gold upkeep post-§12.1. Accrual consumes
+    // that from the buffer and advances the tile's anchor. A subsequent
+    // COLLECT_TILE should only see the leftover — strictly less than the
+    // full ~610 undrained yield, which would happen if the anchor hadn't
+    // moved — but very close to it, since the drain itself is now tiny.
     currentNow += 60 * 60_000;
     runtime.submitCommand({
       commandId: "collect-1",
@@ -1709,8 +1713,8 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(440);
-    expect(player?.points).toBeLessThan(480);
+    expect(player?.points).toBeGreaterThan(600);
+    expect(player?.points).toBeLessThan(610);
   });
 
   it("collects no FOOD on a mixed-yield tile — FOOD production is retired (§5.4: slot-based, not yield-based)", async () => {

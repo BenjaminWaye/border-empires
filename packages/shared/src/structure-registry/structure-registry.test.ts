@@ -301,42 +301,19 @@ describe("prerequisiteStructureTypes parity", () => {
 // ── Upkeep parity (per-minute rates from structureUpkeepPerMinute) ─
 
 describe("upkeep parity", () => {
-  // Per-minute rates derived from structureUpkeepPerMinute in
-  // player-update-economy.ts. Constants divided by 10 where the source
-  // uses per-10-minute interval buckets.
+  // §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+  // occupation is its upkeep now, so every structure except synthesizers
+  // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
+  // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
+  // per-minute (÷1440).
 
   const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
-    // Economic structures — per-minute from structureUpkeepPerMinute switch
-    FARMSTEAD: { GOLD: 0.1 },
-    CAMP: { GOLD: 0.12 },
-    MINE: { GOLD: 0.12 },
-    MARKET: { FOOD: 0.05 },
-    GRANARY: { GOLD: 0.1 },
-    BANK: { FOOD: 0.1 },
-    WOODEN_FORT: { GOLD: 0.05 },
-    LIGHT_OUTPOST: { GOLD: 0.05 },
-    CARAVANARY: { FOOD: 0.075 },
-    FUR_SYNTHESIZER: { GOLD: 6 },
-    ADVANCED_FUR_SYNTHESIZER: { GOLD: 6 },
-    IRONWORKS: { GOLD: 6 },
-    ADVANCED_IRONWORKS: { GOLD: 6 },
-    CRYSTAL_SYNTHESIZER: { GOLD: 8 },
-    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 8 },
-    FOUNDRY: { GOLD: 5 },
-    CUSTOMS_HOUSE: { GOLD: 1.5 },
-    GARRISON_HALL: { GOLD: 2.5 },
-    GOVERNORS_OFFICE: { GOLD: 3 },
-    RADAR_SYSTEM: { GOLD: 4.5 },
-    AIRPORT: { CRYSTAL: 0.025 },
-
-    // Non-economic structures — per-tile upkeep loop at L448-456
-    FORT: { GOLD: 1, IRON: 0.025 },
-    IRON_BASTION: { GOLD: 1, IRON: 0.025 },
-    THUNDER_BASTION: { GOLD: 1, IRON: 0.025 },
-    SIEGE_OUTPOST: { GOLD: 1, SUPPLY: 0.025 },
-    SIEGE_TOWER: { GOLD: 1, SUPPLY: 0.025 },
-    DREAD_TOWER: { GOLD: 1, SUPPLY: 0.025 },
-    OBSERVATORY: { CRYSTAL: 0.025 },
+    FUR_SYNTHESIZER: { GOLD: 30 / 1440 },
+    ADVANCED_FUR_SYNTHESIZER: { GOLD: 45 / 1440 },
+    IRONWORKS: { GOLD: 30 / 1440 },
+    ADVANCED_IRONWORKS: { GOLD: 45 / 1440 },
+    CRYSTAL_SYNTHESIZER: { GOLD: 40 / 1440 },
+    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 60 / 1440 },
   };
 
   const noUpkeepTypes = new Set([
@@ -345,6 +322,11 @@ describe("upkeep parity", () => {
     "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
+    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
+    "WOODEN_FORT", "LIGHT_OUTPOST", "CARAVANARY", "FOUNDRY",
+    "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
+    "AIRPORT", "FORT", "IRON_BASTION", "THUNDER_BASTION",
+    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "OBSERVATORY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

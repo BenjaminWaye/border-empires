@@ -79,7 +79,6 @@
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 14000, "iron": 220, "shard": 1 },
       "effects": {
-        "frontierDefenseAdd": 20,
         "settledDefenseNearFortMult": 1.20
       }
     },
@@ -114,7 +113,6 @@
       "requiresTechId": "signal-fires",
       "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
       "effects": {
-        "revealUpkeepMult": 0.80,
         "observatoryRangeBonus": 10
       }
     },
@@ -127,8 +125,7 @@
       "cost": { "gold": 24000, "food": 320, "shard": 2 },
       "effects": {
         "firstThreeTownsGoldOutputMult": 1.15,
-        "townGoldCapMult": 1.15,
-        "settledGoldUpkeepMult": 0.9
+        "townGoldCapMult": 1.15
       }
     },
     {
@@ -245,7 +242,6 @@
       "requiresTechId": "cryptography",
       "cost": { "gold": 38000, "crystal": 420, "shard": 3 },
       "effects": {
-        "researchTimeMult": 0.9,
         "abilityCooldownMult": 0.8,
         "revealCapacityBonus": 1
       }
@@ -258,9 +254,7 @@
       "requiresTechId": "civil-service",
       "cost": { "gold": 65000, "food": 700, "shard": 5 },
       "effects": {
-        "developmentProcessCapacityAdd": 1,
-        "frontierDefenseAdd": 20,
-        "settledGoldUpkeepMult": 0.9
+        "developmentProcessCapacityAdd": 1
       }
     },
     {
@@ -289,7 +283,6 @@
       "cost": { "gold": 65000, "food": 650, "crystal": 260, "shard": 5 },
       "effects": {
         "settledFoodUpkeepMult": 0.85,
-        "settledGoldUpkeepMult": 0.85,
         "firstThreeTownsGoldOutputMult": 1.2,
         "growthPauseDurationMult": 0.85
       }
@@ -315,8 +308,6 @@
       "requiresTechId": "grand-cartography",
       "cost": { "gold": 60000, "crystal": 650, "shard": 5 },
       "effects": {
-        "researchTimeMult": 0.8,
-        "revealUpkeepMult": 0.75,
         "observatoryVisionBonus": 1,
         "abilityCooldownMult": 0.85
       }

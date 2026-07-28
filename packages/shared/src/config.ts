@@ -122,7 +122,11 @@ export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 5;
-export const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's ongoing
+// crystal drain is replaced entirely by its permanent CRYSTAL slot
+// occupation — "the slot occupation itself is the upkeep... there is
+// nothing left to meter per-minute." Retired to 0 rather than deleted.
+export const OBSERVATORY_UPKEEP_PER_MIN = 0;
 /** Single unified base range for both cast radius and protection field. */
 export const OBSERVATORY_RANGE = 20;
 /** Max effective range after all tech/domain bonuses (real max 36, buffer at 40). */

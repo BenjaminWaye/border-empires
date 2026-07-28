@@ -1,4 +1,3 @@
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import { resourceIconForKey } from "./client-map-display.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
@@ -7,13 +6,13 @@ const upkeepResourceOrder = ["GOLD", "FOOD", "IRON", "SUPPLY", "CRYSTAL"] as con
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);
 
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's CRYSTAL
+// slot occupation is its upkeep now — no separate per-minute drain left
+// to show here.
 const fallbackUpkeepEntriesForTile = (tile: Tile): TileUpkeepEntry[] => {
   const entries: TileUpkeepEntry[] = [];
   if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number" && tile.town.foodUpkeepPerMinute > 0.0001) {
     entries.push({ label: "Town", perMinute: { FOOD: tile.town.foodUpkeepPerMinute } });
-  }
-  if (tile.observatory?.status === "active") {
-    entries.push({ label: "Observatory", perMinute: { CRYSTAL: OBSERVATORY_UPKEEP_PER_MIN } });
   }
   return entries;
 };

@@ -67,17 +67,24 @@ export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 export const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 export const FARMSTEAD_BUILD_FOOD_COST = 20;
-export const FARMSTEAD_GOLD_UPKEEP = 1;
+// §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+// occupation IS its upkeep now — there is nothing left to meter per-minute
+// on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
+// were never retired to 0 when their build cost moved to manpower + slots
+// (unlike MARKET_FOOD_UPKEEP/BANK_FOOD_UPKEEP/CARAVANARY_FOOD_UPKEEP below,
+// which already got this treatment). Retired to 0 rather than deleted, same
+// "leave plumbing, starve input" pattern.
+export const FARMSTEAD_GOLD_UPKEEP = 0;
 export const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
 export const CAMP_BUILD_SUPPLY_COST = 30;
-export const CAMP_GOLD_UPKEEP = 1.2;
+export const CAMP_GOLD_UPKEEP = 0;
 export const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
 export const MINE_BUILD_RESOURCE_COST = 30;
-export const MINE_GOLD_UPKEEP = 1.2;
+export const MINE_GOLD_UPKEEP = 0;
 export const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
 export const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
 export const GRANARY_BUILD_FOOD_COST = 40;
-export const GRANARY_GOLD_UPKEEP = 1;
+export const GRANARY_GOLD_UPKEEP = 0;
 export const SEED_GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("SEED_GRANARY");
 export const SEED_GRANARY_BUILD_FOOD_COST = 80;
 export const SEED_GRANARY_GOLD_UPKEEP = 2;
@@ -113,9 +120,24 @@ export const SETTLEMENT_BASE_GOLD_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
 // rescales to ~+5/day (~+7.5/day) — meaningful against the new ~10 gold/day/town base.
 export const BANK_FLAT_GOLD_BONUS_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
 export const BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE = 1.5 / GOLD_RESCALE_DIVISOR;
-export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
-export const IRONWORKS_GOLD_UPKEEP = 60;
-export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;
+// §6.4 (docs/manpower-economy-rewrite-plan.md): synthesizers are the ONE
+// structure family gold still gates on an ongoing basis — everything else
+// is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
+// comment above). Decided figures: 30 gold/day (Fur/Iron), 40 gold/day
+// (Crystal); Advanced tiers at 1.5x (45/45/60), enforcing "an upgraded
+// building never costs less to run than the thing it upgrades." Expressed
+// directly in gold/day per §6.4's implementation rule, converted through
+// the single UPKEEP_MINUTES_PER_DAY divisor rather than each call site
+// re-deriving its own "divide by N" — the exact bug class (Advanced Fur
+// Synthesizer silently reusing CAMP_GOLD_UPKEEP) that rule exists to
+// prevent.
+export const UPKEEP_MINUTES_PER_DAY = 1440;
+export const FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 45;
+export const IRONWORKS_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY = 45;
+export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 40;
+export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
 // building-level cost is now the permanent slot it occupies
 // (structure-slots.ts) — the separate per-minute flow drain these three
@@ -125,22 +147,28 @@ export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;
 // stay in place and naturally go inert, same "leave plumbing, starve input"
 // treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
-export const WOODEN_FORT_GOLD_UPKEEP = 0.5;
-export const LIGHT_OUTPOST_GOLD_UPKEEP = 0.5;
+export const WOODEN_FORT_GOLD_UPKEEP = 0;
+export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
 export const BANK_FOOD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
-export const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
-export const GARRISON_HALL_GOLD_UPKEEP = 25;
-export const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
-export const RADAR_SYSTEM_GOLD_UPKEEP = 45;
-export const FOUNDRY_GOLD_UPKEEP = 50;
+export const CUSTOMS_HOUSE_GOLD_UPKEEP = 0;
+export const GARRISON_HALL_GOLD_UPKEEP = 0;
+export const GOVERNORS_OFFICE_GOLD_UPKEEP = 0;
+export const RADAR_SYSTEM_GOLD_UPKEEP = 0;
+export const FOUNDRY_GOLD_UPKEEP = 0;
 export const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
 export const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
 export const IRONWORKS_IRON_PER_DAY = 18;
 export const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
-export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.025;
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Airport's ongoing crystal
+// drain is replaced entirely by its permanent CRYSTAL slot occupation —
+// "the slot occupation itself is the upkeep... there is nothing left to
+// meter per-minute." Retired to 0 rather than deleted (call sites across
+// player-update-economy.ts/player-upkeep-incremental.ts/snapshot-economy-
+// helpers.ts/tile-detail-snapshot.ts naturally go inert).
+export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0;
 export const AIRPORT_BOMBARD_CRYSTAL_COST = 200;
 export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
 export const AIRPORT_BOMBARD_RANGE = 30;

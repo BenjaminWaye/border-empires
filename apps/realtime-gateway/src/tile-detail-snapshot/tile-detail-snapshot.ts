@@ -1,20 +1,21 @@
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
 
 import {
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  IRONWORKS_GOLD_UPKEEP,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
@@ -25,6 +26,7 @@ import {
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
+  UPKEEP_MINUTES_PER_DAY,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 
@@ -195,18 +197,19 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" 
     case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
     case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
     case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
+    case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
+    // AIRPORT: was CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed per
+    // §12.1, the CRYSTAL slot occupation is the upkeep now.
     default: return {};
   }
 };
@@ -326,14 +329,11 @@ export const buildSnapshotTileDetail = (
   if (townFoodUpkeep > 0.0001) {
     upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(townFoodUpkeep.toFixed(4)) } });
   }
-  upkeepEntries.push({ label: "Settled land", perMinute: { GOLD: 0.04 } });
-
-  const fort = parseStructure<{ status?: string }>(tile.fortJson);
-  if (fort?.status === "active") upkeepEntries.push({ label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } });
-  const siegeOutpost = parseStructure<{ status?: string }>(tile.siegeOutpostJson);
-  if (siegeOutpost?.status === "active") upkeepEntries.push({ label: "Siege outpost", perMinute: { GOLD: 1, SUPPLY: 0.025 } });
-  const observatory = parseStructure<{ status?: string }>(tile.observatoryJson);
-  if (observatory?.status === "active") upkeepEntries.push({ label: "Observatory", perMinute: { CRYSTAL: Number(OBSERVATORY_UPKEEP_PER_MIN.toFixed(4)) } });
+  // §6/§12.1 (docs/manpower-economy-rewrite-plan.md): no more flat
+  // per-settled-tile gold upkeep, and Fort/Siege Outpost/Observatory no
+  // longer carry a separate per-minute flow drain — the slot occupation
+  // itself is the upkeep, so fortJson/siegeOutpostJson/observatoryJson
+  // aren't consulted here at all.
   const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
   if (structure?.status === "active" && structure.type) {
     const upkeep = structureUpkeepPerMinute(structure.type);

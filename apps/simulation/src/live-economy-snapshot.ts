@@ -1,4 +1,3 @@
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
@@ -90,7 +89,6 @@ export const buildLivePlayerEconomySnapshot = (
 
   for (const tile of runtimeState.tiles) {
     if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-    addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
     const resourceKey = strategicResourceForTile(tile.resource);
     const resourceRate = strategicProductionPerMinuteForResource(tile.resource);
     if (resourceKey && resourceRate > 0) {
@@ -127,18 +125,10 @@ export const buildLivePlayerEconomySnapshot = (
         : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute, { count: 1 });
     }
-    const fort = parseStructure<{ status?: string }>(tile.fortJson);
-    if (fort?.status === "active") {
-      addBucket(goldSinks, "Fort", 1, { count: 1 });
-      addBucket(ironSinks, "Fort", 0.025, { count: 1 });
-    }
-    const siegeOutpost = parseStructure<{ status?: string }>(tile.siegeOutpostJson);
-    if (siegeOutpost?.status === "active") {
-      addBucket(goldSinks, "Siege outpost", 1, { count: 1 });
-      addBucket(supplySinks, "Siege outpost", 0.025, { count: 1 });
-    }
-    const observatory = parseStructure<{ status?: string }>(tile.observatoryJson);
-    if (observatory?.status === "active") addBucket(crystalSinks, "Observatory", OBSERVATORY_UPKEEP_PER_MIN, { count: 1 });
+    // §12.1/§5.1: Fort/Siege Outpost/Observatory no longer carry a
+    // separate per-minute flow drain — the slot occupation itself is the
+    // upkeep, so their fortJson/siegeOutpostJson/observatoryJson fields
+    // aren't parsed here at all.
     const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
     if (structure?.status === "active" && structure.type) {
       const upkeep = structureUpkeepPerMinute(structure.type);

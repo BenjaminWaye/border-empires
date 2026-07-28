@@ -55,7 +55,10 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: outpostPlacement,
-    upkeep: [{ label: "Siege outpost", perMinute: { GOLD: 1, SUPPLY: 0.025 } }],
+    // §12.1 (docs/manpower-economy-rewrite-plan.md): the SUPPLY (and IRON,
+    // higher tiers) slot occupation above is Siege Outpost's upkeep now —
+    // no separate per-minute drain.
+    upkeep: [],
     tileField: "siegeOutpost",
   };
 }
@@ -78,7 +81,10 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
     noConflictingStructure,
     noDuplicateStructureType,
   ],
-  upkeep: [{ label: "Gold upkeep", perMinute: { GOLD: 0.05 } }],
+  // §12.1 (docs/manpower-economy-rewrite-plan.md): retired to 0 like the
+  // rest of the non-synthesizer structure roster — LIGHT_OUTPOST_GOLD_UPKEEP
+  // is 0 now, gold's only remaining jobs are tech/rush-buys/synthesizer upkeep.
+  upkeep: [],
   // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.
   // Phase 4 collapses to tile.structure.
   tileField: "economicStructure",
