@@ -269,6 +269,30 @@ export const resourceSlotDormantContributorsForPlayer = (
   return dormancy;
 };
 
+// §14.2: per-structure dormancy detail for the client's "dormant/unpowered
+// structure" indicator — which specific tiles+fields are dormant, and which
+// of their required resource(s) are short. A single shared function so the
+// live (Runtime) and cold/reconnect (snapshot-economy-helpers.ts) paths,
+// which each maintain their own ResourceSlotDormancy computation, can never
+// disagree on the detail shape (the same duplication risk already flagged
+// elsewhere in this codebase for hasSupportedStructure/toDomainTile).
+// Excludes ":town" contributors — town FOOD dormancy already surfaces via
+// town.isFed, a separate, existing indicator.
+export type DormantStructureDetail = { key: string; resources: SlotResource[] };
+
+export const dormantStructureDetailsFromDormancy = (dormancy: ResourceSlotDormancy): DormantStructureDetail[] => {
+  const resourcesByKey = new Map<string, SlotResource[]>();
+  for (const resource of Object.keys(dormancy) as SlotResource[]) {
+    for (const key of dormancy[resource]) {
+      if (key.endsWith(":town")) continue;
+      const existing = resourcesByKey.get(key);
+      if (existing) existing.push(resource);
+      else resourcesByKey.set(key, [resource]);
+    }
+  }
+  return [...resourcesByKey.entries()].map(([key, resources]) => ({ key, resources }));
+};
+
 export const currentTileFieldSlotRequirements = (
   target: Pick<DomainTileState, "fort" | "siegeOutpost" | "economicStructure">,
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure",

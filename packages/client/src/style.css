@@ -2733,6 +2733,15 @@ body {
 .tile-overview-effect-mod.is-neutral {
   color: rgba(182, 204, 230, 0.74);
 }
+/* §14.2: dormant/unpowered structure indicator — distinct greyed-out tone,
+   separate from both the default overview-line color and the amber
+   is-warning tone used elsewhere, so a dormant structure reads at a glance
+   as "off" rather than merely "notable." */
+.tile-overview-dormant {
+  display: inline-block;
+  color: rgba(154, 166, 184, 0.85);
+  font-weight: 700;
+}
 .tile-overview-card,
 .tile-progress-card {
   display: grid;

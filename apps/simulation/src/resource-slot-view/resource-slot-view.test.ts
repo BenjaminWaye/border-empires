@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   currentTileFieldSlotRequirements,
+  dormantStructureDetailsFromDormancy,
   resourceSlotDemandForPlayer,
   resourceSlotDormantContributorsForPlayer,
   resourceSlotSupplyForPlayer,
@@ -314,6 +315,42 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
     ];
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
     expect(dormancy.IRON.size).toBe(0);
+  });
+});
+
+describe("dormantStructureDetailsFromDormancy", () => {
+  it("returns nothing when nothing is dormant", () => {
+    const dormancy = resourceSlotDormantContributorsForPlayer([], "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormantStructureDetailsFromDormancy(dormancy)).toEqual([]);
+  });
+
+  it("§14.2: lists a dormant structure's key with the single resource it's short on", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } }),
+      tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 200 } })
+    ];
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormantStructureDetailsFromDormancy(dormancy)).toEqual([{ key: "1,0:fort", resources: ["IRON"] }]);
+  });
+
+  it("groups a multi-resource structure's dormancy into one entry with both resources", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "BANK", status: "active", activatedAt: 100 } })
+    ];
+    // BANK needs 1 FOOD + 1 CRYSTAL; neither is supplied.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    const details = dormantStructureDetailsFromDormancy(dormancy);
+    expect(details).toHaveLength(1);
+    expect(details[0]?.key).toBe("0,0:economicStructure");
+    expect(details[0]?.resources.sort()).toEqual(["CRYSTAL", "FOOD"]);
+  });
+
+  it("excludes town FOOD dormancy — that's surfaced separately via town.isFed", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })
+    ];
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormantStructureDetailsFromDormancy(dormancy)).toEqual([]);
   });
 });
 

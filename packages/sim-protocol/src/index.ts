@@ -297,6 +297,11 @@ export type PlayerSubscriptionSnapshot = {
       supply: Record<SlotResource, number>;
       demand: Record<SlotResource, number>;
     };
+    // §14.2: per-structure dormancy detail — which tile+field keys
+    // ("x,y:fort"/"observatory"/"siegeOutpost"/"economicStructure") are
+    // currently dormant, and which of their required resource(s) are short.
+    // Feeds the client's greyed-out/"unpowered" structure indicator.
+    dormantStructures?: Array<{ key: string; resources: SlotResource[] }>;
     economyBreakdown?: Record<string, unknown>;
     upkeepPerMinute?: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;

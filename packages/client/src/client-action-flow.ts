@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, type SlotResource } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -835,6 +835,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
+  // §14.2: state.dormantStructures only ever describes the logged-in
+  // player's own structures (PLAYER_UPDATE is a private per-player message),
+  // so a foreign tile never gets a dormancy lookup.
+  const dormantResourcesForTile = (
+    tile: Tile,
+    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+  ): SlotResource[] | undefined => {
+    if (tile.ownerId !== state.me) return undefined;
+    const key = `${tile.x},${tile.y}:${field}`;
+    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
+  };
+
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -867,6 +879,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       tileHistoryLines,
       isTileOwnedByAlly,
       townPartialLoadingStartedAt,
+      dormantResourcesForTile,
       areaEffectModifiersForTile: (targetTile: Tile) => {
         const settledDefenseModifiers =
           targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];

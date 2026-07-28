@@ -7,7 +7,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
-import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
@@ -19,6 +19,7 @@ export type RuntimePlayerStateUpdateContext = {
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
   resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
+  dormantStructuresForPlayer: (playerId: string) => DormantStructureDetail[];
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
@@ -82,6 +83,10 @@ export function emitPlayerStateUpdate(
         supply: context.resourceSlotSupplyForPlayer(playerId),
         demand: context.resourceSlotDemandForPlayer(playerId)
       },
+      // §14.2: which of this player's structures are currently dormant
+      // (slot demand not covered by supply), and which resource(s) each one
+      // is short — feeds the client's greyed-out/"unpowered" indicator.
+      dormantStructures: context.dormantStructuresForPlayer(playerId),
       economyBreakdown: economy.economyBreakdown,
       upkeepPerMinute: economy.upkeepPerMinute,
       upkeepLastTick: economy.upkeepLastTick,

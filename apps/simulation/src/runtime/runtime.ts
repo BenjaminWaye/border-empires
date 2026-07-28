@@ -95,9 +95,11 @@ import {
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
 import {
+  dormantStructureDetailsFromDormancy as dormantStructureDetailsFromDormancyImpl,
   resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
   resourceSlotDormantContributorsForPlayer as resourceSlotDormantContributorsForPlayerImpl,
   resourceSlotSupplyForPlayer as resourceSlotSupplyForPlayerImpl,
+  type DormantStructureDetail,
   type ResourceSlotDormancy,
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
@@ -2634,6 +2636,13 @@ export class SimulationRuntime {
     return this.dormantFieldKeysForPlayer(playerId, "economicStructure");
   }
 
+  // §14.2: per-structure dormancy detail (tile+field key, plus which
+  // required resource(s) are short) for the client's "dormant/unpowered
+  // structure" indicator — sent alongside resourceSlots on PLAYER_UPDATE.
+  dormantStructuresForPlayer(playerId: string): DormantStructureDetail[] {
+    return dormantStructureDetailsFromDormancyImpl(this.resourceSlotDormancyForPlayer(playerId));
+  }
+
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
     return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
       .map((tileKey) => this.tiles.get(tileKey))
@@ -2919,6 +2928,7 @@ export class SimulationRuntime {
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      dormantStructuresForPlayer: (playerId) => this.dormantStructuresForPlayer(playerId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),

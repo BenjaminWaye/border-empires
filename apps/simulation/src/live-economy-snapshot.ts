@@ -39,7 +39,13 @@ import {
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
-import { resourceSlotDemandForPlayer, resourceSlotSupplyForPlayer } from "./resource-slot-view/resource-slot-view.js";
+import {
+  dormantStructureDetailsFromDormancy,
+  emptyResourceSlotDormancy,
+  resourceSlotDemandForPlayer,
+  resourceSlotSupplyForPlayer,
+  type DormantStructureDetail
+} from "./resource-slot-view/resource-slot-view.js";
 
 export const buildLivePlayerEconomySnapshot = (
   playerId: string,
@@ -66,6 +72,9 @@ export const buildLivePlayerEconomySnapshot = (
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
+  // §14.2: reuses the dormancy already computed above for fedTownKeys/
+  // dormantEconomicStructureKeys, so this can never disagree with them.
+  const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -158,7 +167,7 @@ export const buildLivePlayerEconomySnapshot = (
   }
 
   return buildEconomyResult({
-    player, strategicProductionPerMinute, resourceSlots,
+    player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,
     ironSources, ironSinks, crystalSources, crystalSinks,
     supplySources, supplySinks, shardSources,
@@ -218,6 +227,7 @@ type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
   strategicProductionPerMinute: { FOOD: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
   resourceSlots: LivePlayerEconomySnapshot["resourceSlots"];
+  dormantStructures: DormantStructureDetail[];
   goldSources: Map<string, EconomyBucket>;
   goldSinks: Map<string, EconomyBucket>;
   foodSources: Map<string, EconomyBucket>;
@@ -263,6 +273,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
     },
     resourceSlots: args.resourceSlots,
+    dormantStructures: args.dormantStructures,
     upkeepPerMinute,
     upkeepLastTick: {
       foodCoverage: Number(foodCoverage.toFixed(4)),
