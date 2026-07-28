@@ -132,6 +132,7 @@ export type DomainTileState = {
         status: NonNullable<Tile["fort"]>["status"];
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
         garrison?: number | undefined;
@@ -144,6 +145,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["observatory"]>["status"];
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         cooldownUntil?: number | undefined;
         previousStatus?: "active" | "inactive" | undefined;
       }
@@ -154,6 +156,7 @@ export type DomainTileState = {
         status: NonNullable<Tile["siegeOutpost"]>["status"];
         variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
       }
     | undefined;
@@ -163,6 +166,7 @@ export type DomainTileState = {
         type: NonNullable<Tile["economicStructure"]>["type"];
         status: NonNullable<Tile["economicStructure"]>["status"];
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         nextUpkeepAt?: number | undefined;
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;

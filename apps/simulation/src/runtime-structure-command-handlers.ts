@@ -456,7 +456,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   const completedTile = {
     ...latest,
     ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-    [spec.tileField]: { ...activeStructure, status: "active", ...garrisonInit }
+    [spec.tileField]: { ...activeStructure, status: "active", activatedAt: context.now(), ...garrisonInit }
   } as DomainTileState;
 
   context.replaceTileState(targetKey, completedTile);
