@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.27.3",
+  version: "2026.07.28.1",
   title: "What's New",
-  summary: "Garrison Hall and Rail Depot now actually boost your manpower.",
+  summary: "Rush-buy lets you finish an in-progress settle or build instantly for gold.",
   entries: [
+    {
+      introducedIn: "2026.07.28.1",
+      title: "Rush-buy: finish an in-progress settle or build for gold",
+      why: "Manpower is scarce and slow to regenerate by design, but that also means an in-progress Settle or structure build has no way to speed up once started — gold, meanwhile, had nothing to spend on outside of tech and upkeep. Rush-buy gives gold a second job: pay to finish something you're already building right now, priced by how much time is actually left, not the action's full cost.",
+      changes: [
+        "A tile that's actively settling or has a structure under construction now shows a rush-buy button (⏩🪙) next to its remaining-time countdown in the tile detail panel.",
+        "The price scales down as the timer progresses — rushing something nearly done costs almost nothing, rushing something you just started costs close to the full price (anchored at 0.5 gold per manpower point the action costs).",
+        "Applies to Settle and every structure build (Fort/Siege tier upgrades included) — not to removals, which can't be rushed."
+      ]
+    },
     {
       introducedIn: "2026.07.27.3",
       title: "Garrison Hall and Rail Depot now grant real manpower bonuses",
@@ -116,58 +126,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Settled and frontier tiles now render with the owning player's color on the minimap (settled tiles slightly more opaque than frontier tiles), respecting fog of war."
       ]
     },
-    {
-      introducedIn: "2026.07.21.6",
-      title: "Fixed: town capture popup missing after winning an attack",
-      why: "The celebratory town-capture popup only fired for tile-delta updates (EXPAND, settling), so capturing an enemy town through combat never showed it even though the capture itself worked correctly.",
-      changes: [
-        "Winning an ATTACK that captures an enemy town now shows the town capture popup, same as capturing via EXPAND or settlement."
-      ]
-    },
-    {
-      introducedIn: "2026.07.21.5",
-      title: "Low Empire Integrity now shows a dismissible warning",
-      why: "Falling below the 90% integrity threshold quietly cuts into your income and growth bonus, but the only way to notice was to open the breakdown panel yourself. A callout pointing at the Empire Integrity chip now flags it directly.",
-      changes: [
-        "When Empire Integrity drops below 90%, a callout anchored to the Empire Integrity chip explains the income/growth penalty.",
-        "Dismiss it with the × in its corner or the \"I understand\" button; it reappears if integrity recovers above 90% and later drops again."
-      ]
-    },
-    {
-      introducedIn: "2026.07.21.4",
-      title: "Smoother minimap on maps with a lot of unexplored fog",
-      why: "The minimap redrew its fog-of-war overlay one pixel at a time every time it refreshed, which could stall the frame for several milliseconds on large explored maps. It now draws each contiguous fog run in a single stroke instead.",
-      changes: [
-        "Reduced minimap redraw cost by merging contiguous fog-of-war pixels into single fill operations instead of drawing pixel-by-pixel."
-      ]
-    },
-    {
-      introducedIn: "2026.07.21.3",
-      title: "Move a queued build or settlement to the front of the line",
-      why: "A tile with a queued build or settlement only offered a cancel button, even though the actual goal was usually just to get it started sooner. Now you can bump it ahead of everything else waiting for a development slot without losing its place entirely.",
-      changes: [
-        "Queued builds and queued settlements now show a \"Jump to front of queue\" button alongside the existing cancel option (hidden once the entry is already first in line)."
-      ]
-    },
-    {
-      introducedIn: "2026.07.21.2",
-      title: "Display name changes now confirm up front and are limited to once per season",
-      why: "Nothing stopped a player from renaming repeatedly, and a successful rename was easy to miss with only a feed message noting it. Settings now asks for confirmation before sending an actual rename (not the initial name pick), the server enforces one rename per season, and a successful change now also pops a clear confirmation.",
-      changes: [
-        "Clicking Update on an actual name change (not your first-time setup) now confirms first, noting the once-per-season limit, before sending the request.",
-        "The server now rejects a second rename attempt within the same season with a clear \"try again next season\" message.",
-        "A successful rename now also shows a confirmation popup with your new name, in addition to the existing feed message."
-      ]
-    },
-    {
-      introducedIn: "2026.07.21.1",
-      title: "Fixed \"Signed in as\" showing your old name after changing it in Settings",
-      why: "The \"Signed in as\" line in Settings read the auth label captured from your Firebase account at login time, which is never touched by a display name change — only the Display Name field itself (backed by a separate piece of state) updated. So a successful rename showed the new name in the input box and a \"Display name updated.\" feed message, but the line right above it kept showing the name you signed in with.",
-      changes: [
-        "\"Signed in as\" now shows your current in-game display name once it's known, instead of the name captured at login."
-      ]
-    },
-    // Older entries (2026.07.19.14 and earlier) trimmed: the release-day
+    // Older entries (2026.07.21.6 and earlier) trimmed: the release-day
     // window test only keeps entries within the latest 6 days of
     // LATEST_CLIENT_CHANGELOG.version -- see git history for the full changelog.
   ]

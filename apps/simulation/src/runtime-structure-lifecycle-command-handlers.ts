@@ -57,7 +57,7 @@ function resolveCommand(context: RuntimeStructureCommandContext, command: Comman
 
 type StrategicRefund = Partial<Record<StrategicResourceKey, number>>;
 
-type StructureCancelRefund = {
+export type StructureCancelRefund = {
   gold: number;
   manpower: number;
   strategic: StrategicRefund;
@@ -95,7 +95,7 @@ function applyStructureCancelRefund(context: RuntimeStructureCommandContext, act
   }
 }
 
-function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
+export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
   const tier = FORT_TIER_LADDER[variant ?? "FORT"];
   const goldMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
   // Step 5 item 3 (Slice A): IRON is a retired build-time stockpile key (never
@@ -105,7 +105,7 @@ function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined)
   return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ IRON: tier.iron }) };
 }
 
-function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
+export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
   const tier = SIEGE_TIER_LADDER[variant ?? "SIEGE_OUTPOST"];
   return {
     gold: tier.gold,
@@ -114,7 +114,7 @@ function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): Str
   };
 }
 
-function economicOrObservatoryCancelRefund(
+export function economicOrObservatoryCancelRefund(
   context: RuntimeStructureCommandContext,
   playerId: string,
   structureType: BuildableStructureType

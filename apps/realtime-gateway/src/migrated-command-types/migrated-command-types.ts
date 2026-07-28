@@ -23,6 +23,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "BUILD_ECONOMIC_STRUCTURE",
   "CANCEL_FORT_BUILD",
   "CANCEL_STRUCTURE_BUILD",
+  "RUSH_BUY",
   "REMOVE_STRUCTURE",
   "CANCEL_SIEGE_OUTPOST_BUILD",
   "CANCEL_CAPTURE",

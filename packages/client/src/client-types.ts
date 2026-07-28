@@ -670,6 +670,12 @@ export type TileMenuProgressView = {
   cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build";
   secondaryLabel?: string;
   secondaryActionId?: "move_queued_entry_to_front";
+  // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
+  // now. Label is a client-side price estimate (rushBuyPriceGold, same
+  // formula the server uses) — the server recomputes and enforces the real
+  // charge, this is a preview only.
+  rushBuyLabel?: string;
+  rushBuyActionId?: "rush_buy";
 };
 
 export type TileOverviewLine = {

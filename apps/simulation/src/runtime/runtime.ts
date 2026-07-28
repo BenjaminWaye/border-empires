@@ -24,6 +24,10 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
   SETTLE_COST,
+  SETTLE_MANPOWER_COST,
+  STRUCTURE_REGISTRY,
+  structureBuildManpowerCost,
+  rushBuyPriceGold,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
@@ -81,7 +85,8 @@ import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js"
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
   additiveEffectForPlayer,
-  effectiveVisionRadiusForPlayer
+  effectiveVisionRadiusForPlayer,
+  multiplicativeEffectForPlayer
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
@@ -342,12 +347,15 @@ import {
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
+  economicOrObservatoryCancelRefund,
+  fortCancelRefund,
   handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
   handleCancelSiegeOutpostBuildCommand as handleCancelSiegeOutpostBuildCommandImpl,
   handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
   handleClearMusterCommand as handleClearMusterCommandImpl,
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
-  handleSetMusterCommand as handleSetMusterCommandImpl
+  handleSetMusterCommand as handleSetMusterCommandImpl,
+  siegeOutpostCancelRefund
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
@@ -2931,46 +2939,175 @@ export class SimulationRuntime {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     }
 
-    this.scheduleAfter(settleDurationMs, () => {
-      const expectedSettlement = {
+    this.scheduleAfter(settleDurationMs, () =>
+      this.resolvePendingSettlement({
         ownerId: input.playerId,
         tileKey: input.targetKey,
         startedAt: input.startedAt,
         resolvesAt,
-        goldCost: SETTLE_COST, commandId: input.commandId
-      };
-      const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
-      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-      this.removePendingSettlement(input.targetKey);
-      const latest = this.tiles.get(input.targetKey);
-      if (
-        !latest ||
-        latest.ownerId !== input.playerId ||
-        latest.ownershipState !== "FRONTIER"
-      ) {
-        this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+        commandId: input.commandId
+      })
+    );
+  }
+
+  // Extracted from startSettlementProcess's scheduled-timer closure so
+  // RUSH_BUY (§6.3) can trigger the exact same completion early, without a
+  // second copy of this logic. Idempotent via pendingSettlementMatches: if
+  // this already ran (rush-buy) by the time the original timer fires, the
+  // match check fails and the timer's call is a no-op — same pattern
+  // completeStructureBuild already relies on for its own status guard.
+  private resolvePendingSettlement(input: {
+    ownerId: string;
+    tileKey: string;
+    startedAt: number;
+    resolvesAt: number;
+    commandId: string;
+  }): void {
+    const expectedSettlement = {
+      ownerId: input.ownerId,
+      tileKey: input.tileKey,
+      startedAt: input.startedAt,
+      resolvesAt: input.resolvesAt,
+      goldCost: SETTLE_COST,
+      commandId: input.commandId
+    };
+    const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
+    if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+    this.removePendingSettlement(input.tileKey);
+    const latest = this.tiles.get(input.tileKey);
+    if (
+      !latest ||
+      latest.ownerId !== input.ownerId ||
+      latest.ownershipState !== "FRONTIER"
+    ) {
+      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
+      return;
+    }
+    const settledTile: DomainTileState = {
+      ...latest,
+      ownerId: input.ownerId,
+      ownershipState: "SETTLED",
+      ...(latest.town ? { town: latest.town } : {})
+    };
+    this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
+    this.replaceTileState(input.tileKey, settledTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: input.commandId,
+      playerId: input.ownerId,
+      // ownerId/ownershipState forced regardless of the sparse-diff cache; see
+      // the recovered-settle path above for why "unchanged" isn't safe to drop here.
+      tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+    });
+    this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
+    this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
+  }
+
+  // §6.3: which under_construction field (if any) owned by `playerId` sits on
+  // `target`, and what structureType/completesAt to price/complete it with.
+  // Checked in the same fort -> observatory -> siegeOutpost -> economicStructure
+  // order cancelStructureActionTile (runtime-structure-lifecycle-command-handlers.ts)
+  // already uses, so the two "what's in progress on this tile" checks can't disagree.
+  private rushBuyableFieldForPlayer(
+    target: DomainTileState,
+    playerId: string
+  ): { tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"; structureType: string; completesAt: number } | undefined {
+    if (target.fort?.ownerId === playerId && target.fort.status === "under_construction" && typeof target.fort.completesAt === "number") {
+      return { tileField: "fort", structureType: target.fort.variant ?? "FORT", completesAt: target.fort.completesAt };
+    }
+    if (target.observatory?.ownerId === playerId && target.observatory.status === "under_construction" && typeof target.observatory.completesAt === "number") {
+      return { tileField: "observatory", structureType: "OBSERVATORY", completesAt: target.observatory.completesAt };
+    }
+    if (target.siegeOutpost?.ownerId === playerId && target.siegeOutpost.status === "under_construction" && typeof target.siegeOutpost.completesAt === "number") {
+      return { tileField: "siegeOutpost", structureType: target.siegeOutpost.variant ?? "SIEGE_OUTPOST", completesAt: target.siegeOutpost.completesAt };
+    }
+    if (
+      target.economicStructure?.ownerId === playerId &&
+      target.economicStructure.status === "under_construction" &&
+      typeof target.economicStructure.completesAt === "number"
+    ) {
+      return { tileField: "economicStructure", structureType: target.economicStructure.type, completesAt: target.economicStructure.completesAt };
+    }
+    return undefined;
+  }
+
+  // §6.3 rush-buy: pay gold to instantly finish an in-progress SETTLE or
+  // structure build. Price is time-proportional (rushBuyPriceGold, §6.3's
+  // anchor table extended per user direction to the in-progress case) —
+  // priced off the SAME manpower cost/refund figures cancel already uses
+  // (fortCancelRefund/siegeOutpostCancelRefund/economicOrObservatoryCancelRefund),
+  // so a rush can never price a tier differently than cancelling it would
+  // refund. Completion reuses resolvePendingSettlement/completeStructureBuild —
+  // the exact functions the original timer would have called — so there is no
+  // second copy of "what happens when this finishes" to keep in sync.
+  private handleRushBuyCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.rejectCommand(command, "BAD_COMMAND", "invalid command payload");
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+
+    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
+    if (pendingSettlement && pendingSettlement.ownerId === command.playerId) {
+      const totalMs = Math.max(1, pendingSettlement.resolvesAt - pendingSettlement.startedAt);
+      const remainingMs = pendingSettlement.resolvesAt - this.now();
+      // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
+      // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
+      // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
+      const price = rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST);
+      if (actor.points < price) {
+        this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
         return;
       }
-      const settledTile: DomainTileState = {
-        ...latest,
-        ownerId: input.playerId,
-        ownershipState: "SETTLED",
-        ...(latest.town ? { town: latest.town } : {})
-      };
-      this.setTileYieldCollectedAt(input.commandId, input.playerId, input.targetKey, this.now());
-      this.replaceTileState(input.targetKey, settledTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: input.commandId,
-        playerId: input.playerId,
-        // ownerId/ownershipState forced regardless of the sparse-diff cache; see
-        // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-        tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+      actor.points -= price;
+      this.resolvePendingSettlement({
+        ownerId: pendingSettlement.ownerId,
+        tileKey: pendingSettlement.tileKey,
+        startedAt: pendingSettlement.startedAt,
+        resolvesAt: pendingSettlement.resolvesAt,
+        commandId: pendingSettlement.commandId
       });
-      this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
-      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.playerId });
-    });
+      this.emitPlayerStateUpdate(command);
+      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+      return;
+    }
+
+    const target = this.tiles.get(targetKey);
+    const inProgress = target && this.rushBuyableFieldForPlayer(target, command.playerId);
+    if (!target || !inProgress) {
+      this.rejectCommand(command, "RUSH_BUY_INVALID", "nothing in progress to rush here");
+      return;
+    }
+    const { tileField, structureType, completesAt } = inProgress;
+    const refund =
+      tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
+      tileField === "siegeOutpost" ? siegeOutpostCancelRefund(target.siegeOutpost?.variant) :
+      economicOrObservatoryCancelRefund(this.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
+    const spec = STRUCTURE_REGISTRY[structureType];
+    if (!spec) {
+      this.rejectCommand(command, "RUSH_BUY_INVALID", "unknown structure");
+      return;
+    }
+    const speedMultKey =
+      tileField === "fort" ? "fortBuildSpeedMult" :
+      tileField === "siegeOutpost" && structureType !== "LIGHT_OUTPOST" ? "outpostDeploymentSpeedMult" :
+      spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
+      undefined;
+    const totalMs = speedMultKey
+      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
+      : spec.buildMs;
+    const remainingMs = completesAt - this.now();
+    const price = rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType));
+    if (actor.points < price) {
+      this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
+      return;
+    }
+    actor.points -= price;
+    this.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
+    this.emitPlayerStateUpdate(command);
   }
 
   private handleSettleCommand(command: CommandEnvelope): void {
@@ -4047,6 +4184,7 @@ export class SimulationRuntime {
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
+      handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),

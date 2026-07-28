@@ -119,6 +119,11 @@ export const renderTileActionMenu = (
           deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
           return;
         }
+        if (btn.dataset.progressAction === "rush_buy") {
+          deps.sendGameMessage({ type: "RUSH_BUY", x: tile.x, y: tile.y });
+          deps.hideTileActionMenu();
+          return;
+        }
         if (btn.dataset.progressAction !== "cancel_structure_build") return;
         if (deps.sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y })) {
           deps.applyOptimisticStructureCancel(tile.x, tile.y);

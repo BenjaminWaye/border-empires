@@ -5,10 +5,12 @@ import {
   MUSTER_SYSTEM_ENABLED,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
+  rushBuyPriceGold,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
-  structureBuildDurationMs
+  structureBuildDurationMs,
+  structureBuildManpowerCost
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
@@ -144,6 +146,12 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
+// §6.3 rush-buy: "⏩🪙N" preview label for finishing this in-progress action
+// right now. Client-side estimate only — the server (rushBuyPriceGold, same
+// formula) computes and enforces the real charge at command time.
+const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number): string =>
+  `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
+
 export const constructionProgressForTile = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string
@@ -157,7 +165,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
@@ -179,7 +189,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY")),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
@@ -201,7 +213,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
@@ -217,13 +231,16 @@ export const constructionProgressForTile = (
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    const buildMs = economicStructureBuildMs(tile.economicStructure.type);
     return {
       title: `${economicStructureName(tile.economicStructure.type)} under construction`,
       detail: "This tile is still being developed and is not fully online yet.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type)),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
