@@ -3827,52 +3827,6 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("overloads a ready synthesizer through the rewrite simulation path", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        [
-          "player-1",
-          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["overload-protocols"]), strategicResources: { SUPPLY: 0 } })
-        ]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 22,
-            y: 22,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: {
-              ownerId: "player-1",
-              type: "FUR_SYNTHESIZER",
-              status: "active"
-            }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    runtime.submitCommand({
-      commandId: "overload-cmd-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "OVERLOAD_SYNTHESIZER",
-      payloadJson: JSON.stringify({ x: 22, y: 22 })
-    });
-
-    await Promise.resolve();
-
-    const exportedTile = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 22);
-    expect(exportedTile?.economicStructureJson).toContain("\"status\":\"inactive\"");
-    expect(exportedTile?.economicStructureJson).toContain("\"disabledUntil\":86401000");
-  });
-
   it("reenables converter structures through the rewrite simulation path", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

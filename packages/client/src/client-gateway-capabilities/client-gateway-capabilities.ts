@@ -19,7 +19,6 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   COLLECT_TILE: "Tile collection",
   COLLECT_VISIBLE: "Visible-yield collection",
   CREATE_MOUNTAIN: "Mountain creation",
-  OVERLOAD_SYNTHESIZER: "Synthesizer overloads",
   PURGE_SIPHON: "Siphon purge",
   RETORT_RECAST: "Retort Transmutation",
   REMOVE_MOUNTAIN: "Mountain removal",

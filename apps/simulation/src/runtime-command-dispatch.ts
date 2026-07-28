@@ -22,7 +22,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
-  handleOverloadSynthesizerCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
@@ -77,7 +76,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
-  if (command.type === "OVERLOAD_SYNTHESIZER") return handlers.handleOverloadSynthesizerCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
@@ -131,7 +129,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
-  command.type === "OVERLOAD_SYNTHESIZER" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||

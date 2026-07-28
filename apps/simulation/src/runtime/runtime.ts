@@ -344,7 +344,6 @@ import {
   type RuntimeStructureCommandContext
 } from "../runtime-structure-command-handlers.js";
 import {
-  handleOverloadSynthesizerCommand as handleOverloadSynthesizerCommandImpl,
   handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
   handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
   type RuntimeEconomicStructureCommandContext
@@ -3425,10 +3424,6 @@ export class SimulationRuntime {
     handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command);
   }
 
-  private handleOverloadSynthesizerCommand(command: CommandEnvelope): void {
-    handleOverloadSynthesizerCommandImpl(this.economicStructureCommandContext(), command);
-  }
-
   private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
     handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command);
   }
@@ -4386,7 +4381,6 @@ export class SimulationRuntime {
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
       handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
-      handleOverloadSynthesizerCommand: (command) => this.handleOverloadSynthesizerCommand(command),
       handleSetConverterStructureEnabledCommand: (command) => this.handleSetConverterStructureEnabledCommand(command),
       handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
       handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),

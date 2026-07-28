@@ -1,11 +1,4 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import {
-  CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
-  FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
-  IRONWORKS_OVERLOAD_IRON,
-  SYNTH_OVERLOAD_DISABLE_MS,
-  SYNTH_OVERLOAD_GOLD_COST
-} from "@border-empires/game-domain";
 import { ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import {
@@ -17,7 +10,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 
-/** Shared dependencies for the uncapture/overload/converter-toggle command handlers. */
+/** Shared dependencies for the uncapture/converter-toggle command handlers. */
 export type RuntimeEconomicStructureCommandContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -89,70 +82,6 @@ export function handleUncaptureTileCommand(context: RuntimeEconomicStructureComm
   // Removing an owned tile can sever the supply path to downstream frontier
   // tiles — re-check encirclement connectivity from the now-vacant key.
   context.applyEncirclement([targetKey], command.playerId, command.commandId, { bfsCap: 2000 });
-  context.emitPlayerStateUpdate(command);
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-export function handleOverloadSynthesizerCommand(context: RuntimeEconomicStructureCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseStructureTilePayload(command.payloadJson);
-  if (!actor || !payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  const structure = target?.economicStructure;
-  if (!target || !structure || structure.ownerId !== command.playerId) {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "no owned synthesizer on tile"); return;
-  }
-  if (!actor.techIds.has("overload-protocols")) {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "unlock synthesizer overload via Overload Protocols first"); return;
-  }
-  if (
-    structure.type !== "FUR_SYNTHESIZER" &&
-    structure.type !== "ADVANCED_FUR_SYNTHESIZER" &&
-    structure.type !== "IRONWORKS" &&
-    structure.type !== "ADVANCED_IRONWORKS" &&
-    structure.type !== "CRYSTAL_SYNTHESIZER" &&
-    structure.type !== "ADVANCED_CRYSTAL_SYNTHESIZER"
-  ) {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "only synthesizer structures can overload"); return;
-  }
-  if (structure.status === "under_construction" || structure.status === "removing") {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is not ready"); return;
-  }
-  if (structure.disabledUntil && structure.disabledUntil > context.now()) {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is recovering from overload"); return;
-  }
-  if (actor.points < SYNTH_OVERLOAD_GOLD_COST) {
-    context.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "insufficient gold for synthesizer overload"); return;
-  }
-
-  actor.points -= SYNTH_OVERLOAD_GOLD_COST;
-  if (structure.type === "FUR_SYNTHESIZER" || structure.type === "ADVANCED_FUR_SYNTHESIZER") {
-    context.addStrategicResource(actor, "SUPPLY", FUR_SYNTHESIZER_OVERLOAD_SUPPLY);
-  } else if (structure.type === "IRONWORKS" || structure.type === "ADVANCED_IRONWORKS") {
-    context.addStrategicResource(actor, "IRON", IRONWORKS_OVERLOAD_IRON);
-  } else {
-    context.addStrategicResource(actor, "CRYSTAL", CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL);
-  }
-
-  const reenabledAt = context.now() + SYNTH_OVERLOAD_DISABLE_MS;
-  const updatedTile: DomainTileState = {
-    ...target,
-    economicStructure: {
-      ...structure,
-      status: "inactive",
-      disabledUntil: reenabledAt,
-      nextUpkeepAt: reenabledAt,
-      inactiveReason: undefined
-    }
-  };
-  context.replaceTileState(targetKey, updatedTile);
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTile)]
-  });
   context.emitPlayerStateUpdate(command);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
