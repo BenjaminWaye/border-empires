@@ -374,8 +374,11 @@ describe("§5.4 ability dormancy gate", () => {
             ownerId: "player-2",
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
-          }
-          // No CRYSTAL supply for player-2: AEGIS_DOME demands 1 CRYSTAL slot.
+          },
+          // §5.4: CRYSTAL supply so player-1's own Observatory isn't dormant
+          // (Aether Lance is cast via a picked Observatory). player-2 gets
+          // none: AEGIS_DOME demands 1 CRYSTAL slot it can't get.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }

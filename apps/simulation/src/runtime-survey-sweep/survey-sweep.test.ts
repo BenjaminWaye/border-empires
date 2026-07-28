@@ -42,6 +42,8 @@ describe("survey sweep", () => {
             observatory: { ownerId: "player-1", status: "active" }
           },
           { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 25, y: 0, terrain: "LAND", resource: "IRON" },
           { x: 20, y: 20, terrain: "LAND", resource: "GEMS" },
           { x: 21, y: 20, terrain: "LAND", resource: "WOOD" },

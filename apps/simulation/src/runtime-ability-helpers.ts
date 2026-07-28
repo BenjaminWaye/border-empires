@@ -172,6 +172,11 @@ export function pickReadyOwnedObservatoryForTarget(input: {
   targetY: number;
   now: number;
   range: number;
+  // §5.4: an Observatory demands a CRYSTAL slot (STRUCTURE_SLOT_REQUIREMENTS)
+  // and can go dormant like any other structure — a dormant one shouldn't be
+  // pickable to cast an ability, same as isStructurePowered's Aether Tower
+  // check gates the monument abilities.
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
 }): string | undefined {
   let bestKey: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
@@ -184,6 +189,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     if (distance > input.range) continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > input.now) continue;
+    if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
     if (distance < bestDistance) {
       bestDistance = distance;
       bestKey = tileKey;
@@ -196,7 +202,8 @@ export function pickReadyOwnedObservatoryAny(
   tiles: ReadonlyMap<string, DomainTileState>,
   territoryTileKeys: ReadonlySet<string>,
   playerId: string,
-  now: number
+  now: number,
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean
 ): string | undefined {
   let bestKey: string | undefined;
   let bestCooldownUntil = Number.POSITIVE_INFINITY;
@@ -207,6 +214,7 @@ export function pickReadyOwnedObservatoryAny(
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > now) continue;
+    if (isStructureDormant(playerId, tileKey, "observatory")) continue;
     if (cooldownUntil < bestCooldownUntil) {
       bestCooldownUntil = cooldownUntil;
       bestKey = tileKey;

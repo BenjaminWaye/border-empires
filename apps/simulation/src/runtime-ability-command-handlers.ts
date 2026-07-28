@@ -66,6 +66,10 @@ export type RuntimeAbilityCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   filterTileDeltasForPlayer: (tileDeltas: SimulationTileWireDelta[], playerId: string) => SimulationTileWireDelta[];
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  // §5.4: see pickReadyOwnedObservatoryForTarget/Any — Survey Sweep targets a
+  // specific observatory tile directly rather than going through a picker, so
+  // it needs its own dormancy gate.
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   isCoastalLand: (x: number, y: number) => boolean;
   closestAetherBridgeOrigin: (playerId: string, targetX: number, targetY: number) => { x: number; y: number } | undefined;
@@ -243,6 +247,10 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
   const now = context.now();
   if ((observatory.cooldownUntil ?? 0) > now) {
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is cooling down");
+    return;
+  }
+  if (context.isStructureDormant(actor.id, observatoryKey, "observatory")) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory has no free resource slot");
     return;
   }
   if (!context.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {

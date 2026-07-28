@@ -3445,6 +3445,7 @@ export class SimulationRuntime {
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
       closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
@@ -3682,7 +3683,16 @@ export class SimulationRuntime {
     playerId: string, targetX: number, targetY: number, now: number, range = this.observatoryCastRadiusFor(playerId)
   ): string | undefined {
     const territoryTileKeys = this.summaryForPlayer(playerId).territoryTileKeys;
-    return pickReadyOwnedObservatoryForTargetImpl({ tiles: this.tiles, territoryTileKeys, playerId, targetX, targetY, now, range });
+    return pickReadyOwnedObservatoryForTargetImpl({
+      tiles: this.tiles,
+      territoryTileKeys,
+      playerId,
+      targetX,
+      targetY,
+      now,
+      range,
+      isStructureDormant: (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
+    });
   }
 
   /**
@@ -3690,7 +3700,13 @@ export class SimulationRuntime {
    * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
    */
   private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
-    return pickReadyOwnedObservatoryAnyImpl(this.tiles, this.summaryForPlayer(playerId).territoryTileKeys, playerId, now);
+    return pickReadyOwnedObservatoryAnyImpl(
+      this.tiles,
+      this.summaryForPlayer(playerId).territoryTileKeys,
+      playerId,
+      now,
+      (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
+    );
   }
 
   /**
