@@ -11,7 +11,7 @@ import {
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { ConnectedTownNetworkEntry } from "./economy-network/economy-network.js";
-import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import type { ResourceSlotDormancy, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import {
   addTileUpkeepToCache,
   removeTileUpkeepFromCache,
@@ -264,6 +264,10 @@ export const refreshEconomyCachesForTileChange = (input: {
   // unconditionally alongside defensibilityMetricsCacheByPlayer instead.
   resourceSlotSupplyCacheByPlayer?: Map<string, ResourceSlotTotals>;
   resourceSlotDemandCacheByPlayer?: Map<string, ResourceSlotTotals>;
+  // §5.4: derived from both supply and demand, so it invalidates on the same
+  // unconditional trigger as resourceSlotDemandCacheByPlayer (a superset of
+  // supply's SETTLED-gated one).
+  resourceSlotDormancyCacheByPlayer?: Map<string, ResourceSlotDormancy>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
@@ -280,6 +284,7 @@ export const refreshEconomyCachesForTileChange = (input: {
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     input.resourceSlotDemandCacheByPlayer?.delete(previous.ownerId);
+    input.resourceSlotDormancyCacheByPlayer?.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
@@ -294,6 +299,7 @@ export const refreshEconomyCachesForTileChange = (input: {
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     input.resourceSlotDemandCacheByPlayer?.delete(next.ownerId);
+    input.resourceSlotDormancyCacheByPlayer?.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
     if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);
