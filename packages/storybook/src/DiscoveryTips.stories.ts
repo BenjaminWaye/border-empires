@@ -3,114 +3,101 @@ import { DISCOVERY_TIPS, type DiscoveryTipId } from "@client/client-discovery-ti
 
 const ALL_IDS: DiscoveryTipId[] = ["TOWN", "DOCK", "BARBARIAN", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
 
-const TIP_ICONS: Record<DiscoveryTipId, string> = {
-  TOWN: "🏛",
-  DOCK: "⚓",
-  BARBARIAN: "💀",
-  FOOD: "🌾",
-  IRON: "⛏",
-  CRYSTAL: "💎",
-  SUPPLY: "🪵"
-};
+const TOAST_STYLES = `
+.sb-discovery-tip {
+  position: relative;
+  width: min(320px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(230, 178, 106, 0.32);
+  background: linear-gradient(180deg, rgba(24,17,10,0.98), rgba(14,10,6,0.98));
+  box-shadow: 0 18px 48px rgba(0,0,0,0.45), 0 0 40px rgba(214,150,68,0.12);
+  color: #fbf3e6;
+}
+.sb-discovery-tip-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding-right: 20px;
+  margin-bottom: 6px;
+  color: #ffd68f;
+}
+.sb-discovery-tip-body {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(240,224,200,0.86);
+  margin: 0 0 10px;
+}
+.sb-discovery-tip-mute-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  color: rgba(230, 214, 195, 0.7);
+  cursor: pointer;
+  user-select: none;
+}
+.sb-discovery-tip-mute-row input { accent-color: #d69644; cursor: pointer; }
+.sb-discovery-tip-ack {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,214,148,0.5);
+  background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));
+  color: #ffe6b8;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.sb-discovery-tip-ack:hover { background: linear-gradient(180deg, rgba(255,214,148,0.32), rgba(214,150,68,0.22)); }
+`;
 
-const TIP_TAGS: Record<DiscoveryTipId, string> = {
-  TOWN: "Capture & settle",
-  DOCK: "Maritime routes",
-  BARBARIAN: "Clear & expand",
-  FOOD: "Settle to collect",
-  IRON: "Settle to collect",
-  CRYSTAL: "Settle to collect",
-  SUPPLY: "Settle to collect"
-};
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
 const render = (): HTMLElement => {
+  const style = document.createElement("style");
+  style.textContent = TOAST_STYLES;
+  document.head.appendChild(style);
+
   const container = document.createElement("div");
-  container.style.padding = "28px";
   container.style.display = "grid";
   container.style.gap = "16px";
+  container.style.padding = "32px 28px";
   container.style.fontFamily = "system-ui, sans-serif";
   container.style.maxWidth = "700px";
+  container.style.background = "#0a0e14";
 
   const header = document.createElement("h1");
-  header.style.margin = "0 0 4px 0";
+  header.style.margin = "0";
   header.style.color = "#ffd68f";
   header.style.fontSize = "16px";
   header.style.fontWeight = "800";
   header.style.letterSpacing = "-0.01em";
-  header.textContent = "Discovery Tooltips";
+  header.textContent = "Discovery Tooltips — Actual In-Game Toast";
   container.appendChild(header);
 
   const subtitle = document.createElement("p");
-  subtitle.style.margin = "0 0 8px 0";
+  subtitle.style.margin = "0 0 4px 0";
   subtitle.style.color = "rgba(201, 216, 236, 0.6)";
   subtitle.style.fontSize = "12.5px";
   subtitle.style.lineHeight = "1.5";
-  subtitle.textContent = "Shown the first time a player discovers each type of tile. Source: client-discovery-tips.ts → DISCOVERY_TIPS";
+  subtitle.textContent =
+    "Rendered with the same HTML/CSS as client-discovery-tip-overlay.ts. Source: client-discovery-tips.ts → DISCOVERY_TIPS";
   container.appendChild(subtitle);
 
   for (const id of ALL_IDS) {
     const tip = DISCOVERY_TIPS[id];
-    const card = document.createElement("div");
-    card.style.display = "flex";
-    card.style.gap = "14px";
-    card.style.padding = "14px 16px";
-    card.style.borderRadius = "14px";
-    card.style.border = "1px solid rgba(230, 178, 106, 0.32)";
-    card.style.background = "linear-gradient(180deg, rgba(24,17,10,0.98), rgba(14,10,6,0.98))";
-    card.style.boxShadow = "0 18px 48px rgba(0,0,0,0.45), 0 0 40px rgba(214,150,68,0.12)";
-    card.style.color = "#fbf3e6";
-    card.style.alignItems = "flex-start";
+    const toast = document.createElement("div");
+    toast.className = "sb-discovery-tip";
 
-    const iconEl = document.createElement("div");
-    iconEl.style.fontSize = "24px";
-    iconEl.style.lineHeight = "1";
-    iconEl.style.marginTop = "1px";
-    iconEl.textContent = TIP_ICONS[id];
-    card.appendChild(iconEl);
+    toast.innerHTML = `
+      <div class="sb-discovery-tip-title">${escapeHtml(tip.title)}</div>
+      <p class="sb-discovery-tip-body">${escapeHtml(tip.body)}</p>
+      <label class="sb-discovery-tip-mute-row"><input type="checkbox" /> Don't show tooltips</label>
+      <button class="sb-discovery-tip-ack" type="button">Got it</button>`;
 
-    const body = document.createElement("div");
-    body.style.display = "grid";
-    body.style.gap = "4px";
-    body.style.flex = "1";
-
-    const titleRow = document.createElement("div");
-    titleRow.style.display = "flex";
-    titleRow.style.alignItems = "center";
-    titleRow.style.gap = "10px";
-
-    const titleEl = document.createElement("div");
-    titleEl.style.fontSize = "14px";
-    titleEl.style.fontWeight = "800";
-    titleEl.style.letterSpacing = "-0.01em";
-    titleEl.style.color = "#ffd68f";
-    titleEl.textContent = tip.title;
-    titleRow.appendChild(titleEl);
-
-    const tagEl = document.createElement("span");
-    tagEl.style.fontSize = "10px";
-    tagEl.style.fontWeight = "600";
-    tagEl.style.textTransform = "uppercase";
-    tagEl.style.letterSpacing = "0.06em";
-    tagEl.style.padding = "2px 7px";
-    tagEl.style.borderRadius = "999px";
-    tagEl.style.background = "rgba(214, 150, 68, 0.18)";
-    tagEl.style.border = "1px solid rgba(214, 150, 68, 0.25)";
-    tagEl.style.color = "#e6b06c";
-    tagEl.textContent = TIP_TAGS[id];
-    titleRow.appendChild(tagEl);
-
-    body.appendChild(titleRow);
-
-    const bodyEl = document.createElement("p");
-    bodyEl.style.margin = "0";
-    bodyEl.style.fontSize = "12.5px";
-    bodyEl.style.lineHeight = "1.5";
-    bodyEl.style.color = "rgba(240, 224, 200, 0.86)";
-    bodyEl.textContent = tip.body;
-    body.appendChild(bodyEl);
-
-    card.appendChild(body);
-    container.appendChild(card);
+    container.appendChild(toast);
   }
 
   return container;
@@ -119,10 +106,11 @@ const render = (): HTMLElement => {
 const meta: Meta = {
   title: "UI/Discovery Tips",
   parameters: {
+    backgrounds: { default: "game" },
     docs: {
       description: {
         component:
-          "All discovery tooltips rendered from DISCOVERY_TIPS in client-discovery-tips.ts. Copy changes to that module automatically update this story. Each tip shows once per account per 30-day/season window, with a global mute checkbox."
+          "All discovery tooltips rendered with the exact same HTML/CSS as the in-game toast from client-discovery-tip-overlay.ts. Copy changes to DISCOVERY_TIPS in client-discovery-tips.ts automatically update this story."
       }
     }
   },
