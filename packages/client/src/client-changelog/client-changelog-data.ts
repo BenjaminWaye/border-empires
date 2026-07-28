@@ -193,7 +193,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785215000000, // 2026.07.28.3
     introducedIn: "2026.07.28.3",
     title: "Discovery tips for docks and barbarians; Storybook catalog for reviewing all tip copy",
     why: "Docks and barbarian territories are important strategic features but had no in-game explanation when first encountered. A Storybook story now renders every discovery tip from the source data so copy can be reviewed in one place.",
@@ -201,6 +201,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a one-time discovery tip for the first dock you discover, explaining that docks connect across the sea for launching attacks and expanding onto distant shores.",
       "Added a one-time discovery tip for the first barbarian tile you discover, explaining that barbarian camps spawn patrols and that clearing them yields gold and expands your border.",
       "Added a Storybook story (UI/Discovery Tips) that renders every discovery tip from the source data — copy changes to client-discovery-tips.ts automatically update the story."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.07.28.4",
+    title: "New season now requires 5 players to vote",
+    why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
+    changes: [
+      '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
+      "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
+      "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
