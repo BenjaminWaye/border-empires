@@ -73,7 +73,6 @@ import {
 import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
-  buildStrategicProductionForSettledTiles,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
@@ -1109,7 +1108,8 @@ export class SimulationRuntime {
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
             return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
           }
-        : undefined
+        : undefined,
+      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId)
     });
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
@@ -1620,7 +1620,7 @@ export class SimulationRuntime {
       const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
       const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      }, econMult, townNetwork);
+      }, econMult, townNetwork, this.foodDormantTownKeysForPlayer(player.id));
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
       return snapshot;
     };
@@ -2572,26 +2572,27 @@ export class SimulationRuntime {
     return dormancy.FOOD.has(`${tileKey}:town`);
   }
 
+  // §5.4/§5.3: a town's FOOD-slot dormancy set, keyed by plain tile key
+  // ("x,y") rather than the "x,y:town" contributor key resourceSlotDormancyForPlayer
+  // uses internally — buildFedTownKeys and its callers work in plain tile keys.
+  private foodDormantTownKeysForPlayer(playerId: string): ReadonlySet<string> {
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    const result = new Set<string>();
+    for (const key of dormancy.FOOD) {
+      if (key.endsWith(":town")) result.add(key.slice(0, -":town".length));
+    }
+    return result;
+  }
+
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
     return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
-  private fedTownKeysForPlayer(
-    player: DomainPlayer,
-    settledTiles = this.settledTilesForPlayer(player.id),
-    // Optional: pass a precomputed waterworks-key set to avoid re-running the
-    // radius scan when the caller already has one (e.g. tileYieldEconomyContext).
-    waterworksKeys?: ReadonlySet<string>
-  ): Set<string> {
+  private fedTownKeysForPlayer(player: DomainPlayer): Set<string> {
     const summary = this.summaryForPlayer(player.id);
-    return buildFedTownKeys(
-      player,
-      summary,
-      this.tiles,
-      buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys)
-    );
+    return buildFedTownKeys(player.id, summary, this.tiles, this.foodDormantTownKeysForPlayer(player.id));
   }
 
   // Shared with cachedEconomySnapshot so buildConnectedTownNetworkForPlayer
@@ -2709,7 +2710,7 @@ export class SimulationRuntime {
       const context: RuntimeTileYieldEconomyContext = {
         player,
         townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
-        fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles, waterworksKeys),
+        fedTownKeys: this.fedTownKeysForPlayer(player),
         // Skip expensive first-three-town key computation if the player has no
         // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
         // the key set has no effect. Skips O(towns) sort for most players.

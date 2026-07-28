@@ -1,8 +1,6 @@
 import {
   DOCK_INCOME_PER_MIN,
-  townFoodUpkeepPerMinute,
   type DomainPlayer,
-  type DomainStrategicResourceKey,
   type DomainTileState
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
@@ -649,33 +647,24 @@ export const dockSupportedByCustomsHouse = (
   return false;
 };
 
-// Moved from player-update-economy.ts to keep that file from growing past
-// its line-count ceiling — no functional/behavioral change, pure relocation.
+// §5.4/§5.3 (docs/manpower-economy-rewrite-plan.md): a town is "fed" (produces
+// gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
+// — FOOD no longer has a separate stockpile/flow gate (there's only one food
+// mechanic now: slots). `foodDormantTownKeys` is the FOOD-resource dormancy
+// set for this player (resourceSlotDormantContributorsForPlayer's `:town`
+// entries, stripped to plain tile keys) — see Runtime.foodDormantTownKeysForPlayer.
 export const buildFedTownKeys = (
-  player: DomainPlayer,
+  playerId: string,
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
-  strategicProductionPerMinute: Record<DomainStrategicResourceKey, number>
+  foodDormantTownKeys: ReadonlySet<string>
 ): Set<string> => {
-  const availableFood = (player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD;
-  let remainingFood = availableFood;
   const fedTownKeys = new Set<string>();
-  // Use ownedTownTierByTile (already an index of just owned town tiles) instead
-  // of spreading all territoryTileKeys and filtering. O(towns) vs O(territory).
-  const ownedSettledTowns = [...summary.ownedTownTierByTile.keys()]
-    .map((tileKey) => tiles.get(tileKey))
-    .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
-  for (const tile of ownedSettledTowns) {
-    const upkeep = townFoodUpkeepPerMinute(tile.town?.populationTier);
-    if (upkeep <= 0) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      continue;
-    }
-    if (remainingFood + 1e-9 >= upkeep) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      remainingFood = Math.max(0, remainingFood - upkeep);
-    }
+  for (const tileKey of summary.ownedTownTierByTile.keys()) {
+    const tile = tiles.get(tileKey);
+    if (!tile?.town || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+    const key = `${tile.x},${tile.y}`;
+    if (!foodDormantTownKeys.has(key)) fedTownKeys.add(key);
   }
   return fedTownKeys;
 };

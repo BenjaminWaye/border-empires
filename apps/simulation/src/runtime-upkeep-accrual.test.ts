@@ -176,10 +176,10 @@ describe("consumeUpkeepFromTileYield", () => {
     expect(tileYieldCollectedAtByTile.get(tileKey(0, 0))).toBe(newAnchor);
   });
 
-  it("drains strategic need (FOOD) from a resource tile", () => {
+  it("leaves FOOD need untouched — a resource tile no longer yields FOOD to drain (slot-based, not yield-based, §5.4)", () => {
     const player = testPlayer("player-1");
     const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 4 * 60 * 60_000; // 4 hours -> 8 FOOD buffered (well under the cap)
+    const lastCollectedAt = nowMs - 4 * 60 * 60_000;
     const tile = farmResourceTile(0, 0, "player-1");
     const { ctx, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
     tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
@@ -189,7 +189,7 @@ describe("consumeUpkeepFromTileYield", () => {
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
-    expect(need.FOOD).toBe(0);
+    expect(need.FOOD).toBe(4);
   });
 
   it("leaves remaining need untouched once tile yield is exhausted", () => {

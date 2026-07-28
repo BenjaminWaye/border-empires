@@ -38,35 +38,21 @@ export type TileYieldView = {
 
 const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
-// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
-// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
-const strategicDailyFromResource = (resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => {
-  switch (resource) {
-    case "FARM":
-      return { FOOD: 48 };
-    case "FISH":
-      return { FOOD: 72 };
-    default:
-      return {};
-  }
-};
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
+// supply (structure-slots.ts), not a daily yield rate.
+const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});
 
 // IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
-// stockpiled resource (§5.6) — Farmstead's FOOD bonus is the only converter
-// output left in this system.
+// stockpiled resource (§5.6), and Farmstead's old FOOD-yield bonus retired
+// alongside FOOD's own production (§5.4: FOOD is slot-based now, not
+// yield-based) — nothing is left to convert into a strategicPerDay entry.
+// Farmstead/Waterworks still boost FOOD *slot supply* (structure-slots.ts),
+// an entirely separate mechanism this function doesn't touch.
 const converterDailyOutput = (
-  structureType: DomainTileState["economicStructure"] extends { type: infer T } ? T : string | undefined
-): Partial<Record<StrategicYieldKey, number>> => {
-  switch (structureType) {
-    // Farmstead: +50% food only on FARM tiles. FISH gets nothing.
-    // (Waterworks is a radius-support building like Foundry — it boosts nearby
-    //  Farmsteads rather than producing food itself.)
-    case "FARMSTEAD":
-      return { FOOD: FARMSTEAD_FOOD_BONUS_PER_DAY };
-    default:
-      return {};
-  }
-};
+  _structureType: DomainTileState["economicStructure"] extends { type: infer T } ? T : string | undefined
+): Partial<Record<StrategicYieldKey, number>> => ({});
 
 /**
  * Strategic-affecting economic structure types whose yield cannot be

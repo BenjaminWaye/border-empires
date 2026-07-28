@@ -180,13 +180,13 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.gold).toBeCloseTo(0.04, 8);
   });
 
-  it("charges town food upkeep for CITY tier", () => {
+  it("charges no town food upkeep for CITY tier (§5.4: FOOD is slot-based, not a per-minute stockpile drain)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       town: { populationTier: "CITY", connectedTownBonus: 0, goldPerMinute: 0 }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
-    expect(contrib.food).toBeCloseTo(0.3, 8); // townFoodUpkeepPerMinute("CITY") = 0.3
+    expect(contrib.food).toBe(0);
   });
 });
 
