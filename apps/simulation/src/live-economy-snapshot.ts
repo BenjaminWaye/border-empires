@@ -36,7 +36,7 @@ import {
   buildFedTownKeysByPlayer
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
-import { farmsteadFoodBonusPerMinute, radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
 import { resourceSlotDemandForPlayer, resourceSlotSupplyForPlayer } from "./resource-slot-view/resource-slot-view.js";
 
 export const buildLivePlayerEconomySnapshot = (
@@ -59,9 +59,6 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
-  // Same active-Waterworks key set the empire-wide total uses, scoped to this
-  // player's settled tiles, so the Farmstead breakdown below matches the total.
-  const { waterworksKeys: farmsteadWaterworksKeys } = radiusStructureKeysForSettledTiles(settledDomainTilesByPlayerId.get(playerId) ?? []);
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
   const goldSources = new Map<string, EconomyBucket>();
@@ -123,17 +120,6 @@ export const buildLivePlayerEconomySnapshot = (
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
-      // Farmstead food isn't part of converterOutputPerMinute (see
-      // buildStrategicProductionByPlayer); surface it as its own source so this
-      // breakdown matches the total shown to the player.
-      if (structure.type === "FARMSTEAD") {
-        addBucket(
-          foodSources,
-          "Farmstead",
-          farmsteadFoodBonusPerMinute({ x: tile.x, y: tile.y, resource: tile.resource, economicStructure: structure }, farmsteadWaterworksKeys),
-          { count: 1, resourceKey: "FOOD" }
-        );
-      }
     }
   }
 

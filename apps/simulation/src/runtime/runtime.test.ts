@@ -1424,7 +1424,7 @@ describe("simulation runtime", () => {
     expect(payload.gold).toBeGreaterThan(0); // was >0.9 pre-gold-rescope (§6.1); just assert some gold was credited
   });
 
-  it("drains food upkeep continuously so net-negative food balances actually decrement", async () => {
+  it("no longer drains food upkeep from the stockpile (§5.4: FOOD is slot-based, town upkeep is 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1470,8 +1470,8 @@ describe("simulation runtime", () => {
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
       strategicResources: { FOOD: number };
     };
-    // Town tier upkeep is 0.1 food/min; 5 minutes elapsed → 0.5 drained from 10.
-    expect(payload.strategicResources.FOOD).toBeCloseTo(9.5, 2);
+    // Town food upkeep is retired to 0 (§5.4) — the FOOD stockpile never moves.
+    expect(payload.strategicResources.FOOD).toBe(10);
   });
 
   it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
@@ -1614,7 +1614,7 @@ describe("simulation runtime", () => {
     expect(player2Self?.points).toBeLessThan(1000);
   });
 
-  it("drains accumulated food yield to cover food upkeep before touching the food stockpile", async () => {
+  it("no longer touches the food stockpile at all (§5.4: FOOD upkeep/production are both retired to 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1652,14 +1652,13 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
-    // tiles produce 48/day = 0.0333/min each (4 food total). Net -2 food,
-    // so FOOD stockpile drops from 100 to 98.
+    // 60 min elapse: town food upkeep and FARM tile production are both
+    // retired to 0 (§5.4) — the FOOD stockpile stays exactly where it started.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeCloseTo(98, 0);
+    expect(player?.strategicResources.FOOD).toBe(100);
   });
 
   it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
@@ -1714,7 +1713,7 @@ describe("simulation runtime", () => {
     expect(player?.points).toBeLessThan(480);
   });
 
-  it("drains unconsumed food yield on a mixed-yield tile when gold upkeep advances the shared anchor", async () => {
+  it("collects no FOOD on a mixed-yield tile — FOOD production is retired (§5.4: slot-based, not yield-based)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1745,13 +1744,9 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // The mixed-yield tile (5,5) produces 10 gold/min AND 48 FOOD/day
-    // (~2.03 FOOD over 61 minutes since the anchor was never set).
-    // GARRISON_HALL draws gold but no food, so accrual consumes gold
-    // only — yet the single shared anchor advances, so a later collect
-    // sees less than the full 61-minute window of FOOD. This pins the
-    // documented multi-resource trade-off; if per-resource anchors are
-    // ever introduced, this test should be updated.
+    // The mixed-yield tile (5,5) produces 10 gold/min; FOOD production is
+    // retired (§5.4: FOOD is slot-based, not yield-based) so there's no FOOD
+    // left in this tile's yield to collect, regardless of the shared anchor.
     currentNow += 60 * 60_000;
     runtime.submitCommand({
       commandId: "collect-1",
@@ -1765,8 +1760,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeGreaterThan(1);
-    expect(player?.strategicResources.FOOD).toBeLessThan(2);
+    expect(player?.strategicResources.FOOD).toBe(0);
   });
 
   it("does not choose unaffordable frontier actions for AI automation", () => {
@@ -5406,7 +5400,13 @@ describe("simulation runtime", () => {
           { x: 0, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "METROPOLIS", name: "Four" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "One" } },
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Two" } },
-          { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } }
+          { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } },
+          // §5.4: each town needs 2 FOOD slots to not go dormant — 4 FISH
+          // tiles (2 slots each) cover all 4 towns' demand.
+          { x: 1, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 21, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 31, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: [],
         players: [
@@ -8202,7 +8202,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
-          }))
+          })),
+          // §5.4: the town needs 2 FOOD slots to not go dormant (which would
+          // otherwise zero its gold income and make it non-yield-bearing).
+          { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
         ],
         // lastCollectedAt = now means zero elapsed time → live buffer = 0.
         tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
@@ -8293,6 +8296,12 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
+          })),
+          // §5.4: 4 towns need 2 FOOD slots each (8 total) to not go dormant
+          // (which would otherwise zero their gold income) — 4 FISH tiles
+          // (2 slots each) cover it, placed well outside the BFS neighborhood.
+          ...[[100, 100], [101, 100], [102, 100], [103, 100]].map(([x, y]) => ({
+            x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
           }))
         ],
         activeLocks: []

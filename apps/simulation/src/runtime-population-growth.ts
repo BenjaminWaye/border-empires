@@ -52,6 +52,10 @@ export function tickPopulationGrowth(input: {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
   integrityGrowthMultForPlayer?: ((playerId: string) => number) | undefined;
+  // §5.4: which of this player's towns have a dormant FOOD slot right now
+  // (Runtime.foodDormantTownKeysForPlayer) — replaces the old stockpile-based
+  // fed check (there's only one food mechanic now: slots).
+  foodDormantTownKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }): {
   growthStalledNoFood: number;
   townsGrown: number;
@@ -92,10 +96,10 @@ export function tickPopulationGrowth(input: {
     if (ownedTowns.size === 0) continue;
 
     const fedTownKeys = buildFedTownKeys(
-      player,
+      player.id,
       summary,
       input.tiles,
-      summary.strategicProductionPerMinute
+      input.foodDormantTownKeysForPlayer(player.id)
     );
     if (fedTownKeys.size === 0) {
       playersSkippedNoFedTowns += 1;

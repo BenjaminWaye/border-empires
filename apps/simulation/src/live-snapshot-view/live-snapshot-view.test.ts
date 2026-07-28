@@ -209,7 +209,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownBonus).toBe(0.5);
   });
 
-  it("boosts a Farmstead FARM tile's FOOD yield by 2x when an active Waterworks is within radius", () => {
+  it("gives no FOOD yield to a Farmstead FARM tile regardless of an active Waterworks in radius (§5.4: slot-based, not yield-based)", () => {
     const farmTile = {
       x: 5,
       y: 5,
@@ -253,8 +253,10 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     });
     const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
     const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo(baseFood * 2, 5);
+    // §5.4: FOOD is slot-based, not yield-based — no Farmstead/Waterworks
+    // FOOD yield to boost anymore.
+    expect(baseFood).toBe(0);
+    expect(boostedFood).toBe(0);
   });
 
   it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {
@@ -299,7 +301,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(bare).not.toHaveProperty("yieldRate");
     expect(bare).not.toHaveProperty("yieldCap");
     expect(farmstead).toHaveProperty("yieldRate");
-    expect((farmstead as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBe(72);
+    // §5.4: FOOD is slot-based, not yield-based — no strategicPerDay.FOOD anymore.
+    expect((farmstead as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBeUndefined();
     expect(dock).toHaveProperty("yieldRate");
   });
 });

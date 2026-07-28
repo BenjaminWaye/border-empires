@@ -445,7 +445,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           activeDevelopmentProcessCount: 1,
           pendingSettlements: [{ x: 11, y: 10, startedAt: 1_000, resolvesAt: 61_000 }],
           strategicResources: expect.objectContaining({ FOOD: 3 }),
-          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0.0333 })
+          // §5.4: FOOD is slot-based, not produced — strategicProductionPerMinute.FOOD is always 0 now.
+          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0 })
         })
       })
     );
@@ -717,7 +718,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         marketActive: true, granaryActive: true, bankActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
-        foodUpkeepPerMinute: 0.1
+        // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
+        foodUpkeepPerMinute: 0
       })
     );
     expect(town?.goldPerMinute).toBeCloseTo(1.5207, 4);
@@ -734,7 +736,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.player?.economyBreakdown?.GOLD.sources[0]).toEqual(
       expect.objectContaining({ label: "Towns", amountPerMinute: expect.any(Number) })
     );
-    expect(snapshot.player?.upkeepPerMinute?.food).toBeGreaterThan(0.1);
+    // §5.4: FOOD is slot-based — town/structure food upkeep is retired to 0.
+    expect(snapshot.player?.upkeepPerMinute?.food).toBe(0);
   });
 
   it("shows Clockwork Stipend in the SUPPLY source bucket for live snapshot economy breakdown", () => {

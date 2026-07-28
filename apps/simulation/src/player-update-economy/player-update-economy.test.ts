@@ -189,11 +189,10 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     );
   });
 
-  it("regression: active Farmstead on a FARM tile adds its +50% food bonus to strategicProductionPerMinute and economyBreakdown.FOOD", () => {
-    // Bug: converterOutputPerMinute (the empire-wide production function) had
-    // no FARMSTEAD case, so the building contributed zero extra food to the
-    // "food detailed production" page even though the per-tile yield view
-    // correctly applied the +50% bonus.
+  it("an active Farmstead on a FARM tile adds no strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
+    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a Farmstead's
+    // real effect now is boosting FOOD *slot supply* (structure-slots.ts),
+    // a separate mechanism this snapshot doesn't compute.
     const player = makePlayer();
     const farmTile: DomainTileState = {
       x: 10,
@@ -207,15 +206,9 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     const tiles = new Map<string, DomainTileState>([["10,10", farmTile]]);
 
     const withFarmstead = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-    const withoutFarmstead = buildPlayerUpdateEconomySnapshot(
-      player,
-      summaryForTiles(new Map([["10,10", { ...farmTile, economicStructure: undefined }]])),
-      new Map([["10,10", { ...farmTile, economicStructure: undefined }]])
-    );
 
-    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBeGreaterThan(withoutFarmstead.strategicProductionPerMinute.FOOD);
-    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBeCloseTo(withoutFarmstead.strategicProductionPerMinute.FOOD + (48 * 0.5) / 1440, 4);
-    expect(withFarmstead.economyBreakdown.FOOD.sources).toContainEqual(
+    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBe(0);
+    expect(withFarmstead.economyBreakdown.FOOD.sources).not.toContainEqual(
       expect.objectContaining({ label: "Farmstead", resourceKey: "FOOD" })
     );
   });
@@ -435,7 +428,9 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
     expect(boosted.incomePerMinute).toBeGreaterThan(base.incomePerMinute);
   });
 
-  it("high mult scales up strategicProductionPerMinute values", () => {
+  it("mult has nothing left to scale in strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
+    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a bare FARM tile
+    // no longer produces a mult-scalable FOOD rate at all.
     const farmTile: DomainTileState = {
       x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM"
     };
@@ -446,7 +441,8 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
     const summary = summaryForTiles(tiles);
     const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
     const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
-    expect(boosted.strategicProductionPerMinute.FOOD).toBeGreaterThan(base.strategicProductionPerMinute.FOOD);
+    expect(boosted.strategicProductionPerMinute.FOOD).toBe(0);
+    expect(base.strategicProductionPerMinute.FOOD).toBe(0);
   });
 
   it("low mult (< 1) reduces incomePerMinute", () => {

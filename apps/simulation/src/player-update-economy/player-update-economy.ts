@@ -43,7 +43,7 @@ import {
 } from "../economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { chosenTrickleRateForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
-import { farmsteadFoodBonusPerMinute, radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
+import { radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type EconomyResourceKey = StrategicResourceKey | "GOLD";
@@ -116,18 +116,11 @@ const addBucket = (
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => (right.amountPerMinute - left.amountPerMinute) || left.label.localeCompare(right.label));
 
-// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
-// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
-const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | undefined): number => {
-  switch (resource) {
-    case "FARM":
-      return 48 / 1440;
-    case "FISH":
-      return 72 / 1440;
-    default:
-      return 0;
-  }
-};
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// dormancy). FARM/FISH still grant FOOD *slot supply* (structure-slots.ts),
+// a separate, untouched mechanism.
+const strategicProductionPerMinuteForResource = (_resource: DomainTileState["resource"] | undefined): number => 0;
 
 const strategicResourceForTile = (resource: DomainTileState["resource"] | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
@@ -223,7 +216,6 @@ export const buildStrategicProductionForSettledTiles = (
     for (const [resourceKey, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) {
       strategicProductionPerMinute[resourceKey] += amount;
     }
-    strategicProductionPerMinute.FOOD += farmsteadFoodBonusPerMinute(tile, waterworksKeys);
   }
 
   return strategicProductionPerMinute;
@@ -307,7 +299,11 @@ export const buildPlayerUpdateEconomySnapshot = (
   integrityEconMult: number = 1,
   // Reuse a caller-shared network so buildConnectedTownNetworkForPlayer
   // (O(settled_tiles + towns^2)) doesn't rebuild twice per cache-miss cycle.
-  prebuiltTownNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>
+  prebuiltTownNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  // §5.4: which of this player's towns have a dormant FOOD slot right now
+  // (Runtime.foodDormantTownKeysForPlayer) — defaults to "nobody's dormant"
+  // for callers that don't have Runtime access (dev-assert cross-checks).
+  foodDormantTownKeys: ReadonlySet<string> = new Set()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
@@ -330,7 +326,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys);
 
-  const fedTownKeys = buildFedTownKeys(player, summary, tiles, strategicProductionPerMinute);
+  const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -406,7 +402,6 @@ export const buildPlayerUpdateEconomySnapshot = (
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
-      addBucket(foodSources, "Farmstead", farmsteadFoodBonusPerMinute(tile, waterworksKeys), { count: 1, resourceKey: "FOOD" });
     }
   }
 

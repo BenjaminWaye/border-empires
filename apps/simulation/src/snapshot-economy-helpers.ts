@@ -33,7 +33,6 @@ import {
   fedTownKeysByPlayerCache
 } from "./snapshot-tile-cache.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
-import { farmsteadFoodBonusPerMinute } from "./tile-yield-view/tile-yield-view.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -134,15 +133,10 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
   return 1;
 };
 
-// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
-// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
-export const strategicProductionPerMinuteForResource = (resource: string | undefined): number => {
-  switch (resource) {
-    case "FARM": return 48 / 1440;
-    case "FISH": return 72 / 1440;
-    default: return 0;
-  }
-};
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (§5.4) — there's
+// only one food mechanic now (slot dormancy). FARM/FISH still grant FOOD
+// *slot supply* (structure-slots.ts), a separate, untouched mechanism.
+export const strategicProductionPerMinuteForResource = (_resource: string | undefined): number => 0;
 
 export const strategicResourceForTile = (resource: string | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
@@ -183,26 +177,16 @@ export const structureUpkeepPerMinute = (structureType: string): Partial<Record<
 // stockpiled resource (§5.6) — nothing left to convert.
 export const converterOutputPerMinute = (_structureType: string): Partial<Record<StrategicResourceKey, number>> => ({});
 
-// Farmstead's +50% food (doubled near an active Waterworks) is applied per-tile
-// by the yield view but is NOT part of converterOutputPerMinute, so this
-// whole-world aggregate must add it separately or the food total, the fed-town
-// calc, and the economy panels all under-count Farmsteads. Waterworks only
-// boosts the SAME owner's Farmsteads, so radius keys are collected per owner.
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (§5.4) — a
+// Farmstead's real effect now is boosting FOOD *slot supply*
+// (structure-slots.ts), a separate mechanism this aggregate doesn't compute.
+// Retired to a no-op rather than deleted, since both call sites below still
+// pass the same farmsteadTiles/waterworksKeysByOwner bookkeeping.
 const applyFarmsteadFoodToProduction = (
-  production: Map<string, Record<StrategicResourceKey, number>>,
-  waterworksKeysByOwner: Map<string, Set<string>>,
-  farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }>
-): void => {
-  const emptyKeys: ReadonlySet<string> = new Set();
-  for (const farmstead of farmsteadTiles) {
-    const target = production.get(farmstead.ownerId);
-    if (!target) continue;
-    target.FOOD += farmsteadFoodBonusPerMinute(
-      { x: farmstead.x, y: farmstead.y, resource: farmstead.resource, economicStructure: { type: "FARMSTEAD", status: "active" } },
-      waterworksKeysByOwner.get(farmstead.ownerId) ?? emptyKeys
-    );
-  }
-};
+  _production: Map<string, Record<StrategicResourceKey, number>>,
+  _waterworksKeysByOwner: Map<string, Set<string>>,
+  _farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }>
+): void => {};
 
 export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<string, Record<StrategicResourceKey, number>> => {
   const cached = strategicProductionByPlayerCache.get(runtimeState);

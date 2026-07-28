@@ -121,11 +121,19 @@ export const BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE = 1.5 / GOLD_RESCALE_DI
 export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
 export const IRONWORKS_GOLD_UPKEEP = 60;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;
-export const MARKET_FOOD_UPKEEP = 0.5;
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
+// building-level cost is now the permanent slot it occupies
+// (structure-slots.ts) — the separate per-minute flow drain these three
+// constants used to charge on top of that would double-charge the same
+// resource two different ways, so they're retired to 0 rather than deleted
+// (their call sites — player-update-economy.ts, player-upkeep-incremental.ts —
+// stay in place and naturally go inert, same "leave plumbing, starve input"
+// treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
+export const MARKET_FOOD_UPKEEP = 0;
 export const WOODEN_FORT_GOLD_UPKEEP = 0.5;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 0.5;
-export const BANK_FOOD_UPKEEP = 1;
-export const CARAVANARY_FOOD_UPKEEP = 0.75;
+export const BANK_FOOD_UPKEEP = 0;
+export const CARAVANARY_FOOD_UPKEEP = 0;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
 export const GARRISON_HALL_GOLD_UPKEEP = 25;
 export const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
@@ -220,13 +228,14 @@ export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
  * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
 export const SETTLEMENT_GROWTH_RATE_MULT = 4;
-export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
-  if (populationTier === "CITY") return 0.3;
-  if (populationTier === "GREAT_CITY") return 0.6;
-  if (populationTier === "METROPOLIS") return 1;
-  return 0.1;
-};
+// §5.3/§5.4: a town's FOOD requirement is TOWN_FOOD_SLOT_DEMAND slots
+// (structure-slots.ts), gated by dormancy (Runtime.isTownFoodDormant) — not a
+// per-minute stockpile drain anymore. Retired to always-0 rather than
+// deleted; several display/aggregation call sites (live-town-summary.ts,
+// player-upkeep-incremental.ts, the legacy/reconnect snapshot paths) still
+// read it for a "food upkeep per minute" figure that's now always 0, same
+// "leave plumbing, starve input" treatment as MARKET_FOOD_UPKEEP above.
+export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
 export const POPULATION_MIN = 3_000;
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_START_SPREAD = 2_000;
