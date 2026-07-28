@@ -1,13 +1,14 @@
 // "Discovery" tooltips: shown the first time the player sees (not necessarily
-// owns) a town or a strategic-resource tile, explaining what it is and why
-// they should capture/settle it. Each tip id is dismissed for 30 days/a
-// season at a time (see client-discovery-tips-storage.ts), and the player can
-// mute all discovery tips for the same window via the toast's checkbox.
+// owns) a town, dock, barbarian tile, or strategic-resource tile, explaining
+// what it is and why they should capture/settle/clear it. Each tip id is
+// dismissed for 30 days/a season at a time (see client-discovery-tips-storage.ts),
+// and the player can mute all discovery tips for the same window via the
+// toast's checkbox.
 
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -16,6 +17,16 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "TOWN",
     title: "First Town Discovered!",
     body: "Towns generate Gold and add Manpower cap/regen once captured and settled. Send your army to take this town and grow your empire."
+  },
+  DOCK: {
+    id: "DOCK",
+    title: "Dock Discovered!",
+    body: "Docks connect to other docks across the sea, letting your army launch attacks and expand onto distant shores. Settle or capture a dock to unlock maritime routes."
+  },
+  BARBARIAN: {
+    id: "BARBARIAN",
+    title: "Barbarian Territory Discovered!",
+    body: "Barbarian camps spawn nearby barbarian patrols that raid your empire. Attack and clear barbarian tiles for gold and to push back their threat. Each cleared tile expands your border."
   },
   FOOD: {
     id: "FOOD",
@@ -58,8 +69,10 @@ const discoveryTipIdForTileResource = (resource: string | undefined): DiscoveryT
  * Does not itself check/update "seen" storage — callers own the queue and
  * should skip ids already returned by `isDiscoveryTipSeen`/already queued.
  */
-export const discoveryTipIdForNewlySeenTile = (tile: Pick<Tile, "town" | "resource">): DiscoveryTipId | undefined => {
+export const discoveryTipIdForNewlySeenTile = (tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId">): DiscoveryTipId | undefined => {
   if (tile.town) return "TOWN";
+  if (tile.dockId) return "DOCK";
+  if (tile.ownerId?.startsWith("barbarian")) return "BARBARIAN";
   return discoveryTipIdForTileResource(tile.resource);
 };
 

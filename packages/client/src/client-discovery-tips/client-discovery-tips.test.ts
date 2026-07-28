@@ -20,8 +20,29 @@ const stubWindowStorage = (): Map<string, string> => {
 };
 
 describe("discoveryTipIdForNewlySeenTile", () => {
-  it("returns TOWN for any tile with a town, regardless of resource", () => {
-    expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, resource: "IRON" })).toBe("TOWN");
+  it("returns TOWN for any tile with a town, regardless of resource or dock", () => {
+    expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, resource: "IRON", dockId: "dock-1" })).toBe("TOWN");
+  });
+
+  it("returns DOCK for a tile with a dockId but no town", () => {
+    expect(discoveryTipIdForNewlySeenTile({ dockId: "dock-1" })).toBe("DOCK");
+  });
+
+  it("returns DOCK over resource", () => {
+    expect(discoveryTipIdForNewlySeenTile({ dockId: "dock-1", resource: "IRON" })).toBe("DOCK");
+  });
+
+  it("returns BARBARIAN for a tile with barbarian owner", () => {
+    expect(discoveryTipIdForNewlySeenTile({ ownerId: "barbarian" })).toBe("BARBARIAN");
+  });
+
+  it("returns BARBARIAN for barbarian-1 prefix", () => {
+    expect(discoveryTipIdForNewlySeenTile({ ownerId: "barbarian-1" })).toBe("BARBARIAN");
+  });
+
+  it("returns BARBARIAN over resource but under town", () => {
+    expect(discoveryTipIdForNewlySeenTile({ ownerId: "barbarian", resource: "IRON" })).toBe("BARBARIAN");
+    expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, ownerId: "barbarian" })).toBe("TOWN");
   });
 
   it("maps FARM and FISH to FOOD", () => {
@@ -41,7 +62,7 @@ describe("discoveryTipIdForNewlySeenTile", () => {
   });
 
   it("has a def for every DiscoveryTipId", () => {
-    const ids: DiscoveryTipId[] = ["TOWN", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
+    const ids: DiscoveryTipId[] = ["TOWN", "DOCK", "BARBARIAN", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
     for (const id of ids) expect(DISCOVERY_TIPS[id].id).toBe(id);
   });
 });
@@ -57,6 +78,27 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "X" } as never }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["TOWN"]);
+  });
+
+  it("enqueues a tip for a newly-seen dock tile", () => {
+    const queue: DiscoveryTipId[] = [];
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { dockId: "dock-1" }, "a@example.com");
+    expect(enqueued).toBe(true);
+    expect(queue).toEqual(["DOCK"]);
+  });
+
+  it("enqueues a tip for a newly-seen barbarian tile", () => {
+    const queue: DiscoveryTipId[] = [];
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { ownerId: "barbarian-1" }, "a@example.com");
+    expect(enqueued).toBe(true);
+    expect(queue).toEqual(["BARBARIAN"]);
+  });
+
+  it("barbarian does not trigger for non-barbarian ownerId", () => {
+    const queue: DiscoveryTipId[] = [];
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { ownerId: "player-1" }, "a@example.com");
+    expect(enqueued).toBe(false);
+    expect(queue).toEqual([]);
   });
 
   it("does not enqueue twice in the same session", () => {
@@ -87,7 +129,7 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     expect(queueForB).toEqual(["TOWN"]);
   });
 
-  it("returns false and does not enqueue for a tile with no town/resource", () => {
+  it("returns false and does not enqueue for a tile with no town/resource/barbarian", () => {
     const queue: DiscoveryTipId[] = [];
     expect(enqueueDiscoveryTipForNewlySeenTile(queue, {}, "a@example.com")).toBe(false);
     expect(queue).toEqual([]);
