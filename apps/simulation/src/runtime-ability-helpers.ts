@@ -70,7 +70,15 @@ export function isStructurePowered(
   tiles: ReadonlyMap<string, DomainTileState>,
   ownerId: string,
   tileKey: string,
-  structureType: EconomicStructureType
+  structureType: EconomicStructureType,
+  // §5.4: an Aether Tower itself demands a FOOD + CRYSTAL slot
+  // (STRUCTURE_SLOT_REQUIREMENTS.AETHER_TOWER) and can go dormant like any
+  // other structure — a dormant tower provides no bonus, including its own
+  // powering radius, same as every other structure this class of check
+  // gates (monument abilities, Observatory abilities). Optional so existing
+  // callers that haven't threaded it through yet default to "nothing
+  // dormant" rather than a hard type error.
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean = () => false
 ): boolean {
   const tile = tiles.get(tileKey);
   const structure = tile?.economicStructure;
@@ -79,7 +87,9 @@ export function isStructurePowered(
   for (const candidate of tiles.values()) {
     const tower = candidate.economicStructure;
     if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
+    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AETHER_TOWER_RADIUS) continue;
+    if (isStructureDormant(ownerId, simulationTileKey(candidate.x, candidate.y), "economicStructure")) continue;
+    return true;
   }
   return false;
 }
@@ -97,7 +107,7 @@ export function isTileShieldedByEnemyAegisDome(
     if (!dome.ownerId || dome.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
     const domeKey = simulationTileKey(candidate.x, candidate.y);
-    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME")) continue;
+    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME", isStructureDormant)) continue;
     if (isStructureDormant(dome.ownerId, domeKey, "economicStructure")) continue;
     return true;
   }
@@ -152,7 +162,7 @@ export function isTileBombardBlockedByRadar(
     if (!s.ownerId || s.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
     const radarKey = simulationTileKey(candidate.x, candidate.y);
-    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type)) continue;
+    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant)) continue;
     if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;
     return true;
   }

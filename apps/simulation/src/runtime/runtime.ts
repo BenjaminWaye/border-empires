@@ -3640,7 +3640,13 @@ export class SimulationRuntime {
   }
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
-    return isStructurePoweredImpl(this.tiles, ownerId, tileKey, structureType);
+    return isStructurePoweredImpl(
+      this.tiles,
+      ownerId,
+      tileKey,
+      structureType,
+      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field)
+    );
   }
 
   // Aegis Dome shields tiles within AEGIS_DOME_PROTECTION_RADIUS for its

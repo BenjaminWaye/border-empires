@@ -46,8 +46,10 @@ describe("§5.4 ability dormancy gate", () => {
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }
-          // No CRYSTAL supply tile: AIRPORT demands 1 CRYSTAL slot it can't get.
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          // 1 CRYSTAL spares the tower (key tie-break), leaves AIRPORT dormant; FISH spares the tower's FOOD slot.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
         activeLocks: []
       }
@@ -101,6 +103,7 @@ describe("§5.4 ability dormancy gate", () => {
           },
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }, // spares player-1's own tower's FOOD slot
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           {
             x: 3,
@@ -169,8 +172,10 @@ describe("§5.4 ability dormancy gate", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
-          }
-          // No CRYSTAL supply tile: IMPERIAL_EXCHANGE demands 1 CRYSTAL slot.
+          },
+          // 1 CRYSTAL spares the tower (key tie-break), leaves the exchange dormant; FISH spares the tower's FOOD slot.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
         activeLocks: []
       }
@@ -229,8 +234,10 @@ describe("§5.4 ability dormancy gate", () => {
             ownerId: "player-2",
             ownershipState: "SETTLED",
             town: { type: "MARKET", populationTier: "CITY", population: 1_000 }
-          }
-          // No CRYSTAL supply tile: WORLD_ENGINE demands 1 CRYSTAL slot.
+          },
+          // 1 CRYSTAL spares the tower (key tie-break), leaves World Engine dormant; FISH spares the tower's FOOD slot.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
         activeLocks: []
       }
@@ -258,6 +265,7 @@ describe("§5.4 ability dormancy gate", () => {
     expect(town?.population).toBe(1_000);
   });
 
+  // true: 2 CRYSTAL (dome + tower). false: 1 CRYSTAL spares the tower (key tie-break), leaves AEGIS_DOME dormant. FISH covers the tower's FOOD slot.
   const aegisDomeTiles = (options: { includeCrystalSupply: boolean }): Array<Record<string, unknown>> => [
     {
       x: 0,
@@ -275,12 +283,13 @@ describe("§5.4 ability dormancy gate", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
     },
+    { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
     ...(options.includeCrystalSupply
       ? [
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ]
-      : [])
+      : [{ x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }])
   ];
 
   it("AEGIS_LOCK activates when powered and slot-supplied", async () => {
@@ -422,12 +431,13 @@ describe("§5.4 ability dormancy gate", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
     },
+    { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
     ...(options.includeCrystalSupply
       ? [
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ]
-      : [])
+      : [{ x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }])
   ];
 
   it("ASTRAL_DOCK_LAUNCH activates when powered and slot-supplied", async () => {
