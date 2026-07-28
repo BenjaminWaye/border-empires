@@ -28,7 +28,7 @@ import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
-import { createHeightfield, HEIGHTFIELD_HILLS_ELEVATION_BONUS, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
@@ -1519,7 +1519,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // averaging with raised neighbours (mountains, hills), so a
         // tile's painted surface can be much higher than its base. Max
         // of all 4 corners + small buffer keeps overlays above the
-        // ground at every interior point of the tile.
+        // ground at every interior point of the tile. elevationAt already
+        // bakes HEIGHTFIELD_HILLS_ELEVATION_BONUS into a hill tile's own
+        // cached base elevation (see sampleTile in
+        // client-map-3d-heightfield.ts) -- adding the bonus again here used
+        // to double it, floating every overlay a full bonus-height above
+        // the dome's actual peak instead of resting on it.
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const surfaceY = Math.max(
@@ -1528,7 +1533,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           heightfield.cornerYAt(wxNext, wy),
           heightfield.cornerYAt(wx, wyNext),
           heightfield.cornerYAt(wxNext, wyNext)
-        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD + (isHillsTile(wx, wy) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0);
+        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged tiles show only a darkened terrain quad plus a dim tint
           // of their last-witnessed owner -- no roads, structures, units,
