@@ -19,6 +19,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
     byTechs: [] as { id: string; rank: number; name: string; value: number }[]
   },
   seasonVictory: [],
+  seasonStats: undefined,
   playerColors: new Map<string, string>(),
   ...overrides
 });

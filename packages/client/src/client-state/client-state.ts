@@ -26,6 +26,7 @@ import type {
   PendingResearch,
   PlayerRespawnNotice,
   RevealEmpireStatsView,
+  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   SurveySweepPing,
@@ -314,6 +315,7 @@ export const createInitialState = () => ({
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStats: undefined as SeasonStatsView | undefined,
   seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
