@@ -104,13 +104,11 @@ export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonSt
             cursor = prev.fromKey;
           }
 
-          let pathTiles = 0;
           for (const edge of path) {
             if (!roadGraph.has(edge.fromKey)) roadGraph.set(edge.fromKey, []);
             if (!roadGraph.has(edge.toKey)) roadGraph.set(edge.toKey, []);
             roadGraph.get(edge.fromKey)!.push({ to: edge.toKey, tiles: 1 });
             roadGraph.get(edge.toKey)!.push({ to: edge.fromKey, tiles: 1 });
-            pathTiles += 1;
           }
           connectedTownKeys.add(townKey);
           found = true;
