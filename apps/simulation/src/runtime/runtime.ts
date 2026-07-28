@@ -1630,7 +1630,16 @@ export class SimulationRuntime {
   ): { T: number; E: number; Ts: number; Es: number } {
     const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
     if (cached) return cached;
-    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
+    // Instrumentation only (2026-07-28 login-stall investigation): this
+    // rebuild was previously untracked, so a cache-miss here was invisible in
+    // event_loop_blocked's mainThreadTasks — its cost got silently absorbed
+    // into whichever outer phase (emitPlayerStateUpdate /
+    // apply_passive_income_for_player) happened to trigger it.
+    const rebuild = (): { T: number; E: number; Ts: number; Es: number } =>
+      buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
+    const metrics = this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
+      : rebuild();
     this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
     return metrics;
   }
@@ -2598,26 +2607,38 @@ export class SimulationRuntime {
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
-    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
-    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
-    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
-    const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
-    return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
-      getTile: (tileKey) => this.tiles.get(tileKey),
-      isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
-      hasTownSupport: (tile) =>
-        this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
-          const town = this.tiles.get(townKey)?.town;
-          return Boolean(town && town.populationTier !== "SETTLEMENT");
-        })
-    })
-      .map((tileKey) => {
-        const [rawX, rawY] = tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+    // Instrumentation only (2026-07-28 login-stall investigation): this is
+    // uncached and re-derived from scratch on every emitPlayerStateUpdate
+    // call (every command, every passive-income credit), unlike its sibling
+    // caches — for a player with thousands of frontier tiles this is O(frontier)
+    // work every single time, with no cache to hide behind. Wrapping it
+    // separately from the O(1) accessors around it (activeDevelopmentProcessCountForPlayer
+    // etc.) tells us whether IT is the dominant cost or just noise.
+    const rebuild = (): Array<{ x: number; y: number }> => {
+      // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
+      // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
+      // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+      const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
+      return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
+        getTile: (tileKey) => this.tiles.get(tileKey),
+        isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+        hasTownSupport: (tile) =>
+          this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
+            const town = this.tiles.get(townKey)?.town;
+            return Boolean(town && town.populationTier !== "SETTLEMENT");
+          })
       })
-      .filter((tile): tile is { x: number; y: number } => Boolean(tile));
+        .map((tileKey) => {
+          const [rawX, rawY] = tileKey.split(",");
+          const x = Number(rawX);
+          const y = Number(rawY);
+          return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+        })
+        .filter((tile): tile is { x: number; y: number } => Boolean(tile));
+    };
+    return this.trackSyncMainThreadTask
+      ? this.trackSyncMainThreadTask("auto_settlement_queue_rebuild", { playerId }, rebuild)
+      : rebuild();
   }
 
   storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
@@ -2648,7 +2669,19 @@ export class SimulationRuntime {
   }
 
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
-    emitPlayerStateUpdateImpl(this.playerStateUpdateContext(), command, playerId);
+    // Instrumentation only (2026-07-28 login-stall investigation): everything
+    // this calls (cachedDefensibilityMetrics, autoSettlementQueueForPlayer,
+    // etc.) was previously untracked, so a slow call anywhere in here showed
+    // up as unattributed time inside whichever OUTER phase (e.g.
+    // apply_passive_income_for_player) happened to call it. Wrapping the
+    // whole function first gives a coarse signal; the two calls below narrow
+    // it further without changing behavior.
+    const run = (): void => emitPlayerStateUpdateImpl(this.playerStateUpdateContext(), command, playerId);
+    if (this.trackSyncMainThreadTask) {
+      this.trackSyncMainThreadTask("emit_player_state_update", { playerId }, run);
+    } else {
+      run();
+    }
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
