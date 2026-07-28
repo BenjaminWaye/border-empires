@@ -228,7 +228,11 @@ export const townGoldPerMinuteForPlayer = (
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
-  connectedClearingHouseKeys?: readonly string[]
+  connectedClearingHouseKeys?: readonly string[],
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
+  // dormant Market/Bank/Caravanary/Clearing House stops granting its gold
+  // bonus, same as hasSupportedStructure's matching param.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -237,18 +241,20 @@ export const townGoldPerMinuteForPlayer = (
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-  const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
-  const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
-  const hasCaravanary = hasSupportedStructure(player.id, tile, "CARAVANARY", tiles);
+  const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles, false, dormantEconomicStructureKeys);
+  const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles, false, dormantEconomicStructureKeys);
+  const hasCaravanary = hasSupportedStructure(player.id, tile, "CARAVANARY", tiles, false, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
   // O(#CH_towns), not O(#connected_towns), so this is O(1) in practice.
   const clearingHouseActive =
-    hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) ||
+    hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys) ||
     (connectedClearingHouseKeys ?? []).some((key) => {
       const connectedTile = tiles.get(key);
-      return connectedTile ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles) : false;
+      return connectedTile
+        ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys)
+        : false;
     });
   const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
     ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
@@ -277,14 +283,24 @@ export const refreshTownEconomyFields = (
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys?: ReadonlySet<string>,
-  connectedClearingHouseKeys?: readonly string[]
+  connectedClearingHouseKeys?: readonly string[],
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
   const goldPerMinute = isSettlement
     ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedClearingHouseKeys);
+    : townGoldPerMinuteForPlayer(
+        player,
+        tile,
+        town,
+        tiles,
+        fedTownKeys,
+        firstThreeTownKeys,
+        connectedClearingHouseKeys,
+        dormantEconomicStructureKeys
+      );
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
   if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
@@ -303,7 +319,11 @@ export const buildPlayerUpdateEconomySnapshot = (
   // §5.4: which of this player's towns have a dormant FOOD slot right now
   // (Runtime.foodDormantTownKeysForPlayer) — defaults to "nobody's dormant"
   // for callers that don't have Runtime access (dev-assert cross-checks).
-  foodDormantTownKeys: ReadonlySet<string> = new Set()
+  foodDormantTownKeys: ReadonlySet<string> = new Set(),
+  // §5.4: dormant economicStructure tile keys for this player
+  // (Runtime.dormantEconomicStructureKeysForPlayer) — same default-empty
+  // convention as foodDormantTownKeys above.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
@@ -338,8 +358,12 @@ export const buildPlayerUpdateEconomySnapshot = (
   const supplySources = new Map<string, EconomyBucket>();
   const supplySinks = new Map<string, EconomyBucket>();
   const shardSources = new Map<string, EconomyBucket>();
-  const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
-  const townNetwork = prebuiltTownNetwork ?? buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
+  const dockEconomyContext = dockContext
+    ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey, dormantEconomicStructureKeys }
+    : undefined;
+  const townNetwork =
+    prebuiltTownNetwork ??
+    buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
   const townGoldCapMult = multiplicativeEffectForPlayer(player, "townGoldCapMult");
   const dockGoldCapMult = multiplicativeEffectForPlayer(player, "dockGoldCapMult");
@@ -370,7 +394,16 @@ export const buildPlayerUpdateEconomySnapshot = (
       const tileKey = `${tile.x},${tile.y}`;
       const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
       const connectedClearingHouseKeys = townNetwork.get(tileKey)?.connectedClearingHouseKeys;
-      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedClearingHouseKeys);
+      const goldPerMinute = townGoldPerMinuteForPlayer(
+        player,
+        tile,
+        town,
+        tiles,
+        fedTownKeys,
+        firstThreeTownKeys,
+        connectedClearingHouseKeys,
+        dormantEconomicStructureKeys
+      );
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
       const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;

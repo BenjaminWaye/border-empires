@@ -71,7 +71,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townType: "MARKET",
           townName: "Old Growth",
           townPopulationTier: "TOWN"
-        }
+        },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
+        // Placed away from the town so it doesn't change the expected
+        // supportCurrent/supportMax (a §5 v1 global pool, not per-tile).
+        { x: 30, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -80,7 +84,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10"]
+          territoryTileKeys: ["10,10", "30,30"]
         }
       ],
       pendingSettlements: [],
@@ -122,7 +126,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Warwick",
           townPopulationTier: "TOWN"
         },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant,
+        // not the legacy strategicResources.FOOD stockpile below.
+        { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
@@ -176,7 +182,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Quietwick",
           townPopulationTier: "TOWN"
         },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
+        { x: 12, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -185,7 +193,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
+          territoryTileKeys: ["10,10", "11,10", "12,10"]
         }
       ],
       pendingSettlements: [],
@@ -683,7 +691,13 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) }
+        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) },
+        // §5.4: FOOD slot supply — town(2) + MARKET/BANK/GRANARY/CLEARING_HOUSE
+        // (1 each) = 6 demand; the FARM tile above only gives 1, so these
+        // support structures need real supply to not go dormant.
+        { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 8, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 8, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
       ],
       players: [
         {
@@ -698,7 +712,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "9,10", "9,9", "11,10", "10,9", "10,11"]
+          territoryTileKeys: ["10,10", "9,10", "9,9", "11,10", "10,9", "10,11", "8,10", "8,9", "8,11"]
         }
       ],
       pendingSettlements: [],
@@ -971,11 +985,13 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townType: "FARMING",
           townName: "Settlement 14,10",
           townPopulationTier: "SETTLEMENT"
-        }
+        },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
+        { x: 15, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
         { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
-        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10"] }
+        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "15,10"] }
       ],
       pendingSettlements: [],
       activeLocks: []
@@ -1064,7 +1080,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 13, y: 9, terrain: "LAND" },
         { x: 14, y: 9, terrain: "LAND" },
         { x: 15, y: 9, terrain: "LAND" },
-        { x: 13, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" },
+        // §5.4: FISH gives 2 FOOD slot supply (was FARM's 1) — the TOWN-tier
+        // town needs 2 to not go dormant.
+        { x: 13, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FISH" },
         { x: 15, y: 10, terrain: "LAND" },
         { x: 13, y: 11, terrain: "LAND" },
         { x: 14, y: 11, terrain: "LAND" },

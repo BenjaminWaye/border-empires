@@ -48,8 +48,11 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   LIGHT_OUTPOST: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1 — basic economic sinks
-  FARMSTEAD: [{ resource: "FOOD", count: 1 }],
-  WATERWORKS: [{ resource: "FOOD", count: 1 }],
+  // FARMSTEAD/WATERWORKS deliberately have NO slot requirement (zero
+  // upkeep, user decision): both boost FOOD supply itself (same-tile +1,
+  // Waterworks-radius +2 via WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS below), so
+  // charging them their own boosted resource would be circular — dormancy
+  // could silently zero out the very supply they exist to add.
   CAMP: [{ resource: "FOOD", count: 1 }],
   MINE: [{ resource: "FOOD", count: 1 }],
   GRANARY: [{ resource: "FOOD", count: 1 }],

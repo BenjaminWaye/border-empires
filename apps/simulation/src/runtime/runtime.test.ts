@@ -2526,7 +2526,9 @@ describe("simulation runtime", () => {
               ownershipState: "SETTLED",
               fort: { ownerId: "player-1", status: "active" }
             },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+            // §5.4: FORT needs 1 IRON slot to not go dormant.
+            { x: 9, y: 10, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -6392,6 +6394,15 @@ describe("simulation runtime", () => {
                       type: "LIGHT_OUTPOST" as const,
                       status: "active" as const
                     }
+                  },
+                  // §5.4: LIGHT_OUTPOST needs 1 FOOD slot to not go dormant.
+                  {
+                    x: 12,
+                    y: 10,
+                    terrain: "LAND" as const,
+                    resource: "FISH" as const,
+                    ownerId: "player-1",
+                    ownershipState: "SETTLED" as const
                   }
                 ]
               : [])

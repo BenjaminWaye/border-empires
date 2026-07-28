@@ -230,8 +230,9 @@ export const refreshRuntimeTileIndexesForChange = (input: {
 };
 
 /**
- * Keeps the per-player economy snapshot, tile-yield context, defensibility
- * metrics, and upkeep accrual caches in sync with a tile mutation.
+ * Keeps the per-player economy snapshot, tile-yield context, town network,
+ * defensibility metrics, and upkeep accrual caches in sync with a tile
+ * mutation.
  *
  * The economy snapshot and tile-yield context builders only iterate
  * ownershipState === "SETTLED" tiles, so frontier-only mutations (territory
@@ -241,6 +242,14 @@ export const refreshRuntimeTileIndexesForChange = (input: {
  * Defensibility metrics count all owned tiles (frontier + settled), so they
  * are invalidated unconditionally. Upkeep accrual is maintained incrementally
  * (O(1) add/subtract) instead of invalidated.
+ *
+ * townNetworkCacheByPlayer/manpowerStructureBonusCacheByPlayer are also
+ * invalidated unconditionally (§5.4): both now fold in
+ * dormantEconomicStructureKeysForPlayer, which — like resourceSlotDemand —
+ * can change from a FRONTIER-only mutation (a Siege Outpost's IRON/SUPPLY
+ * demand tipping some other, possibly-SETTLED structure into or out of
+ * dormancy), so the SETTLED-gated branch alone isn't sufficient for them
+ * anymore even though their own BFS/scan still only reads SETTLED tiles.
  */
 export const refreshEconomyCachesForTileChange = (input: {
   tileKey: string;
@@ -255,7 +264,13 @@ export const refreshEconomyCachesForTileChange = (input: {
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
   // §4.4 Rail Depot network manpower bonus — invalidated alongside
   // townNetworkCacheByPlayer since it's derived from the same network build
-  // plus a Garrison Hall/Rail Depot structure scan over the same tiles.
+  // plus a Garrison Hall/Rail Depot structure scan over the same tiles. Also
+  // invalidated unconditionally below (§5.4): both this and
+  // townNetworkCacheByPlayer now factor in dormantEconomicStructureKeysForPlayer,
+  // which (like resourceSlotDemandCacheByPlayer) can change from a FRONTIER-only
+  // mutation (a Siege Outpost's IRON/SUPPLY demand shifting which OTHER,
+  // possibly-SETTLED structure is dormant) — the SETTLED-gated branch alone
+  // would miss that ripple.
   manpowerStructureBonusCacheByPlayer?: Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>;
   // §5 (resource slots). Supply only depends on SETTLED resource tiles, so it
   // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
@@ -278,13 +293,13 @@ export const refreshEconomyCachesForTileChange = (input: {
     if (previous.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(previous.ownerId);
       input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
-      input.townNetworkCacheByPlayer.delete(previous.ownerId);
-      input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
       input.resourceSlotSupplyCacheByPlayer?.delete(previous.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
     input.resourceSlotDemandCacheByPlayer?.delete(previous.ownerId);
     input.resourceSlotDormancyCacheByPlayer?.delete(previous.ownerId);
+    input.townNetworkCacheByPlayer.delete(previous.ownerId);
+    input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
@@ -293,13 +308,13 @@ export const refreshEconomyCachesForTileChange = (input: {
     if (next.ownershipState === "SETTLED") {
       input.economySnapshotCacheByPlayer.delete(next.ownerId);
       input.tileYieldContextCacheByPlayer.delete(next.ownerId);
-      input.townNetworkCacheByPlayer.delete(next.ownerId);
-      input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
       input.resourceSlotSupplyCacheByPlayer?.delete(next.ownerId);
     }
     input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
     input.resourceSlotDemandCacheByPlayer?.delete(next.ownerId);
     input.resourceSlotDormancyCacheByPlayer?.delete(next.ownerId);
+    input.townNetworkCacheByPlayer.delete(next.ownerId);
+    input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
     if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);

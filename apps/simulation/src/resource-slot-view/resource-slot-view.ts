@@ -64,6 +64,22 @@ export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
   waterworksKeys: ReadonlySet<string> = new Set()
 ): ResourceSlotTotals => {
+  // §5.4: deliberately NOT dormancy-aware, for two different reasons per
+  // structure family:
+  //  - Synthesizers are explicitly excluded from demand entirely (see
+  //    SYNTHESIZER_TYPE_SET below) and Farmstead/Waterworks have NO slot
+  //    requirement at all (by design — both boost FOOD supply itself, so
+  //    charging them FOOD would be circular: their own dormancy would zero
+  //    out the very supply they exist to add). None of these three can ever
+  //    be dormant, so this is correct as-is.
+  //  - Mine/Camp DO consume a FOOD slot (a different resource than what
+  //    they boost — IRON/SUPPLY — so no circularity) and so, in principle,
+  //    a FOOD-dormant Mine/Camp shouldn't still grant its IRON/SUPPLY boost.
+  //    Not implemented: doing so needs FOOD dormancy resolved BEFORE this
+  //    function's supply output (a two-pass computation), a real
+  //    architecture change touching every caller of
+  //    resourceSlotSupplyForPlayer, not a local fix. Known gap, flagged for
+  //    a future pass, not attempted here.
   const totals = emptyResourceSlotTotals();
   for (const tile of settledTiles) {
     const isActiveStructure = tile.economicStructure?.status === "active";
