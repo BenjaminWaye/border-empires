@@ -173,6 +173,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Server-side: muster watch toggles are no longer written to the command database at all — they are view state, not game actions — eliminating a steady stream of database errors."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Victory countdown now shows immediately when a threshold is met",
+    why: "When a player met a victory condition threshold (e.g. controlling 50% of towns), the leaderboard showed \"Threshold met\" but never displayed the 24-hour hold countdown until the next day — because the timer enrichment was discarded on the first recompute.",
+    changes: [
+      "The leaderboard now shows \"Winning in 23h 59m unless stopped\" (and ticks down) from the moment a victory threshold is first met.",
+      "The victory hold alert overlay also fires immediately instead of being silent for up to 24 hours."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
