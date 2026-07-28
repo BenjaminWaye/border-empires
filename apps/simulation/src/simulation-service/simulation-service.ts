@@ -1563,9 +1563,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
-    // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
-    // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
-    persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
+    // WATCH_MUSTER/UNWATCH_MUSTER only toggle in-memory view state
+    // (watchedMusterTileByPlayer) that is meaningless after a restart, so
+    // their QUEUED rows are never persisted. Before this exemption every one
+    // after a player's first collided with UNIQUE(player_id, client_seq) —
+    // the gateway submits them with clientSeq 0 by design.
+    const isEphemeralViewCommand =
+      (command.type as string) === "WATCH_MUSTER" || (command.type as string) === "UNWATCH_MUSTER";
+    if (isEphemeralViewCommand) {
+      simulationMetrics.incrementSimEphemeralCommandPersistSkipped();
+    } else {
+      // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
+      // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
+      persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
+    }
     trackSyncMainThreadTaskWithMetrics(
       "runtime_submit_command",
       {
@@ -2502,7 +2513,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               : undefined;
             // Emit a WELCOME_BACK message showing how much the player earned
             // since their last active session (capped at 12h of accrual).
-            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            // Reuse incomePerMinute already computed for this subscribe's
+            // snapshot instead of triggering a second, synchronous economy
+            // rebuild on the live runtime (see welcomeBackSummary doc comment).
+            const welcomeBack = runtime.welcomeBackSummary(
+              call.request.player_id,
+              Date.now(),
+              snapshotPayload.player?.incomePerMinute
+            );
             const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
               ? toProtoEvent({
                   eventType: "PLAYER_MESSAGE",
@@ -2890,11 +2908,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
-        // Focused warn for a 5s+ block (else the spike is silently rolled into
+        // Focused warn for a 2s+ block (else the spike is silently rolled into
         // sim_event_loop_max_ms). Payload building (GC-pause/RSS-gap correlation)
-        // lives in event-loop-block-diagnostic.ts.
+        // lives in event-loop-block-diagnostic.ts. Routed through
+        // recordLagDiagnostic (not bare emitLog) so the block also lands in the
+        // diagnostics ring the gateway debug bundle exports — stdout scrolls out
+        // of the flyctl buffer in minutes, and the 2026-07-26 prod incident dump
+        // contained zero stall attribution because this event was log-only.
+        // durationMs is set so the ring entry (which strips most payload fields)
+        // still carries the block length.
         if (lagMs >= 2_000) {
-          emitLog("warn", "simulation event loop blocked", buildEventLoopBlockedPayload({
+          const blockedPayload = buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,
             blockStartedAtMs: now - lagMs,
@@ -2905,7 +2929,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             activePlayerCount: activePlayers.size,
             mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now),
             lagDiagRing: getLagDiagRing()
-          }));
+          });
+          recordLagDiagnostic("warn", "event_loop_blocked", { ...blockedPayload, durationMs: lagMs });
         }
       }, 100);
       metricsTicker = setInterval(() => {

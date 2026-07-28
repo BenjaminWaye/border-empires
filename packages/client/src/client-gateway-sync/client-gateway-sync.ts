@@ -4,11 +4,9 @@ import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js";
 
-// Logs every real ownerId/ownershipState change, for any tile, the moment it
-// happens — no coordinates to pin or guess in advance. Gated only by the
-// account-level debugTileLoggingEnabled flag (not a specific watched tile),
-// so it's low-volume (ownership changes are rare) but never misses one.
+// Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
 const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
   if (!debugTileLoggingEnabled()) return;
   if (before?.ownerId === after?.ownerId && before?.ownershipState === after?.ownershipState) return;
@@ -92,6 +90,8 @@ type GatewayTileSyncDeps = {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
+    discoveryTipQueue?: ClientState["discoveryTipQueue"];
+    authEmail?: ClientState["authEmail"];
   };
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
@@ -482,11 +482,7 @@ export const applyGatewayInitialState = (
   options?: { preserveExistingDiscoveredTiles?: boolean }
 ): number => {
   const tiles = initialState?.tiles;
-  // Missing tiles field is a no-op (caller passed nothing). An EMPTY tiles
-  // array is a valid replacement intent — TILE_SNAPSHOT_REPLACE after a
-  // full-map reveal can hand back a fog-on snapshot whose visible-tile slice
-  // is small or even empty, and we still have to drop the previously-revealed
-  // tiles from state.tiles or the map keeps rendering the reveal.
+  // Missing tiles field is a no-op. An EMPTY tiles array is a valid replacement intent (TILE_SNAPSHOT_REPLACE can hand back a small/empty fog-on snapshot) and must still clear state.tiles.
   if (!Array.isArray(tiles)) return 0;
   const preserveExistingDiscoveredTiles = options?.preserveExistingDiscoveredTiles === true;
   if (preserveExistingDiscoveredTiles) {
@@ -523,7 +519,11 @@ export const applyGatewayTileDeltaBatch = (
   if (!Array.isArray(updates) || updates.length === 0) return;
   let invalidatedTerrainCache = false;
   for (const update of updates) {
+    // Live deltas only (never the initial bootstrap) — "newly seen" gates first-discovery tips (first town/resource of a kind).
+    const tileKey = deps.keyFor(update.x, update.y);
+    const wasKnown = deps.state.tiles.has(tileKey);
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache;
+    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, deps.state.tiles.get(tileKey), deps.state.authEmail);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
