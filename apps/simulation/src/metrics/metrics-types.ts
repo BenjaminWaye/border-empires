@@ -153,6 +153,10 @@ export type SimulationMetricsSnapshot = {
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  /** Durable-persistence writes skipped for ephemeral view-toggle commands (WATCH_MUSTER/UNWATCH_MUSTER).
+   * These only mutate in-memory watch state and are meaningless after a restart, so their QUEUED rows are
+   * never written — previously every one after a player's first collided with UNIQUE(player_id, client_seq). */
+  simEphemeralCommandPersistSkippedTotal: number;
   /** Persistence writes rejected by a SQLite constraint (e.g. UNIQUE on (player_id, client_seq)). Deterministic,
    * so it is deliberately non-fatal — the command is skipped rather than crash-looping the process. A non-zero,
    * still-climbing value after the client_seq DB-max seeding fix means a new collision source has appeared. */

@@ -264,11 +264,20 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   skirtMesh.receiveShadow = false;
   skirtMesh.castShadow = false;
 
-  // Gridlines: a LineSegments that reuses the heightfield's position buffer,
-  // with a precomputed index that draws only the horizontal and vertical
-  // tile edges (no diagonals) so the grid follows the sculpted surface.
+  // Gridlines: a LineSegments with its own position buffer, offset a hair
+  // above the main heightfield's (GRID_Y_EPSILON). A hill tile's boundary
+  // sits at exactly the same Y as the dome mesh's own flat outer collar
+  // (domeFalloff is 0 at the tile edge by construction — see
+  // client-map-3d-hills.ts), so sharing the main buffer put the grid line
+  // and the dome's opaque collar triangles at the identical depth: a
+  // coplanar tie the line consistently lost, leaving hill tiles with no
+  // visible grid square around them. The epsilon is far below any real
+  // terrain height difference, so lines are still correctly hidden behind
+  // actually-taller geometry (mountains, buildings) elsewhere.
+  const GRID_Y_EPSILON = 0.003;
   const gridGeometry = new BufferGeometry();
-  gridGeometry.setAttribute("position", geometry.getAttribute("position"));
+  const gridPositions = new Float32Array(VERT_COUNT * 3);
+  gridGeometry.setAttribute("position", new BufferAttribute(gridPositions, 3));
   const HORIZONTAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const VERTICAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const GRID_INDEX_COUNT = (HORIZONTAL_LINES + VERTICAL_LINES) * 2;
@@ -423,7 +432,19 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           (s00Land ? 1 : 0) + (s10Land ? 1 : 0) + (s01Land ? 1 : 0) + (s11Land ? 1 : 0);
         const seaCount =
           (s00Sea ? 1 : 0) + (s10Sea ? 1 : 0) + (s01Sea ? 1 : 0) + (s11Sea ? 1 : 0);
-        const exploredCount = landCount + seaCount;
+        // Hills count as neither land nor sea above (by design — a flat
+        // neighbour's corner must never average against a hill's raised
+        // elevation), but they ARE explored. A corner deep inside a large
+        // hills cluster (every one of its 4 tiles a hill, common once hills
+        // cluster into highland regions) has landCount=0 and seaCount=0 —
+        // using landCount+seaCount here mistook that for "nothing explored
+        // touches this corner" and pinned it to the deep-sea-floor
+        // placeholder, tens of units below the actual dome surface. That
+        // silently broke cornerYAt() for those corners (gridlines resting
+        // on the sea floor instead of the hill, and any overlay anchored via
+        // cornerYAt sinking the same way).
+        const exploredCount =
+          (s00.isExplored ? 1 : 0) + (s10.isExplored ? 1 : 0) + (s01.isExplored ? 1 : 0) + (s11.isExplored ? 1 : 0);
         let elevation: number;
         let r: number;
         let g: number;
@@ -440,9 +461,15 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           // Explored but no *flat* land (sea and/or hills only). Not drawn
           // by any triangle, but cornerYAt still reads the cache, so
           // average the explored tiles instead of a bogus sea-floor Y.
+          // Hill samples' elevation includes HEIGHTFIELD_HILLS_ELEVATION_BONUS
+          // (see sampleTile) but the dome's own corner fallback
+          // (flatCorner's inner "no flat neighbour" branch in
+          // client-map-3d-hills.ts) averages the bonus-free base elevation —
+          // subtract it back out here so a deep-cluster corner matches the
+          // dome's true tapered-to-zero edge instead of floating above it.
           const explored: TileSample[] = [s00, s10, s01, s11].filter((s) => s.isExplored);
           const invFallback = 1 / explored.length;
-          elevation = explored.reduce((sum, s) => sum + s.elevation, 0) * invFallback;
+          elevation = explored.reduce((sum, s) => sum + (s.isHills ? s.elevation - HEIGHTFIELD_HILLS_ELEVATION_BONUS : s.elevation), 0) * invFallback;
           r = explored.reduce((sum, s) => sum + s.r, 0) * invFallback;
           g = explored.reduce((sum, s) => sum + s.g, 0) * invFallback;
           b = explored.reduce((sum, s) => sum + s.b, 0) * invFallback;
@@ -486,6 +513,9 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         positions[baseIdx + 0] = tileOffsetX + i;
         positions[baseIdx + 1] = elevation;
         positions[baseIdx + 2] = tileOffsetY + j;
+        gridPositions[baseIdx + 0] = tileOffsetX + i;
+        gridPositions[baseIdx + 1] = elevation + GRID_Y_EPSILON;
+        gridPositions[baseIdx + 2] = tileOffsetY + j;
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;

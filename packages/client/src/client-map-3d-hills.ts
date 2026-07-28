@@ -44,8 +44,13 @@ import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normal
 //    attribute (see its onBeforeCompile), both provided below even though
 //    hill tops don't participate in the forest halo.
 const SUBDIV = 10;
-const DOME_RADIUS = 0.46;
-const CORE_RADIUS = 0.14;
+// Exported so other layers that need to trace the dome's exact silhouette
+// (e.g. the ownership overlay draping over a hill tile) use the identical
+// curve instead of an approximation that would visibly drift from it.
+export const HILL_DOME_RADIUS = 0.46;
+export const HILL_CORE_RADIUS = 0.14;
+const DOME_RADIUS = HILL_DOME_RADIUS;
+const CORE_RADIUS = HILL_CORE_RADIUS;
 
 const hillPeakBonus = (): number => HEIGHTFIELD_HILLS_ELEVATION_BONUS;
 
@@ -53,7 +58,7 @@ const hillPeakBonus = (): number => HEIGHTFIELD_HILLS_ELEVATION_BONUS;
 // reads as a cone tip), then a smoothstep shoulder to 0 at DOME_RADIUS —
 // comfortably inside the tile's own edges (0.5) and corners (~0.707), so
 // the dome never touches the tile boundary at full height.
-const domeFalloff = (r: number): number => {
+export const domeFalloff = (r: number): number => {
   if (r <= CORE_RADIUS) return 1;
   const t = Math.min(1, Math.max(0, 1 - (r - CORE_RADIUS) / (DOME_RADIUS - CORE_RADIUS)));
   return t * t * (3 - 2 * t);

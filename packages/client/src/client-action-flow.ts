@@ -131,6 +131,7 @@ import type {
   TileVisibilityState
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -664,8 +665,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
+  const musterWatchGuard = createMusterWatchGuard();
+  const sendUnwatchMusterIfWatching = (): void => {
+    if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
+  };
+
   const hideTileActionMenu = (): void => {
-    sendGameMessage({ type: "UNWATCH_MUSTER" });
+    sendUnwatchMusterIfWatching();
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
       return;
@@ -1083,9 +1089,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
     if (tile.muster?.ownerId === state.me) {
+      musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
     } else {
-      sendGameMessage({ type: "UNWATCH_MUSTER" });
+      sendUnwatchMusterIfWatching();
     }
     openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
   };

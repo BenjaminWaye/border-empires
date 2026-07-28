@@ -57,9 +57,7 @@ export type ClientWaypoint = {
 };
 
 type QueuedOptimisticKind = OptimisticStructureKind;
-type QueuedBuildPayload =
-  | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
-  | { type: "REMOVE_STRUCTURE"; x: number; y: number };
+type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export const storageGet = (keyName: string): string | null => {
   try {
@@ -457,6 +455,7 @@ export const createInitialState = () => ({
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
   discoveredTiles: new Set<string>(),
+  discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,

@@ -108,6 +108,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simEphemeralCommandPersistSkippedTotal = 0;
   let simPersistenceConstraintViolationTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
@@ -168,6 +169,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ...aiPlayerStateMetrics.snapshot(),
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simEphemeralCommandPersistSkippedTotal,
     simPersistenceConstraintViolationTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
@@ -305,6 +307,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    incrementSimEphemeralCommandPersistSkipped(): void {
+      simEphemeralCommandPersistSkippedTotal += 1;
     },
     incrementSimPersistenceConstraintViolation(): void {
       simPersistenceConstraintViolationTotal += 1;
