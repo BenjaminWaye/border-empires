@@ -107,8 +107,7 @@ describe("buildSnapshotTileDetail", () => {
       expect.objectContaining({
         detailLevel: "full",
         upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.1 } },
-          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+          { label: "Town", perMinute: { FOOD: 0.1 } }
         ])
       })
     );
@@ -160,8 +159,7 @@ describe("buildSnapshotTileDetail", () => {
       expect.objectContaining({
         detailLevel: "full",
         upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.3 } },
-          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+          { label: "Town", perMinute: { FOOD: 0.3 } }
         ])
       })
     );
@@ -189,8 +187,7 @@ describe("buildSnapshotTileDetail", () => {
       expect.objectContaining({
         detailLevel: "full",
         upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.6 } },
-          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+          { label: "Town", perMinute: { FOOD: 0.6 } }
         ])
       })
     );
@@ -284,10 +281,10 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
-        detailLevel: "full",
-        upkeepEntries: [{ label: "Settled land", perMinute: { GOLD: 0.04 } }]
+        detailLevel: "full"
       })
     );
+    expect(detail && "upkeepEntries" in detail).toBe(false);
   });
 
   it("recomputes town support and fed state from surrounding settled tiles for thin town detail", () => {

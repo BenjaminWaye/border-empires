@@ -42,8 +42,11 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          // Fort generates gold upkeep (drives hasOutstandingUpkeepNeed).
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          // FUR_SYNTHESIZER generates gold upkeep (drives hasOutstandingUpkeepNeed)
+          // — post-§12.1, Fort's IRON slot occupation is its upkeep and no
+          // longer drives this; synthesizers are the one family still gated
+          // on ongoing gold (§6.4).
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
           // Resource tile is yield-bearing so consumeUpkeepFromTileYield's
           // loop actually iterates and lazily builds the tile-yield context.
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
@@ -109,7 +112,7 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
         ],
         activeLocks: []
@@ -122,7 +125,9 @@ describe("simulation runtime — shared town network cache", () => {
     runtime.applyPassiveIncome(60_000, 999_999_999);
 
     const state = runtime.exportState();
-    // Upkeep drained gold below the starting 10_000 (fort upkeep, no income offset).
+    // Upkeep drained gold below the starting 10_000 (FUR_SYNTHESIZER's §6.4
+    // gold upkeep, no income offset — post-§12.1 this is the one structure
+    // family still gated on ongoing gold).
     const player = state.players.find((p) => p.id === "player-1");
     expect(player?.points).toBeLessThan(10_000);
   });

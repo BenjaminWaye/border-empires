@@ -462,7 +462,6 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockAetherEmp": true,
-        "revealUpkeepMult": 0.8,
         "sabotageCooldownMult": 0.85
       }
     },
@@ -516,8 +515,7 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockGovernorsOffice": true,
-        "townFoodUpkeepMult": 0.9,
-        "settledGoldUpkeepMult": 0.9
+        "townFoodUpkeepMult": 0.9
       }
     },
     {
@@ -647,8 +645,7 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockDreadTower": true,
-        "settledDefenseMult": 1.1,
-        "frontierDefenseAdd": 8
+        "settledDefenseMult": 1.1
       }
     },
     {

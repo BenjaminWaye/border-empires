@@ -61,22 +61,16 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
 }
 
 // ── Upkeep (per-minute rates from structureUpkeepPerMinute in ─────
-//    player-update-economy.ts — constants / 10 for interval-bucket values,
-//    direct for per-minute constants) ────────────────────────────────
+//    player-update-economy.ts) — §12.1/§5.1 (docs/manpower-economy-
+//    rewrite-plan.md): a structure's slot occupation is its upkeep now,
+//    so every non-synthesizer structure carries zero ongoing upkeep here.
+//    Synthesizers are the one family gold still gates on an ongoing basis
+//    (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
+//    tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────
 
 const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
   label: "Gold upkeep",
   perMinute: { GOLD: rate },
-});
-
-const FOOD_UPKEEP = (rate: number): TileUpkeepEntry => ({
-  label: "Food upkeep",
-  perMinute: { FOOD: rate },
-});
-
-const CRYSTAL_UPKEEP = (rate: number): TileUpkeepEntry => ({
-  label: "Crystal upkeep",
-  perMinute: { CRYSTAL: rate },
 });
 
 // ── Helper ─────────────────────────────────────────────────────────
@@ -123,35 +117,29 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   FARMSTEAD: econSpec("FARMSTEAD", 0, {
     manpower: 80,
     strategic: { FOOD: 20 },
-    upkeep: [GOLD_UPKEEP(0.1)],
   }),
   WATERWORKS: econSpec("WATERWORKS", 0, { manpower: 80, strategic: { FOOD: 20 } }),
   CAMP: econSpec("CAMP", 0, {
     manpower: 80,
     strategic: { SUPPLY: 30 },
-    upkeep: [GOLD_UPKEEP(0.12)],
   }),
   MINE: econSpec("MINE", 0, {
     manpower: 80,
     strategic: { IRON: 30 },
-    upkeep: [GOLD_UPKEEP(0.12)],
   }),
 
   // Town-support structures
   MARKET: econSpec("MARKET", 0, {
     manpower: 150,
-    upkeep: [FOOD_UPKEEP(0.05)],
   }),
   GRANARY: econSpec("GRANARY", 0, {
     manpower: 80,
     strategic: { FOOD: 40 },
-    upkeep: [GOLD_UPKEEP(0.1)],
   }),
   SEED_GRANARY: econSpec("SEED_GRANARY", 0, { manpower: 100, strategic: { FOOD: 80 } }),
   CENSUS_HALL: econSpec("CENSUS_HALL", 0, { manpower: 80, strategic: { FOOD: 30 } }),
   BANK: econSpec("BANK", 0, {
     manpower: 300,
-    upkeep: [FOOD_UPKEEP(0.1)],
   }),
   CLEARING_HOUSE: econSpec("CLEARING_HOUSE", 0, { manpower: 150, strategic: { CRYSTAL: 80 } }),
 
@@ -159,47 +147,45 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   AIRPORT: econSpec("AIRPORT", 0, {
     manpower: 150,
     strategic: { CRYSTAL: 80 },
-    upkeep: [CRYSTAL_UPKEEP(0.025)],
   }),
   AETHER_TOWER: econSpec("AETHER_TOWER", 0, { manpower: 400, strategic: { CRYSTAL: 160 } }),
 
-  // Converters — 6 gold/min (FUR/IRON) or 8 gold/min (CRYSTAL)
+  // Converters — 30 gold/day (Fur/Iron) or 40 gold/day (Crystal), Advanced
+  // tiers at 1.5x (45/45/60), §6.4.
   FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", 0, {
     manpower: 150,
-    upkeep: [GOLD_UPKEEP(6)],
+    upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
   ADVANCED_FUR_SYNTHESIZER: econSpec("ADVANCED_FUR_SYNTHESIZER", 0, {
     manpower: 300,
     strategic: { SUPPLY: 40 },
-    upkeep: [GOLD_UPKEEP(6)],
+    upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
   IRONWORKS: econSpec("IRONWORKS", 0, {
     manpower: 150,
-    upkeep: [GOLD_UPKEEP(6)],
+    upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
   ADVANCED_IRONWORKS: econSpec("ADVANCED_IRONWORKS", 0, {
     manpower: 300,
     strategic: { IRON: 40 },
-    upkeep: [GOLD_UPKEEP(6)],
+    upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
   CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", 0, {
     manpower: 150,
-    upkeep: [GOLD_UPKEEP(8)],
+    upkeep: [GOLD_UPKEEP(40 / 1440)],
   }),
   ADVANCED_CRYSTAL_SYNTHESIZER: econSpec("ADVANCED_CRYSTAL_SYNTHESIZER", 0, {
     manpower: 300,
     strategic: { CRYSTAL: 40 },
-    upkeep: [GOLD_UPKEEP(8)],
+    upkeep: [GOLD_UPKEEP(60 / 1440)],
   }),
 
   // Military-support structures
   CARAVANARY: econSpec("CARAVANARY", 0, {
     manpower: 150,
-    upkeep: [FOOD_UPKEEP(0.075)],
   }),
   FOUNDRY: econSpec("FOUNDRY", 0, {
     manpower: 300,
-    upkeep: [GOLD_UPKEEP(5)],
   }),
   EXCHANGE_HOUSE: econSpec("EXCHANGE_HOUSE", 0, {
     manpower: 400,
@@ -208,12 +194,10 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   GARRISON_HALL: econSpec("GARRISON_HALL", 0, {
     manpower: 150,
     strategic: { CRYSTAL: 80 },
-    upkeep: [GOLD_UPKEEP(2.5)],
   }),
   CUSTOMS_HOUSE: econSpec("CUSTOMS_HOUSE", 0, {
     manpower: 100,
     strategic: { CRYSTAL: 60 },
-    upkeep: [GOLD_UPKEEP(1.5)],
   }),
   RAIL_DEPOT: econSpec("RAIL_DEPOT", 0, {
     manpower: 300,
@@ -221,12 +205,10 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   }),
   GOVERNORS_OFFICE: econSpec("GOVERNORS_OFFICE", 0, {
     manpower: 150,
-    upkeep: [GOLD_UPKEEP(3)],
   }),
   RADAR_SYSTEM: econSpec("RADAR_SYSTEM", 0, {
     manpower: 300,
     strategic: { CRYSTAL: 120 },
-    upkeep: [GOLD_UPKEEP(4.5)],
   }),
 
   // Wonder parts
@@ -266,10 +248,9 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   }),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
-  // Gold upkeep 0.05/min from structureUpkeepPerMinute.
+  // §12.1: the IRON slot occupation is its upkeep now, no gold drain.
   WOODEN_FORT: econSpec("WOODEN_FORT", 0, {
     manpower: 30,
     buildMs: WOODEN_FORT_BUILD_MS,
-    upkeep: [GOLD_UPKEEP(0.05)],
   }),
 };
