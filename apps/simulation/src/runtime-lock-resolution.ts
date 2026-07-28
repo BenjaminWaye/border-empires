@@ -146,7 +146,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
-      ...capturedStructureFields(previousTarget, lock.playerId),
+      ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
     };
@@ -252,7 +252,7 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
     frontierDecayKind: undefined,
-    ...capturedStructureFields(previousOrigin, previousOwnerId)
+    ...capturedStructureFields(previousOrigin, previousOwnerId, context.now())
   };
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);

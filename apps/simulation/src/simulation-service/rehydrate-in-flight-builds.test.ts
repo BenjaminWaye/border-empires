@@ -42,7 +42,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
       vi.advanceTimersByTime(1);
 
       expect(tileAt(runtime, 5, 5)?.fortJson).toBe(
-        JSON.stringify({ ownerId: "player-1", status: "active" })
+        JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 100_000 })
       );
     } finally {
       vi.useRealTimers();
@@ -78,7 +78,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
 
       vi.advanceTimersByTime(1);
       expect(tileAt(runtime, 6, 6)?.observatoryJson).toBe(
-        JSON.stringify({ ownerId: "player-1", status: "active" })
+        JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 100_000 })
       );
     } finally {
       vi.useRealTimers();
@@ -145,7 +145,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(1);
       expect(tileAt(runtime, 8, 8)?.economicStructureJson).toBe(
-        JSON.stringify({ ownerId: "player-1", type: "MARKET", status: "active" })
+        JSON.stringify({ ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 100_000 })
       );
     } finally {
       vi.useRealTimers();

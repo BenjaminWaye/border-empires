@@ -81,13 +81,14 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           ownerId: "player-1",
           ownershipState: "FRONTIER",
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active" }),
-          observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000 }),
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
+          observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 }),
           economicStructureJson: JSON.stringify({
             ownerId: "player-1",
             type: "MARKET",
             status: "active",
-            disabledUntil: 6_000
+            disabledUntil: 6_000,
+            activatedAt: 1_000
           })
         })
       );
@@ -101,8 +102,8 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           x: 10,
           y: 11,
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active" }),
-          observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000 })
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
+          observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 })
         })
       );
       expect(captureDelta?.tileDeltas.find((tile) => tile.x === 10 && tile.y === 11)?.siegeOutpostJson).toBeUndefined();
@@ -204,7 +205,7 @@ describe("capture structure survival", () => {
       vi.advanceTimersByTime(3_100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
+      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active", activatedAt: 1_000 }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -255,7 +256,7 @@ describe("capture structure survival", () => {
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
       expect(capturedTile?.fortJson).toBeUndefined();
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
+      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active", activatedAt: 1_000 }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -303,7 +304,7 @@ describe("capture structure survival", () => {
       vi.advanceTimersByTime(3_100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-      expect(capturedTile?.observatoryJson).toBe(JSON.stringify({ ownerId: "player-1", status: "inactive" }));
+      expect(capturedTile?.observatoryJson).toBe(JSON.stringify({ ownerId: "player-1", status: "inactive", activatedAt: 1_000 }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
