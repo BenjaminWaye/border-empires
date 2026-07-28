@@ -20,6 +20,10 @@ export type RuntimeTileYieldEconomyContext = {
   waterworksKeys: Set<string>;
   /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
   foundryKeys: Set<string>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
+  // dormant Market/Bank/Caravanary/Clearing House stops granting its gold
+  // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
+  dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
 export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile } from "../runtime-settlement-rules.js";
@@ -6297,6 +6297,62 @@ describe("simulation runtime", () => {
       // shedding just the newer Market covers it, so the town isn't touched.
       expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
+    });
+
+    it("excludes a dormant Market's gold bonus from the exported tile view (tileDeltaFromState)", () => {
+      // Regression: tileDeltaFromState (the function every TILE_DELTA_BATCH/
+      // exportTilesInAreaForPlayer response goes through) calls
+      // enrichTileWithTownContext -> refreshTownEconomyFields, a SEPARATE
+      // path from buildPlayerUpdateEconomySnapshot's authoritative gold
+      // total. It was missing the dormancy set entirely, so a dormant
+      // Market/Bank/Clearing House still showed its bonus in the client's
+      // own tile view even though the player's real income excluded it.
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            {
+              x: 1,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: {
+                type: "MARKET",
+                populationTier: "TOWN",
+                supportCurrent: 1,
+                supportMax: 1,
+                population: 10_000,
+                maxPopulation: 10_000_000
+              }
+            },
+            {
+              x: 2,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      // Same supply/demand shape as the test above: 2 FOOD slots supply,
+      // 2 (town) + 1 (Market) = 3 demand — the newer Market goes dormant,
+      // the town stays fed.
+      expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
+
+      const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 1, 0, 0, { fullVisibility: true });
+      const town = centerDelta?.townJson ? (JSON.parse(centerDelta.townJson) as { goldPerMinute?: number }) : undefined;
+      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Market
+      // 1.5x multiplier applied, since the dormant Market doesn't count.
+      // Before the fix this was TOWN_BASE_GOLD_PER_MIN * 1.5.
+      expect(town?.goldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN, 6);
     });
   });
 

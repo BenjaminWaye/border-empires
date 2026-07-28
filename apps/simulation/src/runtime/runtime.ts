@@ -2804,7 +2804,8 @@ export class SimulationRuntime {
           ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
           : new Set<string>(),
         waterworksKeys,
-        foundryKeys
+        foundryKeys,
+        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
       };
       this.tileYieldContextCacheByPlayer.set(player.id, context);
       return context;
@@ -2821,7 +2822,16 @@ export class SimulationRuntime {
     const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
     const tileKey = `${tile.x},${tile.y}`;
     const refreshedTown = networkTown && player
-      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys, context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys)
+      ? refreshTownEconomyFields(
+          networkTown,
+          tile,
+          player,
+          this.tiles,
+          context.fedTownKeys,
+          context.firstThreeTownKeys,
+          context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
+          context.dormantEconomicStructureKeys
+        )
       : networkTown;
     return { ...tile, town: refreshedTown };
   }
