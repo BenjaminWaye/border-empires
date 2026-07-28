@@ -3,6 +3,7 @@ import {
   HEIGHTFIELD_COASTAL_SEA_ELEVATION,
   HEIGHTFIELD_DEEP_SEA_ELEVATION,
   HEIGHTFIELD_GRASS_ELEVATION,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
   HEIGHTFIELD_MOUNTAIN_ELEVATION,
   HEIGHTFIELD_SAND_ELEVATION,
   createHeightfield,
@@ -122,6 +123,43 @@ describe("heightfield mountain ridge averaging", () => {
     });
 
     expect(heightfield.elevationAt(WORLD_WIDTH - 1, 0)).toBe(HEIGHTFIELD_MOUNTAIN_ELEVATION);
+    heightfield.dispose();
+  });
+});
+
+describe("heightfield corners deep inside a hills cluster", () => {
+  it("does not fall back to the deep-sea-floor placeholder when all 4 neighbours are hills", () => {
+    // Regression test: a corner whose 4 surrounding tiles are ALL hills has
+    // landCount=0 and seaCount=0 (hills count toward neither category, see
+    // client-map-3d-heightfield.ts), which a naive exploredCount =
+    // landCount + seaCount would mistake for "nothing explored touches this
+    // corner" -- pinning it to the deep-sea-floor placeholder even though
+    // every tile is explored land. This is the common case once hills
+    // cluster into highland regions (worldgen groups them, per the
+    // 2026.07.25.3 changelog entry), not just a contrived edge case.
+    const heightfield = createHeightfield();
+    const allGrass = (): HeightfieldTerrainKind => "GRASS";
+    const allHills = (): boolean => true;
+
+    heightfield.rebuild({
+      camX: 0,
+      camY: 0,
+      halfW: 3,
+      halfH: 3,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: allGrass,
+      isHillsAt: allHills
+    });
+
+    const cornerY = heightfield.cornerYAt(0, 0);
+    expect(cornerY).not.toBeCloseTo(HEIGHTFIELD_DEEP_SEA_ELEVATION, 1);
+    // Should land close to grass's own base elevation (the dome's own
+    // corner fallback in client-map-3d-hills.ts averages the bonus-free
+    // base elevation too, so this corner shouldn't carry the hills bonus).
+    expect(cornerY).toBeGreaterThan(HEIGHTFIELD_GRASS_ELEVATION - HEIGHTFIELD_HILLS_ELEVATION_BONUS);
+    expect(cornerY).toBeLessThan(HEIGHTFIELD_GRASS_ELEVATION + HEIGHTFIELD_HILLS_ELEVATION_BONUS);
+
     heightfield.dispose();
   });
 });
