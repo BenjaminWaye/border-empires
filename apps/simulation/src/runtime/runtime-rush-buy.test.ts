@@ -184,6 +184,49 @@ describe("RUSH_BUY", () => {
     }
   });
 
+  it("finishes an in-progress Fort build instantly, and the original timer doesn't double-apply afterward", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        // masonry alone (no fortified-walls/steelworking) keeps bestFortTierForTech
+        // at base FORT (1 IRON slot), not a higher tier.
+        initialPlayers: new Map([
+          ["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000, techIds: new Set(["masonry"]) })]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            // Fort draws 1 IRON slot (§5, structure-slots.ts) — supply it.
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+        type: "BUILD_FORT", payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"under_construction"');
+
+      runtime.submitCommand({
+        commandId: "rush-1", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
+        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"active"');
+
+      // Let every remaining scheduled timer (including the original build
+      // completion) fire — must not throw, double-apply, or change state.
+      vi.runAllTimers();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"active"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects when there's nothing owned by this player to rush on the target tile", async () => {
     vi.useFakeTimers();
     try {
