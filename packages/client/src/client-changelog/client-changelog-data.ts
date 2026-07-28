@@ -209,6 +209,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Login stalls for large empires should be significantly shorter on mobile and slow connections."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.07.28.1",
+    title: "New season now requires 5 players to vote",
+    why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
+    changes: [
+      '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
+      "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
+      "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

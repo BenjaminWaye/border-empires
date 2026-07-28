@@ -42,6 +42,7 @@ import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-sto
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
+import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
@@ -1069,6 +1070,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
+  const seasonStartVote = new SeasonStartVoteTracker();
 
   registerGatewayHttpRoutes(
     app,
@@ -1095,7 +1097,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
-      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => slackAlerter!.alertSeasonStarted(seasonId, force) } : {})
+      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
+      onSeasonStarted: () => { seasonStartVote.reset(); }
     })
   );
 
@@ -1795,6 +1798,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
     startNextSeason: async (force, imperialWard) => {
       const result = await simulationClient.startNextSeason(force, imperialWard);
+      seasonStartVote.reset();
       slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
       return result;
     },
@@ -2332,6 +2336,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
+              (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
@@ -2525,34 +2531,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "START_NEW_SEASON") {
-            if (!session.playerId) {
-              sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" });
-              return;
-            }
-            recordGatewayEvent("info", "gateway_start_new_season_requested", {
-              playerId: session.playerId,
-              channel: session.channel
-            });
+            if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; }
+            if (seasonStartVote.hasVoted(session.playerId)) { sendJson(socket, { type: "ERROR", code: "ALREADY_VOTED", message: "already voted" }); return; }
+            const { count, thresholdMet } = seasonStartVote.vote(session.playerId);
+            recordGatewayEvent("info", "gateway_start_new_season_vote", { playerId: session.playerId, count });
+            const votePayload = preSerializeBroadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: count, threshold: SEASON_START_VOTE_THRESHOLD, votedBy: [...seasonStartVote.getVoters()] });
+            for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload);
+            if (!thresholdMet) return;
+            seasonStartVote.reset();
             try {
-              // force=false: the sim only rolls over when the current season has
-              // already ended, so a player pressing this on the season-end screen
-              // cannot reset an active season. The resulting SEASON_ROLLOVER is
-              // broadcast to every connected client.
               const result = await simulationClient.startNextSeason(false);
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
-              recordGatewayEvent("info", "gateway_start_new_season_ok", {
-                playerId: session.playerId,
-                seasonId: result.seasonId
-              });
             } catch (error) {
-              // Rejects if the season has not ended yet or a rollover is already
-              // in flight — both are benign races from clicking the button. The
-              // in-flight rollover still broadcasts SEASON_ROLLOVER to everyone.
-              recordGatewayEvent("warn", "gateway_start_new_season_rejected", {
-                playerId: session.playerId,
-                channel: session.channel,
-                error: error instanceof Error ? error.message : String(error)
-              });
+              recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
               sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
             }
             return;
