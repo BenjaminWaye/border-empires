@@ -6133,7 +6133,10 @@ describe("simulation runtime", () => {
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -6202,7 +6205,10 @@ describe("simulation runtime", () => {
         economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
       },
       { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7627,7 +7633,10 @@ describe("imperial exchange levy", () => {
         ownerId: "player-1",
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
-      }
+      },
+      // §5.4: CRYSTAL supply so IMPERIAL_EXCHANGE/AETHER_TOWER aren't dormant.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7824,7 +7833,10 @@ describe("aether purge", () => {
           ownerId: "player-2",
           ownershipState: "SETTLED",
           economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
-        }
+        },
+        // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+        { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" }
       );
     }
     return new SimulationRuntime({
@@ -7930,7 +7942,10 @@ describe("worldbreaker shot", () => {
         ownerId: "player-1",
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
-      }
+      },
+      // §5.4: CRYSTAL supply so WORLD_ENGINE/AETHER_TOWER aren't dormant.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7974,6 +7989,9 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
       });
+      // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+      tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
     }
     return new SimulationRuntime({
       now: () => 1_000,

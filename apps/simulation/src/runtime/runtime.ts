@@ -3510,7 +3510,14 @@ export class SimulationRuntime {
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
-        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+        isTileBombardBlockedByRadarImpl(
+          this.tiles,
+          (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+          actorId,
+          targetX,
+          targetY
+        ),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
@@ -3640,7 +3647,13 @@ export class SimulationRuntime {
   // enemy player has an active, powered Aegis Dome within range of the target
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
-    return isTileShieldedByEnemyAegisDomeImpl(this.tiles, actorId, targetX, targetY);
+    return isTileShieldedByEnemyAegisDomeImpl(
+      this.tiles,
+      (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      actorId,
+      targetX,
+      targetY
+    );
   }
 
   /**
