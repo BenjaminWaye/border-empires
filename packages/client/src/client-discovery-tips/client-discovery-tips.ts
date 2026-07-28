@@ -84,7 +84,7 @@ export const discoveryTipIdForNewlySeenTile = (tile: Pick<Tile, "town" | "resour
  */
 export const enqueueDiscoveryTipForNewlySeenTile = (
   queue: DiscoveryTipId[],
-  tile: Pick<Tile, "town" | "resource"> | undefined,
+  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId"> | undefined,
   authEmail?: string | null
 ): boolean => {
   const id = tile && discoveryTipIdForNewlySeenTile(tile);
