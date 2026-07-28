@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785215980277, // 2026.07.28.1
+    introducedIn: "2026.07.28.1",
+    title: "Fixed: hill tiles had no grid square around them in 3D mode",
+    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
+    changes: [
+      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
+      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
+    ]
+  },
+  {
     createdAt: 1785200500000, // 2026.07.27.4
     introducedIn: "2026.07.27.4",
     title: "Fixed: territory ownership overlay didn't follow the hill's shape",
