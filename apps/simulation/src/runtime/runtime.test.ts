@@ -5401,12 +5401,16 @@ describe("simulation runtime", () => {
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "One" } },
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Two" } },
           { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } },
-          // §5.4: each town needs 2 FOOD slots to not go dormant — 4 FISH
-          // tiles (2 slots each) cover all 4 towns' demand.
+          // §5.4: each town needs 2 FOOD slots to not go dormant, plus
+          // METROPOLIS's +3 tier step (townFoodSlotDemandForTier) — 6 FISH
+          // tiles (2 slots each = 12) cover all 4 towns' demand (2+2+2+5=11)
+          // with a slot to spare.
           { x: 1, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 21, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 31, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
+          { x: 31, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 41, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 51, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: [],
         players: [

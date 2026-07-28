@@ -4,8 +4,10 @@ import {
   STRUCTURE_SLOT_REQUIREMENTS,
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
+  TOWN_TIER_UPGRADE_GOLD_COST,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  structureSlotRequirements
+  structureSlotRequirements,
+  townFoodSlotDemandForTier
 } from "./structure-slots.js";
 
 describe("structureSlotRequirements", () => {
@@ -100,6 +102,31 @@ describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
 
   it("Waterworks adds +2 FOOD slots to Farmsteads in its radius, on top of Farmstead's own +1", () => {
     expect(WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS).toBe(2);
+  });
+});
+
+describe("townFoodSlotDemandForTier", () => {
+  it("keeps SETTLEMENT and TOWN at the base 2 FOOD slots (SETTLEMENT->TOWN is the free baseline transition)", () => {
+    expect(townFoodSlotDemandForTier("SETTLEMENT")).toBe(2);
+    expect(townFoodSlotDemandForTier("TOWN")).toBe(2);
+    expect(townFoodSlotDemandForTier(undefined)).toBe(2);
+  });
+
+  it("adds +1 FOOD slot per manual growth step beyond TOWN", () => {
+    expect(townFoodSlotDemandForTier("CITY")).toBe(3);
+    expect(townFoodSlotDemandForTier("GREAT_CITY")).toBe(4);
+    expect(townFoodSlotDemandForTier("METROPOLIS")).toBe(5);
+  });
+});
+
+describe("TOWN_TIER_UPGRADE_GOLD_COST", () => {
+  it("doubles per step per the user's decided cost model", () => {
+    expect(TOWN_TIER_UPGRADE_GOLD_COST).toEqual({
+      TOWN: 20,
+      CITY: 40,
+      GREAT_CITY: 80,
+      METROPOLIS: 160
+    });
   });
 });
 

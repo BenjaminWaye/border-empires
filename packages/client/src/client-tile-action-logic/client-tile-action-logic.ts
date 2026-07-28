@@ -104,8 +104,13 @@ const townGrowthActionForUpgrade = (
   upgrade: TownGrowthUpgradeView | undefined
 ): TileActionDef | undefined => {
   if (!upgrade?.available) return undefined;
-  const food = state.strategicResources?.FOOD ?? 0;
-  const enabled = food >= upgrade.foodCost;
+  // §5.4/user decision: gold + 1 free FOOD slot (the upgrade permanently
+  // adds +1 FOOD slot demand to the town, townFoodSlotDemandForTier) —
+  // replacing the old FOOD-stockpile lump-sum check now that FOOD has no
+  // stockpile.
+  const hasGold = state.gold >= upgrade.goldCost;
+  const hasFoodSlot = freeResourceSlotCount(state, "FOOD") >= 1;
+  const enabled = hasGold && hasFoodSlot;
   const id =
     upgrade.targetTier === "TOWN"
       ? "grow_settlement_to_town"
@@ -126,15 +131,16 @@ const townGrowthActionForUpgrade = (
     upgrade.targetTier === "TOWN"
       ? "Unlocks town-tier growth and upkeep."
       : upgrade.targetTier === "CITY"
-        ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.3/m."
+        ? "Unlocks city-tier income and manpower."
         : upgrade.targetTier === "GREAT_CITY"
-          ? "Unlocks great-city income and manpower. Food upkeep rises to 0.6/m."
-          : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 1.0/m.";
+          ? "Unlocks great-city income and manpower."
+          : "Unlocks metropolis-tier income and manpower.";
+  const missingReason = !hasGold ? `Need ${upgrade.goldCost} gold` : "Need a free FOOD slot";
   return {
     id,
     label,
     ...(enabled ? { detail } : {}),
-    ...tileActionAvailability(enabled, `Need ${upgrade.foodCost} food`, `${upgrade.foodCost} food`)
+    ...tileActionAvailability(enabled, missingReason, `${upgrade.goldCost} gold + 1 FOOD slot`)
   };
 };
 

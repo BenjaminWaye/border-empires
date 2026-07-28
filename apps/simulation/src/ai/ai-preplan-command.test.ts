@@ -373,7 +373,7 @@ describe("automation preplan command", () => {
     expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
   });
 
-  it("does not upgrade a town when the FOOD stockpile can't cover the lump-sum cost", () => {
+  it("does not upgrade a town when gold can't cover the upgrade cost", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -382,10 +382,10 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 2_500,
+      points: 30, // TOWN->CITY costs 40 gold (TOWN_TIER_UPGRADE_GOLD_COST.CITY)
       techIds: [],
       domainIds: [],
-      strategicResources: { FOOD: 100 },
+      strategicResources: { FOOD: 600 }, // keeps foodCoverageLow's needsFood false so the upgrade attempt is actually reached
       settledTileCount: 1,
       townCount: 1,
       incomePerMinute: 6,

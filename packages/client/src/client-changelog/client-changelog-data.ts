@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.28.2",
+  version: "2026.07.28.3",
   title: "What's New",
-  summary: "The economy panel now shows real slot capacity for Food/Iron/Crystal/Supply.",
+  summary: "Food's last stockpile mechanic is gone, and growing a town now costs gold plus a Food slot.",
   entries: [
+    {
+      introducedIn: "2026.07.28.3",
+      title: "Food is now purely a slot resource; town growth costs gold + a Food slot",
+      why: "Food previously had two overlapping mechanics: the slot system (this update's earlier entry) alongside a leftover production/upkeep flow that towns and Market/Bank/Caravanary still drained every minute, plus a Food-stockpile lump sum to grow a town's tier. That second mechanic is retired entirely — Food now works exactly like Iron/Crystal/Supply, and towns keep growing on gold, the resource the game already asks you to manage everywhere else.",
+      changes: [
+        "Farmstead's Food bonus, town Food upkeep, and every structure's Food upkeep are gone — Food is consumed only by occupying a slot (towns and FOOD-tagged structures), never by a per-minute drain.",
+        "Upgrading a town's tier (Settlement→Town→City→Great City→Metropolis) now costs gold (20/40/80/160 for each step) plus a free Food slot, instead of a Food lump sum — each upgrade past Town also permanently adds +1 to that town's Food slot demand.",
+        "If Food supply ever falls short of demand, the newest thing drawing on it (a freshly built structure, or the town itself) goes unfed first — an established town keeps its own Food-gated income and growth ahead of whatever was just built or captured."
+      ]
+    },
     {
       introducedIn: "2026.07.28.2",
       title: "Economy panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock numbers",

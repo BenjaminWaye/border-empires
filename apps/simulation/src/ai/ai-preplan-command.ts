@@ -29,18 +29,24 @@ type AutomationPreplanTile = {
 // population forever but never actually reach the CITY/GREAT_CITY/METROPOLIS
 // tier, missing out on the population income multiplier (townPopulationMultiplier
 // in player-update-economy.ts) that tier unlocks.
+// Gold-affordability only — the AI planner doesn't have cheap access to real
+// per-player FOOD slot supply/demand (same known gap as the BUILD_STRUCTURE
+// planner check, docs/manpower-economy-rewrite-plan.md Step 5 item 5: real
+// fix needs an incrementally-maintained slot index threaded through the
+// worker-sync boundary, its own scoped slice). An occasional server-side
+// INSUFFICIENT_SLOT rejection here is the same class of self-correcting
+// staleness already accepted for BUILD_STRUCTURE, not a new gap.
 const chooseAiTownTierUpgrade = (
   ownedTiles: readonly AutomationPreplanTile[],
-  strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined
+  points: number
 ): { x: number; y: number } | undefined => {
-  const availableFood = strategicResources?.FOOD ?? 0;
   for (const tile of ownedTiles) {
     if (tile.ownershipState !== "SETTLED") continue;
     const town = tile.town;
     if (!town?.populationTier || typeof town.population !== "number") continue;
     const upgrade = nextTownGrowthUpgrade(town.populationTier, town.population);
     if (!upgrade?.available) continue;
-    if (availableFood < upgrade.foodCost) continue;
+    if (points < upgrade.goldCost) continue;
     return { x: tile.x, y: tile.y };
   }
   return undefined;
@@ -123,7 +129,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
 
   if (!needsFood && townCount > 0) {
-    const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.strategicResources);
+    const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.points);
     if (townTierUpgrade) {
       return {
         command: createAutomationCommand(
