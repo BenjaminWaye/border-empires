@@ -264,11 +264,20 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   skirtMesh.receiveShadow = false;
   skirtMesh.castShadow = false;
 
-  // Gridlines: a LineSegments that reuses the heightfield's position buffer,
-  // with a precomputed index that draws only the horizontal and vertical
-  // tile edges (no diagonals) so the grid follows the sculpted surface.
+  // Gridlines: a LineSegments with its own position buffer, offset a hair
+  // above the main heightfield's (GRID_Y_EPSILON). A hill tile's boundary
+  // sits at exactly the same Y as the dome mesh's own flat outer collar
+  // (domeFalloff is 0 at the tile edge by construction — see
+  // client-map-3d-hills.ts), so sharing the main buffer put the grid line
+  // and the dome's opaque collar triangles at the identical depth: a
+  // coplanar tie the line consistently lost, leaving hill tiles with no
+  // visible grid square around them. The epsilon is far below any real
+  // terrain height difference, so lines are still correctly hidden behind
+  // actually-taller geometry (mountains, buildings) elsewhere.
+  const GRID_Y_EPSILON = 0.003;
   const gridGeometry = new BufferGeometry();
-  gridGeometry.setAttribute("position", geometry.getAttribute("position"));
+  const gridPositions = new Float32Array(VERT_COUNT * 3);
+  gridGeometry.setAttribute("position", new BufferAttribute(gridPositions, 3));
   const HORIZONTAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const VERTICAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const GRID_INDEX_COUNT = (HORIZONTAL_LINES + VERTICAL_LINES) * 2;
@@ -486,6 +495,9 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         positions[baseIdx + 0] = tileOffsetX + i;
         positions[baseIdx + 1] = elevation;
         positions[baseIdx + 2] = tileOffsetY + j;
+        gridPositions[baseIdx + 0] = tileOffsetX + i;
+        gridPositions[baseIdx + 1] = elevation + GRID_Y_EPSILON;
+        gridPositions[baseIdx + 2] = tileOffsetY + j;
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
