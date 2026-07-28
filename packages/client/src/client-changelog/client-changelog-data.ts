@@ -215,13 +215,23 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785215200000, // 2026.07.28.5
     introducedIn: "2026.07.28.5",
     title: "Season-end Misc tab with deadliest tile and longest road",
     why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
     changes: [
       "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
       "Tracks manpower losses per tile across the entire season."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Victory countdown now shows immediately when a threshold is met",
+    why: "When a player met a victory condition threshold (e.g. controlling 50% of towns), the leaderboard showed \"Threshold met\" but never displayed the 24-hour hold countdown until the next day — because the timer enrichment was discarded on the first recompute.",
+    changes: [
+      "The leaderboard now shows \"Winning in 23h 59m unless stopped\" (and ticks down) from the moment a victory threshold is first met.",
+      "The victory hold alert overlay also fires immediately instead of being silent for up to 24 hours."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

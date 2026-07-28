@@ -1460,20 +1460,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
-    const finalSummary =
-      trackerResult.changed || trackerResult.crownedWinner
-        ? buildCurrentSeasonSummary({
+    const finalSummary = (trackerResult.changed || trackerResult.crownedWinner
+      ? { ...buildCurrentSeasonSummary({
             seasonState: currentSeasonState,
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
             worldStatus,
             manpowerLossByTileKey: runtime.manpowerLossByTileKey
-          })
-        : {
-            ...baseSummary,
-            seasonVictory: trackerResult.objectives
-          };
+          }), seasonVictory: trackerResult.objectives }
+      : { ...baseSummary, seasonVictory: trackerResult.objectives });
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
