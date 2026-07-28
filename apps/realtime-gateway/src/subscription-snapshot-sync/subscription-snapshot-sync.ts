@@ -135,6 +135,9 @@ export const applyPlayerMessageToSnapshot = (
         ...(payload.resourceSlots && typeof payload.resourceSlots === "object"
           ? { resourceSlots: payload.resourceSlots as NonNullable<PlayerStateSnapshot["resourceSlots"]> }
           : {}),
+        ...(Array.isArray(payload.dormantStructures)
+          ? { dormantStructures: payload.dormantStructures as NonNullable<PlayerStateSnapshot["dormantStructures"]> }
+          : {}),
         ...(typeof payload.developmentProcessLimit === "number" ? { developmentProcessLimit: payload.developmentProcessLimit } : {}),
         ...(typeof payload.activeDevelopmentProcessCount === "number"
           ? { activeDevelopmentProcessCount: payload.activeDevelopmentProcessCount }

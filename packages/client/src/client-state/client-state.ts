@@ -120,6 +120,10 @@ export const createInitialState = () => ({
     supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>,
     demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>
   },
+  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
+  // structures are dormant right now, and which resource(s) they're short
+  // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
+  dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
   upkeepLastTick: {

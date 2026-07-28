@@ -10,7 +10,10 @@ import {
   SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
   structureBuildDurationMs,
-  structureBuildManpowerCost
+  structureBuildManpowerCost,
+  structureSlotRequirements,
+  type SlotResource,
+  type SlotStructureType
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
@@ -31,6 +34,43 @@ const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
   return undefined;
+};
+
+// §14.2: dormant/unpowered structure indicator. slotStructureTypeForField
+// mirrors Runtime.isStructureDormant's own field->slot-type mapping
+// (apps/simulation/src/runtime/runtime.ts) so the client and server can
+// never disagree on which structure a dormancy key refers to.
+type DormancyField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+
+const slotStructureTypeForField = (tile: Tile, field: DormancyField): SlotStructureType | undefined => {
+  if (field === "fort" && tile.fort) return (tile.fort.variant ?? "FORT") as SlotStructureType;
+  if (field === "observatory" && tile.observatory) return "OBSERVATORY";
+  if (field === "siegeOutpost" && tile.siegeOutpost) return (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType;
+  if (field === "economicStructure" && tile.economicStructure) return tile.economicStructure.type as SlotStructureType;
+  return undefined;
+};
+
+const SLOT_RESOURCE_TILE_HINT: Record<SlotResource, string> = {
+  FOOD: "a Farm or Fish tile",
+  IRON: "an Iron tile",
+  CRYSTAL: "a Crystal tile",
+  SUPPLY: "a Fur or Wood tile"
+};
+
+const dormantStructureLineHtml = (
+  tile: Tile,
+  field: DormancyField,
+  dormantResources: SlotResource[] | undefined
+): string | undefined => {
+  if (!dormantResources || dormantResources.length === 0) return undefined;
+  const slotType = slotStructureTypeForField(tile, field);
+  if (!slotType) return undefined;
+  const needed = structureSlotRequirements(slotType).filter((req) => dormantResources.includes(req.resource));
+  if (needed.length === 0) return undefined;
+  const parts = needed.map(
+    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "IRON" ? "Iron" : req.resource === "CRYSTAL" ? "Crystal" : "Supply"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
+  );
+  return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
 };
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
@@ -355,6 +395,13 @@ export const menuOverviewForTile = (
     // responsible for seeding the timestamp on the partial-state transition
     // and clearing it on resolve, so the render itself stays pure.
     townPartialLoadingStartedAt: (tileKey: string) => number;
+    // §14.2: dormant/unpowered structure indicator — the resource(s) this
+    // tile's given structure field is currently short on, or undefined when
+    // it's powered. Only meaningful for the caller's own structures; callers
+    // should return undefined for tiles not owned by the viewing player.
+    // Optional so existing callers/tests that haven't threaded it through
+    // yet just render without a dormancy line.
+    dormantResourcesForTile?: (tile: Tile, field: DormancyField) => SlotResource[] | undefined;
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -531,6 +578,10 @@ export const menuOverviewForTile = (
     } else {
       pushLine("Observatory is inactive here and currently provides no vision or protection.");
     }
+    if (tile.observatory.status === "active") {
+      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"));
+      if (dormantLine) pushLine(dormantLine);
+    }
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
@@ -545,6 +596,14 @@ export const menuOverviewForTile = (
       const required = Math.max(MUSTER_ATTACK_COST, Math.ceil(garrison));
       pushLine(`Garrison: ${Math.floor(garrison)} / ${Math.floor(garrisonCap)} (${pct}%) — capturing requires ${required} mustered manpower.`);
     }
+  }
+  if (tile.fort?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
+    if (dormantLine) pushLine(dormantLine);
+  }
+  if (tile.siegeOutpost?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "siegeOutpost", deps.dormantResourcesForTile?.(tile, "siegeOutpost"));
+    if (dormantLine) pushLine(dormantLine);
   }
   if (tile.economicStructure) {
     if (tile.economicStructure.status === "removing") {
@@ -568,6 +627,10 @@ export const menuOverviewForTile = (
       pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
     } else if (tile.economicStructure.status === "inactive") {
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
+    }
+    if (tile.economicStructure.status === "active") {
+      const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
+      if (dormantLine) pushLine(dormantLine);
     }
   }
   for (const modifier of tileOverviewModifiersForTile(tile)) {

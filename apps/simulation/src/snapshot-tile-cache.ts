@@ -3,7 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
-import type { ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
+import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
 
 export type RuntimeState = {
   tiles: Array<{
@@ -85,6 +85,7 @@ export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+  dormantStructures: DormantStructureDetail[];
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
   economyBreakdown: EconomyBreakdown;

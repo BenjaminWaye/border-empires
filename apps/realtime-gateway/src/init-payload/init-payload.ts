@@ -101,6 +101,7 @@ type GatewayInitPayload = {
       supply: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
       demand: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
     };
+    dormantStructures: Array<{ key: string; resources: Array<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY"> }>;
     economyBreakdown?: Record<string, unknown>;
     upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
@@ -931,6 +932,8 @@ export const buildGatewayInitPayload = (
           supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
           demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
         },
+      // Same legacy-bootstrap caveat as resourceSlots above.
+      dormantStructures: liveSnapshotPlayer?.dormantStructures ?? [],
       ...(
         liveSnapshotPlayer?.economyBreakdown
           ? { economyBreakdown: liveSnapshotPlayer.economyBreakdown }

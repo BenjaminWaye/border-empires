@@ -270,6 +270,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             strategicProductionPerMinute,
             resourceSlots: liveEconomy.resourceSlots,
+            dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,

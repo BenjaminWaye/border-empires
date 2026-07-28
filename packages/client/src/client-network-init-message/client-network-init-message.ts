@@ -123,6 +123,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.strategicProductionPerMinute =
     (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
   state.resourceSlots = (player.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
+  state.dormantStructures = (player.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
   state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
   state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
   state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
