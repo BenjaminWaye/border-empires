@@ -32,7 +32,6 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "COLLECT_VISIBLE",
   "CHOOSE_TECH",
   "CHOOSE_DOMAIN",
-  "OVERLOAD_SYNTHESIZER",
   "SET_CONVERTER_STRUCTURE_ENABLED",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",

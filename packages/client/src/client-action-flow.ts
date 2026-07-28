@@ -234,7 +234,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
-    "OVERLOAD_SYNTHESIZER",
     "SET_CONVERTER_STRUCTURE_ENABLED",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
@@ -1574,9 +1573,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });

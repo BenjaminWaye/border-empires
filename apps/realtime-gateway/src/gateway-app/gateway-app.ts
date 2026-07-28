@@ -3010,8 +3010,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             });
           } else if (message.type === "CANCEL_CAPTURE") {
             await dispatchDurableCommand("CANCEL_CAPTURE", {});
-          } else if (message.type === "OVERLOAD_SYNTHESIZER") {
-            await dispatchDurableCommand("OVERLOAD_SYNTHESIZER", { x: message.x, y: message.y }, true);
           } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
             await dispatchDurableCommand(
               "SET_CONVERTER_STRUCTURE_ENABLED",
