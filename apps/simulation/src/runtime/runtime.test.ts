@@ -5487,7 +5487,9 @@ describe("simulation runtime", () => {
         tiles: [
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } }
+          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5558,7 +5560,9 @@ describe("simulation runtime", () => {
           { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "WOOD" },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
+          { x: 0, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5641,7 +5645,11 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } }
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          // §5.4: three CRYSTAL slots so all three Observatories aren't dormant.
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 9, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5810,7 +5818,10 @@ describe("simulation runtime", () => {
           { x: 0, y: 4, terrain: "SEA" },
           { x: 0, y: 5, terrain: "LAND" },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
-          { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // §5.4: two CRYSTAL slots so both Observatories aren't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5889,7 +5900,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
-          { x: 0, y: 3, terrain: "LAND" }
+          { x: 0, y: 3, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5958,7 +5971,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
-          { x: 0, y: 3, terrain: "LAND" }
+          { x: 0, y: 3, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -6051,7 +6066,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "LAND" },
-          { x: 0, y: 4, terrain: "LAND" }
+          { x: 0, y: 4, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -7814,7 +7831,9 @@ describe("aether purge", () => {
         ownerId: "player-2",
         ownershipState: "FRONTIER",
         fort: { ownerId: "player-2", status: "active" }
-      }
+      },
+      // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
+      { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (options.enemyAegisDome) {
       tiles.push(
