@@ -82,6 +82,8 @@ export const buildInitMessage = (
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
   shardRainNotice?: Record<string, unknown>;
+  seasonStartVoteCount?: number;
+  seasonStartVoted?: boolean;
   initialState?: PlayerSubscriptionSnapshot;
 }> =>
   Promise.allSettled([

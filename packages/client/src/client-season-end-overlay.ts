@@ -17,7 +17,7 @@ type SeasonEndLeaderboard = {
 type SeasonEndOverlayDeps = {
   state: Pick<
     ClientState,
-    "me" | "seasonWinner" | "leaderboard" | "seasonVictory" | "seasonEndDismissed" | "seasonEndStarting" | "playerColors"
+    "me" | "seasonWinner" | "leaderboard" | "seasonVictory" | "seasonEndDismissed" | "seasonEndStarting" | "seasonStartVoteCount" | "seasonStartVoted" | "playerColors"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -66,6 +66,8 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     winner: state.seasonWinner?.playerId,
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
+    voteCount: state.seasonStartVoteCount,
+    voted: state.seasonStartVoted,
     self: leaderboard.selfOverall?.id,
     overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet])
@@ -229,9 +231,9 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
         </div>
         <div class="se-scroll-footer">
           <footer class="se-actions">
-            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting ? "disabled" : ""}>
+            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting || state.seasonStartVoted ? "disabled" : ""}>
               <span class="se-btn-cog" aria-hidden="true"></span>
-              ${starting ? "Winding the Spring…" : "Start New Season"}
+              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for New Season"}
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
@@ -251,14 +253,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
   if (newSeason) {
     newSeason.onclick = () => {
-      if (state.seasonEndStarting) return;
-      const ok = window.confirm(
-        "Start a new season for EVERYONE? This resets the world and all progression for every player."
-      );
-      if (!ok) return;
-      state.seasonEndStarting = true;
+      if (state.seasonEndStarting || state.seasonStartVoted) return;
       startNewSeason();
-      renderHud();
     };
   }
 
