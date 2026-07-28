@@ -55,9 +55,6 @@ export function emitPlayerStateUpdate(
     !lastCap ||
     lastCap.GOLD !== storageCap.GOLD ||
     lastCap.FOOD !== storageCap.FOOD ||
-    lastCap.IRON !== storageCap.IRON ||
-    lastCap.CRYSTAL !== storageCap.CRYSTAL ||
-    lastCap.SUPPLY !== storageCap.SUPPLY ||
     lastCap.SHARD !== storageCap.SHARD;
   if (capChanged) context.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
   context.emitPlayerMessage(

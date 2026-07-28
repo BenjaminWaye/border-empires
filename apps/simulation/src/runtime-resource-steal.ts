@@ -2,7 +2,6 @@ import type { DomainPlayer } from "@border-empires/game-domain";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 type StealableResource = "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD";
-type SynthResource = "IRON" | "CRYSTAL" | "SUPPLY";
 
 export type RuntimeResourceStealContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -17,7 +16,7 @@ const TILE_RESOURCE_TO_STRATEGIC: Record<string, StealableResource> = {
   FISH: "FOOD"
 };
 
-const SYNTH_STRUCTURE_TO_STRATEGIC: Record<string, SynthResource> = {
+const SYNTH_STRUCTURE_TO_STRATEGIC: Record<string, StealableResource> = {
   IRONWORKS: "IRON",
   ADVANCED_IRONWORKS: "IRON",
   CRYSTAL_SYNTHESIZER: "CRYSTAL",
@@ -41,10 +40,7 @@ export function stolenResourceForCapture(tileResource: string | undefined, struc
 function equivalentResourceSourceCount(summary: PlayerRuntimeSummary, resource: StealableResource): number {
   const production = summary.strategicProductionPerMinute[resource] ?? 0;
   const perTileRate = PER_TILE_RATE_BY_RESOURCE[resource];
-  const synthBonus = resource === "IRON" || resource === "CRYSTAL" || resource === "SUPPLY"
-    ? (summary.synthesizerCapBonus[resource] ?? 0) / 30
-    : 0;
-  return Math.max(1, Math.round(production / perTileRate + synthBonus));
+  return Math.max(1, Math.round(production / perTileRate));
 }
 
 export function applyResourceTileSteal(

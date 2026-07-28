@@ -883,6 +883,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       strategicResources: state.strategicResources,
       storageCap: state.storageCap,
       strategicProductionPerMinute: state.strategicProductionPerMinute,
+      resourceSlots: state.resourceSlots,
       economyBreakdown: state.economyBreakdown,
       upkeepPerMinute: state.upkeepPerMinute,
       upkeepLastTick: state.upkeepLastTick,
