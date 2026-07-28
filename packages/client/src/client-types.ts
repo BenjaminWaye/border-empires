@@ -502,8 +502,8 @@ export type SeasonWinnerView = {
 };
 
 export type SeasonStatsView = {
-  mostDeadlyTile: { x: number; y: number; manpowerLost: number } | null;
-  longestRoad: { tileCount: number } | null;
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
 };
 
 export type MissionState = {
