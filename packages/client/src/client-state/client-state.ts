@@ -26,6 +26,7 @@ import type {
   PendingResearch,
   PlayerRespawnNotice,
   RevealEmpireStatsView,
+  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   SurveySweepPing,
@@ -315,6 +316,7 @@ export const createInitialState = () => ({
   // screen shows again the next time a season ends.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStats: undefined as SeasonStatsView | undefined,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
