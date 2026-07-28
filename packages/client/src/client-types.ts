@@ -501,6 +501,11 @@ export type SeasonWinnerView = {
   objectiveName: string;
 };
 
+export type SeasonStatsView = {
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
+};
+
 export type MissionState = {
   id: string;
   name: string;

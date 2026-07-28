@@ -22,14 +22,33 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1785224933362, // 2026.07.28.1
+    createdAt: 1785230720833, // 2026.07.28.3
+    introducedIn: "2026.07.28.3",
+    title: "Fixed: farms, towns, and other overlays floated above hills in 3D mode",
+    why: "The 3D renderer's shared surfaceY calculation (used to place buildings, towns, resource icons, and every other tile overlay) already picked up a hill tile's elevation bonus from heightfield.elevationAt(), then added that same bonus a second time for any tile flagged as hills. That doubled the hill's height bump under every overlay on a hill tile, so farms, towns, and resource icons rendered a full bonus-height above the visible hill dome instead of resting on its peak.",
+    changes: [
+      "Removed the duplicate hills-elevation bonus from the 3D overlay placement formula — buildings, farms, towns, and resource icons now sit directly on the hill's surface instead of floating above it."
+    ]
+  },
+  {
+    createdAt: 1785225359405, // 2026.07.28.2
+    introducedIn: "2026.07.28.2",
+    title: "Fixed: Empire Integrity warning nagged you on every login; added discovery tips",
+    why: "The Empire Integrity dismissal was stored under a single global localStorage key with no per-account scoping, so on a shared browser/device a dismissal from one account could leak onto (or get overwritten by) another account, making the warning reappear even after you'd dismissed it. Separately, new players had no in-game explanation of what towns and resource tiles do or why they're worth capturing.",
+    changes: [
+      "Empire Integrity warning dismissal is now scoped per account, so dismissing it actually keeps it hidden for that login going forward (it still resurfaces after 30 days or once integrity recovers above 90%).",
+      "Added a tip the first time you discover a town, and separate tips for the first Food, Iron, Crystal, and Supply resource tile you discover, each explaining why it's worth capturing.",
+      "Each discovery tip reappears after 30 days/a season if dismissed (same window as Empire Integrity). A \"Don't show tooltips\" checkbox on the tip lets you mute all discovery tips for that same window in one action."
+    ]
+  },
+  {
+    createdAt: 1785215980277, // 2026.07.28.1
     introducedIn: "2026.07.28.1",
     title: "Fixed: hill tiles had no grid square around them in 3D mode",
-    why: "Two stacked bugs. First, tile gridlines shared the exact same vertex buffer as the main terrain mesh, and a hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (the dome tapers to zero before reaching the tile edge by design) — a coplanar depth tie the thin grid line consistently lost. Second, and the bigger one once hills cluster into highland regions: a shared grid corner surrounded entirely by hill tiles (no flat land, no sea touching it) was miscounted as having nothing explored at all, pinning that corner to the deep-sea-floor placeholder height instead of the hill's real surface — breaking gridlines, and anything else anchored to that corner, anywhere deep inside a hill cluster.",
+    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
     changes: [
-      "Tile gridlines now use their own slightly-raised position buffer, fixing the coplanar tie against a hill's outer rim.",
-      "Fixed the underlying corner-height calculation so a grid corner surrounded only by hill tiles no longer falls back to the sea-floor placeholder height.",
-      "Verified against isolated hills, scattered hills, and dense hill clusters (including deep inside a large contiguous highland region) — gridlines are now intact everywhere."
+      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
+      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
     ]
   },
   {
@@ -171,6 +190,38 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The client now only tells the server to stop watching a muster flag when it actually started watching one.",
       "Server-side: muster watch toggles are no longer written to the command database at all — they are view state, not game actions — eliminating a steady stream of database errors."
+    ]
+  },
+  {
+    createdAt: 1785215000000, // 2026.07.28.3
+    introducedIn: "2026.07.28.3",
+    title: "Discovery tips for docks and barbarians; Storybook catalog for reviewing all tip copy",
+    why: "Docks and barbarian territories are important strategic features but had no in-game explanation when first encountered. A Storybook story now renders every discovery tip from the source data so copy can be reviewed in one place.",
+    changes: [
+      "Added a one-time discovery tip for the first dock you discover, explaining that docks connect across the sea for launching attacks and expanding onto distant shores.",
+      "Added a one-time discovery tip for the first barbarian tile you discover, explaining that barbarian camps spawn patrols and that clearing them yields gold and expands your border.",
+      "Added a Storybook story (UI/Discovery Tips) that renders every discovery tip from the source data — copy changes to client-discovery-tips.ts automatically update the story."
+    ]
+  },
+  {
+    createdAt: 1785215100000, // 2026.07.28.4
+    introducedIn: "2026.07.28.4",
+    title: "New season now requires 5 players to vote",
+    why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
+    changes: [
+      '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
+      "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
+      "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
+    ]
+  },
+  {
+    createdAt: 1785215200000, // 2026.07.28.5
+    introducedIn: "2026.07.28.5",
+    title: "Season-end Misc tab with deadliest tile and longest road",
+    why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
+    changes: [
+      "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
+      "Tracks manpower losses per tile across the entire season."
     ]
   },
   {

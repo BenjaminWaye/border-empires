@@ -2,6 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" };
 
@@ -111,5 +112,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       }
     });
   }
+  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud());
   deps.renderHud();
 };

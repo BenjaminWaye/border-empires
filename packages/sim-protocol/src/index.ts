@@ -250,6 +250,12 @@ export type CurrentSeasonSummary = {
   totalPlayers: number;
   townCount: number;
   updatedAt: number;
+  seasonStats?: SeasonStats;
+};
+
+export type SeasonStats = {
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
 };
 
 export type SeasonArchiveRow = {
