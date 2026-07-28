@@ -86,6 +86,7 @@ export function isStructurePowered(
 
 export function isTileShieldedByEnemyAegisDome(
   tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
   targetY: number
@@ -95,7 +96,10 @@ export function isTileShieldedByEnemyAegisDome(
     if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
     if (!dome.ownerId || dome.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
-    if (isStructurePowered(tiles, dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
+    const domeKey = simulationTileKey(candidate.x, candidate.y);
+    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME")) continue;
+    if (isStructureDormant(dome.ownerId, domeKey, "economicStructure")) continue;
+    return true;
   }
   return false;
 }
@@ -137,6 +141,7 @@ export function isTileShieldedByAegisLock(
 
 export function isTileBombardBlockedByRadar(
   tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
   targetY: number
@@ -146,7 +151,10 @@ export function isTileBombardBlockedByRadar(
     if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
     if (!s.ownerId || s.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
-    if (isStructurePowered(tiles, s.ownerId, simulationTileKey(candidate.x, candidate.y), s.type)) return true;
+    const radarKey = simulationTileKey(candidate.x, candidate.y);
+    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type)) continue;
+    if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;
+    return true;
   }
   return false;
 }
