@@ -33,7 +33,9 @@ import {
   converterOutputPerMinute,
   townFoodUpkeepPerMinute,
   buildStrategicProductionByPlayer,
-  buildFedTownKeysByPlayer
+  buildFedTownKeysByPlayer,
+  buildResourceSlotDormancyByPlayer,
+  dormantEconomicStructureKeysFromDormancy
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
@@ -49,15 +51,18 @@ export const buildLivePlayerEconomySnapshot = (
   const domainTilesByKey = getDomainTilesByKey(runtimeState);
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const dormancyByPlayer = buildResourceSlotDormancyByPlayer(runtimeState);
+  const dormantEconomicStructureKeys = dormantEconomicStructureKeysFromDormancy(dormancyByPlayer.get(playerId));
   const townNetwork = economyPlayer
     ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
-        maxConnectedTownNames: 16
+        maxConnectedTownNames: 16,
+        dormantEconomicStructureKeys
       })
     : undefined;
   const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
-  const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
+  const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
@@ -87,12 +92,27 @@ export const buildLivePlayerEconomySnapshot = (
         supplySources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, seedGranaryBuffedTileKeys);
+    const town = buildTownSummary(
+      tile,
+      player,
+      tilesByKey,
+      fedTownKeys,
+      true,
+      townNetwork,
+      firstThreeTownKeys,
+      nearbyWarTownKeys,
+      seedGranaryBuffedTileKeys,
+      dormantEconomicStructureKeys
+    );
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
       const dockGoldPerMinute = economyPlayer
-        ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, { tiles: domainTilesByKey, dockLinksByDockTileKey }) *
+        ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, {
+            tiles: domainTilesByKey,
+            dockLinksByDockTileKey,
+            dormantEconomicStructureKeys
+          }) *
           (player?.incomeMultiplier ?? 1) *
           PASSIVE_INCOME_MULT
         : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;

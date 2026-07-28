@@ -29,6 +29,19 @@ import { coordsInChebyshevRadius } from "../territory-automation/territory-autom
 
 const PROJECTING_SOURCE_TYPES = new Set(["WATERWORKS", "FOUNDRY", "CUSTOMS_HOUSE"]);
 
+// §5.4: deliberately NOT dormancy-aware. This module only decides WHEN to
+// re-push a beneficiary tile's delta (so a client's cached yield doesn't go
+// stale), not what the delta's value is — that's computed downstream
+// (economy-network.ts/tile-yield-view.ts, which ARE dormancy-aware). The
+// trigger set here (build/remove/settle/capture on one of these types) is a
+// superset of what actually needs a push once dormancy is live: a
+// player's OWN dormancy only changes as a side effect of one of their own
+// tiles changing, which this module already listens to for the changed
+// tile's own radius — the one gap is a dormancy ripple ("building X here
+// makes ANOTHER, distant structure dormant") not refreshing that distant
+// tile's delta immediately. Accepted as a display-staleness edge case (same
+// class as the pre-existing reconnect-path Farmstead/Waterworks bug noted
+// elsewhere), not fixed here.
 /** True when an active/settled/owned economic structure of one of the projecting types is present. */
 const isActiveProjectingSource = (tile: DomainTileState | undefined): boolean =>
   Boolean(

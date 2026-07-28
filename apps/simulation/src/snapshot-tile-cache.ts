@@ -3,6 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
+import type { ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
 
 export type RuntimeState = {
   tiles: Array<{
@@ -157,6 +158,11 @@ export const settledDomainTilesByPlayerIdCache: WeakMap<RuntimeState, Map<string
 export const firstThreeTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 export const strategicProductionByPlayerCache: WeakMap<RuntimeState, Map<string, Record<StrategicResourceKey, number>>> = new WeakMap();
 export const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+// §5.4: per-player resource-slot dormancy, computed once per snapshot and
+// shared by buildFedTownKeysByPlayer (FOOD) and every reconnect-path
+// support-structure/dock bonus check (economicStructure) — see
+// buildResourceSlotDormancyByPlayer in snapshot-economy-helpers.ts.
+export const resourceSlotDormancyByPlayerCache: WeakMap<RuntimeState, Map<string, ResourceSlotDormancy>> = new WeakMap();
 export const waterworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 export const foundryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 

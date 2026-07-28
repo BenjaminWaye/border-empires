@@ -59,7 +59,12 @@ export const hasSupportedStructure = (
   tileKey: string,
   ownerId: string,
   structureType: string | readonly string[],
-  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
+  // economy-network.ts's hasSupportedStructure (this is the reconnect-path
+  // duplicate, operating on wire-shaped RuntimeState tiles instead of
+  // DomainTileState).
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
   const [rawX, rawY] = tileKey.split(",");
   const x = Number(rawX);
@@ -73,13 +78,31 @@ export const hasSupportedStructure = (
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
       if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
       const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-      if (structure?.status === "active" && structure.type && allowed.has(structure.type)) return true;
+      if (
+        structure?.status === "active" &&
+        structure.type &&
+        allowed.has(structure.type) &&
+        !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
+      ) {
+        return true;
+      }
     }
   }
   return false;
 };
 
-const clearingHouseSourceTownNames = (tileKey: string, ownerId: string, tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>, townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>): string[] => [tileKey, ...(townNetwork?.get(tileKey)?.connectedClearingHouseKeys ?? [])].flatMap((sourceKey) => hasSupportedStructure(sourceKey, ownerId, "CLEARING_HOUSE", tilesByKey) ? [tilesByKey.get(sourceKey) ? parseTown(tilesByKey.get(sourceKey)!)?.name ?? `town at ${sourceKey}` : `town at ${sourceKey}`] : []);
+const clearingHouseSourceTownNames = (
+  tileKey: string,
+  ownerId: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
+  townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): string[] =>
+  [tileKey, ...(townNetwork?.get(tileKey)?.connectedClearingHouseKeys ?? [])].flatMap((sourceKey) =>
+    hasSupportedStructure(sourceKey, ownerId, "CLEARING_HOUSE", tilesByKey, dormantEconomicStructureKeys)
+      ? [tilesByKey.get(sourceKey) ? parseTown(tilesByKey.get(sourceKey)!)?.name ?? `town at ${sourceKey}` : `town at ${sourceKey}`]
+      : []
+  );
 
 export const supportTileBelongsToTown = (
   supportTile: RuntimeState["tiles"][number],
@@ -112,7 +135,11 @@ export const buildTownSummary = (
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
   firstThreeTownKeys?: ReadonlySet<string>,
   nearbyWarTownKeys?: ReadonlySet<string>,
-  seedGranaryBuffedTileKeys?: ReadonlySet<string>
+  seedGranaryBuffedTileKeys?: ReadonlySet<string>,
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
+  // dormant Market/Bank/Caravanary/Clearing House/Granary/Seed Granary
+  // stops granting its bonus.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -137,9 +164,9 @@ export const buildTownSummary = (
     : { supportCurrent: 0, supportMax: 0 };
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
-  const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey));
-  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey));
-  const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey));
+  const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey, dormantEconomicStructureKeys));
+  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey, dormantEconomicStructureKeys));
+  const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey, dormantEconomicStructureKeys));
   const hasAnyGranary = hasGranary || hasSeedGranary;
   const seedGranaryBuffed = hasAnyGranary && Boolean(seedGranaryBuffedTileKeys && tile.ownerId && (() => {
     for (let dy = -1; dy <= 1; dy += 1) {
@@ -155,9 +182,9 @@ export const buildTownSummary = (
     return false;
   })());
   const granaryGrowthMult = !hasAnyGranary ? 1 : seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1.15;
-  const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
-  const hasCaravanary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "CARAVANARY", tilesByKey));
-  const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
+  const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey, dormantEconomicStructureKeys));
+  const hasCaravanary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "CARAVANARY", tilesByKey, dormantEconomicStructureKeys));
+  const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
   const firstThreeTownMult =

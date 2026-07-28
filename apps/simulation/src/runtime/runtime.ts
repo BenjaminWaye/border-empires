@@ -406,15 +406,21 @@ const ORPHAN_LOCK_GRACE_MS = 60_000;
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
 
-/** Convert a rail depot key index to position arrays for the muster tick. */
+/**
+ * Convert a rail depot key index to position arrays for the muster tick.
+ * §5.4: skips dormant Rail Depots — an unpowered depot can't grant the
+ * muster boost.
+ */
 const railDepotPositionsFromKeys = (
   index: ReadonlyMap<string, Set<string>>,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean
 ): Map<string, Array<{ x: number; y: number }>> => {
   const result = new Map<string, Array<{ x: number; y: number }>>();
   for (const [ownerId, keys] of index) {
     const positions: Array<{ x: number; y: number }> = [];
     for (const key of keys) {
+      if (isStructureDormant(ownerId, key, "economicStructure")) continue;
       const tile = tiles.get(key);
       if (tile) positions.push({ x: tile.x, y: tile.y });
     }
@@ -1109,7 +1115,8 @@ export class SimulationRuntime {
             return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
           }
         : undefined,
-      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId)
+      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
+      dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId)
     });
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
@@ -1194,7 +1201,8 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field)
     });
   }
 
@@ -1205,7 +1213,9 @@ export class SimulationRuntime {
       musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
-      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles),
+      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles, (playerId, tileKey, field) =>
+        this.isStructureDormant(playerId, tileKey, field)
+      ),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
@@ -1216,7 +1226,9 @@ export class SimulationRuntime {
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
       locksByTile: this.locksByTile,
-      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns
+      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
+        this.isStructureDormant(playerId, tileKey, field)
     };
   }
 
@@ -1290,7 +1302,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
       emitEvent: (event) => this.emitEvent(event),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field)
     };
   }
 
@@ -1618,9 +1631,16 @@ export class SimulationRuntime {
       }
       const settledTiles = this.settledTilesForPlayer(player.id);
       const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-      const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      }, econMult, townNetwork, this.foodDormantTownKeysForPlayer(player.id));
+      const snapshot = buildPlayerUpdateEconomySnapshot(
+        player,
+        summary,
+        this.tiles,
+        { dockLinksByDockTileKey: this.dockLinksByDockTileKey },
+        econMult,
+        townNetwork,
+        this.foodDormantTownKeysForPlayer(player.id),
+        this.dormantEconomicStructureKeysForPlayer(player.id)
+      );
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
       return snapshot;
     };
@@ -2576,12 +2596,42 @@ export class SimulationRuntime {
   // ("x,y") rather than the "x,y:town" contributor key resourceSlotDormancyForPlayer
   // uses internally — buildFedTownKeys and its callers work in plain tile keys.
   private foodDormantTownKeysForPlayer(playerId: string): ReadonlySet<string> {
+    return this.dormantContributorKeysForPlayer(playerId, ":town");
+  }
+
+  // §5.4: which of this player's structures (of the given field) are
+  // currently dormant, keyed by plain tile key ("x,y") rather than the
+  // "x,y:field" contributor key resourceSlotDormancyForPlayer uses
+  // internally — the various support-structure/combat/garrison consumers
+  // this feeds (economy-network.ts, runtime-combat-support.ts,
+  // runtime-fort-garrison-tick.ts, runtime-muster-tick.ts) all work in plain
+  // tile keys. A structure is dormant here iff it's short on ANY of its
+  // required resources (matches isStructureDormant's own logic) — checked
+  // across all four resource sets, not just one, since e.g. GARRISON_HALL
+  // requires both FOOD and CRYSTAL.
+  dormantFieldKeysForPlayer(playerId: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): ReadonlySet<string> {
+    return this.dormantContributorKeysForPlayer(playerId, `:${field}`, true);
+  }
+
+  private dormantContributorKeysForPlayer(playerId: string, suffix: string, acrossAllResources = false): ReadonlySet<string> {
     const dormancy = this.resourceSlotDormancyForPlayer(playerId);
     const result = new Set<string>();
-    for (const key of dormancy.FOOD) {
-      if (key.endsWith(":town")) result.add(key.slice(0, -":town".length));
+    const resourceSets = acrossAllResources ? Object.values(dormancy) : [dormancy.FOOD];
+    for (const resourceSet of resourceSets) {
+      for (const key of resourceSet) {
+        if (key.endsWith(suffix)) result.add(key.slice(0, -suffix.length));
+      }
     }
     return result;
+  }
+
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player —
+  // threaded into economy-network.ts's support-structure bonus checks
+  // (Market/Bank/Caravanary/Clearing House/Garrison Hall/Rail Depot/Customs
+  // House) so a dormant instance stops granting its bonus without losing
+  // its build-time uniqueness/existence.
+  dormantEconomicStructureKeysForPlayer(playerId: string): ReadonlySet<string> {
+    return this.dormantFieldKeysForPlayer(playerId, "economicStructure");
   }
 
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
@@ -2610,7 +2660,11 @@ export class SimulationRuntime {
         incrementalState = createTownConnectivityState();
         this.townConnectivityStateByPlayer.set(player.id, incrementalState);
       }
-      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames, incrementalState });
+      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
+        maxConnectedTownNames,
+        incrementalState,
+        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
+      });
       this.townNetworkCacheByPlayer.set(player.id, network);
       return network;
     };
@@ -2637,8 +2691,35 @@ export class SimulationRuntime {
   ): { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number } {
     const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
     if (cached) return cached;
-    const garrisonHallCount = this.garrisonHallTilesByOwner.get(player.id)?.size ?? 0;
-    const hasAnyRailDepot = (this.railDepotTilesByOwner.get(player.id)?.size ?? 0) > 0;
+    const garrisonHallKeys = this.garrisonHallTilesByOwner.get(player.id);
+    const railDepotKeys = this.railDepotTilesByOwner.get(player.id);
+    // §5.4: a dormant Garrison Hall/Rail Depot doesn't grant its bonus —
+    // filter the raw existence indices against this player's current
+    // dormant-economicStructure set before counting/checking presence. Only
+    // computed when the player actually has at least one such structure
+    // (rare, same as the pre-existing hasAnyRailDepot gate below): this is a
+    // manpower read fired on essentially every command and periodic tick
+    // (including during SimulationRuntime construction, before
+    // trackSyncMainThreadTask is safe to route through — see below), so an
+    // unconditional dormancy computation here would pre-warm
+    // resourceSlotSupplyCacheByPlayer/resourceSlotDemandCacheByPlayer too
+    // early and poison them with a stale pre-tile-setup value that never
+    // gets invalidated (initial tile hydration doesn't go through
+    // replaceTileState/refreshEconomyCachesForTileChange).
+    const dormantEconomicStructureKeys =
+      (garrisonHallKeys?.size ?? 0) > 0 || (railDepotKeys?.size ?? 0) > 0
+        ? this.dormantEconomicStructureKeysForPlayer(player.id)
+        : undefined;
+    const garrisonHallCount = garrisonHallKeys
+      ? dormantEconomicStructureKeys
+        ? [...garrisonHallKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
+        : garrisonHallKeys.size
+      : 0;
+    const hasAnyRailDepot = railDepotKeys
+      ? dormantEconomicStructureKeys
+        ? [...railDepotKeys].some((key) => !dormantEconomicStructureKeys.has(key))
+        : railDepotKeys.size > 0
+      : false;
     // Only touch the connected-town network when the player actually has a
     // Rail Depot — the common case (none yet) skips it entirely, which
     // matters for two reasons: it keeps this O(1) instead of O(settled
@@ -2665,7 +2746,8 @@ export class SimulationRuntime {
         player.id,
         this.tiles,
         townNetwork,
-        summary.ownedTownTierByTile.keys()
+        summary.ownedTownTierByTile.keys(),
+        dormantEconomicStructureKeys
       );
     }
     const result = { garrisonHallCount, railDepotNetworkGarrisonHallCount };
@@ -2685,7 +2767,11 @@ export class SimulationRuntime {
       incrementalState = createTownConnectivityState();
       this.townConnectivityStateByPlayer.set(player.id, incrementalState);
     }
-    const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 0, incrementalState });
+    const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
+      maxConnectedTownNames: 0,
+      incrementalState,
+      dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
+    });
     this.townNetworkCacheByPlayer.set(player.id, network);
     return network;
   }

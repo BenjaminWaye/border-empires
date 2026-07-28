@@ -30,9 +30,19 @@ import {
   parseTown,
   parseStructure,
   strategicProductionByPlayerCache,
-  fedTownKeysByPlayerCache
+  fedTownKeysByPlayerCache,
+  resourceSlotDormancyByPlayerCache
 } from "./snapshot-tile-cache.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import type { DomainTileState } from "@border-empires/game-domain";
+import {
+  emptyResourceSlotDormancy,
+  resourceSlotDemandForPlayer,
+  resourceSlotDormantContributorsForPlayer,
+  resourceSlotSupplyForPlayer,
+  type ResourceSlotDormancy
+} from "./resource-slot-view/resource-slot-view.js";
+import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -251,9 +261,105 @@ export const buildStrategicProductionByPlayerAsync = async (
   return production;
 };
 
+// Parsed, per-owner tile views shared by buildResourceSlotDormancyByPlayer's
+// sync/async variants — the same shape resourceSlotSupplyForPlayer/
+// resourceSlotDemandForPlayer/resourceSlotDormantContributorsForPlayer need,
+// parsed once from the wire-shaped RuntimeState tiles (see
+// live-economy-snapshot.ts's resourceSlotsForPlayer, which does the same
+// parsing for a single player — this is the "all players in one pass"
+// variant needed here since buildFedTownKeysByPlayer computes every
+// player's fed set at once).
+type SlotTileEconomicStructure = DomainTileState["economicStructure"];
+type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+
+const parsedSlotTiles = (
+  runtimeState: RuntimeState
+): { settledByOwner: Map<string, SettledSlotTile[]>; ownedByOwner: Map<string, OwnedSlotTile[]> } => {
+  const settledByOwner = new Map<string, SettledSlotTile[]>();
+  const ownedByOwner = new Map<string, OwnedSlotTile[]>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId) continue;
+    const economicStructure = parseStructure<SlotTileEconomicStructure>(tile.economicStructureJson);
+    if (tile.ownershipState === "SETTLED") {
+      const settled = settledByOwner.get(tile.ownerId) ?? [];
+      settled.push({ x: tile.x, y: tile.y, resource: tile.resource as DomainTileState["resource"], economicStructure });
+      settledByOwner.set(tile.ownerId, settled);
+    }
+    const owned = ownedByOwner.get(tile.ownerId) ?? [];
+    owned.push({
+      x: tile.x,
+      y: tile.y,
+      fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
+      observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
+      siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      economicStructure,
+      town: parseTown(tile) as DomainTileState["town"],
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
+    });
+    ownedByOwner.set(tile.ownerId, owned);
+  }
+  return { settledByOwner, ownedByOwner };
+};
+
+// §5.4: per-player resource-slot dormancy for the reconnect/cold-snapshot
+// path — the same pure resourceSlot*ForPlayer functions the live runtime
+// uses for BUILD_STRUCTURE/UPGRADE_TOWN_TIER gating and dormancy, so the
+// two paths can never disagree on who's dormant.
+export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): Map<string, ResourceSlotDormancy> => {
+  const cached = resourceSlotDormancyByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const { settledByOwner, ownedByOwner } = parsedSlotTiles(runtimeState);
+  const result = new Map<string, ResourceSlotDormancy>();
+  for (const player of runtimeState.players) {
+    const settledTiles = settledByOwner.get(player.id) ?? [];
+    const ownedTiles = ownedByOwner.get(player.id) ?? [];
+    if (ownedTiles.length === 0) {
+      result.set(player.id, emptyResourceSlotDormancy());
+      continue;
+    }
+    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply));
+  }
+  resourceSlotDormancyByPlayerCache.set(runtimeState, result);
+  return result;
+};
+
+// §5.4/§5.3: a town is "fed" iff its own FOOD slot demand isn't dormant —
+// FOOD has no separate stockpile/upkeep gate anymore (there's only one food
+// mechanic: slots), matching Runtime.foodDormantTownKeysForPlayer/
+// buildFedTownKeys on the live path.
+const foodDormantTownKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
+  const result = new Set<string>();
+  if (!dormancy) return result;
+  for (const key of dormancy.FOOD) {
+    if (key.endsWith(":town")) result.add(key.slice(0, -":town".length));
+  }
+  return result;
+};
+
+// §5.4: dormant economicStructure tile keys ("x,y") from a player's
+// dormancy record — the reconnect-path equivalent of
+// Runtime.dormantEconomicStructureKeysForPlayer, checked across all four
+// resource sets since a structure can be dormant on any one of its required
+// resources (e.g. GARRISON_HALL needs both FOOD and CRYSTAL).
+export const dormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
+  const result = new Set<string>();
+  if (!dormancy) return result;
+  const suffix = ":economicStructure";
+  for (const resourceSet of Object.values(dormancy)) {
+    for (const key of resourceSet) {
+      if (key.endsWith(suffix)) result.add(key.slice(0, -suffix.length));
+    }
+  }
+  return result;
+};
+
 export const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
-  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
+  dormancyByPlayer: ReadonlyMap<string, ResourceSlotDormancy>
 ): Map<string, Set<string>> => {
   const cached = fedTownKeysByPlayerCache.get(runtimeState);
   if (cached) return cached;
@@ -266,23 +372,11 @@ export const buildFedTownKeysByPlayer = (
     ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
   }
   for (const player of runtimeState.players) {
-    const availableFood =
-      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
-    let remainingFood = availableFood;
+    const foodDormantTownKeys = foodDormantTownKeysFromDormancy(dormancyByPlayer.get(player.id));
     const fedTownKeys = new Set<string>();
     const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
-    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
     for (const tile of ownedSettledTowns) {
-      const town = parseTown(tile);
-      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
-      if (upkeep <= 0) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        continue;
-      }
-      if (remainingFood + 1e-9 >= upkeep) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        remainingFood = Math.max(0, remainingFood - upkeep);
-      }
+      if (!foodDormantTownKeys.has(keyFor(tile.x, tile.y))) fedTownKeys.add(keyFor(tile.x, tile.y));
     }
     result.set(player.id, fedTownKeys);
   }
@@ -290,9 +384,34 @@ export const buildFedTownKeysByPlayer = (
   return result;
 };
 
+export const buildResourceSlotDormancyByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, ResourceSlotDormancy>> => {
+  const cached = resourceSlotDormancyByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const { settledByOwner, ownedByOwner } = parsedSlotTiles(runtimeState);
+  const result = new Map<string, ResourceSlotDormancy>();
+  let playerIndex = 0;
+  for (const player of runtimeState.players) {
+    if (shouldYieldAt(playerIndex++, 500)) await yieldToEventLoop();
+    const settledTiles = settledByOwner.get(player.id) ?? [];
+    const ownedTiles = ownedByOwner.get(player.id) ?? [];
+    if (ownedTiles.length === 0) {
+      result.set(player.id, emptyResourceSlotDormancy());
+      continue;
+    }
+    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply));
+  }
+  resourceSlotDormancyByPlayerCache.set(runtimeState, result);
+  return result;
+};
+
 export const buildFedTownKeysByPlayerAsync = async (
   runtimeState: RuntimeState,
-  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>,
+  dormancyByPlayer: ReadonlyMap<string, ResourceSlotDormancy>,
   yieldToEventLoop: () => Promise<void>
 ): Promise<Map<string, Set<string>>> => {
   const cached = fedTownKeysByPlayerCache.get(runtimeState);
@@ -308,23 +427,11 @@ export const buildFedTownKeysByPlayerAsync = async (
     ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
   }
   for (const player of runtimeState.players) {
-    const availableFood =
-      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
-    let remainingFood = availableFood;
+    const foodDormantTownKeys = foodDormantTownKeysFromDormancy(dormancyByPlayer.get(player.id));
     const fedTownKeys = new Set<string>();
     const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
-    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
     for (const tile of ownedSettledTowns) {
-      const town = parseTown(tile);
-      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
-      if (upkeep <= 0) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        continue;
-      }
-      if (remainingFood + 1e-9 >= upkeep) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        remainingFood = Math.max(0, remainingFood - upkeep);
-      }
+      if (!foodDormantTownKeys.has(keyFor(tile.x, tile.y))) fedTownKeys.add(keyFor(tile.x, tile.y));
     }
     result.set(player.id, fedTownKeys);
   }

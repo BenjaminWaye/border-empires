@@ -73,7 +73,15 @@ export const hasSupportedStructure = (
   // flips status to active unconditionally), so two Rail Depot builds
   // submitted before either finishes would otherwise both pass validation
   // and leave the network with two permanent depots.
-  includeUnderConstruction = false
+  includeUnderConstruction = false,
+  // §5.4: a dormant structure (slot demand not covered by supply) doesn't
+  // function even though it's still "active" in construction terms — plain
+  // "x,y" tile keys (Runtime.dormantFieldKeysForPlayer("economicStructure")).
+  // Deliberately NOT consulted when includeUnderConstruction is true: that
+  // mode is a uniqueness check (§4.4's "only one Rail Depot per network"),
+  // and dormancy is a transient power state, not a reason to let a second
+  // instance be built.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -83,7 +91,8 @@ export const hasSupportedStructure = (
       if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
       const structure = neighbor.economicStructure;
       if (structure?.ownerId !== playerId || structure.type !== structureType) continue;
-      if (structure.status === "active" || (includeUnderConstruction && structure.status === "under_construction")) return true;
+      if (includeUnderConstruction && structure.status === "under_construction") return true;
+      if (structure.status === "active" && !dormantEconomicStructureKeys.has(`${neighbor.x},${neighbor.y}`)) return true;
     }
   }
   return false;
@@ -104,6 +113,11 @@ type TownConnectivityGroup = {
 export type DockEconomyContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
+  // hasSupportedStructure's matching param. Optional so existing callers
+  // that haven't threaded it through yet default to "nothing dormant"
+  // rather than a hard type error.
+  dormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 export type ConnectedTownNetworkOptions = {
@@ -117,6 +131,12 @@ export type ConnectedTownNetworkOptions = {
   // covering every tile the player owns. A partial set would be recorded as a
   // clean union-find and silently under-report connectivity on later reads.
   incrementalState?: TownConnectivityState;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
+  // hasSupportedStructure's matching param. Applied to Clearing House/
+  // Garrison Hall membership (real bonuses) but NOT to Rail Depot membership
+  // (a uniqueness signal only, via hasRailDepotAt's includeUnderConstruction
+  // mode below).
+  dormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -182,9 +202,11 @@ export const buildConnectedTownNetworkForPlayer = (
     return out;
   }
 
+  const dormantEconomicStructureKeys = options.dormantEconomicStructureKeys ?? new Set<string>();
+
   const hasClearingHouseAt = (townKey: string): boolean => {
     const tile = tiles.get(townKey);
-    return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
+    return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys) : false;
   };
 
   // GARRISON_HALL uses "same_tile" placement (structure-placement-metadata.json),
@@ -197,8 +219,9 @@ export const buildConnectedTownNetworkForPlayer = (
     const onTownTileItself =
       tile.economicStructure?.ownerId === player.id &&
       tile.economicStructure.type === "GARRISON_HALL" &&
-      tile.economicStructure.status === "active";
-    return onTownTileItself || hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles);
+      tile.economicStructure.status === "active" &&
+      !dormantEconomicStructureKeys.has(townKey);
+    return onTownTileItself || hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles, false, dormantEconomicStructureKeys);
   };
 
   // Rail Depot membership is purely a uniqueness signal (feeds
@@ -488,16 +511,20 @@ export const railDepotNetworkGarrisonHallCountForPlayer = (
   playerId: string,
   tiles: ReadonlyMap<string, DomainTileState>,
   townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
-  ownedTownTileKeys: Iterable<string>
+  ownedTownTileKeys: Iterable<string>,
+  // §5.4: a dormant Rail Depot can't amplify anything, and a dormant
+  // same-tile Garrison Hall doesn't contribute its own +1 — see
+  // hasSupportedStructure's matching param.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): number => {
   let total = 0;
   for (const townKey of ownedTownTileKeys) {
     const tile = tiles.get(townKey);
-    if (!tile || !hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles)) continue;
+    if (!tile || !hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, false, dormantEconomicStructureKeys)) continue;
     const entry = townNetwork.get(townKey);
     total +=
       (entry?.connectedGarrisonHallKeys?.length ?? 0) +
-      (hasSupportedStructure(playerId, tile, "GARRISON_HALL", tiles) ? 1 : 0);
+      (hasSupportedStructure(playerId, tile, "GARRISON_HALL", tiles, false, dormantEconomicStructureKeys) ? 1 : 0);
   }
   return total;
 };
@@ -624,7 +651,9 @@ export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1 / 288; // same divisor 
 export const dockSupportedByCustomsHouse = (
   dockTileKey: string,
   playerId: string,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  // §5.4: see hasSupportedStructure's matching param.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
   const [rawX, rawY] = dockTileKey.split(",");
   const cx = Number(rawX);
@@ -633,12 +662,14 @@ export const dockSupportedByCustomsHouse = (
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(keyFor(cx + dx, cy + dy));
+      const neighborKey = keyFor(cx + dx, cy + dy);
+      const neighbor = tiles.get(neighborKey);
       if (
         neighbor?.ownerId === playerId &&
         neighbor.ownershipState === "SETTLED" &&
         neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
-        neighbor.economicStructure.status === "active"
+        neighbor.economicStructure.status === "active" &&
+        !dormantEconomicStructureKeys.has(neighborKey)
       ) {
         return true;
       }
@@ -681,7 +712,8 @@ export const dockBaseGoldPerMinuteForPlayer = (
     dockGoldOutputMultiplierForPlayer(player) *
     (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
   const harborExchangeBonus =
-    context && dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles)
+    context &&
+    dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles, context.dormantEconomicStructureKeys)
       ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
       : 0;
   return base + harborExchangeBonus;

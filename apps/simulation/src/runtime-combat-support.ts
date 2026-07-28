@@ -33,6 +33,10 @@ export type RuntimeCombatSupportContext = {
   tileDeltaRevealOnly: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
+  // §5.4: true when the given structure field is currently unpowered
+  // (its resource demand isn't covered by supply) — a dormant Fort/Siege
+  // Outpost/Wooden Fort doesn't grant its combat bonus.
+  isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure") => boolean;
 };
 
 export type LockedCombatInput = Pick<
@@ -187,18 +191,21 @@ export const originTileHeldByActiveFort = (
   tiles: ReadonlyMap<string, DomainTileState>,
   now: () => number,
   playerId: string,
-  originKey: string
+  originKey: string,
+  isStructureDormant: RuntimeCombatSupportContext["isStructureDormant"] = () => false
 ): boolean => {
   const origin = tiles.get(originKey);
   if (!origin || origin.terrain !== "LAND" || origin.ownerId !== playerId) return false;
   const activeFort =
     origin.fort?.ownerId === playerId &&
     origin.fort.status === "active" &&
-    (origin.fort.disabledUntil ?? 0) <= now();
+    (origin.fort.disabledUntil ?? 0) <= now() &&
+    !isStructureDormant(playerId, originKey, "fort");
   const activeWoodenFort =
     origin.economicStructure?.ownerId === playerId &&
     origin.economicStructure.type === "WOODEN_FORT" &&
-    origin.economicStructure.status === "active";
+    origin.economicStructure.status === "active" &&
+    !isStructureDormant(playerId, originKey, "economicStructure");
   return activeFort || activeWoodenFort;
 };
 
@@ -208,12 +215,17 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   for (const tileKey of summary.territoryTileKeys) {
     const tile = ctx.tiles.get(tileKey);
     if (!tile) continue;
-    if (tile.siegeOutpost?.ownerId === playerId && tile.siegeOutpost.status === "active") {
+    if (
+      tile.siegeOutpost?.ownerId === playerId &&
+      tile.siegeOutpost.status === "active" &&
+      !ctx.isStructureDormant(playerId, tileKey, "siegeOutpost")
+    ) {
       outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
     } else if (
       tile.economicStructure?.ownerId === playerId &&
       tile.economicStructure.type === "LIGHT_OUTPOST" &&
-      tile.economicStructure.status === "active"
+      tile.economicStructure.status === "active" &&
+      !ctx.isStructureDormant(playerId, tileKey, "economicStructure")
     ) {
       outposts.push({ x: tile.x, y: tile.y, variant: "LIGHT_OUTPOST" });
     }
@@ -227,7 +239,13 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const attacker = ctx.players.get(lock.playerId);
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
-  const targetHasActiveFort = Boolean(previousTarget?.fort && previousTarget.fort.status === "active" && previousTarget.fort.ownerId === defenderOwnerId);
+  const targetHasActiveFort = Boolean(
+    previousTarget?.fort &&
+      previousTarget.fort.status === "active" &&
+      previousTarget.fort.ownerId === defenderOwnerId &&
+      defenderOwnerId &&
+      !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
+  );
   const nowMs = ctx.now();
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
@@ -271,7 +289,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       : lock.actionType === "EXPAND"
         ? -lock.manpowerCost
         : 0;
-  const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey);
+  const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey, ctx.isStructureDormant);
   const result: LockedFrontierCombatResult = {
     attackType: lock.actionType,
     attackerWon: combat.attackerWon,
