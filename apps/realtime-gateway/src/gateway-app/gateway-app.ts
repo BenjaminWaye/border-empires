@@ -2538,9 +2538,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const votePayload = preSerializeBroadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: count, threshold: SEASON_START_VOTE_THRESHOLD, votedBy: [...seasonStartVote.getVoters()] });
             for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload);
             if (!thresholdMet) return;
-            seasonStartVote.reset();
             try {
               const result = await simulationClient.startNextSeason(false);
+              seasonStartVote.reset();
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
             } catch (error) {
               recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
