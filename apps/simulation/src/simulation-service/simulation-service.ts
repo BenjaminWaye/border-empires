@@ -2513,7 +2513,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               : undefined;
             // Emit a WELCOME_BACK message showing how much the player earned
             // since their last active session (capped at 12h of accrual).
-            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            // Reuse incomePerMinute already computed for this subscribe's
+            // snapshot instead of triggering a second, synchronous economy
+            // rebuild on the live runtime (see welcomeBackSummary doc comment).
+            const welcomeBack = runtime.welcomeBackSummary(
+              call.request.player_id,
+              Date.now(),
+              snapshotPayload.player?.incomePerMinute
+            );
             const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
               ? toProtoEvent({
                   eventType: "PLAYER_MESSAGE",
