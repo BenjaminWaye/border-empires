@@ -2,6 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared"
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
@@ -1328,7 +1329,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
       state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
-      if (resetIntegrityWarningIfRecovered(state.defensibilityPct)) state.integrityWarningDismissed = false;
+      if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
         state.defensibilityAnimDir = 1;
@@ -1392,6 +1393,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
+      if (msg.seasonStats) state.seasonStats = msg.seasonStats as SeasonStatsView;
       renderHud();
       return;
     }
@@ -2163,7 +2165,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
       const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
       if (stats) {
@@ -2174,7 +2175,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "SURVEY_SWEEP_RESULT") {
       const nowMs = Date.now();
       const pings = surveySweepPingsFromPayload(msg.pings);
@@ -2313,7 +2313,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
+    if (msg.type === "SEASON_START_VOTE_UPDATE") {
+      const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : [];
+      state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount;
+      state.seasonStartVoted = votedBy.includes(state.me);
+      renderHud();
+      return;
+    }
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection
@@ -2816,9 +2822,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        state.seasonStats = undefined;
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
-        state.seasonEndStarting = false;
+        state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
         try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
       }
       state.pendingShardCollect = undefined;

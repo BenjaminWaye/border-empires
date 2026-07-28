@@ -33,6 +33,7 @@ export type RuntimeCombatSupportContext = {
   tileDeltaRevealOnly: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
+  manpowerLossByTileKey: Map<string, number>;
 };
 
 export type LockedCombatInput = Pick<
@@ -262,7 +263,12 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const manpowerDelta = lock.actionType === "ATTACK" ? -attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  const manpowerLoss = lock.actionType === "ATTACK" ? attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  if (manpowerLoss > 0) {
+    const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
+    ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
+  }
+  const manpowerDelta = -manpowerLoss;
   const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey);
   const result: LockedFrontierCombatResult = {
     attackType: lock.actionType,
