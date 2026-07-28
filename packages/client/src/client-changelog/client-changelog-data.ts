@@ -22,14 +22,24 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1785224933362, // 2026.07.28.1
+    createdAt: 1785225359405, // 2026.07.28.2
+    introducedIn: "2026.07.28.2",
+    title: "Fixed: Empire Integrity warning nagged you on every login; added discovery tips",
+    why: "The Empire Integrity dismissal was stored under a single global localStorage key with no per-account scoping, so on a shared browser/device a dismissal from one account could leak onto (or get overwritten by) another account, making the warning reappear even after you'd dismissed it. Separately, new players had no in-game explanation of what towns and resource tiles do or why they're worth capturing.",
+    changes: [
+      "Empire Integrity warning dismissal is now scoped per account, so dismissing it actually keeps it hidden for that login going forward (it still resurfaces after 30 days or once integrity recovers above 90%).",
+      "Added a tip the first time you discover a town, and separate tips for the first Food, Iron, Crystal, and Supply resource tile you discover, each explaining why it's worth capturing.",
+      "Each discovery tip reappears after 30 days/a season if dismissed (same window as Empire Integrity). A \"Don't show tooltips\" checkbox on the tip lets you mute all discovery tips for that same window in one action."
+    ]
+  },
+  {
+    createdAt: 1785215980277, // 2026.07.28.1
     introducedIn: "2026.07.28.1",
     title: "Fixed: hill tiles had no grid square around them in 3D mode",
-    why: "Two stacked bugs. First, tile gridlines shared the exact same vertex buffer as the main terrain mesh, and a hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (the dome tapers to zero before reaching the tile edge by design) — a coplanar depth tie the thin grid line consistently lost. Second, and the bigger one once hills cluster into highland regions: a shared grid corner surrounded entirely by hill tiles (no flat land, no sea touching it) was miscounted as having nothing explored at all, pinning that corner to the deep-sea-floor placeholder height instead of the hill's real surface — breaking gridlines, and anything else anchored to that corner, anywhere deep inside a hill cluster.",
+    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
     changes: [
-      "Tile gridlines now use their own slightly-raised position buffer, fixing the coplanar tie against a hill's outer rim.",
-      "Fixed the underlying corner-height calculation so a grid corner surrounded only by hill tiles no longer falls back to the sea-floor placeholder height.",
-      "Verified against isolated hills, scattered hills, and dense hill clusters (including deep inside a large contiguous highland region) — gridlines are now intact everywhere."
+      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
+      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
     ]
   },
   {
