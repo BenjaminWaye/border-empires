@@ -203,6 +203,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a Storybook story (UI/Discovery Tips) that renders every discovery tip from the source data — copy changes to client-discovery-tips.ts automatically update the story."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.07.28.4",
+    title: "Season-end Misc tab with deadliest tile and longest road",
+    why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
+    changes: [
+      "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
+      "Tracks manpower losses per tile across the entire season."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

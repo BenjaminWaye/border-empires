@@ -1,7 +1,8 @@
-import type { CurrentSeasonSummary, SeasonArchiveRow, SimulationSeasonState } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonStats, SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
+import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 
 type WorldStatus = ReturnType<typeof buildWorldStatusSnapshot>;
 
@@ -29,6 +30,17 @@ const topLongestSurvival = (
     value: Math.max(0, endedAt - startedAt)
   }));
 
+const buildSeasonStats = (seasonState: SimulationSeasonState, runtimeState: RuntimeState, manpowerLossByTileKey?: Map<string, number>): SeasonStats | undefined => {
+  if (seasonState.status !== "ended") return undefined;
+  const mostDeadlyTile = manpowerLossByTileKey ? findMostDeadlyTile(manpowerLossByTileKey) : undefined;
+  const longestRoad = computeLongestRoad(runtimeState.tiles);
+  if (!mostDeadlyTile && !longestRoad) return undefined;
+  return {
+    ...(mostDeadlyTile ? { mostDeadlyTile } : {}),
+    ...(longestRoad ? { longestRoad } : {})
+  };
+};
+
 export const buildCurrentSeasonSummary = ({
   seasonState,
   runtimeState,
@@ -36,7 +48,8 @@ export const buildCurrentSeasonSummary = ({
   updatedAt,
   acceptLatencyP95Ms,
   nonCompetitivePlayerIds,
-  worldStatus: providedWorldStatus
+  worldStatus: providedWorldStatus,
+  manpowerLossByTileKey
 }: {
   seasonState: SimulationSeasonState;
   runtimeState: RuntimeState;
@@ -47,6 +60,7 @@ export const buildCurrentSeasonSummary = ({
   /** Pass an already-built snapshot (e.g. from the caller's own tile scan) to
    *  avoid a redundant O(n_tiles) season-victory scan on the same runtime state. */
   worldStatus?: WorldStatus;
+  manpowerLossByTileKey?: Map<string, number>;
 }): CurrentSeasonSummary => {
   const worldStatus =
     providedWorldStatus ??
@@ -56,6 +70,7 @@ export const buildCurrentSeasonSummary = ({
     });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
   const totalPlayers = worldStatus.leaderboard.overall.length;
+  const seasonStats = buildSeasonStats(seasonState, runtimeState, manpowerLossByTileKey);
 
   return {
     season: seasonState.seasonId,
@@ -67,6 +82,7 @@ export const buildCurrentSeasonSummary = ({
     worldSeed: seasonState.worldSeed,
     rulesetId: seasonState.rulesetId,
     ...(seasonState.winner ? { seasonWinner: seasonState.winner } : {}),
+    ...(seasonStats ? { seasonStats } : {}),
     leaderboard: worldStatus.leaderboard,
     overall: worldStatus.leaderboard.overall,
     byTiles: worldStatus.leaderboard.byTiles,

@@ -463,6 +463,7 @@ export class SimulationRuntime {
   // Deduplicated view of locksByTile keyed by commandId (a lock is stored under TWO tile keys — originKey + targetKey); gives O(1) unique-lock iteration for exportState's activeLocks projection.
   private readonly locksByCommandId = new Map<string, LockRecord>();
   private readonly frontierTilesByOwner = new Map<string, Set<string>>();
+  readonly manpowerLossByTileKey = new Map<string, number>();
   private readonly deltaBuffer = new CommandDeltaBuffer();
   // Part 2: index of fort/town anchors that grant frontier support per owner.
   private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
@@ -1274,7 +1275,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
       emitEvent: (event) => this.emitEvent(event),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      manpowerLossByTileKey: this.manpowerLossByTileKey
     };
   }
 

@@ -1392,6 +1392,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
+      if (msg.seasonStats) state.seasonStats = msg.seasonStats as any;
       renderHud();
       return;
     }
@@ -2816,6 +2817,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        state.seasonStats = undefined;
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false;
