@@ -20,10 +20,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.07.28.1",
+  version: "2026.07.28.2",
   title: "What's New",
-  summary: "Rush-buy lets you finish an in-progress settle or build instantly for gold.",
+  summary: "The economy panel now shows real slot capacity for Food/Iron/Crystal/Supply.",
   entries: [
+    {
+      introducedIn: "2026.07.28.2",
+      title: "Economy panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock numbers",
+      why: "Food, Iron, Crystal, and Supply stopped being stockpiled quantities and became discrete building/town slots several updates ago, but the economy breakdown panel kept showing them with the old stock/cap/income/upkeep flow layout — numbers that no longer meant anything once those resources became slots. Gold is the only resource left that actually works that way now.",
+      changes: [
+        "The Food/Iron/Crystal/Supply cards and detail views now show \"used / available\" slots instead of a stockpile amount, with a clear status (free, fully committed, or no access to this resource yet) instead of a gross/upkeep/net rate.",
+        "The detail view's old \"Income Sources\" column is replaced with \"Occupied by\" for these four resources, listing which structures and towns are using up a slot right now. The Upkeep column (e.g. a synthesizer's gold upkeep) is unchanged.",
+        "Gold keeps its existing stock/cap/income/upkeep display — it's still a real stockpile, not a slot."
+      ]
+    },
     {
       introducedIn: "2026.07.28.1",
       title: "Rush-buy: finish an in-progress settle or build for gold",
