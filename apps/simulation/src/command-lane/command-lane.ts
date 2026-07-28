@@ -18,6 +18,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
+    case "RUSH_BUY":
     case "REMOVE_STRUCTURE":
     case "CANCEL_SIEGE_OUTPOST_BUILD":
     case "CANCEL_CAPTURE":

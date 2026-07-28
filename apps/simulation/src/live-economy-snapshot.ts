@@ -192,7 +192,11 @@ const resourceSlotsForPlayer = (
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
       siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
       economicStructure,
-      town: parseTown(tile),
+      // resourceSlotDemandForPlayer only checks tile.town for truthiness (§5.3's
+      // town-food-slot-demand rule) — it never reads a specific field, so the
+      // wire-parsed Partial<...> from parseTown is safe here despite not
+      // satisfying DomainTileState["town"]'s stricter required-field shape.
+      town: parseTown(tile) as DomainTileState["town"],
       ownerId: tile.ownerId,
       ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
     });

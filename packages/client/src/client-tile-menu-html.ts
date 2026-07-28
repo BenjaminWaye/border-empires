@@ -120,6 +120,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         <div class="tile-progress-meta">
           <span>Remaining</span>
           <strong>${view.progress.remainingLabel}</strong>
+          ${view.progress.rushBuyLabel ? `<button class="tile-progress-rush-buy" type="button" data-progress-action="${view.progress.rushBuyActionId ?? "rush_buy"}" title="Rush-buy: finish now for gold">${view.progress.rushBuyLabel}</button>` : ""}
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         <div class="tile-progress-note">${view.progress.note}</div>

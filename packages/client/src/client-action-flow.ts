@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -906,18 +906,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       settlementProgressForTile: (x, y) => {
         const progress = settlementProgressForTile(x, y);
         if (!progress) return undefined;
+        const remainingMs = Math.max(0, progress.resolvesAt - Date.now());
+        const totalMs = Math.max(1, progress.resolvesAt - progress.startAt);
         return {
           title: "Settlement in progress",
           detail: progress.awaitingServerConfirm
             ? "Settlement timer finished locally. Waiting for server confirmation."
             : "Settling unlocks defense and activates town and resource production.",
-          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, progress.resolvesAt - Date.now())),
+          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(remainingMs),
           progress: progress.awaitingServerConfirm
             ? 1
-            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / Math.max(1, progress.resolvesAt - progress.startAt))),
+            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / totalMs)),
           note: progress.awaitingServerConfirm
             ? "Keeping the tile settled client-side until the server responds."
-            : "This tile is actively settling."
+            : "This tile is actively settling.",
+          // §6.3 rush-buy: hidden once the timer's already elapsed locally
+          // (awaitingServerConfirm) — nothing left to pay to speed up.
+          ...(progress.awaitingServerConfirm
+            ? {}
+            : {
+                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyActionId: "rush_buy" as const
+              })
         };
       },
       queuedSettlementProgressForTile,
