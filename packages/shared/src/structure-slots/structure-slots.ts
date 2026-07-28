@@ -11,7 +11,7 @@
 // `demand = Σ` over resource-consuming structures. No per-tile assignment.
 
 import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
-import type { FortVariant, ResourceType, SiegeOutpostVariant } from "../types.js";
+import type { FortVariant, PopulationTier, ResourceType, SiegeOutpostVariant } from "../types.js";
 
 // Fort/Siege tier-ladder variants (IRON_BASTION, THUNDER_BASTION, SIEGE_TOWER,
 // DREAD_TOWER) aren't part of BuildableStructureType — they're FortVariant/
@@ -154,3 +154,35 @@ export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
 // settledFoodUpkeepMult — plan §23.2) reduce this per-town for specific
 // players; this constant is the base, pre-domain-effect count.
 export const TOWN_FOOD_SLOT_DEMAND = 2;
+
+// Town tier upgrades (UPGRADE_TOWN_TIER) each permanently add +1 FOOD slot
+// demand on top of the base above, reflecting a bigger, better-fed
+// population. SETTLEMENT->TOWN is the free/near-free baseline transition
+// (every town starts here) so SETTLEMENT and TOWN both sit at the base 2;
+// the "one more FOOD slot per upgrade step" the user asked for applies to
+// the manual growth steps beyond that: TOWN->CITY 3; CITY->GREAT_CITY 4;
+// GREAT_CITY->METROPOLIS 5. Decided directly by the user (not derived from
+// the plan doc, which only specified the flat base above before tier
+// scaling existed).
+const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
+  SETTLEMENT: 0,
+  TOWN: 0,
+  CITY: 1,
+  GREAT_CITY: 2,
+  METROPOLIS: 3
+};
+
+export const townFoodSlotDemandForTier = (tier: PopulationTier | undefined): number =>
+  TOWN_FOOD_SLOT_DEMAND + (tier ? TOWN_TIER_FOOD_SLOT_STEP[tier] : 0);
+
+// Gold cost for each UPGRADE_TOWN_TIER step, decided directly by the user:
+// doubling per step, replacing the old FOOD-stockpile lump sum (TIER_UPGRADE_FOOD_COST,
+// server-game-constants.ts — retired now that FOOD has no stockpile, §5.4).
+// Unlike the old cost (which only gated TOWN->CITY/CITY->GREAT_CITY/GREAT_CITY->METROPOLIS,
+// leaving SETTLEMENT->TOWN free), this applies to all four steps uniformly.
+export const TOWN_TIER_UPGRADE_GOLD_COST: Record<Exclude<PopulationTier, "SETTLEMENT">, number> = {
+  TOWN: 20,
+  CITY: 40,
+  GREAT_CITY: 80,
+  METROPOLIS: 160
+};

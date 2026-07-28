@@ -161,7 +161,14 @@ describe("simulation runtime — shared town network cache", () => {
           // Directly 8-adjacent so they're connected the moment both are
           // TOWN-tier-or-higher, with no corridor tiles needed.
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 10 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } }
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
+          // FOOD slot supply: Alpha + Beta already demand 2 FOOD each just by
+          // existing as towns (§5.3), so UPGRADE_TOWN_TIER's free-FOOD-slot
+          // gate (runtime-progression-command-handlers.ts) needs real supply
+          // here, well away from the connectivity graph under test.
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
         ],
         activeLocks: []
       }
@@ -245,7 +252,15 @@ describe("simulation runtime — shared town network cache", () => {
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } }
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } },
+          // FOOD slot supply: Alpha/Mid/Beta already demand 2 FOOD each just
+          // by existing as towns (§5.3), and upgrading Alpha to CITY adds
+          // +1 more — UPGRADE_TOWN_TIER's free-FOOD-slot gate needs real
+          // supply here, well away from the connectivity graph under test.
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
         ],
         activeLocks: []
       }

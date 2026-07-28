@@ -3441,7 +3441,6 @@ export class SimulationRuntime {
       tiles: this.tiles,
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
-      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
@@ -3459,7 +3458,15 @@ export class SimulationRuntime {
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
+      invalidateEconomySnapshot: (playerId) => {
+        this.economySnapshotCacheByPlayer.delete(playerId);
+        // UPGRADE_TOWN_TIER changes the town's FOOD slot demand
+        // (townFoodSlotDemandForTier) — this setTileState path skips
+        // refreshEconomyCachesForTileChange (see its own comment above), so
+        // the resource-slot caches need invalidating here instead.
+        this.resourceSlotDemandCacheByPlayer.delete(playerId);
+        this.resourceSlotDormancyCacheByPlayer.delete(playerId);
+      },
       invalidateTileYieldContext: (playerId) => {
         this.tileYieldContextCacheByPlayer.delete(playerId);
         // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
@@ -3478,7 +3485,9 @@ export class SimulationRuntime {
       },
       clearShardRainExpiry: () => { this.currentShardRainExpiresAt = undefined; },
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
-      onShardCollected: this.onShardCollected
+      onShardCollected: this.onShardCollected,
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
     };
   }
 

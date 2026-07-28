@@ -273,7 +273,7 @@ export interface Tile {
     nextPopulationTierUpgrade?: {
       targetTier: TownGrowthUpgradeTier;
       requiredPopulation: number;
-      foodCost: number;
+      goldCost: number;
       available: boolean;
     };
   };
