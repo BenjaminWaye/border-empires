@@ -7,6 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStartVoteCount: 0, seasonStartVoted: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number }[],
     selfOverall: undefined,
@@ -287,26 +288,19 @@ describe("season-end overlay", () => {
     expect(hudCalled).toBe(true);
   });
 
-  it("starts new season on button click after confirmation", () => {
+  it("sends vote on new season button click", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     let newSeasonStarted = false;
-    const origConfirm = window.confirm;
-    window.confirm = () => true;
-    try {
-      renderSeasonEndOverlay({
-        state: state as any,
-        overlayEl,
-        renderHud: () => {},
-        startNewSeason: () => { newSeasonStarted = true; }
-      });
-      const newSeasonBtn = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
-      newSeasonBtn.click();
-      expect(newSeasonStarted).toBe(true);
-      expect(state.seasonEndStarting).toBe(true);
-    } finally {
-      window.confirm = origConfirm;
-    }
+    renderSeasonEndOverlay({
+      state: state as any,
+      overlayEl,
+      renderHud: () => {},
+      startNewSeason: () => { newSeasonStarted = true; }
+    });
+    const newSeasonBtn = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
+    newSeasonBtn.click();
+    expect(newSeasonStarted).toBe(true);
   });
 
   it("uses state.me as fallback for selfId when leaderboard.selfOverall is missing", () => {
@@ -338,7 +332,7 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const footer = overlayEl.querySelector(".se-scroll-footer") as HTMLElement;
     expect(footer).not.toBeNull();
-    expect(footer!.innerHTML).toContain("Start New Season");
+    expect(footer!.innerHTML).toContain("Vote for New Season");
     expect(footer!.innerHTML).toContain("Look Around");
   });
 
