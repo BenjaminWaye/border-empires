@@ -6153,7 +6153,15 @@ describe("simulation runtime", () => {
           { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
           // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          // §5.4: FOOD supply (FISH gives 2 base slots, §5.3) covering both
+          // AETHER_TOWER's own 1 FOOD slot and the pre-existing seed-world
+          // Nauticus town at (10,10) this suite always merges in (a lone
+          // FARM/town tile supplying 1 against a 2-slot town demand) — a
+          // single FARM tile here would leave that hidden town short and,
+          // via the "newest first, key tie-break" dormancy rule, would
+          // sometimes dormant the tower itself instead.
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
         activeLocks: []
       }
@@ -6225,7 +6233,15 @@ describe("simulation runtime", () => {
       { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
       // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant — a
+      // dormant tower no longer powers isStructurePowered's callers. FISH
+      // (2 base FOOD slots, §5.3) rather than FARM (1) because this suite
+      // always merges in the seed-world Nauticus town at (10,10), whose
+      // own FARM/town tile nets a 1-slot FOOD shortfall on its own — a
+      // single FARM tile here would leave that hidden shortfall in place
+      // and risk the tie-break dormanting the tower instead.
+      { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7653,7 +7669,9 @@ describe("imperial exchange levy", () => {
       },
       // §5.4: CRYSTAL supply so IMPERIAL_EXCHANGE/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7855,7 +7873,9 @@ describe("aether purge", () => {
         },
         // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
         { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
-        { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" }
+        { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+        { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" }
       );
     }
     return new SimulationRuntime({
@@ -7964,7 +7984,9 @@ describe("worldbreaker shot", () => {
       },
       // §5.4: CRYSTAL supply so WORLD_ENGINE/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -8011,6 +8033,8 @@ describe("worldbreaker shot", () => {
       // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
       tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      tiles.push({ x: 55, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" });
     }
     return new SimulationRuntime({
       now: () => 1_000,
