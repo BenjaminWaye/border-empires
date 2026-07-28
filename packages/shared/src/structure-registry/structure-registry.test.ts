@@ -78,7 +78,8 @@ describe("fort cost parity against FORT_TIER_LADDER", () => {
       expect(spec).toBeDefined();
       expect(spec.cost.gold).toBe(tier.gold);
       expect(spec.cost.manpower).toBe(tier.manpower);
-      expect(spec.cost.strategic).toEqual({ IRON: tier.iron });
+      if (tier.iron > 0) expect(spec.cost.strategic).toEqual({ IRON: tier.iron });
+      else expect(spec.cost.strategic).toBeUndefined();
     });
   }
 });

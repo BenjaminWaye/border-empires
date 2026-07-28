@@ -224,6 +224,19 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Tracks manpower losses per tile across the entire season."
     ]
   },
+  {
+    createdAt: 1785252000000, // 2026.07.28.6
+    introducedIn: "2026.07.28.6",
+    title: "Your empire now persists across seasons — name your planet",
+    why: "Season wins previously had no lasting mark on the world. Your victories are now permanent: each win carves out a planet in an ever-growing galaxy, and you get to name it.",
+    changes: [
+      "Winning a season grants you a planet. A 🪐 button appears in the HUD once you own at least one — non-winners see nothing.",
+      "The galaxy panel shows your planet in a starfield. You can christen it with a permanent name (one-time, checked against a content policy).",
+      "Won multiple seasons? The panel shows each of your planets with a switcher row — your most recent win is shown first.",
+      "AI-won seasons appear in the galaxy history as unclaimed frontier — recorded but not owned by anyone.",
+      "Emperor endorsement: at the end of each season the reigning champion can endorse another player within a one-hour window. The endorsed player starts the next campaign with an Imperial Ward bonus.",
+    ],
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
