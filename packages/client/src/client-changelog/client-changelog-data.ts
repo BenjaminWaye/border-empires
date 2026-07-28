@@ -22,13 +22,14 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1785215980277, // 2026.07.28.1
+    createdAt: 1785224933362, // 2026.07.28.1
     introducedIn: "2026.07.28.1",
     title: "Fixed: hill tiles had no grid square around them in 3D mode",
-    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
+    why: "Two stacked bugs. First, tile gridlines shared the exact same vertex buffer as the main terrain mesh, and a hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (the dome tapers to zero before reaching the tile edge by design) — a coplanar depth tie the thin grid line consistently lost. Second, and the bigger one once hills cluster into highland regions: a shared grid corner surrounded entirely by hill tiles (no flat land, no sea touching it) was miscounted as having nothing explored at all, pinning that corner to the deep-sea-floor placeholder height instead of the hill's real surface — breaking gridlines, and anything else anchored to that corner, anywhere deep inside a hill cluster.",
     changes: [
-      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
-      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
+      "Tile gridlines now use their own slightly-raised position buffer, fixing the coplanar tie against a hill's outer rim.",
+      "Fixed the underlying corner-height calculation so a grid corner surrounded only by hill tiles no longer falls back to the sea-floor placeholder height.",
+      "Verified against isolated hills, scattered hills, and dense hill clusters (including deep inside a large contiguous highland region) — gridlines are now intact everywhere."
     ]
   },
   {
