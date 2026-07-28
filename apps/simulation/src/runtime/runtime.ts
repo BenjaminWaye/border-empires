@@ -1021,19 +1021,32 @@ export class SimulationRuntime {
     applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs);
   }
 
+  /**
+   * `goldPerMinuteOverride` lets callers that already computed the player's
+   * income this request (e.g. the login snapshot build) reuse that value
+   * instead of paying a second, synchronous `cachedEconomySnapshot` rebuild
+   * on the live runtime — that rebuild scales with settled-tile count and
+   * was blocking the post-subscribe WS event flush (bootstrap/hydrate/
+   * welcome-back) whenever the per-player cache had just been invalidated
+   * by a recent settle. The result is discarded below 60s of elapsed time
+   * regardless, so we also skip the economy lookup entirely in that case.
+   */
   welcomeBackSummary(
     playerId: string,
-    nowMs: number
+    nowMs: number,
+    goldPerMinuteOverride?: number
   ): { goldEarned: number; elapsedMs: number } {
     const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(playerId);
     if (lastTickAt === undefined) {
       return { goldEarned: 0, elapsedMs: 0 };
     }
     const elapsedMs = Math.max(0, nowMs - lastTickAt);
-    const player = this.players.get(playerId);
-    if (!player) return { goldEarned: 0, elapsedMs };
-    const economy = this.cachedEconomySnapshot(player);
-    const goldPerMinute = economy.incomePerMinute;
+    if (elapsedMs <= 60_000) return { goldEarned: 0, elapsedMs };
+    const goldPerMinute =
+      goldPerMinuteOverride ?? (() => {
+        const player = this.players.get(playerId);
+        return player ? this.cachedEconomySnapshot(player).incomePerMinute : 0;
+      })();
     const goldEarned = goldPerMinute * (elapsedMs / 60_000);
     return { goldEarned: Math.floor(goldEarned), elapsedMs };
   }
