@@ -2,6 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared"
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
@@ -1392,6 +1393,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
+      if (msg.seasonStats) state.seasonStats = msg.seasonStats as SeasonStatsView;
       renderHud();
       return;
     }
@@ -2820,6 +2822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
+        state.seasonStats = undefined;
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;

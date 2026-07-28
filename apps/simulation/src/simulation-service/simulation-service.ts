@@ -1436,7 +1436,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      worldStatus
+      worldStatus,
+      manpowerLossByTileKey: runtime.manpowerLossByTileKey
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1466,7 +1467,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            worldStatus
+            worldStatus,
+            manpowerLossByTileKey: runtime.manpowerLossByTileKey
           })
         : {
             ...baseSummary,
@@ -1526,6 +1528,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         leaderboard: playerLeaderboard,
         seasonVictory,
         ...(seasonWinner ? { seasonWinner } : {}),
+        ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);

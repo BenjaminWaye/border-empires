@@ -204,7 +204,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785215100000, // 2026.07.28.4
     introducedIn: "2026.07.28.4",
     title: "New season now requires 5 players to vote",
     why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
@@ -212,6 +212,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
       "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
       "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.07.28.5",
+    title: "Season-end Misc tab with deadliest tile and longest road",
+    why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
+    changes: [
+      "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
+      "Tracks manpower losses per tile across the entire season."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
