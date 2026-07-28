@@ -54,6 +54,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   adminApiToken?: string;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
+  onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
 };
 
@@ -109,6 +110,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     startNextSeason: async (force?: boolean) => {
       const result = await ctx.simulationClient.startNextSeason(force);
       ctx.alertSeasonStarted?.(result.seasonId, force === true);
+      ctx.onSeasonStarted?.();
       return result;
     },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
