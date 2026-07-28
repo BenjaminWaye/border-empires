@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  createHeightfield,
+  type HeightfieldTerrainKind
+} from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -96,9 +101,49 @@ describe("3d hills rendering regression guard", () => {
     expect(overlaySource).toContain("depthWrite: false,");
   });
 
-  it("surfaceY includes HEIGHTFIELD_HILLS_ELEVATION_BONUS on hill tiles so structures sit above hill domes", () => {
+  it("surfaceY does not double-count HEIGHTFIELD_HILLS_ELEVATION_BONUS on hill tiles", () => {
+    // heightfield.elevationAt() already bakes the hills bonus into a hill
+    // tile's own cached elevation (see sampleTile in
+    // client-map-3d-heightfield.ts). surfaceY used to add the bonus a
+    // second time on top of that, so buildings/farms/towns floated a full
+    // bonus-height above the dome's actual peak instead of resting on it.
     const mapSource = clientSource("../client-map-3d/client-map-3d.ts");
-    expect(mapSource).toContain("HEIGHTFIELD_HILLS_ELEVATION_BONUS");
-    expect(mapSource).toContain("isHillsTile(wx, wy) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0");
+    expect(mapSource).toContain("heightfield.elevationAt(wx, wy)");
+    expect(mapSource).not.toContain("isHillsTile(wx, wy) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0");
+  });
+
+  it("elevationAt carries exactly one hills-bonus above the flat ground corners around an isolated hill tile", () => {
+    const heightfield = createHeightfield();
+    const allGrass = (): HeightfieldTerrainKind => "GRASS";
+    const onlyOriginIsHill = (wx: number, wy: number): boolean => wx === 0 && wy === 0;
+
+    heightfield.rebuild({
+      camX: 0,
+      camY: 0,
+      halfW: 3,
+      halfH: 3,
+      worldWidth: 450,
+      worldHeight: 450,
+      tileKindAt: allGrass,
+      isHillsAt: onlyOriginIsHill
+    });
+
+    const elevCenter = heightfield.elevationAt(0, 0);
+    const cornerMax = Math.max(
+      heightfield.cornerYAt(0, 0),
+      heightfield.cornerYAt(1, 0),
+      heightfield.cornerYAt(0, 1),
+      heightfield.cornerYAt(1, 1)
+    );
+
+    // The corners border real flat grass neighbours, so they carry no
+    // hills bonus (ground level only). elevationAt at the hill tile's own
+    // coordinates should sit almost exactly one bonus-height above that --
+    // not two, which is what the earlier double-count regressed to.
+    const bonusAboveCorners = elevCenter - cornerMax;
+    expect(bonusAboveCorners).toBeGreaterThan(HEIGHTFIELD_HILLS_ELEVATION_BONUS - 0.1);
+    expect(bonusAboveCorners).toBeLessThan(HEIGHTFIELD_HILLS_ELEVATION_BONUS + 0.1);
+
+    heightfield.dispose();
   });
 });

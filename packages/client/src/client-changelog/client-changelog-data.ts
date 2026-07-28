@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785230720833, // 2026.07.28.3
+    introducedIn: "2026.07.28.3",
+    title: "Fixed: farms, towns, and other overlays floated above hills in 3D mode",
+    why: "The 3D renderer's shared surfaceY calculation (used to place buildings, towns, resource icons, and every other tile overlay) already picked up a hill tile's elevation bonus from heightfield.elevationAt(), then added that same bonus a second time for any tile flagged as hills. That doubled the hill's height bump under every overlay on a hill tile, so farms, towns, and resource icons rendered a full bonus-height above the visible hill dome instead of resting on its peak.",
+    changes: [
+      "Removed the duplicate hills-elevation bonus from the 3D overlay placement formula — buildings, farms, towns, and resource icons now sit directly on the hill's surface instead of floating above it."
+    ]
+  },
+  {
     createdAt: 1785225359405, // 2026.07.28.2
     introducedIn: "2026.07.28.2",
     title: "Fixed: Empire Integrity warning nagged you on every login; added discovery tips",
