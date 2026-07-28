@@ -2163,7 +2163,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
       const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
       if (stats) {
@@ -2174,7 +2173,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "SURVEY_SWEEP_RESULT") {
       const nowMs = Date.now();
       const pings = surveySweepPingsFromPayload(msg.pings);
@@ -2313,7 +2311,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
+    if (msg.type === "SEASON_START_VOTE_UPDATE") {
+      const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : [];
+      state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount;
+      state.seasonStartVoted = votedBy.includes(state.me);
+      renderHud();
+      return;
+    }
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection
@@ -2818,7 +2822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonVictory = [];
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
-        state.seasonEndStarting = false;
+        state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
         try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
       }
       state.pendingShardCollect = undefined;
