@@ -32,7 +32,7 @@ export const TRUCE_BREAK_LOCKOUT_MS = 24 * 60 * 60_000;
 export const TRUCE_BREAK_ATTACK_MULT = 0.75;
 export const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 export const PASSIVE_INCOME_MULT = 1.0;
-export const FRONTIER_ACTION_GOLD_COST = 1;
+export const FRONTIER_ACTION_GOLD_COST = 0;
 export const GOLD_COST_EPSILON = 1e-6;
 export const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 export const HARVEST_GOLD_RATE_MULT = 1;
