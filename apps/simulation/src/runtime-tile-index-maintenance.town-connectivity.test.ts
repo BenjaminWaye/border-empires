@@ -21,7 +21,9 @@ const buildInput = () => ({
   townNetworkCacheByPlayer: new Map(),
   townConnectivityStateByPlayer: new Map(),
   defensibilityMetricsCacheByPlayer: new Map(),
-  upkeepAccrualCacheByPlayer: new Map()
+  upkeepAccrualCacheByPlayer: new Map(),
+  economySnapshotDirtyPlayerIds: new Set<string>(),
+  defensibilityMetricsDirtyPlayerIds: new Set<string>()
 });
 
 const cleanStateFor = (input: ReturnType<typeof buildInput>, playerId: string, seededKeys: string[] = []) => {
