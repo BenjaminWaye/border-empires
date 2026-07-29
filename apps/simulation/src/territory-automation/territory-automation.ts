@@ -117,14 +117,26 @@ export const orderedAutoSettlementTileKeys = (
     getTile: (tileKey: string) => DomainTileState | undefined;
     isBlocked: (tileKey: string) => boolean;
     hasTownSupport: (tile: DomainTileState) => boolean;
+    // Optional read-through cache for the (resource || town || dockId ||
+    // hasTownSupport) eligibility result, keyed by tileKey. hasTownSupport is
+    // the dominant per-tile cost (an 8-neighbor scan) and its result rarely
+    // changes between calls, so a caller that knows a rejected/accepted tile
+    // is still valid can skip recomputing it. isBlocked is intentionally NOT
+    // cached here — it's cheap (O(1) map lookups) and genuinely transient
+    // (locks/pending settlements come and go), so it's always checked fresh.
+    eligibilityCache?: { get: (tileKey: string) => boolean | undefined; set: (tileKey: string, eligible: boolean) => void } | undefined;
   }
 ): string[] => {
   const output: string[] = [];
   for (const tileKey of territoryTileKeys) {
     if (deps.isBlocked(tileKey)) continue;
-    const tile = deps.getTile(tileKey);
-    if (!isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport)) continue;
-    output.push(tileKey);
+    let eligible = deps.eligibilityCache?.get(tileKey);
+    if (eligible === undefined) {
+      const tile = deps.getTile(tileKey);
+      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport);
+      deps.eligibilityCache?.set(tileKey, eligible);
+    }
+    if (eligible) output.push(tileKey);
   }
   return output;
 };

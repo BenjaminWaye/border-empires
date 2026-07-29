@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { selectExpansionObjective } from "./ai-expansion-objective.js";
+import { sampleEnemyYieldKeysAcrossPlayers, selectExpansionObjective } from "./ai-expansion-objective.js";
+
+// Convenience matching the pre-2026-07-29 test shape: builds the sampled pool
+// from a plain per-player map, same as buildRuntimePlannerPlayerViews does
+// once per sync batch (not once per player, as it used to).
+const sampled = (byPlayerId: Record<string, string[]>) =>
+  sampleEnemyYieldKeysAcrossPlayers(new Map(Object.entries(byPlayerId).map(([id, keys]) => [id, new Set(keys)])));
 
 describe("selectExpansionObjective", () => {
   it("returns undefined when no beacon tiles exist", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10", "11,10"],
       neutralBeaconTileKeys: new Set(),
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     expect(result).toBeUndefined();
@@ -16,7 +22,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: [],
       neutralBeaconTileKeys: new Set(["5,5"]),
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     expect(result).toBeUndefined();
@@ -28,7 +34,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: new Set(["12,10", "20,20"]),
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 12, y: 10, kind: "neutral_value" });
@@ -39,7 +45,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["0,0", "10,10"],
       neutralBeaconTileKeys: new Set(["12,10"]),
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 12, y: 10, kind: "neutral_value" });
@@ -49,7 +55,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: new Set(["15,10"]),
-      enemyYieldKeysByPlayerId: new Map([["enemy-1", new Set(["13,10"])]]),
+      sampledEnemyYieldKeys: sampled({ "enemy-1": ["13,10"] }),
       playerId: "ai-1"
     });
     // Neutral beacon at (15,10) dist=5; enemy at (13,10) dist=3.
@@ -61,7 +67,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: new Set(),
-      enemyYieldKeysByPlayerId: new Map([["enemy-1", new Set(["13,10"])]]),
+      sampledEnemyYieldKeys: sampled({ "enemy-1": ["13,10"] }),
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 13, y: 10, kind: "enemy" });
@@ -71,10 +77,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: new Set(),
-      enemyYieldKeysByPlayerId: new Map([
-        ["ai-1", new Set(["11,10"])],
-        ["enemy-1", new Set(["15,10"])]
-      ]),
+      sampledEnemyYieldKeys: sampled({ "ai-1": ["11,10"], "enemy-1": ["15,10"] }),
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 15, y: 10, kind: "enemy" });
@@ -84,10 +87,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: new Set(),
-      enemyYieldKeysByPlayerId: new Map([
-        ["barbarian-1", new Set(["11,10"])],
-        ["enemy-1", new Set(["15,10"])]
-      ]),
+      sampledEnemyYieldKeys: sampled({ "barbarian-1": ["11,10"], "enemy-1": ["15,10"] }),
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 15, y: 10, kind: "enemy" });
@@ -105,7 +105,7 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["10,10"],
       neutralBeaconTileKeys: beacons,
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     const elapsed = Date.now() - start;
@@ -122,9 +122,45 @@ describe("selectExpansionObjective", () => {
     const result = selectExpansionObjective({
       territoryTileKeys: ["0,10"],
       neutralBeaconTileKeys: new Set(["448,10", "5,10"]),
-      enemyYieldKeysByPlayerId: new Map(),
+      sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
     expect(result).toEqual({ x: 448, y: 10, kind: "neutral_value" });
   });
+});
+
+describe("sampleEnemyYieldKeysAcrossPlayers", () => {
+  it("excludes barbarians but keeps every other player's tiles, tagged with owner", () => {
+    const result = sampleEnemyYieldKeysAcrossPlayers(new Map([
+      ["ai-1", new Set(["1,1"])],
+      ["ai-2", new Set(["2,2"])],
+      ["barbarian-1", new Set(["3,3"])]
+    ]));
+    expect(result).toEqual(expect.arrayContaining([
+      { key: "1,1", ownerId: "ai-1" },
+      { key: "2,2", ownerId: "ai-2" }
+    ]));
+    expect(result.some((e) => e.ownerId === "barbarian-1")).toBe(false);
+  });
+
+  it(
+    "stride-samples across a large multi-player pool in well under a second " +
+      "(regression: this used to be rebuilt from scratch by every player in a sync batch)",
+    () => {
+      const byPlayerId = new Map<string, Set<string>>();
+      // 20 players x 3000 yield-bearing tiles each = 60,000 total — a
+      // realistic late-game shape (see the ai_export_planner_player_views
+      // production capture this pins).
+      for (let p = 0; p < 20; p++) {
+        const keys = new Set<string>();
+        for (let i = 0; i < 3000; i++) keys.add(`${i % 400},${p * 20 + Math.floor(i / 400)}`);
+        byPlayerId.set(`ai-${p}`, keys);
+      }
+      const start = Date.now();
+      const result = sampleEnemyYieldKeysAcrossPlayers(byPlayerId);
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeLessThan(100);
+      expect(result.length).toBeLessThanOrEqual(300);
+    }
+  );
 });
