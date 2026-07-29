@@ -489,8 +489,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !observatoryProtection &&
             inObsRange &&
             removeCooldown <= 0 &&
-            state.gold >= 8000 &&
-            (state.strategicResources.CRYSTAL ?? 0) >= 400,
+            state.gold >= 8000,
           !hasTerrainShapingCapability(state)
             ? "Requires Aether Moorings"
             : observatoryProtection
@@ -499,10 +498,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Need active observatory in range"
                 : removeCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(removeCooldown)}`
-                  : state.gold < 8000
-                    ? "Need 8000 gold"
-                    : "Need 400 CRYSTAL",
-          "8000 gold + 400 CRYSTAL"
+                  : "Need 8000 gold",
+          "8000 gold • 20m cooldown"
         )
       }
     ];
@@ -524,8 +521,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           inObsRange &&
           !blockedBySite &&
           createCooldown <= 0 &&
-          state.gold >= 8000 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 400,
+          state.gold >= 8000,
         !hasTerrainShapingCapability(state)
           ? "Requires Aether Moorings"
           : observatoryProtection
@@ -536,10 +532,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Town, dock, or structure blocks terrain shaping"
                 : createCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(createCooldown)}`
-                  : state.gold < 8000
-                    ? "Need 8000 gold"
-                    : "Need 400 CRYSTAL",
-        "8000 gold + 400 CRYSTAL"
+                  : "Need 8000 gold",
+        "8000 gold • 20m cooldown"
       )
     };
   };
@@ -617,7 +611,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     if (state.techIds.includes("signal-fires")) {
       const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
       const lanceCost = 3000;
-      const lanceCrystal = 100;
       const reason =
         !obsInRange
           ? "Need active observatory in range"
@@ -631,13 +624,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
                   : state.gold < lanceCost
                     ? `Need ${lanceCost} gold`
-                    : crystalAmt < lanceCrystal
-                      ? `Need ${lanceCrystal} CRYSTAL`
-                      : "";
+                    : "";
       out.push({
         id: "aether_lance",
         label: "Aether Purge",
-        ...tileActionAvailability(reason === "", reason, "3000 gold + 100 CRYSTAL • turn enemy control neutral")
+        ...tileActionAvailability(reason === "", reason, "3000 gold • turn enemy control neutral • 10m cooldown")
       });
     }
 
@@ -676,20 +667,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     if (hasAetherWallCapability(state)) {
       const devOverride = hasLocalDevAetherWallOverride(state);
       const wallCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_wall"));
-      const wallCrystal = 25;
       const reason = devOverride
         ? ""
         : !obsInRange
           ? "Need active observatory in range"
           : wallCooldown > 0
             ? `Cooldown ${deps.formatCooldownShort(wallCooldown)}`
-            : crystalAmt < wallCrystal
-              ? `Need ${wallCrystal} CRYSTAL`
-              : "";
+            : "";
       out.push({
         id: "aether_wall",
         label: "Aether Wall",
-        ...tileActionAvailability(reason === "", reason, "25 CRYSTAL • 20m duration • up to 3 borders")
+        ...tileActionAvailability(reason === "", reason, "Free • 20m duration • up to 3 borders • 8m cooldown")
       });
     }
 
@@ -703,7 +691,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         deps.terrainAt(tile.x - 1, tile.y)
       ];
       const hasSeaNeighbor = adjacentTerrains.some((t) => t === "SEA" || t === "COASTAL_SEA");
-      const bridgeCrystal = 30;
       const reason =
         !obsInRange
           ? "Need active observatory in range"
@@ -713,13 +700,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               ? "Landing blocked by enemy observatory"
               : bridgeCooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(bridgeCooldown)}`
-                : crystalAmt < bridgeCrystal
-                  ? `Need ${bridgeCrystal} CRYSTAL`
-                  : "";
+                : "";
       out.push({
         id: "aether_bridge",
         label: "Aether Bridge",
-        ...tileActionAvailability(reason === "", reason, "30 CRYSTAL • crosses up to 4 sea tiles")
+        ...tileActionAvailability(reason === "", reason, "Free • crosses up to 4 sea tiles • 30m cooldown")
       });
     }
 
@@ -811,13 +796,13 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "survey_sweep",
         label: "Survey Sweep",
         ...tileActionAvailability(
-          state.techIds.includes("surveying") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+          state.techIds.includes("surveying") && cooldown <= 0,
           !state.techIds.includes("surveying")
             ? "Requires Surveying"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-              : "Need 30 CRYSTAL",
-          "30 CRYSTAL • pings hidden resources + towns in a 50x50 area"
+              : "",
+          "Free • pings hidden resources + towns in a 50x50 area • 12m cooldown"
         )
       });
     }
@@ -849,15 +834,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "world_engine_strike",
         label: "Worldbreaker Shot",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 400,
+          economicStructure.status === "active" && isPowered && cooldown <= 0 && state.gold >= 15_000,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : "Need 400 CRYSTAL",
-          "400 CRYSTAL • shatter one enemy land tile into mountain"
+                : state.gold < 15_000
+                  ? "Need 15,000 gold"
+                  : "",
+          "15,000 gold • shatter one enemy land tile into mountain • 60m cooldown"
         )
       });
     }
@@ -868,15 +855,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "aegis_lock",
         label: "Aegis Lock",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 220,
+          economicStructure.status === "active" && isPowered && cooldown <= 0,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : "Need 220 CRYSTAL",
-          "220 CRYSTAL • 15m regional lockdown"
+                : "",
+          "Free • 15m regional lockdown • 60m cooldown"
         )
       });
     }
@@ -887,15 +874,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "astral_dock_launch",
         label: "Launch Satellite",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 300,
+          economicStructure.status === "active" && isPowered && cooldown <= 0,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : "Need 300 CRYSTAL",
-          "300 CRYSTAL • full-map vision for 24h"
+                : "",
+          "Free • full-map vision for 24h • 90m cooldown"
         )
       });
     }
@@ -908,7 +895,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Sky Dock Bombard",
         ...tileActionAvailability(
           economicStructure.status === "active" && isPowered && !bombardOnCooldown
-            && (state.strategicResources.CRYSTAL ?? 0) >= 200
             && (state.gold ?? 0) >= 5_000,
           economicStructure.status !== "active"
             ? "Sky Dock still building"
@@ -916,10 +902,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               ? "Needs nearby Aether Tower"
               : bombardOnCooldown
                 ? `Cooldown ${deps.formatCooldownShort(Math.max(0, bombardCooldownUntil - Date.now()))}`
-                : (state.strategicResources.CRYSTAL ?? 0) < 200
-                  ? "Need 200 CRYSTAL"
-                  : "Need 5,000 gold",
-          "200 CRYSTAL + 5,000 gold • 20m cooldown • strip ownership from 3×3 (per-tile miss, +25% near forts)"
+                : "Need 5,000 gold",
+          "5,000 gold • 20m cooldown • strip ownership from 3×3 (per-tile miss, +25% near forts)"
         )
       });
     }
@@ -2226,18 +2210,16 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "24h")
       });
     }
-    const revealCost = 20;
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);
     const hasCapability = hasRevealCapability(state);
     const hasCapacity = state.revealCapacity > 0 && state.activeRevealTargets.length < 1;
-    const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= revealCost;
     out.push({
       id: "reveal_empire",
       label: revealActive ? "Cancel Reveal Empire" : "Reveal Empire",
       ...tileActionAvailability(
-        revealActive || (hasCapability && hasCapacity && hasCrystal),
-        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Beacon Towers" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
-        revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
+        revealActive || (hasCapability && hasCapacity),
+        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Beacon Towers" : !hasCapacity ? "Reveal capacity full" : "",
+        revealActive ? "Cancel current reveal" : "Free • toggle, no cooldown"
       )
     });
     const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
@@ -2248,16 +2230,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       ...tileActionAvailability(
         hasRevealCapability(state) &&
           !revealActive &&
-          revealStatsCooldown <= 0 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 15,
+          revealStatsCooldown <= 0,
         !hasRevealCapability(state)
           ? "Requires Logistics"
           : revealActive
             ? "Cancel reveal first"
             : revealStatsCooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(revealStatsCooldown)}`
-              : "Need 15 CRYSTAL",
-        "15 CRYSTAL • one-shot empire intel"
+              : "",
+        "Free • one-shot empire intel • 5m cooldown"
       )
     });
     const sabotageCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("siphon"));
@@ -2268,7 +2249,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         hasSiphonCapability(state) &&
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 15 &&
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSiphonCapability(state)
@@ -2281,8 +2261,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Town or resource only"
                 : sabotageCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
-                  : "Need 15 CRYSTAL",
-        "15 CRYSTAL • siphons a 3x3 for 60m"
+                  : "",
+        "Free • siphons a 3x3 for 60m • 10m cooldown"
       )
     });
   }

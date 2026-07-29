@@ -2,23 +2,18 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   AEGIS_LOCK_COOLDOWN_MS,
-  AEGIS_LOCK_CRYSTAL_COST,
   AEGIS_LOCK_DURATION_MS,
   AIRPORT_BOMBARD_BASE_MISS_CHANCE,
   AIRPORT_BOMBARD_COOLDOWN_MS,
-  AIRPORT_BOMBARD_CRYSTAL_COST,
   AIRPORT_BOMBARD_FORT_MISS_BONUS,
   AIRPORT_BOMBARD_GOLD_COST,
   AIRPORT_BOMBARD_MAX_MISS_CHANCE,
   AIRPORT_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
-  ASTRAL_DOCK_LAUNCH_CRYSTAL_COST,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
   TERRAIN_SHAPING_COOLDOWN_MS,
-  TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
-  WORLD_ENGINE_STRIKE_CRYSTAL_COST,
   WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
 } from "@border-empires/game-domain";
@@ -118,8 +113,8 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST || !context.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "insufficient resources for create mountain");
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
+    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "insufficient gold for create mountain");
     return;
   }
   actor.points -= TERRAIN_SHAPING_GOLD_COST;
@@ -169,8 +164,8 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST || !context.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "insufficient resources for remove mountain");
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
+    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "insufficient gold for remove mountain");
     return;
   }
   actor.points -= TERRAIN_SHAPING_GOLD_COST;
@@ -232,10 +227,6 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient CRYSTAL for bombardment");
     return;
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
@@ -353,10 +344,6 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient CRYSTAL");
-    return;
-  }
   actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;
   const target = context.tiles.get(targetKey);
   if (target) {
@@ -426,10 +413,6 @@ export function handleAegisLockCommand(context: RuntimeMapCommandContext, comman
     rejectCommand(context, command, "AEGIS_LOCK_INVALID", "ability on cooldown");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AEGIS_LOCK_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "insufficient CRYSTAL");
-    return;
-  }
   context.setAbilityCooldownUntil(actor.id, AEGIS_LOCK_ACTIVE_UNTIL_KEY, now + AEGIS_LOCK_DURATION_MS);
   context.setAbilityCooldownUntil(actor.id, "aegis_lock", now + AEGIS_LOCK_COOLDOWN_MS);
   context.emitPlayerMessage(command, {
@@ -471,10 +454,6 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
   const now = context.now();
   if (context.getAbilityCooldownUntil(actor.id, "astral_dock_launch") > now) {
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", ASTRAL_DOCK_LAUNCH_CRYSTAL_COST)) {
-    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "insufficient CRYSTAL");
     return;
   }
   context.setAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY, now + ASTRAL_DOCK_LAUNCH_DURATION_MS);

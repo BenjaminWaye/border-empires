@@ -2,19 +2,13 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
-  AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_LANCE_COOLDOWN_MS,
-  AETHER_LANCE_CRYSTAL_COST,
   AETHER_LANCE_GOLD_COST,
   AETHER_WALL_COOLDOWN_MS,
-  AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
-  REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
-  REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   SURVEY_SWEEP_COOLDOWN_MS,
-  SURVEY_SWEEP_CRYSTAL_COST,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
@@ -164,10 +158,6 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
       rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "only one revealed empire allowed");
       return;
     }
-    if (!context.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_ACTIVATION_COST)) {
-      rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "insufficient crystal to activate reveal");
-      return;
-    }
     reveals.clear();
     reveals.add(payload.targetPlayerId);
   }
@@ -199,10 +189,6 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
   const revealObservatoryKey = context.pickReadyOwnedObservatoryAny(actor.id, revealNow);
   if (!revealObservatoryKey) {
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "no ready observatory available");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
-    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "insufficient CRYSTAL for empire stats reveal");
     return;
   }
   context.stampObservatoryCooldown(
@@ -251,10 +237,6 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
   }
   if (context.isStructureDormant(actor.id, observatoryKey, "observatory")) {
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory has no free resource slot");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "insufficient CRYSTAL for survey sweep");
     return;
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
@@ -315,10 +297,6 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "insufficient gold for aether purge");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "insufficient CRYSTAL for aether purge");
-    return;
-  }
   actor.points -= AETHER_LANCE_GOLD_COST;
   context.stampObservatoryCooldown(
     lanceObservatoryKey,
@@ -374,10 +352,6 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   const bridgeObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, bridgeNow);
   if (!bridgeObservatoryKey) {
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no ready observatory in range");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "insufficient CRYSTAL for aether bridge");
     return;
   }
   context.stampObservatoryCooldown(
@@ -438,10 +412,6 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
       rejectCommand(context, command, "AETHER_WALL_INVALID", "that border already has an aether wall");
       return;
     }
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_WALL_INVALID", "insufficient CRYSTAL for aether wall");
-    return;
   }
   context.stampObservatoryCooldown(
     wallObservatoryKey,

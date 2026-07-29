@@ -99,7 +99,8 @@ describe("survey sweep", () => {
     const observatory = observatoryTile?.observatoryJson
       ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
       : undefined;
-    expect(player?.strategicResources.CRYSTAL).toBe(70);
+    // §17: Survey Sweep no longer costs CRYSTAL.
+    expect(player?.strategicResources.CRYSTAL).toBe(100);
     expect(observatory?.cooldownUntil).toBe(721_000);
   });
 });
