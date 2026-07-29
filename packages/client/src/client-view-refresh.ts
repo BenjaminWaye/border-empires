@@ -12,6 +12,17 @@ export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "z
   storageSet(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom }));
 };
 
+// Removes the persisted camera location so the next page load starts at the
+// default position instead of restoring stale coordinates from a previous
+// season. Called on SEASON_ROLLOVER so the player doesn't land on darkness.
+export const clearCameraLocation = (): void => {
+  try {
+    window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
+
 const CAMERA_SAVE_THROTTLE_MS = 1_000;
 // Module-local throttle timer, not ClientState — this is a pure
 // implementation detail of maybeSaveCameraLocation()'s debounce, not

@@ -37,8 +37,7 @@ export type OptimisticStructureKind =
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE"
-  | "AEGIS_DOME";
+  | "WORLD_ENGINE" | "AEGIS_DOME";
 
 export type TileUpkeepEntry = {
   label: string;
@@ -66,10 +65,7 @@ export type Tile = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  // Set true when a town payload arrived but failed the renderable gate
-  // (population missing or below MIN_RENDERABLE_TOWN_POPULATION). The
-  // overview pane keys its spinner state off this — not off townType
-  // presence, which can be set independently by tile-shell updates.
+  // Set true when a town payload arrived but failed the renderable gate (population missing or below MIN_RENDERABLE_TOWN_POPULATION); the overview pane keys its spinner state off this, not townType presence.
   townDataPartial?: boolean;
   dock?: {
     baseGoldPerMinute: number;
@@ -86,6 +82,8 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
+  // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";
@@ -503,6 +501,11 @@ export type SeasonWinnerView = {
   objectiveName: string;
 };
 
+export type SeasonStatsView = {
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
+};
+
 export type MissionState = {
   id: string;
   name: string;
@@ -670,6 +673,7 @@ export type TileMenuProgressView = {
   // charge, this is a preview only.
   rushBuyLabel?: string;
   rushBuyActionId?: "rush_buy";
+  queueState?: "planned" | "queued" | "active"; // planned = client-local wishlist; queued = server-confirmed & durable
 };
 
 export type TileOverviewLine = {

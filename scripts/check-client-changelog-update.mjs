@@ -6,11 +6,11 @@ import { resolve } from "node:path";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const changelogPath = "packages/client/src/client-changelog/client-changelog.ts";
-// Release entry data (including the version string checked below) lives in
-// client-changelog-data.ts, split out from client-changelog.ts to keep that
-// file under the repo's 500-line cap. Either file counts as "the changelog
-// was updated" for the presence check, but the version bump is always read
-// from the data file since that's where `version:` actually lives now.
+// Release entry data lives in client-changelog-data.ts, split out from
+// client-changelog.ts to keep that file under the repo's 500-line cap.
+// Entries are timestamped and unordered (no shared version field to bump),
+// so the only thing this check enforces is that a new entry with a fresh
+// createdAt was actually added, not just that either file was touched.
 const changelogDataPath = "packages/client/src/client-changelog/client-changelog-data.ts";
 const relevantRoots = ["packages/client/src/", "packages/shared/src/"];
 
@@ -66,20 +66,17 @@ if (!changedFiles.has(changelogPath) && !changedFiles.has(changelogDataPath)) {
   process.exit(1);
 }
 
-const extractVersion = (source) => {
-  const match = source.match(/version:\s*"([^"]+)"/);
-  if (!match) throw new Error("Could not find changelog release version.");
-  return match[1];
-};
+const extractCreatedAtTimestamps = (source) => new Set([...source.matchAll(/createdAt:\s*(\d+)/g)].map((match) => match[1]));
 
 const currentSource = readFileSync(resolve(repoRoot, changelogDataPath), "utf8");
-const currentVersion = extractVersion(currentSource);
+const currentTimestamps = extractCreatedAtTimestamps(currentSource);
 const previousSource = mergeBase ? optionalGit(["show", `${mergeBase}:${changelogDataPath}`]) : "";
-const previousVersion = previousSource ? extractVersion(previousSource) : "";
+const previousTimestamps = previousSource ? extractCreatedAtTimestamps(previousSource) : new Set();
 
-if (previousVersion && currentVersion === previousVersion) {
+const addedTimestamps = [...currentTimestamps].filter((timestamp) => !previousTimestamps.has(timestamp));
+
+if (previousSource && addedTimestamps.length === 0) {
   console.error("Client changelog check failed.");
-  console.error(`${changelogDataPath} changed, but the release version was not bumped.`);
-  console.error(`Current release version: ${currentVersion}`);
+  console.error(`${changelogDataPath} changed, but no new entry (new createdAt timestamp) was added.`);
   process.exit(1);
 }

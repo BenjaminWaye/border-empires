@@ -250,6 +250,12 @@ export type CurrentSeasonSummary = {
   totalPlayers: number;
   townCount: number;
   updatedAt: number;
+  seasonStats?: SeasonStats;
+};
+
+export type SeasonStats = {
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
 };
 
 export type SeasonArchiveRow = {
@@ -357,6 +363,7 @@ export type PlayerSubscriptionSnapshot = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    watchtowerJson?: string | undefined;
     musterJson?: string | undefined;
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;

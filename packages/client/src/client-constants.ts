@@ -7,8 +7,8 @@ import {
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
   SETTLE_MANPOWER_COST,
   SETTLE_MS,
-  grassShadeAt,
-  landBiomeAt
+  isForestTileAt,
+  isHillsTileAt
 } from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
@@ -76,14 +76,15 @@ export const guideSteps: GuideStep[] = [
 ];
 
 export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
-export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 10;
+export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 20;
 
 export const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
 export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
 export const formatManpowerAmount = (manpower: number): string => manpower.toFixed(0);
 
-export const isForestTile = (x: number, y: number): boolean => landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
+export const isForestTile = isForestTileAt;
+export const isHillsTile = isHillsTileAt;
 
 export const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 4 : FRONTIER_CLAIM_MS);
 export const settleDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? SETTLE_MS * 2 : SETTLE_MS);

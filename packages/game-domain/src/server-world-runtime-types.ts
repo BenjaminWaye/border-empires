@@ -22,7 +22,8 @@ import type {
   ShardSiteState,
   StrategicResource,
   TerrainShapeState,
-  TownDefinition
+  TownDefinition,
+  WatchtowerSiteState
 } from "./server-shared-types.js";
 
 export type ClusterTypeDefinition = {
@@ -173,6 +174,23 @@ export interface ServerWorldgenShardsRuntime {
   maybeSpawnScheduledShardRain: () => void;
   expireShardSites: () => void;
   collectShardSite: (player: Player, x: number, y: number) => { ok: boolean; amount?: number; reason?: string };
+}
+
+export interface ServerWorldgenWatchtowersDeps {
+  seeded01: (x: number, y: number, seed: number) => number;
+  watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
+  WORLD_WIDTH: number;
+  WORLD_HEIGHT: number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  key: (x: number, y: number) => TileKey;
+  docksByTile: Map<TileKey, Dock>;
+  clusterByTile: Map<TileKey, string>;
+  townsByTile: Map<TileKey, TownDefinition>;
+}
+
+export interface ServerWorldgenWatchtowersRuntime {
+  generateWatchtowers: (seed: number) => void;
+  canPlaceWatchtowerAt: (x: number, y: number) => boolean;
 }
 
 export interface ServerWorldgenTerrainDeps {

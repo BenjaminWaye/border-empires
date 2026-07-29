@@ -76,7 +76,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     maybeRefreshForCamera,
     shouldPreserveOptimisticExpandByKey,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     dockOverlayVariants,
@@ -191,7 +191,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isMobile
   });
 
-  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
+  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;
   [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) => mount({ firebaseAuth, wsUrl }));
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
@@ -492,7 +492,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
@@ -561,7 +561,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     crystalTargetingTone: actionFlow.crystalTargetingTone,
     startingExpansionArrowTargets: originSelection.startingExpansionArrowTargets,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     // The 3D dock overlay supersedes the SVG dock icons when the true-3D
@@ -627,7 +627,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
-    reconcileActionQueue: actionFlow.reconcileActionQueue,
+    reconcileActionQueue: actionFlow.reconcileActionQueue, processPendingMusterAttacks: actionFlow.processPendingMusterAttacks,
     sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
       ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
     isPlacementValidForTile: actionFlow.isPlacementValidForTile

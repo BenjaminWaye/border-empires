@@ -6183,6 +6183,11 @@ button:disabled,
 .se-btn-secondary:hover { filter: brightness(1.12); border-color: rgba(201, 162, 75, 0.7); }
 .se-fineprint { text-align: center; margin: 12px 0 2px; font-size: 11px; color: rgba(236, 220, 180, 0.5); }
 .se-fineprint strong { color: var(--se-copper); }
+.se-misc-items { display: flex; flex-direction: column; gap: 10px; }
+.se-misc-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(201, 162, 75, 0.15); }
+.se-misc-label { font-size: 13px; color: var(--se-brass-hi); font-weight: 700; white-space: nowrap; }
+.se-misc-value { font-size: 14px; color: var(--se-parch); text-align: right; }
+.se-misc-value strong { color: var(--se-copper); }
 
 @media (max-width: 560px) {
   #season-end-overlay { padding: 8px; }

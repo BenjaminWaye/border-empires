@@ -24,6 +24,7 @@ type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 type BuildOptions = {
   includeWorldStatus?: boolean;
   fullVisibility?: boolean;
+  tilesAlreadyVisible?: boolean;
   sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
   worldStatusRuntimeState?: RuntimeState;
   seasonState?: PlayerSubscriptionSnapshot["season"];
@@ -112,7 +113,7 @@ export const buildPlayerSubscriptionSnapshot = (
   };
 
   const tiles =
-    options?.fullVisibility === true
+    options?.fullVisibility === true || options?.tilesAlreadyVisible === true
       ? sourceTiles
       : (() => {
           const visibleKeys = new Set<string>();

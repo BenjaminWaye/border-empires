@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { createInitialState } from "../client-state/client-state.js";
+import { CAMERA_LOCATION_STORAGE_KEY } from "../client-constants.js";
 
 // Regression coverage for a real bug report: "location is not persisted".
 // Root cause: this INIT handler unconditionally snapped the camera to the
@@ -123,5 +124,97 @@ describe("INIT camera-restore regression", () => {
 
     expect(state.camX).toBe(40);
     expect(state.camY).toBe(40);
+  });
+
+  it("does not re-snap the camera to the home tile on a second INIT from an in-place reconnect", () => {
+    // In-place reconnect (client-multiplex-websocket.ts reconnect()) can now
+    // deliver a second INIT within the same browser session. Before this
+    // guard (isFirstInitThisSession), cameraRestoredFromStorage is already
+    // consumed to false by the first CHUNK batch (client-network.ts:~980),
+    // so a naive reconnect would find the flag false and snap back to the
+    // home tile, discarding wherever the player had moved the camera.
+    const state = createState();
+    state.cameraRestoredFromStorage = false;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+
+    // Player pans away, then the socket reconnects and a second INIT arrives.
+    state.camX = 900;
+    state.camY = -200;
+    sendInit(ws);
+
+    expect(state.camX).toBe(900);
+    expect(state.camY).toBe(-200);
+  });
+});
+
+// Regression: when a player returns after a season has rolled over, the stored
+// camera location from the old season should be discarded and the camera
+// centered on the home tile — otherwise they see darkness.
+let storage: Map<string, string>;
+
+const sendInitWithSeason = (ws: FakeWebSocket, seasonId: string): void => {
+  ws.emit("message", {
+    data: JSON.stringify({
+      type: "INIT",
+      player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 40, y: 40 } },
+      config: { season: { seasonId, worldSeed: 12345 } },
+      recovery: { nextClientSeq: 1, pendingCommands: [] }
+    })
+  });
+};
+
+describe("INIT clears stale camera on season change", () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    storage = new Map<string, string>();
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key)
+      }
+    });
+  });
+
+  it("clears persisted camera and centers on home tile when season changed", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+
+    const state = createState();
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+    state.bridgeDebugSeasonId = "season-1";
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInitWithSeason(ws, "season-2");
+
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(false);
+    expect(state.cameraRestoredFromStorage).toBe(false);
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+  });
+
+  it("preserves camera when season has not changed", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+
+    const state = createState();
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+    state.bridgeDebugSeasonId = "season-1";
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInitWithSeason(ws, "season-1");
+
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(true);
+    expect(state.camX).toBe(500);
+    expect(state.camY).toBe(300);
   });
 });

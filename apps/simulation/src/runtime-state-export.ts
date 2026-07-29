@@ -365,6 +365,14 @@ type PlannerExportInput = {
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   expansionObjectiveCacheByPlayer: ExpansionObjectiveCache;
   musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  // Instrumentation only (2026-07-29 login-stall investigation): a single-player
+  // exportPlannerPlayerViews call was clocked at 6.6s in staging with no GC
+  // pause to explain it, but every piece here reads as O(1)/bounded on
+  // inspection. Wrapping the two candidates that have a "first access / cache
+  // miss" full-rebuild branch (tile-key cache init, expansion objective) lets
+  // the next event_loop_blocked capture attribute the real cost precisely
+  // instead of guessing further from source alone.
+  trackSync?: <T>(phase: string, details: Record<string, string | number> | undefined, task: () => T) => T;
 };
 
 export function buildRuntimePlannerWorldView(input: PlannerExportInput): PlannerWorldView {
@@ -381,93 +389,79 @@ export function buildRuntimePlannerWorldView(input: PlannerExportInput): Planner
 }
 
 export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): PlannerPlayerView[] {
+  const track = <T>(phase: string, playerId: string, task: () => T): T =>
+    input.trackSync ? input.trackSync(phase, { playerId }, task) : task();
   const lockPlayerIds = input.plannerGatingLockPlayerIds();
   const players: PlannerPlayerView[] = [];
-  const diagTotalStart = Date.now();
-  // Per-player breakdown collected for slow-export diagnostic (threshold 200ms).
-  const diagBreakdowns: string[] = [];
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
-    const dt0 = Date.now();
     input.refreshManpowerOnly(player);
-    const dt1 = Date.now();
     const summary = input.summaryForPlayer(playerId);
-    const dt2 = Date.now();
-    const tileKeys = input.plannerPlayerTileKeys(playerId, summary);
-    const dt3 = Date.now();
+    const tileKeys = track("planner_view_tile_keys", playerId, () => input.plannerPlayerTileKeys(playerId, summary));
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
     // At steady state this is a pure integer compare — 0 work.
     const cached = input.expansionObjectiveCacheByPlayer.get(playerId);
     let expansionObjective: ExpansionObjective | undefined;
-    let objectiveCacheHit = false;
     if (
       cached &&
       cached.topologyVersion === tileKeys.topologyVersion &&
       cached.beaconGeneration === input.beaconGeneration
     ) {
       expansionObjective = cached.objective;
-      objectiveCacheHit = true;
     } else {
-      expansionObjective = selectExpansionObjective({
-        territoryTileKeys: summary.territoryTileKeys,
-        neutralBeaconTileKeys: input.neutralBeaconTileKeys,
-        enemyYieldKeysByPlayerId: input.yieldBearingTilesByOwner,
-        playerId
-      });
+      expansionObjective = track("planner_view_expansion_objective", playerId, () =>
+        selectExpansionObjective({
+          territoryTileKeys: summary.territoryTileKeys,
+          neutralBeaconTileKeys: input.neutralBeaconTileKeys,
+          enemyYieldKeysByPlayerId: input.yieldBearingTilesByOwner,
+          playerId
+        }));
       input.expansionObjectiveCacheByPlayer.set(playerId, {
         topologyVersion: tileKeys.topologyVersion,
         beaconGeneration: input.beaconGeneration,
         objective: expansionObjective
       });
     }
-    const dt4 = Date.now();
-    diagBreakdowns.push(
-      `${playerId}:refresh=${dt1 - dt0},summary=${dt2 - dt1},tileKeys=${dt3 - dt2},obj=${dt4 - dt3}(${objectiveCacheHit ? "hit" : "miss"}),tot=${dt4 - dt0}`
-    );
 
     const ownedTileCount = tileKeys.territoryTileKeys.length;
     const frontierTileCount = tileKeys.frontierTileKeys.length;
 
-    players.push({
-      id: player.id,
-      points: player.points,
-      manpower: player.manpower,
-      techIds: [...player.techIds].sort(),
-      domainIds: [...(player.domainIds ?? [])].sort(),
-      strategicResources: { ...(player.strategicResources ?? {}) },
-      settledTileCount: summary.settledTileCount,
-      townCount: summary.townCount,
-      incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
-      tileCollectionVersion: tileKeys.tileCollectionVersion,
-      topologyVersion: tileKeys.topologyVersion,
-      topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
-      hasActiveLock: lockPlayerIds.has(player.id),
-      territoryTileKeys: tileKeys.territoryTileKeys,
-      frontierTileKeys: tileKeys.frontierTileKeys,
-      hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
-      strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
-      buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
-      pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
-      // Small (tens of tiles), safe to spread fresh every sync unlike the
-      // territory-sized key sets above, which is why this bypasses the
-      // incremental planner-tile-keys-cache machinery entirely.
-      townTileKeys: [...summary.ownedTownTierByTile.keys()],
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
-      ...(expansionObjective ? { expansionObjective } : {}),
-      activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
-      musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
-      ownedTileCount,
-      frontierTileCount
+    track("planner_view_push", playerId, () => {
+      players.push({
+        id: player.id,
+        points: player.points,
+        manpower: player.manpower,
+        techIds: [...player.techIds].sort(),
+        domainIds: [...(player.domainIds ?? [])].sort(),
+        strategicResources: { ...(player.strategicResources ?? {}) },
+        settledTileCount: summary.settledTileCount,
+        townCount: summary.townCount,
+        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
+        tileCollectionVersion: tileKeys.tileCollectionVersion,
+        topologyVersion: tileKeys.topologyVersion,
+        topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
+        hasActiveLock: lockPlayerIds.has(player.id),
+        territoryTileKeys: tileKeys.territoryTileKeys,
+        frontierTileKeys: tileKeys.frontierTileKeys,
+        hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
+        strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
+        buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
+        pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
+        // Small (tens of tiles), safe to spread fresh every sync unlike the
+        // territory-sized key sets above, which is why this bypasses the
+        // incremental planner-tile-keys-cache machinery entirely.
+        townTileKeys: [...summary.ownedTownTierByTile.keys()],
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+        ...(expansionObjective ? { expansionObjective } : {}),
+        activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
+        musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        ownedTileCount,
+        frontierTileCount
+      });
     });
-  }
-  const diagTotalMs = Date.now() - diagTotalStart;
-  if (diagTotalMs >= 200) {
-    console.info(
-      `[diag:sync_players_export] totalMs=${diagTotalMs} players=[ ${diagBreakdowns.join(" | ")} ]`
-    );
   }
   return players;
 }

@@ -8,6 +8,7 @@ export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
+export * from "../server-worldgen-watchtowers.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
 
@@ -130,6 +131,7 @@ export type DomainTileState = {
   resource?: Tile["resource"] | undefined;
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
+  watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
   ownerId?: string | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;

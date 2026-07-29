@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { Terrain } from "@border-empires/shared";
 import { VisibilityCoverageCache } from "./visibility-coverage-cache.js";
+import { VisionFootprintTable } from "./vision-footprint-table.js";
 
 describe("VisibilityCoverageCache", () => {
   it("makes a footprint visible after add and invisible after remove", () => {
@@ -59,5 +61,25 @@ describe("VisibilityCoverageCache", () => {
   it("removeFootprint on an unknown viewer is a no-op", () => {
     const cache = new VisibilityCoverageCache(200, 200);
     expect(() => cache.removeFootprint("nobody", 5, 5, 1)).not.toThrow();
+  });
+
+  it("with no footprint table injected, behaves exactly as before terrain occlusion (backward compatible default)", () => {
+    const cache = new VisibilityCoverageCache(200, 200);
+    cache.addFootprint("viewer-1", 10, 10, 3);
+    expect(cache.isVisible("viewer-1", "13,10")).toBe(true);
+  });
+
+  it("applies an injected footprint table's mountain occlusion to the hot add/removeFootprint path", () => {
+    const terrainAt = (x: number, y: number): Terrain | undefined => (x === 11 && y === 10 ? "MOUNTAIN" : "LAND");
+    const footprintTable = new VisionFootprintTable(200, 200, { terrainAt, getTerrainEpoch: () => 0 });
+    const cache = new VisibilityCoverageCache(200, 200, footprintTable);
+    cache.addFootprint("viewer-1", 10, 10, 3);
+    expect(cache.isVisible("viewer-1", "11,10")).toBe(true); // mountain tile itself visible
+    expect(cache.isVisible("viewer-1", "12,10")).toBe(false); // behind mountain, occluded
+    expect(cache.isVisible("viewer-1", "13,10")).toBe(false); // further behind, occluded
+    expect(cache.isVisible("viewer-1", "10,13")).toBe(true); // unrelated bearing, unaffected
+
+    cache.removeFootprint("viewer-1", 10, 10, 3);
+    expect(cache.isVisible("viewer-1", "11,10")).toBe(false);
   });
 });
