@@ -41,7 +41,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 500,
+      // 0, not the old 500: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13), so 500 would now
+      // legitimately afford a tech instead of proving "no affordable
+      // progression" defers to the main planner.
+      points: 0,
       techIds: [],
       domainIds: [],
       strategicResources: {},
@@ -97,7 +101,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 100,
+      // 5, not the old 100: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13) — 100 would now
+      // afford it. 5 still covers a cheap expand while keeping tech
+      // genuinely unaffordable, preserving this test's premise.
+      points: 5,
       techIds: [],
       domainIds: [],
       strategicResources: { FOOD: 80, CRYSTAL: 40 },
@@ -365,7 +373,7 @@ describe("automation preplan command", () => {
     expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
   });
 
-  it("does not upgrade a town when the FOOD stockpile can't cover the lump-sum cost", () => {
+  it("does not upgrade a town when gold can't cover the upgrade cost", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -374,10 +382,10 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 2_500,
+      points: 30, // TOWN->CITY costs 40 gold (TOWN_TIER_UPGRADE_GOLD_COST.CITY)
       techIds: [],
       domainIds: [],
-      strategicResources: { FOOD: 100 },
+      strategicResources: { FOOD: 600 }, // keeps foodCoverageLow's needsFood false so the upgrade attempt is actually reached
       settledTileCount: 1,
       townCount: 1,
       incomePerMinute: 6,

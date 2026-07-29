@@ -2,7 +2,6 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   SIPHON_COOLDOWN_MS,
-  SIPHON_CRYSTAL_COST,
   SIPHON_DURATION_MS,
   SIPHON_SHARE
 } from "@border-empires/game-domain";
@@ -74,10 +73,6 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
   }
   if (affectedTiles.length === 0) {
     rejectCommand(context, command, "SIPHON_INVALID", "no eligible town or resource tiles in siphon area");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) {
-    rejectCommand(context, command, "SIPHON_INVALID", "insufficient CRYSTAL for siphon");
     return;
   }
   context.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);

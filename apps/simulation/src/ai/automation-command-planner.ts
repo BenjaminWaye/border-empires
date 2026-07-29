@@ -1,10 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import {
-  ATTACK_MANPOWER_MIN,
-  DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST,
-  SETTLE_COST
-} from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
@@ -200,7 +195,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     restrictToFocus
   });
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = input.points >= SETTLE_COST;
+  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
+  const canExpand = input.points >= SETTLE_COST && input.manpower >= EXPAND_MANPOWER_COST;
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
   // e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's
@@ -281,7 +277,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
-  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+  const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
@@ -350,6 +346,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     const structurePlayer = {
       id: input.playerId,
       points: input.points,
+      manpower: input.manpower,
       ...(input.techIds ? { techIds: input.techIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),

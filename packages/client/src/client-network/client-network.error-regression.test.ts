@@ -333,6 +333,44 @@ describe("client network regression guards", () => {
     }
   });
 
+  it("routes INSUFFICIENT_SLOT build rejections to the capture alert and rolls back the optimistic build (docs/manpower-economy-rewrite-plan.md §5)", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = {
+      kind: "BUILD",
+      x: 14,
+      y: 299,
+      tileKey: "14,299",
+      label: "Build Fort",
+      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "FORT" },
+      optimisticKind: "FORT"
+    };
+    state.queuedDevelopmentDispatchPending = true;
+    const showCaptureAlert = vi.fn();
+    const ws = new FakeWebSocket();
+    const { clearOptimisticTileState } = bindWithDeps(state, ws, { showCaptureAlert });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_SLOT", message: "no free IRON slot for fort" })
+      });
+      expect(showCaptureAlert).toHaveBeenCalledTimes(1);
+      const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
+      expect(captureArgs[0]).toBe("Construction failed");
+      expect(captureArgs[1]).toBe("no free IRON slot for fort");
+      expect(captureArgs[2]).toBe("warn");
+      // Without this rollback the optimistic under-construction ghost drawn by
+      // this build's own optimistic() call would stick around forever, since
+      // BUILD_STRUCTURE's COMMAND_REJECTED carries no x/y for
+      // isStructureActionError's errorTileKey lookup to find it by.
+      expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);
+      expect(state.lastDevelopmentAttempt).toBeUndefined();
+      expect(state.queuedDevelopmentDispatchPending).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("still uses the frontier notifier for INSUFFICIENT_GOLD on frontier claim and attack", () => {
     const state = createState();
     state.gold = 25;

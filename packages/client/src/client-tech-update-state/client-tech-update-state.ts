@@ -30,6 +30,20 @@ const normalizeTechCatalog = (catalog: ClientState["techCatalog"] | undefined): 
     tier: typeof tech.tier === "number" && Number.isFinite(tech.tier) ? Math.max(1, Math.min(7, Math.round(tech.tier))) : tech.tier
   }));
 
+// "Reward is ready" pulse (docs/manpower-economy-rewrite-plan.md §7.3): glow a tech card
+// the instant it crosses from unaffordable to affordable. A tech seen for the first time
+// (no prior value tracked) never pulses, so a fresh load/reconnect doesn't light up everything.
+export const TECH_AFFORDABILITY_PULSE_MS = 2200;
+export const updateTechAffordabilityPulses = (state: ClientState, now: number): void => {
+  for (const tech of state.techCatalog) {
+    const isAffordable = state.gold >= tech.requirements.gold;
+    if (isAffordable && state.techAffordableByTechId.get(tech.id) === false) {
+      state.techAffordablePulseUntilByTechId.set(tech.id, now + TECH_AFFORDABILITY_PULSE_MS);
+    }
+    state.techAffordableByTechId.set(tech.id, isAffordable);
+  }
+};
+
 export const applyTechUpdateToState = (
   state: ClientState,
   msg: TechUpdateMessage,
@@ -60,6 +74,7 @@ export const applyTechUpdateToState = (
   state.activeRevealTargets = msg.activeRevealTargets ?? state.activeRevealTargets;
   if (typeof msg.gold === "number") state.gold = msg.gold;
   if (msg.strategicResources) state.strategicResources = { ...state.strategicResources, ...msg.strategicResources };
+  updateTechAffordabilityPulses(state, Date.now());
 
   if (status !== "completed") return;
 

@@ -3,6 +3,7 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  EXPAND_MANPOWER_COST,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
@@ -439,8 +440,8 @@ export const planWaypoint = (
     }
     const action: WaypointAction = classified.kind === "ENEMY" ? "ATTACK" : "EXPAND";
     const goldCost = FRONTIER_CLAIM_COST;
-    const manpowerCost = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_COST) : 0;
-    const manpowerMin = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_MIN) : 0;
+    const manpowerCost = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_COST) : EXPAND_MANPOWER_COST;
+    const manpowerMin = action === "ATTACK" ? (MUSTER_SYSTEM_ENABLED ? requiredMusterForTarget(nextTile) : ATTACK_MANPOWER_MIN) : EXPAND_MANPOWER_COST;
     const throughFog = Boolean(nextTile?.fogged);
     const step: WaypointStep = {
       origin: prev,

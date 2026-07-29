@@ -4,8 +4,10 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
+import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
@@ -13,8 +15,11 @@ export type RuntimePlayerStateUpdateContext = {
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  cachedDefensibilityMetrics: (playerId: string, summary: PlayerRuntimeSummary) => { T: number; E: number; Ts: number; Es: number };
+  cachedDefensibilityMetrics: (playerId: string, summary: PlayerRuntimeSummary) => PlayerDefensibilityMetrics;
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
+  resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
+  resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
+  dormantStructuresForPlayer: (playerId: string) => DormantStructureDetail[];
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
@@ -51,9 +56,6 @@ export function emitPlayerStateUpdate(
     !lastCap ||
     lastCap.GOLD !== storageCap.GOLD ||
     lastCap.FOOD !== storageCap.FOOD ||
-    lastCap.IRON !== storageCap.IRON ||
-    lastCap.CRYSTAL !== storageCap.CRYSTAL ||
-    lastCap.SUPPLY !== storageCap.SUPPLY ||
     lastCap.SHARD !== storageCap.SHARD;
   if (capChanged) context.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
   context.emitPlayerMessage(
@@ -77,6 +79,19 @@ export function emitPlayerStateUpdate(
         SHARD: player.strategicResources?.SHARD ?? 0
       },
       strategicProductionPerMinute: economy.strategicProductionPerMinute,
+      resourceSlots: {
+        supply: context.resourceSlotSupplyForPlayer(playerId),
+        demand: context.resourceSlotDemandForPlayer(playerId)
+      },
+      // §14.2: which of this player's structures are currently dormant
+      // (slot demand not covered by supply), and which resource(s) each one
+      // is short — feeds the client's greyed-out/"unpowered" indicator.
+      dormantStructures: context.dormantStructuresForPlayer(playerId),
+      // §20: durable per-player event log, sent in full like
+      // strategicResources/dormantStructures above rather than diffed —
+      // bounded to PLAYER_EVENT_LOG_MAX_ENTRIES, so the redundancy costs
+      // little and keeps this consistent with every other field here.
+      eventLog: player.eventLog ?? [],
       economyBreakdown: economy.economyBreakdown,
       upkeepPerMinute: economy.upkeepPerMinute,
       upkeepLastTick: economy.upkeepLastTick,
@@ -84,6 +99,12 @@ export function emitPlayerStateUpdate(
       E: metrics.E,
       Ts: metrics.Ts,
       Es: metrics.Es,
+      // Authoritative empire-integrity percentage (local-support model,
+      // docs/manpower-economy-rewrite-plan.md §7.2) — sent alongside the raw
+      // T/E/Ts/Es counts (still used by client breakdown/tips UI) so the
+      // client can display the real mechanic instead of recomputing an
+      // approximation client-side from just two aggregate numbers.
+      integrityPct: Math.round(Math.max(0, Math.min(1, metrics.localSupportScore)) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),

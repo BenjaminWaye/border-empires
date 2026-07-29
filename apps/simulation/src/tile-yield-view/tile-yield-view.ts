@@ -1,19 +1,10 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
-  ADVANCED_IRONWORKS_IRON_PER_DAY,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_INCOME_PER_MIN,
-  FOUNDRY_OUTPUT_MULT,
-  FOUNDRY_RADIUS,
-  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
-  IRONWORKS_IRON_PER_DAY,
   OFFLINE_YIELD_ACCUM_MAX_MS,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
-  STRUCTURE_OUTPUT_MULT,
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE,
   WATERWORKS_OUTPUT_MULT,
@@ -47,49 +38,21 @@ export type TileYieldView = {
 
 const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
-const strategicDailyFromResource = (resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => {
-  switch (resource) {
-    case "FARM":
-      return { FOOD: 48 };
-    case "FISH":
-      return { FOOD: 72 };
-    case "IRON":
-      return { IRON: 60 };
-    case "WOOD":
-    case "FUR":
-      return { SUPPLY: 60 };
-    case "GEMS":
-      return { CRYSTAL: 36 };
-    default:
-      return {};
-  }
-};
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
+// supply (structure-slots.ts), not a daily yield rate.
+const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});
 
+// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
+// stockpiled resource (§5.6), and Farmstead's old FOOD-yield bonus retired
+// alongside FOOD's own production (§5.4: FOOD is slot-based now, not
+// yield-based) — nothing is left to convert into a strategicPerDay entry.
+// Farmstead/Waterworks still boost FOOD *slot supply* (structure-slots.ts),
+// an entirely separate mechanism this function doesn't touch.
 const converterDailyOutput = (
-  structureType: DomainTileState["economicStructure"] extends { type: infer T } ? T : string | undefined
-): Partial<Record<StrategicYieldKey, number>> => {
-  switch (structureType) {
-    case "FUR_SYNTHESIZER":
-      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-    case "ADVANCED_FUR_SYNTHESIZER":
-      return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-    case "IRONWORKS":
-      return { IRON: IRONWORKS_IRON_PER_DAY };
-    case "ADVANCED_IRONWORKS":
-      return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    // Farmstead: +50% food only on FARM tiles. FISH gets nothing.
-    // (Waterworks is a radius-support building like Foundry — it boosts nearby
-    //  Farmsteads rather than producing food itself.)
-    case "FARMSTEAD":
-      return { FOOD: FARMSTEAD_FOOD_BONUS_PER_DAY };
-    default:
-      return {};
-  }
-};
+  _structureType: DomainTileState["economicStructure"] extends { type: infer T } ? T : string | undefined
+): Partial<Record<StrategicYieldKey, number>> => ({});
 
 /**
  * Strategic-affecting economic structure types whose yield cannot be
@@ -98,17 +61,7 @@ const converterDailyOutput = (
  * these (active) or a dockId must receive server-authoritative
  * `yieldRate`/`yieldCap` on the wire — see docs/plans/2026-07-06-radius-yield-delivery.md.
  */
-const STRATEGIC_AFFECTING_STRUCTURE_TYPES: ReadonlySet<string> = new Set([
-  "FARMSTEAD",
-  "MINE",
-  "CAMP",
-  "IRONWORKS",
-  "ADVANCED_IRONWORKS",
-  "FUR_SYNTHESIZER",
-  "ADVANCED_FUR_SYNTHESIZER",
-  "CRYSTAL_SYNTHESIZER",
-  "ADVANCED_CRYSTAL_SYNTHESIZER"
-]);
+const STRATEGIC_AFFECTING_STRUCTURE_TYPES: ReadonlySet<string> = new Set(["FARMSTEAD"]);
 
 /**
  * Predicate: does this tile need server-authoritative `yieldRate`/`yieldCap`
@@ -186,7 +139,10 @@ export const farmsteadFoodBonusPerMinute = (
   return dailyBonus / 1440;
 };
 
-const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
+// Exported for reuse by resource-slot-view.ts (§5.3's Waterworks->Farmstead
+// FOOD-slot bonus needs the exact same wrapped-radius test as the legacy
+// gold/strategic yield bonus, to avoid the two ever drifting apart).
+export const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
   for (const candidateKey of candidateKeys) {
     const comma = candidateKey.indexOf(",");
     if (comma < 0) continue;
@@ -257,32 +213,6 @@ export const buildTileYieldView = (
   const strategicPerDay = { ...resourceDaily };
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
-  }
-  // MINE/CAMP: active structure multiplies the tile's base resource output by
-  // STRUCTURE_OUTPUT_MULT (matches legacy economicStructureOutputMultAt).
-  // MINE sits on IRON tiles, CAMP on WOOD/FUR tiles — neither is a converter
-  // (no entry in converterDailyOutput), they boost the resource itself.
-  if (
-    tile.economicStructure?.status === "active" &&
-    (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "CAMP")
-  ) {
-    for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
-      strategicPerDay[key] = (strategicPerDay[key] ?? 0) * STRUCTURE_OUTPUT_MULT;
-    }
-  }
-  // Foundry radius boost: an active MINE within FOUNDRY_RADIUS of an active,
-  // owned Foundry gets its IRON/CRYSTAL output multiplied by FOUNDRY_OUTPUT_MULT
-  // (applied on top of the MINE's own STRUCTURE_OUTPUT_MULT above).
-  if (
-    tile.economicStructure?.type === "MINE" &&
-    tile.economicStructure.status === "active" &&
-    economyContext?.foundryKeys &&
-    economyContext.foundryKeys.size > 0 &&
-    withinRadiusOfAnyKey(tile.x, tile.y, economyContext.foundryKeys, FOUNDRY_RADIUS)
-  ) {
-    for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
-      strategicPerDay[key] = (strategicPerDay[key] ?? 0) * FOUNDRY_OUTPUT_MULT;
-    }
   }
   // Waterworks radius boost: a FARM tile with an active Farmstead within
   // WATERWORKS_RADIUS of an active Waterworks gets +100% on its total FOOD

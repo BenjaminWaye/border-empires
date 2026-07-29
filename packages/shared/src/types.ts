@@ -271,7 +271,7 @@ export interface Tile {
     nextPopulationTierUpgrade?: {
       targetTier: TownGrowthUpgradeTier;
       requiredPopulation: number;
-      foodCost: number;
+      goldCost: number;
       available: boolean;
     };
   };
@@ -287,14 +287,19 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
+  // activatedAt (fort/siegeOutpost/observatory/economicStructure below): when
+  // this structure went active, set on build completion and refreshed on
+  // capture — ranks which structure loses power first on a resource-slot
+  // shortfall (§5.4: newest built-or-captured goes dormant first).
+  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
+  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
+    activatedAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
   };

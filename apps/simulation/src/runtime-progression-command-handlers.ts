@@ -1,7 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { TIER_UPGRADE_FOOD_COST } from "@border-empires/game-domain";
-import { isChosenTrickleResource } from "@border-empires/shared";
+import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST } from "@border-empires/shared";
 import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
@@ -22,7 +21,6 @@ export type RuntimeProgressionCommandContext = {
   tiles: Map<string, DomainTileState>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId?: string) => void;
-  spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
@@ -42,6 +40,16 @@ export type RuntimeProgressionCommandContext = {
   clearShardRainExpiry: () => void;
   clearLastShardRainHello: () => void;
   onShardCollected: (() => void) | undefined;
+  // §5.4/user decision: a town tier upgrade permanently adds +1 FOOD slot
+  // demand (townFoodSlotDemandForTier), so it needs a free FOOD slot at
+  // upgrade time, same "global pool" check hasFreeResourceSlots uses for
+  // BUILD_STRUCTURE (runtime-structure-command-handlers.ts).
+  resourceSlotSupplyForPlayer: (playerId: string) => Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+  resourceSlotDemandForPlayer: (playerId: string) => Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+  // §23.2: a successful tech/domain choice can change a player's slot
+  // waivers (fortIronSlotWaiverCount etc), so the demand/dormancy caches
+  // need dropping the same way a tile mutation would drop them.
+  invalidateResourceSlotDemand: (playerId: string) => void;
 };
 
 function rejectCommand(
@@ -92,16 +100,25 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "already at max tier");
     return;
   }
-  if (nextTier !== "TOWN") {
-    if ((town.population ?? 0) < populationThresholdForTier(nextTier)) {
-      rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "population too low to upgrade");
-      return;
-    }
-    if (!context.spendStrategicResource(actor, "FOOD", TIER_UPGRADE_FOOD_COST[nextTier])) {
-      rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "insufficient FOOD");
-      return;
-    }
+  if (nextTier !== "TOWN" && (town.population ?? 0) < populationThresholdForTier(nextTier)) {
+    rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "population too low to upgrade");
+    return;
   }
+  // §5.4/user decision: every tier step (including the previously-free
+  // SETTLEMENT->TOWN) now costs gold + 1 more permanent FOOD slot demand
+  // (townFoodSlotDemandForTier), replacing the old FOOD-stockpile lump sum
+  // (TIER_UPGRADE_FOOD_COST) now that FOOD has no stockpile to spend from.
+  const goldCost = TOWN_TIER_UPGRADE_GOLD_COST[nextTier];
+  if (actor.points < goldCost) {
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `need ${goldCost} gold to upgrade to ${nextTier}`);
+    return;
+  }
+  const freeFoodSlots = context.resourceSlotSupplyForPlayer(actor.id).FOOD - context.resourceSlotDemandForPlayer(actor.id).FOOD;
+  if (freeFoodSlots < 1) {
+    rejectCommand(context, command, "INSUFFICIENT_SLOT", "no free FOOD slot to support the larger town");
+    return;
+  }
+  actor.points -= goldCost;
   const updatedTile = { ...tile, town: { ...town, populationTier: nextTier } };
   context.setTileState(tileKey, updatedTile);
   context.invalidateTileStringifyCache(tileKey);
@@ -193,6 +210,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.invalidateResourceSlotDemand(actor.id);
   context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "TECH_UPDATE",
@@ -237,6 +255,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.invalidateResourceSlotDemand(actor.id);
   context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "DOMAIN_UPDATE",

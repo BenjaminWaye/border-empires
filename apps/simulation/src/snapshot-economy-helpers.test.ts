@@ -20,20 +20,20 @@ const farmTile = (structureType?: string, resource: string = "FARM") => ({
   ...(structureType ? { economicStructureJson: JSON.stringify({ type: structureType, status: "active", ownerId: "p1" }) } : {})
 });
 
-const FARMSTEAD_FOOD_PER_MIN = (48 * 0.5) / 1440;
-
 describe("buildStrategicProductionByPlayer — Farmstead food (snapshot/subscribe path)", () => {
-  it("adds Farmstead's +50% food to the empire-wide FOOD total", () => {
+  it("adds no Farmstead food to the empire-wide FOOD total (§5.4: FOOD is slot-based, not yield-based)", () => {
     const withoutFarmstead = buildStrategicProductionByPlayer(runtimeWith([farmTile()]) as never).get("p1")!.FOOD;
     const withFarmstead = buildStrategicProductionByPlayer(runtimeWith([farmTile("FARMSTEAD")]) as never).get("p1")!.FOOD;
-    expect(withFarmstead - withoutFarmstead).toBeCloseTo(FARMSTEAD_FOOD_PER_MIN, 6);
+    expect(withFarmstead).toBe(withoutFarmstead);
+    expect(withFarmstead).toBe(0);
   });
 
-  it("doubles the Farmstead bonus when within radius of an active Waterworks", () => {
+  it("an active Waterworks still adds no FOOD production (§5.4: FOOD is slot-based, not yield-based)", () => {
     const waterworks = { x: 12, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "WATERWORKS", status: "active", ownerId: "p1" }) };
     const base = buildStrategicProductionByPlayer(runtimeWith([farmTile()]) as never).get("p1")!.FOOD;
     const boosted = buildStrategicProductionByPlayer(runtimeWith([farmTile("FARMSTEAD"), waterworks]) as never).get("p1")!.FOOD;
-    expect(boosted - base).toBeCloseTo(FARMSTEAD_FOOD_PER_MIN * 2, 6);
+    expect(boosted).toBe(base);
+    expect(boosted).toBe(0);
   });
 
   it("gives no Farmstead food bonus on a FISH tile", () => {

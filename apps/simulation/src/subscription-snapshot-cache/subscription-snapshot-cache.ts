@@ -134,6 +134,12 @@ export const applyPlayerMessageToSnapshot = (
         ...(payload.strategicProductionPerMinute && typeof payload.strategicProductionPerMinute === "object"
           ? { strategicProductionPerMinute: payload.strategicProductionPerMinute as PlayerStateSnapshot["strategicProductionPerMinute"] }
           : {}),
+        ...(payload.resourceSlots && typeof payload.resourceSlots === "object"
+          ? { resourceSlots: payload.resourceSlots as NonNullable<PlayerStateSnapshot["resourceSlots"]> }
+          : {}),
+        ...(Array.isArray(payload.dormantStructures)
+          ? { dormantStructures: payload.dormantStructures as NonNullable<PlayerStateSnapshot["dormantStructures"]> }
+          : {}),
         ...(typeof payload.economyBreakdown === "object" && payload.economyBreakdown !== null
           ? { economyBreakdown: payload.economyBreakdown as Record<string, unknown> }
           : {}),

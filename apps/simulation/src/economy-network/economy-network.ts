@@ -1,8 +1,6 @@
 import {
   DOCK_INCOME_PER_MIN,
-  townFoodUpkeepPerMinute,
   type DomainPlayer,
-  type DomainStrategicResourceKey,
   type DomainTileState
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
@@ -26,6 +24,13 @@ export type ConnectedTownNetworkEntry = {
   // not by having every consumer re-scan a full connectedTownKeys list. Bounded
   // by the actual number of Clearing Houses nearby, not by connectedTownCount.
   connectedClearingHouseKeys?: string[];
+  // Same precomputation, for Garrison Hall — feeds the Rail Depot network
+  // manpower bonus (docs/manpower-economy-rewrite-plan.md §4.4): a Rail Depot
+  // amplifies every Garrison Hall in its connected-town network, uncapped.
+  connectedGarrisonHallKeys?: string[];
+  // Same precomputation, for Rail Depot — used to enforce "only one Rail
+  // Depot per connected-town network" at build time (§4.4).
+  connectedRailDepotKeys?: string[];
   connectedTownNames?: string[];
 };
 
@@ -58,7 +63,25 @@ export const hasSupportedStructure = (
   playerId: string,
   tile: DomainTileState,
   structureType: string,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  // Callers checking for a live, functioning bonus (Clearing House gold,
+  // Garrison Hall/Rail Depot manpower) want the default active-only
+  // semantics. Callers enforcing a *uniqueness* constraint (§4.4: "only one
+  // Rail Depot per network") need under_construction to count too — the
+  // build handler never re-validates uniqueness at completion
+  // (completeStructureBuild in runtime-structure-command-handlers.ts just
+  // flips status to active unconditionally), so two Rail Depot builds
+  // submitted before either finishes would otherwise both pass validation
+  // and leave the network with two permanent depots.
+  includeUnderConstruction = false,
+  // §5.4: a dormant structure (slot demand not covered by supply) doesn't
+  // function even though it's still "active" in construction terms — plain
+  // "x,y" tile keys (Runtime.dormantFieldKeysForPlayer("economicStructure")).
+  // Deliberately NOT consulted when includeUnderConstruction is true: that
+  // mode is a uniqueness check (§4.4's "only one Rail Depot per network"),
+  // and dormancy is a transient power state, not a reason to let a second
+  // instance be built.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -66,7 +89,10 @@ export const hasSupportedStructure = (
       const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
       if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
       if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      if (neighbor.economicStructure?.ownerId === playerId && neighbor.economicStructure.status === "active" && neighbor.economicStructure.type === structureType) return true;
+      const structure = neighbor.economicStructure;
+      if (structure?.ownerId !== playerId || structure.type !== structureType) continue;
+      if (includeUnderConstruction && structure.status === "under_construction") return true;
+      if (structure.status === "active" && !dormantEconomicStructureKeys.has(`${neighbor.x},${neighbor.y}`)) return true;
     }
   }
   return false;
@@ -80,11 +106,18 @@ type TownConnectivityGroup = {
   // size) instead of O(towns_in_component²).
   members: string[];
   clearingHouseKeys: string[];
+  garrisonHallKeys: string[];
+  railDepotKeys: string[];
 };
 
 export type DockEconomyContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
+  // hasSupportedStructure's matching param. Optional so existing callers
+  // that haven't threaded it through yet default to "nothing dormant"
+  // rather than a hard type error.
+  dormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 export type ConnectedTownNetworkOptions = {
@@ -98,6 +131,12 @@ export type ConnectedTownNetworkOptions = {
   // covering every tile the player owns. A partial set would be recorded as a
   // clean union-find and silently under-report connectivity on later reads.
   incrementalState?: TownConnectivityState;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
+  // hasSupportedStructure's matching param. Applied to Clearing House/
+  // Garrison Hall membership (real bonuses) but NOT to Rail Depot membership
+  // (a uniqueness signal only, via hasRailDepotAt's includeUnderConstruction
+  // mode below).
+  dormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -163,9 +202,34 @@ export const buildConnectedTownNetworkForPlayer = (
     return out;
   }
 
+  const dormantEconomicStructureKeys = options.dormantEconomicStructureKeys ?? new Set<string>();
+
   const hasClearingHouseAt = (townKey: string): boolean => {
     const tile = tiles.get(townKey);
-    return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) : false;
+    return tile ? hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys) : false;
+  };
+
+  // GARRISON_HALL uses "same_tile" placement (structure-placement-metadata.json),
+  // unlike CLEARING_HOUSE/RAIL_DEPOT's "town_support" mode — it can sit
+  // directly ON the town tile itself, not just on an adjacent support tile,
+  // so both must be checked here.
+  const hasGarrisonHallAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    if (!tile) return false;
+    const onTownTileItself =
+      tile.economicStructure?.ownerId === player.id &&
+      tile.economicStructure.type === "GARRISON_HALL" &&
+      tile.economicStructure.status === "active" &&
+      !dormantEconomicStructureKeys.has(townKey);
+    return onTownTileItself || hasSupportedStructure(player.id, tile, "GARRISON_HALL", tiles, false, dormantEconomicStructureKeys);
+  };
+
+  // Rail Depot membership is purely a uniqueness signal (feeds
+  // railDepotAlreadyInNetwork, never a bonus amount), so it counts
+  // under_construction too — see hasSupportedStructure's doc comment.
+  const hasRailDepotAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "RAIL_DEPOT", tiles, true) : false;
   };
 
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
@@ -213,7 +277,9 @@ export const buildConnectedTownNetworkForPlayer = (
     const members = [...adjacentTownKeys].sort((l, r) => l.localeCompare(r));
     const group: TownConnectivityGroup = {
       members,
-      clearingHouseKeys: members.filter(hasClearingHouseAt)
+      clearingHouseKeys: members.filter(hasClearingHouseAt),
+      garrisonHallKeys: members.filter(hasGarrisonHallAt),
+      railDepotKeys: members.filter(hasRailDepotAt)
     };
     for (const townKey of members) {
       let list = groupsByTown.get(townKey);
@@ -347,6 +413,8 @@ export const buildConnectedTownNetworkForPlayer = (
 
     let connectedTownCount: number;
     let clearingHouseKeys: string[];
+    let garrisonHallKeys: string[];
+    let railDepotKeys: string[];
     let memberKeysForNames: string[] | undefined;
 
     if (direct.size === 0 && groups && groups.length === 1) {
@@ -355,6 +423,12 @@ export const buildConnectedTownNetworkForPlayer = (
       clearingHouseKeys = group.clearingHouseKeys.includes(townKey)
         ? group.clearingHouseKeys.filter((k) => k !== townKey)
         : group.clearingHouseKeys;
+      garrisonHallKeys = group.garrisonHallKeys.includes(townKey)
+        ? group.garrisonHallKeys.filter((k) => k !== townKey)
+        : group.garrisonHallKeys;
+      railDepotKeys = group.railDepotKeys.includes(townKey)
+        ? group.railDepotKeys.filter((k) => k !== townKey)
+        : group.railDepotKeys;
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? group.members.filter((k) => k !== townKey)
@@ -362,6 +436,8 @@ export const buildConnectedTownNetworkForPlayer = (
     } else if (direct.size === 0 && (!groups || groups.length === 0)) {
       connectedTownCount = 0;
       clearingHouseKeys = [];
+      garrisonHallKeys = [];
+      railDepotKeys = [];
       memberKeysForNames = undefined;
     } else {
       const unionSet = new Set<string>(direct);
@@ -376,6 +452,16 @@ export const buildConnectedTownNetworkForPlayer = (
       for (const group of groups ?? []) {
         for (const key of group.clearingHouseKeys) if (key !== townKey) clearingHouseSet.add(key);
       }
+      const garrisonHallSet = new Set<string>();
+      for (const key of direct) if (hasGarrisonHallAt(key)) garrisonHallSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.garrisonHallKeys) if (key !== townKey) garrisonHallSet.add(key);
+      }
+      const railDepotSet = new Set<string>();
+      for (const key of direct) if (hasRailDepotAt(key)) railDepotSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.railDepotKeys) if (key !== townKey) railDepotSet.add(key);
+      }
       // Sorted for determinism: this set accumulates across `groups`, whose
       // discovery order differs between the BFS and incremental grouping
       // paths (and is Set-iteration-order dependent in general). The
@@ -384,6 +470,8 @@ export const buildConnectedTownNetworkForPlayer = (
       // equivalent worlds could emit different tile-delta JSON and churn
       // client state for no reason.
       clearingHouseKeys = [...clearingHouseSet].sort((l, r) => l.localeCompare(r));
+      garrisonHallKeys = [...garrisonHallSet].sort((l, r) => l.localeCompare(r));
+      railDepotKeys = [...railDepotSet].sort((l, r) => l.localeCompare(r));
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? [...unionSet].sort((l, r) => l.localeCompare(r))
@@ -401,10 +489,66 @@ export const buildConnectedTownNetworkForPlayer = (
       connectedTownCount,
       connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
       ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
+      ...(garrisonHallKeys.length ? { connectedGarrisonHallKeys: garrisonHallKeys } : {}),
+      ...(railDepotKeys.length ? { connectedRailDepotKeys: railDepotKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {})
     });
   }
   return out;
+};
+
+/**
+ * docs/manpower-economy-rewrite-plan.md §4.4: Rail Depot is the enabler of a
+ * network-wide manpower bonus. For every one of the player's own towns that
+ * itself hosts an active Rail Depot, count that town's own Garrison Hall (if
+ * any) plus every Garrison Hall in its connected-town network — summed
+ * across all of the player's Rail-Depot-hosting towns. Correct as long as
+ * "only one Rail Depot per network" (see railDepotAlreadyInNetwork, enforced
+ * at build time) holds — otherwise a second Rail Depot inside an
+ * already-covered network would double-count that network's Garrison Halls.
+ */
+export const railDepotNetworkGarrisonHallCountForPlayer = (
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  ownedTownTileKeys: Iterable<string>,
+  // §5.4: a dormant Rail Depot can't amplify anything, and a dormant
+  // same-tile Garrison Hall doesn't contribute its own +1 — see
+  // hasSupportedStructure's matching param.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  let total = 0;
+  for (const townKey of ownedTownTileKeys) {
+    const tile = tiles.get(townKey);
+    if (!tile || !hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, false, dormantEconomicStructureKeys)) continue;
+    const entry = townNetwork.get(townKey);
+    total +=
+      (entry?.connectedGarrisonHallKeys?.length ?? 0) +
+      (hasSupportedStructure(playerId, tile, "GARRISON_HALL", tiles, false, dormantEconomicStructureKeys) ? 1 : 0);
+  }
+  return total;
+};
+
+/**
+ * True when `townKey`'s connected-town network already has a Rail Depot —
+ * either at the town itself or at any town in its network — active OR still
+ * under_construction. Checked before allowing a new Rail Depot build (§4.4:
+ * "only one Rail Depot may be built per connected-town network"). Counting
+ * under_construction matters: completeStructureBuild never re-validates
+ * uniqueness when a build finishes, so if this only checked "active", two
+ * Rail Depot builds submitted before either completes would both pass and
+ * leave the network with two permanent depots.
+ */
+export const railDepotAlreadyInNetwork = (
+  playerId: string,
+  townKey: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>
+): boolean => {
+  const tile = tiles.get(townKey);
+  if (tile && hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, true)) return true;
+  const entry = townNetwork.get(townKey);
+  return Boolean(entry?.connectedRailDepotKeys?.length);
 };
 
 export const enrichTownWithConnectedNetwork = (
@@ -495,7 +639,7 @@ export const dockConnectedOwnedSettledCount = (
  * rewrite — CUSTOMS_HOUSE_GOLD_UPKEEP was charged with no matching income.
  * See docs/plans/2026-07-06-radius-yield-delivery.md Phase 5.
  */
-export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1;
+export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1 / 288; // same divisor as DOCK_INCOME_PER_MIN, §6.1
 
 /**
  * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by
@@ -507,7 +651,9 @@ export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1;
 export const dockSupportedByCustomsHouse = (
   dockTileKey: string,
   playerId: string,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  // §5.4: see hasSupportedStructure's matching param.
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
   const [rawX, rawY] = dockTileKey.split(",");
   const cx = Number(rawX);
@@ -516,12 +662,14 @@ export const dockSupportedByCustomsHouse = (
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(keyFor(cx + dx, cy + dy));
+      const neighborKey = keyFor(cx + dx, cy + dy);
+      const neighbor = tiles.get(neighborKey);
       if (
         neighbor?.ownerId === playerId &&
         neighbor.ownershipState === "SETTLED" &&
         neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
-        neighbor.economicStructure.status === "active"
+        neighbor.economicStructure.status === "active" &&
+        !dormantEconomicStructureKeys.has(neighborKey)
       ) {
         return true;
       }
@@ -530,33 +678,24 @@ export const dockSupportedByCustomsHouse = (
   return false;
 };
 
-// Moved from player-update-economy.ts to keep that file from growing past
-// its line-count ceiling — no functional/behavioral change, pure relocation.
+// §5.4/§5.3 (docs/manpower-economy-rewrite-plan.md): a town is "fed" (produces
+// gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
+// — FOOD no longer has a separate stockpile/flow gate (there's only one food
+// mechanic now: slots). `foodDormantTownKeys` is the FOOD-resource dormancy
+// set for this player (resourceSlotDormantContributorsForPlayer's `:town`
+// entries, stripped to plain tile keys) — see Runtime.foodDormantTownKeysForPlayer.
 export const buildFedTownKeys = (
-  player: DomainPlayer,
+  playerId: string,
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
-  strategicProductionPerMinute: Record<DomainStrategicResourceKey, number>
+  foodDormantTownKeys: ReadonlySet<string>
 ): Set<string> => {
-  const availableFood = (player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD;
-  let remainingFood = availableFood;
   const fedTownKeys = new Set<string>();
-  // Use ownedTownTierByTile (already an index of just owned town tiles) instead
-  // of spreading all territoryTileKeys and filtering. O(towns) vs O(territory).
-  const ownedSettledTowns = [...summary.ownedTownTierByTile.keys()]
-    .map((tileKey) => tiles.get(tileKey))
-    .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
-  for (const tile of ownedSettledTowns) {
-    const upkeep = townFoodUpkeepPerMinute(tile.town?.populationTier);
-    if (upkeep <= 0) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      continue;
-    }
-    if (remainingFood + 1e-9 >= upkeep) {
-      fedTownKeys.add(`${tile.x},${tile.y}`);
-      remainingFood = Math.max(0, remainingFood - upkeep);
-    }
+  for (const tileKey of summary.ownedTownTierByTile.keys()) {
+    const tile = tiles.get(tileKey);
+    if (!tile?.town || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+    const key = `${tile.x},${tile.y}`;
+    if (!foodDormantTownKeys.has(key)) fedTownKeys.add(key);
   }
   return fedTownKeys;
 };
@@ -573,7 +712,8 @@ export const dockBaseGoldPerMinuteForPlayer = (
     dockGoldOutputMultiplierForPlayer(player) *
     (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
   const harborExchangeBonus =
-    context && dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles)
+    context &&
+    dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles, context.dormantEconomicStructureKeys)
       ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
       : 0;
   return base + harborExchangeBonus;

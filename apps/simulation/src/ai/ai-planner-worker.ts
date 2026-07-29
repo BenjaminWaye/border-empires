@@ -164,6 +164,7 @@ const choosePlannerCommand = (
     const preplan = chooseAutomationPreplanCommand({
       playerId,
       points: player.points,
+      manpower: player.manpower,
       ...(player.techIds ? { techIds: player.techIds } : {}),
       ...(player.domainIds ? { domainIds: player.domainIds } : {}),
       ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),

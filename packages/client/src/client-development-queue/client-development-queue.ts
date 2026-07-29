@@ -1,5 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { SETTLE_COST } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -68,8 +68,13 @@ export const applyAutoSettlementQueueFromServer = (
     state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
   );
   let settlementBudget = Math.max(0, state.gold - queuedSettlementTileKeys.size * SETTLE_COST);
+  // Manpower is also a real SETTLE cost (§4.2 of docs/manpower-economy-rewrite-plan.md)
+  // — bulk-filling this queue against gold alone over-queues settlements a
+  // manpower-poor player can't actually afford, each of which then gets
+  // rejected server-side one at a time.
+  let manpowerBudget = Math.max(0, state.manpower - queuedSettlementTileKeys.size * SETTLE_MANPOWER_COST);
   for (const entry of entries) {
-    if (settlementBudget < SETTLE_COST) break;
+    if (settlementBudget < SETTLE_COST || manpowerBudget < SETTLE_MANPOWER_COST) break;
     const tileKey = deps.keyFor(entry.x, entry.y);
     if (pendingSettlementTileKeys.has(tileKey) || queuedSettlementTileKeys.has(tileKey)) continue;
     if (state.skippedAutoSettlementTileKeys.has(tileKey)) continue;
@@ -85,6 +90,7 @@ export const applyAutoSettlementQueueFromServer = (
     state.autoSettlementQueueVisibleUntilByTile.set(tileKey, Date.now() + AUTO_SETTLEMENT_QUEUE_VISIBLE_MS);
     queuedSettlementTileKeys.add(tileKey);
     settlementBudget -= SETTLE_COST;
+    manpowerBudget -= SETTLE_MANPOWER_COST;
     added += 1;
   }
   if (added > 0) persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);

@@ -42,6 +42,8 @@ describe("survey sweep", () => {
             observatory: { ownerId: "player-1", status: "active" }
           },
           { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 25, y: 0, terrain: "LAND", resource: "IRON" },
           { x: 20, y: 20, terrain: "LAND", resource: "GEMS" },
           { x: 21, y: 20, terrain: "LAND", resource: "WOOD" },
@@ -97,7 +99,8 @@ describe("survey sweep", () => {
     const observatory = observatoryTile?.observatoryJson
       ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
       : undefined;
-    expect(player?.strategicResources.CRYSTAL).toBe(70);
+    // §17: Survey Sweep no longer costs CRYSTAL.
+    expect(player?.strategicResources.CRYSTAL).toBe(100);
     expect(observatory?.cooldownUntil).toBe(721_000);
   });
 });

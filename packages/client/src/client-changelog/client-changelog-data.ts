@@ -22,6 +22,84 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1785030000000, // 2026.07.26.1
+    introducedIn: "2026.07.26.1",
+    title: "Expand and Settle now cost manpower",
+    why: "Gold's income scaled up with empire size while EXPAND and SETTLE stayed flat-priced, so both actions decayed into a non-decision by mid-game — the one currency that funded expansion could never stay scarce. Manpower, by contrast, is already structurally throttled (deep cap, slow regen), so moving expansion onto it keeps every claim and settlement a real, ongoing cost.",
+    changes: [
+      "Claiming a frontier tile now costs 10 manpower; settling a claimed tile now costs 20 manpower, in addition to their existing (now much smaller) gold costs.",
+      "A new player starts with a larger manpower pool (576, regenerating at 0.4/min) so early expansion still feels generous — sized to cover roughly 40 claims and 8 settles before waiting on regen.",
+      "Capturing or founding a new town immediately adds that town's own manpower cap and regen on top of your starting pool, instead of being masked by it.",
+      "The map, waypoint planner, and bulk auto-settle queue all now show and respect the real manpower cost, so they no longer offer an expand/settle you can't actually afford."
+    ]
+  },
+  {
+    createdAt: 1785115000000, // 2026.07.27.1
+    introducedIn: "2026.07.27.1",
+    title: "Manpower now gates every structure build",
+    why: "Structure build costs already draw manpower (Market, Bank, Farmstead, synthesizers, and everything else), but the build menu only checked gold, so it offered builds you couldn't actually afford until the server rejected them. This closes that gap for the roughly 30 remaining economic structures, matching the fix already shipped for Expand/Settle.",
+    changes: [
+      "Every economic structure's build/upgrade option (Market, Bank, Farmstead, Camp, Mine, Granary, Census Hall, Clearing House, Caravanary, all three Synthesizers and their Advanced upgrades, Exchange House, Rail Depot, Garrison Hall, Governor's Office, Foundry, Waterworks, Radar System, Airport, Aether Tower, Customs House, and all four monument parts) now checks and displays its manpower cost, not just gold and strategic resources.",
+      "The build menu now tells you specifically when you're short on manpower instead of only ever citing gold or a resource."
+    ]
+  },
+  {
+    createdAt: 1785118000000, // 2026.07.27.2
+    introducedIn: "2026.07.27.2",
+    title: "Structures no longer cost gold to build",
+    why: "Gold income was cut about 288x in an earlier update so a strong empire could no longer coast on it forever, but every structure's build-gold price stayed at its old, pre-cut value — Bank was still 3,200 gold against an economy earning roughly 10 gold/day/town. That made every structure both far too expensive in gold and, on top of that, also required its full manpower price, a double-tax nobody could realistically pay. Gold now only matters for tech, rush-buys, and a few structures' ongoing upkeep, never for the act of building.",
+    changes: [
+      "Every structure's build gold cost is now 0 — manpower (and, for some structures, a strategic resource) is the entire build price.",
+      "This includes Forts, Siege Outposts, Light/Wooden Outposts, and all four monument parts and their final assemblies, not just the everyday economic buildings.",
+      "The four monument assemblies (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) are no longer mislabeled \"Free after 3 parts\" — they show and require their real manpower + SHARD cost.",
+      "Cost displays across the build menu no longer show a stray \"0 gold +\" — the gold clause disappears entirely when it's zero."
+    ]
+  },
+  {
+    createdAt: 1785121000000, // 2026.07.27.3
+    introducedIn: "2026.07.27.3",
+    title: "Garrison Hall and Rail Depot now grant real manpower bonuses",
+    why: "Garrison Hall previously did nothing but cost resources and gold upkeep — its old \"+20% defense\" description was never actually implemented. Rail Depot's manpower regen was a flat bonus per depot with no cap on how many you could spam. This wires up the manpower structure tree the economy rewrite was missing: acquiring towns still grows your manpower on its own, but investing in Garrison Halls and a connected Rail Depot network now gives a real, earned way to grow further.",
+    changes: [
+      "Garrison Hall now grants +150 manpower cap to the town it's built in, unconditionally.",
+      "Rail Depot no longer gives a flat manpower regen bonus per depot. Instead, only one Rail Depot may be built per connected-town network, and it amplifies every Garrison Hall already in that network: +75 manpower cap and +0.1 manpower/min, per Garrison Hall, with no cap on how many Garrison Halls can contribute.",
+      "Trying to build a second Rail Depot in a network that already has one is now rejected — build menus and the manpower breakdown panel reflect the new bonuses."
+    ]
+  },
+  {
+    createdAt: 1785199000000, // 2026.07.28.1
+    introducedIn: "2026.07.28.1",
+    title: "Rush-buy: finish an in-progress settle or build for gold",
+    why: "Manpower is scarce and slow to regenerate by design, but that also means an in-progress Settle or structure build has no way to speed up once started — gold, meanwhile, had nothing to spend on outside of tech and upkeep. Rush-buy gives gold a second job: pay to finish something you're already building right now, priced by how much time is actually left, not the action's full cost.",
+    changes: [
+      "A tile that's actively settling or has a structure under construction now shows a rush-buy button (⏩🪙) next to its remaining-time countdown in the tile detail panel.",
+      "The price scales down as the timer progresses — rushing something nearly done costs almost nothing, rushing something you just started costs close to the full price (anchored at 0.5 gold per manpower point the action costs).",
+      "Applies to Settle and every structure build (Fort/Siege tier upgrades included) — not to removals, which can't be rushed."
+    ]
+  },
+  {
+    createdAt: 1785202000000, // 2026.07.28.2
+    introducedIn: "2026.07.28.2",
+    title: "Economy panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock numbers",
+    why: "Food, Iron, Crystal, and Supply stopped being stockpiled quantities and became discrete building/town slots several updates ago, but the economy breakdown panel kept showing them with the old stock/cap/income/upkeep flow layout — numbers that no longer meant anything once those resources became slots. Gold is the only resource left that actually works that way now.",
+    changes: [
+      "The Food/Iron/Crystal/Supply cards and detail views now show \"used / available\" slots instead of a stockpile amount, with a clear status (free, fully committed, or no access to this resource yet) instead of a gross/upkeep/net rate.",
+      "The detail view's old \"Income Sources\" column is replaced with \"Occupied by\" for these four resources, listing which structures and towns are using up a slot right now. The Upkeep column (e.g. a synthesizer's gold upkeep) is unchanged.",
+      "Gold keeps its existing stock/cap/income/upkeep display — it's still a real stockpile, not a slot."
+    ]
+  },
+  {
+    createdAt: 1785205000000, // 2026.07.28.3
+    introducedIn: "2026.07.28.3",
+    title: "Food is now purely a slot resource; town growth costs gold + a Food slot",
+    why: "Food previously had two overlapping mechanics: the slot system (this update's earlier entry) alongside a leftover production/upkeep flow that towns and Market/Bank/Caravanary still drained every minute, plus a Food-stockpile lump sum to grow a town's tier. That second mechanic is retired entirely — Food now works exactly like Iron/Crystal/Supply, and towns keep growing on gold, the resource the game already asks you to manage everywhere else.",
+    changes: [
+      "Farmstead's Food bonus, town Food upkeep, and every structure's Food upkeep are gone — Food is consumed only by occupying a slot (towns and FOOD-tagged structures), never by a per-minute drain.",
+      "Upgrading a town's tier (Settlement→Town→City→Great City→Metropolis) now costs gold (20/40/80/160 for each step) plus a free Food slot, instead of a Food lump sum — each upgrade past Town also permanently adds +1 to that town's Food slot demand.",
+      "If Food supply ever falls short of demand, the newest thing drawing on it (a freshly built structure, or the town itself) goes unfed first — an established town keeps its own Food-gated income and growth ahead of whatever was just built or captured."
+    ]
+  },
+  {
     createdAt: 1785230720833, // 2026.07.28.3
     introducedIn: "2026.07.28.3",
     title: "Fixed: farms, towns, and other overlays floated above hills in 3D mode",
@@ -162,16 +240,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 2D map, hills tiles are marked with a rolling-mound icon."
     ]
   },
-  {
-    createdAt: 1784764860000, // 2026.07.23.1
-    introducedIn: "2026.07.23.1",
-    title: "Terrain now blocks and limits vision",
-    why: "Vision previously ignored terrain entirely — an empire could see straight through mountain ranges and dense forest as if they were open plains, removing any tactical value from holding high ground or dense cover.",
-    changes: [
-      "Mountains now block line of sight: tiles directly behind a mountain (from a given vantage point) are hidden, though the mountain tile itself remains visible.",
-      "A vision source standing on a forest tile only sees 1 tile out, regardless of tech or observatory bonuses that would otherwise extend its range."
-    ]
-  },
+  // 2026.07.23.1 ("Terrain now blocks and limits vision") pruned: aged out
+  // of the 6-day window during this merge.
   {
     createdAt: 1785200000000, // 2026.07.27.3
     introducedIn: "2026.07.27.3",

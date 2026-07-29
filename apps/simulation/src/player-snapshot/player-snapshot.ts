@@ -262,6 +262,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               IRON: livePlayer.strategicResources.IRON ?? 0,
@@ -270,6 +271,8 @@ export const buildPlayerSubscriptionSnapshot = (
               SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
             strategicProductionPerMinute,
+            resourceSlots: liveEconomy.resourceSlots,
+            dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,

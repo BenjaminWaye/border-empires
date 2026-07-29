@@ -22,6 +22,7 @@ import {
   recomputeMods,
   resolveDataPath
 } from "./tech-domain-bridge.js";
+import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
 const MODULE_URL = new URL("./tech-domain-bridge.js", import.meta.url).href;
 const EXPECTED_TECH_TREE_PATH = fileURLToPath(new URL("../../../../packages/game-domain/data/tech-tree.json", import.meta.url));
@@ -135,14 +136,14 @@ describe("tech-domain bridge progression sources", () => {
 });
 
 describe("tier-1 domain effects are wired", () => {
-  it("Iron Bastions exposes fortBuildSpeedMult / fortIronUpkeepMult / fortGoldUpkeepMult to the multiplicative resolver", () => {
+  it("Iron Bastions (Dwarf Kingdom) exposes fortBuildSpeedMult and the §23.2 fortIronSlotWaiverCount waiver", () => {
     const player = {
       techIds: new Set<string>(["masonry"]),
       domainIds: new Set<string>(["iron-bastions"])
     };
     expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortIronUpkeepMult")).toBeCloseTo(0.6, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
+    expect(maxEffectForPlayer(player, "fortIronSlotWaiverCount")).toBe(3);
+    expect(slotWaiversForPlayer(player).fortIronSlotWaiverCount).toBe(3);
   });
 
   it("Supply Raiding exposes attackVsBarbariansMult at 1.5", () => {
@@ -298,19 +299,17 @@ describe("Clockwork Stipend trickle resource choice", () => {
 });
 
 describe("AI progression choice prefers affordable options over higher-scored unaffordable ones", () => {
-  // Reproduces the prod state where Freja Sund (ai-4) sat on 74k gold with
-  // zero IRON/CRYSTAL/SUPPLY and the preplan reported tech_unaffordable every
-  // tick: every higher-scored tier-1 tech (trade, cartography, tribal-warfare)
-  // needs a strategic resource she lacks, while toolmaking (gold-only) is
-  // strictly affordable but used to be hidden behind those higher scores.
-  const ownedSettledTown = {
-    x: 0,
-    y: 0,
-    ownerId: "ai-4",
-    ownershipState: "SETTLED" as const,
-    terrain: "LAND" as const,
-    town: { name: "Core", populationTier: "TOWN" as const }
-  };
+  // Originally reproduced a prod state (Freja Sund, ai-4) where an AI sitting
+  // on gold but zero IRON/CRYSTAL/SUPPLY got stuck wanting a higher-scored
+  // tech it couldn't pay the strategic-resource cost for. Under the gold
+  // rescope (docs/manpower-economy-rewrite-plan.md §6.2, §13) every tech
+  // below tier 5 costs gold only now — that specific starvation scenario is
+  // structurally impossible below tier 5 (and tier 5+ needs SHARD, a
+  // separately event-gated resource, not a strategy-starvable one). The
+  // surviving, still-real trigger for "prefers affordable over higher-scored
+  // unaffordable" is now plain per-tier GOLD scarcity (tier 1 = 10 gold,
+  // tier 2 = 50, ... — §13): a player who can afford tier 1 but not tier 2
+  // must fall back to a lower-scored, actually-affordable tier-1 tech.
   const ownedSettledDock = {
     x: 1,
     y: 0,
@@ -319,56 +318,70 @@ describe("AI progression choice prefers affordable options over higher-scored un
     terrain: "LAND" as const,
     dockId: "dock-a"
   };
+  // Only used by the domain-choice test below (domains are untouched by the
+  // gold rescope this round — §19/§23 territory, not this step).
+  const ownedSettledTown = {
+    x: 0,
+    y: 0,
+    ownerId: "ai-4",
+    ownershipState: "SETTLED" as const,
+    terrain: "LAND" as const,
+    town: { name: "Core", populationTier: "TOWN" as const }
+  };
+  // toolmaking/trade already researched so the scoring/reachability surfaces
+  // harborcraft (requires trade, tier 2, active_dock bonus) as the
+  // highest-scored reachable candidate, ahead of the remaining tier-1
+  // options (verified directly against chooseAiTechChoiceForPlayer's actual
+  // output, not hand-derived from the scoring heuristics).
+  const alreadyResearched = ["toolmaking", "trade"];
 
-  it("returns the gold-only toolmaking tech when crystal/iron-gated higher-scored techs are unaffordable", () => {
+  it("prefers an affordable tier-1 tech over a higher-scored tier-2 tech blocked by its gold cost", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
         id: "ai-4",
-        points: 74_000,
-        techIds: [],
+        points: 10, // affords tier 1 (10 gold) but not tier 2 (50 gold)
+        techIds: alreadyResearched,
         domainIds: [],
-        strategicResources: { FOOD: 5_000, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        strategicResources: {}
       },
-      [ownedSettledTown, ownedSettledDock]
+      [ownedSettledDock]
     );
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(true);
-    // toolmaking is the highest-scored tech among gold-only-affordable
-    // options when the player has a settled town + dock but no strategic
-    // resources.
-    expect(choice!.id).toBe("toolmaking");
+    expect(choice!.id).toBe("tribal-warfare");
   });
 
   it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
-        id: "ai-broke",
-        points: 100, // below every tier-1 tech's gold cost
-        techIds: [],
+        id: "ai-4", // must match ownedSettledDock's ownerId for active_dock to apply
+        points: 0, // below every tier's gold cost
+        techIds: alreadyResearched,
         domainIds: [],
         strategicResources: {}
       },
-      [ownedSettledTown, ownedSettledDock]
+      [ownedSettledDock]
     );
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(false);
-    // Diagnostic still gets the most-wanted tech so preplan can report
+    // Diagnostic still gets the most-wanted tech (harborcraft, tier 2, the
+    // top-scored reachable candidate) so preplan can report
     // tech_unaffordable accurately.
+    expect(choice!.id).toBe("harborcraft");
     expect(choice!.score).toBeGreaterThan(0);
   });
 
-  it("prefers an affordable lower-scored domain when the top-scored domain needs a missing resource", () => {
-    // mercantile-charter scores higher than clockwork-stipend when the player
-    // owns a town + dock, but it costs crystal. Without any crystal, the AI
-    // should pick clockwork-stipend (food-cost, +30 score) — the food-driven
-    // trickle domain that can produce the missing strategic resources.
-    // clockwork-stipend requires `agriculture` tech to unlock, so the
-    // scenario seeds it; the agriculture-less variant in Freja's actual prod
-    // state is fixed one step earlier by the tech-choice change above (the AI
-    // will pick toolmaking → agriculture → then clockwork-stipend becomes
-    // reachable on a later tick).
+  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities (§19)", () => {
+    // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
+    // crystal, so the AI fell back to clockwork-stipend despite its lower
+    // score. §19 dropped every domain's FOOD/IRON/CRYSTAL/SUPPLY quantity
+    // cost (kept gold + SHARD only, both flat per tier) — mercantile-charter
+    // and clockwork-stipend are both tier 1 (40 gold, no shard), so neither
+    // is gated by strategicResources anymore and the AI should just take the
+    // higher-scored candidate, same as it already does for tech (see the
+    // gold-tier tests above).
     const choice = chooseAiDomainChoiceForPlayer(
       {
         id: "ai-4",
@@ -383,6 +396,6 @@ describe("AI progression choice prefers affordable options over higher-scored un
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(true);
-    expect(choice!.id).toBe("clockwork-stipend");
+    expect(choice!.id).toBe("mercantile-charter");
   });
 });

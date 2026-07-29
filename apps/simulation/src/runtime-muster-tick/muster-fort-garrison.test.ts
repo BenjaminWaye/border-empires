@@ -32,10 +32,14 @@ const fortGarrison = (runtime: SimulationRuntime, x: number, y: number): number 
 
 describe("Phase 7: fort garrison containers", () => {
   it("fort fills from overflow when the player pool is at cap", () => {
+    // Manpower must be at/above the player's full cap (STARTING_CAPITAL_MANPOWER_CAP
+    // + this tile's SETTLEMENT tier, per docs/manpower-economy-rewrite-plan.md §4.3)
+    // for the "player pool is at cap" overflow precondition this test exercises to
+    // actually hold.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", { ...makePlayer("player-1", 500), manpower: 500 }]
+        ["player-1", { ...makePlayer("player-1", 1_000), manpower: 1_000 }]
       ]),
       initialState: {
         tiles: [
@@ -52,7 +56,9 @@ describe("Phase 7: fort garrison containers", () => {
               garrisonCap: CAP,
               garrisonUpdatedAt: 1_000
             }
-          }
+          },
+          // §5.4: FORT needs 1 IRON slot to not go dormant.
+          { x: 9, y: 10, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
@@ -69,7 +75,7 @@ describe("Phase 7: fort garrison containers", () => {
     const buildRuntimeWithForts = (fortCount: 1 | 2) =>
       new SimulationRuntime({
         now: () => 1_000,
-        initialPlayers: new Map([["player-1", { ...makePlayer("player-1", 500), manpower: 500 }]]),
+        initialPlayers: new Map([["player-1", { ...makePlayer("player-1", 1_000), manpower: 1_000 }]]),
         initialState: {
           tiles: [
             {
@@ -79,7 +85,10 @@ describe("Phase 7: fort garrison containers", () => {
             ...(fortCount === 2 ? [{
               x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
               fort: { ownerId: "player-1", status: "active", variant: "FORT" as const, garrison: 0, garrisonCap: CAP, garrisonUpdatedAt: 1_000 }
-            }] : [])
+            }] : []),
+            // §5.4: each FORT needs 1 IRON slot to not go dormant.
+            { x: 9, y: 10, terrain: "LAND" as const, resource: "IRON" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+            { x: 9, y: 11, terrain: "LAND" as const, resource: "IRON" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
           ],
           activeLocks: []
         }

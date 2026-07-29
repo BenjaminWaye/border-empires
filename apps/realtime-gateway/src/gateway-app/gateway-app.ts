@@ -2974,6 +2974,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {
             await dispatchDurableCommand("CANCEL_STRUCTURE_BUILD", { x: message.x, y: message.y });
+          } else if (message.type === "RUSH_BUY") {
+            await dispatchDurableCommand("RUSH_BUY", { x: message.x, y: message.y }, true);
           } else if (message.type === "REMOVE_STRUCTURE") {
             await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
@@ -2995,8 +2997,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             });
           } else if (message.type === "CANCEL_CAPTURE") {
             await dispatchDurableCommand("CANCEL_CAPTURE", {});
-          } else if (message.type === "OVERLOAD_SYNTHESIZER") {
-            await dispatchDurableCommand("OVERLOAD_SYNTHESIZER", { x: message.x, y: message.y }, true);
           } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
             await dispatchDurableCommand(
               "SET_CONVERTER_STRUCTURE_ENABLED",
@@ -3034,7 +3034,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "IMPERIAL_EXCHANGE_LEVY") {
             await dispatchDurableCommand(
               "IMPERIAL_EXCHANGE_LEVY",
-              { fromX: message.fromX, fromY: message.fromY, resource: message.resource },
+              { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );
           } else if (message.type === "WORLD_ENGINE_STRIKE") {

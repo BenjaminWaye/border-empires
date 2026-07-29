@@ -1,9 +1,17 @@
-import type { EmpireStorageCap } from "@border-empires/shared";
+import { TOWN_FOOD_SLOT_DEMAND, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
+
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/IRON/CRYSTAL/
+// SUPPLY stopped being stockpiled flows once Step 5 shipped — they're now
+// discrete slot capacity, so this panel renders them with a slots-used mode
+// instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource
+// left on the flow mode (§14.1 item 2 / §5.5) — SHARD is event-gated and isn't
+// part of this panel's resource list at all.
+const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
 
 type EconomyPanelArgs = {
   focus: EconomyFocusKey;
@@ -31,9 +39,87 @@ type EconomyPanelArgs = {
   rateToneClass: (rate: number) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (type: EconomicStructureType) => string;
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+  dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
 };
 
 const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
+
+const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, string> = {
+  WOODEN_FORT: "Wooden Fort",
+  FORT: "Fort",
+  IRON_BASTION: "Iron Bastion",
+  THUNDER_BASTION: "Thunder Bastion"
+};
+
+const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] & string, string> = {
+  SIEGE_OUTPOST: "Siege Outpost",
+  SIEGE_TOWER: "Siege Tower",
+  DREAD_TOWER: "Dread Tower"
+};
+
+// §14.1 item 2 / §14.2: which structures/towns are occupying a slot of this
+// resource right now, for the "Occupied by" column of the detail card. Reuses
+// the same authoritative structureSlotRequirements table the server gates
+// BUILD_STRUCTURE on, rather than re-deriving demand from scratch — this is a
+// display-only grouping of that same table, not a second computation of it.
+// §14.1: an occupant whose own field is dormant (no free slot of `resource`,
+// per §5.4) still holds the slot count shown here — dormancy silences the
+// structure's bonus, it doesn't free the slot — so this only tags the row
+// with a warning rather than excluding it from the count.
+const isDormantOccupant = (
+  args: EconomyPanelArgs,
+  tile: Tile,
+  field: "fort" | "siegeOutpost" | "economicStructure",
+  resource: SlotResource
+): boolean => {
+  if (tile.ownerId !== args.me) return false;
+  const key = `${tile.x},${tile.y}:${field}`;
+  return args.dormantStructures.find((entry) => entry.key === key)?.resources.includes(resource) ?? false;
+};
+
+const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource): EconomyBucket[] => {
+  const buckets = new Map<string, EconomyBucket>();
+  const add = (label: string, count: number, dormant = false): void => {
+    if (count <= 0) return;
+    const current = buckets.get(label);
+    if (current) {
+      current.amountPerMinute += count;
+      current.count += 1;
+      if (dormant) current.dormantCount = (current.dormantCount ?? 0) + 1;
+      return;
+    }
+    buckets.set(label, { label, amountPerMinute: count, count: 1, ...(dormant ? { dormantCount: 1 } : {}) });
+  };
+  for (const tile of args.tiles) {
+    if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
+    if (tile.fogged) continue;
+    if (tile.town && resource === "FOOD") add("Town support", TOWN_FOOD_SLOT_DEMAND);
+    if (tile.fort && tile.fort.status !== "removing") {
+      const variant = tile.fort.variant ?? "FORT";
+      const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
+      add(FORT_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "fort", resource));
+    }
+    if (tile.siegeOutpost && tile.siegeOutpost.status !== "removing") {
+      const variant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
+      const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
+      add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
+    }
+    if (tile.economicStructure && tile.economicStructure.status !== "removing") {
+      const type = tile.economicStructure.type;
+      const count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
+      add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));
+    }
+  }
+  return [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+};
+
+const slotStatusLine = (supply: number, demand: number): { text: string; tone: number } => {
+  if (supply <= 0) return { text: "No access to this resource yet", tone: -1 };
+  if (demand > supply) return { text: `Short by ${demand - supply}`, tone: -1 };
+  if (demand === supply) return { text: "Fully committed", tone: 0 };
+  return { text: `${supply - demand} free`, tone: 1 };
+};
 
 const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
@@ -159,15 +245,28 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
 const formatCap = (cap: number): string => (cap >= 1000 ? `${(cap / 1000).toFixed(1)}k` : cap.toFixed(0));
 
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
-  const stock = resource === "GOLD" ? args.gold : args.strategicResources[resource];
-  const cap = args.storageCap[resource];
-  const gross = resource === "GOLD" ? args.incomePerMinute : args.strategicProductionPerMinute[resource];
-  const upkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
-  const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
   const icon = args.resourceIconForKey(resource);
   const label = args.prettyToken(resource);
+  const head = `<div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>`;
+  if (isSlotResource(resource)) {
+    const supply = args.resourceSlots.supply[resource];
+    const demand = args.resourceSlots.demand[resource];
+    const status = slotStatusLine(supply, demand);
+    return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
+    ${head}
+    <div class="economy-summary-stock">${demand}<span class="economy-summary-cap"> / ${supply} slots</span></div>
+    <div class="economy-summary-rates">
+      <span class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</span>
+    </div>
+  </button>`;
+  }
+  const stock = args.gold;
+  const cap = args.storageCap.GOLD;
+  const gross = args.incomePerMinute;
+  const upkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
+  const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
   return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
+    ${head}
     <div class="economy-summary-stock">${stock.toFixed(1)}<span class="economy-summary-cap"> / ${formatCap(cap)}</span></div>
     <div class="economy-summary-rates">
       <span>Gross ${gross.toFixed(2)}/m</span>
@@ -202,14 +301,40 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
       ${visibleResources
         .map((resource) => {
           const detail = economyDetailForResource(args, resource);
+          const foodFootnote = resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : "";
+          if (isSlotResource(resource)) {
+            const supply = args.resourceSlots.supply[resource];
+            const demand = args.resourceSlots.demand[resource];
+            const status = slotStatusLine(supply, demand);
+            const occupants = slotOccupantsForResource(args, resource);
+            return `<section class="economy-detail-card card">
+            <div class="economy-detail-head">
+              <div>
+                <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
+                <strong>${demand} / ${supply} slots used</strong>
+              </div>
+              <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
+            </div>
+            <div class="economy-detail-columns">
+              <div class="economy-detail-column">
+                <h4>Occupied by</h4>
+                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
+              </div>
+              <div class="economy-detail-column">
+                <h4>Upkeep</h4>
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+              </div>
+            </div>
+            ${foodFootnote}
+          </section>`;
+          }
           const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
-          const stock = resource === "GOLD" ? args.gold : args.strategicResources[resource];
-          const cap = args.storageCap[resource];
+          const cap = args.storageCap.GOLD;
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
                 <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
-                <strong>${stock.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
+                <strong>${args.gold.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
             </div>
@@ -223,7 +348,6 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
                 ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
               </div>
             </div>
-            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
           </section>`;
         })
         .join("")}

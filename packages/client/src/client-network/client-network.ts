@@ -19,7 +19,7 @@ import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
-import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
+import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
@@ -1266,7 +1266,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
+      state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
+      state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+      state.eventLog = (msg.eventLog as typeof state.eventLog | undefined) ?? state.eventLog; state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
@@ -1328,7 +1330,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
       if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
@@ -1352,7 +1354,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         availableTechPicks: msg.availableTechPicks
       });
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
-      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog; updateTechAffordabilityPulses(state, Date.now());
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
@@ -2594,6 +2596,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
           showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
         }
+      } else if (errorCode === "INSUFFICIENT_SLOT") {
+        // Same fix as INSUFFICIENT_GOLD directly above, same reason: a
+        // resource-slot rejection (docs/manpower-economy-rewrite-plan.md §5 —
+        // runtime-structure-command-handlers.ts's hasFreeResourceSlots) is a
+        // BUILD-only rejection whose COMMAND_REJECTED event carries no x/y,
+        // so it doesn't match isStructureActionError's errorTileKey lookup
+        // below. Without this, the optimistic under-construction ghost this
+        // build's own optimistic() call already drew never gets cleared, and
+        // the tile menu keeps showing a structure that was never actually built.
+        const attempt = state.lastDevelopmentAttempt;
+        if (attempt?.tileKey) {
+          clearOptimisticTileStateSafely(attempt.tileKey, true);
+          state.lastDevelopmentAttempt = undefined;
+        }
+        state.queuedDevelopmentDispatchPending = false;
+        showCaptureAlertSafely("Construction failed", errorMessage, "warn");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);

@@ -14,6 +14,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
+  handleRushBuyCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
   handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
   handleCollectTileCommand: (command: CommandEnvelope) => void;
@@ -21,7 +22,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
-  handleOverloadSynthesizerCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
@@ -68,6 +68,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
   if (command.type === "CANCEL_FORT_BUILD") return handlers.handleCancelFortBuildCommand(command);
   if (command.type === "CANCEL_STRUCTURE_BUILD") return handlers.handleCancelStructureBuildCommand(command);
+  if (command.type === "RUSH_BUY") return handlers.handleRushBuyCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
   if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
   if (command.type === "COLLECT_TILE") return handlers.handleCollectTileCommand(command);
@@ -75,7 +76,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
-  if (command.type === "OVERLOAD_SYNTHESIZER") return handlers.handleOverloadSynthesizerCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
@@ -121,6 +121,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CANCEL_CAPTURE" ||
   command.type === "CANCEL_FORT_BUILD" ||
   command.type === "CANCEL_STRUCTURE_BUILD" ||
+  command.type === "RUSH_BUY" ||
   command.type === "REMOVE_STRUCTURE" ||
   command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
@@ -128,7 +129,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
-  command.type === "OVERLOAD_SYNTHESIZER" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||

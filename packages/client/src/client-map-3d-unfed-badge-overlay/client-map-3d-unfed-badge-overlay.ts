@@ -13,17 +13,20 @@ import {
   Vector3
 } from "three";
 
-// 3D parity for the 2D unfed-town badge: `tile.town && !tile.town.isFed`
-// floats a small shield-shaped badge above the town with the in-game
-// food icon (🍞 emoji, see client-panel-html.ts FOOD row + client-map-
-// display.ts) and a red diagonal slash drawn over it on a canvas
-// texture. The whole badge slowly spins around Y and bobs up/down so
-// the eye is drawn to towns that need attention.
+// 3D parity for the 2D unfed-town badge, generalized per §21.1 of the
+// manpower-economy-rewrite plan: originally hardcoded to `tile.town &&
+// !tile.town.isFed` with a fixed food emoji, now parameterized by icon so
+// the same machinery renders a badge for any of the 4 resource icons
+// (client-panel-html.ts: 🍞 Food, ⛏ Iron, 💎 Crystal, 🦊 Supply) — driven by
+// whichever resource a dormant structure (§5.4) is short on, not only
+// town-unfed. Callers create one overlay instance per resource type they
+// need simultaneously (a dormant Fort missing IRON and an unfed town both
+// showing at once need different icons on different tiles).
 //
-// One canvas texture is shared across every badge — every unfed town
-// shows the same icon — and a single InstancedMesh of textured planes
-// renders one badge per instance. tick(nowMs) recomputes each instance
-// matrix with the current spin + bob offsets.
+// One canvas texture is shared across every badge of a given overlay —
+// every instance of that overlay shows the same icon — and a single
+// InstancedMesh of textured planes renders one badge per instance.
+// tick(nowMs) recomputes each instance matrix with the current bob offset.
 
 const BADGE_SIZE = 0.36;
 const CANVAS_SIZE = 192;
@@ -44,8 +47,8 @@ const PHASE_PER_INSTANCE = Math.PI * 0.37;
 // elevations rather than only from the default.
 const PLANE_TILT_X = -0.50;
 
-const drawBadgeCanvas = (): HTMLCanvasElement | null => {
-  // The unit test imports createUnfedBadgeOverlay in a Node env that
+const drawBadgeCanvas = (icon: string): HTMLCanvasElement | null => {
+  // The unit test imports createResourceBadgeOverlay in a Node env that
   // has no `document`; skip canvas painting there. The overlay still
   // constructs the InstancedMesh (with no texture) so the regression
   // assertions on mesh count and addInstance/clear/commit pass.
@@ -81,15 +84,15 @@ const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   ctx.fill();
   ctx.stroke();
 
-  // 🍞 loaf emoji centred — same glyph the game uses for food (see
-  // client-panel-html.ts: { key: "FOOD", icon: "🍞" }).
+  // Resource icon centred — same glyph set the game uses everywhere else
+  // (client-panel-html.ts's per-resource icon row), passed in by the caller.
   ctx.font = `${Math.round(CANVAS_SIZE * 0.62)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("🍞", CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.02);
+  ctx.fillText(icon, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.02);
 
   // Red diagonal slash from top-right to bottom-left — the universal
-  // prohibition slash, signalling "not enough food".
+  // prohibition slash, signalling "not enough of this resource".
   const SLASH_MARGIN = 26;
   ctx.strokeStyle = "#c94a38";
   ctx.lineWidth = 14;
@@ -102,7 +105,7 @@ const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   return canvas;
 };
 
-export type UnfedBadgeOverlay = {
+export type ResourceBadgeOverlay = {
   readonly group: Group;
   readonly clear: () => void;
   readonly addInstance: (centerX: number, centerZ: number, surfaceY: number) => void;
@@ -111,12 +114,12 @@ export type UnfedBadgeOverlay = {
   readonly dispose: () => void;
 };
 
-export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBadgeOverlay => {
+export const createResourceBadgeOverlay = (scene: Scene, maxTiles: number, icon: string): ResourceBadgeOverlay => {
   const group = new Group();
-  group.name = "unfed-badge-overlay";
+  group.name = "resource-badge-overlay";
   scene.add(group);
 
-  const canvas = drawBadgeCanvas();
+  const canvas = drawBadgeCanvas(icon);
   const texture = canvas ? new CanvasTexture(canvas) : null;
   if (texture) {
     texture.colorSpace = SRGBColorSpace;

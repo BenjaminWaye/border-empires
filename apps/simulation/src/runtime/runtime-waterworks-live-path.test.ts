@@ -56,7 +56,7 @@ const buildRuntime = (includeWaterworks: boolean, now: () => number) =>
   });
 
 describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
-  it("collecting a farmstead FARM tile within Waterworks radius credits 2x the FOOD of the same tile without Waterworks", async () => {
+  it("collecting a farmstead FARM tile credits no FOOD regardless of Waterworks radius (§5.4: slot-based, not yield-based)", async () => {
     const oneHourMs = 60 * 60_000;
     const withoutWaterworks = buildRuntime(false, () => oneHourMs);
     const withWaterworks = buildRuntime(true, () => oneHourMs);
@@ -83,11 +83,11 @@ describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
     const baseFood = await collect(withoutWaterworks, "collect-base");
     const boostedFood = await collect(withWaterworks, "collect-boosted");
 
-    expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo(baseFood * 2, 5);
+    expect(baseFood).toBe(0);
+    expect(boostedFood).toBe(0);
   });
 
-  it("tileDeltaFromState (the live tile-delta broadcast path) reports the Waterworks-boosted FOOD rate, not the un-boosted rate", () => {
+  it("tileDeltaFromState (the live tile-delta broadcast path) reports no FOOD rate regardless of Waterworks (§5.4: slot-based, not yield-based)", () => {
     const oneHourMs = 60 * 60_000;
     const withoutWaterworks = buildRuntime(false, () => oneHourMs);
     const withWaterworks = buildRuntime(true, () => oneHourMs);
@@ -103,7 +103,7 @@ describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
 
     const baseFood = deltaYieldStrategicFood(withoutWaterworks);
     const boostedFood = deltaYieldStrategicFood(withWaterworks);
-    expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo((baseFood ?? 0) * 2, 5);
+    expect(baseFood).toBeUndefined();
+    expect(boostedFood).toBeUndefined();
   });
 });

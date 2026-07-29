@@ -34,13 +34,13 @@ const goldTownTile = (x: number, y: number, ownerId: string): DomainTileState =>
   town: { type: "MARKET", populationTier: "SETTLEMENT" }
 });
 
-const ironResourceTile = (x: number, y: number, ownerId: string): DomainTileState => ({
+const farmResourceTile = (x: number, y: number, ownerId: string): DomainTileState => ({
   x,
   y,
   terrain: "LAND",
   ownerId,
   ownershipState: "SETTLED",
-  resource: "IRON"
+  resource: "FARM"
 });
 
 const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
@@ -156,7 +156,11 @@ describe("consumeUpkeepFromTileYield", () => {
     tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 3 };
+    // 0.1, not the old 3: SETTLEMENT_BASE_GOLD_PER_MIN is now cut 288x
+    // (docs/manpower-economy-rewrite-plan.md §6.1), so 60 buffered minutes
+    // yields ~0.208 gold, not ~60 — need must fit under that to still prove
+    // "fully drains, need becomes 0".
+    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
@@ -172,20 +176,20 @@ describe("consumeUpkeepFromTileYield", () => {
     expect(tileYieldCollectedAtByTile.get(tileKey(0, 0))).toBe(newAnchor);
   });
 
-  it("drains strategic need (IRON) from a resource tile", () => {
+  it("leaves FOOD need untouched — a resource tile no longer yields FOOD to drain (slot-based, not yield-based, §5.4)", () => {
     const player = testPlayer("player-1");
     const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 4 * 60 * 60_000; // 4 hours -> 10 IRON buffered (well under the 20 cap)
-    const tile = ironResourceTile(0, 0, "player-1");
+    const lastCollectedAt = nowMs - 4 * 60 * 60_000;
+    const tile = farmResourceTile(0, 0, "player-1");
     const { ctx, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
     tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), IRON: 4 };
+    const need: UpkeepNeed = { ...emptyNeed(), FOOD: 4 };
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
-    expect(need.IRON).toBe(0);
+    expect(need.FOOD).toBe(4);
   });
 
   it("leaves remaining need untouched once tile yield is exhausted", () => {
@@ -201,7 +205,10 @@ describe("consumeUpkeepFromTileYield", () => {
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
-    expect(need.gold).toBeCloseTo(9, 3);
+    // 1 minute of buffered SETTLEMENT yield is now ~0.00694 gold
+    // (SETTLEMENT_BASE_GOLD_PER_MIN = 2/288, §24.6) rather than ~1, so the
+    // residual is ~9.9931, not ~9.
+    expect(need.gold).toBeCloseTo(10 - 2 / 288, 3);
   });
 
   it("stops iterating once the need is fully satisfied, leaving later tiles' anchors untouched", () => {
@@ -215,7 +222,8 @@ describe("consumeUpkeepFromTileYield", () => {
     tileYieldCollectedAtByTile.set(tileKey(0, 1), lastCollectedAt);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0), tileKey(0, 1)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 3 };
+    // 0.1, not the old 3 — see the "drains gold need..." test above for why.
+    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
@@ -294,7 +302,8 @@ describe("consumeUpkeepFromTileYield", () => {
     sortedYieldBearingKeysByOwner.set("player-1", [tileKey(0, 1), tileKey(0, 0)]);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0), tileKey(0, 1)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 3 };
+    // 0.1, not the old 3 — see the "drains gold need..." test above for why.
+    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
@@ -373,7 +382,11 @@ describe("applyEconomyAccrual", () => {
     const nowStart = 1_000;
     const player = testPlayer("player-1", { points: 100 });
     const tile = goldTownTile(0, 0, "player-1");
-    const { ctx, playerSummaries, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile], upkeep: { gold: 2 } });
+    // upkeep.gold lowered from 2 to 0.1: SETTLEMENT_BASE_GOLD_PER_MIN is now
+    // cut 288x (docs/manpower-economy-rewrite-plan.md §6.1), so an hour of
+    // buffered yield is ~0.208 gold, not ~60 — need must fit under that to
+    // still prove "fully covered by buffered yield, points untouched".
+    const { ctx, playerSummaries, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile], upkeep: { gold: 0.1 } });
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0)]);
     playerSummaries.set("player-1", summary);
@@ -383,7 +396,7 @@ describe("applyEconomyAccrual", () => {
 
     applyEconomyAccrual(ctx, player, nowStart + 15_000);
 
-    // need.gold = 2 * 0.25min = 0.5, fully covered by the ~60 buffered gold on the tile.
+    // need.gold = 0.1 * 0.25min = 0.025, fully covered by the ~0.208 buffered gold on the tile.
     expect(player.points).toBe(100);
   });
 

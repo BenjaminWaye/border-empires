@@ -44,6 +44,9 @@ export type MusterTickInput = {
   locksByTile: ReadonlyMap<string, unknown>;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
+  // §5.4: a dormant Siege/Light Outpost doesn't grant the muster
+  // depot-speed/Rail-Depot-boost bonus.
+  isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
 };
 
 /**
@@ -289,8 +292,16 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
 const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {
   const keys = new Set<string>();
   const siege = input.activeSiegeOutpostsByOwner.get(playerId);
-  if (siege) for (const key of siege) keys.add(key);
+  if (siege) {
+    for (const key of siege) {
+      if (!input.isStructureDormant(playerId, key, "siegeOutpost")) keys.add(key);
+    }
+  }
   const light = input.activeLightOutpostsByOwner.get(playerId);
-  if (light) for (const key of light) keys.add(key);
+  if (light) {
+    for (const key of light) {
+      if (!input.isStructureDormant(playerId, key, "economicStructure")) keys.add(key);
+    }
+  }
   return keys;
 };

@@ -141,6 +141,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
   state.strategicProductionPerMinute =
     (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+  state.resourceSlots = (player.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
+  state.dormantStructures = (player.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+  state.eventLog = (player.eventLog as typeof state.eventLog | undefined) ?? state.eventLog;
   state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
   state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
   state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
@@ -154,10 +157,19 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.exposureE = (player.E as number) ?? state.exposureE;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
-  const initDefensibility = defensibilityPctFromTE(
-    (player.Ts as number | undefined) ?? (player.T as number | undefined),
-    (player.Es as number | undefined) ?? (player.E as number | undefined)
-  );
+  // integrityPct is the server-authoritative empire-integrity percentage
+  // (local-support model, docs/manpower-economy-rewrite-plan.md §7.2) — use
+  // it directly when present so the display matches the real mechanic
+  // rather than an approximation recomputed client-side from just two
+  // aggregate T/E numbers. Falls back to the legacy T/E-ratio recompute for
+  // any server payload that hasn't been updated to send it yet.
+  const initDefensibility =
+    typeof player.integrityPct === "number" && Number.isFinite(player.integrityPct)
+      ? Math.max(0, Math.min(100, player.integrityPct as number))
+      : defensibilityPctFromTE(
+          (player.Ts as number | undefined) ?? (player.T as number | undefined),
+          (player.Es as number | undefined) ?? (player.E as number | undefined)
+        );
   state.defensibilityPct = initDefensibility;
   state.defensibilityAnimDir = 0;
   state.defensibilityAnimUntil = 0;

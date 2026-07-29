@@ -4,7 +4,10 @@ import {
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
   MANPOWER_BASE_CAP as SHARED_MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE as SHARED_MANPOWER_BASE_REGEN_PER_MINUTE,
-  RAIL_DEPOT_MANPOWER_REGEN_PER_MIN as SHARED_RAIL_DEPOT_MANPOWER_REGEN_PER_MIN,
+  MANPOWER_REGEN_GLOBAL_FLOOR as SHARED_MANPOWER_REGEN_GLOBAL_FLOOR, STARTING_CAPITAL_MANPOWER_CAP as SHARED_STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE as SHARED_STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, EXPAND_MANPOWER_COST as SHARED_EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST as SHARED_SETTLE_MANPOWER_COST,
+  GARRISON_HALL_MANPOWER_CAP_BONUS as SHARED_GARRISON_HALL_MANPOWER_CAP_BONUS,
+  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL as SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL,
+  RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL as SHARED_RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL,
   TOWN_MANPOWER_BY_TIER as SHARED_TOWN_MANPOWER_BY_TIER,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -45,37 +48,43 @@ export const SHARD_RAIN_SITE_MIN = 3;
 export const SHARD_RAIN_SITE_MAX = 6;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 export const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
-export const STARTING_GOLD = 100;
+// Gold rescope (docs/manpower-economy-rewrite-plan.md §6.1): every passive gold-income
+// source below divides by this to preserve their relative balance while cutting the
+// absolute magnitude — TOWN_BASE_GOLD_PER_MIN's old 2/min (~2,880/day/town) -> ~10/day.
+export const GOLD_RESCALE_DIVISOR = 288;
+export const STARTING_GOLD = 10;
 export const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
 export const BARBARIAN_MAINTENANCE_INTERVAL_MS = 10_000;
 export const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
 export const PVP_REWARD_MULT = 0.55;
-export const TOWN_BASE_GOLD_PER_MIN = 2;
-export const DOCK_INCOME_PER_MIN = 0.5;
+export const TOWN_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR;
+export const DOCK_INCOME_PER_MIN = 0.5 / GOLD_RESCALE_DIVISOR;
 export const FORT_BUILD_IRON_COST = 45;
 export const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
-export const SYNTH_OVERLOAD_GOLD_COST = 12_500;
-export const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;
-export const FUR_SYNTHESIZER_OVERLOAD_SUPPLY = 15;
-export const IRONWORKS_OVERLOAD_IRON = 15;
-export const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 10;
 export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 export const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 export const FARMSTEAD_BUILD_FOOD_COST = 20;
-export const FARMSTEAD_GOLD_UPKEEP = 1;
+// §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+// occupation IS its upkeep now — there is nothing left to meter per-minute
+// on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
+// were never retired to 0 when their build cost moved to manpower + slots
+// (unlike MARKET_FOOD_UPKEEP/BANK_FOOD_UPKEEP/CARAVANARY_FOOD_UPKEEP below,
+// which already got this treatment). Retired to 0 rather than deleted, same
+// "leave plumbing, starve input" pattern.
+export const FARMSTEAD_GOLD_UPKEEP = 0;
 export const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
 export const CAMP_BUILD_SUPPLY_COST = 30;
-export const CAMP_GOLD_UPKEEP = 1.2;
+export const CAMP_GOLD_UPKEEP = 0;
 export const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
 export const MINE_BUILD_RESOURCE_COST = 30;
-export const MINE_GOLD_UPKEEP = 1.2;
+export const MINE_GOLD_UPKEEP = 0;
 export const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
 export const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
 export const GRANARY_BUILD_FOOD_COST = 40;
-export const GRANARY_GOLD_UPKEEP = 1;
+export const GRANARY_GOLD_UPKEEP = 0;
 export const SEED_GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("SEED_GRANARY");
 export const SEED_GRANARY_BUILD_FOOD_COST = 80;
 export const SEED_GRANARY_GOLD_UPKEEP = 2;
@@ -99,31 +108,68 @@ export const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
-export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = SHARED_RAIL_DEPOT_MANPOWER_REGEN_PER_MIN;
+export const MANPOWER_REGEN_GLOBAL_FLOOR = SHARED_MANPOWER_REGEN_GLOBAL_FLOOR;
+export const STARTING_CAPITAL_MANPOWER_CAP = SHARED_STARTING_CAPITAL_MANPOWER_CAP; export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = SHARED_STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE; export const EXPAND_MANPOWER_COST = SHARED_EXPAND_MANPOWER_COST; export const SETTLE_MANPOWER_COST = SHARED_SETTLE_MANPOWER_COST;
+export const GARRISON_HALL_MANPOWER_CAP_BONUS = SHARED_GARRISON_HALL_MANPOWER_CAP_BONUS;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL;
+export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
-export const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
-export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
-export const IRONWORKS_GOLD_UPKEEP = 60;
-export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;
-export const MARKET_FOOD_UPKEEP = 0.5;
-export const WOODEN_FORT_GOLD_UPKEEP = 0.5;
-export const LIGHT_OUTPOST_GOLD_UPKEEP = 0.5;
-export const BANK_FOOD_UPKEEP = 1;
-export const CARAVANARY_FOOD_UPKEEP = 0.75;
-export const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
-export const GARRISON_HALL_GOLD_UPKEEP = 25;
-export const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
-export const RADAR_SYSTEM_GOLD_UPKEEP = 45;
-export const FOUNDRY_GOLD_UPKEEP = 50;
+export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
+// Bank's flat additive gold/min bonus (§22.1): old +1/min (+1.5/min w/ Clearing House)
+// rescales to ~+5/day (~+7.5/day) — meaningful against the new ~10 gold/day/town base.
+export const BANK_FLAT_GOLD_BONUS_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
+export const BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE = 1.5 / GOLD_RESCALE_DIVISOR;
+// §6.4 (docs/manpower-economy-rewrite-plan.md): synthesizers are the ONE
+// structure family gold still gates on an ongoing basis — everything else
+// is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
+// comment above). Decided figures: 30 gold/day (Fur/Iron), 40 gold/day
+// (Crystal); Advanced tiers at 1.5x (45/45/60), enforcing "an upgraded
+// building never costs less to run than the thing it upgrades." Expressed
+// directly in gold/day per §6.4's implementation rule, converted through
+// the single UPKEEP_MINUTES_PER_DAY divisor rather than each call site
+// re-deriving its own "divide by N" — the exact bug class (Advanced Fur
+// Synthesizer silently reusing CAMP_GOLD_UPKEEP) that rule exists to
+// prevent.
+export const UPKEEP_MINUTES_PER_DAY = 1440;
+export const FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 45;
+export const IRONWORKS_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY = 45;
+export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 40;
+export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
+// building-level cost is now the permanent slot it occupies
+// (structure-slots.ts) — the separate per-minute flow drain these three
+// constants used to charge on top of that would double-charge the same
+// resource two different ways, so they're retired to 0 rather than deleted
+// (their call sites — player-update-economy.ts, player-upkeep-incremental.ts —
+// stay in place and naturally go inert, same "leave plumbing, starve input"
+// treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
+export const MARKET_FOOD_UPKEEP = 0;
+export const WOODEN_FORT_GOLD_UPKEEP = 0;
+export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
+export const BANK_FOOD_UPKEEP = 0;
+export const CARAVANARY_FOOD_UPKEEP = 0;
+export const CUSTOMS_HOUSE_GOLD_UPKEEP = 0;
+export const GARRISON_HALL_GOLD_UPKEEP = 0;
+export const GOVERNORS_OFFICE_GOLD_UPKEEP = 0;
+export const RADAR_SYSTEM_GOLD_UPKEEP = 0;
+export const FOUNDRY_GOLD_UPKEEP = 0;
 export const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
 export const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
 export const IRONWORKS_IRON_PER_DAY = 18;
 export const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
-export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.025;
-export const AIRPORT_BOMBARD_CRYSTAL_COST = 200;
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Airport's ongoing crystal
+// drain is replaced entirely by its permanent CRYSTAL slot occupation —
+// "the slot occupation itself is the upkeep... there is nothing left to
+// meter per-minute." Retired to 0 rather than deleted (call sites across
+// player-update-economy.ts/player-upkeep-incremental.ts/snapshot-economy-
+// helpers.ts/tile-detail-snapshot.ts naturally go inert).
+export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0;
+export const AIRPORT_BOMBARD_CRYSTAL_COST = 0; // §17: free (retired to 0, matching the convention above; ABILITY_DEFS still reads it for display)
 export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
 export const AIRPORT_BOMBARD_RANGE = 30;
 export const AIRPORT_BOMBARD_COOLDOWN_MS = 20 * 60_000;
@@ -143,59 +189,57 @@ export const WATERWORKS_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
 export const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
 export const RADAR_SYSTEM_RADIUS = 30;
-export const IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST = 200;
-export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 30 * 60_000;
-export const IMPERIAL_EXCHANGE_LEVY_SHARE = 0.25;
-export const WORLD_ENGINE_STRIKE_CRYSTAL_COST = 500;
+export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17: free activation, takes 100% of chosen target's gold.
+export const WORLD_ENGINE_STRIKE_CRYSTAL_COST = 0; // §17: free
 export const WORLD_ENGINE_STRIKE_GOLD_COST = 15_000;
 export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 60 * 60_000;
 export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
 export const AEGIS_DOME_PROTECTION_RADIUS = 30;
-export const AEGIS_LOCK_CRYSTAL_COST = 220;
+export const AEGIS_LOCK_CRYSTAL_COST = 0; // §17: free
 export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
-export const ASTRAL_DOCK_LAUNCH_CRYSTAL_COST = 300;
+export const ASTRAL_DOCK_LAUNCH_CRYSTAL_COST = 0; // §17: free
 export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 90 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 // Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
 // no cooldown between charges — a player can burn all 3 back-to-back.
 export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;
 export const IMPERIAL_WARD_CHARGES_GRANTED = 3;
-export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
-export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
-export const SURVEY_SWEEP_CRYSTAL_COST = 30;
+export const REVEAL_EMPIRE_ACTIVATION_COST = 0; // §17: free
+export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0; // §17: free, no ongoing upkeep either
+export const SURVEY_SWEEP_CRYSTAL_COST = 0; // §17: free
 export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 export const SURVEY_SWEEP_HALF_EXTENT = 25;
-export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 15;
+export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 0; // §17: free
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const AETHER_LANCE_GOLD_COST = 3_000;
-export const AETHER_LANCE_CRYSTAL_COST = 100;
+export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
-export const DEEP_STRIKE_CRYSTAL_COST = 25;
+export const DEEP_STRIKE_CRYSTAL_COST = 0; // §17: free (unused — Deep Strike isn't wired as its own command yet)
 export const DEEP_STRIKE_COOLDOWN_MS = 20 * 60_000;
 export const DEEP_STRIKE_ATTACK_MULT = 0.9;
 export const DEEP_STRIKE_MAX_DISTANCE = 2;
-export const NAVAL_INFILTRATION_CRYSTAL_COST = 30;
+export const NAVAL_INFILTRATION_CRYSTAL_COST = 0; // §17: free (unused — Naval Infiltration isn't wired as its own command yet)
 export const NAVAL_INFILTRATION_COOLDOWN_MS = 30 * 60_000;
 export const NAVAL_INFILTRATION_ATTACK_MULT = 0.85;
 export const NAVAL_INFILTRATION_MAX_RANGE = 5;
-export const SABOTAGE_CRYSTAL_COST = 20;
+export const SABOTAGE_CRYSTAL_COST = 0; // §17: free (unused — Sabotage isn't wired as its own command yet)
 export const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
 export const SABOTAGE_DURATION_MS = 45 * 60_000;
 export const SABOTAGE_OUTPUT_MULT = 0.5;
-export const AETHER_BRIDGE_CRYSTAL_COST = 30;
+export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 export const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
 export const AETHER_BRIDGE_MAX_SEA_TILES = 4;
-export const AETHER_WALL_CRYSTAL_COST = 25;
+export const AETHER_WALL_CRYSTAL_COST = 0; // §17: free
 export const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
 export const AETHER_WALL_DURATION_MS = 20 * 60_000;
-export const SIPHON_CRYSTAL_COST = 15;
+export const SIPHON_CRYSTAL_COST = 0; // §17: free
 export const SIPHON_COOLDOWN_MS = 10 * 60_000;
 export const SIPHON_DURATION_MS = 60 * 60_000;
 export const SIPHON_SHARE = 1;
 export const TERRAIN_SHAPING_GOLD_COST = 8000;
-export const TERRAIN_SHAPING_CRYSTAL_COST = 400;
+export const TERRAIN_SHAPING_CRYSTAL_COST = 0; // §17: free (gold cost is separate and unchanged)
 export const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 export const TERRAIN_SHAPING_RANGE = 2;
 export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
@@ -205,13 +249,14 @@ export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
  * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
 export const SETTLEMENT_GROWTH_RATE_MULT = 4;
-export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
-  if (populationTier === "CITY") return 0.3;
-  if (populationTier === "GREAT_CITY") return 0.6;
-  if (populationTier === "METROPOLIS") return 1;
-  return 0.1;
-};
+// §5.3/§5.4: a town's FOOD requirement is TOWN_FOOD_SLOT_DEMAND slots
+// (structure-slots.ts), gated by dormancy (Runtime.isTownFoodDormant) — not a
+// per-minute stockpile drain anymore. Retired to always-0 rather than
+// deleted; several display/aggregation call sites (live-town-summary.ts,
+// player-upkeep-incremental.ts, the legacy/reconnect snapshot paths) still
+// read it for a "food upkeep per minute" figure that's now always 0, same
+// "leave plumbing, starve input" treatment as MARKET_FOOD_UPKEEP above.
+export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
 export const POPULATION_MIN = 3_000;
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_START_SPREAD = 2_000;
@@ -219,12 +264,6 @@ export const POPULATION_TOWN_MIN = 10_000;
 export const WORLD_TOWN_POPULATION_MIN = 15_000;
 export const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;
 export const POPULATION_GROWTH_TICK_MS = 60_000;
-/** Food cost to manually upgrade a town tier (lump sum). Tier thresholds: CITY=100k, GREAT_CITY=1M, METROPOLIS=5M pop. */
-export const TIER_UPGRADE_FOOD_COST: Record<"CITY" | "GREAT_CITY" | "METROPOLIS", number> = {
-  CITY: 500,
-  GREAT_CITY: 2000,
-  METROPOLIS: 8000
-};
 export const GROWTH_PAUSE_MS = 60 * 60_000;
 export const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
 export const NEARBY_WAR_RADIUS = 10;
@@ -241,7 +280,9 @@ export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
+// §24.1: old flat 200 gold/min was unreachable post ~288x rescale (§6.1);
+// re-anchored to 60x TOWN_BASE_GOLD_PER_MIN. `[proposed]`, not playtested.
+export const SEASON_VICTORY_ECONOMY_MIN_INCOME = TOWN_BASE_GOLD_PER_MIN * 60;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
 export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
 export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;
