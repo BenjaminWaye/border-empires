@@ -531,7 +531,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard";
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
 export type GuideStep = {
   title: string;
   body: string;
@@ -628,10 +628,7 @@ export type TileActionDef = {
     | "retort_recast_crystal"
     | "aether_wall"
     | "aether_bridge"
-    | "imperial_exchange_levy_food"
-    | "imperial_exchange_levy_iron"
-    | "imperial_exchange_levy_crystal"
-    | "imperial_exchange_levy_supply"
+    | "imperial_exchange_levy"
     | "siphon_tile"
     | "aether_emp"
     | "world_engine_strike"

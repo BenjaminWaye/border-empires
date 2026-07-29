@@ -19,7 +19,10 @@ describe("buildWorldStatusSnapshot", () => {
           id: "player-1",
           name: "Nauticus",
           points: 76,
-          incomePerMinute: 2.4,
+          // §24.5: written as old-scale-value/GOLD_RESCALE_DIVISOR so the
+          // leaderboardScoreFor rescale fix keeps producing the same 11.2
+          // expected score below against a realistic post-§6.1 income figure.
+          incomePerMinute: 2.4 / 288,
           settledTileCount: 4,
           techIds: [],
           allies: [],
@@ -31,7 +34,7 @@ describe("buildWorldStatusSnapshot", () => {
           id: "ai-1",
           name: "BlackFang",
           points: 100,
-          incomePerMinute: 0.6,
+          incomePerMinute: 0.6 / 288,
           settledTileCount: 1,
           techIds: [],
           allies: [],
@@ -43,7 +46,7 @@ describe("buildWorldStatusSnapshot", () => {
           id: "barbarian-1",
           name: "Barbarians",
           points: 100,
-          incomePerMinute: 0.6,
+          incomePerMinute: 0.6 / 288,
           settledTileCount: 1,
           techIds: [],
           allies: [],

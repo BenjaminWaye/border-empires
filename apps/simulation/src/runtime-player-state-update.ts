@@ -87,6 +87,11 @@ export function emitPlayerStateUpdate(
       // (slot demand not covered by supply), and which resource(s) each one
       // is short — feeds the client's greyed-out/"unpowered" indicator.
       dormantStructures: context.dormantStructuresForPlayer(playerId),
+      // §20: durable per-player event log, sent in full like
+      // strategicResources/dormantStructures above rather than diffed —
+      // bounded to PLAYER_EVENT_LOG_MAX_ENTRIES, so the redundancy costs
+      // little and keeps this consistent with every other field here.
+      eventLog: player.eventLog ?? [],
       economyBreakdown: economy.economyBreakdown,
       upkeepPerMinute: economy.upkeepPerMinute,
       upkeepLastTick: economy.upkeepLastTick,

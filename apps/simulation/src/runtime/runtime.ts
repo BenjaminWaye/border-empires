@@ -6,6 +6,7 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
+  appendPlayerEventLogEntry,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -89,6 +90,7 @@ import {
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer
 } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
@@ -276,11 +278,11 @@ import {
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
   handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
   handleCreateMountainCommand as handleCreateMountainCommandImpl,
-  handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl,
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
+import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -389,13 +391,16 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
-import { buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
+import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // Force a full upkeep-cache rebuild every N reads to bound floating-point drift
 // from the incremental add/subtract sum over a long-lived season.
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
+// §24.2: gut-checked against the new ~10 gold/day/town scale and kept
+// unchanged — 100 gold is now ~10 tier-1 techs' worth (§13), a deliberately
+// generous respawn cushion matching §4.3's starting-manpower philosophy.
 const RESPAWN_MINIMUM_GOLD = 100;
 // Grace beyond resolvesAt before the sweep drops a lock (60s).
 // Normal locks resolve inside their setTimeout window; anything still present
@@ -1777,9 +1782,10 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    if (this.onOwnershipChange) {
-      const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
-      if (ownershipChangeSample) this.onOwnershipChange(ownershipChangeSample);
+    const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
+    if (ownershipChangeSample) {
+      if (this.onOwnershipChange) this.onOwnershipChange(ownershipChangeSample);
+      appendTownLostEventLogIfApplicable(ownershipChangeSample, previous?.town, this.players, this.now());
     }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
@@ -2107,6 +2113,7 @@ export class SimulationRuntime {
       const preplan = chooseAutomationPreplanCommand({
         playerId,
         points: player.points,
+        manpower: player.manpower,
         techIds: [...player.techIds],
         domainIds: player.domainIds ? [...player.domainIds] : [],
         strategicResources: { ...(player.strategicResources ?? {}) },
@@ -2554,7 +2561,8 @@ export class SimulationRuntime {
   private resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals {
     const cached = this.resourceSlotDemandCacheByPlayer.get(playerId);
     if (cached) return cached;
-    const result = resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId);
+    const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined;
+    const result = resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers);
     this.resourceSlotDemandCacheByPlayer.set(playerId, result);
     return result;
   }
@@ -2567,7 +2575,8 @@ export class SimulationRuntime {
     const cached = this.resourceSlotDormancyCacheByPlayer.get(playerId);
     if (cached) return cached;
     const supply = this.resourceSlotSupplyForPlayer(playerId);
-    const result = resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply);
+    const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined;
+    const result = resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers);
     this.resourceSlotDormancyCacheByPlayer.set(playerId, result);
     return result;
   }
@@ -3528,7 +3537,8 @@ export class SimulationRuntime {
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
-      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
 
@@ -3596,7 +3606,12 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      // §23.2: a tech/domain choice can change slot waivers, which the
+      // tile-mutation-only cache invalidation below doesn't catch.
+      invalidateResourceSlotDemand: (playerId) => {
+        this.resourceSlotDemandCacheByPlayer.delete(playerId); this.resourceSlotDormancyCacheByPlayer.delete(playerId);
+      }
     };
   }
 
@@ -4070,7 +4085,8 @@ export class SimulationRuntime {
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
-      completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId)
+      completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
 

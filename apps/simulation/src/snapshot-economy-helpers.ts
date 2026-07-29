@@ -46,6 +46,7 @@ import {
   type ResourceSlotDormancy
 } from "./resource-slot-view/resource-slot-view.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -325,7 +326,12 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
     }
     const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
     const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
-    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply));
+    // §23.2: apply the same slot waivers the live runtime does, or a
+    // reconnect could show a structure dormant that the live path considers
+    // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/
+    // Enduring Realm).
+    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
   }
   resourceSlotDormancyByPlayerCache.set(runtimeState, result);
   return result;
@@ -407,7 +413,8 @@ export const buildResourceSlotDormancyByPlayerAsync = async (
     }
     const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
     const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
-    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply));
+    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
   }
   resourceSlotDormancyByPlayerCache.set(runtimeState, result);
   return result;

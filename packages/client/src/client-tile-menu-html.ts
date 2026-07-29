@@ -53,10 +53,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "retort_recast_iron") return "⚗";
   if (id === "retort_recast_crystal") return "⚗";
   if (id === "aegis_lock") return "⬢";
-  if (id === "imperial_exchange_levy_food") return "¤";
-  if (id === "imperial_exchange_levy_iron") return "¤";
-  if (id === "imperial_exchange_levy_crystal") return "¤";
-  if (id === "imperial_exchange_levy_supply") return "¤";
+  if (id === "imperial_exchange_levy") return "¤";
   if (id === "world_engine_strike") return "✹";
   if (id === "airport_bombard") return "✹";
   if (id === "aether_emp") return "↯";

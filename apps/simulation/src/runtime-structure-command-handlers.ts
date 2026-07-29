@@ -22,8 +22,10 @@ import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
+import { announceMonumentClaim } from "./runtime-monument-claim.js";
 
 export type RuntimeStructureCommandContext = {
   players: Map<string, DomainPlayer>;
@@ -61,6 +63,12 @@ export type RuntimeStructureCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
+  // §20/§16: durable per-player log entry, used here for monument-claim/
+  // race-consolation notices broadcast to every player.
+  appendPlayerEventLogEntry: (
+    player: DomainPlayer,
+    input: { type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL"; text: string; occurredAt: number }
+  ) => void;
 };
 
 type StrategicCost = Partial<Record<StrategicResourceKey, number>>;
@@ -80,7 +88,7 @@ function rejectCommand(
   });
 }
 
-function structureLabel(type: string): string {
+export function structureLabel(type: string): string {
   return type.toLowerCase().replaceAll("_", " ");
 }
 
@@ -285,6 +293,19 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     }
   }
 
+  // §16: each monument type (Imperial Exchange/World Engine/Aegis Dome/
+  // Astral Dock) is a single, global, season-unique prize — once anyone's
+  // assembly is complete, nobody (including the winner, since only one can
+  // ever stand) may build another part or assembly of that type.
+  const monumentBaseType = isMonumentBaseType(structureType) ? structureType : monumentBaseTypeForPartType(structureType);
+  if (monumentBaseType) {
+    const claimedBy = monumentClaimOwnerId(context.tiles, monumentBaseType);
+    if (claimedBy) {
+      rejectCommand(context, command, "MONUMENT_CLAIMED", `${structureLabel(monumentBaseType)} has already been claimed this season`);
+      return;
+    }
+  }
+
   if (spec.kind === "ECONOMIC") {
     const supportTarget = resolveTownSupportTarget(context, command, target, structureType);
     if (!supportTarget) return;
@@ -463,4 +484,6 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
+
+  if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
 }

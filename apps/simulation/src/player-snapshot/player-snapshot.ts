@@ -261,6 +261,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               IRON: livePlayer.strategicResources.IRON ?? 0,

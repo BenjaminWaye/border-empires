@@ -121,7 +121,7 @@ describe("tech detail crystal ability previews", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplyUpkeepMult: 0.8
+        outpostSupplySlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,

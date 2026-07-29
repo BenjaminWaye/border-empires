@@ -77,6 +77,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           domainIds: [...(player.domainIds ?? [])].sort(),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
           vision: player.mods?.vision ?? 1,

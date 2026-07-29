@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { InstancedMesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
 
-import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
+import { createResourceBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 
@@ -49,23 +49,34 @@ const clientSource = (filename: string): string => {
   return readFileSync(resolve(here, filename), "utf8");
 };
 
-describe("3d unfed-town badge regression guard", () => {
-  it("wires the unfed badge overlay into the 3D renderer lifecycle", () => {
+describe("3d resource-dormancy badge regression guard", () => {
+  it("wires the resource badge overlays into the 3D renderer lifecycle", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
-    expect(source).toContain('createUnfedBadgeOverlay');
-    expect(source).toContain('unfedBadgeOverlay.addInstance');
-    expect(source).toContain('unfedBadgeOverlay.clear()');
-    expect(source).toContain('unfedBadgeOverlay.commit()');
-    expect(source).toContain('unfedBadgeOverlay.dispose()');
+    // §21.1: generalized from a single food-only overlay to one overlay per
+    // resource icon (FOOD/IRON/CRYSTAL/SUPPLY), driven off the shared
+    // dormantStructures wire field as well as the unfed-town predicate.
+    expect(source).toContain("createResourceBadgeOverlay");
+    expect(source).toContain("resourceBadgeOverlays");
+    expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance");
+    expect(source).toContain("resourceBadgeOverlays[dormantStructureResource].addInstance");
+    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.clear\(\);/);
+    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.commit\(\);/);
+    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.dispose\(\);/);
   });
 
-  it("paints the badge through the shared shouldShowTownUnfedWarning predicate", () => {
+  it("paints the food badge through the shared shouldShowTownUnfedWarning predicate", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
     // Parity with the tile-menu "Town is unfed" line: badge predicate must
     // come from shouldShowTownUnfedWarning so neutral, foreign, unsettled,
     // and SETTLEMENT-tier towns don't light up the map.
     expect(source).toContain('shouldShowTownUnfedWarning(tile)');
-    expect(source).toContain('unfedBadgeOverlay.addInstance(x, z, surfaceY)');
+    expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY)");
+  });
+
+  it("paints a dormant structure's own resource icon, keyed off the dormantStructures wire field", () => {
+    const source = clientSource("../client-map-3d/client-map-3d.ts");
+    expect(source).toContain("deps.state.dormantStructures");
+    expect(source).toContain("dormantStructureResourceByTileKey");
   });
 
   it("paints for an owned, settled, unfed, stalled, non-SETTLEMENT town", () => {
@@ -106,9 +117,9 @@ describe("3d unfed-town badge regression guard", () => {
     expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationGrowthPerMinute: 1 } }))).toBe(false);
   });
 
-  it("emits exactly one badge per unfed town and clears between frames", () => {
+  it("emits exactly one badge per instance and clears between frames", () => {
     const scene = new Scene();
-    const overlay = createUnfedBadgeOverlay(scene, 32);
+    const overlay = createResourceBadgeOverlay(scene, 32, "🍞");
     const meshes = overlay.group.children.filter(
       (c): c is InstancedMesh => c instanceof InstancedMesh
     );

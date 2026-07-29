@@ -123,12 +123,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Boosts its connected-town income bonus by 25%.`;
   }
-  if (actionId === "build_fur_synthesizer") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
-  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
-  if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
-  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
-  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile with an Aether Condenser.";
-  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output.";
+  if (actionId === "build_fur_synthesizer") return "Provides 1 Supply slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Supply tile.";
+  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Supply slot.";
+  if (actionId === "build_ironworks") return "Provides 1 Iron slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Iron tile.";
+  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Iron slot.";
+  if (actionId === "build_crystal_synthesizer") return "Provides 1 Crystal slot on this support tile — hard-capped at 1, never upgradeable — for 40 gold/day upkeep. Gives a landlocked empire access without a real Crystal tile.";
+  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
   if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
   if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
@@ -145,10 +145,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon after finishing three parts.";
   if (actionId === "build_aegis_dome") return "Place the final Aegis Dome after finishing three parts.";
   if (actionId === "build_astral_dock") return "Place the final Astral Dock after finishing three parts.";
-  if (actionId === "imperial_exchange_levy_food") return "Seize every rival empire's stored FOOD at once.";
-  if (actionId === "imperial_exchange_levy_iron") return "Seize every rival empire's stored IRON at once.";
-  if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
-  if (actionId === "imperial_exchange_levy_supply") return "Seize every rival empire's stored SUPPLY at once.";
+  if (actionId === "imperial_exchange_levy") return "Choose one rival and seize 100% of their gold. Free, 24h cooldown.";
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
   if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
