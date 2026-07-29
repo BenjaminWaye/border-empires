@@ -1463,7 +1463,8 @@ describe("rewrite stack integration", () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+      // §5: the WOOD tile backs the SUPPLY *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
+      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }],
       activeLocks: [],
       players: [
         {
@@ -1553,7 +1554,8 @@ describe("rewrite stack integration", () => {
           ownerId: "player-1",
           ownershipState: "SETTLED",
           town: { name: "Lookout", type: "MARKET", populationTier: "TOWN" }
-        }
+        },
+        { x: 13, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" } // §5: backs the Observatory's CRYSTAL slot
       ],
       activeLocks: [],
       players: [
