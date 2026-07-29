@@ -324,8 +324,8 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
       result.set(player.id, emptyResourceSlotDormancy());
       continue;
     }
-    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
+    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
     // §23.2: apply the same slot waivers the live runtime does, or a
     // reconnect could show a structure dormant that the live path considers
     // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/
@@ -411,8 +411,8 @@ export const buildResourceSlotDormancyByPlayerAsync = async (
       result.set(player.id, emptyResourceSlotDormancy());
       continue;
     }
-    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys);
+    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
     const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
     result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
   }

@@ -209,7 +209,7 @@ const resourceSlotsForPlayer = (
       ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
     });
   }
-  const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
   // §23.2: the cold/reconnect path must apply the same slot waivers
   // (fortIronSlotWaiverCount etc) as the live runtime, or a player with
   // Dwarf Kingdom/Supply State/Treasury State/Enduring Realm would see a
@@ -219,7 +219,7 @@ const resourceSlotsForPlayer = (
     ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
     : undefined;
   return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys),
+    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys),
     demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
   };
 };

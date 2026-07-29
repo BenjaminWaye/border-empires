@@ -139,9 +139,9 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
 };
 
 // Farmstead/Mine/Camp all add +1 slot to the tile they sit on (§5.2: "one
-// rule, all resources"). Waterworks instead boosts every Farmstead within
-// its radius by a further +2 FOOD slots (§5.3) — a radius effect, not a
-// same-tile one, so it's not part of this per-tile-structure map.
+// rule, all resources"). Waterworks/Foundry instead boost every Farmstead/
+// Mine within their radius by a further bonus (§5.3/§12) — a radius effect,
+// not a same-tile one, so neither is part of this per-tile-structure map.
 export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, number>> = {
   FARMSTEAD: 1,
   MINE: 1,
@@ -149,6 +149,11 @@ export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, 
 };
 
 export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
+// Mirrors WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS's "double the post-own-boost
+// total" shape: a Mine alone is base(1) + own-boost(1) = 2 slots; within
+// Foundry range it becomes 2 + 2 = 4, i.e. doubled, matching Foundry's
+// "doubles active Mine production" billing (§12).
+export const FOUNDRY_MINE_SLOT_BONUS = 2;
 
 // §5.3: "a town requires ~2 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its

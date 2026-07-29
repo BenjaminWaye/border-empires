@@ -133,7 +133,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
-  if (kind === "FOUNDRY") return "Doubles active mine production in a 5-tile radius; boosted production raises iron and crystal caps.";
+  if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine production.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
@@ -285,7 +285,7 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
-    if (key === "FOUNDRY") return ["Doubles active Mine production within 5 tiles", "Boosted Mine production raises iron and crystal caps"];
+    if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
     if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine production within 12 tiles", "+7 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
@@ -585,7 +585,7 @@ export const structureInfoForKey = (
   if (type === "FOUNDRY") {
     return structure({
       title: "Foundry",
-      detail: "Foundries double active mine production within 5 tiles. Boosted mine production also raises iron and crystal caps.",
+      detail: "Foundries double active Mine slot output within 5 tiles.",
       glyph: "🏭",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

@@ -18,13 +18,14 @@ import {
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
   type BuildableStructureType,
   type SlotResource,
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { WATERWORKS_RADIUS } from "@border-empires/game-domain";
+import { WATERWORKS_RADIUS, FOUNDRY_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -86,17 +87,18 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 
 /**
  * Slot supply from a player's owned, settled tiles: base + boost slots from
- * real resource tiles (§5.2's table, same-tile Farmstead/Mine/Camp +1, and
- * the Waterworks-radius Farmstead bonus from §5.3), PLUS each active
- * synthesizer's own hard-capped +1 slot of its resource (§6.4: "a
- * synthesizer provides exactly 1 slot of its resource... so a landlocked
- * player *can* build the one Fort/etc. that needs it" — a synthesizer is a
- * supply *source* standing in for a resource tile the player doesn't have,
- * not a consumer; see the "doesn't sit on a real resource tile" comment on
- * SYNTHESIZER_STRUCTURE_TYPES in structure-slots.ts). `waterworksKeys`
- * should come from `radiusStructureKeysForSettledTiles` over the same
- * player's settled tiles (shared with the legacy yield view so both can
- * never disagree on "which Waterworks are active").
+ * real resource tiles (§5.2's table, same-tile Farmstead/Mine/Camp +1, the
+ * Waterworks-radius Farmstead bonus from §5.3, and the Foundry-radius Mine
+ * bonus from §12), PLUS each active synthesizer's own hard-capped +1 slot of
+ * its resource (§6.4: "a synthesizer provides exactly 1 slot of its
+ * resource... so a landlocked player *can* build the one Fort/etc. that
+ * needs it" — a synthesizer is a supply *source* standing in for a resource
+ * tile the player doesn't have, not a consumer; see the "doesn't sit on a
+ * real resource tile" comment on SYNTHESIZER_STRUCTURE_TYPES in
+ * structure-slots.ts). `waterworksKeys`/`foundryKeys` should both come from
+ * `radiusStructureKeysForSettledTiles` over the same player's settled tiles
+ * (shared with the legacy yield view so both can never disagree on "which
+ * Waterworks/Foundries are active").
  *
  * §6.4's "hard-capped at 1, forever" is enforced empire-wide at build time
  * (synthesizerFamilyAlreadyOwnedElsewhere in runtime-structure-command-
@@ -106,7 +108,8 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
  */
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
-  waterworksKeys: ReadonlySet<string> = new Set()
+  waterworksKeys: ReadonlySet<string> = new Set(),
+  foundryKeys: ReadonlySet<string> = new Set()
 ): ResourceSlotTotals => {
   // §5.4: deliberately NOT dormancy-aware, for two different reasons per
   // structure family:
@@ -153,6 +156,13 @@ export const resourceSlotSupplyForPlayer = (
       withinRadiusOfAnyKey(tile.x, tile.y, waterworksKeys, WATERWORKS_RADIUS)
     ) {
       slots += WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS;
+    }
+    if (
+      structureType === "MINE" &&
+      foundryKeys.size > 0 &&
+      withinRadiusOfAnyKey(tile.x, tile.y, foundryKeys, FOUNDRY_RADIUS)
+    ) {
+      slots += FOUNDRY_MINE_SLOT_BONUS;
     }
     totals[base.slotResource] += slots;
   }
