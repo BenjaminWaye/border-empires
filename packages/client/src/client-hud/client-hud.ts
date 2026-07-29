@@ -63,7 +63,8 @@ type HudDeps = {
     strategicProductionPerMinute: ClientState["strategicProductionPerMinute"],
     upkeepPerMinute: ClientState["upkeepPerMinute"],
     strategicAnim: ClientState["strategicAnim"],
-    rateToneClass: (value: number) => string
+    rateToneClass: (value: number) => string,
+    resourceSlots?: ClientState["resourceSlots"]
   ) => string;
   formatCooldownShort: (ms: number) => string;
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
