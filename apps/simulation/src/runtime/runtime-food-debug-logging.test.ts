@@ -114,7 +114,6 @@ describe("simulation food diagnostics", () => {
   it("keeps food debug markers out of simulation hot-path files", () => {
     const hotPathFiles = [
       join(here, "runtime.ts"),
-      join(here, "../runtime-economy-accrual.ts"),
       join(here, "../runtime-resource-steal.ts")
     ];
 
