@@ -250,30 +250,53 @@ export const refreshEconomyCachesForTileChange = (input: {
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
+  // AI-only coalescing (2026-07-29 login-stall investigation): AI players
+  // settle/expand continuously and have no live subscriber, so deleting these
+  // caches on every single tile change forces a full O(settled-tiles) rebuild
+  // on the very next read — often multiple times per second for a fast-growing
+  // empire. Marking the player dirty here instead lets cachedEconomySnapshot /
+  // cachedDefensibilityMetrics keep serving the still-recent value for a short
+  // window (see AI_DERIVED_CACHE_COALESCE_MS in runtime.ts) rather than paying
+  // a fresh rebuild for every single mutation. Human players are unaffected —
+  // their caches are still deleted immediately below, so a human always sees
+  // their own action reflected instantly.
+  economySnapshotDirtyPlayerIds: Set<string>;
+  defensibilityMetricsDirtyPlayerIds: Set<string>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
   // setTileState path so the two tile-write routes can't diverge.
   maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
 
-  if (previous?.ownerId) {
-    if (previous.ownershipState === "SETTLED") {
-      input.economySnapshotCacheByPlayer.delete(previous.ownerId);
-      input.tileYieldContextCacheByPlayer.delete(previous.ownerId);
-      input.townNetworkCacheByPlayer.delete(previous.ownerId);
+  const invalidateEconomyForOwner = (ownerId: string): void => {
+    // townNetworkCacheByPlayer is cheap to drop unconditionally: a miss falls
+    // back to the incremental union-find (O(towns × 8)), not a full BFS.
+    input.townNetworkCacheByPlayer.delete(ownerId);
+    if (players.get(ownerId)?.isAi) {
+      input.economySnapshotDirtyPlayerIds.add(ownerId);
+    } else {
+      input.economySnapshotCacheByPlayer.delete(ownerId);
     }
-    input.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
+    input.tileYieldContextCacheByPlayer.delete(ownerId);
+  };
+  const invalidateDefensibilityForOwner = (ownerId: string): void => {
+    if (players.get(ownerId)?.isAi) {
+      input.defensibilityMetricsDirtyPlayerIds.add(ownerId);
+    } else {
+      input.defensibilityMetricsCacheByPlayer.delete(ownerId);
+    }
+  };
+
+  if (previous?.ownerId) {
+    if (previous.ownershipState === "SETTLED") invalidateEconomyForOwner(previous.ownerId);
+    invalidateDefensibilityForOwner(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
   }
   if (next.ownerId) {
-    if (next.ownershipState === "SETTLED") {
-      input.economySnapshotCacheByPlayer.delete(next.ownerId);
-      input.tileYieldContextCacheByPlayer.delete(next.ownerId);
-      input.townNetworkCacheByPlayer.delete(next.ownerId);
-    }
-    input.defensibilityMetricsCacheByPlayer.delete(next.ownerId);
+    if (next.ownershipState === "SETTLED") invalidateEconomyForOwner(next.ownerId);
+    invalidateDefensibilityForOwner(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
     if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);

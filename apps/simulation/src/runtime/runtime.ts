@@ -394,6 +394,13 @@ const RESPAWN_MINIMUM_GOLD = 100;
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.
 const ORPHAN_LOCK_GRACE_MS = 60_000;
+// How long an AI player's economy/defensibility/auto-settlement caches may
+// stay dirty-but-served before the next read pays a real rebuild (2026-07-29
+// login-stall investigation). Well under both consumers' own tick cadence —
+// passive income (15s) and population growth (60s) — so this never produces
+// gameplay-visible staleness; it just stops a continuously-settling AI from
+// paying a fresh O(settled-tiles) rebuild on nearly every command.
+const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 
 // Process-global monotonically increasing counter for unique runtime epochs and
 // fresh terrain mutation numbers. Consumers cache derived terrain structures by
@@ -592,6 +599,25 @@ export class SimulationRuntime {
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
+  // AI-only rebuild coalescing (2026-07-29 login-stall investigation): AI
+  // players settle/expand continuously with no live subscriber, so a
+  // continuous-settling AI empire was paying a fresh O(settled-tiles)
+  // economy/defensibility rebuild on nearly every command. These track "needs
+  // a rebuild eventually" + "when did we last actually rebuild" so a dirty AI
+  // player's cache is served as-is (slightly stale) for up to
+  // AI_DERIVED_CACHE_COALESCE_MS before the next read pays the real rebuild
+  // cost, instead of on literally every mutation. Human players never touch
+  // these — see refreshEconomyCachesForTileChange, which still deletes their
+  // cache entries immediately so a human's own action is reflected instantly.
+  private readonly economySnapshotDirtyPlayerIds = new Set<string>();
+  private readonly economySnapshotLastRebuiltAtMsByPlayer = new Map<string, number>();
+  private readonly defensibilityMetricsDirtyPlayerIds = new Set<string>();
+  private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
+  // Auto-settlement queue was entirely uncached (rebuilt from scratch, O(frontier
+  // tiles), on every single emitPlayerStateUpdate call). Coalesced the same way
+  // as above for AI; humans settle far less frequently so this mirrors their
+  // previous always-fresh behavior in practice while still being safe.
+  private readonly autoSettlementQueueCacheByPlayer = new Map<string, { value: Array<{ x: number; y: number }>; computedAtMs: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1570,7 +1596,14 @@ export class SimulationRuntime {
    */
   private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {
     const cached = this.economySnapshotCacheByPlayer.get(player.id);
-    if (cached) return cached;
+    if (cached) {
+      const dirty = this.economySnapshotDirtyPlayerIds.has(player.id);
+      if (!dirty) return cached;
+      if (player.isAi) {
+        const lastRebuiltAt = this.economySnapshotLastRebuiltAtMsByPlayer.get(player.id) ?? 0;
+        if (this.now() - lastRebuiltAt < AI_DERIVED_CACHE_COALESCE_MS) return cached;
+      }
+    }
     const rebuild = (): PlayerUpdateEconomySnapshot => {
       const summary = this.summaryForPlayer(player.id);
       let econMult = 1;
@@ -1592,6 +1625,8 @@ export class SimulationRuntime {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       }, econMult, townNetwork);
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
+      this.economySnapshotDirtyPlayerIds.delete(player.id);
+      this.economySnapshotLastRebuiltAtMsByPlayer.set(player.id, this.now());
       return snapshot;
     };
     // Attribution for event_loop_blocked (was empty mainThreadTasks): scales
@@ -1629,7 +1664,14 @@ export class SimulationRuntime {
     summary: PlayerRuntimeSummary
   ): { T: number; E: number; Ts: number; Es: number } {
     const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
-    if (cached) return cached;
+    if (cached) {
+      const dirty = this.defensibilityMetricsDirtyPlayerIds.has(playerId);
+      if (!dirty) return cached;
+      if (this.players.get(playerId)?.isAi) {
+        const lastRebuiltAt = this.defensibilityMetricsLastRebuiltAtMsByPlayer.get(playerId) ?? 0;
+        if (this.now() - lastRebuiltAt < AI_DERIVED_CACHE_COALESCE_MS) return cached;
+      }
+    }
     // Instrumentation only (2026-07-28 login-stall investigation): this
     // rebuild was previously untracked, so a cache-miss here was invisible in
     // event_loop_blocked's mainThreadTasks — its cost got silently absorbed
@@ -1641,6 +1683,8 @@ export class SimulationRuntime {
       ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
       : rebuild();
     this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
+    this.defensibilityMetricsDirtyPlayerIds.delete(playerId);
+    this.defensibilityMetricsLastRebuiltAtMsByPlayer.set(playerId, this.now());
     return metrics;
   }
 
@@ -1708,7 +1752,9 @@ export class SimulationRuntime {
       townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
-      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
+      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2607,13 +2653,17 @@ export class SimulationRuntime {
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
-    // Instrumentation only (2026-07-28 login-stall investigation): this is
-    // uncached and re-derived from scratch on every emitPlayerStateUpdate
-    // call (every command, every passive-income credit), unlike its sibling
-    // caches — for a player with thousands of frontier tiles this is O(frontier)
-    // work every single time, with no cache to hide behind. Wrapping it
-    // separately from the O(1) accessors around it (activeDevelopmentProcessCountForPlayer
-    // etc.) tells us whether IT is the dominant cost or just noise.
+    // Coalesced for AI (2026-07-29 login-stall investigation): this was
+    // entirely uncached, re-derived from scratch on every emitPlayerStateUpdate
+    // call (every command, every passive-income credit) — O(frontier tiles)
+    // work every single time. AI players expand continuously and have no live
+    // subscriber, so serving the same list for up to AI_DERIVED_CACHE_COALESCE_MS
+    // is invisible; humans are unaffected (cache bypassed below, same as before).
+    const player = this.players.get(playerId);
+    if (player?.isAi) {
+      const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
+      if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
+    }
     const rebuild = (): Array<{ x: number; y: number }> => {
       // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
       // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
@@ -2636,9 +2686,11 @@ export class SimulationRuntime {
         })
         .filter((tile): tile is { x: number; y: number } => Boolean(tile));
     };
-    return this.trackSyncMainThreadTask
+    const value = this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("auto_settlement_queue_rebuild", { playerId }, rebuild)
       : rebuild();
+    if (player?.isAi) this.autoSettlementQueueCacheByPlayer.set(playerId, { value, computedAtMs: this.now() });
+    return value;
   }
 
   storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
