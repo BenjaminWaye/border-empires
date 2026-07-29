@@ -205,10 +205,10 @@ describe("consumeUpkeepFromTileYield", () => {
 
     consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
 
-    // 1 minute of buffered SETTLEMENT yield is now ~0.00347 gold
-    // (SETTLEMENT_BASE_GOLD_PER_MIN cut 288x, §6.1) rather than ~1, so the
-    // residual is ~9.9965, not ~9.
-    expect(need.gold).toBeCloseTo(10 - 1 / 288, 3);
+    // 1 minute of buffered SETTLEMENT yield is now ~0.00694 gold
+    // (SETTLEMENT_BASE_GOLD_PER_MIN = 2/288, §24.6) rather than ~1, so the
+    // residual is ~9.9931, not ~9.
+    expect(need.gold).toBeCloseTo(10 - 2 / 288, 3);
   });
 
   it("stops iterating once the need is fully satisfied, leaving later tiles' anchors untouched", () => {

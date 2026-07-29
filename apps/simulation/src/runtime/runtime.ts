@@ -398,10 +398,9 @@ const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive",
 // Force a full upkeep-cache rebuild every N reads to bound floating-point drift
 // from the incremental add/subtract sum over a long-lived season.
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
-// §24.2: gut-checked against the new ~10 gold/day/town scale and kept
-// unchanged — 100 gold is now ~10 tier-1 techs' worth (§13), a deliberately
-// generous respawn cushion matching §4.3's starting-manpower philosophy.
-const RESPAWN_MINIMUM_GOLD = 100;
+// §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
+// line with how far everything else in the new economy scale shrank.
+const RESPAWN_MINIMUM_GOLD = 10;
 // Grace beyond resolvesAt before the sweep drops a lock (60s).
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.

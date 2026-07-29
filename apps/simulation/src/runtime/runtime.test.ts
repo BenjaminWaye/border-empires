@@ -1544,16 +1544,16 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // 60 min elapse: town yields nothing, FUR_SYNTHESIZER draws the
-    // §6.4-decided 30 gold/day (= 30/1440 gold/min) in upkeep — the only
-    // structure family that still carries an ongoing gold drain post-§12.1.
-    // No yield to cover it, so the (small) deficit hits the stockpile.
+    // 60 min elapse: FUR_SYNTHESIZER draws the §6.4-decided 30 gold/day
+    // (= 30/1440 gold/min) upkeep, partially offset by the SETTLEMENT town's
+    // own SETTLEMENT_BASE_GOLD_PER_MIN yield (§24.6); the remaining deficit
+    // hits the stockpile.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(998);
-    expect(player?.points).toBeLessThan(999);
+    expect(player?.points).toBeGreaterThan(999);
+    expect(player?.points).toBeLessThan(1000);
   });
 
   it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
@@ -2218,7 +2218,7 @@ describe("simulation runtime", () => {
           ownershipState: "SETTLED"
         })
       );
-      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100);
+      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(99); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST, above the 10 floor
       const respawnPlayerUpdate = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
           event.eventType === "PLAYER_MESSAGE" &&
@@ -2227,7 +2227,7 @@ describe("simulation runtime", () => {
           event.messageType === "PLAYER_UPDATE"
       );
       const respawnPayload = respawnPlayerUpdate?.payloadJson ? JSON.parse(respawnPlayerUpdate.payloadJson) as { gold?: number } : {};
-      expect(respawnPayload.gold).toBe(100);
+      expect(respawnPayload.gold).toBe(99);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -7420,7 +7420,7 @@ describe("simulation runtime — shard rain", () => {
           })
         );
         expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
-        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(100);
+        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(10); // §24.2: floored from 0 to RESPAWN_MINIMUM_GOLD
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();

@@ -602,7 +602,13 @@ it's already on. Maps to **C** (building and expanding-well feed the same
 number) and **E**-adjacent (*where* you settle matters, so claims stop being
 interchangeable).
 
-### 7.3 The Discovery track — the real fix for E `[proposed]`
+### 7.3 The Discovery track — the real fix for E `[cut — not being pursued]`
+
+**Decided: cut.** Never implemented, and staying that way — this was
+always a `[proposed]` idea rather than a committed decision, and it's being
+closed out rather than left open indefinitely. Kept below as a record of
+the research in case a future content pass wants to revisit it, but nothing
+here is scheduled.
 
 Manpower does nothing for E. E is a content/variety problem and needs its
 own work. Research into what makes RTS/4X exploration *fun* (Civ goodie
@@ -1143,30 +1149,25 @@ implementation.
   skip, client 1021/1022 pre-existing `client-multiplex-websocket` jsdom
   `CloseEvent` failure — both matching the baseline before this change).
 
-  **New bug found, NOT fixed here (flagging, not fixing, per the "don't
-  casually touch adjacent behavior" discipline):** while wiring the
-  cold/reconnect path, `live-economy-snapshot.ts`'s existing (pre-this-session)
-  `farmsteadWaterworksKeys` computation —
-  `radiusStructureKeysForSettledTiles(settledDomainTilesByPlayerId.get(playerId) ?? [])`
-  — is silently always empty. `settledDomainTilesByPlayerId` is built via
-  `toDomainTile` (`snapshot-tile-cache.ts`), which never sets
-  `economicStructure` on the returned `DomainTileState`s, but
-  `radiusStructureKeysForSettledTiles` needs `economicStructure` to find
-  active Waterworks tiles. Net effect: the Farmstead/Waterworks food bonus in
-  the *reconnect-snapshot* economy breakdown (`buildLivePlayerEconomySnapshot`,
-  used by `buildPlayerSubscriptionSnapshot` for login/reconnect) silently
-  never applies the Waterworks-radius doubling that the live incremental path
-  (`player-update-economy.ts`, which threads its own correctly-built
-  `waterworksKeys` through) does apply — a real economy-breakdown-panel
-  display bug on reconnect, pre-dating this session, unrelated to the slots
-  fix (the new `resourceSlotsForPlayer` added this session deliberately
-  builds its own economicStructure-carrying tile view instead of reusing
-  `settledDomainTilesByPlayerId`, specifically to avoid inheriting this bug).
-  Worth its own small fix (either add `economicStructure` to
-  `toDomainTile`'s output — check for other callers relying on its current
-  narrower shape first — or give `live-economy-snapshot.ts` its own
-  economicStructure-aware tile view the way this session's `resourceSlotsForPlayer`
-  does), but out of scope for this slice.
+  **Bug found and flagged, later confirmed moot by a subsequent change — no
+  fix needed:** while wiring the cold/reconnect path, `live-economy-snapshot.ts`'s
+  then-existing `farmsteadWaterworksKeys` computation (built over
+  `settledDomainTilesByPlayerId`, which never carries `economicStructure`)
+  was silently always empty, meaning the reconnect-path economy breakdown
+  would never show the Farmstead/Waterworks radius doubling that the live
+  incremental path applied. **Re-checked during the diff/plan cross-reference
+  pass**: `strategicProductionPerMinuteForResource` and
+  `converterOutputPerMinute` (`snapshot-economy-helpers.ts`) were both
+  retired to always-return-0/`{}` once FOOD joined IRON/CRYSTAL/SUPPLY as
+  fully slot-based (no per-minute flow left to produce or convert,
+  `applyFarmsteadFoodToProduction` is now an explicit documented no-op) —
+  so the flow-based bucket loop this bug was about no longer has any real
+  value to compute in the first place, on either path. Separately,
+  `resourceSlotsForPlayer` (the function that actually feeds the "N/M slots
+  used" UI) already builds its own economicStructure-carrying tile view and
+  correctly threads Waterworks doubling into the reconnect-path *slot
+  supply* count. Net: no display bug remains on either surface — closing
+  this out rather than fixing dead code.
 
   **Post-fix self-review (same session) caught and fixed two more real
   gaps in the `resourceSlots` wiring above, both now closed:**
@@ -1753,34 +1754,33 @@ code audit, not exhaustively via a repo-wide grep for every literal — treat
 this list as a strong starting point for implementation, not a guarantee
 every consumer is listed.
 
-### 24.1 Economic Hegemony victory condition — now unreachable `[open — needs a decision]`
+### 24.1 Economic Hegemony victory condition — now unreachable `[decided — implemented]`
 
-`SEASON_VICTORY_ECONOMY_MIN_INCOME = 200` (gold/min) and
+`SEASON_VICTORY_ECONOMY_MIN_INCOME` was a flat `200` (gold/min) and
 `SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33`
 (`server-game-constants.ts`), consumed by `buildEconomicHegemonyObjective`
-(`season-victory-objectives.ts`): the leader must reach 200 gold/min **and**
-lead the runner-up by 33% to trigger the hold-duration countdown. At the old
-scale this was a genuine late-game target; post-rescale, 200 gold/min would
-require an economy ~288× bigger than anything else in the new economy
+(`season-victory-objectives.ts`): the leader must reach the income floor
+**and** lead the runner-up by 33% to trigger the hold-duration countdown. At
+the old scale 200 gold/min was a genuine late-game target; post-rescale, it
+would require an economy ~288× bigger than anything else in the new economy
 produces — permanently unreachable, silently disabling this entire victory
-path. **Needs a new absolute threshold sized to the new ~10 gold/day/town
-(≈0.007 gold/min/town) baseline**, not a decision this plan has made yet —
-flagging back rather than guessing, since "how many towns' worth of lead
-should trigger a hegemony countdown" is a real balance call, and gold's
+path. **Decided:** re-anchored to `TOWN_BASE_GOLD_PER_MIN * 60` (a floating
+threshold that tracks the rescale automatically instead of a second flat
+number to keep in sync) — implemented in `server-game-constants.ts`. Lead
+multiplier (1.33) is untouched, since it's a ratio, not an absolute. Gold's
 new job (tech/rush-buys/synthesizer upkeep, §6) makes "economic dominance"
 mean something different than it used to (it no longer reflects raw
 expansion size the way it did when gold scaled directly with tile count).
 
-### 24.2 Respawn minimum gold `[open — needs a decision]`
+### 24.2 Respawn minimum gold `[decided]`
 
-`RESPAWN_MINIMUM_GOLD = 100` (`runtime.ts`) is floored onto a respawning
-player's `points` in both `respawnPlayerOnUnownedLand` and
-`respawnIfEliminated` (`runtime-respawn-helpers.ts`) — untouched by the
-rescale. Unlike §24.1, this isn't obviously broken (100 gold at the *new*
-scale is a meaningful grant — 10 tier-1 techs' worth, §13), but it was never
-deliberately chosen against the new numbers either; it's worth an explicit
-gut-check rather than assuming the old value still makes sense by
-coincidence.
+`RESPAWN_MINIMUM_GOLD` (`runtime.ts`) is floored onto a respawning player's
+`points` in both `respawnPlayerOnUnownedLand` and `respawnIfEliminated`
+(`runtime-respawn-helpers.ts`). First gut-checked and left at the
+pre-rescale value of 100 (10 tier-1 techs' worth, §13) as "generous but not
+obviously broken." **Revised down to 10** (one tier-1 tech's worth) — a
+smaller respawn cushion in line with how far every other number in this
+economy shrank, rather than staying generous by comparison.
 
 ### 24.3 Elimination detection itself is NOT gold-based — confirmed sound `[verified, no bug]`
 
@@ -1815,55 +1815,37 @@ fixed once this session (`collectTileYield`'s floor-to-cents, `runtime.ts`)
 `player-update-economy.ts`'s `addBucket` and applied consistently everywhere
 else gold got touched this session.
 
-### 24.5 AI planner gold-income heuristics — multiple hardcoded thresholds, now permanently tripped `[open — needs a decision on target/currency]`
+### 24.5 AI planner gold-income heuristics — multiple hardcoded thresholds, now permanently tripped `[decided — implemented]`
 
-Found more than one instance, not a single spot — cataloging all of them:
+Found more than one instance, not a single spot — cataloging all of them
+and how each was resolved:
 
 - **`economyWeak()`, duplicated in two files** (`ai-economic-heuristics.ts`,
   shared by `automation-command-planner.ts` and `ai-preplan-command.ts`;
   and a second, separately-hand-written copy in `structure-command-planner.ts`
-  that should have imported the shared one but didn't): both compute
-  `incomePerMinute < Math.max(3, settledTileCount * 0.45)`. Post-rescale,
-  `incomePerMinute` is always ~0.003–0.05, so this is **always true** now —
-  the AI permanently believes its economy is weak regardless of actual
-  state, which happens to be a *safe* default (biases toward building more
-  economy) but is no longer a real signal.
-- **Three `incomePerMinute` thresholds in `automation-strategic-snapshot.ts`**:
-  `growthFoundationEstablished = hasActiveTown || hasActiveDock ||
-  incomePerMinute >= 10` (degrades gracefully — the other two OR'd
-  conditions are structural, not gold-based, so this one just becomes dead
-  weight); `opportunisticBreakPressure`'s `... && incomePerMinute >= 10`
-  (an AND-gate, so this one silently and permanently disables that whole
-  branch of AI combat-posture logic — more consequential than the OR case).
-- **`leaderboardScoreFor()` in `world-status-snapshot.ts`**:
-  `settledTileCount + incomePerMinute * 3 + techCount * 8` — the income
-  term's contribution to the ranking score effectively vanishes at the new
-  scale, silently turning the leaderboard into a tiles+techs-only ranking.
+  that should have imported the shared one but didn't): both computed
+  `incomePerMinute < Math.max(3, settledTileCount * 0.45)`, which was
+  **always true** post-rescale. **Decided: converted to a manpower check**
+  (`economyWeak(manpower, settledTileCount)` in `ai-economic-heuristics.ts`)
+  — `structure-command-planner.ts`'s hand-written duplicate now imports the
+  shared function instead of re-deriving it.
+- **Three `incomePerMinute` thresholds in `automation-strategic-snapshot.ts`**
+  (`growthFoundationEstablished`, `opportunisticBreakPressure`, and the
+  `input.settledTileCount * 0.55`-paired check) — **decided: rescaled in
+  place** (divided by `GOLD_RESCALE_DIVISOR`, e.g. `incomePerMinute >= 10 /
+  GOLD_RESCALE_DIVISOR`) rather than swapped to manpower, since these are
+  combat-tempo/posture signals where "income relative to the new scale"
+  still means the same thing it used to.
+- **`leaderboardScoreFor()` in `world-status-snapshot.ts`** — **decided:
+  rescaled the income term's multiplier** (`incomePerMinute * 3 *
+  GOLD_RESCALE_DIVISOR`) instead of switching resource, since it's a display
+  ranking that should keep tracking economic output, just at the output's
+  new magnitude.
 
-**The open decision, not yet made**: the user's instinct is that these
-should become **manpower** checks instead of gold checks (e.g. "~40 mp" as a
-starting-point number for `economyWeak`'s role) — consistent with this
-plan's central thesis that manpower, not gold, is now the scarce resource
-that should gate expansion/building decisions (§2, §4.5). That's a
-plausible direction (manpower is the resource these heuristics *should*
-arguably have been gating on all along, once building costs move onto
-manpower in §4), but:
-- `economyWeak`/`growthFoundationEstablished` currently gate *economic
-  structure* decisions, which under §4.1 also cost manpower going forward —
-  so a manpower-based health check would need to land *together with* §4
-  (manpower structure costs), not before, or it would be checking a
-  resource that doesn't yet gate anything.
-- Converting `opportunisticBreakPressure` and `leaderboardScoreFor` to
-  manpower isn't obviously right the same way — one is a combat-posture
-  signal (arguably should stay income/tempo-based, just rescaled rather than
-  swapped to a different resource entirely) and the other is a display
-  ranking (arguably should track *something* about economic output, and
-  manpower is a capacity/pool, not an output rate, so it may not translate
-  directly to "score").
-
-**Not resolved here** — needs the same explicit-decision treatment every
-other number in this plan got, per-heuristic, likely sequenced alongside
-§4/§5 rather than fixed in isolation now.
+All three land on the same resolution pattern: rescale the threshold by
+`GOLD_RESCALE_DIVISOR` in place, except `economyWeak`, which switched to
+manpower because it specifically gates *economic structure* decisions that,
+under §4.1, are manpower-costed going forward.
 
 ### 24.6 Confirmed unaffected — no change needed
 
