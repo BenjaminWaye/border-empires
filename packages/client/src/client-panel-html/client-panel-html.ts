@@ -283,7 +283,8 @@ export const strategicRibbonHtml = (
   strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number },
   strategicAnim: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
-  rateToneClass: (rate: number) => string
+  rateToneClass: (rate: number) => string,
+  resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> }
 ): string => {
   const nowMs = Date.now();
   const entries: Array<{
@@ -300,28 +301,15 @@ export const strategicRibbonHtml = (
   ];
   return `<div class="resource-ribbon">${entries
     .map((entry) => {
-      const stock = strategicResources[entry.key];
-      const upkeep =
-        entry.key === "FOOD"
-          ? upkeepPerMinute.food
-          : entry.key === "IRON"
-            ? upkeepPerMinute.iron
-            : entry.key === "CRYSTAL"
-              ? upkeepPerMinute.crystal
-              : entry.key === "SUPPLY"
-                ? upkeepPerMinute.supply
-                : 0;
-      const net = strategicProductionPerMinute[entry.key] - upkeep;
-      const prodText = `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
-      const rateClass = rateToneClass(net);
+      const demand = resourceSlots?.demand[entry.key] ?? 0;
+      const supply = resourceSlots?.supply[entry.key] ?? 0;
       const anim = strategicAnim[entry.key];
       const deltaClass =
         nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
       return `<button class="resource-pill ${entry.className} ${deltaClass}" type="button" data-economy-open="${entry.key}" title="${entry.label} · ${entry.source}">
         <span class="resource-icon" aria-hidden="true">${entry.icon}</span>
         <span class="resource-value-row">
-          <span class="resource-value">${Number(stock).toFixed(1)}</span>
-          ${prodText ? `<span class="resource-rate ${rateClass}">${prodText}</span>` : ""}
+          <span class="resource-value">${demand}/${supply}</span>
         </span>
       </button>`;
     })
