@@ -2313,7 +2313,8 @@ export class SimulationRuntime {
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
       expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
-      musterTilesByOwner: this.musterTilesByOwner
+      musterTilesByOwner: this.musterTilesByOwner,
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     });
   }
 
