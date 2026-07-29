@@ -26,6 +26,7 @@ import type {
   PendingResearch,
   PlayerRespawnNotice,
   RevealEmpireStatsView,
+  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   SurveySweepPing,
@@ -57,9 +58,7 @@ export type ClientWaypoint = {
 };
 
 type QueuedOptimisticKind = OptimisticStructureKind;
-type QueuedBuildPayload =
-  | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
-  | { type: "REMOVE_STRUCTURE"; x: number; y: number };
+type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export const storageGet = (keyName: string): string | null => {
   try {
@@ -313,10 +312,11 @@ export const createInitialState = () => ({
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
   // Season-end screen: shown once a winner is crowned (season ended). The player
-  // can dismiss it with "Look Around"; reset to false on SEASON_ROLLOVER so the
-  // screen shows again the next time a season ends.
+  // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStats: undefined as SeasonStatsView | undefined,
+  seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
@@ -457,6 +457,7 @@ export const createInitialState = () => ({
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
   discoveredTiles: new Set<string>(),
+  discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,
