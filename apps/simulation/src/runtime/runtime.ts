@@ -1672,16 +1672,29 @@ export class SimulationRuntime {
         if (this.now() - lastRebuiltAt < AI_DERIVED_CACHE_COALESCE_MS) return cached;
       }
     }
-    // Instrumentation only (2026-07-28 login-stall investigation): this
+    // Instrumentation only (2026-07-28/29 login-stall investigation): this
     // rebuild was previously untracked, so a cache-miss here was invisible in
     // event_loop_blocked's mainThreadTasks — its cost got silently absorbed
     // into whichever outer phase (emitPlayerStateUpdate /
-    // apply_passive_income_for_player) happened to trigger it.
+    // apply_passive_income_for_player) happened to trigger it. A 3.9s single
+    // call was observed post-fix; buildPlayerDefensibilityMetrics is O(owned
+    // tiles x 4-neighbor-scan), which should be well under a second even for
+    // 10k+ tiles, so log the real owned-tile count directly (trackSync's
+    // "details" field gets truncated to "[Object]" in the pretty-printed fly
+    // logs) whenever this is suspiciously slow.
+    const rebuildStartedAt = this.now();
     const rebuild = (): { T: number; E: number; Ts: number; Es: number } =>
       buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
     const metrics = this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
       : rebuild();
+    const rebuildDurationMs = this.now() - rebuildStartedAt;
+    if (rebuildDurationMs > 500) {
+      this.runtimeLogInfo(
+        { playerId, ownedTileCount: summary.territoryTileKeys.size, durationMs: rebuildDurationMs },
+        "[defensibility_metrics_rebuild] slow call detail"
+      );
+    }
     this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
     this.defensibilityMetricsDirtyPlayerIds.delete(playerId);
     this.defensibilityMetricsLastRebuiltAtMsByPlayer.set(playerId, this.now());
@@ -2665,19 +2678,22 @@ export class SimulationRuntime {
       const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
       if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
     }
+    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
+    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
+    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+    const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
+    let supportLookupCalls = 0;
     const rebuild = (): Array<{ x: number; y: number }> => {
-      // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
-      // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
-      // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
-      const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.tiles.get(tileKey),
         isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
-        hasTownSupport: (tile) =>
-          this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
+        hasTownSupport: (tile) => {
+          supportLookupCalls += 1;
+          return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
             const town = this.tiles.get(townKey)?.town;
             return Boolean(town && town.populationTier !== "SETTLEMENT");
-          })
+          });
+        }
       })
         .map((tileKey) => {
           const [rawX, rawY] = tileKey.split(",");
@@ -2687,9 +2703,25 @@ export class SimulationRuntime {
         })
         .filter((tile): tile is { x: number; y: number } => Boolean(tile));
     };
+    // Instrumentation only (2026-07-29 login-stall investigation): a single
+    // call was clocked at 6.5s, but O(frontier x 8-neighbor-scan) should be
+    // low tens of milliseconds even for 10k+ frontier tiles. The trackSync
+    // "details" field gets truncated to "[Object]" in the pretty-printed
+    // fly logs (util.inspect depth), so log a flat, guaranteed-visible line
+    // directly whenever this is suspiciously slow — real frontierCount /
+    // supportLookupCalls tells us whether N is genuinely enormous or the
+    // cost is coming from somewhere unaccounted for.
+    const rebuildStartedAt = this.now();
     const value = this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("auto_settlement_queue_rebuild", { playerId }, rebuild)
       : rebuild();
+    const rebuildDurationMs = this.now() - rebuildStartedAt;
+    if (rebuildDurationMs > 500) {
+      this.runtimeLogInfo(
+        { playerId, frontierCount: frontierKeys.size, supportLookupCalls, resultLength: value.length, durationMs: rebuildDurationMs },
+        "[auto_settlement_queue_rebuild] slow call detail"
+      );
+    }
     if (player?.isAi) this.autoSettlementQueueCacheByPlayer.set(playerId, { value, computedAtMs: this.now() });
     return value;
   }
