@@ -185,12 +185,25 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
   const _ttaEnd = Date.now();
   const totalMs = _ttaEnd - _ttaStart;
   if (totalMs >= 100) {
+    // 2026-07-29 login-stall investigation: claimWallClockMs/settleWallClockMs
+    // are Date.now() spans that cross `await yield_()` points (once per
+    // player) — a production capture showed claimWallClockMs=13684 with
+    // claimBusyMs (this loop's OWN synchronous work) at just 330ms. The
+    // other ~13.3s wasn't this loop blocking anything; it was OTHER work
+    // (other players' ticks, etc.) running during this loop's own
+    // cooperative yields, misattributed to territory automation by wall
+    // clock alone. Logging both wall-clock AND busy time side by side so
+    // this can never again look like a real bottleneck when it isn't one.
+    const claimBusyMs = _claimSummaryForPlayerMs + _claimAnchorScanMs + _claimReplaceTileStateMs + _claimEmitMs;
+    const settleBusyMs = _settleQueueNotifyMs;
     input.runtimeLogInfo(
       {
-        totalMs,
-        claimLoopMs: _ttaAfterClaim - _ttaStart,
-        settleMs: _ttaEnd - _ttaAfterClaim,
+        totalWallClockMs: totalMs,
+        totalBusyMs: claimBusyMs + settleBusyMs,
+        claimWallClockMs: _ttaAfterClaim - _ttaStart,
+        settleWallClockMs: _ttaEnd - _ttaAfterClaim,
         claim: {
+          busyMs: claimBusyMs,
           summaryForPlayerMs: _claimSummaryForPlayerMs,
           anchorScanMs: _claimAnchorScanMs,
           replaceTileStateMs: _claimReplaceTileStateMs,
@@ -201,6 +214,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           tilesActuallyClaimed: _tilesActuallyClaimed
         },
         settle: {
+          busyMs: settleBusyMs,
           queueNotifyMs: _settleQueueNotifyMs,
           settleQueueNotifications: _settleQueueNotifications
         }

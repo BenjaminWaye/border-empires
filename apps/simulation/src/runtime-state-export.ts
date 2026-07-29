@@ -12,7 +12,7 @@ import type { Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
-import { selectExpansionObjective, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
+import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
@@ -393,6 +393,15 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
     input.trackSync ? input.trackSync(phase, { playerId }, task) : task();
   const lockPlayerIds = input.plannerGatingLockPlayerIds();
   const players: PlannerPlayerView[] = [];
+  // 2026-07-29 login-stall investigation: sampleEnemyYieldKeysAcrossPlayers is
+  // O(total yield-bearing tiles across every player) before it samples down —
+  // this used to run once PER PLAYER inside selectExpansionObjective even
+  // though every player in this same batch reads the exact same source map.
+  // Computed at most once per call, and only if some player actually needs it
+  // (a cache-miss), not for a batch where every player's cache is warm.
+  let sampledEnemyYieldKeys: ReturnType<typeof sampleEnemyYieldKeysAcrossPlayers> | undefined;
+  const getSampledEnemyYieldKeys = (): ReturnType<typeof sampleEnemyYieldKeysAcrossPlayers> =>
+    sampledEnemyYieldKeys ??= sampleEnemyYieldKeysAcrossPlayers(input.yieldBearingTilesByOwner);
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
@@ -413,9 +422,9 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
     } else {
       expansionObjective = track("planner_view_expansion_objective", playerId, () =>
         selectExpansionObjective({
-          territoryTileKeys: summary.territoryTileKeys,
+          territoryTileKeys: tileKeys.territoryTileKeys,
           neutralBeaconTileKeys: input.neutralBeaconTileKeys,
-          enemyYieldKeysByPlayerId: input.yieldBearingTilesByOwner,
+          sampledEnemyYieldKeys: getSampledEnemyYieldKeys(),
           playerId
         }));
       input.expansionObjectiveCacheByPlayer.set(playerId, {
