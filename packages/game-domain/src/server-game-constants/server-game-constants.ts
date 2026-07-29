@@ -115,7 +115,7 @@ export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = SHARED_RAIL_D
 export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
-export const SETTLEMENT_BASE_GOLD_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
+export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
 // Bank's flat additive gold/min bonus (§22.1): old +1/min (+1.5/min w/ Clearing House)
 // rescales to ~+5/day (~+7.5/day) — meaningful against the new ~10 gold/day/town base.
 export const BANK_FLAT_GOLD_BONUS_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
