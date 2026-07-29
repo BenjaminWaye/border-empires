@@ -105,12 +105,11 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
-        detailLevel: "full",
-        upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.1 } }
-        ])
+        detailLevel: "full"
       })
     );
+    // §5.3: town FOOD upkeep retired (slot, not a per-minute drain) -> no entry.
+    expect(detail && "upkeepEntries" in detail).toBe(false);
   });
 
   it("derives town food upkeep from populationTier when townJson lacks foodUpkeepPerMinute", () => {
@@ -157,12 +156,11 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
-        detailLevel: "full",
-        upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.3 } }
-        ])
+        detailLevel: "full"
       })
     );
+    // §5.3: town FOOD upkeep retired (see the note on the previous test).
+    expect(detail && "upkeepEntries" in detail).toBe(false);
   });
 
   it("derives town food upkeep from tile town fields when townJson is missing", () => {
@@ -185,16 +183,15 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
-        detailLevel: "full",
-        upkeepEntries: expect.arrayContaining([
-          { label: "Town", perMinute: { FOOD: 0.6 } }
-        ])
+        detailLevel: "full"
       })
     );
+    // §5.3: town FOOD upkeep retired; populationTier derivation still asserted below.
+    expect(detail && "upkeepEntries" in detail).toBe(false);
     expect(JSON.parse(detail?.townJson ?? "{}")).toEqual(
       expect.objectContaining({
         populationTier: "GREAT_CITY",
-        foodUpkeepPerMinute: 0.6
+        foodUpkeepPerMinute: 0
       })
     );
   });
@@ -234,7 +231,8 @@ describe("buildSnapshotTileDetail", () => {
     expect(detail).toEqual(
       expect.objectContaining({
         detailLevel: "full",
-        yieldRate: expect.objectContaining({ goldPerMinute: 1 }),
+        // §6.1/§24.6: SETTLEMENT_BASE_GOLD_PER_MIN 2/288 -> 0.0069, not the old flat 1.
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0069 }),
         yieldCap: expect.objectContaining({ gold: expect.any(Number) })
       })
     );
@@ -705,12 +703,13 @@ describe("buildSnapshotTileDetail", () => {
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 241, 150);
     const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
     expect(town).toBeDefined();
-    expect(town?.goldPerMinute).toBeCloseTo(4.4, 4);
-    expect(town?.cap).toBeCloseTo(2112, 0);
+    // §6.1: computed here (unlike the passthrough test above), so it moves with the 288x rescale.
+    expect(town?.goldPerMinute).toBeCloseTo(4.4 / 288, 4);
+    expect(town?.cap).toBeCloseTo(2112 / 288, 0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-        yieldCap: expect.objectContaining({ gold: 2112 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 }),
+        yieldCap: expect.objectContaining({ gold: 7.333 })
       })
     );
   });

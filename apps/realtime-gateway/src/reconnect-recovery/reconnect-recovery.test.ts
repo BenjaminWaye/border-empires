@@ -86,8 +86,8 @@ describe("buildInitMessage", () => {
       expect.objectContaining({
         id: "player-1",
         name: "Nauticus",
-        gold: 100,
-        manpower: 150,
+        gold: 10, // §6.1 STARTING_GOLD 100->10; §4.3 starting manpower 150->576
+        manpower: 576,
         techIds: [],
         tileColor: expect.stringMatching(/^#[0-9a-f]{6}$/i)
       })
