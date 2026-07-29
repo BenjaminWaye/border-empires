@@ -290,7 +290,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
-  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed();
+  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
   const integrityWarningHtml = showIntegrityWarning
     ? `<div class="integrity-warning-tip" role="alert">
         <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
@@ -869,7 +869,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  wireIntegrityWarningDismissButtons(dom.hud, () => {
+  wireIntegrityWarningDismissButtons(dom.hud, state.authEmail, () => {
     state.integrityWarningDismissed = true;
     renderClientHud(deps);
   });

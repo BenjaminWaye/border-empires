@@ -1436,7 +1436,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      worldStatus
+      worldStatus,
+      manpowerLossByTileKey: runtime.manpowerLossByTileKey
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1459,19 +1460,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
-    const finalSummary =
-      trackerResult.changed || trackerResult.crownedWinner
-        ? buildCurrentSeasonSummary({
+    const finalSummary = (trackerResult.changed || trackerResult.crownedWinner
+      ? { ...buildCurrentSeasonSummary({
             seasonState: currentSeasonState,
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            worldStatus
-          })
-        : {
-            ...baseSummary,
-            seasonVictory: trackerResult.objectives
-          };
+            worldStatus,
+            manpowerLossByTileKey: runtime.manpowerLossByTileKey
+          }), seasonVictory: trackerResult.objectives }
+      : { ...baseSummary, seasonVictory: trackerResult.objectives });
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
@@ -1526,6 +1524,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         leaderboard: playerLeaderboard,
         seasonVictory,
         ...(seasonWinner ? { seasonWinner } : {}),
+        ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
@@ -2513,7 +2512,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               : undefined;
             // Emit a WELCOME_BACK message showing how much the player earned
             // since their last active session (capped at 12h of accrual).
-            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            // Reuse incomePerMinute already computed for this subscribe's
+            // snapshot instead of triggering a second, synchronous economy
+            // rebuild on the live runtime (see welcomeBackSummary doc comment).
+            const welcomeBack = runtime.welcomeBackSummary(
+              call.request.player_id,
+              Date.now(),
+              snapshotPayload.player?.incomePerMinute
+            );
             const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
               ? toProtoEvent({
                   eventType: "PLAYER_MESSAGE",
