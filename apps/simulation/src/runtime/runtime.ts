@@ -661,6 +661,8 @@ export class SimulationRuntime {
   private readonly economySnapshotLastRebuiltAtMsByPlayer = new Map<string, number>();
   private readonly defensibilityMetricsDirtyPlayerIds = new Set<string>();
   private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
+  private readonly resourceSlotSupplyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotSupplyLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDemandDirtyPlayerIds = new Set<string>();
+  private readonly resourceSlotDemandLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDormancyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotDormancyLastRebuiltAtMsByPlayer = new Map<string, number>();
   // Auto-settlement queue was entirely uncached (rebuilt from scratch, O(frontier
   // tiles), on every single emitPlayerStateUpdate call). Coalesced the same way
   // as above for AI; humans settle far less frequently so this mirrors their
@@ -1841,7 +1843,8 @@ export class SimulationRuntime {
       resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
       resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
       economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
-      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds
+      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
+      resourceSlotSupplyDirtyPlayerIds: this.resourceSlotSupplyDirtyPlayerIds, resourceSlotDemandDirtyPlayerIds: this.resourceSlotDemandDirtyPlayerIds, resourceSlotDormancyDirtyPlayerIds: this.resourceSlotDormancyDirtyPlayerIds
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2631,37 +2634,34 @@ export class SimulationRuntime {
   // Caching added because emitPlayerStateUpdate calls this on the periodic
   // income tick for every player, not just once per BUILD_STRUCTURE command
   // — see the cache field comments above for the invalidation gates.
-  private resourceSlotSupplyForPlayer(playerId: string): ResourceSlotTotals {
-    const cached = this.resourceSlotSupplyCacheByPlayer.get(playerId);
-    if (cached) return cached;
-    const settledTiles = this.settledTilesForPlayer(playerId);
-    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const result = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
-    this.resourceSlotSupplyCacheByPlayer.set(playerId, result);
+  // Shared by the 3 resource-slot getters below (same dirty+coalesce shape as cachedEconomySnapshot); forceFresh bypasses the AI window.
+  private coalescedResourceSlotRead<V>(cache: Map<string, V>, dirty: Set<string>, lastRebuiltAt: Map<string, number>, playerId: string, forceFresh: boolean, rebuild: () => V): V {
+    const cached = cache.get(playerId);
+    if (cached && !forceFresh && (!dirty.has(playerId) || (this.players.get(playerId)?.isAi && this.now() - (lastRebuiltAt.get(playerId) ?? 0) < AI_DERIVED_CACHE_COALESCE_MS))) return cached;
+    const result = rebuild();
+    cache.set(playerId, result); dirty.delete(playerId); lastRebuiltAt.set(playerId, this.now());
     return result;
   }
 
-  private resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals {
-    const cached = this.resourceSlotDemandCacheByPlayer.get(playerId);
-    if (cached) return cached;
-    const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined;
-    const result = resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers);
-    this.resourceSlotDemandCacheByPlayer.set(playerId, result);
-    return result;
+  private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
+    return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+      return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
+    });
   }
 
-  // §5.4: which structures/towns are dormant right now because their
-  // resource is short. Cached like supply/demand above — invalidated
-  // whenever either of those would be (see resourceSlotDormancyCacheByPlayer's
-  // field comment).
+  private resourceSlotDemandForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
+    return this.coalescedResourceSlotRead(this.resourceSlotDemandCacheByPlayer, this.resourceSlotDemandDirtyPlayerIds, this.resourceSlotDemandLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+      const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers);
+    });
+  }
+
+  // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI.
   private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
-    const cached = this.resourceSlotDormancyCacheByPlayer.get(playerId);
-    if (cached) return cached;
-    const supply = this.resourceSlotSupplyForPlayer(playerId);
-    const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined;
-    const result = resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers);
-    this.resourceSlotDormancyCacheByPlayer.set(playerId, result);
-    return result;
+    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => {
+      const supply = this.resourceSlotSupplyForPlayer(playerId);
+      const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers);
+    });
   }
 
   isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
@@ -4206,8 +4206,8 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId, true), // forceFresh: hasFreeResourceSlots can't tolerate stale totals
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId, true),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
       supportedDockKeysForTile: (playerId, x, y) => this.supportedDockKeysForTile(playerId, x, y),
       economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),

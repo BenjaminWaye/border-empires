@@ -43,7 +43,13 @@ const buildInput = (players: RuntimePlayer[]) => ({
   defensibilityMetricsCacheByPlayer: new Map<string, { T: number; E: number; Ts: number; Es: number }>(),
   upkeepAccrualCacheByPlayer: new Map(),
   economySnapshotDirtyPlayerIds: new Set<string>(),
-  defensibilityMetricsDirtyPlayerIds: new Set<string>()
+  defensibilityMetricsDirtyPlayerIds: new Set<string>(),
+  resourceSlotSupplyCacheByPlayer: new Map<string, { FOOD: number }>(),
+  resourceSlotDemandCacheByPlayer: new Map<string, { FOOD: number }>(),
+  resourceSlotDormancyCacheByPlayer: new Map<string, { FOOD: Set<string> }>(),
+  resourceSlotSupplyDirtyPlayerIds: new Set<string>(),
+  resourceSlotDemandDirtyPlayerIds: new Set<string>(),
+  resourceSlotDormancyDirtyPlayerIds: new Set<string>()
 });
 
 describe("refreshEconomyCachesForTileChange — AI cache coalescing", () => {
@@ -85,6 +91,50 @@ describe("refreshEconomyCachesForTileChange — AI cache coalescing", () => {
     // Dirty-set marking is an AI-only mechanism — humans never use it.
     expect(input.economySnapshotDirtyPlayerIds.has("human-1")).toBe(false);
     expect(input.defensibilityMetricsDirtyPlayerIds.has("human-1")).toBe(false);
+  });
+
+  it("extends the same dirty-marking to the three resource-slot caches for an AI player", () => {
+    const input = buildInput([player("ai-3", true)]);
+    input.resourceSlotSupplyCacheByPlayer.set("ai-3", { FOOD: 3 } as never);
+    input.resourceSlotDemandCacheByPlayer.set("ai-3", { FOOD: 2 } as never);
+    input.resourceSlotDormancyCacheByPlayer.set("ai-3", { FOOD: new Set() } as never);
+
+    refreshEconomyCachesForTileChange({
+      ...input,
+      tileKey: "5,5",
+      previous: undefined,
+      next: settledTile("ai-3")
+    });
+
+    // Still present (not deleted) — same "serve stale, mark dirty" shape as
+    // the economy/defensibility caches above, not the old immediate-delete.
+    expect(input.resourceSlotSupplyCacheByPlayer.get("ai-3")).toEqual({ FOOD: 3 });
+    expect(input.resourceSlotDemandCacheByPlayer.get("ai-3")).toEqual({ FOOD: 2 });
+    expect(input.resourceSlotDormancyCacheByPlayer.has("ai-3")).toBe(true);
+    expect(input.resourceSlotSupplyDirtyPlayerIds.has("ai-3")).toBe(true);
+    expect(input.resourceSlotDemandDirtyPlayerIds.has("ai-3")).toBe(true);
+    expect(input.resourceSlotDormancyDirtyPlayerIds.has("ai-3")).toBe(true);
+  });
+
+  it("still deletes a human player's resource-slot cache entries immediately", () => {
+    const input = buildInput([player("human-2", false)]);
+    input.resourceSlotSupplyCacheByPlayer.set("human-2", { FOOD: 3 } as never);
+    input.resourceSlotDemandCacheByPlayer.set("human-2", { FOOD: 2 } as never);
+    input.resourceSlotDormancyCacheByPlayer.set("human-2", { FOOD: new Set() } as never);
+
+    refreshEconomyCachesForTileChange({
+      ...input,
+      tileKey: "5,5",
+      previous: undefined,
+      next: settledTile("human-2")
+    });
+
+    expect(input.resourceSlotSupplyCacheByPlayer.has("human-2")).toBe(false);
+    expect(input.resourceSlotDemandCacheByPlayer.has("human-2")).toBe(false);
+    expect(input.resourceSlotDormancyCacheByPlayer.has("human-2")).toBe(false);
+    expect(input.resourceSlotSupplyDirtyPlayerIds.has("human-2")).toBe(false);
+    expect(input.resourceSlotDemandDirtyPlayerIds.has("human-2")).toBe(false);
+    expect(input.resourceSlotDormancyDirtyPlayerIds.has("human-2")).toBe(false);
   });
 
   it("repeated AI mutations only ever mark dirty, never re-deleting an already-absent entry", () => {
