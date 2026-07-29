@@ -65,7 +65,6 @@ export type AutomationStrategicSnapshot = {
   /** Under the muster system, AI stages manpower via SET_MUSTER rather than direct ATTACK. */
   musterReady: boolean;
   manpowerSufficient: boolean;
-  victoryPathContender: boolean;
   hasActiveTown: boolean;
   hasActiveDock: boolean;
   /** Passthrough — tile keys of this player's currently active muster flags. */
@@ -309,7 +308,6 @@ const chooseVictoryPath = <TTile extends StrategicTile>(input: StrategicSnapshot
 export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   input: StrategicSnapshotInput<TTile>
 ): AutomationStrategicSnapshot => {
-  const controlledTileCount = input.controlledTileCount;
   const hasActiveTown = input.townCount > 0 || input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.town));
   const hasActiveDock = input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.dockId));
   // §24.5: 10 is an old-scale gold/min figure; rescaled by the same
@@ -412,10 +410,6 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       townCount: input.townCount
     });
   const attackReady = input.canAttack && manpowerSufficient;
-  const resourceContenderThreshold = Math.ceil(6 * VICTORY_PATH_CONTENDER_PROGRESS_RATIO);
-  const resourcePathContender = [...ownedResourceTileCounts(input.playerId, input.ownedTiles).values()].some(
-    (count) => count >= resourceContenderThreshold
-  );
 
   let strategicFocus: AutomationStrategicFocus = "BALANCED";
   if (
@@ -440,17 +434,6 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     strategicFocus = "MILITARY_PRESSURE";
   }
 
-  const victoryPathContender =
-    primaryVictoryPath === "TOWN_CONTROL"
-      ? input.townCount >= Math.max(2, Math.ceil(input.settledTileCount / 5))
-      : primaryVictoryPath === "ECONOMIC_HEGEMONY"
-        ? input.incomePerMinute >= Math.max(8, input.settledTileCount * 0.55)
-        : primaryVictoryPath === "RESOURCE_MONOPOLY"
-          ? resourcePathContender
-          : primaryVictoryPath === "MARITIME_SUPREMACY"
-            ? ownedDockTileCount(input.playerId, input.ownedTiles) >= 3
-            : controlledTileCount >= Math.max(4, input.townCount * 3);
-
   return {
     primaryVictoryPath,
     strategicFocus,
@@ -467,7 +450,6 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     attackReady,
     musterReady: MUSTER_SYSTEM_ENABLED && attackReady && (input.activeMusterCount ?? 0) < MUSTER_MAX_TILES,
     manpowerSufficient,
-    victoryPathContender,
     hasActiveTown,
     hasActiveDock,
     ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})

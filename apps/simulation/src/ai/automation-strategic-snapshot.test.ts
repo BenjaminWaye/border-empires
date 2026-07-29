@@ -109,7 +109,6 @@ describe("automation strategic snapshot", () => {
     });
 
     expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
-    expect(snapshot.victoryPathContender).toBe(true);
   });
 
   it("chooses break posture and town-control pressure when healthy towns face enemy border pressure", () => {
