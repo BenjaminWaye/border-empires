@@ -26,6 +26,7 @@ import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-b
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -66,7 +67,7 @@ type StartClientRuntimeLoopDeps = {
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => "amber" | "cyan" | "red";
   startingExpansionArrowTargets: () => Array<{ x: number; y: number; dx: number; dy: number }>;
   drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
-  drawForestOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
+  drawForestOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void; drawHillsOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
   effectiveOverlayColor: (ownerId: string) => string;
   overlayVariantIndexAt: (x: number, y: number, mod: number) => number;
   dockOverlayVariants: Array<HTMLImageElement | undefined>;
@@ -146,7 +147,7 @@ type StartClientRuntimeLoopDeps = {
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   reconcileActionQueue: () => void;
-  sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+  processPendingMusterAttacks: () => void; sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
 };
 
@@ -337,14 +338,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in
-      // 3D mode so the icon-only summary remains visible when zoomed
-      // out (parallels drawResourceCornerMarker for resource tiles).
+      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
         deps.drawDockMarker(px, py, size);
       }
-      // The 3D dock overlay supersedes the SVG dock icon (and its
-      // fallback placeholder) when the true-3D renderer is mounted.
+      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
       if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
@@ -436,6 +434,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -836,7 +836,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
@@ -1007,6 +1007,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -1311,12 +1313,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const tileEndAt = performance.now();
-    // Sequential sub-phase timer for the rest of the frame: each phaseMs()
-    // call returns elapsed time since the PREVIOUS call (or since tileEndAt
-    // for the first one) and captures it immediately at the measurement
-    // site — unlike hand-pairing named "XEndAt" checkpoints into a
-    // subtraction expression far below, a swapped or mismatched pair here
-    // isn't possible since there's nothing to pair by hand.
+    // Sequential sub-phase timer for the rest of the frame: each phaseMs() call returns elapsed time since the previous call (or tileEndAt for the first), captured immediately — no hand-paired "XEndAt" checkpoints to mismatch.
     let lastPhaseMarkAt = tileEndAt;
     const phaseMs = (): number => {
       const markAt = performance.now();
@@ -1668,15 +1665,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
       deps.renderHud();
     }
-    // Fire whichever muster flags' transit windows have expired. Each flag
-    // arms/marches independently of the others and of the single
-    // actionInFlight slot; fireDueMusterTransits only claims that slot for
-    // the one attack it actually sends this tick.
+    // Fire whichever muster flags' transit windows have expired; each flag arms/marches
+    // independently and only claims actionInFlight for the one attack it actually sends.
     fireDueMusterTransits(state, {
       keyFor: deps.keyFor,
       sendDeferredAttack: deps.sendDeferredAttack,
       requestViewRefresh: deps.requestViewRefresh
     });
+    if (state.pendingMusterAttacks.length > 0) deps.processPendingMusterAttacks(); // queued muster attacks share this heartbeat
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;

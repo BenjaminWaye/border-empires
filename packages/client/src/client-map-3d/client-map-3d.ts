@@ -19,7 +19,7 @@ import {
 import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
+import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -30,6 +30,7 @@ import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js
 import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
+import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
@@ -58,13 +59,14 @@ import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
-import { createShardOverlay } from "../client-map-3d-shard-overlay.js";
+import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
+import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -120,6 +122,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
@@ -167,7 +170,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
-  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
@@ -1412,17 +1415,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
       return visibility === "visible" || visibility === "fogged";
     };
-    heightfield.rebuild({
-      camX: deps.state.camX,
-      camY: deps.state.camY,
-      halfW,
-      halfH,
-      worldWidth: WORLD_WIDTH,
-      worldHeight: WORLD_HEIGHT,
-      tileKindAt: heightfieldKindAt,
-      isExploredAt: isExploredForHeightfield,
-      isForestAt: isForestTile
-    });
+    // Shared window params for the main sculpted grid and the separate hills
+    // dome layer (client-map-3d-hills.ts, which draws what the grid excludes)
+    // — both must rebuild against the exact same visible window every frame.
+    const sharedTerrainWindow = {
+      camX: deps.state.camX, camY: deps.state.camY, halfW, halfH,
+      worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
+      tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
+    };
+    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
+    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
 
     mountainMassifs.clear();
     villageEffects.clear();
@@ -1455,7 +1457,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
-    shardOverlay.clear();
+    shardOverlay.clear(); watchtowerOverlay.clear();
     fortOverlay.clear();
     resourceOverlay.clear();
     attackOverlay.clear();
@@ -1533,7 +1535,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // averaging with raised neighbours (mountains, hills), so a
         // tile's painted surface can be much higher than its base. Max
         // of all 4 corners + small buffer keeps overlays above the
-        // ground at every interior point of the tile.
+        // ground at every interior point of the tile. elevationAt already
+        // bakes HEIGHTFIELD_HILLS_ELEVATION_BONUS into a hill tile's own
+        // cached base elevation (see sampleTile in
+        // client-map-3d-heightfield.ts) -- adding the bonus again here used
+        // to double it, floating every overlay a full bonus-height above
+        // the dome's actual peak instead of resting on it.
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const surfaceY = Math.max(
@@ -1548,6 +1555,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // of their last-witnessed owner -- no roads, structures, units,
           // or FX, since we no longer have live data for any of that. This
           // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
+          const fogIsHill = isHillsTile(wx, wy);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner01Y = heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1556,29 +1564,38 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fx1 = x + 0.5;
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
-          fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+          if (fogIsHill) {
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false);
+          } else {
+            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+          }
           if (terrain === "LAND" && ownerId) {
             const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));
-            fogOwnershipOverlay.addTile(
-              fx0, fogCorner00Y, fz0,
-              fx1, fogCorner10Y, fz0,
-              fx0, fogCorner01Y, fz1,
-              fx1, fogCorner11Y, fz1,
-              fogOwnerColor,
-              ownershipState === "FRONTIER"
-            );
+            if (fogIsHill) {
+              fogOwnershipOverlay.addHillTile(
+                fx0, fx1, fz0, fz1,
+                fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
+                fogOwnerColor,
+                ownershipState === "FRONTIER"
+              );
+            } else {
+              fogOwnershipOverlay.addTile(
+                fx0, fogCorner00Y, fz0,
+                fx1, fogCorner10Y, fz0,
+                fx0, fogCorner01Y, fz1,
+                fx1, fogCorner11Y, fz1,
+                fogOwnerColor,
+                ownershipState === "FRONTIER"
+              );
+            }
           }
           continue;
         }
         if (terrain === "LAND") {
           const roadDirs = roadNetwork.get(deps.keyFor(wx, wy));
           if (roadDirs) {
-            roadOverlay.addInstance(
-              wx, wy,
-              x, z,
-              (cwx: number, cwy: number) => heightfield.cornerYAt(deps.wrapX(cwx), deps.wrapY(cwy)),
-              roadDirs
-            );
+            const elevationAt = createRoadElevationAt(isHillsTile, (x, z) => heightfield.cornerYAt(x, z), deps.wrapX, deps.wrapY);
+            roadOverlay.addInstance(wx, wy, x, z, elevationAt, roadDirs);
           }
         }
         // Per-tile water quad on top of the heightfield's sea-floor
@@ -1626,9 +1643,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        if (forestTile) {
-          forest.addInstance(x, z, surfaceY);
-        }
+        if (forestTile) forest.addInstance(x, z, surfaceY);
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
@@ -1677,7 +1692,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1790,6 +1805,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // base elevations of the 4 surrounding tiles, which sat
           // below the rendered surface near coast/explored boundaries
           // and let the overlay sink under the heightfield.
+          // Hills are a separate dome mesh layered on top of the flat
+          // heightfield (see client-map-3d-hills.ts), so cornerYAt alone
+          // never reflects their raised surface. Each tile's quad has
+          // private, unshared corner vertices, so it's safe to bump the
+          // whole quad up to clear the dome peak without creating seams.
           const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1798,14 +1818,25 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const x1 = x + 0.5;
           const z0 = z - 0.5;
           const z1 = z + 0.5;
-          ownershipOverlay.addTile(
-            x0, corner00Y, z0,
-            x1, corner10Y, z0,
-            x0, corner01Y, z1,
-            x1, corner11Y, z1,
-            ownerColor,
-            ownershipState === "FRONTIER"
-          );
+          if (isHillsTile(wx, wy)) {
+            // Drape the overlay over the dome's own curve instead of
+            // bridging it with one flat plane (see addHillTile).
+            ownershipOverlay.addHillTile(
+              x0, x1, z0, z1,
+              corner00Y, corner10Y, corner01Y, corner11Y,
+              ownerColor,
+              ownershipState === "FRONTIER"
+            );
+          } else {
+            ownershipOverlay.addTile(
+              x0, corner00Y, z0,
+              x1, corner10Y, z0,
+              x0, corner01Y, z1,
+              x1, corner11Y, z1,
+              ownerColor,
+              ownershipState === "FRONTIER"
+            );
+          }
           if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
               ...selectedOwnershipDebug,
@@ -1858,7 +1889,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
-    shardOverlay.commit();
+    shardOverlay.commit(); watchtowerOverlay.commit();
     fortOverlay.commit();
     resourceOverlay.commit();
     attackOverlay.commit();
@@ -1929,7 +1960,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -2068,7 +2099,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aegisLockFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
-    shardOverlay.dispose();
+    shardOverlay.dispose(); watchtowerOverlay.dispose();
     fortOverlay.dispose();
     resourceOverlay.dispose();
     attackOverlay.dispose();
@@ -2081,6 +2112,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townSupportCoins.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
+    hillTerrain.dispose();
     heightfield.dispose();
     atmosphere.dispose();
     glCanvas.remove();

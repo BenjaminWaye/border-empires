@@ -46,6 +46,7 @@ import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy
 import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
 import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
+import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -411,20 +412,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const verboseSnapshotDiagnostics = process.env.SIMULATION_VERBOSE_SNAPSHOT_DIAGNOSTICS === "1";
   const slowSnapshotBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_SNAPSHOT_BUILD_WARN_MS ?? 100));
   const simulationMetricsLogIntervalMs = Math.max(0, Number(process.env.SIMULATION_METRICS_LOG_INTERVAL_MS ?? 0));
-  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH"
-  // diagnostic. Set 0 to disable. Captures total + max-per-subscriber filter
-  // time so we can tell whether filterTileDeltasForPlayer is the source of
-  // simulation event-loop stalls under heavy combat load.
+  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH" diagnostic (0 disables); captures total + max-per-subscriber filter time to attribute event-loop stalls to filterTileDeltasForPlayer under heavy combat.
   const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
-  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see
-  // SqliteWriterChannel.onWriteTimed). Discriminates "the SQL write itself was
-  // slow" (workMs) from "the worker was still busy with a prior message when
-  // this one arrived" (queueWaitMs) — a multi-second appendEvent round trip
-  // looks identical in the event_store diagnostic either way.
+  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see SqliteWriterChannel.onWriteTimed) — discriminates a slow SQL write (workMs) from the worker still being busy with a prior message (queueWaitMs).
   const slowWriterQueueWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_WRITER_QUEUE_WARN_MS ?? 50));
-  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
-  // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
-  // under heavy combat the build itself (before fanout) could block the loop.
+  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic — each human capture builds (2*VISION_RADIUS+1)² tile deltas, which could block the loop under heavy combat.
   const slowCaptureRevealBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_CAPTURE_REVEAL_BUILD_WARN_MS ?? 20));
   const captureRevealBuildSample = (sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }): void => {
     if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;
@@ -1149,6 +1141,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; }
     if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
+    if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
     if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
     if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
     log.info("season ended — gameplay tickers stopped");
@@ -1232,6 +1225,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
+  let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
@@ -1295,17 +1289,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const buildOpts = {
-      includeWorldStatus: needsFullWorldExport,
-      fullVisibility: useFullVisibility,
-      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
-      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      // worldStatusRuntimeState is always === runtimeState for full-vis; the
-      // worker falls back to runtimeState automatically, so omit it here.
-      seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
-    };
+    const buildOpts = buildSnapshotBuildOptions({
+      useFullVisibility,
+      needsFullWorldExport,
+      runtimeState,
+      respawnNotice,
+      currentSeasonState,
+      nonCompetitivePlayerIds,
+      sharedFullVisibilityTiles,
+    });
     // Full-visibility builds (season-ended / spectator) bypass the worker pool.
     // For full-vis the per-tile enrichment is already memoised on the main
     // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
@@ -1444,7 +1436,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      worldStatus
+      worldStatus,
+      manpowerLossByTileKey: runtime.manpowerLossByTileKey
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1467,19 +1460,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
-    const finalSummary =
-      trackerResult.changed || trackerResult.crownedWinner
-        ? buildCurrentSeasonSummary({
+    const finalSummary = (trackerResult.changed || trackerResult.crownedWinner
+      ? { ...buildCurrentSeasonSummary({
             seasonState: currentSeasonState,
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            worldStatus
-          })
-        : {
-            ...baseSummary,
-            seasonVictory: trackerResult.objectives
-          };
+            worldStatus,
+            manpowerLossByTileKey: runtime.manpowerLossByTileKey
+          }), seasonVictory: trackerResult.objectives }
+      : { ...baseSummary, seasonVictory: trackerResult.objectives });
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
@@ -1534,6 +1524,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         leaderboard: playerLeaderboard,
         seasonVictory,
         ...(seasonWinner ? { seasonWinner } : {}),
+        ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
@@ -1571,9 +1562,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
-    // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
-    // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
-    persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
+    // WATCH_MUSTER/UNWATCH_MUSTER only toggle in-memory view state
+    // (watchedMusterTileByPlayer) that is meaningless after a restart, so
+    // their QUEUED rows are never persisted. Before this exemption every one
+    // after a player's first collided with UNIQUE(player_id, client_seq) —
+    // the gateway submits them with clientSeq 0 by design.
+    const isEphemeralViewCommand =
+      (command.type as string) === "WATCH_MUSTER" || (command.type as string) === "UNWATCH_MUSTER";
+    if (isEphemeralViewCommand) {
+      simulationMetrics.incrementSimEphemeralCommandPersistSkipped();
+    } else {
+      // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
+      // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
+      persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
+    }
     trackSyncMainThreadTaskWithMetrics(
       "runtime_submit_command",
       {
@@ -2464,6 +2466,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   }
                 : {}),
               tiles: (() => {
+                if (subscribeOptions.omitTiles) return [];
                 // Post-season: tiles are frozen and all players share identical
                 // full-visibility tiles, so marshal once and reuse.
                 if (currentSeasonState.status === "ended") {
@@ -2509,7 +2512,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               : undefined;
             // Emit a WELCOME_BACK message showing how much the player earned
             // since their last active session (capped at 12h of accrual).
-            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            // Reuse incomePerMinute already computed for this subscribe's
+            // snapshot instead of triggering a second, synchronous economy
+            // rebuild on the live runtime (see welcomeBackSummary doc comment).
+            const welcomeBack = runtime.welcomeBackSummary(
+              call.request.player_id,
+              Date.now(),
+              snapshotPayload.player?.incomePerMinute
+            );
             const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
               ? toProtoEvent({
                   eventType: "PLAYER_MESSAGE",
@@ -2869,6 +2879,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchedMusterTiles(Date.now());
       }, 1_000);
+      watchtowerRevealTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
+        runtime.tickWatchtowerReveals(Date.now());
+      }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -2893,11 +2907,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
-        // Focused warn for a 5s+ block (else the spike is silently rolled into
+        // Focused warn for a 2s+ block (else the spike is silently rolled into
         // sim_event_loop_max_ms). Payload building (GC-pause/RSS-gap correlation)
-        // lives in event-loop-block-diagnostic.ts.
+        // lives in event-loop-block-diagnostic.ts. Routed through
+        // recordLagDiagnostic (not bare emitLog) so the block also lands in the
+        // diagnostics ring the gateway debug bundle exports — stdout scrolls out
+        // of the flyctl buffer in minutes, and the 2026-07-26 prod incident dump
+        // contained zero stall attribution because this event was log-only.
+        // durationMs is set so the ring entry (which strips most payload fields)
+        // still carries the block length.
         if (lagMs >= 2_000) {
-          emitLog("warn", "simulation event loop blocked", buildEventLoopBlockedPayload({
+          const blockedPayload = buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,
             blockStartedAtMs: now - lagMs,
@@ -2908,7 +2928,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             activePlayerCount: activePlayers.size,
             mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now),
             lagDiagRing: getLagDiagRing()
-          }));
+          });
+          recordLagDiagnostic("warn", "event_loop_blocked", { ...blockedPayload, durationMs: lagMs });
         }
       }, 100);
       metricsTicker = setInterval(() => {
@@ -3126,6 +3147,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
+      if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();

@@ -60,6 +60,20 @@ jobs:
           # Use a deploy key or PAT so the subsequent commit push works.
           token: ${{ secrets.GH_PAT || github.token }}
 
+      # NOTE: job-level `env:` cannot self-reference the `env` context (per
+      # GitHub's context-availability rules, the `env` context is not
+      # available while `jobs.<job_id>.env` itself is being evaluated). A
+      # previous `GATEWAY_SQLITE_PATH: "...${{ env.FIXTURE_ASSET }}"` entry
+      # in the job-level `env:` block above made this workflow file fail
+      # validation, which caused GitHub to log a "No jobs were run" failure
+      # for every push across the whole repo (not just this workflow's own
+      # schedule/workflow_dispatch triggers). Steps *do* have access to the
+      # `env` context, so derive GATEWAY_SQLITE_PATH here instead — this
+      # keeps it in sync with FIXTURE_ASSET automatically if that ever
+      # changes.
+      - name: Derive fixture-dependent paths
+        run: echo "GATEWAY_SQLITE_PATH=${{ github.workspace }}/.local-data/${{ env.FIXTURE_ASSET }}" >> "$GITHUB_ENV"
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

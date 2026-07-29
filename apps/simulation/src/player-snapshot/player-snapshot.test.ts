@@ -221,8 +221,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING" },
-        { x: 14, y: 10, terrain: "LAND" },
-        { x: 15, y: 10, terrain: "LAND" },
+        { x: 11, y: 10, terrain: "LAND" },
+        { x: 12, y: 10, terrain: "LAND" },
         { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
@@ -248,7 +248,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.playerId).toBe("player-1");
     expect(snapshot.tiles).toEqual([
       expect.objectContaining({ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING" }),
-      { x: 14, y: 10, terrain: "LAND" }
+      { x: 11, y: 10, terrain: "LAND" }
     ]);
   });
 
@@ -327,7 +327,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          { x: 24, y: 20, terrain: "LAND" }
+          { x: 21, y: 20, terrain: "LAND" }
         ],
         players: [
           {
@@ -354,7 +354,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         tiles: [
           expect.objectContaining({ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }),
           expect.objectContaining({ x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }),
-          expect.objectContaining({ x: 24, y: 20, terrain: "LAND" })
+          expect.objectContaining({ x: 21, y: 20, terrain: "LAND" })
         ]
       })
     );
@@ -865,7 +865,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         {
           id: "player-1",
           allies: [],
-          vision: 1,
+          vision: 4, // dx=4 reach to the remote town, independent of base VISION_RADIUS
           visionRadiusBonus: 0,
           territoryTileKeys: ["10,10"]
         },
@@ -934,7 +934,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         {
           id: "player-1",
           allies: [],
-          vision: 1,
+          vision: 4, // dx=4 reach to the remote town, independent of base VISION_RADIUS
           visionRadiusBonus: 0,
           territoryTileKeys: ["10,10"]
         },
@@ -964,7 +964,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
-
   it("derives full remote settlement summaries from recovered synthetic settlement identity", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
@@ -990,7 +989,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 15, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
         { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "15,10"] }
       ],
       pendingSettlements: [],
@@ -1035,7 +1034,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
         { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10"] }
       ],
       pendingSettlements: [],
@@ -1089,7 +1088,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 15, y: 11, terrain: "LAND" }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
         { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "13,10"] }
       ],
       pendingSettlements: [],
@@ -1129,11 +1128,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         }
       ]
     ]);
-    const initialState = {
+    const initialState = { // radius 2 w/ cartography: (12,10) dx=2 visible, (13,10) dx=3 not
       tiles: [
         { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
-        { x: 15, y: 10, terrain: "LAND" as const },
-        { x: 16, y: 10, terrain: "LAND" as const }
+        { x: 12, y: 10, terrain: "LAND" as const },
+        { x: 13, y: 10, terrain: "LAND" as const }
       ],
       activeLocks: []
     };
@@ -1146,10 +1145,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(beforeRestartSnapshot.tiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-        expect.objectContaining({ x: 15, y: 10 })
+        expect.objectContaining({ x: 12, y: 10 })
       ])
     );
-    expect(beforeRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
+    expect(beforeRestartSnapshot.tiles.some((tile) => tile.x === 13 && tile.y === 10)).toBe(false);
 
     const runtimeAfterRestart = new SimulationRuntime({
       initialState: runtimeBeforeRestart.exportSnapshotSections().initialState
@@ -1158,10 +1157,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(afterRestartSnapshot.tiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-        expect.objectContaining({ x: 15, y: 10 })
+        expect.objectContaining({ x: 12, y: 10 })
       ])
     );
-    expect(afterRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
+    expect(afterRestartSnapshot.tiles.some((tile) => tile.x === 13 && tile.y === 10)).toBe(false);
   });
 
   it("includes live town manpower regen and breakdown in subscription snapshots", () => {

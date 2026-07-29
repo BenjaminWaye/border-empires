@@ -205,6 +205,9 @@ importers:
       '@border-empires/client':
         specifier: workspace:*
         version: link:../client
+      '@border-empires/shared':
+        specifier: workspace:*
+        version: link:../shared
       three:
         specifier: ^0.179.1
         version: 0.179.1

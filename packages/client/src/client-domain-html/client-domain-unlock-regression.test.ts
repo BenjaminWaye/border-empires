@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { chooseDomainFromUi } from "../client-player-actions.js";
 import type { DomainInfo } from "../client-types.js";
+import type { RealtimeSocket } from "../client-socket-types.js";
 
 const domain = (overrides: Partial<DomainInfo> & Pick<DomainInfo, "id" | "name">): DomainInfo => ({
   tier: 1,
@@ -17,7 +18,7 @@ const chooseDeps = (state: ReturnType<typeof createInitialState>, send = vi.fn()
   state,
   techPickEl: { value: "" } as HTMLSelectElement,
   mobileTechPickEl: { value: "" } as HTMLSelectElement,
-  ws: { readyState: 1, send } as unknown as WebSocket,
+  ws: { readyState: 1, send } as unknown as RealtimeSocket,
   wsUrl: "ws://example.test/game",
   setAuthStatus: vi.fn(),
   syncAuthOverlay: vi.fn(),

@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
@@ -195,7 +195,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     restrictToFocus
   });
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = input.points >= FRONTIER_CLAIM_COST && input.manpower >= EXPAND_MANPOWER_COST;
+  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
+  const canExpand = input.points >= SETTLE_COST && input.manpower >= EXPAND_MANPOWER_COST;
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
   // e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's

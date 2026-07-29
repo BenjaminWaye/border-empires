@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { attackPreviewDetailForTarget, attackPreviewPendingForTarget, requestAttackPreviewForHover, requestAttackPreviewForTarget } from "./client-queue-logic.js";
 import type { Tile } from "../client-types.js";
+import type { RealtimeSocket } from "../client-socket-types.js";
 
 const makeTile = (overrides: Partial<Tile>): Tile => ({
   x: 0,
@@ -56,7 +57,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForHover(state, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -83,7 +84,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForTarget(state, target, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -123,7 +124,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForHover(state, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -145,7 +146,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForTarget(state, target, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -182,7 +183,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForTarget(state, target, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -228,7 +229,7 @@ describe("attack preview prefetch and cache", () => {
     const send = vi.fn();
 
     requestAttackPreviewForTarget(state, target, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin
@@ -258,7 +259,7 @@ describe("attack preview prefetch and cache", () => {
     const onPreviewTimeout = vi.fn();
 
     requestAttackPreviewForTarget(state, target, {
-      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       pickOriginForTarget: () => origin,

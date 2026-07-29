@@ -607,7 +607,7 @@ describe("automation command planner", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 2,
+      points: 4, // SETTLE_COST — canExpand now also reserves gold for the eventual SETTLE step
       manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 0,
       townCount: 0,

@@ -20,6 +20,7 @@
  */
 
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { VisionFootprintTable } from "./vision-footprint-table.js";
 
 const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {
   const separator = tileKey.indexOf(",");
@@ -34,10 +35,12 @@ export class VisibilityCoverageCache {
   private readonly coverage = new Map<string, Map<string, number>>();
   private readonly worldWidth: number;
   private readonly worldHeight: number;
+  private readonly footprintTable: VisionFootprintTable | undefined;
 
-  constructor(worldWidth: number, worldHeight: number) {
+  constructor(worldWidth: number, worldHeight: number, footprintTable?: VisionFootprintTable) {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
+    this.footprintTable = footprintTable;
   }
 
   isVisible(viewerId: string, tileKey: string): boolean {
@@ -124,6 +127,14 @@ export class VisibilityCoverageCache {
   private forEachDilatedCell(x: number, y: number, radius: number, cb: (key: string) => void): void {
     const W = this.worldWidth;
     const H = this.worldHeight;
+    if (this.footprintTable) {
+      for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius)) {
+        const nx = ((x + dx) % W + W) % W;
+        const ny = ((y + dy) % H + H) % H;
+        cb(simulationTileKey(nx, ny));
+      }
+      return;
+    }
     for (let dx = -radius; dx <= radius; dx += 1) {
       const nx = ((x + dx) % W + W) % W;
       for (let dy = -radius; dy <= radius; dy += 1) {
@@ -174,8 +185,8 @@ export class VisibilityCoverageTracker {
   private readonly deps: VisibilityCoverageTrackerDeps;
   private readonly radiusBySource = new Map<string, number>();
 
-  constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps) {
-    this.cache = new VisibilityCoverageCache(worldWidth, worldHeight);
+  constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps, footprintTable?: VisionFootprintTable) {
+    this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable);
     this.deps = deps;
   }
 
@@ -244,6 +255,24 @@ export class VisibilityCoverageTracker {
       for (const viewerId of viewers) this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius, callbacks?.onEnter);
     }
     this.radiusBySource.set(playerId, newRadius);
+  }
+
+  /**
+   * Adds a one-off, non-territory vision source for a single viewer (e.g. a
+   * watchtower's temporary reveal pulse). Unlike tileOwnershipChanged this is
+   * not tracked by radiusBySource — the caller is responsible for calling
+   * removeTemporaryReveal with the exact same (x, y, radius) once the effect
+   * expires (see runtime.ts's pendingWatchtowerReveals / tickWatchtowerReveals).
+   */
+  addTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter);
+  }
+
+  /** Reverses addTemporaryReveal once the timed effect expires. */
+  removeTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave);
   }
 
   /**

@@ -37,6 +37,7 @@ export type RuntimeCombatSupportContext = {
   // (its resource demand isn't covered by supply) — a dormant Fort/Siege
   // Outpost/Wooden Fort doesn't grant its combat bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure") => boolean;
+  manpowerLossByTileKey: Map<string, number>;
 };
 
 export type LockedCombatInput = Pick<
@@ -280,15 +281,15 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
+  const manpowerLoss = lock.actionType === "ATTACK" ? attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  if (manpowerLoss > 0) {
+    const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
+    ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
+  }
   // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss
   // formula like ATTACK's — it always succeeds against neutral land (see the
   // `attackerWon: true` override above), so the full lock.manpowerCost is paid.
-  const manpowerDelta =
-    lock.actionType === "ATTACK"
-      ? -attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
-      : lock.actionType === "EXPAND"
-        ? -lock.manpowerCost
-        : 0;
+  const manpowerDelta = lock.actionType === "EXPAND" ? -lock.manpowerCost : -manpowerLoss;
   const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey, ctx.isStructureDormant);
   const result: LockedFrontierCombatResult = {
     attackType: lock.actionType,
@@ -373,6 +374,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
     ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
     ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
     ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+    ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
     ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
   };
   ctx.replaceTileState(lock.originKey, releasedOrigin);

@@ -9,6 +9,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { clearCameraLocation } from "../client-view-refresh.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -57,6 +58,13 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     appendFeedEntry
   } = deps;
 
+  // Captured before hasEverInitialized flips below, so the home-tile-snap
+  // guard further down can tell "very first INIT of this browser session"
+  // apart from a reconnect's INIT (in-place reconnect can now deliver a
+  // second INIT within the same session — see client-multiplex-websocket.ts
+  // reconnect()). Only the first INIT should ever be allowed to move the
+  // camera; a reconnect must leave it wherever the player was looking.
+  const isFirstInitThisSession = !state.hasEverInitialized;
   clearDeferredBootstrapRefreshTimer();
   state.connection = "initialized";
   state.serverDeploying = false;
@@ -96,6 +104,17 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.me === incomingPlayerId &&
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
+  // If the season changed since the camera was last saved, discard the
+  // persisted camera location so the INIT handler centers on the home tile
+  // instead of restoring stale coordinates from a previous season.
+  if (
+    Boolean(incomingSeason?.seasonId) &&
+    state.bridgeDebugSeasonId !== "" &&
+    state.bridgeDebugSeasonId !== incomingSeason?.seasonId
+  ) {
+    clearCameraLocation();
+    state.cameraRestoredFromStorage = false;
+  }
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
     Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
@@ -224,7 +243,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // with the home tile on every connect/reconnect — INIT fires before the CHUNK
     // handler's own cameraRestoredFromStorage check ever gets a chance to matter,
     // so this was silently discarding the restore before the player ever saw it.
-    if (!state.cameraRestoredFromStorage) {
+    // Also never snap on a reconnect's INIT (isFirstInitThisSession false) — the
+    // camera already reflects wherever the player was before the drop.
+    if (isFirstInitThisSession && !state.cameraRestoredFromStorage) {
       state.camX = homeTile.x;
       state.camY = homeTile.y;
     }

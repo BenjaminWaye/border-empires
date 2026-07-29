@@ -10,11 +10,33 @@ declare const process: {
 export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
-export const VISION_RADIUS = 4;
+// Lowered from 4 so the hills vision bonus (below) is a meaningful,
+// visible incentive to hold hilly ground — 1 base + 1 hills bonus = 2.
+export const VISION_RADIUS = 1;
+// Watchtower sites: world-generated scouting structures, spread out across
+// the map. `WATCHTOWER_TARGET_COEFFICIENT` is tuned so a default 450x450
+// world (worldScale = 0.2025) yields ~50 sites.
+export const WATCHTOWER_TARGET_MIN_COUNT = 25;
+export const WATCHTOWER_TARGET_COEFFICIENT = 247;
+export const WATCHTOWER_REVEAL_RADIUS = 5;
+export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// A vision source standing on a forest tile only sees this far, regardless
+// of the player's effective vision radius (tech/observatory bonuses). The
+// forest itself and its immediate neighbors remain visible; nothing farther
+// is dilated from that source. See vision-footprint-table.ts.
+export const FOREST_VISION_RANGE = 1;
+// A vision source standing on a hills tile sees one extra tile beyond its
+// normal effective radius (before forest clamping is applied). See
+// isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
+export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;
 export const FOREST_FRONTIER_CLAIM_MULT = 4;
+// Additive (not multiplicative like the forest claim mult above) — hills
+// aren't as slow to break ground on as dense forest, just a bit rougher.
+// See isHillsTileAt usage in runtime-frontier-command.ts.
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 1_500;
 export const SETTLE_COST = 4;
 export const SETTLE_MS = 60_000;
 /**

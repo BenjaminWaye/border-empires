@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
-import { processActionQueue } from "./client-queue-logic.js";
+import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -27,7 +27,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
   // flag fills to MUSTER_ATTACK_COST — and the attack must actually fire
   // instead of being parked again by a raw-distance range check that a sea
   // crossing can never satisfy.
-  it("dispatches (does not re-park) an attack on a dock-linked target once the origin dock's muster is ready", () => {
+  it("queues (does not re-park) an attack on a dock-linked target once the origin dock's muster is ready", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -71,25 +71,30 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
 
     // Must not re-park behind a new/duplicate muster flag — the whole point
     // of the bug is that this kept happening forever instead of dispatching.
-    expect(state.pendingMusterAttacks).toEqual([]);
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 300, targetY: 300, musterTileKey: "5,5" });
     expect(sendSetMuster).not.toHaveBeenCalled();
 
-    // Should have armed the (short) transit hop toward an actual send rather
-    // than bailing out with started === false.
-    expect(started).toBe(true);
-    const transit = state.musterTransitByTile.get("5,5");
-    expect(transit).toBeDefined();
-    expect(transit?.musterX).toBe(5);
-    expect(transit?.musterY).toBe(5);
-    expect(state.deferredAttackByTile.get("5,5")).toMatchObject({ fromX: 5, fromY: 5, toX: 300, toY: 300 });
+    // Attack is queued, not started immediately
+    expect(started).toBe(false);
+
+    // Now run processPendingMusterAttacks - it should promote the attack to actionQueue
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      pushFeed: vi.fn()
+    });
+
+    // Attack promoted to real action queue
+    expect(state.actionQueue).toHaveLength(1);
+    expect(state.actionQueue[0]).toMatchObject({ x: 300, y: 300 });
+    expect(state.queuedTargetKeys.has("300,300")).toBe(true);
+    expect(state.pendingMusterAttacks).toHaveLength(0);
   });
 
   // Regression for: Group E — independent muster flag cooldowns. Two flags
-  // funding two different attacks must both arm in the same queue pass,
-  // each tracked under its own flag tile key, instead of the second
-  // dispatch stomping the first's single global transit/deferred slot (or
-  // being blocked entirely behind the first attack's actionInFlight lock).
-  it("arms two different flags' transits independently in a single queue pass", () => {
+  // funding two different attacks must both queue in the same queue pass,
+  // each tracked under its own flag tile key.
+  it("queues two different flags' attacks independently in a single queue pass", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -128,14 +133,22 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       sendAttack: vi.fn()
     });
 
-    expect(started).toBe(true);
-    expect(state.musterTransitByTile.size).toBe(2);
-    expect(state.deferredAttackByTile.size).toBe(2);
-    expect(state.deferredAttackByTile.get("0,0")).toMatchObject({ fromX: 0, fromY: 0, toX: 1, toY: 0 });
-    expect(state.deferredAttackByTile.get("50,50")).toMatchObject({ fromX: 50, fromY: 50, toX: 51, toY: 50 });
-    // Arming never holds the single actionInFlight lock — it's released
-    // again after each arm so the rest of the queue (and other flags) can
-    // keep progressing.
+    // Both attacks should be queued in pendingMusterAttacks
+    expect(started).toBe(false);
+    expect(state.pendingMusterAttacks).toHaveLength(2);
+    expect(state.pendingMusterAttacks.some(e => e.targetX === 1 && e.targetY === 0 && e.musterTileKey === "0,0")).toBe(true);
+    expect(state.pendingMusterAttacks.some(e => e.targetX === 51 && e.targetY === 50 && e.musterTileKey === "50,50")).toBe(true);
+
+    // actionInFlight should be false since nothing was sent
     expect(state.actionInFlight).toBe(false);
+
+    // Run processPendingMusterAttacks to promote both
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      pushFeed: vi.fn()
+    });
+
+    expect(state.actionQueue).toHaveLength(2);
+    expect(state.pendingMusterAttacks).toHaveLength(0);
   });
 });

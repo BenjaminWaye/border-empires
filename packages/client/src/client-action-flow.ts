@@ -51,6 +51,7 @@ import {
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
+import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -106,14 +107,14 @@ import {
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
   ownTownEconomyFieldsPartial,
-  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
-  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
+import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -130,6 +131,7 @@ import type {
   TileVisibilityState
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -662,8 +664,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
+  const musterWatchGuard = createMusterWatchGuard();
+  const sendUnwatchMusterIfWatching = (): void => {
+    if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
+  };
+
   const hideTileActionMenu = (): void => {
-    sendGameMessage({ type: "UNWATCH_MUSTER" });
+    sendUnwatchMusterIfWatching();
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
       return;
@@ -1104,9 +1111,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
     if (tile.muster?.ownerId === state.me) {
+      musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
     } else {
-      sendGameMessage({ type: "UNWATCH_MUSTER" });
+      sendUnwatchMusterIfWatching();
     }
     openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
   };
@@ -1116,20 +1124,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
-    const selected = singleTargetKey
-      ? state.tiles.get(singleTargetKey)
-      : state.selected
-        ? state.tiles.get(keyFor(state.selected.x, state.selected.y))
-        : undefined;
+    const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
+    const selected = state.tiles.get(selectedKey);
+    // Waypoint actions need only coordinates, so unexplored targets (absent from state.tiles) still work.
+    const selectedCoords = selected ?? (singleTargetKey ? parseKey(singleTargetKey) : state.selected);
     const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
     const fromBulk = bulkKeys.length > 0;
-    const targets = fromBulk ? bulkKeys : selected ? [keyFor(selected.x, selected.y)] : [];
+    const targets = fromBulk ? bulkKeys : selectedCoords ? [keyFor(selectedCoords.x, selectedCoords.y)] : [];
     if (targets.length === 0) {
       hideTileActionMenu();
       return;
     }
 
-    if (handleWaypointAction({ state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
 
     if (actionId === "settle_connected_frontier" && selected) {
       const origSelected = { x: selected.x, y: selected.y };
@@ -1237,14 +1244,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "collect_yield" && fromBulk) {
-      let n = 0;
-      for (const k of targets) {
-        const t = state.tiles.get(k);
-        if (!t || t.ownerId !== state.me) continue;
-        sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y });
-        n += 1;
-      }
-      pushFeed(`Collecting from ${n} selected tiles.`, "info", "info");
+      // Bulk box-selection can cover up to 2500 tiles (client-drag-selection.ts) -- fire
+      // these as one synchronous burst of COLLECT_TILE messages and the gateway's
+      // per-player rate limiter will just reject most of them. Pace it client-side instead.
+      const ownedTiles = targets.map((k) => state.tiles.get(k)).filter((t): t is Tile => t !== undefined && t.ownerId === state.me);
+      dispatchPaced(ownedTiles, (t) => sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y }));
+      pushFeed(`Collecting from ${ownedTiles.length} selected tiles.`, "info", "info");
       hideTileActionMenu();
       return;
     }
@@ -1782,7 +1787,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (vis === "unexplored") {
-      state.selected = undefined;
+      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
     }
@@ -1859,7 +1864,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queueSpecificTargets,
     attackQueueFailureReason,
     dropQueuedTargetKeyIfAbsent,
-    reconcileActionQueue,
+    reconcileActionQueue, processPendingMusterAttacks,
     requestSettlement,
     sendDevelopmentBuild,
     processDevelopmentQueue,

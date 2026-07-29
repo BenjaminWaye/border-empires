@@ -31,7 +31,8 @@ describe("queued corner badge layout", () => {
       width: 20,
       height: 18,
       textX: 114,
-      textY: 210
+      textY: 210,
+      opacity: 1
     });
   });
 
@@ -51,7 +52,8 @@ describe("queued corner badge layout", () => {
       x: 12,
       y: 22,
       width: 21,
-      height: 21
+      height: 21,
+      dashed: false
     });
     expect(layout?.badge?.text).toBe("11");
     expect(layout?.badge?.width).toBe(26);
@@ -79,8 +81,40 @@ describe("queued corner badge layout", () => {
       width: 20,
       height: 18,
       textX: 64,
-      textY: 85
+      textY: 85,
+      opacity: 1
     });
+  });
+
+  it("renders a planned (not-yet-server-confirmed) entry with a dashed border and muted badge", () => {
+    const layout = queuedCornerBadgeLayout({
+      kind: "SETTLEMENT",
+      ordinal: 1,
+      px: 10,
+      py: 20,
+      size: 26,
+      isTrue3D: false,
+      blocked: false,
+      entryState: "planned"
+    });
+
+    expect(layout?.border?.dashed).toBe(true);
+    expect(layout?.badge?.opacity).toBeLessThan(1);
+  });
+
+  it("defaults to a solid queued border when entryState is omitted", () => {
+    const layout = queuedCornerBadgeLayout({
+      kind: "SETTLEMENT",
+      ordinal: 1,
+      px: 10,
+      py: 20,
+      size: 26,
+      isTrue3D: false,
+      blocked: false
+    });
+
+    expect(layout?.border?.dashed).toBe(false);
+    expect(layout?.badge?.opacity).toBe(1);
   });
 
   it("routes queued settlement numbers through the shared badge helper in the runtime loop", () => {

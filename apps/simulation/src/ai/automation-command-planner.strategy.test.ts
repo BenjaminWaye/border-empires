@@ -81,7 +81,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 4,
       townCount: 1,
@@ -122,7 +122,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 4,
       townCount: 1,
@@ -161,7 +161,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 1,
       townCount: 1,
@@ -256,7 +256,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 10,
       settledTileCount: 4,
       townCount: 1,
