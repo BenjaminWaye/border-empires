@@ -313,7 +313,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       state.strategicProductionPerMinute,
       state.upkeepPerMinute,
       state.strategicAnim,
-      rateToneClass
+      rateToneClass,
+      state.resourceSlots
     )}
   `;
   dom.collectVisibleDesktopBtn.disabled = !collectVisibleReady;

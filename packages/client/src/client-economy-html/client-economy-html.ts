@@ -1,4 +1,4 @@
-import { TOWN_FOOD_SLOT_DEMAND, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
+import { townFoodSlotDemandForTier, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -94,7 +94,7 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    if (tile.town && resource === "FOOD") add("Town support", TOWN_FOOD_SLOT_DEMAND);
+    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemandForTier(tile.town.populationTier));
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
