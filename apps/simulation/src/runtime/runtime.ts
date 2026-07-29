@@ -401,6 +401,15 @@ const ORPHAN_LOCK_GRACE_MS = 60_000;
 // gameplay-visible staleness; it just stops a continuously-settling AI from
 // paying a fresh O(settled-tiles) rebuild on nearly every command.
 const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
+// TTL for the per-tile auto-settlement eligibility cache (AI only, see
+// autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS
+// deliberately: that cache only avoids re-running the WHOLE rebuild within a
+// 5s window, but every rebuild after that window still re-checked every
+// frontier tile's (usually unchanged) eligibility from scratch, including
+// the O(8-neighbor-scan) hasTownSupport lookup for tiles already known to be
+// ineligible. 60s matches population growth's own tolerance for stale
+// derived data elsewhere in this file, so it's never gameplay-visible.
+const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 
 // Process-global monotonically increasing counter for unique runtime epochs and
 // fresh terrain mutation numbers. Consumers cache derived terrain structures by
@@ -618,6 +627,10 @@ export class SimulationRuntime {
   // as above for AI; humans settle far less frequently so this mirrors their
   // previous always-fresh behavior in practice while still being safe.
   private readonly autoSettlementQueueCacheByPlayer = new Map<string, { value: Array<{ x: number; y: number }>; computedAtMs: number }>();
+  // Per-tile eligibility cache backing the read-through cache passed into
+  // orderedAutoSettlementTileKeys for AI players — see
+  // AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
+  private readonly autoSettlementEligibilityCacheByTile = new Map<string, { eligible: boolean; computedAtMs: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1683,8 +1696,12 @@ export class SimulationRuntime {
     // "details" field gets truncated to "[Object]" in the pretty-printed fly
     // logs) whenever this is suspiciously slow.
     const rebuildStartedAt = this.now();
+    // Skip the T/E all-owned pass for AI: nothing ever reads T/E for a
+    // player nobody is subscribed to (see buildPlayerDefensibilityMetrics'
+    // doc comment) — only Ts/Es (settled-only) feeds real gameplay math.
+    const skipAllOwnedStats = this.players.get(playerId)?.isAi === true;
     const rebuild = (): { T: number; E: number; Ts: number; Es: number } =>
-      buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
+      buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys, skipAllOwnedStats);
     const metrics = this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
       : rebuild();
@@ -2683,6 +2700,22 @@ export class SimulationRuntime {
     // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
     const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
     let supportLookupCalls = 0;
+    // AI-only read-through cache for the per-tile eligibility result (see
+    // AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS). Humans get undefined here, so
+    // orderedAutoSettlementTileKeys falls back to its original always-fresh
+    // behavior for them — zero behavior change.
+    const eligibilityCache = player?.isAi
+      ? {
+          get: (tileKey: string): boolean | undefined => {
+            const entry = this.autoSettlementEligibilityCacheByTile.get(tileKey);
+            if (!entry || this.now() - entry.computedAtMs >= AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS) return undefined;
+            return entry.eligible;
+          },
+          set: (tileKey: string, eligible: boolean): void => {
+            this.autoSettlementEligibilityCacheByTile.set(tileKey, { eligible, computedAtMs: this.now() });
+          }
+        }
+      : undefined;
     const rebuild = (): Array<{ x: number; y: number }> => {
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.tiles.get(tileKey),
@@ -2693,7 +2726,8 @@ export class SimulationRuntime {
             const town = this.tiles.get(townKey)?.town;
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
-        }
+        },
+        eligibilityCache
       })
         .map((tileKey) => {
           const [rawX, rawY] = tileKey.split(",");
