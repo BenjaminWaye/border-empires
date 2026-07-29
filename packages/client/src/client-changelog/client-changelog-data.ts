@@ -234,6 +234,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The victory hold alert overlay also fires immediately instead of being silent for up to 24 hours."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "road-hill-wrap",
+    title: "Roads follow hills, look more realistic",
+    why: "Roads previously sat flat on the terrain, cutting straight through hill domes instead of rising over them. The road surface also lacked detail, reading as a simple tan strip.",
+    changes: [
+      "Roads now rise and fall with hill terrain, wrapping over the dome surface instead of clipping through it.",
+      "Road surfaces are now cobblestone with individual stones, mortar gaps, wheel ruts, grass edges, puddles, and directional stone shading."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
