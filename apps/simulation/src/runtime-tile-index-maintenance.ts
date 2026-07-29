@@ -276,9 +276,9 @@ export const refreshEconomyCachesForTileChange = (input: {
   // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
   // Demand depends on fort/siegeOutpost/economicStructure on ANY owned tile
   // (Siege Outposts can be FRONTIER, resource-slot-view.ts), so it's invalidated
-  // unconditionally alongside defensibilityMetricsCacheByPlayer instead. Neither
-  // participates in the AI-coalescing dirty-tracking below — that's scoped to
-  // economySnapshotCacheByPlayer/defensibilityMetricsCacheByPlayer only.
+  // unconditionally alongside defensibilityMetricsCacheByPlayer instead. All
+  // three (plus dormancy below) now also participate in AI-coalescing dirty-
+  // tracking — see the dirty-set params below.
   resourceSlotSupplyCacheByPlayer?: Map<string, ResourceSlotTotals>;
   resourceSlotDemandCacheByPlayer?: Map<string, ResourceSlotTotals>;
   // §5.4: derived from both supply and demand, so it invalidates on the same
@@ -297,37 +297,39 @@ export const refreshEconomyCachesForTileChange = (input: {
   // their own action reflected instantly.
   economySnapshotDirtyPlayerIds: Set<string>;
   defensibilityMetricsDirtyPlayerIds: Set<string>;
+  // Same AI-only dirty-marking extended to the resource-slot caches (2026-07-29 follow-up).
+  resourceSlotSupplyDirtyPlayerIds?: Set<string>;
+  resourceSlotDemandDirtyPlayerIds?: Set<string>;
+  resourceSlotDormancyDirtyPlayerIds?: Set<string>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
   // setTileState path so the two tile-write routes can't diverge.
   maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
 
+  // AI: mark dirty, keep serving the stale entry. Human/no dirty set wired: delete immediately (unchanged prior behavior).
+  const markDirtyOrDelete = <V>(isAi: boolean | undefined, dirtySet: Set<string> | undefined, cache: Map<string, V> | undefined, ownerId: string): void => {
+    if (isAi && dirtySet) dirtySet.add(ownerId); else cache?.delete(ownerId);
+  };
   const invalidateEconomyForOwner = (ownerId: string): void => {
     // townNetworkCacheByPlayer is cheap to drop unconditionally: a miss falls
     // back to the incremental union-find (O(towns × 8)), not a full BFS.
     input.townNetworkCacheByPlayer.delete(ownerId);
-    if (players.get(ownerId)?.isAi) {
-      input.economySnapshotDirtyPlayerIds.add(ownerId);
-    } else {
-      input.economySnapshotCacheByPlayer.delete(ownerId);
-    }
+    const isAi = players.get(ownerId)?.isAi;
+    markDirtyOrDelete(isAi, input.economySnapshotDirtyPlayerIds, input.economySnapshotCacheByPlayer, ownerId);
     input.tileYieldContextCacheByPlayer.delete(ownerId);
-    input.resourceSlotSupplyCacheByPlayer?.delete(ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotSupplyDirtyPlayerIds, input.resourceSlotSupplyCacheByPlayer, ownerId);
   };
   const invalidateDefensibilityForOwner = (ownerId: string): void => {
-    if (players.get(ownerId)?.isAi) {
-      input.defensibilityMetricsDirtyPlayerIds.add(ownerId);
-    } else {
-      input.defensibilityMetricsCacheByPlayer.delete(ownerId);
-    }
+    const isAi = players.get(ownerId)?.isAi;
+    markDirtyOrDelete(isAi, input.defensibilityMetricsDirtyPlayerIds, input.defensibilityMetricsCacheByPlayer, ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotDemandDirtyPlayerIds, input.resourceSlotDemandCacheByPlayer, ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotDormancyDirtyPlayerIds, input.resourceSlotDormancyCacheByPlayer, ownerId);
   };
 
   if (previous?.ownerId) {
     if (previous.ownershipState === "SETTLED") invalidateEconomyForOwner(previous.ownerId);
     invalidateDefensibilityForOwner(previous.ownerId);
-    input.resourceSlotDemandCacheByPlayer?.delete(previous.ownerId);
-    input.resourceSlotDormancyCacheByPlayer?.delete(previous.ownerId);
     input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
@@ -336,8 +338,6 @@ export const refreshEconomyCachesForTileChange = (input: {
   if (next.ownerId) {
     if (next.ownershipState === "SETTLED") invalidateEconomyForOwner(next.ownerId);
     invalidateDefensibilityForOwner(next.ownerId);
-    input.resourceSlotDemandCacheByPlayer?.delete(next.ownerId);
-    input.resourceSlotDormancyCacheByPlayer?.delete(next.ownerId);
     input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
