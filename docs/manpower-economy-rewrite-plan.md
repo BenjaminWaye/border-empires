@@ -319,8 +319,17 @@ resource, Observatory/Airport/certain elite structures → crystal, per
 §12/§17) keep that resource instead of food. Everything else in the
 structure list — Market, Bank, Governor's Office, Caravanary, Foundry,
 Census Hall, Rail Depot, Radar System, Exchange House, Aether Tower, Seed
-Granary, Clearing House, and Farmstead/Waterworks/Camp/Mine/Granary
-themselves — draws 1 FOOD slot each.
+Granary, Clearing House, and Camp/Mine/Granary themselves — draws 1 FOOD
+slot each.
+
+**Implementation exception, not reflected above: Farmstead and Waterworks
+draw no FOOD slot of their own** (`structure-slots.ts`). Both boost FOOD
+supply directly (this section's own "+1"/"+2 food slots" bullets below) —
+charging them their own boosted resource would be circular, since a
+Farmstead/Waterworks dormant for lack of a free FOOD slot would zero out
+the very supply it exists to add. Camp/Mine aren't exempted the same way:
+their own-tile boost is to IRON/CRYSTAL/SUPPLY, not FOOD, so charging them
+a separate FOOD slot has no such circularity.
 
 **Why this is affordable despite there being only ~300 food tiles on the
 map against up to ~2,700 potential building slots (300 towns × 9
@@ -820,17 +829,18 @@ multiples of Settle's cost (4× here).
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Farmstead | 700g + 20 food | **80** | 1 FOOD slot (upkeep) — *also boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
-| Waterworks | 600g + 20 food | **80** | 1 FOOD slot (upkeep) — *also boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
+| Farmstead | 700g + 20 food | **80** | **No FOOD slot** (would be circular — see §5.3's implementation-exception note) — *boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
+| Waterworks | 600g + 20 food | **80** | **No FOOD slot** (same circularity exception as Farmstead) — *boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
 | Camp | 800g + 30 supply | **80** | 1 FOOD slot |
 | Mine | 800g + 30 iron (or crystal) | **80** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
 | Granary | 700g + 40 food | **80** | 1 FOOD slot |
 | Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **80**, doubling scaling kept | **1 CRYSTAL slot** (already has "another slot requirement," so no food slot) — see §12.1 note. |
 | Census Hall | 900g + 30 food | **80** | 1 FOOD slot |
 
-*(Farmstead/Waterworks/Mine still boost the slot count of the tile/radius
-they affect, per §5.2/5.3, in addition to drawing their own 1 FOOD slot of
-upkeep — the boosting effect and the upkeep cost are separate things.)*
+*(Mine still boosts its own tile's IRON/CRYSTAL slot count in addition to
+drawing its own 1 FOOD slot of upkeep — the boosting effect and the upkeep
+cost are separate things. Farmstead/Waterworks boost FOOD slot count too,
+but draw no FOOD slot themselves, per the circularity exception above.)*
 
 ### Tier 1.5 — mid sinks (100 manpower) `[increased, 5× Settle]`
 

@@ -29,7 +29,6 @@ const baseStrategic = (musterTileKeys?: ReadonlySet<string>): AutomationStrategi
   attackReady: true,
   musterReady: true,
   manpowerSufficient: true,
-  victoryPathContender: false,
   hasActiveTown: true,
   hasActiveDock: false,
   ...(musterTileKeys ? { musterTileKeys } : {})
