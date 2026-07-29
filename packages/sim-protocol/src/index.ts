@@ -322,6 +322,13 @@ export type PlayerSubscriptionSnapshot = {
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
     // message, not this snapshot field (same convention as Aegis Lock).
     imperialWardCharges?: number;
+    // §20: durable "what happened while I was away" feed — distinct from the
+    // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
+    // the server's append order); the client reverses for most-recent-first
+    // display. type is a free string, not a union, so new event types the
+    // server adds don't require a client-protocol version bump to deliver —
+    // an unrecognized type just falls back to a generic icon client-side.
+    eventLog?: Array<{ id: string; type: string; text: string; occurredAt: number }>;
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };

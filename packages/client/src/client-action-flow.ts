@@ -1664,26 +1664,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
-    if (actionId === "imperial_exchange_levy_food") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_iron") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_crystal") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_supply") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
+    if (actionId === "imperial_exchange_levy") beginCrystalTargeting("imperial_exchange_levy");
     if (actionId === "aegis_lock") {
       if (sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y })) {
         state.aegisLockFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });

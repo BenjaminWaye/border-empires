@@ -2,6 +2,7 @@ import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
 import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
@@ -178,7 +179,7 @@ export const buildLivePlayerEconomySnapshot = (
 // compute different numbers for the same territory.
 type SlotTileEconomicStructure = DomainTileState["economicStructure"];
 type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
-type OwnedSlotTile = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
 
 const resourceSlotsForPlayer = (
   playerId: string,
@@ -193,6 +194,8 @@ const resourceSlotsForPlayer = (
       settledSlotTiles.push({ x: tile.x, y: tile.y, resource: tile.resource as DomainTileState["resource"], economicStructure });
     }
     ownedSlotTiles.push({
+      x: tile.x,
+      y: tile.y,
       fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
       siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
@@ -207,9 +210,17 @@ const resourceSlotsForPlayer = (
     });
   }
   const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  // §23.2: the cold/reconnect path must apply the same slot waivers
+  // (fortIronSlotWaiverCount etc) as the live runtime, or a player with
+  // Dwarf Kingdom/Supply State/Treasury State/Enduring Realm would see a
+  // different (higher) demand total on reconnect than while connected.
+  const player = runtimeState.players.find((entry) => entry.id === playerId);
+  const waivers = player
+    ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
+    : undefined;
   return {
     supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys),
-    demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId)
+    demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
   };
 };
 

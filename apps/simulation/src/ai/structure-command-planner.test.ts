@@ -19,6 +19,10 @@ const tile = (x: number, y: number, overrides: Partial<StructurePlannerTile> = {
 const ECONOMIC_BUILD_PLAYER: StructurePlannerPlayer = {
   id: "ai-1",
   points: 10_000,
+  // §24.5: economyWeak now reads manpower, not incomePerMinute (buildings
+  // cost manpower, §4.1) — set high enough to keep this fixture's original
+  // "healthy economy" intent (well above Math.max(40, settledTileCount*6)).
+  manpower: 10_000,
   techIds: ["trade", "pottery", "coinage"],
   strategicResources: { FOOD: 1_000 },
   settledTileCount: 10,

@@ -22,6 +22,7 @@ import {
   recomputeMods,
   resolveDataPath
 } from "./tech-domain-bridge.js";
+import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
 const MODULE_URL = new URL("./tech-domain-bridge.js", import.meta.url).href;
 const EXPECTED_TECH_TREE_PATH = fileURLToPath(new URL("../../../../packages/game-domain/data/tech-tree.json", import.meta.url));
@@ -135,14 +136,14 @@ describe("tech-domain bridge progression sources", () => {
 });
 
 describe("tier-1 domain effects are wired", () => {
-  it("Iron Bastions exposes fortBuildSpeedMult / fortIronUpkeepMult / fortGoldUpkeepMult to the multiplicative resolver", () => {
+  it("Iron Bastions (Dwarf Kingdom) exposes fortBuildSpeedMult and the §23.2 fortIronSlotWaiverCount waiver", () => {
     const player = {
       techIds: new Set<string>(["masonry"]),
       domainIds: new Set<string>(["iron-bastions"])
     };
     expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortIronUpkeepMult")).toBeCloseTo(0.6, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
+    expect(maxEffectForPlayer(player, "fortIronSlotWaiverCount")).toBe(3);
+    expect(slotWaiversForPlayer(player).fortIronSlotWaiverCount).toBe(3);
   });
 
   it("Supply Raiding exposes attackVsBarbariansMult at 1.5", () => {
@@ -372,16 +373,15 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice!.score).toBeGreaterThan(0);
   });
 
-  it("prefers an affordable lower-scored domain when the top-scored domain needs a missing resource", () => {
-    // mercantile-charter scores higher than clockwork-stipend when the player
-    // owns a town + dock, but it costs crystal. Without any crystal, the AI
-    // should pick clockwork-stipend (food-cost, +30 score) — the food-driven
-    // trickle domain that can produce the missing strategic resources.
-    // clockwork-stipend requires `agriculture` tech to unlock, so the
-    // scenario seeds it; the agriculture-less variant in Freja's actual prod
-    // state is fixed one step earlier by the tech-choice change above (the AI
-    // will pick toolmaking → agriculture → then clockwork-stipend becomes
-    // reachable on a later tick).
+  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities (§19)", () => {
+    // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
+    // crystal, so the AI fell back to clockwork-stipend despite its lower
+    // score. §19 dropped every domain's FOOD/IRON/CRYSTAL/SUPPLY quantity
+    // cost (kept gold + SHARD only, both flat per tier) — mercantile-charter
+    // and clockwork-stipend are both tier 1 (40 gold, no shard), so neither
+    // is gated by strategicResources anymore and the AI should just take the
+    // higher-scored candidate, same as it already does for tech (see the
+    // gold-tier tests above).
     const choice = chooseAiDomainChoiceForPlayer(
       {
         id: "ai-4",
@@ -396,6 +396,6 @@ describe("AI progression choice prefers affordable options over higher-scored un
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(true);
-    expect(choice!.id).toBe("clockwork-stipend");
+    expect(choice!.id).toBe("mercantile-charter");
   });
 });

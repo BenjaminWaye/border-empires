@@ -189,9 +189,7 @@ export const WATERWORKS_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
 export const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
 export const RADAR_SYSTEM_RADIUS = 30;
-export const IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST = 200;
-export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 30 * 60_000;
-export const IMPERIAL_EXCHANGE_LEVY_SHARE = 0.25;
+export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17: free activation, takes 100% of chosen target's gold.
 export const WORLD_ENGINE_STRIKE_CRYSTAL_COST = 500;
 export const WORLD_ENGINE_STRIKE_GOLD_COST = 15_000;
 export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 60 * 60_000;
@@ -282,7 +280,9 @@ export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
+// §24.1: old flat 200 gold/min was unreachable post ~288x rescale (§6.1);
+// re-anchored to 60x TOWN_BASE_GOLD_PER_MIN. `[proposed]`, not playtested.
+export const SEASON_VICTORY_ECONOMY_MIN_INCOME = TOWN_BASE_GOLD_PER_MIN * 60;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
 export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
 export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;

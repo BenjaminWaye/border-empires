@@ -74,6 +74,51 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
+  // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
+  // an ephemeral live toast a player only sees if they're online at the
+  // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
+  // drop off), most-recent-last here; client renders most-recent-first.
+  eventLog?: PlayerEventLogEntry[];
+};
+
+// §20: generic event type + text + timestamp, explicitly not hardcoded to
+// just the two launch event types (town-lost, Imperial Exchange Levy) — the
+// plan's own framing is "we will fill it with more things" (monument
+// first-part broadcasts, Ancient Ruins discoveries, tech completions, etc.).
+export type PlayerEventLogEntryType =
+  | "TOWN_LOST"
+  | "IMPERIAL_EXCHANGE_LEVY_HIT"
+  | "IMPERIAL_EXCHANGE_LEVY_CAST"
+  | "MONUMENT_CLAIMED"
+  | "MONUMENT_LOST_TO_RIVAL";
+
+export type PlayerEventLogEntry = {
+  id: string;
+  type: PlayerEventLogEntryType;
+  text: string;
+  occurredAt: number;
+};
+
+export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
+
+// Mutates player.eventLog in place (push + cap), matching the codebase's
+// existing "grow a bounded array on the player object" convention. Kept
+// dependency-free (game-domain has no simulation-runtime imports) so both
+// the simulation and, if ever needed, tooling can share one implementation
+// instead of drifting into two copies of "append and trim."
+export const appendPlayerEventLogEntry = (
+  player: { eventLog?: PlayerEventLogEntry[] },
+  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number }
+): void => {
+  const log = player.eventLog ? [...player.eventLog] : [];
+  log.push({
+    id: `${input.type}:${input.occurredAt}:${Math.random().toString(36).slice(2, 8)}`,
+    type: input.type,
+    text: input.text,
+    occurredAt: input.occurredAt
+  });
+  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;

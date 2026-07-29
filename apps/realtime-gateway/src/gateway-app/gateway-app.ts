@@ -3047,7 +3047,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "IMPERIAL_EXCHANGE_LEVY") {
             await dispatchDurableCommand(
               "IMPERIAL_EXCHANGE_LEVY",
-              { fromX: message.fromX, fromY: message.fromY, resource: message.resource },
+              { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );
           } else if (message.type === "WORLD_ENGINE_STRIKE") {

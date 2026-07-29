@@ -165,7 +165,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toY: z.number().int(),
     ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("IMPERIAL_EXCHANGE_LEVY"), fromX: z.number().int(), fromY: z.number().int(), resource: z.enum(["FOOD", "IRON", "CRYSTAL", "SUPPLY"]), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("IMPERIAL_EXCHANGE_LEVY"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("WORLD_ENGINE_STRIKE"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AEGIS_LOCK"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("ASTRAL_DOCK_LAUNCH"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),

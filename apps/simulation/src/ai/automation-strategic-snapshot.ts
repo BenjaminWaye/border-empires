@@ -1,4 +1,4 @@
-import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
+import { GOLD_RESCALE_DIVISOR, type DomainStrategicResourceKey, type DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
@@ -163,7 +163,14 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const townsTarget = Math.max(2, Math.ceil(Math.max(1, input.settledTileCount) / 5));
   const controlledTileCount = input.controlledTileCount;
   const diplomaticControlTarget = Math.max(4, input.townCount * 3);
-  const economyTarget = Math.max(8, input.settledTileCount * 0.55);
+  // §24.5: economyTarget/economicHegemonyScore's income term are both
+  // expressed in old (pre-§6.1) gold/min units in this scoring model — divide
+  // by the same GOLD_RESCALE_DIVISOR (§6.1) the real income source constants
+  // went through, so economyProgress (income/target, compared against the
+  // VICTORY_PATH_*_ECONOMY_RATIO constants below) keeps meaning what it
+  // always meant, rather than permanently reading near-zero once
+  // incomePerMinute itself shrank ~288x.
+  const economyTarget = Math.max(8, input.settledTileCount * 0.55) / GOLD_RESCALE_DIVISOR;
   const townProgress = input.townCount / townsTarget;
   const diplomaticControlProgress = controlledTileCount / diplomaticControlTarget;
   const economyProgress = input.incomePerMinute / economyTarget;
@@ -196,7 +203,7 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     (input.frontierAnalysis.attack ? Math.min(140, Math.max(0, input.frontierAnalysis.attack.score - 120) * 0.35) : 0) +
     (!input.needsFood && !input.needsEconomy ? 24 : -30);
   const economicHegemonyScore =
-    input.incomePerMinute * 18 +
+    input.incomePerMinute * 18 * GOLD_RESCALE_DIVISOR +
     (input.economicBuildAvailable ? 110 : 0) +
     input.frontierAnalysis.frontierOpportunityEconomic * 44 +
     (!input.needsFood ? 18 : -24) +
@@ -305,7 +312,12 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   const controlledTileCount = input.controlledTileCount;
   const hasActiveTown = input.townCount > 0 || input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.town));
   const hasActiveDock = input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.dockId));
-  const growthFoundationEstablished = hasActiveTown || hasActiveDock || input.incomePerMinute >= 10;
+  // §24.5: 10 is an old-scale gold/min figure; rescaled by the same
+  // GOLD_RESCALE_DIVISOR (§6.1) the source constants use. In practice this
+  // branch is nearly moot either way — a player with neither an active town
+  // nor an active dock has essentially zero income in this economy model, so
+  // hasActiveTown/hasActiveDock already cover the real signal.
+  const growthFoundationEstablished = hasActiveTown || hasActiveDock || input.incomePerMinute >= 10 / GOLD_RESCALE_DIVISOR;
   const canPivotToGrowth =
     input.canExpand &&
     (
@@ -336,11 +348,15 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       input.frontierAnalysis.frontierEnemyTargetCount >= Math.max(2, input.frontierAnalysis.frontierNeutralTargetCount + 1)
     );
   const primaryVictoryPath = chooseVictoryPath(input);
+  // §24.5: kept as an income/tempo signal (not swapped to manpower) per the
+  // plan's own reasoning — this gates willingness to break for combat on
+  // "is the economy already earning well," which is what gold income
+  // measures; only the stale old-scale threshold needed rescaling.
   const opportunisticBreakPressure =
     pressureAttackScore >= (primaryVictoryPath === "TOWN_CONTROL" ? 120 : 180) &&
     canPivotToGrowth &&
     !input.needsFood &&
-    input.incomePerMinute >= 10;
+    input.incomePerMinute >= 10 / GOLD_RESCALE_DIVISOR;
 
   let frontPosture: AutomationFrontPosture = "BREAK";
   if (!pressureThreatensCore && pressureAttackScore > 0 && canPivotToGrowth) {

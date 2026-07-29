@@ -157,25 +157,12 @@ describe("§5.4 ability dormancy gate", () => {
       ]),
       initialState: {
         tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
-          },
-          {
-            x: 1,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
-          },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" } },
           // 1 CRYSTAL spares the tower (key tie-break), leaves the exchange dormant; FISH spares the tower's FOOD slot.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+          { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" } // levy target tile
         ],
         activeLocks: []
       }
@@ -189,7 +176,7 @@ describe("§5.4 ability dormancy gate", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 10, toY: 0 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
@@ -199,7 +186,7 @@ describe("§5.4 ability dormancy gate", () => {
       message: "Imperial Exchange has no free resource slot"
     }));
     const p2 = runtime.exportState().players.find((p) => p.id === "player-2");
-    expect(p2?.strategicResources?.FOOD).toBe(100);
+    expect(p2?.points).toBe(100);
   });
 
   it("WORLD_ENGINE_STRIKE rejects a dormant World Engine even when Aether Tower-powered", async () => {

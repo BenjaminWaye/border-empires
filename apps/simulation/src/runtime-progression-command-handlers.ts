@@ -46,6 +46,10 @@ export type RuntimeProgressionCommandContext = {
   // BUILD_STRUCTURE (runtime-structure-command-handlers.ts).
   resourceSlotSupplyForPlayer: (playerId: string) => Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
   resourceSlotDemandForPlayer: (playerId: string) => Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+  // §23.2: a successful tech/domain choice can change a player's slot
+  // waivers (fortIronSlotWaiverCount etc), so the demand/dormancy caches
+  // need dropping the same way a tile mutation would drop them.
+  invalidateResourceSlotDemand: (playerId: string) => void;
 };
 
 function rejectCommand(
@@ -206,6 +210,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.invalidateResourceSlotDemand(actor.id);
   context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "TECH_UPDATE",
@@ -250,6 +255,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.invalidateUpkeepAccrual(actor.id);
+  context.invalidateResourceSlotDemand(actor.id);
   context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "DOMAIN_UPDATE",

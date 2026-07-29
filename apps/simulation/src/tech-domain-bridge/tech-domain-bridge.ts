@@ -181,8 +181,8 @@ const playerWorldFlags = (playerId: string, tiles: Iterable<AiProgressionPlanner
   return flags;
 };
 
-const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
-const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
+export const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
+export const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
 export const recomputeMods = (player: Pick<DomainPlayer, "techIds" | "domainIds">): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };

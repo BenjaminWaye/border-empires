@@ -40,6 +40,50 @@ export const totalsFromSlotRequirements = (requirements: readonly StructureSlotR
   return totals;
 };
 
+// §23.2: domain-effect count-based waivers (Dwarf Kingdom/Fortress Realm,
+// Supply State, Treasury State/Enduring Realm) — redesigned from the old,
+// now-inert percentage-upkeep-discount effects (fortIronUpkeepMult etc,
+// meaningless once upkeep is slot occupation, not a metered quantity) into
+// "your first N of this structure/town don't need the slot/requirement at
+// all." Computed from the player's owned techs/domains by
+// slotWaiversForPlayer (tech-domain-bridge.ts) and passed in here so this
+// module stays free of any tech/domain-catalog dependency.
+export type SlotWaivers = {
+  // Dwarf Kingdom (3) / Fortress Realm (5) — the player's first N Forts (any
+  // Fort-ladder tier, earliest build-order first) need zero IRON slots.
+  // Fortress Realm "extends" Dwarf Kingdom's exemption rather than stacking
+  // with it (§23.2), so combine multiple sources via max, not sum.
+  fortIronSlotWaiverCount: number;
+  // Supply State — the player's first N Siege Outposts (any tier, earliest
+  // build-order first) need zero SUPPLY slots. A Siege Tower/Dread Tower's
+  // separate IRON requirement is untouched by this waiver.
+  outpostSupplySlotWaiverCount: number;
+  // Treasury State — the player's first N settled towns (deterministic
+  // tie-break by tile key — towns carry no founding timestamp, same
+  // simplification already flagged below for dormancy ordering) each need 1
+  // fewer FOOD slot.
+  firstTownsFoodSlotWaiverCount: number;
+  // Enduring Realm — every settled town needs 1 fewer FOOD slot, uncapped.
+  // Combined with firstTownsFoodSlotWaiverCount per town via max, not sum —
+  // both effects independently describe "1 fewer," and §23.2 frames Enduring
+  // Realm as a broader-scope version of Treasury State's effect, not a
+  // stacking bonus on top of it.
+  allTownsFoodSlotWaiverPerTown: number;
+};
+
+export const emptySlotWaivers = (): SlotWaivers => ({
+  fortIronSlotWaiverCount: 0,
+  outpostSupplySlotWaiverCount: 0,
+  firstTownsFoodSlotWaiverCount: 0,
+  allTownsFoodSlotWaiverPerTown: 0
+});
+
+const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
+  waivers.fortIronSlotWaiverCount <= 0 &&
+  waivers.outpostSupplySlotWaiverCount <= 0 &&
+  waivers.firstTownsFoodSlotWaiverCount <= 0 &&
+  waivers.allTownsFoodSlotWaiverPerTown <= 0;
+
 /**
  * Slot supply from a player's owned, settled tiles: base + boost slots from
  * real resource tiles (§5.2's table, same-tile Farmstead/Mine/Camp +1, and
@@ -134,26 +178,93 @@ export const resourceSlotSupplyForPlayer = (
  * more) — separate from, and additive with, any economicStructure sitting
  * on that same tile.
  */
-export const resourceSlotDemandForPlayer = (
-  ownedTiles: Iterable<
-    Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">
-  >,
-  playerId: string
-): ResourceSlotTotals => {
-  const totals = emptyResourceSlotTotals();
-  const add = (type: SlotStructureType) => {
-    for (const req of structureSlotRequirements(type)) totals[req.resource] += req.count;
+type WaivableTile = Pick<
+  DomainTileState,
+  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState"
+> &
+  Partial<Pick<DomainTileState, "x" | "y">>;
+
+// Shared by resourceSlotDemandForPlayer (totals) and
+// resourceSlotDormantContributorsForPlayer (per-contributor dormancy sets) so
+// the two can never disagree on which structures exist or how a §23.2 waiver
+// reduces their demand — the exact duplicate-logic risk this codebase has
+// hit before (Customs House/toDomainTile, the Fort/Siege upkeep bug).
+const buildDemandContributors = (
+  ownedTiles: Iterable<WaivableTile>,
+  playerId: string,
+  waivers: SlotWaivers
+): DormancyContributor[] => {
+  const contributors: DormancyContributor[] = [];
+  const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
+    for (const req of structureSlotRequirements(type)) {
+      contributors.push({ key: `${tileKey}:${field}`, resource: req.resource, count: req.count, activatedAt });
+    }
   };
   for (const tile of ownedTiles) {
-    if (tile.fort?.ownerId === playerId) add((tile.fort.variant ?? "FORT") as SlotStructureType);
-    if (tile.observatory?.ownerId === playerId) add("OBSERVATORY" as SlotStructureType);
-    if (tile.siegeOutpost?.ownerId === playerId) add((tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType);
+    const tileKey = simulationTileKey(tile.x ?? 0, tile.y ?? 0);
+    if (tile.fort?.ownerId === playerId) {
+      addContributor(tileKey, "fort", (tile.fort.variant ?? "FORT") as SlotStructureType, tile.fort.activatedAt ?? 0);
+    }
+    if (tile.observatory?.ownerId === playerId) {
+      addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
+    }
+    if (tile.siegeOutpost?.ownerId === playerId) {
+      addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
+    }
     if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
-      add(tile.economicStructure.type as SlotStructureType);
+      addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
-      totals.FOOD += townFoodSlotDemandForTier(tile.town.populationTier);
+      contributors.push({
+        key: `${tileKey}:town`,
+        resource: "FOOD",
+        count: townFoodSlotDemandForTier(tile.town.populationTier),
+        activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT
+      });
     }
+  }
+  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers);
+};
+
+const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers): DormancyContributor[] => {
+  const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeOutpost", waiveCount: number): ReadonlySet<string> => {
+    if (waiveCount <= 0) return new Set();
+    const activatedAtByKey = new Map<string, number>();
+    for (const c of contributors) {
+      if (c.key.endsWith(fieldSuffix)) activatedAtByKey.set(c.key, c.activatedAt);
+    }
+    const keys = [...activatedAtByKey.keys()].sort(
+      (a, b) => (activatedAtByKey.get(a) ?? 0) - (activatedAtByKey.get(b) ?? 0) || a.localeCompare(b)
+    );
+    return new Set(keys.slice(0, waiveCount));
+  };
+  const waivedForts = waiveEarliestStructures(":fort", waivers.fortIronSlotWaiverCount);
+  const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostSupplySlotWaiverCount);
+
+  const townKeys = [...new Set(contributors.filter((c) => c.key.endsWith(":town")).map((c) => c.key))].sort((a, b) => a.localeCompare(b));
+  const firstWaivedTownKeys = new Set(
+    waivers.firstTownsFoodSlotWaiverCount > 0 ? townKeys.slice(0, waivers.firstTownsFoodSlotWaiverCount) : []
+  );
+
+  return contributors.map((c) => {
+    if (c.key.endsWith(":fort") && c.resource === "IRON" && waivedForts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":siegeOutpost") && c.resource === "SUPPLY" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":town")) {
+      const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
+      if (waiver > 0) return { ...c, count: Math.max(0, c.count - waiver) };
+    }
+    return c;
+  });
+};
+
+export const resourceSlotDemandForPlayer = (
+  ownedTiles: Iterable<WaivableTile>,
+  playerId: string,
+  waivers: SlotWaivers = emptySlotWaivers()
+): ResourceSlotTotals => {
+  const totals = emptyResourceSlotTotals();
+  for (const contributor of buildDemandContributors(ownedTiles, playerId, waivers)) {
+    totals[contributor.resource] += contributor.count;
   }
   return totals;
 };
@@ -216,45 +327,19 @@ export const emptyResourceSlotDormancy = (): ResourceSlotDormancy => ({
 });
 
 export const resourceSlotDormantContributorsForPlayer = (
-  ownedTiles: Iterable<
-    Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">
-  >,
+  ownedTiles: Iterable<WaivableTile>,
   playerId: string,
-  supply: ResourceSlotTotals
+  supply: ResourceSlotTotals,
+  waivers: SlotWaivers = emptySlotWaivers()
 ): ResourceSlotDormancy => {
-  const contributors: DormancyContributor[] = [];
-  const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
-    for (const req of structureSlotRequirements(type)) {
-      contributors.push({ key: `${tileKey}:${field}`, resource: req.resource, count: req.count, activatedAt });
-    }
-  };
-  for (const tile of ownedTiles) {
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    if (tile.fort?.ownerId === playerId) {
-      addContributor(tileKey, "fort", (tile.fort.variant ?? "FORT") as SlotStructureType, tile.fort.activatedAt ?? 0);
-    }
-    if (tile.observatory?.ownerId === playerId) {
-      addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
-    }
-    if (tile.siegeOutpost?.ownerId === playerId) {
-      addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
-    }
-    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
-      addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
-    }
-    if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
-      contributors.push({
-        key: `${tileKey}:town`,
-        resource: "FOOD",
-        count: townFoodSlotDemandForTier(tile.town.populationTier),
-        activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT
-      });
-    }
-  }
+  const contributors = buildDemandContributors(ownedTiles, playerId, waivers);
 
   const dormancy = emptyResourceSlotDormancy();
   for (const resource of Object.keys(dormancy) as SlotResource[]) {
-    const forResource = contributors.filter((c) => c.resource === resource);
+    // A §23.2-waived contributor (count reduced to 0 for this resource) must
+    // never be a dormancy *candidate* either — it doesn't actually consume a
+    // slot of this resource anymore, so it can't go dormant for lacking one.
+    const forResource = contributors.filter((c) => c.resource === resource && c.count > 0);
     const totalDemand = forResource.reduce((sum, c) => sum + c.count, 0);
     let shortfall = totalDemand - supply[resource];
     if (shortfall <= 0) continue;

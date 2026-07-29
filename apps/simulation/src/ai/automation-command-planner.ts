@@ -276,7 +276,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
-  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+  const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
@@ -345,6 +345,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     const structurePlayer = {
       id: input.playerId,
       points: input.points,
+      manpower: input.manpower,
       ...(input.techIds ? { techIds: input.techIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),

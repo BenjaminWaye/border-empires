@@ -1,6 +1,6 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState } from "@border-empires/game-domain";
+import { type DomainTileState, type PlayerEventLogEntry } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
@@ -71,6 +71,7 @@ export type RecoveredSimulationState = {
     strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
+    eventLog?: PlayerEventLogEntry[];
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;

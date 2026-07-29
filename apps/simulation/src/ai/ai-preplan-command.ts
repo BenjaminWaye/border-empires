@@ -55,6 +55,7 @@ const chooseAiTownTierUpgrade = (
 export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   playerId: string;
   points: number;
+  manpower?: number;
   techIds?: readonly string[];
   domainIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
@@ -126,7 +127,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const townCount = input.townCount ?? 0;
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
-  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+  const needsEconomy = economyWeak(input.manpower ?? 0, settledTileCount);
 
   if (!needsFood && townCount > 0) {
     const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.points);

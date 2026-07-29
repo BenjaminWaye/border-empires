@@ -823,24 +823,24 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     }
     const economicStructure = tile.economicStructure;
     if (economicStructure?.type === "IMPERIAL_EXCHANGE" && economicStructure.ownerId === state.me) {
+      // §15/§17: free, single chosen target via crystal-targeting (like World Engine Strike), 24hr cooldown.
       const cooldown = deps.abilityCooldownRemainingMs("imperial_exchange_levy");
       const isPowered = economicStructure.powered !== false;
-      const levyAvailability = (resourceLabel: string): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
-        tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 300,
+      out.push({
+        id: "imperial_exchange_levy",
+        label: "Exchange Levy",
+        ...tileActionAvailability(
+          economicStructure.status === "active" && isPowered && cooldown <= 0,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : "Need 300 CRYSTAL",
-          `300 CRYSTAL • seize all rival ${resourceLabel}`
-        );
-      out.push({ id: "imperial_exchange_levy_food", label: "Levy Food", ...levyAvailability("FOOD") });
-      out.push({ id: "imperial_exchange_levy_iron", label: "Levy Iron", ...levyAvailability("IRON") });
-      out.push({ id: "imperial_exchange_levy_crystal", label: "Levy Crystal", ...levyAvailability("CRYSTAL") });
-      out.push({ id: "imperial_exchange_levy_supply", label: "Levy Supply", ...levyAvailability("SUPPLY") });
+                : "",
+          "Free • pick a rival, take 100% of their gold • 24h cooldown"
+        )
+      });
     }
     if (economicStructure?.type === "WORLD_ENGINE" && economicStructure.ownerId === state.me) {
       const cooldown = deps.abilityCooldownRemainingMs("world_engine_strike");

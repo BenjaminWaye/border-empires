@@ -14,9 +14,6 @@ import {
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
   ASTRAL_DOCK_LAUNCH_CRYSTAL_COST,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
-  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
-  IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
-  IMPERIAL_EXCHANGE_LEVY_SHARE,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST,
@@ -30,7 +27,6 @@ import {
   parseAegisLockPayload,
   parseAirportBombardPayload,
   parseAstralDockLaunchPayload,
-  parseImperialExchangeLevyPayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
 } from "./runtime-command-parsers.js";
@@ -63,6 +59,12 @@ export type RuntimeMapCommandContext = {
   setAbilityCooldownUntil: (playerId: string, abilityKey: string, untilMs: number) => void;
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
+  // §20: durable per-player event log — see @border-empires/game-domain's
+  // appendPlayerEventLogEntry for the append+cap implementation.
+  appendPlayerEventLogEntry: (
+    player: DomainPlayer,
+    input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number }
+  ) => void;
 };
 
 export function rejectCommand(
@@ -303,62 +305,8 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
-export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseImperialExchangeLevyPayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const tileKey = simulationTileKey(payload.fromX, payload.fromY);
-  const tile = context.tiles.get(tileKey);
-  if (
-    !tile ||
-    tile.ownerId !== actor.id ||
-    tile.economicStructure?.ownerId !== actor.id ||
-    tile.economicStructure.type !== "IMPERIAL_EXCHANGE" ||
-    tile.economicStructure.status !== "active"
-  ) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "select an active Imperial Exchange");
-    return;
-  }
-  if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "requires Exchange Levy Writs research");
-    return;
-  }
-  if (!context.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Aether Tower");
-    return;
-  }
-  if (context.isStructureDormant(actor.id, tileKey, "economicStructure")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange has no free resource slot");
-    return;
-  }
-  const now = context.now();
-  if (context.getAbilityCooldownUntil(actor.id, "imperial_exchange_levy") > now) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "ability on cooldown");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "insufficient CRYSTAL");
-    return;
-  }
-  let totalTransferred = 0;
-  for (const other of context.players.values()) {
-    if (other.id === actor.id || actor.allies.has(other.id) || actor.truces?.has(other.id)) continue;
-    const stock = context.strategicResourceAmount(other, payload.resource);
-    const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
-    if (take <= 0) continue;
-    other.strategicResources = {
-      ...(other.strategicResources ?? {}),
-      [payload.resource]: Math.max(0, stock - take)
-    };
-    totalTransferred += take;
-  }
-  if (totalTransferred > 0) context.addStrategicResource(actor, payload.resource, totalTransferred);
-  context.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
+// §15: Imperial Exchange Levy — moved to runtime-imperial-exchange-levy-command.ts
+// (already over the 500-line soft cap here; see scripts/check-file-line-limits.mjs).
 
 export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
