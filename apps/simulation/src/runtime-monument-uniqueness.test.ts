@@ -166,4 +166,45 @@ describe("§16 monument global uniqueness", () => {
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "bystander", type: "MONUMENT_CLAIMED" }));
   });
+
+  it("does not activate a second assembly when two players' builds are both under_construction at once (completion-time race)", () => {
+    // The reject gate in handleBuildStructureCommand only sees an already-
+    // ACTIVE assembly, so two players can each have their own assembly
+    // "under_construction" simultaneously if both submitted before either
+    // finished. Whichever completeStructureBuild call loses that race must
+    // not also go active.
+    const winner = makePlayer("winner", { manpower: 0, points: 0 });
+    const loser = makePlayer("loser", { manpower: 500, points: 0 });
+    const { context, tiles, eventLogAppends } = createContext(
+      [winner, loser],
+      [
+        {
+          x: 1,
+          y: 1,
+          terrain: "LAND",
+          ownerId: "winner",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "winner", type: "IMPERIAL_EXCHANGE", status: "under_construction", completesAt: 1_000 }
+        },
+        {
+          x: 2,
+          y: 2,
+          terrain: "LAND",
+          ownerId: "loser",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "loser", type: "IMPERIAL_EXCHANGE", status: "under_construction", completesAt: 1_000 }
+        }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(1, 1), "winner", "IMPERIAL_EXCHANGE", "cmd-winner");
+    completeStructureBuild(context, simulationTileKey(2, 2), "loser", "IMPERIAL_EXCHANGE", "cmd-loser");
+
+    expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toMatchObject({ type: "IMPERIAL_EXCHANGE", status: "active", ownerId: "winner" });
+    // The loser's tile is cleared, not left as a second active monument.
+    expect(tiles.get(simulationTileKey(2, 2))?.economicStructure).toBeUndefined();
+    // Refunded the assembly's own manpower cost (1,600, §16).
+    expect(loser.manpower).toBe(2_100);
+    expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
+  });
 });

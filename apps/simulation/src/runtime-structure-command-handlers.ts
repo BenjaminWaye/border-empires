@@ -25,7 +25,7 @@ import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
-import { announceMonumentClaim } from "./runtime-monument-claim.js";
+import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtime-monument-claim.js";
 
 export type RuntimeStructureCommandContext = {
   players: Map<string, DomainPlayer>;
@@ -459,6 +459,15 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   const structure = latest[spec.tileField];
   if (!structure || structure.ownerId !== ownerId || structure.status !== "under_construction") return;
   if (spec.tileField === "economicStructure" && latest.economicStructure?.type !== structureType) return;
+
+  // §16: two players' assemblies can both be "under_construction" at once (the reject gate only sees an already-ACTIVE one) — the completion race's loser must not also go active.
+  if (isMonumentBaseType(structureType)) {
+    const claimedBy = monumentClaimOwnerId(context.tiles, structureType);
+    if (claimedBy && claimedBy !== ownerId) {
+      resolveLostMonumentAssemblyRace(context, targetKey, latest, ownerId, structureType, commandId);
+      return;
+    }
+  }
 
   const { completesAt: _, ...activeStructure } = structure;
   const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;

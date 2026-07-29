@@ -3308,7 +3308,7 @@ body {
 }
 
 .economy-line.muted { justify-content: flex-start; color: rgba(181, 196, 218, 0.62); }
-.economy-dormant-flag { color: rgba(154, 166, 184, 0.85); font-weight: 700; } /* §14.1 */
+.economy-line.is-dormant { opacity: 0.7; } .economy-dormant-flag { color: rgba(154, 166, 184, 0.85); font-weight: 700; }
 .economy-line.muster-flag-row.panel-btn {
   width: 100%;
   border: 0;
