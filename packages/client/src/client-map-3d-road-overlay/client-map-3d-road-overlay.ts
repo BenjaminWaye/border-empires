@@ -20,7 +20,7 @@ export type RoadOverlay = {
     tileY: number,
     sceneX: number,
     sceneZ: number,
-    cornerYAt: (wx: number, wy: number) => number,
+    elevationAt: (wx: number, wz: number) => number,
     dirs: RoadDirections
   ) => void;
   readonly commit: () => void;
@@ -38,14 +38,8 @@ const ARM_SAMPLES = 7;
 const HUB_SEGMENTS = 16;
 
 const ROAD_DIRS: readonly RoadDir[] = [
-  "north",
-  "northeast",
-  "east",
-  "southeast",
-  "south",
-  "southwest",
-  "west",
-  "northwest"
+  "north", "northeast", "east", "southeast",
+  "south", "southwest", "west", "northwest"
 ];
 
 const BOUNDARY_POINTS: Record<RoadDir, (sx: number, sz: number) => [number, number]> = {
@@ -60,30 +54,8 @@ const BOUNDARY_POINTS: Record<RoadDir, (sx: number, sz: number) => [number, numb
 };
 
 const ARM_DIRECTION: Record<RoadDir, [number, number]> = {
-  north: [0, -1],
-  south: [0, 1],
-  east: [1, 0],
-  west: [-1, 0],
-  northeast: [1, -1],
-  northwest: [-1, -1],
-  southeast: [1, 1],
-  southwest: [-1, 1]
-};
-
-const cornerY = (
-  wx: number,
-  wz: number,
-  cornerYAt: (wx: number, wy: number) => number
-): number => {
-  const ix = Math.floor(wx);
-  const iz = Math.floor(wz);
-  const fx = wx - ix;
-  const fz = wz - iz;
-  const a = cornerYAt(ix, iz);
-  const b = cornerYAt(ix + 1, iz);
-  const c = cornerYAt(ix, iz + 1);
-  const d = cornerYAt(ix + 1, iz + 1);
-  return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
+  north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0],
+  northeast: [1, -1], northwest: [-1, -1], southeast: [1, 1], southwest: [-1, 1]
 };
 
 const getCubicBezierPoint = (t: number, p0: [number, number], p1: [number, number], p2: [number, number], p3: [number, number]): [number, number] => {
@@ -92,9 +64,10 @@ const getCubicBezierPoint = (t: number, p0: [number, number], p1: [number, numbe
   const mt3 = mt2 * mt;
   const t2 = t * t;
   const t3 = t2 * t;
-  const x = mt3 * p0[0] + 3 * mt2 * t * p1[0] + 3 * mt * t2 * p2[0] + t3 * p3[0];
-  const y = mt3 * p0[1] + 3 * mt2 * t * p1[1] + 3 * mt * t2 * p2[1] + t3 * p3[1];
-  return [x, y];
+  return [
+    mt3 * p0[0] + 3 * mt2 * t * p1[0] + 3 * mt * t2 * p2[0] + t3 * p3[0],
+    mt3 * p0[1] + 3 * mt2 * t * p1[1] + 3 * mt * t2 * p2[1] + t3 * p3[1]
+  ];
 };
 
 const normalize = (v: [number, number]): [number, number] => {
@@ -111,37 +84,27 @@ const roadHash01 = (tileX: number, tileY: number, salt: number): number => {
 const getTangent = (points: Array<[number, number]>, i: number): [number, number] => {
   if (points.length < 2) return [1, 0];
   if (i === 0) {
-    const current = points[0]!;
-    const next = points[1]!;
-    return normalize([next[0] - current[0], next[1] - current[1]]);
+    const c = points[0]!, n = points[1]!;
+    return normalize([n[0] - c[0], n[1] - c[1]]);
   }
   if (i === points.length - 1) {
-    const current = points[i]!;
-    const previous = points[i - 1]!;
-    return normalize([current[0] - previous[0], current[1] - previous[1]]);
+    const c = points[i]!, p = points[i - 1]!;
+    return normalize([c[0] - p[0], c[1] - p[1]]);
   }
-  const previous = points[i - 1]!;
-  const next = points[i + 1]!;
-  return normalize([next[0] - previous[0], next[1] - previous[1]]);
+  const p = points[i - 1]!, n = points[i + 1]!;
+  return normalize([n[0] - p[0], n[1] - p[1]]);
 };
 
 const activeRoadDirections = (dirs: RoadDirections): RoadDir[] =>
   ROAD_DIRS.filter((dir) => dirs[dir] === true);
 
 const curvedArmPoints = (
-  tileX: number,
-  tileY: number,
-  sceneX: number,
-  sceneZ: number,
-  dir: RoadDir
+  tileX: number, tileY: number, sceneX: number, sceneZ: number, dir: RoadDir
 ): Array<[number, number]> => {
   const outward = normalize(ARM_DIRECTION[dir]);
   const perp: [number, number] = [-outward[1], outward[0]];
   const [endX, endZ] = BOUNDARY_POINTS[dir](sceneX, sceneZ);
-  const start: [number, number] = [
-    sceneX + outward[0] * ARM_START_RADIUS,
-    sceneZ + outward[1] * ARM_START_RADIUS
-  ];
+  const start: [number, number] = [sceneX + outward[0] * ARM_START_RADIUS, sceneZ + outward[1] * ARM_START_RADIUS];
   const end: [number, number] = [endX, endZ];
   const length = Math.sqrt((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2);
   const bend = (roadHash01(tileX, tileY, ROAD_DIRS.indexOf(dir) + 1) - 0.5) * 0.11;
@@ -149,13 +112,10 @@ const curvedArmPoints = (
     start[0] + outward[0] * length * 0.35 + perp[0] * bend,
     start[1] + outward[1] * length * 0.35 + perp[1] * bend
   ];
-  // Keep the boundary tangent perpendicular to the tile edge/corner so
-  // the adjacent tile's matching arm meets without a visible kink.
   const c2: [number, number] = [
     end[0] - outward[0] * length * 0.36,
     end[1] - outward[1] * length * 0.36
   ];
-
   const points: Array<[number, number]> = [];
   for (let i = 0; i < ARM_SAMPLES; i += 1) {
     const t = i / (ARM_SAMPLES - 1);
@@ -175,13 +135,10 @@ const addRibbonGeometry = (
   tileY: number,
   sceneX: number,
   sceneZ: number,
-  cornerYAtFn: (wx: number, wy: number) => number
+  elevationAtFn: (wx: number, wz: number) => number
 ): void => {
   if (centerlinePoints.length < 2) return;
 
-  // sceneX/sceneZ correspond to the tile *center* in world (tileX+0.5, tileY+0.5).
-  // cornerYAt expects world tile-corner coords (NW corner of tile (wx,wy)), so
-  // shift by +0.5 when converting from scene-relative to world.
   const sceneToWorldX = (px: number) => tileX + 0.5 + (px - sceneX);
   const sceneToWorldZ = (pz: number) => tileY + 0.5 + (pz - sceneZ);
 
@@ -205,8 +162,8 @@ const addRibbonGeometry = (
     const wxRight = sceneToWorldX(rightX);
     const wzRight = sceneToWorldZ(rightZ);
 
-    const leftY = cornerY(wxLeft, wzLeft, cornerYAtFn) + Y_LIFT;
-    const rightY = cornerY(wxRight, wzRight, cornerYAtFn) + Y_LIFT;
+    const leftY = elevationAtFn(wxLeft, wzLeft) + Y_LIFT;
+    const rightY = elevationAtFn(wxRight, wzRight) + Y_LIFT;
 
     leftVertices.push(vertexCount.current);
     positions[vertexCount.current * 3] = leftX;
@@ -231,20 +188,113 @@ const addRibbonGeometry = (
   }
 
   for (let i = 0; i < centerlinePoints.length - 1; i++) {
-    const li = leftVertices[i]!;
-    const ri = rightVertices[i]!;
-    const li1 = leftVertices[i + 1]!;
-    const ri1 = rightVertices[i + 1]!;
-
+    const li = leftVertices[i]!, ri = rightVertices[i]!;
+    const li1 = leftVertices[i + 1]!, ri1 = rightVertices[i + 1]!;
     indices[indexCount.current++] = li;
     indices[indexCount.current++] = ri;
     indices[indexCount.current++] = li1;
-
     indices[indexCount.current++] = ri;
     indices[indexCount.current++] = ri1;
     indices[indexCount.current++] = li1;
   }
 };
+
+const FRAGMENT_SHADER = `
+precision highp float;
+varying vec2 vUv;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f*f*(3.0 - 2.0*f);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
+}
+float fbm(vec2 p) { return 0.5*vnoise(p) + 0.25*vnoise(p*2.1) + 0.125*vnoise(p*4.3); }
+
+vec3 stoneColor(float idx) {
+  if (idx < 1.0) return vec3(0.77, 0.62, 0.46);
+  if (idx < 2.0) return vec3(0.70, 0.55, 0.41);
+  if (idx < 3.0) return vec3(0.84, 0.68, 0.50);
+  if (idx < 4.0) return vec3(0.62, 0.48, 0.36);
+  return vec3(0.74, 0.58, 0.43);
+}
+
+void main() {
+  float u = vUv.x * 3.0;
+  float v = vUv.y;
+
+  // === Edge grass transition ===
+  float grassFade = smoothstep(0.0, 0.06, v) * smoothstep(1.0, 0.94, v);
+  float edgeAmount = 1.0 - grassFade;
+  vec3 edgeGrass = vec3(0.30, 0.38, 0.20);
+
+  // === Wheel ruts ===
+  float rut1 = exp(-pow((v - 0.30) * 14.0, 2.0));
+  float rut2 = exp(-pow((v - 0.70) * 14.0, 2.0));
+  float rut = clamp(rut1 + rut2, 0.0, 1.0);
+
+  // === Cobblestone grid ===
+  vec2 cellSize = vec2(0.10, 0.07);
+  vec2 cellIdx = floor(vec2(u, v) / cellSize);
+  vec2 cellUV = fract(vec2(u, v) / cellSize) - 0.5;
+
+  float ch = hash(cellIdx);
+  float ch2 = hash(cellIdx + vec2(0.7, 0.3));
+  vec2 jitter = (vec2(ch, ch2) - 0.5) * 0.3;
+  vec2 sp = cellUV - jitter;
+
+  float stoneW = 0.38 + ch * 0.10;
+  float stoneH = 0.32 + hash(cellIdx + vec2(0.1, 0.2)) * 0.12;
+  float sd = max(abs(sp.x) / stoneW, abs(sp.y) / stoneH);
+
+  vec3 mortar = vec3(0.32, 0.24, 0.16);
+  vec3 cobble = stoneColor(floor(ch * 4.99));
+  float stoneWear = vnoise(sp * 5.0 + cellIdx * 3.0) * 0.08;
+  cobble += stoneWear;
+
+  float isStone = 1.0 - smoothstep(0.42, 0.58, sd);
+  float isMortar = 1.0 - isStone;
+  vec3 col = mix(mortar, cobble, isStone);
+
+  // === Stone edge shadow (3D bump) ===
+  float stoneEdge = smoothstep(0.5, 0.58, sd) * isStone * 0.15;
+  col *= (1.0 - stoneEdge);
+
+  // === Light/shadow across stone (top-left light) ===
+  float stoneBump = (0.5 - sd) * isStone * 0.5;
+  vec2 lightDir = normalize(vec2(0.7, 0.7));
+  float stoneLight = stoneBump * (lightDir.x * sp.x + lightDir.y * sp.y) * 2.0;
+  col *= (1.0 + stoneLight * 0.1);
+
+  // === Wheel rut darkening ===
+  col = mix(col, vec3(0.20, 0.15, 0.10), rut * 0.55);
+  float rutGrain = vnoise(vec2(u * 30.0, v * 15.0)) * 0.08 * rut;
+  col *= (1.0 - rutGrain);
+
+  // === Crown (center lighter strip) ===
+  float crown = exp(-pow((v - 0.5) * 6.0, 2.0));
+  col *= (1.0 + crown * 0.07);
+
+  // === Surface gravel and grain ===
+  float gravel = vnoise(vec2(u * 40.0, v * 25.0));
+  col += (gravel - 0.5) * 0.04;
+  float grain = vnoise(vec2(u * 70.0, v * 70.0));
+  col += (grain - 0.5) * 0.03;
+
+  // === Puddles (random dark patches) ===
+  float puddleNoise = fbm(vec2(u * 0.8, v * 1.2));
+  float puddle = smoothstep(0.55, 0.70, puddleNoise) * (1.0 - rut) * (1.0 - crown);
+  vec3 puddleColor = mix(vec3(0.15, 0.12, 0.08), vec3(0.25, 0.18, 0.10), puddleNoise * 2.0);
+  col = mix(col, puddleColor, puddle * 0.4);
+
+  // === Edge grass overlay ===
+  float grassNoise = fbm(vec2(u * 1.5, v * 0.5));
+  float edgeGrassAmount = edgeAmount * (0.3 + grassNoise * 0.3);
+  col = mix(col, edgeGrass, edgeGrassAmount);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
 
 export const createRoadOverlay = (scene: Scene): RoadOverlay => {
   const group = new Group();
@@ -265,53 +315,15 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
   const vertexShader = `
     precision highp float;
     varying vec2 vUv;
-
     void main() {
       vUv = uv;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
   `;
 
-  const fragmentShader = `
-    precision highp float;
-    varying vec2 vUv;
-
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float vnoise(vec2 p) {
-      vec2 i = floor(p), f = fract(p);
-      vec2 u = f*f*(3.0 - 2.0*f);
-      return mix(mix(hash(i), hash(i+vec2(1,0)), u.x),
-                 mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
-    }
-    float fbm(vec2 p) { return 0.5*vnoise(p) + 0.25*vnoise(p*2.1) + 0.125*vnoise(p*4.3); }
-
-    void main() {
-      float u = vUv.x;
-      float v = vUv.y;
-      float dist = abs(v - 0.5) * 2.0;
-      vec3 cCenter = vec3(0.847, 0.722, 0.541);
-      vec3 cBody   = vec3(0.722, 0.580, 0.416);
-      vec3 cBorder = vec3(0.353, 0.227, 0.122);
-      vec3 col;
-      if (dist < 0.10) col = cCenter;
-      else if (dist < 0.20) col = mix(cCenter, cBody, smoothstep(0.0, 1.0, (dist - 0.10) / 0.10));
-      else if (dist < 0.62) col = cBody;
-      else if (dist < 0.88) col = mix(cBody, cBorder, smoothstep(0.0, 1.0, (dist - 0.62) / 0.26));
-      else col = cBorder;
-      float lowF = fbm(vec2(u * 6.0, v * 2.5));
-      float grain = vnoise(vec2(u * 80.0, v * 80.0));
-      col *= mix(0.85, 1.10, lowF);
-      col += (grain - 0.5) * 0.05;
-      float outerBody = smoothstep(0.45, 0.62, dist);
-      col *= mix(1.0, 0.92, outerBody * fbm(vec2(u * 3.0, v * 1.5)));
-      col *= 1.10;
-      gl_FragColor = vec4(col, 1.0);
-    }
-  `;
-
   const material = new ShaderMaterial({
     vertexShader,
-    fragmentShader,
+    fragmentShader: FRAGMENT_SHADER,
     transparent: true,
     depthWrite: true,
     side: DoubleSide,
@@ -335,13 +347,10 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
   };
 
   const addHub = (
-    tileX: number,
-    tileY: number,
-    sceneX: number,
-    sceneZ: number,
-    cornerYAtFn: (wx: number, wy: number) => number
+    tileX: number, tileY: number, sceneX: number, sceneZ: number,
+    elevationAtFn: (wx: number, wz: number) => number
   ): void => {
-    const hubCenterY = cornerY(tileX + 0.5, tileY + 0.5, cornerYAtFn) + HUB_CENTER_LIFT;
+    const hubCenterY = elevationAtFn(tileX + 0.5, tileY + 0.5) + HUB_CENTER_LIFT;
 
     const hubCenterIdx = vCount.current;
     positions[vCount.current * 3] = sceneX;
@@ -358,7 +367,7 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
       const rimZ = sceneZ + Math.sin(theta) * HUB_RADIUS;
       const wxRim = tileX + 0.5 + (rimX - sceneX);
       const wzRim = tileY + 0.5 + (rimZ - sceneZ);
-      const rimY = cornerY(wxRim, wzRim, cornerYAtFn) + Y_LIFT;
+      const rimY = elevationAtFn(wxRim, wzRim) + Y_LIFT;
 
       positions[vCount.current * 3] = rimX;
       positions[vCount.current * 3 + 1] = rimY;
@@ -377,28 +386,21 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
   };
 
   const addInstance = (
-    tileX: number,
-    tileY: number,
-    sceneX: number,
-    sceneZ: number,
-    cornerYAtFn: (wx: number, wy: number) => number,
+    tileX: number, tileY: number, sceneX: number, sceneZ: number,
+    elevationAtFn: (wx: number, wz: number) => number,
     dirs: RoadDirections
   ): void => {
     const arms = activeRoadDirections(dirs);
-
     if (arms.length === 0) return;
 
     if (arms.length === 2 && dirs.terminal !== true) {
       const [dir1, dir2] = arms as [RoadDir, RoadDir];
       const [p1x, p1z] = BOUNDARY_POINTS[dir1](sceneX, sceneZ);
       const [p2x, p2z] = BOUNDARY_POINTS[dir2](sceneX, sceneZ);
-
       const [d1x, d1z] = normalize(ARM_DIRECTION[dir1]);
       const [d2x, d2z] = normalize(ARM_DIRECTION[dir2]);
-
       const dist = Math.sqrt((p2x - p1x) ** 2 + (p2z - p1z) ** 2);
       const tangentLen = 0.45 * dist;
-
       const c1x = p1x - d1x * tangentLen;
       const c1z = p1z - d1z * tangentLen;
       const c2x = p2x - d2x * tangentLen;
@@ -411,36 +413,11 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
         centerlinePoints.push([x, z]);
       }
 
-      addRibbonGeometry(
-        positions,
-        uvs,
-        indices,
-        vCount,
-        iCount,
-        centerlinePoints,
-        tileX,
-        tileY,
-        sceneX,
-        sceneZ,
-        cornerYAtFn
-      );
+      addRibbonGeometry(positions, uvs, indices, vCount, iCount, centerlinePoints, tileX, tileY, sceneX, sceneZ, elevationAtFn);
     } else {
-      addHub(tileX, tileY, sceneX, sceneZ, cornerYAtFn);
-
+      addHub(tileX, tileY, sceneX, sceneZ, elevationAtFn);
       for (const dir of arms) {
-        addRibbonGeometry(
-          positions,
-          uvs,
-          indices,
-          vCount,
-          iCount,
-          curvedArmPoints(tileX, tileY, sceneX, sceneZ, dir),
-          tileX,
-          tileY,
-          sceneX,
-          sceneZ,
-          cornerYAtFn
-        );
+        addRibbonGeometry(positions, uvs, indices, vCount, iCount, curvedArmPoints(tileX, tileY, sceneX, sceneZ, dir), tileX, tileY, sceneX, sceneZ, elevationAtFn);
       }
     }
   };
@@ -462,11 +439,5 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
     material.dispose();
   };
 
-  return {
-    group,
-    clear,
-    addInstance,
-    commit,
-    dispose
-  };
+  return { group, clear, addInstance, commit, dispose };
 };

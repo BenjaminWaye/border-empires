@@ -66,6 +66,7 @@ import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
+import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -1578,12 +1579,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (terrain === "LAND") {
           const roadDirs = roadNetwork.get(deps.keyFor(wx, wy));
           if (roadDirs) {
-            roadOverlay.addInstance(
-              wx, wy,
-              x, z,
-              (cwx: number, cwy: number) => heightfield.cornerYAt(deps.wrapX(cwx), deps.wrapY(cwy)),
-              roadDirs
-            );
+            const elevationAt = createRoadElevationAt(isHillsTile, (x, z) => heightfield.cornerYAt(x, z), deps.wrapX, deps.wrapY);
+            roadOverlay.addInstance(wx, wy, x, z, elevationAt, roadDirs);
           }
         }
         // Per-tile water quad on top of the heightfield's sea-floor
