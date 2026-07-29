@@ -11,6 +11,7 @@ import {
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { ConnectedTownNetworkEntry } from "./economy-network/economy-network.js";
+import type { ResourceSlotDormancy, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import {
   addTileUpkeepToCache,
   removeTileUpkeepFromCache,
@@ -206,6 +207,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   musterTilesByOwner: Map<string, Set<string>>;
   fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
+  garrisonHallTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -224,11 +226,13 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
+  refreshGarrisonHallIndexForTile(input);
 };
 
 /**
- * Keeps the per-player economy snapshot, tile-yield context, defensibility
- * metrics, and upkeep accrual caches in sync with a tile mutation.
+ * Keeps the per-player economy snapshot, tile-yield context, town network,
+ * defensibility metrics, and upkeep accrual caches in sync with a tile
+ * mutation.
  *
  * The economy snapshot and tile-yield context builders only iterate
  * ownershipState === "SETTLED" tiles, so frontier-only mutations (territory
@@ -238,6 +242,14 @@ export const refreshRuntimeTileIndexesForChange = (input: {
  * Defensibility metrics count all owned tiles (frontier + settled), so they
  * are invalidated unconditionally. Upkeep accrual is maintained incrementally
  * (O(1) add/subtract) instead of invalidated.
+ *
+ * townNetworkCacheByPlayer/manpowerStructureBonusCacheByPlayer are also
+ * invalidated unconditionally (§5.4): both now fold in
+ * dormantEconomicStructureKeysForPlayer, which — like resourceSlotDemand —
+ * can change from a FRONTIER-only mutation (a Siege Outpost's IRON/SUPPLY
+ * demand tipping some other, possibly-SETTLED structure into or out of
+ * dormancy), so the SETTLED-gated branch alone isn't sufficient for them
+ * anymore even though their own BFS/scan still only reads SETTLED tiles.
  */
 export const refreshEconomyCachesForTileChange = (input: {
   tileKey: string;
@@ -248,8 +260,31 @@ export const refreshEconomyCachesForTileChange = (input: {
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
-  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
+  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number; localSupportScore: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
+  // §4.4 Rail Depot network manpower bonus — invalidated alongside
+  // townNetworkCacheByPlayer since it's derived from the same network build
+  // plus a Garrison Hall/Rail Depot structure scan over the same tiles. Also
+  // invalidated unconditionally below (§5.4): both this and
+  // townNetworkCacheByPlayer now factor in dormantEconomicStructureKeysForPlayer,
+  // which (like resourceSlotDemandCacheByPlayer) can change from a FRONTIER-only
+  // mutation (a Siege Outpost's IRON/SUPPLY demand shifting which OTHER,
+  // possibly-SETTLED structure is dormant) — the SETTLED-gated branch alone
+  // would miss that ripple.
+  manpowerStructureBonusCacheByPlayer?: Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>;
+  // §5 (resource slots). Supply only depends on SETTLED resource tiles, so it
+  // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
+  // Demand depends on fort/siegeOutpost/economicStructure on ANY owned tile
+  // (Siege Outposts can be FRONTIER, resource-slot-view.ts), so it's invalidated
+  // unconditionally alongside defensibilityMetricsCacheByPlayer instead. All
+  // three (plus dormancy below) now also participate in AI-coalescing dirty-
+  // tracking — see the dirty-set params below.
+  resourceSlotSupplyCacheByPlayer?: Map<string, ResourceSlotTotals>;
+  resourceSlotDemandCacheByPlayer?: Map<string, ResourceSlotTotals>;
+  // §5.4: derived from both supply and demand, so it invalidates on the same
+  // unconditional trigger as resourceSlotDemandCacheByPlayer (a superset of
+  // supply's SETTLED-gated one).
+  resourceSlotDormancyCacheByPlayer?: Map<string, ResourceSlotDormancy>;
   // AI-only coalescing (2026-07-29 login-stall investigation): AI players
   // settle/expand continuously and have no live subscriber, so deleting these
   // caches on every single tile change forces a full O(settled-tiles) rebuild
@@ -262,34 +297,40 @@ export const refreshEconomyCachesForTileChange = (input: {
   // their own action reflected instantly.
   economySnapshotDirtyPlayerIds: Set<string>;
   defensibilityMetricsDirtyPlayerIds: Set<string>;
+  // Same AI-only dirty-marking extended to the resource-slot caches (2026-07-29 follow-up).
+  resourceSlotSupplyDirtyPlayerIds?: Set<string>;
+  resourceSlotDemandDirtyPlayerIds?: Set<string>;
+  resourceSlotDormancyDirtyPlayerIds?: Set<string>;
 }): void => {
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
   // setTileState path so the two tile-write routes can't diverge.
   maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
 
+  // AI: mark dirty, keep serving the stale entry. Human/no dirty set wired: delete immediately (unchanged prior behavior).
+  const markDirtyOrDelete = <V>(isAi: boolean | undefined, dirtySet: Set<string> | undefined, cache: Map<string, V> | undefined, ownerId: string): void => {
+    if (isAi && dirtySet) dirtySet.add(ownerId); else cache?.delete(ownerId);
+  };
   const invalidateEconomyForOwner = (ownerId: string): void => {
     // townNetworkCacheByPlayer is cheap to drop unconditionally: a miss falls
     // back to the incremental union-find (O(towns × 8)), not a full BFS.
     input.townNetworkCacheByPlayer.delete(ownerId);
-    if (players.get(ownerId)?.isAi) {
-      input.economySnapshotDirtyPlayerIds.add(ownerId);
-    } else {
-      input.economySnapshotCacheByPlayer.delete(ownerId);
-    }
+    const isAi = players.get(ownerId)?.isAi;
+    markDirtyOrDelete(isAi, input.economySnapshotDirtyPlayerIds, input.economySnapshotCacheByPlayer, ownerId);
     input.tileYieldContextCacheByPlayer.delete(ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotSupplyDirtyPlayerIds, input.resourceSlotSupplyCacheByPlayer, ownerId);
   };
   const invalidateDefensibilityForOwner = (ownerId: string): void => {
-    if (players.get(ownerId)?.isAi) {
-      input.defensibilityMetricsDirtyPlayerIds.add(ownerId);
-    } else {
-      input.defensibilityMetricsCacheByPlayer.delete(ownerId);
-    }
+    const isAi = players.get(ownerId)?.isAi;
+    markDirtyOrDelete(isAi, input.defensibilityMetricsDirtyPlayerIds, input.defensibilityMetricsCacheByPlayer, ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotDemandDirtyPlayerIds, input.resourceSlotDemandCacheByPlayer, ownerId);
+    markDirtyOrDelete(isAi, input.resourceSlotDormancyDirtyPlayerIds, input.resourceSlotDormancyCacheByPlayer, ownerId);
   };
 
   if (previous?.ownerId) {
     if (previous.ownershipState === "SETTLED") invalidateEconomyForOwner(previous.ownerId);
     invalidateDefensibilityForOwner(previous.ownerId);
+    input.manpowerStructureBonusCacheByPlayer?.delete(previous.ownerId);
     const prevPlayer = players.get(previous.ownerId);
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
@@ -297,6 +338,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   if (next.ownerId) {
     if (next.ownershipState === "SETTLED") invalidateEconomyForOwner(next.ownerId);
     invalidateDefensibilityForOwner(next.ownerId);
+    input.manpowerStructureBonusCacheByPlayer?.delete(next.ownerId);
     const nextPlayer = players.get(next.ownerId);
     const nextUpkeep = input.upkeepAccrualCacheByPlayer.get(next.ownerId);
     if (nextPlayer && nextUpkeep) addTileUpkeepToCache(nextUpkeep, next, next.ownerId, nextPlayer);
@@ -471,6 +513,35 @@ const refreshRailDepotIndexForTile = (input: {
   if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
   if (prevActive && prevOwnerId) input.railDepotTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.railDepotTilesByOwner, input.tileKey, nextOwnerId);
+};
+
+// Garrison Hall's flat manpower-cap bonus (§4.4) is a plain per-structure
+// count, not tied to any specific town — GARRISON_HALL uses "same_tile"
+// placement (structure-placement-metadata.json), unlike RAIL_DEPOT/
+// CLEARING_HOUSE's "town_support" mode, so it can sit on any settled/
+// resource/support/dock tile with no adjacency to a town at all. A
+// per-town, adjacency-based scan (like the Rail Depot/Clearing House
+// network membership check) would silently miss any Garrison Hall not
+// built next to a town.
+const isGarrisonHallActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.economicStructure?.type === "GARRISON_HALL" &&
+  tile.economicStructure.ownerId === ownerId &&
+  tile.economicStructure.status === "active";
+
+const refreshGarrisonHallIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  garrisonHallTilesByOwner: Map<string, Set<string>>;
+}): void => {
+  const prevOwnerId = input.previous?.ownerId;
+  const nextOwnerId = input.next.ownerId;
+  const prevActive = input.previous && prevOwnerId ? isGarrisonHallActive(input.previous, prevOwnerId) : false;
+  const nextActive = nextOwnerId ? isGarrisonHallActive(input.next, nextOwnerId) : false;
+  if (!prevActive && !nextActive) return;
+  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+  if (prevActive && prevOwnerId) input.garrisonHallTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.garrisonHallTilesByOwner, input.tileKey, nextOwnerId);
 };
 
 const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, ownerId: string): void => {

@@ -16,7 +16,7 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
@@ -39,7 +39,7 @@ import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
-import { createUnfedBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
+import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createMusterCombatFx } from "../client-map-3d-muster-combat-fx.js";
@@ -145,7 +145,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
-  const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  // §21.1: one badge overlay per resource icon, so a dormant Fort missing IRON gets ⛏ while an unfed town still gets 🍞.
+  const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", IRON: "⛏", CRYSTAL: "💎", SUPPLY: "🦊" };
+  const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
+    FOOD: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.FOOD), IRON: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.IRON),
+    CRYSTAL: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.CRYSTAL), SUPPLY: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.SUPPLY)
+  };
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
   const musterCombatFx = createMusterCombatFx(scene);
@@ -1435,7 +1440,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       wrapX: deps.wrapX,
       wrapY: deps.wrapY
     });
-    unfedBadgeOverlay.clear();
+    // §21.1: per-tile dormant-structure resource, keyed by plain "x,y" (the
+    // dormantStructures wire field's keys are "x,y:field"). A tile with more
+    // than one dormant field just shows the first resource found.
+    const dormantStructureResourceByTileKey = new Map<string, SlotResource>();
+    for (const { key, resources } of deps.state.dormantStructures) {
+      const tileKey = key.slice(0, key.lastIndexOf(":"));
+      if (!dormantStructureResourceByTileKey.has(tileKey) && resources[0]) {
+        dormantStructureResourceByTileKey.set(tileKey, resources[0]);
+      }
+    }
+    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     musterOverlay.clear();
     supplyLineOverlay.clear();
@@ -1644,7 +1659,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // owned-village smoke gate: a recently captured FRONTIER tile is intentionally
           // alarmed even though it doesn't qualify for the pale growth-smoke above.
           const captureShockUntil = tile?.town?.captureShockUntil;
-          const tileKey = deps.keyFor(wx, wy);
           if (typeof captureShockUntil === "number" && captureShockUntil > Date.now()) {
             villageEffects.addCapturedTownSmoke(x, z, surfaceY, tileSeed);
             const previousShock = lastSeenCaptureShockByTile.get(tileKey) ?? 0;
@@ -1661,13 +1675,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             // Shock expired or town cleared: drop the entry so the map can't grow unbounded.
             lastSeenCaptureShockByTile.delete(tileKey);
           }
-          // Mirror the "Town is unfed" line in the tile-menu: badge only
-          // paints when clicking the town would also show the unfed warning.
-          // Gates out neutral, foreign, unsettled, and SETTLEMENT-tier towns
-          // — see shouldShowTownUnfedWarning in client-town-growth.ts.
-          if (tile && shouldShowTownUnfedWarning(tile)) {
-            unfedBadgeOverlay.addInstance(x, z, surfaceY);
+          // Mirror the "Town is unfed" line in the tile-menu — see
+          // shouldShowTownUnfedWarning in client-town-growth.ts. A dormant
+          // non-town structure on this tile takes priority if both apply.
+          if (tile && shouldShowTownUnfedWarning(tile) && !dormantStructureResourceByTileKey.has(tileKey)) {
+            resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY);
           }
+        }
+        // §21.1: floating badge for a dormant non-town structure — independent of the town block above (most structures aren't on a town tile).
+        if (tile && terrain === "LAND") {
+          const dormantStructureResource = dormantStructureResourceByTileKey.get(tileKey);
+          if (dormantStructureResource) resourceBadgeOverlays[dormantStructureResource].addInstance(x, z, surfaceY);
         }
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
@@ -1856,7 +1874,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.commit();
     townOverlay.commit();
     roadOverlay.commit();
-    unfedBadgeOverlay.commit();
+    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit();
     syncCaptureOverlays(
@@ -1958,7 +1976,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
-    unfedBadgeOverlay.tick(nowMs);
+    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
     musterCombatFx.tick(nowMs, deps.state.capture);
@@ -2061,7 +2079,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
-    unfedBadgeOverlay.dispose();
+    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     musterOverlay.dispose();
     musterCombatFx.dispose();

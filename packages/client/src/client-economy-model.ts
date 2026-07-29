@@ -8,6 +8,7 @@ export type EconomyBucket = {
   count: number;
   resourceKey?: EconomyResourceKey;
   note?: string;
+  dormantCount?: number;
 };
 
 export type EconomyBreakdownResource = {

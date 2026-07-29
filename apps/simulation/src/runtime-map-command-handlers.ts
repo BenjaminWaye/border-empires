@@ -2,26 +2,18 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   AEGIS_LOCK_COOLDOWN_MS,
-  AEGIS_LOCK_CRYSTAL_COST,
   AEGIS_LOCK_DURATION_MS,
   AIRPORT_BOMBARD_BASE_MISS_CHANCE,
   AIRPORT_BOMBARD_COOLDOWN_MS,
-  AIRPORT_BOMBARD_CRYSTAL_COST,
   AIRPORT_BOMBARD_FORT_MISS_BONUS,
   AIRPORT_BOMBARD_GOLD_COST,
   AIRPORT_BOMBARD_MAX_MISS_CHANCE,
   AIRPORT_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
-  ASTRAL_DOCK_LAUNCH_CRYSTAL_COST,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
-  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
-  IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
-  IMPERIAL_EXCHANGE_LEVY_SHARE,
   TERRAIN_SHAPING_COOLDOWN_MS,
-  TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
-  WORLD_ENGINE_STRIKE_CRYSTAL_COST,
   WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
 } from "@border-empires/game-domain";
@@ -30,7 +22,6 @@ import {
   parseAegisLockPayload,
   parseAirportBombardPayload,
   parseAstralDockLaunchPayload,
-  parseImperialExchangeLevyPayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
 } from "./runtime-command-parsers.js";
@@ -51,6 +42,10 @@ export type RuntimeMapCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   bumpTerrainEpoch: () => void;
   isStructurePowered: (ownerId: string, tileKey: string, structureType: EconomicStructureType) => boolean;
+  // §5.4: true when the structure's own resource demand isn't covered by
+  // supply — a dormant monument/ability structure can't fire its command,
+  // same as isStructurePowered's Aether Tower check but for slot dormancy.
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileBombardBlockedByRadar: (actorId: string, targetX: number, targetY: number) => boolean;
@@ -59,6 +54,12 @@ export type RuntimeMapCommandContext = {
   setAbilityCooldownUntil: (playerId: string, abilityKey: string, untilMs: number) => void;
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
+  // §20: durable per-player event log — see @border-empires/game-domain's
+  // appendPlayerEventLogEntry for the append+cap implementation.
+  appendPlayerEventLogEntry: (
+    player: DomainPlayer,
+    input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number }
+  ) => void;
 };
 
 export function rejectCommand(
@@ -112,8 +113,8 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST || !context.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "insufficient resources for create mountain");
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
+    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "insufficient gold for create mountain");
     return;
   }
   actor.points -= TERRAIN_SHAPING_GOLD_COST;
@@ -163,8 +164,8 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST || !context.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "insufficient resources for remove mountain");
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
+    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "insufficient gold for remove mountain");
     return;
   }
   actor.points -= TERRAIN_SHAPING_GOLD_COST;
@@ -210,6 +211,10 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Aether Tower");
     return;
   }
+  if (context.isStructureDormant(actor.id, airportKey, "economicStructure")) {
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport has no free resource slot");
+    return;
+  }
   const now = context.now();
   const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
   if (bombardCooldownUntil > now) {
@@ -222,10 +227,6 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
     rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient CRYSTAL for bombardment");
     return;
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
@@ -295,58 +296,8 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
-export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseImperialExchangeLevyPayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const tileKey = simulationTileKey(payload.fromX, payload.fromY);
-  const tile = context.tiles.get(tileKey);
-  if (
-    !tile ||
-    tile.ownerId !== actor.id ||
-    tile.economicStructure?.ownerId !== actor.id ||
-    tile.economicStructure.type !== "IMPERIAL_EXCHANGE" ||
-    tile.economicStructure.status !== "active"
-  ) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "select an active Imperial Exchange");
-    return;
-  }
-  if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "requires Exchange Levy Writs research");
-    return;
-  }
-  if (!context.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Aether Tower");
-    return;
-  }
-  const now = context.now();
-  if (context.getAbilityCooldownUntil(actor.id, "imperial_exchange_levy") > now) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "ability on cooldown");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "insufficient CRYSTAL");
-    return;
-  }
-  let totalTransferred = 0;
-  for (const other of context.players.values()) {
-    if (other.id === actor.id || actor.allies.has(other.id) || actor.truces?.has(other.id)) continue;
-    const stock = context.strategicResourceAmount(other, payload.resource);
-    const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
-    if (take <= 0) continue;
-    other.strategicResources = {
-      ...(other.strategicResources ?? {}),
-      [payload.resource]: Math.max(0, stock - take)
-    };
-    totalTransferred += take;
-  }
-  if (totalTransferred > 0) context.addStrategicResource(actor, payload.resource, totalTransferred);
-  context.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
+// §15: Imperial Exchange Levy — moved to runtime-imperial-exchange-levy-command.ts
+// (already over the 500-line soft cap here; see scripts/check-file-line-limits.mjs).
 
 export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
@@ -375,6 +326,10 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Aether Tower");
     return;
   }
+  if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine has no free resource slot");
+    return;
+  }
   const now = context.now();
   if (context.getAbilityCooldownUntil(actor.id, "world_engine_strike") > now) {
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "ability on cooldown");
@@ -387,10 +342,6 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
   }
   if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient CRYSTAL");
     return;
   }
   actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;
@@ -453,13 +404,13 @@ export function handleAegisLockCommand(context: RuntimeMapCommandContext, comman
     rejectCommand(context, command, "AEGIS_LOCK_INVALID", "Aegis Dome requires a nearby Aether Tower");
     return;
   }
+  if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "Aegis Dome has no free resource slot");
+    return;
+  }
   const now = context.now();
   if (context.getAbilityCooldownUntil(actor.id, "aegis_lock") > now) {
     rejectCommand(context, command, "AEGIS_LOCK_INVALID", "ability on cooldown");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AEGIS_LOCK_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "insufficient CRYSTAL");
     return;
   }
   context.setAbilityCooldownUntil(actor.id, AEGIS_LOCK_ACTIVE_UNTIL_KEY, now + AEGIS_LOCK_DURATION_MS);
@@ -496,13 +447,13 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "Astral Dock requires a nearby Aether Tower");
     return;
   }
+  if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "Astral Dock has no free resource slot");
+    return;
+  }
   const now = context.now();
   if (context.getAbilityCooldownUntil(actor.id, "astral_dock_launch") > now) {
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", ASTRAL_DOCK_LAUNCH_CRYSTAL_COST)) {
-    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "insufficient CRYSTAL");
     return;
   }
   context.setAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY, now + ASTRAL_DOCK_LAUNCH_DURATION_MS);

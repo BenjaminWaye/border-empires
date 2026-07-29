@@ -1,9 +1,11 @@
 import {
+  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
+  SETTLE_MANPOWER_COST,
   SETTLE_MS,
   isForestTileAt,
   isHillsTileAt
@@ -45,27 +47,31 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Expand Your Territory",
-    body: "Tap a neutral tile next to your border to claim it as frontier (1 gold). Settle it (4 gold, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once."
+    body: `Tap a neutral tile next to your border to claim it as frontier (${EXPAND_MANPOWER_COST} manpower). Settle it (${SETTLE_MANPOWER_COST} manpower, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once.`
   },
   {
-    title: "Manage Resources",
-    body: "Gold and resources trickle in passively from settled tiles, but each resource has a cap — increase the cap by expanding production. Gold funds expansion and building. Manpower regenerates from your settlements and is spent on attacks and forts. Food grows towns, Iron/Crystal/Supply build military structures and fuel abilities. Shards appear during the season for building wonders. Structures and settled tiles cost gold upkeep — overbuilding drains your treasury."
+    title: "Manpower Is Your Real Currency",
+    body: "Manpower — regenerated from your settlements and towns — is what expansion, settling, and building actually cost. Run low and growth stalls, so watch your manpower bar before your gold. Gold is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
+  },
+  {
+    title: "Resource Slots, Not Stockpiles",
+    body: "Food, Iron, Crystal, and Supply aren't stockpiled anymore — each resource tile grants a fixed number of slots, and every structure that needs that resource permanently occupies one. Run out of free slots and the newest structure of that type goes dormant (no bonus, but it stays standing) until you free up or claim more slots of that type."
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, camps, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs gold + manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, camps, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",
-    body: "Research technologies in the Tech panel for permanent bonuses. Abilities cost Crystal and have cooldowns: Reveal Empire (see enemy territory), Aether Bridge (cross water), Aether Lance (destroy a structure), Siphon (steal tile income), Survey Sweep (find resources). After key techs, choose a domain for passive bonuses."
+    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost gold (plus Shard at higher tiers), not Food/Iron/Crystal/Supply. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Market enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Gold powers your empire; population increases your manpower cap for war. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
+    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Market enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Population is what raises your manpower cap for war, so growing towns matters as much as growing gold. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
   },
   {
     title: "Win the Season",
-    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead by 33% at 200+ gold/min), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, World Engine, Aegis Dome, Astral Dock) for powerful end-game abilities."
+    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead the field by a wide margin once your income clears a minimum bar), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, World Engine, Aegis Dome, Astral Dock) for powerful end-game abilities — only one of each exists per season, so the first empire to finish one claims it for good."
   }
 ];
 
@@ -85,5 +91,6 @@ export const settleDurationMsForTile = (x: number, y: number): number => (isFore
 
 export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
-  return isForestTile(x, y) ? `${FRONTIER_CLAIM_COST} gold • ${seconds}s (Forest)` : `${FRONTIER_CLAIM_COST} gold • ${seconds}s`;
+  const costLabel = `${EXPAND_MANPOWER_COST} manpower + ${FRONTIER_CLAIM_COST} gold`;
+  return isForestTile(x, y) ? `${costLabel} • ${seconds}s (Forest)` : `${costLabel} • ${seconds}s`;
 };

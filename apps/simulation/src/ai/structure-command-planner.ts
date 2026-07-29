@@ -15,6 +15,7 @@ import {
   openTownSupportNeighborTiles,
   townSupportStructureShowsOnTile
 } from "../town-support-lookup.js";
+import { economyWeak } from "./ai-economic-heuristics.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -22,6 +23,7 @@ type StrategicResourceKey = DomainStrategicResourceKey;
 export type StructurePlannerPlayer = {
   id: string;
   points: number;
+  manpower?: number;
   techIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount?: number;
@@ -170,9 +172,6 @@ const canAffordStructure = (
 const foodCoverageLow = (player: StructurePlannerPlayer): boolean =>
   resourceStock(player, "FOOD") <= Math.max(24, (player.townCount ?? 0) * 12);
 
-const economyWeak = (player: StructurePlannerPlayer): boolean =>
-  (player.incomePerMinute ?? 0) < Math.max(3, (player.settledTileCount ?? 0) * 0.45);
-
 export const chooseBestEconomicBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -181,7 +180,11 @@ export const chooseBestEconomicBuild = (
 ): { tile: StructurePlannerTile; structureType: EconomicStructureType } | undefined => {
   let best: { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number } | undefined;
   const foodLow = foodCoverageLow(player);
-  const econWeak = economyWeak(player);
+  // §24.5: consolidated onto the shared ai-economic-heuristics.ts
+  // implementation instead of this file's own hand-written duplicate (which
+  // had drifted to a different signature but the same stale gold-income
+  // logic) — see that file for the manpower-based rationale.
+  const econWeak = economyWeak(player.manpower ?? 0, player.settledTileCount ?? 0);
   const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const techSet = playerTechSet(player);
   for (const tile of candidateTiles) {

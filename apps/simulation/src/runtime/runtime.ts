@@ -6,6 +6,7 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
+  appendPlayerEventLogEntry,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -22,13 +23,19 @@ import {
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST,
+  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
   SETTLE_COST,
+  SETTLE_MANPOWER_COST,
+  STRUCTURE_REGISTRY,
+  structureBuildManpowerCost,
+  rushBuyPriceGold,
+  structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
   type BuildableStructureType,
-  type EconomicStructureType
+  type EconomicStructureType,
+  type SlotStructureType
 } from "@border-empires/shared";
 import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
@@ -54,7 +61,7 @@ import {
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
-import { buildPlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
+import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
@@ -67,7 +74,6 @@ import {
 import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
-  buildStrategicProductionForSettledTiles,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
@@ -75,19 +81,30 @@ import {
   buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
   additiveEffectForPlayer,
-  effectiveVisionRadiusForPlayer
+  effectiveVisionRadiusForPlayer,
+  multiplicativeEffectForPlayer
 } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
 import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
+import {
+  dormantStructureDetailsFromDormancy as dormantStructureDetailsFromDormancyImpl,
+  resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
+  resourceSlotDormantContributorsForPlayer as resourceSlotDormantContributorsForPlayerImpl,
+  resourceSlotSupplyForPlayer as resourceSlotSupplyForPlayerImpl,
+  type DormantStructureDetail,
+  type ResourceSlotDormancy,
+  type ResourceSlotTotals
+} from "../resource-slot-view/resource-slot-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
@@ -160,10 +177,7 @@ import {
 } from "../runtime-hydration.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import {
-  settlementBaseDurationMsForTile,
-  settlementDurationMsForPlayer
-} from "../runtime-settlement-rules.js";
+import { applySettleCost, refundSettleCost, settleRejectionForActor, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
@@ -265,11 +279,11 @@ import {
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
   handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
   handleCreateMountainCommand as handleCreateMountainCommandImpl,
-  handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl,
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
+import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -339,7 +353,6 @@ import {
   type RuntimeStructureCommandContext
 } from "../runtime-structure-command-handlers.js";
 import {
-  handleOverloadSynthesizerCommand as handleOverloadSynthesizerCommandImpl,
   handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
   handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
   type RuntimeEconomicStructureCommandContext
@@ -347,12 +360,15 @@ import {
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
+  economicOrObservatoryCancelRefund,
+  fortCancelRefund,
   handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
   handleCancelSiegeOutpostBuildCommand as handleCancelSiegeOutpostBuildCommandImpl,
   handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
   handleClearMusterCommand as handleClearMusterCommandImpl,
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
-  handleSetMusterCommand as handleSetMusterCommandImpl
+  handleSetMusterCommand as handleSetMusterCommandImpl,
+  siegeOutpostCancelRefund
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
@@ -382,14 +398,16 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
-import { buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
+import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // Force a full upkeep-cache rebuild every N reads to bound floating-point drift
 // from the incremental add/subtract sum over a long-lived season.
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
-const RESPAWN_MINIMUM_GOLD = 100;
+// §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
+// line with how far everything else in the new economy scale shrank.
+const RESPAWN_MINIMUM_GOLD = 10;
 // Grace beyond resolvesAt before the sweep drops a lock (60s).
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.
@@ -416,15 +434,21 @@ const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
 
-/** Convert a rail depot key index to position arrays for the muster tick. */
+/**
+ * Convert a rail depot key index to position arrays for the muster tick.
+ * §5.4: skips dormant Rail Depots — an unpowered depot can't grant the
+ * muster boost.
+ */
 const railDepotPositionsFromKeys = (
   index: ReadonlyMap<string, Set<string>>,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean
 ): Map<string, Array<{ x: number; y: number }>> => {
   const result = new Map<string, Array<{ x: number; y: number }>>();
   for (const [ownerId, keys] of index) {
     const positions: Array<{ x: number; y: number }> = [];
     for (const key of keys) {
+      if (isStructureDormant(ownerId, key, "economicStructure")) continue;
       const tile = tiles.get(key);
       if (tile) positions.push({ x: tile.x, y: tile.y });
     }
@@ -500,6 +524,10 @@ export class SimulationRuntime {
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
   // Index of active Rail Depot tiles per owner (mustering logistics hub).
   private readonly railDepotTilesByOwner = new Map<string, Set<string>>();
+  // Index of active Garrison Hall tiles per owner (§4.4 flat manpower-cap
+  // bonus) — a plain per-structure count, not town-adjacency-scoped, since
+  // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
+  private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
   // Tracks muster manpower reserved by in-flight attacks (remote muster).
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
@@ -605,9 +633,29 @@ export class SimulationRuntime {
   // townNetworkCacheByPlayer cache-miss can usually resolve via O(towns)
   // union-find lookups instead of a full O(settled tiles) BFS.
   private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
+  // §4.4 manpower structure bonuses (Garrison Hall flat cap + Rail Depot
+  // network cap/regen) — invalidated alongside townNetworkCacheByPlayer since
+  // it's derived from that same network plus a Garrison Hall/Rail Depot scan.
+  private readonly manpowerStructureBonusCacheByPlayer = new Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>();
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
-  private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
+  private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
+  // §5 (resource slots) supply/demand caches. emitPlayerStateUpdate calls
+  // these on every command AND on the periodic income tick (runtime-passive-
+  // income.ts) for every player, so an uncached O(territory) rescan here
+  // would be a real per-tick cost at scale, unlike hasFreeResourceSlots'
+  // once-per-build call. Supply only depends on SETTLED resource tiles, so
+  // it's invalidated on the same SETTLED-gated trigger as
+  // economySnapshotCacheByPlayer. Demand depends on fort/siegeOutpost/
+  // economicStructure on ANY owned tile (Siege Outposts can be FRONTIER,
+  // resource-slot-view.ts), so it must invalidate unconditionally like
+  // defensibilityMetricsCacheByPlayer does, not gated on SETTLED.
+  private readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
+  private readonly resourceSlotDemandCacheByPlayer = new Map<string, ResourceSlotTotals>();
+  // §5.4 dormancy: derived from both supply and demand, so it must be
+  // invalidated on the union of their triggers — piggybacks on the demand
+  // cache's unconditional (not SETTLED-gated) invalidation below.
+  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>();
   // AI-only rebuild coalescing (2026-07-29 login-stall investigation): AI
   // players settle/expand continuously with no live subscriber, so a
   // continuous-settling AI empire was paying a fresh O(settled-tiles)
@@ -622,6 +670,8 @@ export class SimulationRuntime {
   private readonly economySnapshotLastRebuiltAtMsByPlayer = new Map<string, number>();
   private readonly defensibilityMetricsDirtyPlayerIds = new Set<string>();
   private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
+  private readonly resourceSlotSupplyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotSupplyLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDemandDirtyPlayerIds = new Set<string>();
+  private readonly resourceSlotDemandLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDormancyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotDormancyLastRebuiltAtMsByPlayer = new Map<string, number>();
   // Auto-settlement queue was entirely uncached (rebuilt from scratch, O(frontier
   // tiles), on every single emitPlayerStateUpdate call). Coalesced the same way
   // as above for AI; humans settle far less frequently so this mirrors their
@@ -869,6 +919,12 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.railDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
+      // Populate garrisonHallTilesByOwner index (§4.4 flat manpower-cap bonus).
+      if (tile.economicStructure?.type === "GARRISON_HALL" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.garrisonHallTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -1110,9 +1166,11 @@ export class SimulationRuntime {
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
+            return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
           }
-        : undefined
+        : undefined,
+      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
+      dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId)
     });
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
@@ -1218,7 +1276,8 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field)
     });
   }
 
@@ -1229,7 +1288,9 @@ export class SimulationRuntime {
       musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
-      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles),
+      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles, (playerId, tileKey, field) =>
+        this.isStructureDormant(playerId, tileKey, field)
+      ),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
@@ -1240,7 +1301,9 @@ export class SimulationRuntime {
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
       locksByTile: this.locksByTile,
-      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns
+      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
+        this.isStructureDormant(playerId, tileKey, field)
     };
   }
 
@@ -1315,6 +1378,7 @@ export class SimulationRuntime {
       tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey
     };
   }
@@ -1533,12 +1597,13 @@ export class SimulationRuntime {
 
   private playerManpowerCap(player: RuntimePlayer): number {
     if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id));
+    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
-    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), depotCount);
+    const { railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), railDepotNetworkGarrisonHallCount);
   }
 
   playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
@@ -1547,8 +1612,8 @@ export class SimulationRuntime {
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    const depotCount = this.railDepotTilesByOwner.get(player.id)?.size ?? 0;
-    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), depotCount);
+    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -1629,14 +1694,21 @@ export class SimulationRuntime {
         // emitPlayerStateUpdate will emit the corrected value in the same tick.
         const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
         if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+          econMult = integrityEconomyMult(empireIntegrity(metrics.localSupportScore));
         }
       }
       const settledTiles = this.settledTilesForPlayer(player.id);
       const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-      const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      }, econMult, townNetwork);
+      const snapshot = buildPlayerUpdateEconomySnapshot(
+        player,
+        summary,
+        this.tiles,
+        { dockLinksByDockTileKey: this.dockLinksByDockTileKey },
+        econMult,
+        townNetwork,
+        this.foodDormantTownKeysForPlayer(player.id),
+        this.dormantEconomicStructureKeysForPlayer(player.id)
+      );
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
       this.economySnapshotDirtyPlayerIds.delete(player.id);
       this.economySnapshotLastRebuiltAtMsByPlayer.set(player.id, this.now());
@@ -1675,7 +1747,7 @@ export class SimulationRuntime {
   private cachedDefensibilityMetrics(
     playerId: string,
     summary: PlayerRuntimeSummary
-  ): { T: number; E: number; Ts: number; Es: number } {
+  ): PlayerDefensibilityMetrics {
     const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
     if (cached) {
       const dirty = this.defensibilityMetricsDirtyPlayerIds.has(playerId);
@@ -1700,7 +1772,7 @@ export class SimulationRuntime {
     // player nobody is subscribed to (see buildPlayerDefensibilityMetrics'
     // doc comment) — only Ts/Es (settled-only) feeds real gameplay math.
     const skipAllOwnedStats = this.players.get(playerId)?.isAi === true;
-    const rebuild = (): { T: number; E: number; Ts: number; Es: number } =>
+    const rebuild = (): PlayerDefensibilityMetrics =>
       buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys, skipAllOwnedStats);
     const metrics = this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
@@ -1783,8 +1855,13 @@ export class SimulationRuntime {
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+      resourceSlotSupplyCacheByPlayer: this.resourceSlotSupplyCacheByPlayer,
+      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
+      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
       economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
-      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds
+      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
+      resourceSlotSupplyDirtyPlayerIds: this.resourceSlotSupplyDirtyPlayerIds, resourceSlotDemandDirtyPlayerIds: this.resourceSlotDemandDirtyPlayerIds, resourceSlotDormancyDirtyPlayerIds: this.resourceSlotDormancyDirtyPlayerIds
     });
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -1807,9 +1884,10 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    if (this.onOwnershipChange) {
-      const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
-      if (ownershipChangeSample) this.onOwnershipChange(ownershipChangeSample);
+    const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
+    if (ownershipChangeSample) {
+      if (this.onOwnershipChange) this.onOwnershipChange(ownershipChangeSample);
+      appendTownLostEventLogIfApplicable(ownershipChangeSample, previous?.town, this.players, this.now());
     }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
@@ -1861,7 +1939,8 @@ export class SimulationRuntime {
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner,
-      railDepotTilesByOwner: this.railDepotTilesByOwner
+      railDepotTilesByOwner: this.railDepotTilesByOwner,
+      garrisonHallTilesByOwner: this.garrisonHallTilesByOwner
     });
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
@@ -2045,7 +2124,7 @@ export class SimulationRuntime {
     // (e.g. captured out from under the settling player) — refund the gold
     // spent to start it, same as a cancelled structure build.
     const settler = this.players.get(pendingSettlement.ownerId);
-    if (settler) settler.points += pendingSettlement.goldCost;
+    if (settler) refundSettleCost(settler, pendingSettlement.goldCost, this.playerManpowerCap(settler));
     this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
     return pendingSettlement;
   }
@@ -2084,7 +2163,7 @@ export class SimulationRuntime {
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
-      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST,
+      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= EXPAND_MANPOWER_COST,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
   }
@@ -2136,6 +2215,7 @@ export class SimulationRuntime {
       const preplan = chooseAutomationPreplanCommand({
         playerId,
         points: player.points,
+        manpower: player.manpower,
         techIds: [...player.techIds],
         domainIds: player.domainIds ? [...player.domainIds] : [],
         strategicResources: { ...(player.strategicResources ?? {}) },
@@ -2556,26 +2636,130 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
+  // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
+  // tiles too — Siege Outposts (structureShowsOnTile) can be built on an
+  // owned, unsettled tile, so resourceSlotDemandForPlayer needs every tile
+  // that could be carrying a structure, not just settled ones.
+  private ownedTilesForPlayer(playerId: string): DomainTileState[] {
+    return [...this.summaryForPlayer(playerId).territoryTileKeys]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId));
+  }
+
+  // §5.6 v1 scope: global per-resource pool, cached per-player rather than
+  // incrementally indexed (see resource-slot-view.ts's header comment).
+  // Caching added because emitPlayerStateUpdate calls this on the periodic
+  // income tick for every player, not just once per BUILD_STRUCTURE command
+  // — see the cache field comments above for the invalidation gates.
+  // Shared by the 3 resource-slot getters below (same dirty+coalesce shape as cachedEconomySnapshot); forceFresh bypasses the AI window.
+  private coalescedResourceSlotRead<V>(cache: Map<string, V>, dirty: Set<string>, lastRebuiltAt: Map<string, number>, playerId: string, forceFresh: boolean, rebuild: () => V): V {
+    const cached = cache.get(playerId);
+    if (cached && !forceFresh && (!dirty.has(playerId) || (this.players.get(playerId)?.isAi && this.now() - (lastRebuiltAt.get(playerId) ?? 0) < AI_DERIVED_CACHE_COALESCE_MS))) return cached;
+    const result = rebuild();
+    cache.set(playerId, result); dirty.delete(playerId); lastRebuiltAt.set(playerId, this.now());
+    return result;
+  }
+
+  private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
+    return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+      return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
+    });
+  }
+
+  private resourceSlotDemandForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
+    return this.coalescedResourceSlotRead(this.resourceSlotDemandCacheByPlayer, this.resourceSlotDemandDirtyPlayerIds, this.resourceSlotDemandLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+      const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers);
+    });
+  }
+
+  // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI.
+  private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
+    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => {
+      const supply = this.resourceSlotSupplyForPlayer(playerId);
+      const p = this.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers);
+    });
+  }
+
+  isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
+    const structure = this.tiles.get(tileKey)?.[field];
+    if (!structure || structure.ownerId !== playerId) return false;
+    const slotType: SlotStructureType =
+      field === "fort" || field === "siegeOutpost"
+        ? ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType
+        : field === "observatory"
+          ? ("OBSERVATORY" as SlotStructureType)
+          : ((structure as { type: string }).type as SlotStructureType);
+    const requirements = structureSlotRequirements(slotType);
+    if (requirements.length === 0) return false;
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    const key = `${tileKey}:${field}`;
+    return requirements.some((req) => dormancy[req.resource].has(key));
+  }
+
+  isTownFoodDormant(playerId: string, tileKey: string): boolean {
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    return dormancy.FOOD.has(`${tileKey}:town`);
+  }
+
+  // §5.4/§5.3: a town's FOOD-slot dormancy set, keyed by plain tile key
+  // ("x,y") rather than the "x,y:town" contributor key resourceSlotDormancyForPlayer
+  // uses internally — buildFedTownKeys and its callers work in plain tile keys.
+  private foodDormantTownKeysForPlayer(playerId: string): ReadonlySet<string> {
+    return this.dormantContributorKeysForPlayer(playerId, ":town");
+  }
+
+  // §5.4: which of this player's structures (of the given field) are
+  // currently dormant, keyed by plain tile key ("x,y") rather than the
+  // "x,y:field" contributor key resourceSlotDormancyForPlayer uses
+  // internally — the various support-structure/combat/garrison consumers
+  // this feeds (economy-network.ts, runtime-combat-support.ts,
+  // runtime-fort-garrison-tick.ts, runtime-muster-tick.ts) all work in plain
+  // tile keys. A structure is dormant here iff it's short on ANY of its
+  // required resources (matches isStructureDormant's own logic) — checked
+  // across all four resource sets, not just one, since e.g. GARRISON_HALL
+  // requires both FOOD and CRYSTAL.
+  dormantFieldKeysForPlayer(playerId: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): ReadonlySet<string> {
+    return this.dormantContributorKeysForPlayer(playerId, `:${field}`, true);
+  }
+
+  private dormantContributorKeysForPlayer(playerId: string, suffix: string, acrossAllResources = false): ReadonlySet<string> {
+    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
+    const result = new Set<string>();
+    const resourceSets = acrossAllResources ? Object.values(dormancy) : [dormancy.FOOD];
+    for (const resourceSet of resourceSets) {
+      for (const key of resourceSet) {
+        if (key.endsWith(suffix)) result.add(key.slice(0, -suffix.length));
+      }
+    }
+    return result;
+  }
+
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player —
+  // threaded into economy-network.ts's support-structure bonus checks
+  // (Market/Bank/Caravanary/Clearing House/Garrison Hall/Rail Depot/Customs
+  // House) so a dormant instance stops granting its bonus without losing
+  // its build-time uniqueness/existence.
+  dormantEconomicStructureKeysForPlayer(playerId: string): ReadonlySet<string> {
+    return this.dormantFieldKeysForPlayer(playerId, "economicStructure");
+  }
+
+  // §14.2: per-structure dormancy detail (tile+field key, plus which
+  // required resource(s) are short) for the client's "dormant/unpowered
+  // structure" indicator — sent alongside resourceSlots on PLAYER_UPDATE.
+  dormantStructuresForPlayer(playerId: string): DormantStructureDetail[] {
+    return dormantStructureDetailsFromDormancyImpl(this.resourceSlotDormancyForPlayer(playerId));
+  }
+
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
     return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
-  private fedTownKeysForPlayer(
-    player: DomainPlayer,
-    settledTiles = this.settledTilesForPlayer(player.id),
-    // Optional: pass a precomputed waterworks-key set to avoid re-running the
-    // radius scan when the caller already has one (e.g. tileYieldEconomyContext).
-    waterworksKeys?: ReadonlySet<string>
-  ): Set<string> {
+  private fedTownKeysForPlayer(player: DomainPlayer): Set<string> {
     const summary = this.summaryForPlayer(player.id);
-    return buildFedTownKeys(
-      player,
-      summary,
-      this.tiles,
-      buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys)
-    );
+    return buildFedTownKeys(player.id, summary, this.tiles, this.foodDormantTownKeysForPlayer(player.id));
   }
 
   // Shared with cachedEconomySnapshot so buildConnectedTownNetworkForPlayer
@@ -2593,13 +2777,131 @@ export class SimulationRuntime {
         incrementalState = createTownConnectivityState();
         this.townConnectivityStateByPlayer.set(player.id, incrementalState);
       }
-      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames, incrementalState });
+      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
+        maxConnectedTownNames,
+        incrementalState,
+        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
+      });
       this.townNetworkCacheByPlayer.set(player.id, network);
       return network;
     };
     return this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("town_network_rebuild", { playerId: player.id }, rebuild)
       : rebuild();
+  }
+
+  // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
+  // bonus is a plain per-structure count (garrisonHallTilesByOwner) — NOT
+  // town-adjacency-scoped, because GARRISON_HALL uses "same_tile" placement
+  // (structure-placement-metadata.json) and can sit on any settled/resource/
+  // support/dock tile with no town nearby at all, unlike RAIL_DEPOT/
+  // CLEARING_HOUSE's "town_support" mode. The Rail Depot network bonus is
+  // separate: it only amplifies Garrison Halls built adjacent to (supporting)
+  // a town inside a Rail-Depot-having network — see
+  // railDepotNetworkGarrisonHallCountForPlayer. Cached and invalidated at the
+  // same tile-mutation chokepoint as the town-network cache, so a manpower
+  // read (called many times per tick, per the guardrails in
+  // docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map lookup except on
+  // an actual cache-miss.
+  private cachedManpowerStructureBonusForPlayer(
+    player: RuntimePlayer
+  ): { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number } {
+    const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
+    if (cached) return cached;
+    const garrisonHallKeys = this.garrisonHallTilesByOwner.get(player.id);
+    const railDepotKeys = this.railDepotTilesByOwner.get(player.id);
+    // §5.4: a dormant Garrison Hall/Rail Depot doesn't grant its bonus —
+    // filter the raw existence indices against this player's current
+    // dormant-economicStructure set before counting/checking presence. Only
+    // computed when the player actually has at least one such structure
+    // (rare, same as the pre-existing hasAnyRailDepot gate below): this is a
+    // manpower read fired on essentially every command and periodic tick
+    // (including during SimulationRuntime construction, before
+    // trackSyncMainThreadTask is safe to route through — see below), so an
+    // unconditional dormancy computation here would pre-warm
+    // resourceSlotSupplyCacheByPlayer/resourceSlotDemandCacheByPlayer too
+    // early and poison them with a stale pre-tile-setup value that never
+    // gets invalidated (initial tile hydration doesn't go through
+    // replaceTileState/refreshEconomyCachesForTileChange).
+    const dormantEconomicStructureKeys =
+      (garrisonHallKeys?.size ?? 0) > 0 || (railDepotKeys?.size ?? 0) > 0
+        ? this.dormantEconomicStructureKeysForPlayer(player.id)
+        : undefined;
+    const garrisonHallCount = garrisonHallKeys
+      ? dormantEconomicStructureKeys
+        ? [...garrisonHallKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
+        : garrisonHallKeys.size
+      : 0;
+    const hasAnyRailDepot = railDepotKeys
+      ? dormantEconomicStructureKeys
+        ? [...railDepotKeys].some((key) => !dormantEconomicStructureKeys.has(key))
+        : railDepotKeys.size > 0
+      : false;
+    // Only touch the connected-town network when the player actually has a
+    // Rail Depot — the common case (none yet) skips it entirely, which
+    // matters for two reasons: it keeps this O(1) instead of O(settled
+    // tiles + towns²) for most players, and it avoids pre-warming
+    // townNetworkCacheByPlayer as a side effect of a manpower read (this
+    // fires during SimulationRuntime construction too, before
+    // trackSyncMainThreadTask is safe to route through — see below).
+    let railDepotNetworkGarrisonHallCount = 0;
+    if (hasAnyRailDepot) {
+      const summary = this.summaryForPlayer(player.id);
+      const settledTiles = this.settledTilesForPlayer(player.id);
+      // Reuse the shared town-network cache if it's already warm, but do NOT
+      // go through cachedTownNetworkForPlayer's trackSyncMainThreadTask
+      // wrapper on a cold cache: playerManpowerCap (and so this method) fires
+      // during SimulationRuntime construction (applyManpowerRegen for
+      // initial players), before simulation-service.ts's module-level
+      // `simulationMetrics` has finished initializing — routing an uncached
+      // rebuild through that instrumentation this early throws a
+      // temporal-dead-zone ReferenceError. Building directly still populates
+      // townNetworkCacheByPlayer, so later, instrumented callers still get a
+      // cache hit.
+      const townNetwork = this.townNetworkCacheByPlayer.get(player.id) ?? this.rebuildTownNetworkUninstrumented(player, settledTiles);
+      railDepotNetworkGarrisonHallCount = railDepotNetworkGarrisonHallCountForPlayer(
+        player.id,
+        this.tiles,
+        townNetwork,
+        summary.ownedTownTierByTile.keys(),
+        dormantEconomicStructureKeys
+      );
+    }
+    const result = { garrisonHallCount, railDepotNetworkGarrisonHallCount };
+    this.manpowerStructureBonusCacheByPlayer.set(player.id, result);
+    return result;
+  }
+
+  // Same rebuild as cachedTownNetworkForPlayer, without the
+  // trackSyncMainThreadTask wrapper — see cachedManpowerStructureBonusForPlayer
+  // for why an uninstrumented path is needed here.
+  private rebuildTownNetworkUninstrumented(
+    player: DomainPlayer,
+    settledTiles: readonly DomainTileState[]
+  ): Map<string, ConnectedTownNetworkEntry> {
+    let incrementalState = this.townConnectivityStateByPlayer.get(player.id);
+    if (!incrementalState) {
+      incrementalState = createTownConnectivityState();
+      this.townConnectivityStateByPlayer.set(player.id, incrementalState);
+    }
+    const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
+      maxConnectedTownNames: 0,
+      incrementalState,
+      dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
+    });
+    this.townNetworkCacheByPlayer.set(player.id, network);
+    return network;
+  }
+
+  // §4.4: "only one Rail Depot may be built per connected-town network" —
+  // checked at build time (see resolveTownSupportTarget in
+  // runtime-structure-command-handlers.ts).
+  private railDepotAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
+    return railDepotAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
   }
 
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
@@ -2611,7 +2913,7 @@ export class SimulationRuntime {
       const context: RuntimeTileYieldEconomyContext = {
         player,
         townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
-        fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles, waterworksKeys),
+        fedTownKeys: this.fedTownKeysForPlayer(player),
         // Skip expensive first-three-town key computation if the player has no
         // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
         // the key set has no effect. Skips O(towns) sort for most players.
@@ -2619,7 +2921,8 @@ export class SimulationRuntime {
           ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
           : new Set<string>(),
         waterworksKeys,
-        foundryKeys
+        foundryKeys,
+        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
       };
       this.tileYieldContextCacheByPlayer.set(player.id, context);
       return context;
@@ -2636,7 +2939,16 @@ export class SimulationRuntime {
     const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
     const tileKey = `${tile.x},${tile.y}`;
     const refreshedTown = networkTown && player
-      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys, context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys)
+      ? refreshTownEconomyFields(
+          networkTown,
+          tile,
+          player,
+          this.tiles,
+          context.fedTownKeys,
+          context.firstThreeTownKeys,
+          context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
+          context.dormantEconomicStructureKeys
+        )
       : networkTown;
     return { ...tile, town: refreshedTown };
   }
@@ -2678,7 +2990,7 @@ export class SimulationRuntime {
   private estimatedIncomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     const incomeMult = player?.mods?.income ?? 1;
-    return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 100) / 100;
+    return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 1e6) / 1e6; // was 2dp; rounded most income to 0.00 post-rescale (§24.4)
   }
 
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
@@ -2776,6 +3088,9 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       cachedDefensibilityMetrics: (playerId, summary) => this.cachedDefensibilityMetrics(playerId, summary),
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      dormantStructuresForPlayer: (playerId) => this.dormantStructuresForPlayer(playerId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
@@ -2924,7 +3239,7 @@ export class SimulationRuntime {
   }): void {
     const actor = this.players.get(input.playerId);
     if (!actor) return;
-    actor.points -= SETTLE_COST;
+    applySettleCost(actor);
     const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
     const resolvesAt = input.startedAt + settleDurationMs;
     this.addPendingSettlement({
@@ -2948,46 +3263,175 @@ export class SimulationRuntime {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     }
 
-    this.scheduleAfter(settleDurationMs, () => {
-      const expectedSettlement = {
+    this.scheduleAfter(settleDurationMs, () =>
+      this.resolvePendingSettlement({
         ownerId: input.playerId,
         tileKey: input.targetKey,
         startedAt: input.startedAt,
         resolvesAt,
-        goldCost: SETTLE_COST, commandId: input.commandId
-      };
-      const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
-      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-      this.removePendingSettlement(input.targetKey);
-      const latest = this.tiles.get(input.targetKey);
-      if (
-        !latest ||
-        latest.ownerId !== input.playerId ||
-        latest.ownershipState !== "FRONTIER"
-      ) {
-        this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+        commandId: input.commandId
+      })
+    );
+  }
+
+  // Extracted from startSettlementProcess's scheduled-timer closure so
+  // RUSH_BUY (§6.3) can trigger the exact same completion early, without a
+  // second copy of this logic. Idempotent via pendingSettlementMatches: if
+  // this already ran (rush-buy) by the time the original timer fires, the
+  // match check fails and the timer's call is a no-op — same pattern
+  // completeStructureBuild already relies on for its own status guard.
+  private resolvePendingSettlement(input: {
+    ownerId: string;
+    tileKey: string;
+    startedAt: number;
+    resolvesAt: number;
+    commandId: string;
+  }): void {
+    const expectedSettlement = {
+      ownerId: input.ownerId,
+      tileKey: input.tileKey,
+      startedAt: input.startedAt,
+      resolvesAt: input.resolvesAt,
+      goldCost: SETTLE_COST,
+      commandId: input.commandId
+    };
+    const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
+    if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+    this.removePendingSettlement(input.tileKey);
+    const latest = this.tiles.get(input.tileKey);
+    if (
+      !latest ||
+      latest.ownerId !== input.ownerId ||
+      latest.ownershipState !== "FRONTIER"
+    ) {
+      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
+      return;
+    }
+    const settledTile: DomainTileState = {
+      ...latest,
+      ownerId: input.ownerId,
+      ownershipState: "SETTLED",
+      ...(latest.town ? { town: latest.town } : {})
+    };
+    this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
+    this.replaceTileState(input.tileKey, settledTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: input.commandId,
+      playerId: input.ownerId,
+      // ownerId/ownershipState forced regardless of the sparse-diff cache; see
+      // the recovered-settle path above for why "unchanged" isn't safe to drop here.
+      tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+    });
+    this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
+    this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
+  }
+
+  // §6.3: which under_construction field (if any) owned by `playerId` sits on
+  // `target`, and what structureType/completesAt to price/complete it with.
+  // Checked in the same fort -> observatory -> siegeOutpost -> economicStructure
+  // order cancelStructureActionTile (runtime-structure-lifecycle-command-handlers.ts)
+  // already uses, so the two "what's in progress on this tile" checks can't disagree.
+  private rushBuyableFieldForPlayer(
+    target: DomainTileState,
+    playerId: string
+  ): { tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"; structureType: string; completesAt: number } | undefined {
+    if (target.fort?.ownerId === playerId && target.fort.status === "under_construction" && typeof target.fort.completesAt === "number") {
+      return { tileField: "fort", structureType: target.fort.variant ?? "FORT", completesAt: target.fort.completesAt };
+    }
+    if (target.observatory?.ownerId === playerId && target.observatory.status === "under_construction" && typeof target.observatory.completesAt === "number") {
+      return { tileField: "observatory", structureType: "OBSERVATORY", completesAt: target.observatory.completesAt };
+    }
+    if (target.siegeOutpost?.ownerId === playerId && target.siegeOutpost.status === "under_construction" && typeof target.siegeOutpost.completesAt === "number") {
+      return { tileField: "siegeOutpost", structureType: target.siegeOutpost.variant ?? "SIEGE_OUTPOST", completesAt: target.siegeOutpost.completesAt };
+    }
+    if (
+      target.economicStructure?.ownerId === playerId &&
+      target.economicStructure.status === "under_construction" &&
+      typeof target.economicStructure.completesAt === "number"
+    ) {
+      return { tileField: "economicStructure", structureType: target.economicStructure.type, completesAt: target.economicStructure.completesAt };
+    }
+    return undefined;
+  }
+
+  // §6.3 rush-buy: pay gold to instantly finish an in-progress SETTLE or
+  // structure build. Price is time-proportional (rushBuyPriceGold, §6.3's
+  // anchor table extended per user direction to the in-progress case) —
+  // priced off the SAME manpower cost/refund figures cancel already uses
+  // (fortCancelRefund/siegeOutpostCancelRefund/economicOrObservatoryCancelRefund),
+  // so a rush can never price a tier differently than cancelling it would
+  // refund. Completion reuses resolvePendingSettlement/completeStructureBuild —
+  // the exact functions the original timer would have called — so there is no
+  // second copy of "what happens when this finishes" to keep in sync.
+  private handleRushBuyCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.rejectCommand(command, "BAD_COMMAND", "invalid command payload");
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+
+    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
+    if (pendingSettlement && pendingSettlement.ownerId === command.playerId) {
+      const totalMs = Math.max(1, pendingSettlement.resolvesAt - pendingSettlement.startedAt);
+      const remainingMs = pendingSettlement.resolvesAt - this.now();
+      // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
+      // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
+      // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
+      const price = rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST);
+      if (actor.points < price) {
+        this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
         return;
       }
-      const settledTile: DomainTileState = {
-        ...latest,
-        ownerId: input.playerId,
-        ownershipState: "SETTLED",
-        ...(latest.town ? { town: latest.town } : {})
-      };
-      this.setTileYieldCollectedAt(input.commandId, input.playerId, input.targetKey, this.now());
-      this.replaceTileState(input.targetKey, settledTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: input.commandId,
-        playerId: input.playerId,
-        // ownerId/ownershipState forced regardless of the sparse-diff cache; see
-        // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-        tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+      actor.points -= price;
+      this.resolvePendingSettlement({
+        ownerId: pendingSettlement.ownerId,
+        tileKey: pendingSettlement.tileKey,
+        startedAt: pendingSettlement.startedAt,
+        resolvesAt: pendingSettlement.resolvesAt,
+        commandId: pendingSettlement.commandId
       });
-      this.emitAutoFillForSettlement(settledTile, input.playerId, input.targetKey);
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
-      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.playerId });
-    });
+      this.emitPlayerStateUpdate(command);
+      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+      return;
+    }
+
+    const target = this.tiles.get(targetKey);
+    const inProgress = target && this.rushBuyableFieldForPlayer(target, command.playerId);
+    if (!target || !inProgress) {
+      this.rejectCommand(command, "RUSH_BUY_INVALID", "nothing in progress to rush here");
+      return;
+    }
+    const { tileField, structureType, completesAt } = inProgress;
+    const refund =
+      tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
+      tileField === "siegeOutpost" ? siegeOutpostCancelRefund(target.siegeOutpost?.variant) :
+      economicOrObservatoryCancelRefund(this.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
+    const spec = STRUCTURE_REGISTRY[structureType];
+    if (!spec) {
+      this.rejectCommand(command, "RUSH_BUY_INVALID", "unknown structure");
+      return;
+    }
+    const speedMultKey =
+      tileField === "fort" ? "fortBuildSpeedMult" :
+      tileField === "siegeOutpost" && structureType !== "LIGHT_OUTPOST" ? "outpostDeploymentSpeedMult" :
+      spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
+      undefined;
+    const totalMs = speedMultKey
+      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
+      : spec.buildMs;
+    const remainingMs = completesAt - this.now();
+    const price = rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType));
+    if (actor.points < price) {
+      this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
+      return;
+    }
+    actor.points -= price;
+    this.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
+    this.emitPlayerStateUpdate(command);
   }
 
   private handleSettleCommand(command: CommandEnvelope): void {
@@ -3008,7 +3452,7 @@ export class SimulationRuntime {
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
-    if (actor.points < SETTLE_COST) { this.rejectCommand(command, "INSUFFICIENT_GOLD", "insufficient gold to settle"); return; }
+    const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
 
     this.startSettlementProcess({
       commandId: command.commandId,
@@ -3035,7 +3479,7 @@ export class SimulationRuntime {
     if (!actor?.isAi) return 0;
     let settledCount = 0;
     for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
-      if (actor.points < SETTLE_COST) break;
+      if (settleRejectionForActor(actor)) break;
       if (!this.hasAvailableDevelopmentSlot(playerId)) break;
       const targetKey = simulationTileKey(x, y);
       const target = this.tiles.get(targetKey);
@@ -3155,10 +3599,6 @@ export class SimulationRuntime {
     handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command);
   }
 
-  private handleOverloadSynthesizerCommand(command: CommandEnvelope): void {
-    handleOverloadSynthesizerCommandImpl(this.economicStructureCommandContext(), command);
-  }
-
   private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
     handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command);
   }
@@ -3185,6 +3625,7 @@ export class SimulationRuntime {
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
         this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
       closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
@@ -3250,12 +3691,20 @@ export class SimulationRuntime {
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
-        isTileBombardBlockedByRadarImpl(this.tiles, actorId, targetX, targetY),
+        isTileBombardBlockedByRadarImpl(
+          this.tiles,
+          (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+          actorId,
+          targetX,
+          targetY
+        ),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
-      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
 
@@ -3277,7 +3726,6 @@ export class SimulationRuntime {
       tiles: this.tiles,
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
-      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
@@ -3295,7 +3743,15 @@ export class SimulationRuntime {
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
+      invalidateEconomySnapshot: (playerId) => {
+        this.economySnapshotCacheByPlayer.delete(playerId);
+        // UPGRADE_TOWN_TIER changes the town's FOOD slot demand
+        // (townFoodSlotDemandForTier) — this setTileState path skips
+        // refreshEconomyCachesForTileChange (see its own comment above), so
+        // the resource-slot caches need invalidating here instead.
+        this.resourceSlotDemandCacheByPlayer.delete(playerId);
+        this.resourceSlotDormancyCacheByPlayer.delete(playerId);
+      },
       invalidateTileYieldContext: (playerId) => {
         this.tileYieldContextCacheByPlayer.delete(playerId);
         // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
@@ -3303,6 +3759,7 @@ export class SimulationRuntime {
         // (settlements are excluded) — the cached network must be rebuilt too,
         // not just the yield context that wraps it.
         this.townNetworkCacheByPlayer.delete(playerId);
+        this.manpowerStructureBonusCacheByPlayer.delete(playerId);
       },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
       resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
@@ -3313,7 +3770,14 @@ export class SimulationRuntime {
       },
       clearShardRainExpiry: () => { this.currentShardRainExpiresAt = undefined; },
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
-      onShardCollected: this.onShardCollected
+      onShardCollected: this.onShardCollected,
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      // §23.2: a tech/domain choice can change slot waivers, which the
+      // tile-mutation-only cache invalidation below doesn't catch.
+      invalidateResourceSlotDemand: (playerId) => {
+        this.resourceSlotDemandCacheByPlayer.delete(playerId); this.resourceSlotDormancyCacheByPlayer.delete(playerId);
+      }
     };
   }
 
@@ -3362,7 +3826,13 @@ export class SimulationRuntime {
   }
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
-    return isStructurePoweredImpl(this.tiles, ownerId, tileKey, structureType);
+    return isStructurePoweredImpl(
+      this.tiles,
+      ownerId,
+      tileKey,
+      structureType,
+      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field)
+    );
   }
 
   // Aegis Dome shields tiles within AEGIS_DOME_PROTECTION_RADIUS for its
@@ -3370,7 +3840,13 @@ export class SimulationRuntime {
   // enemy player has an active, powered Aegis Dome within range of the target
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
-    return isTileShieldedByEnemyAegisDomeImpl(this.tiles, actorId, targetX, targetY);
+    return isTileShieldedByEnemyAegisDomeImpl(
+      this.tiles,
+      (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      actorId,
+      targetX,
+      targetY
+    );
   }
 
   /**
@@ -3399,7 +3875,16 @@ export class SimulationRuntime {
     playerId: string, targetX: number, targetY: number, now: number, range = this.observatoryCastRadiusFor(playerId)
   ): string | undefined {
     const territoryTileKeys = this.summaryForPlayer(playerId).territoryTileKeys;
-    return pickReadyOwnedObservatoryForTargetImpl({ tiles: this.tiles, territoryTileKeys, playerId, targetX, targetY, now, range });
+    return pickReadyOwnedObservatoryForTargetImpl({
+      tiles: this.tiles,
+      territoryTileKeys,
+      playerId,
+      targetX,
+      targetY,
+      now,
+      range,
+      isStructureDormant: (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
+    });
   }
 
   /**
@@ -3407,7 +3892,13 @@ export class SimulationRuntime {
    * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
    */
   private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
-    return pickReadyOwnedObservatoryAnyImpl(this.tiles, this.summaryForPlayer(playerId).territoryTileKeys, playerId, now);
+    return pickReadyOwnedObservatoryAnyImpl(
+      this.tiles,
+      this.summaryForPlayer(playerId).territoryTileKeys,
+      playerId,
+      now,
+      (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
+    );
   }
 
   /**
@@ -3576,7 +4067,7 @@ export class SimulationRuntime {
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
-    const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
+    const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
       ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
@@ -3749,15 +4240,19 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId, true), // forceFresh: hasFreeResourceSlots can't tolerate stale totals
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId, true),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
       supportedDockKeysForTile: (playerId, x, y) => this.supportedDockKeysForTile(playerId, x, y),
       economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),
       firstAvailableTownSupportTile: (playerId, townKey, structureType) => this.firstAvailableTownSupportTile(playerId, townKey, structureType),
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
+      railDepotAlreadyInNetwork: (playerId, townKey) => this.railDepotAlreadyInNetworkForPlayer(playerId, townKey),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
-      completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId)
+      completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
 
@@ -4060,6 +4555,7 @@ export class SimulationRuntime {
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
+      handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
@@ -4067,7 +4563,6 @@ export class SimulationRuntime {
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
       handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
-      handleOverloadSynthesizerCommand: (command) => this.handleOverloadSynthesizerCommand(command),
       handleSetConverterStructureEnabledCommand: (command) => this.handleSetConverterStructureEnabledCommand(command),
       handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
       handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),

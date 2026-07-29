@@ -1,26 +1,26 @@
 import {
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  IRONWORKS_GOLD_UPKEEP,
-  IRONWORKS_IRON_PER_DAY,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   POPULATION_MAX,
   RADAR_SYSTEM_GOLD_UPKEEP,
   townFoodUpkeepPerMinute,
+  UPKEEP_MINUTES_PER_DAY,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import type { Tile } from "@border-empires/shared";
@@ -33,10 +33,20 @@ import {
   parseTown,
   parseStructure,
   strategicProductionByPlayerCache,
-  fedTownKeysByPlayerCache
+  fedTownKeysByPlayerCache,
+  resourceSlotDormancyByPlayerCache
 } from "./snapshot-tile-cache.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
-import { farmsteadFoodBonusPerMinute } from "./tile-yield-view/tile-yield-view.js";
+import type { DomainTileState } from "@border-empires/game-domain";
+import {
+  emptyResourceSlotDormancy,
+  resourceSlotDemandForPlayer,
+  resourceSlotDormantContributorsForPlayer,
+  resourceSlotSupplyForPlayer,
+  type ResourceSlotDormancy
+} from "./resource-slot-view/resource-slot-view.js";
+import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -137,26 +147,15 @@ export const townPopulationMultiplier = (populationTier: string | undefined): nu
   return 1;
 };
 
-export const strategicProductionPerMinuteForResource = (resource: string | undefined): number => {
-  switch (resource) {
-    case "FARM": return 48 / 1440;
-    case "FISH": return 72 / 1440;
-    case "IRON": return 60 / 1440;
-    case "WOOD":
-    case "FUR": return 60 / 1440;
-    case "GEMS": return 36 / 1440;
-    default: return 0;
-  }
-};
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (§5.4) — there's
+// only one food mechanic now (slot dormancy). FARM/FISH still grant FOOD
+// *slot supply* (structure-slots.ts), a separate, untouched mechanism.
+export const strategicProductionPerMinuteForResource = (_resource: string | undefined): number => 0;
 
 export const strategicResourceForTile = (resource: string | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
     case "FARM":
     case "FISH": return "FOOD";
-    case "IRON": return "IRON";
-    case "GEMS": return "CRYSTAL";
-    case "WOOD":
-    case "FUR": return "SUPPLY";
     default: return undefined;
   }
 };
@@ -172,58 +171,37 @@ export const structureUpkeepPerMinute = (structureType: string): Partial<Record<
     case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
     case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
     case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
+    case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
+    // AIRPORT: was CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed per
+    // §12.1, the CRYSTAL slot occupation is the upkeep now.
     default: return {};
   }
 };
 
-export const converterOutputPerMinute = (structureType: string): Partial<Record<StrategicResourceKey, number>> => {
-  switch (structureType) {
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER":
-      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY / 1440 };
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS":
-      return { IRON: IRONWORKS_IRON_PER_DAY / 1440 };
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 };
-    default:
-      return {};
-  }
-};
+// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
+// stockpiled resource (§5.6) — nothing left to convert.
+export const converterOutputPerMinute = (_structureType: string): Partial<Record<StrategicResourceKey, number>> => ({});
 
-// Farmstead's +50% food (doubled near an active Waterworks) is applied per-tile
-// by the yield view but is NOT part of converterOutputPerMinute, so this
-// whole-world aggregate must add it separately or the food total, the fed-town
-// calc, and the economy panels all under-count Farmsteads. Waterworks only
-// boosts the SAME owner's Farmsteads, so radius keys are collected per owner.
+// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (§5.4) — a
+// Farmstead's real effect now is boosting FOOD *slot supply*
+// (structure-slots.ts), a separate mechanism this aggregate doesn't compute.
+// Retired to a no-op rather than deleted, since both call sites below still
+// pass the same farmsteadTiles/waterworksKeysByOwner bookkeeping.
 const applyFarmsteadFoodToProduction = (
-  production: Map<string, Record<StrategicResourceKey, number>>,
-  waterworksKeysByOwner: Map<string, Set<string>>,
-  farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }>
-): void => {
-  const emptyKeys: ReadonlySet<string> = new Set();
-  for (const farmstead of farmsteadTiles) {
-    const target = production.get(farmstead.ownerId);
-    if (!target) continue;
-    target.FOOD += farmsteadFoodBonusPerMinute(
-      { x: farmstead.x, y: farmstead.y, resource: farmstead.resource, economicStructure: { type: "FARMSTEAD", status: "active" } },
-      waterworksKeysByOwner.get(farmstead.ownerId) ?? emptyKeys
-    );
-  }
-};
+  _production: Map<string, Record<StrategicResourceKey, number>>,
+  _waterworksKeysByOwner: Map<string, Set<string>>,
+  _farmsteadTiles: Array<{ ownerId: string; x: number; y: number; resource?: string | undefined }>
+): void => {};
 
 export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<string, Record<StrategicResourceKey, number>> => {
   const cached = strategicProductionByPlayerCache.get(runtimeState);
@@ -288,9 +266,110 @@ export const buildStrategicProductionByPlayerAsync = async (
   return production;
 };
 
+// Parsed, per-owner tile views shared by buildResourceSlotDormancyByPlayer's
+// sync/async variants — the same shape resourceSlotSupplyForPlayer/
+// resourceSlotDemandForPlayer/resourceSlotDormantContributorsForPlayer need,
+// parsed once from the wire-shaped RuntimeState tiles (see
+// live-economy-snapshot.ts's resourceSlotsForPlayer, which does the same
+// parsing for a single player — this is the "all players in one pass"
+// variant needed here since buildFedTownKeysByPlayer computes every
+// player's fed set at once).
+type SlotTileEconomicStructure = DomainTileState["economicStructure"];
+type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+
+const parsedSlotTiles = (
+  runtimeState: RuntimeState
+): { settledByOwner: Map<string, SettledSlotTile[]>; ownedByOwner: Map<string, OwnedSlotTile[]> } => {
+  const settledByOwner = new Map<string, SettledSlotTile[]>();
+  const ownedByOwner = new Map<string, OwnedSlotTile[]>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId) continue;
+    const economicStructure = parseStructure<SlotTileEconomicStructure>(tile.economicStructureJson);
+    if (tile.ownershipState === "SETTLED") {
+      const settled = settledByOwner.get(tile.ownerId) ?? [];
+      settled.push({ x: tile.x, y: tile.y, resource: tile.resource as DomainTileState["resource"], economicStructure });
+      settledByOwner.set(tile.ownerId, settled);
+    }
+    const owned = ownedByOwner.get(tile.ownerId) ?? [];
+    owned.push({
+      x: tile.x,
+      y: tile.y,
+      fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
+      observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
+      siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      economicStructure,
+      town: parseTown(tile) as DomainTileState["town"],
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
+    });
+    ownedByOwner.set(tile.ownerId, owned);
+  }
+  return { settledByOwner, ownedByOwner };
+};
+
+// §5.4: per-player resource-slot dormancy for the reconnect/cold-snapshot
+// path — the same pure resourceSlot*ForPlayer functions the live runtime
+// uses for BUILD_STRUCTURE/UPGRADE_TOWN_TIER gating and dormancy, so the
+// two paths can never disagree on who's dormant.
+export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): Map<string, ResourceSlotDormancy> => {
+  const cached = resourceSlotDormancyByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const { settledByOwner, ownedByOwner } = parsedSlotTiles(runtimeState);
+  const result = new Map<string, ResourceSlotDormancy>();
+  for (const player of runtimeState.players) {
+    const settledTiles = settledByOwner.get(player.id) ?? [];
+    const ownedTiles = ownedByOwner.get(player.id) ?? [];
+    if (ownedTiles.length === 0) {
+      result.set(player.id, emptyResourceSlotDormancy());
+      continue;
+    }
+    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
+    // §23.2: apply the same slot waivers the live runtime does, or a
+    // reconnect could show a structure dormant that the live path considers
+    // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/
+    // Enduring Realm).
+    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
+  }
+  resourceSlotDormancyByPlayerCache.set(runtimeState, result);
+  return result;
+};
+
+// §5.4/§5.3: a town is "fed" iff its own FOOD slot demand isn't dormant —
+// FOOD has no separate stockpile/upkeep gate anymore (there's only one food
+// mechanic: slots), matching Runtime.foodDormantTownKeysForPlayer/
+// buildFedTownKeys on the live path.
+const foodDormantTownKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
+  const result = new Set<string>();
+  if (!dormancy) return result;
+  for (const key of dormancy.FOOD) {
+    if (key.endsWith(":town")) result.add(key.slice(0, -":town".length));
+  }
+  return result;
+};
+
+// §5.4: dormant economicStructure tile keys ("x,y") from a player's
+// dormancy record — the reconnect-path equivalent of
+// Runtime.dormantEconomicStructureKeysForPlayer, checked across all four
+// resource sets since a structure can be dormant on any one of its required
+// resources (e.g. GARRISON_HALL needs both FOOD and CRYSTAL).
+export const dormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
+  const result = new Set<string>();
+  if (!dormancy) return result;
+  const suffix = ":economicStructure";
+  for (const resourceSet of Object.values(dormancy)) {
+    for (const key of resourceSet) {
+      if (key.endsWith(suffix)) result.add(key.slice(0, -suffix.length));
+    }
+  }
+  return result;
+};
+
 export const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
-  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
+  dormancyByPlayer: ReadonlyMap<string, ResourceSlotDormancy>
 ): Map<string, Set<string>> => {
   const cached = fedTownKeysByPlayerCache.get(runtimeState);
   if (cached) return cached;
@@ -303,23 +382,11 @@ export const buildFedTownKeysByPlayer = (
     ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
   }
   for (const player of runtimeState.players) {
-    const availableFood =
-      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
-    let remainingFood = availableFood;
+    const foodDormantTownKeys = foodDormantTownKeysFromDormancy(dormancyByPlayer.get(player.id));
     const fedTownKeys = new Set<string>();
     const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
-    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
     for (const tile of ownedSettledTowns) {
-      const town = parseTown(tile);
-      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
-      if (upkeep <= 0) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        continue;
-      }
-      if (remainingFood + 1e-9 >= upkeep) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        remainingFood = Math.max(0, remainingFood - upkeep);
-      }
+      if (!foodDormantTownKeys.has(keyFor(tile.x, tile.y))) fedTownKeys.add(keyFor(tile.x, tile.y));
     }
     result.set(player.id, fedTownKeys);
   }
@@ -327,9 +394,35 @@ export const buildFedTownKeysByPlayer = (
   return result;
 };
 
+export const buildResourceSlotDormancyByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, ResourceSlotDormancy>> => {
+  const cached = resourceSlotDormancyByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const { settledByOwner, ownedByOwner } = parsedSlotTiles(runtimeState);
+  const result = new Map<string, ResourceSlotDormancy>();
+  let playerIndex = 0;
+  for (const player of runtimeState.players) {
+    if (shouldYieldAt(playerIndex++, 500)) await yieldToEventLoop();
+    const settledTiles = settledByOwner.get(player.id) ?? [];
+    const ownedTiles = ownedByOwner.get(player.id) ?? [];
+    if (ownedTiles.length === 0) {
+      result.set(player.id, emptyResourceSlotDormancy());
+      continue;
+    }
+    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
+    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
+    result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
+  }
+  resourceSlotDormancyByPlayerCache.set(runtimeState, result);
+  return result;
+};
+
 export const buildFedTownKeysByPlayerAsync = async (
   runtimeState: RuntimeState,
-  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>,
+  dormancyByPlayer: ReadonlyMap<string, ResourceSlotDormancy>,
   yieldToEventLoop: () => Promise<void>
 ): Promise<Map<string, Set<string>>> => {
   const cached = fedTownKeysByPlayerCache.get(runtimeState);
@@ -345,23 +438,11 @@ export const buildFedTownKeysByPlayerAsync = async (
     ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
   }
   for (const player of runtimeState.players) {
-    const availableFood =
-      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
-    let remainingFood = availableFood;
+    const foodDormantTownKeys = foodDormantTownKeysFromDormancy(dormancyByPlayer.get(player.id));
     const fedTownKeys = new Set<string>();
     const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
-    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
     for (const tile of ownedSettledTowns) {
-      const town = parseTown(tile);
-      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
-      if (upkeep <= 0) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        continue;
-      }
-      if (remainingFood + 1e-9 >= upkeep) {
-        fedTownKeys.add(keyFor(tile.x, tile.y));
-        remainingFood = Math.max(0, remainingFood - upkeep);
-      }
+      if (!foodDormantTownKeys.has(keyFor(tile.x, tile.y))) fedTownKeys.add(keyFor(tile.x, tile.y));
     }
     result.set(player.id, fedTownKeys);
   }

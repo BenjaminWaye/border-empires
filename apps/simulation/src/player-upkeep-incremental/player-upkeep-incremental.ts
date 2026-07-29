@@ -34,30 +34,31 @@
  *     display; left on full-rebuild for simplicity.
  */
 
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import {
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   BANK_FOOD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  IRONWORKS_GOLD_UPKEEP,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  UPKEEP_MINUTES_PER_DAY,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
-import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-economy.js";
 
 /** The subset of upkeep fields consumed by `applyEconomyAccrual`. */
@@ -96,11 +97,7 @@ export const tileUpkeepContribution = (
     return emptyUpkeepAccrualSnapshot();
   }
 
-  const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
-  const fortIronUpkeepMult = multiplicativeEffectForPlayer(player, "fortIronUpkeepMult");
-  const outpostSupplyUpkeepMult = multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult");
-
-  let gold = 0.04; // settled land upkeep (1 settled tile)
+  let gold = 0;
   let food = 0;
   let iron = 0;
   let crystal = 0;
@@ -110,22 +107,12 @@ export const tileUpkeepContribution = (
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
   }
 
-  // Fort upkeep.
-  if (tile.fort?.ownerId === ownerId && tile.fort.status === "active") {
-    gold += 1 * fortGoldUpkeepMult;
-    iron += 0.025 * fortIronUpkeepMult;
-  }
-
-  // Siege outpost upkeep.
-  if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
-    gold += 1;
-    supply += 0.025 * outpostSupplyUpkeepMult;
-  }
-
-  // Observatory upkeep.
-  if (tile.observatory?.ownerId === ownerId && tile.observatory.status === "active") {
-    crystal += OBSERVATORY_UPKEEP_PER_MIN;
-  }
+  // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
+  // Observatory (CRYSTAL slot) no longer carry a separate per-minute flow
+  // drain — the slot occupation itself is the upkeep. Settled-land gold
+  // upkeep (was a flat 0.04/min per tile) is retired too — §6 states
+  // gold's only remaining jobs post-rewrite are tech/rush-buys/synthesizer
+  // upkeep, and none of those are "own a settled tile."
 
   // Economic structure upkeep.
   const structure = tile.economicStructure;
@@ -140,21 +127,22 @@ export const tileUpkeepContribution = (
       case "WOODEN_FORT":       gold    += WOODEN_FORT_GOLD_UPKEEP / 10; break;
       case "LIGHT_OUTPOST":     gold    += LIGHT_OUTPOST_GOLD_UPKEEP / 10; break;
       case "CARAVANARY":        food    += CARAVANARY_FOOD_UPKEEP / 10; break;
-      case "FUR_SYNTHESIZER":
+      case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_FUR_SYNTHESIZER":
-                                gold    += FUR_SYNTHESIZER_GOLD_UPKEEP / 10; break;
-      case "IRONWORKS":
+                                gold    += ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "IRONWORKS":         gold    += IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_IRONWORKS":
-                                gold    += IRONWORKS_GOLD_UPKEEP / 10; break;
-      case "CRYSTAL_SYNTHESIZER":
+                                gold    += ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "CRYSTAL_SYNTHESIZER": gold  += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
-                                gold    += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10; break;
+                                gold    += ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "FOUNDRY":           gold    += FOUNDRY_GOLD_UPKEEP / 10; break;
       case "CUSTOMS_HOUSE":     gold    += CUSTOMS_HOUSE_GOLD_UPKEEP / 10; break;
       case "GARRISON_HALL":     gold    += GARRISON_HALL_GOLD_UPKEEP / 10; break;
       case "GOVERNORS_OFFICE":  gold    += GOVERNORS_OFFICE_GOLD_UPKEEP / 10; break;
       case "RADAR_SYSTEM":      gold    += RADAR_SYSTEM_GOLD_UPKEEP / 10; break;
-      case "AIRPORT":           crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN; break;
+      // AIRPORT: was crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed
+      // per §12.1, the CRYSTAL slot occupation is the upkeep now.
     }
   }
 

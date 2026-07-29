@@ -1,5 +1,9 @@
 import { WORLD_HEIGHT, WORLD_WIDTH ,
-  isSeaTerrain
+  isSeaTerrain,
+  FORT_TIER_LADDER,
+  TOWN_GARRISON_BONUS,
+  garrisonBonusForFortDefenseMult,
+  localSupportRatioForTile
 } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
@@ -39,6 +43,41 @@ const exposedEdgesFor = (
   return exposed;
 };
 
+/**
+ * Garrison contribution for one settled tile, additive on top of
+ * neighbour-support (docs/defense-consolidation-exploration.md §3.1:
+ * "Towns/forts contribute via garrison"). A tile can have both a town and an
+ * active fort at once, so both bonuses stack; localSupportRatioForTile
+ * clamps the final ratio at 1 regardless.
+ */
+const garrisonBonusForTile = (tile: DomainTileState, playerId: string): number => {
+  let bonus = 0;
+  if (tile.town && tile.ownerId === playerId) bonus += TOWN_GARRISON_BONUS;
+  if (tile.fort && tile.fort.ownerId === playerId && tile.fort.status === "active") {
+    const variant = tile.fort.variant ?? "FORT";
+    bonus += garrisonBonusForFortDefenseMult(FORT_TIER_LADDER[variant].defenseMult);
+  }
+  return bonus;
+};
+
+export type PlayerDefensibilityMetrics = {
+  T: number;
+  E: number;
+  Ts: number;
+  Es: number;
+  /**
+   * Local-support empire integrity score in [0,1]: the average, across all
+   * of the player's settled tiles, of that tile's support ratio (friendly
+   * settled neighbours + garrison, out of 4 — see localSupportRatioForTile).
+   * Feeds empireIntegrity() → integrityEconomyMult/integrityGrowthMult,
+   * replacing the old global defensibilityScore(Ts,Es) alias that parked
+   * near ~50% for any realistically-shaped empire regardless of actual
+   * shape (docs/manpower-economy-rewrite-plan.md §7.2,
+   * docs/defense-consolidation-exploration.md §2).
+   */
+  localSupportScore: number;
+};
+
 export const buildPlayerDefensibilityMetrics = (
   playerId: string,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -54,17 +93,31 @@ export const buildPlayerDefensibilityMetrics = (
   // Math.max(1, ...) floors stay meaningful, but E is left at 0 (never read
   // in that case).
   skipAllOwnedStats = false
-): { T: number; E: number; Ts: number; Es: number } => {
+): PlayerDefensibilityMetrics => {
   let T = 0;
   let E = 0;
   let Ts = 0;
   let Es = 0;
+  let settledCount = 0;
+  let supportScoreSum = 0;
+
+  // Same traversal as before — reuses the settled tile's exposedEdgesFor
+  // result (already computed for Es) to derive supportedSides, so this adds
+  // zero extra tile scans (respects the AI CPU guardrails, AGENTS.md /
+  // docs/game-mechanics.md §13).
+  const accumulateSettled = (tile: DomainTileState, exposedSettled: number): void => {
+    Ts += 1;
+    Es += exposedSettled;
+    settledCount += 1;
+    const supportedSides = 4 - exposedSettled;
+    supportScoreSum += localSupportRatioForTile(supportedSides, garrisonBonusForTile(tile, playerId));
+  };
+
   const accumulate = (tile: DomainTileState): void => {
     T += 1;
     if (!skipAllOwnedStats) E += exposedEdgesFor(tile, playerId, tiles, false);
     if (!ownedTile(tile, playerId, true)) return;
-    Ts += 1;
-    Es += exposedEdgesFor(tile, playerId, tiles, true);
+    accumulateSettled(tile, exposedEdgesFor(tile, playerId, tiles, true));
   };
   // Iterate the player's owned tiles only when the caller provides the
   // index — O(owned-tiles) instead of O(all-map-tiles). The summary's
@@ -88,6 +141,10 @@ export const buildPlayerDefensibilityMetrics = (
     T: Math.max(1, T),
     E,
     Ts: Math.max(1, Ts),
-    Es
+    Es,
+    // A player with zero settled tiles defaults to full integrity (1)
+    // rather than 0 — this is a "no data yet" state (shouldn't occur once a
+    // starting capital exists), not a state that should be penalized.
+    localSupportScore: settledCount > 0 ? supportScoreSum / settledCount : 1
   };
 };

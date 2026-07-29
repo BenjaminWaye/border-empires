@@ -14,6 +14,9 @@ export type FortGarrisonTickInput = {
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  // §5.4: a dormant Fort doesn't regenerate garrison from overflow — it
+  // keeps whatever garrison it already had (pauses growth, doesn't strip it).
+  isStructureDormant: (playerId: string, tileKey: string, field: "fort") => boolean;
 };
 
 /**
@@ -44,7 +47,8 @@ export const tickFortGarrison = (input: FortGarrisonTickInput): void => {
         tile.fort.status !== "active" ||
         tile.fort.garrison == null ||
         tile.fort.garrisonCap == null ||
-        tile.fort.garrison >= tile.fort.garrisonCap
+        tile.fort.garrison >= tile.fort.garrisonCap ||
+        input.isStructureDormant(playerId, tileKey, "fort")
       ) continue;
       depletedForts.push({ tileKey, tile });
     }

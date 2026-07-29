@@ -118,7 +118,7 @@ export type Tile = {
     nextPopulationTierUpgrade?: {
       targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS";
       requiredPopulation: number;
-      foodCost: number;
+      goldCost: number;
       available: boolean;
     };
   };
@@ -534,7 +534,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard";
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
 export type GuideStep = {
   title: string;
   body: string;
@@ -616,9 +616,6 @@ export type TileActionDef = {
     | "abandon_territory"
     | "build_siege_camp"
     | "build_light_outpost"
-    | "overload_fur_synthesizer"
-    | "overload_ironworks"
-    | "overload_crystal_synthesizer"
     | "enable_converter_structure"
     | "disable_converter_structure"
     | "muster_hold"
@@ -634,10 +631,7 @@ export type TileActionDef = {
     | "retort_recast_crystal"
     | "aether_wall"
     | "aether_bridge"
-    | "imperial_exchange_levy_food"
-    | "imperial_exchange_levy_iron"
-    | "imperial_exchange_levy_crystal"
-    | "imperial_exchange_levy_supply"
+    | "imperial_exchange_levy"
     | "siphon_tile"
     | "aether_emp"
     | "world_engine_strike"
@@ -673,6 +667,12 @@ export type TileMenuProgressView = {
   cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build";
   secondaryLabel?: string;
   secondaryActionId?: "move_queued_entry_to_front";
+  // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
+  // now. Label is a client-side price estimate (rushBuyPriceGold, same
+  // formula the server uses) — the server recomputes and enforces the real
+  // charge, this is a preview only.
+  rushBuyLabel?: string;
+  rushBuyActionId?: "rush_buy";
   queueState?: "planned" | "queued" | "active"; // planned = client-local wishlist; queued = server-confirmed & durable
 };
 

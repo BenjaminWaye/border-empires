@@ -31,9 +31,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "upgrade_ironworks") return "⤴";
   if (id === "build_crystal_synthesizer") return "◇";
   if (id === "upgrade_crystal_synthesizer") return "⤴";
-  if (id === "overload_fur_synthesizer") return "↯";
-  if (id === "overload_ironworks") return "↯";
-  if (id === "overload_crystal_synthesizer") return "↯";
   if (id === "enable_converter_structure") return "▶";
   if (id === "disable_converter_structure") return "⏸";
   if (id === "build_fuel_plant") return "⬢";
@@ -56,10 +53,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "retort_recast_iron") return "⚗";
   if (id === "retort_recast_crystal") return "⚗";
   if (id === "aegis_lock") return "⬢";
-  if (id === "imperial_exchange_levy_food") return "¤";
-  if (id === "imperial_exchange_levy_iron") return "¤";
-  if (id === "imperial_exchange_levy_crystal") return "¤";
-  if (id === "imperial_exchange_levy_supply") return "¤";
+  if (id === "imperial_exchange_levy") return "¤";
   if (id === "world_engine_strike") return "✹";
   if (id === "airport_bombard") return "✹";
   if (id === "aether_emp") return "↯";
@@ -129,6 +123,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         <div class="tile-progress-meta">
           <span>Remaining</span>
           <strong>${view.progress.remainingLabel}</strong>
+          ${view.progress.rushBuyLabel ? `<button class="tile-progress-rush-buy" type="button" data-progress-action="${view.progress.rushBuyActionId ?? "rush_buy"}" title="Rush-buy: finish now for gold">${view.progress.rushBuyLabel}</button>` : ""}
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         <div class="tile-progress-note">${view.progress.note}</div>

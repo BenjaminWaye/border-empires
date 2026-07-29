@@ -962,6 +962,41 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.startsWith("Stored yield:"))).toBe(false);
   });
 
+  it("shows a rush-buy preview label for an in-progress build, priced off the remaining time", () => {
+    const progress = constructionProgressForTile(
+      {
+        ...settledSupportTile("under_construction"),
+        economicStructure: {
+          ownerId: "me",
+          type: "LIGHT_OUTPOST",
+          status: "under_construction",
+          completesAt: Date.now() + 1 // effectively fully elapsed -> minimal price
+        }
+      },
+      () => "0:00"
+    );
+
+    expect(progress?.rushBuyActionId).toBe("rush_buy");
+    expect(progress?.rushBuyLabel).toMatch(/^⏩ 🪙\d+$/);
+  });
+
+  it("omits a rush-buy label for removal progress (only in-progress builds can be rushed)", () => {
+    const progress = constructionProgressForTile(
+      {
+        ...settledSupportTile("removing"),
+        economicStructure: {
+          ownerId: "me",
+          type: "LIGHT_OUTPOST",
+          status: "removing",
+          completesAt: Date.now() + 45_000
+        }
+      },
+      () => "0:45"
+    );
+
+    expect(progress?.rushBuyLabel).toBeUndefined();
+  });
+
   it("shows building-specific removal progress timing", () => {
     const progress = constructionProgressForTile(
       {

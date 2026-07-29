@@ -21,6 +21,7 @@ import {
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
+import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 
@@ -56,7 +57,7 @@ function resolveCommand(context: RuntimeStructureCommandContext, command: Comman
 
 type StrategicRefund = Partial<Record<StrategicResourceKey, number>>;
 
-type StructureCancelRefund = {
+export type StructureCancelRefund = {
   gold: number;
   manpower: number;
   strategic: StrategicRefund;
@@ -86,7 +87,7 @@ function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourc
   actor.strategicResources = { ...(actor.strategicResources ?? {}), [resource]: current + amount };
 }
 
-function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
+export function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
   actor.points += refund.gold;
   actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + refund.manpower);
   for (const resource of Object.keys(refund.strategic) as StrategicResourceKey[]) {
@@ -94,22 +95,26 @@ function applyStructureCancelRefund(context: RuntimeStructureCommandContext, act
   }
 }
 
-function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
+export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
   const tier = FORT_TIER_LADDER[variant ?? "FORT"];
   const goldMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
-  return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: { IRON: tier.iron } };
+  // Step 5 item 3 (Slice A): IRON is a retired build-time stockpile key (never
+  // actually spent by handleBuildStructureCommand any more, see
+  // stripRetiredStockpileCost) -- refunding it here would hand back a resource
+  // that was never taken.
+  return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ IRON: tier.iron }) };
 }
 
-function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
+export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
   const tier = SIEGE_TIER_LADDER[variant ?? "SIEGE_OUTPOST"];
   return {
     gold: tier.gold,
     manpower: tier.manpower,
-    strategic: { SUPPLY: tier.supply, ...(tier.iron > 0 ? { IRON: tier.iron } : {}) }
+    strategic: stripRetiredStockpileCost({ SUPPLY: tier.supply, ...(tier.iron > 0 ? { IRON: tier.iron } : {}) })
   };
 }
 
-function economicOrObservatoryCancelRefund(
+export function economicOrObservatoryCancelRefund(
   context: RuntimeStructureCommandContext,
   playerId: string,
   structureType: BuildableStructureType
@@ -120,11 +125,13 @@ function economicOrObservatoryCancelRefund(
   // Mirrors handleBuildStructureCommand's strategicCostForStructure precedence exactly
   // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
   // this can't drift from what was actually charged if the two tables ever disagree.
+  // stripRetiredStockpileCost then drops FOOD/IRON/CRYSTAL/SUPPLY (retired,
+  // never actually spent) while preserving SHARD (monument assembly, still spent).
   const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
   const costDef = structureCostDefinition(structureType);
   const strategic: StrategicRefund =
     registryStrategic ?? (costDef.resourceCost ? { [costDef.resourceCost.resource]: costDef.resourceCost.amount } : {});
-  return { gold, manpower, strategic };
+  return { gold, manpower, strategic: stripRetiredStockpileCost(strategic) };
 }
 
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {

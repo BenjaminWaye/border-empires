@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_MS } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { planWaypoint } from "./client-waypoint-planner.js";
@@ -178,7 +178,11 @@ describe("planWaypoint", () => {
     expect(plan.steps[0]!.target).toEqual({ x: 4, y: 3 });
     expect(plan.steps[2]!.target).toEqual({ x: 6, y: 3 });
     expect(plan.totalGold).toBe(3);
-    expect(plan.totalManpower).toBe(0);
+    // Each EXPAND step costs EXPAND_MANPOWER_COST manpower (§4.2 of
+    // docs/manpower-economy-rewrite-plan.md) — a multi-hop EXPAND-only chain
+    // must show its real total manpower cost, not silently omit it.
+    expect(plan.totalManpower).toBe(3 * EXPAND_MANPOWER_COST);
+    expect(plan.steps.every((s) => s.manpowerCost === EXPAND_MANPOWER_COST)).toBe(true);
     expect(plan.totalDurationMs).toBe(3000);
     expect(plan.expandCount).toBe(3);
     expect(plan.attackCount).toBe(0);
@@ -203,7 +207,8 @@ describe("planWaypoint", () => {
     const plan = planWaypoint({ x: 5, y: 3 }, baseDeps(state));
     expect(plan.reachable).toBe(true);
     expect(plan.steps.map((s) => s.action)).toEqual(["ATTACK", "EXPAND"]);
-    expect(plan.totalManpower).toBe(60);
+    // ATTACK (60) + the trailing EXPAND's own EXPAND_MANPOWER_COST, not just the attack.
+    expect(plan.totalManpower).toBe(60 + EXPAND_MANPOWER_COST);
     expect(plan.attackCount).toBe(1);
     expect(plan.expandCount).toBe(1);
     expect(plan.firstAttackFromExistingFrontier).toBe(true);

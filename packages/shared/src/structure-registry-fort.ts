@@ -44,7 +44,10 @@ function fortSpec(variant: FortVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: fortPlacement,
-    upkeep: [{ label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }],
+    // §12.1 (docs/manpower-economy-rewrite-plan.md): the IRON slot
+    // occupation (cost.strategic.IRON above) is Fort's upkeep now — no
+    // separate per-minute drain.
+    upkeep: [],
     tileField: "fort",
   };
 }

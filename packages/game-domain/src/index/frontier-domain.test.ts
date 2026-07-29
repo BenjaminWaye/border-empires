@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRONTIER_CLAIM_MS } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { validateFrontierCommand } from "./index.js";
 
 describe("game domain frontier validation", () => {
@@ -60,14 +60,16 @@ describe("game domain frontier validation", () => {
     });
   });
 
-  it("allows EXPAND onto neutral land with zero manpower", () => {
+  // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2): EXPAND
+  // now costs EXPAND_MANPOWER_COST manpower — it is no longer free.
+  it("allows EXPAND onto neutral land when manpower covers EXPAND_MANPOWER_COST", () => {
     const result = validateFrontierCommand({
       now: 1_000,
       actor: {
         id: "p1",
         isAi: false,
         points: 100,
-        manpower: 0,
+        manpower: EXPAND_MANPOWER_COST,
         techIds: new Set<string>(),
         allies: new Set<string>()
       },
@@ -82,7 +84,32 @@ describe("game domain frontier validation", () => {
       defenderIsAlliedOrTruced: false
     });
 
-    expect(result).toMatchObject({ ok: true });
+    expect(result).toMatchObject({ ok: true, manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST });
+  });
+
+  it("rejects EXPAND with INSUFFICIENT_MANPOWER when below EXPAND_MANPOWER_COST", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: EXPAND_MANPOWER_COST - 1,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 11, y: 11, terrain: "LAND" },
+      actionGoldCost: 1,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false
+    });
+
+    expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_MANPOWER", message: expect.stringContaining("claim frontier") });
   });
 
   it("rejects ATTACK when manpower is below the attack minimum", () => {

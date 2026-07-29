@@ -595,7 +595,9 @@ describe("encirclement expand reconnection", () => {
             { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
             { x: 0, y: 1, terrain: "SEA" },
             { x: 0, y: 2, terrain: "SEA" },
-            { x: 0, y: 3, terrain: "LAND" }
+            { x: 0, y: 3, terrain: "LAND" },
+            // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+            { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []
         }

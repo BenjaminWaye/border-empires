@@ -71,6 +71,44 @@ export const MANPOWER_BASE_CAP = 150;
 // per-tier regen below — otherwise the tier values are masked.
 export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
+
+// --- Manpower economy: Expand/Settle costs (manpower-economy-rewrite-plan.md §4.2) ---
+// Cheapest action — just claiming dirt; deliberately matches BARBARIAN_RAID_COST
+// (10) so claiming land and raiding a barbarian tile share one "10 = a cheap
+// frontier poke" mental model.
+export const EXPAND_MANPOWER_COST = 10;
+// Priced below every structure on purpose — acquisition is always a little
+// cheaper than optimization (§4.2's ordering rule).
+export const SETTLE_MANPOWER_COST = 20;
+/**
+ * AI-only reserve, manpower analogue of AI_AUTO_CLAIM_GOLD_RESERVE (below):
+ * the automatic per-tick frontier auto-claim stops spending manpower on new
+ * claims once an AI player's manpower would drop below this floor. Sized to
+ * SETTLE_MANPOWER_COST for the same reason the gold reserve exists — without
+ * it, auto-claim (which fires every tick, unconditionally, well before the
+ * AI's own deliberate SETTLE decision runs) could drain manpower down to
+ * near-zero every tick, starving the AI of the manpower a SETTLE needs.
+ */
+export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
+
+// --- Manpower economy: starting capital tier (§4.3) ---
+// A new player's capital is a distinct manpower source from the generic
+// SETTLEMENT tier (TOWN_MANPOWER_BY_TIER.SETTLEMENT below) — it is not counted
+// via ownedTownTierByTile, and its cap/regen are added on top of every owned
+// town's contribution, unconditionally (see playerManpowerCapFromSummary /
+// playerManpowerRegenPerMinuteFromSummary in apps/simulation/src/runtime-manpower.ts).
+// Sized so a new player can expand ~40 tiles and settle ~8 before waiting on
+// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 576
+// cap leaves a small margin. Regen 0.4/min implies a 24h fill window
+// (576 = 0.4 * 1440), a deliberate departure from the 12h SETTLEMENT-tier
+// convention — see §4.3 for the full onboarding-math writeup.
+export const STARTING_CAPITAL_MANPOWER_CAP = 576;
+export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
+// Global regen safety floor. Deliberately kept low (below every real tier's
+// regenPerMinute, including SETTLEMENT's ~0.208) so it never masks a captured
+// town's contribution the way MANPOWER_BASE_REGEN_PER_MINUTE would if reused
+// here — see §4.3's "critical implementation trap" note.
+export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
@@ -106,7 +144,11 @@ export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 5;
-export const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's ongoing
+// crystal drain is replaced entirely by its permanent CRYSTAL slot
+// occupation — "the slot occupation itself is the upkeep... there is
+// nothing left to meter per-minute." Retired to 0 rather than deleted.
+export const OBSERVATORY_UPKEEP_PER_MIN = 0;
 /** Single unified base range for both cast radius and protection field. */
 export const OBSERVATORY_RANGE = 20;
 /** Max effective range after all tech/domain bonuses (real max 36, buffer at 40). */
@@ -179,8 +221,15 @@ export const MUSTER_DEPOT_SPEED_MULT = 1.25;
 export const OUTPOST_DEPOT_RADIUS = 5;
 
 // --- Rail Depot mustering hub ---
-// Global manpower regen bonus per Rail Depot built.
-export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5;
+// docs/manpower-economy-rewrite-plan.md §4.4: Garrison Hall grants a flat,
+// unconditional manpower-cap bonus to the town it's built in, regardless of
+// network. Rail Depot no longer grants its own flat per-depot regen (the old
+// RAIL_DEPOT_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a
+// network-wide bonus: one Rail Depot per connected-town network amplifies
+// every Garrison Hall already in that network, uncapped in count.
+export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
+export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 75;
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
 // Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.

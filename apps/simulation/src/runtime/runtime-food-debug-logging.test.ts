@@ -97,8 +97,7 @@ describe("simulation food diagnostics", () => {
     const attacker = testRuntimePlayer("attacker");
     const defender = testRuntimePlayer("defender");
     const summary = {
-      strategicProductionPerMinute: { FOOD: 0.1 },
-      synthesizerCapBonus: {}
+      strategicProductionPerMinute: { FOOD: 0.1 }
     } as PlayerRuntimeSummary;
 
     applyResourceTileSteal(

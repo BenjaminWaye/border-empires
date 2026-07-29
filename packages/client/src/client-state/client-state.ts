@@ -2,7 +2,7 @@ import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changel
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
@@ -110,6 +110,19 @@ export const createInitialState = () => ({
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
+  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+  // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
+  // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
+  // signal for FOOD/IRON/CRYSTAL/SUPPLY now that stockpiles are retired at
+  // build time (Step 5 item 4 Slice A).
+  resourceSlots: {
+    supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>
+  },
+  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
+  // structures are dormant right now, and which resource(s) they're short
+  // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
+  dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
+  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number }>, // §20: durable event log, most-recent-last
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
   upkeepLastTick: {
@@ -121,8 +134,7 @@ export const createInitialState = () => ({
     foodCoverage: 1
   },
   foodCoverageWarned: false,
-  goldAnimUntil: 0,
-  goldAnimDir: 0 as -1 | 0 | 1,
+  goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: {
@@ -177,6 +189,7 @@ export const createInitialState = () => ({
   imperialWardActiveUntil: undefined as number | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
+  techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
   currentResearch: undefined as PendingResearch | undefined,
   domainChoices: [] as string[],
   domainCatalog: [] as DomainInfo[],

@@ -1,5 +1,5 @@
-import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   clearSkippedAutoSettlementTileKeyForPlayer,
@@ -469,11 +469,8 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
-  if (!canAffordCost(state.gold, SETTLE_COST)) {
-    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`);
-    deps.renderHud();
-    return false;
-  }
+  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`); deps.renderHud(); return false; }
+  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
@@ -508,7 +505,7 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
-  state.gold = Math.max(0, state.gold - SETTLE_COST);
+  state.gold = Math.max(0, state.gold - SETTLE_COST); state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);
@@ -1325,8 +1322,8 @@ export const processActionQueue = (
     }
     resetAttackPreviewState(state);
     if (!to.ownerId) {
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        deps.notifyInsufficientGoldForFrontierAction("claim");
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST) || state.manpower < EXPAND_MANPOWER_COST) {
+        if (state.manpower < EXPAND_MANPOWER_COST) deps.pushFeed(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error"); else deps.notifyInsufficientGoldForFrontierAction("claim");
         state.capture = undefined;
         state.actionInFlight = false;
         state.actionCurrent = undefined;

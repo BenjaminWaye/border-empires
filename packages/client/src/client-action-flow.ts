@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, type SlotResource } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -236,7 +236,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
-    "OVERLOAD_SYNTHESIZER",
     "SET_CONVERTER_STRUCTURE_ENABLED",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
@@ -842,6 +841,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
+  // §14.2: state.dormantStructures only ever describes the logged-in
+  // player's own structures (PLAYER_UPDATE is a private per-player message),
+  // so a foreign tile never gets a dormancy lookup.
+  const dormantResourcesForTile = (
+    tile: Tile,
+    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+  ): SlotResource[] | undefined => {
+    if (tile.ownerId !== state.me) return undefined;
+    const key = `${tile.x},${tile.y}:${field}`;
+    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
+  };
+
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -874,6 +885,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       tileHistoryLines,
       isTileOwnedByAlly,
       townPartialLoadingStartedAt,
+      dormantResourcesForTile,
       areaEffectModifiersForTile: (targetTile: Tile) => {
         const settledDefenseModifiers =
           targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
@@ -913,18 +925,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       settlementProgressForTile: (x, y) => {
         const progress = settlementProgressForTile(x, y);
         if (!progress) return undefined;
+        const remainingMs = Math.max(0, progress.resolvesAt - Date.now());
+        const totalMs = Math.max(1, progress.resolvesAt - progress.startAt);
         return {
           title: "Settlement in progress",
           detail: progress.awaitingServerConfirm
             ? "Settlement timer finished locally. Waiting for server confirmation."
             : "Settling unlocks defense and activates town and resource production.",
-          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, progress.resolvesAt - Date.now())),
+          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(remainingMs),
           progress: progress.awaitingServerConfirm
             ? 1
-            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / Math.max(1, progress.resolvesAt - progress.startAt))),
+            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / totalMs)),
           note: progress.awaitingServerConfirm
             ? "Keeping the tile settled client-side until the server responds."
-            : "This tile is actively settling."
+            : "This tile is actively settling.",
+          // §6.3 rush-buy: hidden once the timer's already elapsed locally
+          // (awaitingServerConfirm) — nothing left to pay to speed up.
+          ...(progress.awaitingServerConfirm
+            ? {}
+            : {
+                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyActionId: "rush_buy" as const
+              })
         };
       },
       queuedSettlementProgressForTile,
@@ -1556,9 +1578,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
@@ -1650,26 +1669,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
-    if (actionId === "imperial_exchange_levy_food") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_iron") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_crystal") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_supply") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
+    if (actionId === "imperial_exchange_levy") beginCrystalTargeting("imperial_exchange_levy");
     if (actionId === "aegis_lock") {
       if (sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y })) {
         state.aegisLockFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });

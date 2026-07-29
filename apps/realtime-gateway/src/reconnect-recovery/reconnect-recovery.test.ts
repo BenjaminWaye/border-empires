@@ -17,9 +17,8 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "CAST_AETHER_WALL":
     case "AIRPORT_BOMBARD":
     case "WORLD_ENGINE_STRIKE":
-      return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
     case "IMPERIAL_EXCHANGE_LEVY":
-      return { fromX: 10, fromY: 10, resource: "FOOD" };
+      return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
@@ -32,7 +31,6 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
     case "COLLECT_TILE":
-    case "OVERLOAD_SYNTHESIZER":
     case "AETHER_LANCE":
     case "SIPHON_TILE":
     case "PURGE_SIPHON":
@@ -88,8 +86,8 @@ describe("buildInitMessage", () => {
       expect.objectContaining({
         id: "player-1",
         name: "Nauticus",
-        gold: 100,
-        manpower: 150,
+        gold: 10, // §6.1 STARTING_GOLD 100->10; §4.3 starting manpower 150->576
+        manpower: 576,
         techIds: [],
         tileColor: expect.stringMatching(/^#[0-9a-f]{6}$/i)
       })

@@ -170,7 +170,7 @@ describe("tech benefit summaries", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplyUpkeepMult: 0.8
+        outpostSupplySlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,
@@ -202,7 +202,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
-    expect(formatTechBenefitSummary(organizedSupply)).toContain("Outpost supply upkeep -20%");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Outposts need no SUPPLY slot");
     expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
     expect(formatTechBenefitSummary(logistics)).toContain("Settlement speed +5%");

@@ -1,4 +1,4 @@
-import { OBSERVATORY_BUILD_MS, OBSERVATORY_UPKEEP_PER_MIN } from "./config.js";
+import { OBSERVATORY_BUILD_MS } from "./config.js";
 import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
   noConflictingStructure,
@@ -13,8 +13,8 @@ export const OBSERVATORY_SPEC: StructureSpec = {
   type: "OBSERVATORY",
   kind: "OBSERVATORY",
   cost: {
-    gold: 800,
-    manpower: 0,
+    gold: 0,
+    manpower: 80,
     strategic: { CRYSTAL: 45 },
   },
   buildMs: OBSERVATORY_BUILD_MS,
@@ -27,6 +27,9 @@ export const OBSERVATORY_SPEC: StructureSpec = {
     noConflictingStructure,
     // structureShowsOnTile("OBSERVATORY", ...) is applied by the handler.
   ],
-  upkeep: [{ label: "Observatory", perMinute: { CRYSTAL: OBSERVATORY_UPKEEP_PER_MIN } }],
+  // §12.1 (docs/manpower-economy-rewrite-plan.md): the CRYSTAL slot
+  // occupation (cost.strategic.CRYSTAL above) is Observatory's upkeep
+  // now — no separate per-minute drain.
+  upkeep: [],
   tileField: "observatory",
 };

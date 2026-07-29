@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_GOLD } from "@border-empires/game-domain";
 
 import type { RuntimePlayer } from "./runtime-types.js";
 
@@ -24,8 +24,10 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
   isAi: false,
   name: playerId,
-  points: 100,
-  manpower: MANPOWER_BASE_CAP,
+  points: STARTING_GOLD,
+  // §4.3: a new player starts at their full starting-capital cap, not the
+  // generic per-town MANPOWER_BASE_CAP.
+  manpower: STARTING_CAPITAL_MANPOWER_CAP,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },

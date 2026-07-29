@@ -527,12 +527,6 @@ const stepSetConverterEnabled = async () => {
   return sendAndWait("SET_CONVERTER_STRUCTURE_ENABLED", { x: tile.x, y: tile.y, enabled: false }, "set-converter-enabled");
 };
 
-const stepOverloadSynthesizer = async () => {
-  const tile = tileWithStructure("SYNTHESIZER");
-  if (!tile) return null;
-  return sendAndWait("OVERLOAD_SYNTHESIZER", { x: tile.x, y: tile.y }, "overload-synthesizer");
-};
-
 const stepUncaptureTile = async () => {
   const candidates = ownedTiles().filter((t) => t.ownershipState === "CAPTURED");
   if (candidates.length === 0) return null;
@@ -669,7 +663,6 @@ const buildPlaybook = () => [
 
   // Phase 9: Structure interaction
   ["SET_CONVERTER_STRUCTURE_ENABLED", stepSetConverterEnabled],
-  ["OVERLOAD_SYNTHESIZER", stepOverloadSynthesizer],
   ["REMOVE_STRUCTURE", stepRemoveStructure],
 
   // Phase 10: Rare/gated commands (will ERROR if preconditions absent)

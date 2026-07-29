@@ -1,8 +1,7 @@
 import {
-  OBSERVATORY_UPKEEP_PER_MIN,
-  economicStructureBuildDurationMs,
-  structureBuildDurationMs,
-  structureCostDefinition
+  OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES,
+  economicStructureBuildDurationMs, structureBuildDurationMs,
+  structureCostDefinition, structureSlotRequirements, type BuildableStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
@@ -123,7 +122,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CENSUS_HALL") return "Drives local population growth through census administration.";
   if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
   if (kind === "CLEARING_HOUSE") return "Strengthens banks and markets for this town and its directly connected towns.";
-  if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). 200 crystal + 5,000 gold per shot, 20m cooldown. Blocked by Resonance Grids.";
+  if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). 5,000 gold per shot, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
@@ -134,7 +133,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
-  if (kind === "FOUNDRY") return "Doubles active mine production in a 5-tile radius; boosted production raises iron and crystal caps.";
+  if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine production.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
@@ -147,14 +146,14 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "WEATHER_ENGINE") return "Blocks hostile bombardment and hostile observatory actions within 30 tiles.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
-  if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Every 60 minutes, it can levy one resource from every rival empire for 240 crystal.";
+  if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Free, once every 24 hours, it can levy 100% of a single chosen rival's gold.";
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
-  if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a 15-minute Aegis Lock for 220 crystal every 60 minutes.";
-  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 60 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold and 500 crystal.";
-  if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +18 food cap.";
-  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; boosted production raises food cap.";
-  if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
-  if (kind === "MINE") return "Improves iron or crystal production on this tile and raises that resource's cap.";
+  if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a free 15-minute Aegis Lock every 60 minutes.";
+  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 60 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold.";
+  if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
+  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
+  if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
+  if (kind === "MINE") return "Improves iron or crystal production on this tile and adds +1 slot of that resource.";
   return "Strengthens this tile's economy.";
 };
 
@@ -286,23 +285,23 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
-    if (key === "FOUNDRY") return ["Doubles active Mine production within 5 tiles", "Boosted Mine production raises iron and crystal caps"];
+    if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
     if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine production within 12 tiles", "+7 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "200 crystal + 5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes for 300 crystal", "Requires nearby Aether Tower power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes, free", "Requires nearby Aether Tower power"];
     if (key === "RAIL_DEPOT") return ["+0.5 manpower regen per depot", "Boosts outpost muster speed within 50 tiles"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Levy one resource from all rivals every 60 minutes for 240 crystal", "Requires nearby Aether Tower power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes at 220 crystal", "Requires nearby Aether Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 60 minutes, destroying an enemy structure and cutting that town's population by 30%, for 15,000 gold and 500 crystal", "Requires nearby Aether Tower power"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Aether Tower power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Aether Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 60 minutes, destroying an enemy structure and cutting that town's population by 30%, for 15,000 gold", "Requires nearby Aether Tower power"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>
@@ -342,14 +341,15 @@ export const structureInfoForKey = (
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "IRON_BASTION") return ["1,800 gold", "90 iron"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "180 iron"];
-    if (key === "SIEGE_TOWER") return ["1,800 gold", "90 supply", "60 iron"];
-    if (key === "DREAD_TOWER") return ["4,200 gold", "140 supply", "120 iron"];
-    const def = structureCostDefinition(structureBaseKey(key));
-    const bits = [`${def.baseGoldCost.toLocaleString()} gold`];
-    if (def.resourceCost) bits.push(`${def.resourceCost.amount} ${deps.prettyToken(def.resourceCost.resource).toLowerCase()}`);
-    else if (def.resourceOptions?.length) bits.push("30 iron or crystal");
+    if (key === "IRON_BASTION") return ["1,800 gold", "2 IRON slots"];
+    if (key === "THUNDER_BASTION") return ["4,200 gold", "4 IRON slots"];
+    if (key === "SIEGE_TOWER") return ["1,800 gold", "2 SUPPLY slots", "1 IRON slot"];
+    if (key === "DREAD_TOWER") return ["4,200 gold", "3 SUPPLY slots", "2 IRON slots"];
+    const baseKey = structureBaseKey(key);
+    const bits = [`${structureCostDefinition(baseKey).baseGoldCost.toLocaleString()} gold`];
+    if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
+      for (const requirement of structureSlotRequirements(baseKey)) bits.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
+    }
     return bits;
   };
   if (type === "FORT") {
@@ -405,7 +405,7 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Farmstead",
-      detail: "Farmsteads increase food production on farm tiles by 50% and add +18 food cap. They have no effect on fish tiles.",
+      detail: "Farmsteads increase food production on farm tiles by 50% and add +1 FOOD slot on the tile. They have no effect on fish tiles.",
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -415,7 +415,7 @@ export const structureInfoForKey = (
   if (type === "CAMP") {
     return structure({
       title: "Camp",
-      detail: "Camps increase supply production on wood and fur tiles by 50% and add +15 supply cap.",
+      detail: "Camps increase supply production on wood and fur tiles by 50% and add +1 SUPPLY slot on the tile.",
       glyph: "🦊",
       placement: "Build on a settled wood or fur resource tile you own.",
       costBits: costBitsFor(type),
@@ -425,7 +425,7 @@ export const structureInfoForKey = (
   if (type === "MINE") {
     return structure({
       title: "Mine",
-      detail: "Mines increase iron or crystal production on mineral tiles by 50%. Iron mines add +15 iron cap; crystal mines add +9 crystal cap.",
+      detail: "Mines increase iron or crystal production on mineral tiles by 50% and add +1 slot of that resource on the tile.",
       glyph: "⛏",
       placement: "Build on a settled iron or crystal resource tile you own.",
       costBits: costBitsFor(type),
@@ -585,7 +585,7 @@ export const structureInfoForKey = (
   if (type === "FOUNDRY") {
     return structure({
       title: "Foundry",
-      detail: "Foundries double active mine production within 5 tiles. Boosted mine production also raises iron and crystal caps.",
+      detail: "Foundries double active Mine slot output within 5 tiles.",
       glyph: "🏭",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -635,7 +635,7 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Boosted food production also raises food cap.",
+      detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Each boosted Farmstead gains +2 FOOD slots.",
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
@@ -675,7 +675,7 @@ export const structureInfoForKey = (
   if (type === "AIRPORT") {
     return structure({
       title: "Sky Dock",
-      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 200 crystal + 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Aether Tower power.",
+      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Aether Tower power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -725,7 +725,7 @@ export const structureInfoForKey = (
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
       title: "Imperial Exchange",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and levy one resource from every rival empire every 60 minutes for 240 crystal.",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and, once every 24 hours, levy 100% of a single chosen rival's gold.",
       glyph: "✶",
       placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts.",
       costBits: ["Free after 3 parts"],
@@ -735,7 +735,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE") {
     return structure({
       title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and fire one Worldbreaker shot that shatters an enemy land tile into mountain every 90 minutes for 300 crystal.",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and fire one Worldbreaker shot every 60 minutes that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold.",
       glyph: "✸",
       placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts.",
       costBits: ["Free after 3 parts"],
@@ -755,7 +755,7 @@ export const structureInfoForKey = (
   if (type === "AEGIS_DOME") {
     return structure({
       title: "Aegis Dome",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to shield a 25-tile core and trigger a 15-minute Aegis Lock every 60 minutes for 220 crystal.",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
       glyph: "⬡",
       placement: "Place on any settled tile you own after finishing 3 Aegis Dome Parts.",
       costBits: ["Free after 3 parts"],
