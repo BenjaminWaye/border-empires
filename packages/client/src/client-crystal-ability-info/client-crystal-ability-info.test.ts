@@ -31,7 +31,7 @@ describe("crystal ability tech previews", () => {
 
     expect(html).toContain("Ability");
     expect(html).toContain("Aether Bridge");
-    expect(html).toContain("30 CRYSTAL");
+    expect(html).toContain("Free");
     expect(html).toContain("8m");
     expect(html).toContain("Target coastal land");
   });

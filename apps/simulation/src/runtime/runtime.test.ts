@@ -6171,11 +6171,9 @@ describe("simulation runtime", () => {
   });
 
   const buildAetherTowerRuntime = (options: {
-    towerX?: number;
-    towerY?: number;
+    towerX?: number; towerY?: number;
     towerStatus?: "active" | "under_construction";
-    towerOwnerId?: string;
-    omitTower?: boolean;
+    towerOwnerId?: string; omitTower?: boolean; points?: number;
     resources?: { CRYSTAL?: number };
   } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
@@ -6220,7 +6218,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
+          buildPlayer("player-1", { points: options.points ?? 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
         ],
                   ["player-2", buildAiOpponent()]
       ]),
@@ -6378,12 +6376,12 @@ describe("simulation runtime", () => {
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
   });
 
-  it("AIRPORT_BOMBARD consumes CRYSTAL and rejects when CRYSTAL is insufficient", async () => {
-    const runtime = buildAetherTowerRuntime({ resources: { CRYSTAL: 0 } });
+  it("AIRPORT_BOMBARD rejects when gold is insufficient (§17: no longer costs CRYSTAL)", async () => {
+    const runtime = buildAetherTowerRuntime({ points: 0 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({
-      commandId: "bombard-no-crystal",
+      commandId: "bombard-no-gold",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
@@ -6395,9 +6393,9 @@ describe("simulation runtime", () => {
     expect(events).toContainEqual(
       expect.objectContaining({
         eventType: "COMMAND_REJECTED",
-        commandId: "bombard-no-crystal",
+        commandId: "bombard-no-gold",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient CRYSTAL for bombardment"
+        message: "insufficient gold for bombardment"
       })
     );
   });
@@ -7697,7 +7695,7 @@ describe("aether purge", () => {
     expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
     expect(actor?.points).toBe(2_000);
-    expect(actor?.strategicResources?.CRYSTAL).toBe(400);
+    expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });
 
   it("purges hostile frontier control", async () => {
