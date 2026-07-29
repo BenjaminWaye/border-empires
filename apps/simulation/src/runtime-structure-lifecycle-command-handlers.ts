@@ -87,7 +87,7 @@ function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourc
   actor.strategicResources = { ...(actor.strategicResources ?? {}), [resource]: current + amount };
 }
 
-function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
+export function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
   actor.points += refund.gold;
   actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + refund.manpower);
   for (const resource of Object.keys(refund.strategic) as StrategicResourceKey[]) {

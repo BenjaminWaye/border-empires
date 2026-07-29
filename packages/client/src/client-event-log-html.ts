@@ -9,7 +9,9 @@ export type ClientEventLogEntry = { id: string; type: string; text: string; occu
 const ICON_BY_EVENT_TYPE: Record<string, string> = {
   TOWN_LOST: "🏚️",
   IMPERIAL_EXCHANGE_LEVY_HIT: "💰",
-  IMPERIAL_EXCHANGE_LEVY_CAST: "🪙"
+  IMPERIAL_EXCHANGE_LEVY_CAST: "🪙",
+  MONUMENT_CLAIMED: "🏛️",
+  MONUMENT_LOST_TO_RIVAL: "🥈"
 };
 const DEFAULT_EVENT_ICON = "•";
 

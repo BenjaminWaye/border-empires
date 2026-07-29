@@ -6,6 +6,8 @@ describe("eventLogIconForType", () => {
     expect(eventLogIconForType("TOWN_LOST")).toBe("🏚️");
     expect(eventLogIconForType("IMPERIAL_EXCHANGE_LEVY_HIT")).toBe("💰");
     expect(eventLogIconForType("IMPERIAL_EXCHANGE_LEVY_CAST")).toBe("🪙");
+    expect(eventLogIconForType("MONUMENT_CLAIMED")).toBe("🏛️");
+    expect(eventLogIconForType("MONUMENT_LOST_TO_RIVAL")).toBe("🥈");
   });
 
   it("falls back to a generic icon for an unrecognized type", () => {
