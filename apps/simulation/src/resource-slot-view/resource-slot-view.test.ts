@@ -74,6 +74,18 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.FOOD).toBe(2);
   });
 
+  it("an active Mine within Foundry radius jumps from 2 to 4 slots of its resource", () => {
+    const mine = tile({ x: 5, y: 5, resource: "GEMS", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
+    const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,6"]));
+    expect(totals.CRYSTAL).toBe(4);
+  });
+
+  it("Foundry radius bonus does not apply outside FOUNDRY_RADIUS", () => {
+    const mine = tile({ x: 5, y: 5, resource: "IRON", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
+    const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,100"]));
+    expect(totals.IRON).toBe(2);
+  });
+
   it("a tile with no resource contributes nothing", () => {
     const totals = resourceSlotSupplyForPlayer([tile({ x: 0, y: 0 })]);
     expect(totals).toEqual({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });

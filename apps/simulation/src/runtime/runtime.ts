@@ -2551,8 +2551,8 @@ export class SimulationRuntime {
     const cached = this.resourceSlotSupplyCacheByPlayer.get(playerId);
     if (cached) return cached;
     const settledTiles = this.settledTilesForPlayer(playerId);
-    const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const result = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys);
+    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const result = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
     this.resourceSlotSupplyCacheByPlayer.set(playerId, result);
     return result;
   }
