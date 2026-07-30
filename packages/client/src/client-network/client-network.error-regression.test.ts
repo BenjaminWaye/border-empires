@@ -102,7 +102,6 @@ const createState = () =>
     manpowerCap: 0,
     manpowerRegenPerMinute: 0,
     manpowerBreakdown: {},
-
     settledT: 0,
     settledE: 0,
     defensibilityPct: 0,
