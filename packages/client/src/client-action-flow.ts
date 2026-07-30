@@ -114,6 +114,7 @@ import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, que
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -1546,13 +1547,29 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_light_outpost_frontier") {
       if (selected && !selected.ownerId) {
-        const k = keyFor(selected.x, selected.y);
-        const out = queueSpecificTargets([k]);
-        if (out.queued > 0) {
-          processActionQueue();
-          pushFeed(`Queued frontier capture for Light Outpost at (${selected.x}, ${selected.y}).`, "combat", "info");
+        const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+        if (!plan.reachable) {
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No frontier path to that tile.");
         } else {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Must touch your territory and have enough gold.");
+          // Queue all frontier expansion tiles along the path
+          let queued = 0;
+          for (const step of plan.steps) {
+            if (step.action === "EXPAND") {
+              if (enqueueTarget(step.target.x, step.target.y)) {
+                queued += 1;
+              }
+            }
+          }
+          // Then queue the final target for settling
+          if (enqueueTarget(selected.x, selected.y)) {
+            queued += 1;
+          }
+          if (queued > 0) {
+            processActionQueue();
+            pushFeed(`Queued Light Outpost expansion at (${selected.x}, ${selected.y}) — ${plan.expandCount} expand tiles.`, "combat", "info");
+          } else {
+            showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Could not queue expansion path.");
+          }
         }
       }
       hideTileActionMenu();
