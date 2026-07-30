@@ -4252,6 +4252,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
+      addStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.applyStructureVisionBonus(ownerId, targetKey, bonusRadius),
+      removeStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.removeStructureVisionBonus(ownerId, targetKey, bonusRadius),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
@@ -4301,6 +4303,24 @@ export class SimulationRuntime {
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
     completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
+  }
+
+  private applyStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
+    const separator = targetKey.indexOf(",");
+    if (separator < 0) return;
+    const x = Number(targetKey.slice(0, separator));
+    const y = Number(targetKey.slice(separator + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
+    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
+  }
+
+  private removeStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
+    const separator = targetKey.indexOf(",");
+    if (separator < 0) return;
+    const x = Number(targetKey.slice(0, separator));
+    const y = Number(targetKey.slice(separator + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
+    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
