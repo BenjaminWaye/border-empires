@@ -276,6 +276,24 @@ export class VisibilityCoverageTracker {
   }
 
   /**
+   * Adds a permanent vision bonus from a specific tile (e.g. a light outpost's
+   * +5 vision). Unlike tileOwnershipChanged this does NOT go through
+   * radiusBySource — it's a flat extra footprint that stacks on top of the
+   * owner's territory-based coverage. Call removeTileVisionBonus with the exact
+   * same (x, y, bonusRadius) when the bonus source is removed.
+   */
+  addTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+  }
+
+  /** Reverses addTileVisionBonus when the vision-bonus source is removed. */
+  removeTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.removeFootprint(viewerId, x, y, bonusRadius, callbacks?.onLeave);
+  }
+
+  /**
    * Call when two players become or stop being allies. Adds/removes each
    * side's entire current territory footprint to/from the other's coverage —
    * O(territory × radius²) once per alliance change (rare), instead of any

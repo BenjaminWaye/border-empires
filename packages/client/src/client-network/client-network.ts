@@ -1326,8 +1326,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
       state.stamina = msg.stamina as number;
-      if (typeof (msg.T as number | undefined) === "number") state.territoryT = msg.T as number;
-      if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
       state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);

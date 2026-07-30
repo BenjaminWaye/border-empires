@@ -7,6 +7,7 @@ import {
   FRONTIER_CLAIM_COST,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
+  LIGHT_OUTPOST_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -421,6 +422,21 @@ const buildShowsOnTile = (
 const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
   structurePlacementMetadata(structureType).requiresBorder === "border";
 
+export const isAdjacentToUnexplored = (
+  state: ClientState,
+  x: number,
+  y: number,
+  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
+): boolean => {
+  const neighbors = [
+    deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)),
+    deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)),
+    deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)),
+    deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y))
+  ];
+  return neighbors.some((key) => !state.discoveredTiles.has(key));
+};
+
 export const isOwnedBorderTile = (
   state: ClientState,
   x: number,
@@ -734,8 +750,28 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST; const hasManpower = state.manpower >= EXPAND_MANPOWER_COST;
     const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
-    const out: TileActionDef[] = [
-      {
+
+    const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
+    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("LIGHT_OUTPOST");
+    const totalExploreMs = settleDurationMsForState(state, tile) + LIGHT_OUTPOST_BUILD_MS;
+    const exploreHasGold = canAffordCost(state.gold, totalExploreGold);
+    const exploreHasManpower = state.manpower >= totalExploreManpower;
+
+    const out: TileActionDef[] = [];
+    if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
+      const exploreEnabled = exploreHasGold && exploreHasManpower;
+      out.push({
+        id: "build_light_outpost_frontier" as TileActionDef["id"],
+        label: "Build Light Outpost",
+        detail: `Push into the unknown • expand + settle + build • +${LIGHT_OUTPOST_VISION_BONUS} vision`,
+        ...tileActionAvailability(
+          exploreEnabled,
+          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : `Need ${totalExploreGold} gold`,
+          `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        )
+      });
+    }
+    out.push({
         id: "settle_land",
         label: "Settle Land",
         ...tileActionAvailability(
@@ -744,7 +780,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           frontierCostLabel
         )
       }
-    ];
+    );
     out.push({
       id: "build_foundry",
       label: "Build Foundry",
