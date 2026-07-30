@@ -1544,6 +1544,20 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         label: `${siegeVariantLabel} at (${selected.x}, ${selected.y})`,
         optimisticKind: "SIEGE_OUTPOST"
       });
+    if (actionId === "build_light_outpost_frontier") {
+      if (selected && !selected.ownerId) {
+        const k = keyFor(selected.x, selected.y);
+        const out = queueSpecificTargets([k]);
+        if (out.queued > 0) {
+          processActionQueue();
+          pushFeed(`Queued frontier capture for Light Outpost at (${selected.x}, ${selected.y}).`, "combat", "info");
+        } else {
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Must touch your territory and have enough gold.");
+        }
+      }
+      hideTileActionMenu();
+      return;
+    }
     if (actionId === "build_light_outpost")
       sendDevelopmentBuild(
         { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "LIGHT_OUTPOST" },
