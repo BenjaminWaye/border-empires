@@ -139,6 +139,7 @@ type StartClientRuntimeLoopDeps = {
   renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
+  processAutoBuildLightOutpostTargets: () => void;
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
@@ -1656,6 +1657,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
+    if (state.autoBuildLightOutpostTargets.size > 0) deps.processAutoBuildLightOutpostTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,
       dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,
