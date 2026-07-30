@@ -90,7 +90,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Gold Production</div>
-            <div class="town-capture-stat-value town-capture-stat-positive">+${goldProductionBase.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
+            <div class="town-capture-stat-value town-capture-stat-positive">+${(goldProductionBase * 1440).toFixed(1)}<span class="town-capture-stat-suffix">/day</span></div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Cap</div>
