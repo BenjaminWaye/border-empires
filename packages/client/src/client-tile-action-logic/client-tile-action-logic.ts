@@ -1003,7 +1003,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.gold < deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER")
               ? `Need ${deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER")} gold`
               : `Need ${structureBuildManpowerCost("ADVANCED_FUR_SYNTHESIZER")} manpower`,
-          `${deps.structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_FUR_SYNTHESIZER") / 60000)}m • 21.6 SUPPLY/day • 6 gold/min`,
+          `${deps.structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_FUR_SYNTHESIZER") / 60000)}m • 21.6 SUPPLY/day • 45 gold/day`,
           slots,
           deps
         )
@@ -1023,7 +1023,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.gold < deps.structureGoldCost("ADVANCED_IRONWORKS")
               ? `Need ${deps.structureGoldCost("ADVANCED_IRONWORKS")} gold`
               : `Need ${structureBuildManpowerCost("ADVANCED_IRONWORKS")} manpower`,
-          `${deps.structureCostText("ADVANCED_IRONWORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_IRONWORKS") / 60000)}m • 21.6 IRON/day • 6 gold/min`,
+          `${deps.structureCostText("ADVANCED_IRONWORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_IRONWORKS") / 60000)}m • 21.6 IRON/day • 45 gold/day`,
           slots,
           deps
         )
@@ -1043,7 +1043,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.gold < deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")
               ? `Need ${deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")} gold`
               : `Need ${structureBuildManpowerCost("ADVANCED_CRYSTAL_SYNTHESIZER")} manpower`,
-          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day • 8 gold/min`,
+          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day • 60 gold/day`,
           slots,
           deps
         )
@@ -1138,7 +1138,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.manpower < structureBuildManpowerCost("WOODEN_FORT")
               ? `Need ${structureBuildManpowerCost("WOODEN_FORT")} manpower`
               : (missingResourceSlotReason(state, "WOODEN_FORT") ?? "Unavailable"),
-          `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)} • 0.05 gold/min`,
+          `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
           slots,
           deps
         )
@@ -1205,7 +1205,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : !hasFreeSlots
                     ? (missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable")
                     : "Unavailable",
-          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 0.025 crystal/min`,
+          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 36 crystal/day`,
           slots,
           deps
         )
@@ -1243,7 +1243,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("AIRPORT")
                     ? `Need ${structureBuildManpowerCost("AIRPORT")} manpower`
                     : (missingResourceSlotReason(state, "AIRPORT") ?? "Unavailable"),
-            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 0.025 crystal/min upkeep`,
+            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 36 crystal/day upkeep`,
             slots,
             deps
           )
@@ -1297,7 +1297,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("RADAR_SYSTEM")
                     ? `Need ${structureBuildManpowerCost("RADAR_SYSTEM")} manpower`
                     : (missingResourceSlotReason(state, "RADAR_SYSTEM") ?? "Unavailable"),
-            `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles • 4.5 gold/min`,
+            `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles`,
             slots,
             deps
           )
@@ -1456,7 +1456,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("GOVERNORS_OFFICE")
                     ? `Need ${structureBuildManpowerCost("GOVERNORS_OFFICE")} manpower`
                     : (missingResourceSlotReason(state, "GOVERNORS_OFFICE") ?? "Unavailable"),
-            `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep • 3 gold/min`,
+            `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep`,
             slots,
             deps
           )
@@ -1472,7 +1472,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             foundryAvail.available && foundryHasManpower,
             !foundryAvail.available ? foundryAvail.reason : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap • 5 gold/min`,
+            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`,
             slots,
             deps
           )
@@ -1515,7 +1515,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("GARRISON_HALL")
                     ? `Need ${structureBuildManpowerCost("GARRISON_HALL")} manpower`
                     : (missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable"),
-            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +75 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network • 2.5 gold/min`,
+            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +75 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network`,
             slots,
             deps
           )
@@ -1544,7 +1544,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.manpower < structureBuildManpowerCost("LIGHT_OUTPOST")
               ? `Need ${structureBuildManpowerCost("LIGHT_OUTPOST")} manpower`
               : (missingResourceSlotReason(state, "LIGHT_OUTPOST") ?? "Unavailable"),
-          `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)} • 0.05 gold/min`,
+          `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
           slots,
           deps
         )
@@ -1610,8 +1610,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     ? `Need ${structureBuildManpowerCost("FARMSTEAD")} manpower`
                     : (missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable"),
             tile.resource === "FARM"
-              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +18 food cap • 0.1 gold/min`
-              : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus • 0.1 gold/min`,
+              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +18 food cap`
+              : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`,
             slots,
             deps
           )
@@ -1638,7 +1638,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("CAMP")
                     ? `Need ${structureBuildManpowerCost("CAMP")} manpower`
                     : (missingResourceSlotReason(state, "CAMP") ?? "Unavailable"),
-            `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap • 0.12 gold/min`,
+            `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap`,
             slots,
             deps
           )
@@ -1665,7 +1665,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("MINE")
                     ? `Need ${structureBuildManpowerCost("MINE")} manpower`
                     : (missingResourceSlotReason(state, "MINE") ?? "Unavailable"),
-            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap • 0.12 gold/min`,
+            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap`,
             slots,
             deps
           )
@@ -1710,7 +1710,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("MARKET")
                       ? `Need ${structureBuildManpowerCost("MARKET")} manpower`
                       : (missingResourceSlotReason(state, "MARKET") ?? "Unavailable"),
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap • 0.05 food/min`,
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`,
             slots,
             deps
           )
@@ -1737,7 +1737,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("GRANARY")
                       ? `Need ${structureBuildManpowerCost("GRANARY")} manpower`
                       : (missingResourceSlotReason(state, "GRANARY") ?? "Unavailable"),
-            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth • 0.1 gold/min`,
+            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`,
             slots,
             deps
           )
@@ -1764,7 +1764,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("CENSUS_HALL")
                       ? `Need ${structureBuildManpowerCost("CENSUS_HALL")} manpower`
                       : (missingResourceSlotReason(state, "CENSUS_HALL") ?? "Unavailable"),
-            `${deps.structureCostText("CENSUS_HALL")} • ${Math.round(economicStructureBuildMs("CENSUS_HALL") / 60000)}m • +25% town growth • 0.6 gold / minute`,
+            `${deps.structureCostText("CENSUS_HALL")} • ${Math.round(economicStructureBuildMs("CENSUS_HALL") / 60000)}m • +25% town growth`,
             slots,
             deps
           )
@@ -1791,7 +1791,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("BANK")
                       ? `Need ${structureBuildManpowerCost("BANK")} manpower`
                       : (missingResourceSlotReason(state, "BANK") ?? "Unavailable"),
-            `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income • 0.1 food/min`,
+            `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`,
             slots,
             deps
           )
@@ -1845,7 +1845,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("CARAVANARY")
                       ? `Need ${structureBuildManpowerCost("CARAVANARY")} manpower`
                       : (missingResourceSlotReason(state, "CARAVANARY") ?? "Unavailable"),
-            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus • 0.075 food/min`,
+            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus`,
             slots,
             deps
           )
@@ -1869,7 +1869,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.gold < deps.structureGoldCost("FUR_SYNTHESIZER")
                     ? `Need ${deps.structureGoldCost("FUR_SYNTHESIZER")} gold`
                     : `Need ${structureBuildManpowerCost("FUR_SYNTHESIZER")} manpower`,
-            `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 6 gold/min`,
+            `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 30 gold/day`,
             slots,
             deps
           )
@@ -1893,7 +1893,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.gold < deps.structureGoldCost("IRONWORKS")
                     ? `Need ${deps.structureGoldCost("IRONWORKS")} gold`
                     : `Need ${structureBuildManpowerCost("IRONWORKS")} manpower`,
-            `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 6 gold/min`,
+            `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 30 gold/day`,
             slots,
             deps
           )
@@ -1917,7 +1917,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.gold < deps.structureGoldCost("CRYSTAL_SYNTHESIZER")
                     ? `Need ${deps.structureGoldCost("CRYSTAL_SYNTHESIZER")} gold`
                     : `Need ${structureBuildManpowerCost("CRYSTAL_SYNTHESIZER")} manpower`,
-            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 8 gold/min`,
+            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`,
             slots,
             deps
           )
@@ -2129,7 +2129,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("CUSTOMS_HOUSE")
                     ? `Need ${structureBuildManpowerCost("CUSTOMS_HOUSE")} manpower`
                     : (missingResourceSlotReason(state, "CUSTOMS_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1 gold/m per connected dock`,
+            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 gold/day per connected dock`,
             slots,
             deps
           )

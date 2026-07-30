@@ -316,6 +316,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
+    why: "Gold display as per-minute (/m) was hard to relate to actual gameplay pacing — a town earning 0.01 gold/min reads as \"nothing\" when it's actually 14.4 gold/day. Per-day rates make income, upkeep, and victory thresholds immediately meaningful without mental math.",
+    changes: [
+      "All gold (and most resource) rates now display as /day instead of /m — the HUD gold chip, economy panel, tile production/upkeep, build menu entries, empire intel, side panel, and season-end overlay all use per-day formatting.",
+      "Economic victory now requires 1000 gold/day (up from the old ~0.4/min / ~576/day effective threshold), with all labels and tooltips updated.",
+      "Gold storage cap now holds 24 hours of production (up from 12h), with a floor of 10 gold instead of 500.",
+      "Build menu upkeep strings corrected: non-synthesizer structures no longer show stale per-minute gold/food values (their slot occupation is their upkeep), and synthesizers now show correct per-day gold costs (30/45/40/60 gold/day)."
+    ]
+  },
+  {
+    createdAt: Date.now(),
     introducedIn: "light-outpost-exploration",
     title: "Light Outposts reveal 5×5 area",
     why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
@@ -323,6 +335,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Light Outposts now grant +5 vision, revealing a 5-tile radius (13×13 area) around them when built.",
       "A \"Build Light Outpost\" action appears on owned tiles adjacent to unexplored terrain, making them the default exploration tool.",
       "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "light-outpost-distant-expansion",
+    title: "Build Light Outpost on distant unexplored-adjacent tiles",
+    why: "Light Outpost was locked to tiles adjacent to your territory, but true frontier exploration means expanding into the unknown without claiming every tile in between. Distant unowned tiles adjacent to unexplored terrain are now a valid target for expansion.",
+    changes: [
+      "Light Outpost can now be built on any unowned tile adjacent to unexplored terrain, even if it's not adjacent to your current territory — the action handles frontier expansion end-to-end without intermediate claims.",
+      "\"Build Light Outpost\" now appears in the main actions tab (not buildings) so it's discoverable as a frontier-exploration tool, not a structure you place on your own land.",
+      "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

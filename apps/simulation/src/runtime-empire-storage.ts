@@ -5,8 +5,8 @@ import type { StrategicResourceKey } from "./runtime-types.js";
 export type { EmpireStorageCap };
 export { EMPIRE_STORAGE_FLOOR };
 
-// 12 hours in minutes
-const STORAGE_HOURS = 12;
+// 24 hours in minutes
+const STORAGE_HOURS = 24;
 // Exported so callers computing just the GOLD cap (e.g. metrics gauges) reuse
 // this constant instead of duplicating the 12-hour window and risking drift.
 export const STORAGE_MINUTES = STORAGE_HOURS * 60;

@@ -9,7 +9,7 @@ const clientSource = (): string => {
 };
 
 describe("mobile HUD gold rate regression guard", () => {
-  it("keeps the per-minute suffix on the compact gold chip", () => {
-    expect(clientSource()).toContain('const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}/m`;');
+  it("uses the per-day suffix on the compact gold chip", () => {
+    expect(clientSource()).toContain('const mobileGoldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(0)}/day`;');
   });
 });

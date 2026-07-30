@@ -9,10 +9,10 @@ export type EmpireStorageCap = {
 };
 
 // Minimum floors so new players with zero production always have some storage.
-// 12 hours of even the lowest realistic income produces more than this, so the
+// 24 hours of even the lowest realistic income produces more than this, so the
 // floors only matter at the very start of a season.
 export const EMPIRE_STORAGE_FLOOR: EmpireStorageCap = {
-  GOLD: 500,
+  GOLD: 10,
   FOOD: 40,
   SHARD: 3
 };
