@@ -260,7 +260,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
-  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number; localSupportScore: number }>;
+  defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
   // §4.4 Rail Depot network manpower bonus — invalidated alongside
   // townNetworkCacheByPlayer since it's derived from the same network build

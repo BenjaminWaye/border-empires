@@ -1,96 +1,64 @@
 import { describe, expect, test } from "vitest";
 import {
-  LOCAL_SUPPORT_MAX_SIDES,
-  TOWN_GARRISON_BONUS,
   empireIntegrity,
-  garrisonBonusForFortDefenseMult,
   integrityEconomyMult,
-  integrityGrowthMult,
-  localSupportRatioForTile
+  integrityGrowthMult
 } from "./index.js";
-import { FORT_TIER_LADDER } from "./structure-costs/structure-costs.js";
-
-describe("localSupportRatioForTile", () => {
-  test("an isolated tile with no neighbours and no garrison scores 0", () => {
-    expect(localSupportRatioForTile(0, 0)).toBe(0);
-  });
-
-  test("a tile fully surrounded by friendly settled tiles scores 1", () => {
-    expect(localSupportRatioForTile(4, 0)).toBe(1);
-  });
-
-  test("scales linearly with supported sides", () => {
-    expect(localSupportRatioForTile(1, 0)).toBeCloseTo(0.25, 5);
-    expect(localSupportRatioForTile(2, 0)).toBeCloseTo(0.5, 5);
-    expect(localSupportRatioForTile(3, 0)).toBeCloseTo(0.75, 5);
-  });
-
-  test("garrison bonus can push an unsupported tile toward full support", () => {
-    expect(localSupportRatioForTile(0, 2)).toBeCloseTo(0.5, 5);
-  });
-
-  test("clamps above 1 when support + garrison exceeds the max", () => {
-    expect(localSupportRatioForTile(4, 4)).toBe(1);
-  });
-
-  test("clamps below 0 (defensive — supportedSides should never be negative in practice)", () => {
-    expect(localSupportRatioForTile(-1, 0)).toBe(0);
-  });
-});
-
-describe("garrisonBonusForFortDefenseMult", () => {
-  test("THUNDER_BASTION alone fully secures an otherwise-unsupported tile", () => {
-    const bonus = garrisonBonusForFortDefenseMult(FORT_TIER_LADDER.THUNDER_BASTION.defenseMult);
-    expect(bonus).toBeCloseTo(LOCAL_SUPPORT_MAX_SIDES, 5);
-    expect(localSupportRatioForTile(0, bonus)).toBe(1);
-  });
-
-  test("lower fort tiers contribute proportionally less", () => {
-    const wooden = garrisonBonusForFortDefenseMult(FORT_TIER_LADDER.WOODEN_FORT.defenseMult);
-    const fort = garrisonBonusForFortDefenseMult(FORT_TIER_LADDER.FORT.defenseMult);
-    const ironBastion = garrisonBonusForFortDefenseMult(FORT_TIER_LADDER.IRON_BASTION.defenseMult);
-    const thunderBastion = garrisonBonusForFortDefenseMult(FORT_TIER_LADDER.THUNDER_BASTION.defenseMult);
-    expect(wooden).toBeLessThan(fort);
-    expect(fort).toBeLessThan(ironBastion);
-    expect(ironBastion).toBeLessThan(thunderBastion);
-  });
-
-  test("town garrison bonus is a modest flat contribution, well below a full side", () => {
-    expect(TOWN_GARRISON_BONUS).toBeGreaterThan(0);
-    expect(TOWN_GARRISON_BONUS).toBeLessThan(LOCAL_SUPPORT_MAX_SIDES);
-  });
-});
 
 describe("empireIntegrity", () => {
-  test("passes through an already-clamped aggregate unchanged", () => {
-    expect(empireIntegrity(0)).toBe(0);
-    expect(empireIntegrity(0.5)).toBe(0.5);
-    expect(empireIntegrity(1)).toBe(1);
+  test("a perfect blob (E=0) scores 1.0", () => {
+    expect(empireIntegrity(100, 0)).toBeCloseTo(1.0, 5);
   });
 
-  test("defensively clamps out-of-range input", () => {
-    expect(empireIntegrity(-0.2)).toBe(0);
-    expect(empireIntegrity(1.2)).toBe(1);
+  test("a small empire always scores 100% because actual exposure can't reach the generous full-score threshold", () => {
+    // 1 tile: idealExposure=4, fullScoreThreshold=5, max possible Es=4
+    expect(empireIntegrity(1, 0)).toBe(1);
+    expect(empireIntegrity(1, 4)).toBe(1);
+
+    // 4 tiles: idealExposure=8, fullScoreThreshold=10
+    expect(empireIntegrity(4, 0)).toBe(1);
+    expect(empireIntegrity(4, 8)).toBe(1);
+  });
+
+  test("a ragged territory with high exposure scores well below 1", () => {
+    // Ts=10, Es=200: ideal=14, ratio=0.07, score=0.07/(0.2+0.056)≈0.27
+    const score = empireIntegrity(10, 200);
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThan(0.5);
+  });
+
+  test("returns values in [0,1]", () => {
+    for (const [T, E] of [[0, 0], [1, 4], [100, 40], [500, 0], [1, 1000]] as [number, number][]) {
+      const s = empireIntegrity(T, E);
+      expect(s).toBeGreaterThanOrEqual(0);
+      expect(s).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("monotonically non-decreasing as exposure decreases (tiles fixed)", () => {
+    const T = 50;
+    let prev = empireIntegrity(T, 200);
+    for (const E of [150, 100, 60, 30, 10, 0]) {
+      const curr = empireIntegrity(T, E);
+      expect(curr).toBeGreaterThanOrEqual(prev);
+      prev = curr;
+    }
   });
 });
 
 describe("integrity multipliers respond to real shape, not a fixed ~50% (the bug this replaces)", () => {
-  test("a maximally sprawling empire (score near 0) takes the full penalty", () => {
-    const t = empireIntegrity(0);
-    expect(integrityEconomyMult(t)).toBeCloseTo(0.85, 5);
-    expect(integrityGrowthMult(t)).toBeCloseTo(0.9, 5);
+  test("a maximally sprawling empire (t=0) takes the full penalty", () => {
+    expect(integrityEconomyMult(0)).toBeCloseTo(0.85, 5);
+    expect(integrityGrowthMult(0)).toBeCloseTo(0.9, 5);
   });
 
-  test("a maximally compact/garrisoned empire (score at 1) gets the full bonus", () => {
-    const t = empireIntegrity(1);
-    expect(integrityEconomyMult(t)).toBeCloseTo(1.15, 5);
-    expect(integrityGrowthMult(t)).toBeCloseTo(1.1, 5);
+  test("a maximally compact/garrisoned empire (t=1) gets the full bonus", () => {
+    expect(integrityEconomyMult(1)).toBeCloseTo(1.15, 5);
+    expect(integrityGrowthMult(1)).toBeCloseTo(1.1, 5);
   });
 
-  test("an ordinary mid-shaped empire is not pinned to the midpoint — it moves with its actual score", () => {
-    const sparse = empireIntegrity(0.25);
-    const dense = empireIntegrity(0.75);
-    expect(integrityEconomyMult(sparse)).toBeLessThan(integrityEconomyMult(dense));
-    expect(integrityGrowthMult(sparse)).toBeLessThan(integrityGrowthMult(dense));
+  test("a higher integrity value always yields higher multipliers", () => {
+    expect(integrityEconomyMult(0.25)).toBeLessThan(integrityEconomyMult(0.75));
+    expect(integrityGrowthMult(0.25)).toBeLessThan(integrityGrowthMult(0.75));
   });
 });
