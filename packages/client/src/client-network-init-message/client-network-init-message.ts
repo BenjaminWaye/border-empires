@@ -153,8 +153,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
   state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
-  state.territoryT = (player.T as number) ?? state.territoryT;
-  state.exposureE = (player.E as number) ?? state.exposureE;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
   // integrityPct is the server-authoritative empire-integrity percentage

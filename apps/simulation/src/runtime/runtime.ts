@@ -1166,7 +1166,7 @@ export class SimulationRuntime {
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
+            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
           }
         : undefined,
       foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
@@ -1694,7 +1694,7 @@ export class SimulationRuntime {
         // emitPlayerStateUpdate will emit the corrected value in the same tick.
         const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
         if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.localSupportScore));
+          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
         }
       }
       const settledTiles = this.settledTilesForPlayer(player.id);

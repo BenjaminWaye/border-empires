@@ -2218,7 +2218,7 @@ describe("simulation runtime", () => {
           ownershipState: "SETTLED"
         })
       );
-      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(99); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST, above the 10 floor
+      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST + full integrity income
       const respawnPlayerUpdate = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
           event.eventType === "PLAYER_MESSAGE" &&
@@ -2227,7 +2227,7 @@ describe("simulation runtime", () => {
           event.messageType === "PLAYER_UPDATE"
       );
       const respawnPayload = respawnPlayerUpdate?.payloadJson ? JSON.parse(respawnPlayerUpdate.payloadJson) as { gold?: number } : {};
-      expect(respawnPayload.gold).toBe(99);
+      expect(respawnPayload.gold).toBe(100);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -2264,7 +2264,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(3_100);
 
-      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(99);
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
     } finally {
       vi.useRealTimers();
     }
@@ -4799,7 +4799,7 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().pendingSettlements).toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
       );
-      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(96);
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
 
       runtime.submitCommand({
         commandId: "ai-captures-settling-tile",
@@ -5247,7 +5247,7 @@ describe("simulation runtime", () => {
     expect(latestStartUpdate).toBeDefined();
     expect(JSON.parse(latestStartUpdate!.payloadJson)).toEqual(
       expect.objectContaining({
-        gold: 88,
+        gold: 100,
         developmentProcessLimit: 3,
         activeDevelopmentProcessCount: 3,
         pendingSettlements: expect.arrayContaining([

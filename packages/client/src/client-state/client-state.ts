@@ -158,8 +158,6 @@ export const createInitialState = () => ({
   activeDevelopmentProcessCount: 0,
   defensibilityPct: 100,
   integrityWarningDismissed: false,
-  territoryT: 1,
-  exposureE: 4,
   settledT: 1,
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
