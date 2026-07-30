@@ -635,12 +635,11 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("manually disabled"))).toBe(true);
   });
 
-  it("describes active observatories and their crystal upkeep", () => {
+  it("describes active observatories without a numeric crystal upkeep rate (it's slot occupation, not a per-day drain)", () => {
     const lines = menuOverviewForTile(settledObservatoryTile("active"), deps);
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
-    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("43.2/day"))).toBe(true);
+    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(false);
   });
 
   it("shows a crystal-casting recharge countdown on our own active observatory still on cooldown", () => {
@@ -703,7 +702,7 @@ describe("menuOverviewForTile", () => {
         upkeepEntries: [
           { label: "Settled land", perMinute: { GOLD: 0.04 } },
           { label: "Town", perMinute: { FOOD: 1 } },
-          { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+          { label: "Fort", perMinute: { GOLD: 1 } }
         ],
         yieldRate: {
           goldPerMinute: 2.5
@@ -719,7 +718,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
     expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("57.6/day"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1440.0/day"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1440.0/day") && line.html.includes("36.0/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1440.0/day"))).toBe(true);
     expect(lines.some((line) => line.html.startsWith("Upkeep:"))).toBe(false);
   });
 

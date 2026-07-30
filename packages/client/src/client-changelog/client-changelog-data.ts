@@ -337,6 +337,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Fix: tile upkeep no longer shows fake per-day iron/supply/crystal rates",
+    why: "The gold/day conversion pass converted every field on a tile's upkeep entry, including IRON/SUPPLY/CRYSTAL — but those are slot occupation, not a continuous drain, and the server never actually sends nonzero values for them. Left unfixed, any future upkeep source using those fields would render a fabricated per-day number instead of the slot count.",
+    changes: [
+      "Tile upkeep tooltips and the tile menu's Upkeep section now only convert GOLD and FOOD (the only real continuous upkeep rates) to /day; IRON/SUPPLY/CRYSTAL entries are no longer shown as fake per-day amounts."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

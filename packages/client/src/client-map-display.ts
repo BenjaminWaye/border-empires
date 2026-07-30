@@ -828,19 +828,17 @@ export const tileProductionHtml = (tile: Tile): string => {
 };
 
 export const tileUpkeepHtml = (tile: Tile): string => {
-  const upkeepFromEntries = { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 };
+  // IRON/SUPPLY/CRYSTAL upkeep is slot occupation, not a continuous drain
+  // (§12.1 docs/manpower-economy-rewrite-plan.md) — the server never emits
+  // them on TileUpkeepEntry.perMinute, so only GOLD/FOOD are real ongoing
+  // rates worth showing as a per-day amount here.
+  const upkeepFromEntries = { food: 0, gold: 0 };
   for (const entry of tile.upkeepEntries ?? []) {
     upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
-    upkeepFromEntries.iron += Number(entry.perMinute.IRON ?? 0);
-    upkeepFromEntries.supply += Number(entry.perMinute.SUPPLY ?? 0);
-    upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
     upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
   }
   const parts: string[] = [];
   if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeepFromEntries.iron * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeepFromEntries.supply * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
   if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
   if (parts.length > 0) return parts.join(" · ");
   if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
