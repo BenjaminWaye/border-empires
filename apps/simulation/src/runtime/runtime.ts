@@ -587,6 +587,7 @@ export class SimulationRuntime {
   // broke. Not persisted — tiles recovered from the event log tie at -Infinity
   // so they shed last (a restarted empire's core tiles outlast its expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
   // every 200 ms when the map is too full to place.
@@ -1165,7 +1166,7 @@ export class SimulationRuntime {
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
+            return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
           }
         : undefined,
       foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
@@ -1693,7 +1694,7 @@ export class SimulationRuntime {
         // emitPlayerStateUpdate will emit the corrected value in the same tick.
         const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
         if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+          econMult = integrityEconomyMult(empireIntegrity(metrics.localSupportScore));
         }
       }
       const settledTiles = this.settledTilesForPlayer(player.id);
@@ -3499,6 +3500,82 @@ export class SimulationRuntime {
     return settledCount;
   }
 
+  private handleCollectTileCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
+    this.applyManpowerRegen(actor);
+    const target = this.tiles.get(simulationTileKey(payload.x, payload.y));
+    if (!target || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
+      this.rejectCommand(command, "COLLECT_EMPTY", "tile is not a settled owned tile"); return;
+    }
+
+    const collected = this.collectTileYield(target, this.now(), command);
+    const gold = collected.gold;
+    const strategic = collected.strategic;
+    const touched = gold > 0 || Object.values(strategic).some((value) => Number(value) > 0);
+    if (!touched) { this.rejectCommand(command, "COLLECT_EMPTY", "yield is empty"); return; }
+    actor.points += gold;
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(target)]
+    });
+    this.emitEvent({
+      eventType: "COLLECT_RESULT",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      mode: "tile",
+      x: payload.x,
+      y: payload.y,
+      tiles: 1,
+      gold,
+      strategic
+    });
+    this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  }
+
+  private handleCollectVisibleCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    if (!actor) { this.rejectCommand(command, "BAD_COMMAND", "unknown player"); return; }
+    const now = this.now();
+    const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+    const cooldownUntil = this.collectVisibleCooldownByPlayer.get(command.playerId) ?? 0;
+    if (cooldownUntil > now) { this.rejectCommand(command, "COLLECT_COOLDOWN", "collect is on cooldown"); return; }
+    // Mark player active so passive income tick doesn't skip them on next fire
+    this.updatePlayerLastActive(command.playerId, now);
+    // Seed the income anchor if this is before the first passive tick has fired,
+    // otherwise applyPassiveIncomeForPlayer returns nothing and the button silently
+    // credits zero.
+    if (!this.lastIncomeTickAtMsByPlayer.has(actor.id)) {
+      this.lastIncomeTickAtMsByPlayer.set(actor.id, now - COLLECT_VISIBLE_COOLDOWN_MS);
+    }
+    const goldBefore = actor.points;
+    const strategicBefore = { ...(actor.strategicResources ?? {}) };
+    // Reuse the same O(1) passive income calculation — no tile scan needed
+    this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
+    const goldCredited = Math.max(0, actor.points - goldBefore);
+    const strategic: Partial<Record<string, number>> = {};
+    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+      const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
+      if (diff > 0) strategic[key] = diff;
+    }
+    this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
+    this.emitEvent({
+      eventType: "COLLECT_RESULT",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      mode: "visible",
+      tiles: this.yieldBearingTilesByOwner.get(command.playerId)?.size ?? 0,
+      gold: goldCredited,
+      strategic
+    });
+    this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  }
+
   private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {
     return {
       players: this.players,
@@ -3946,7 +4023,6 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-      ...(cached.naturalWonderJson ? { naturalWonderJson: cached.naturalWonderJson } : {}),
       // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
@@ -3972,6 +4048,39 @@ export class SimulationRuntime {
 
   private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
     return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache);
+  }
+
+  private collectTileYield(
+    tile: DomainTileState,
+    now: number,
+    command: Pick<CommandEnvelope, "commandId" | "playerId">,
+    context?: RuntimeTileYieldEconomyContext,
+    options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
+  ): {
+    gold: number;
+    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+  } {
+    const creditStrategic = options.creditStrategic ?? true;
+    const persistAnchor = options.persistAnchor ?? true;
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
+    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
+    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
+    const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
+    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
+    for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
+      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
+    >) {
+      if (amount > 0) {
+        strategic[resource] = amount;
+        if (creditStrategic && player) this.addStrategicResource(player, resource, amount);
+      }
+    }
+    if (persistAnchor && (gold > 0 || Object.keys(strategic).length > 0)) {
+      this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
+    }
+    return { gold, strategic };
   }
 
   private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number {
@@ -4469,6 +4578,8 @@ export class SimulationRuntime {
       handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
+      handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
+      handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
       handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
