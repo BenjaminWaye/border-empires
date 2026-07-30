@@ -1205,7 +1205,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : !hasFreeSlots
                     ? (missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable")
                     : "Unavailable",
-          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 36 crystal/day`,
+          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision`,
           slots,
           deps
         )
@@ -1243,7 +1243,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("AIRPORT")
                     ? `Need ${structureBuildManpowerCost("AIRPORT")} manpower`
                     : (missingResourceSlotReason(state, "AIRPORT") ?? "Unavailable"),
-            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 36 crystal/day upkeep`,
+            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown`,
             slots,
             deps
           )

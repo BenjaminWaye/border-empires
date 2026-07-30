@@ -346,6 +346,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Tile upkeep tooltips and the tile menu's Upkeep section now only convert GOLD and FOOD (the only real continuous upkeep rates) to /day; IRON/SUPPLY/CRYSTAL entries are no longer shown as fake per-day amounts."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Fix: Observatory/Airport no longer claim a fake crystal-per-day upkeep",
+    why: "OBSERVATORY_UPKEEP_PER_MIN and AIRPORT_CRYSTAL_UPKEEP_PER_MIN are both 0 in the real game config — those structures' actual upkeep is the CRYSTAL slot they occupy, not an ongoing drain (§12.1 of the manpower-economy rewrite). The build-menu tooltips and tile upkeep displays still showed a hardcoded \"36 crystal/day\" / \"43.2/day\" figure left over from before that constant was zeroed out, which never matched any real, continuously-applied cost.",
+    changes: [
+      "Observatory and Airport build-menu tooltips no longer show a fabricated crystal-per-day upkeep cost.",
+      "The tile upkeep tooltip no longer shows a 0.0/day crystal line for active Observatories.",
+      "The economy panel's empire upkeep summary no longer includes crystal/iron/supply — those resources' upkeep is always slot occupation, never a continuous per-day drain."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
