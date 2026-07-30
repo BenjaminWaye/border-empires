@@ -110,7 +110,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true); expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
-  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m."); });
+  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, +720 Bank gold/day."); });
   it("uses Monumental City in the overview label for the final tier", () => {
     const lines = menuOverviewForTile(
       {
@@ -640,7 +640,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("43.2/day"))).toBe(true);
   });
 
   it("shows a crystal-casting recharge countdown on our own active observatory still on cooldown", () => {
@@ -717,9 +717,9 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("0.04/m"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1.00/m"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1.00/m") && line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("57.6/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1440.0/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1440.0/day") && line.html.includes("36.0/day"))).toBe(true);
     expect(lines.some((line) => line.html.startsWith("Upkeep:"))).toBe(false);
   });
 
