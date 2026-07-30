@@ -121,15 +121,17 @@ const slotStatusLine = (supply: number, demand: number): { text: string; tone: n
   return { text: `${supply - demand} free`, tone: 1 };
 };
 
+// IRON/SUPPLY/CRYSTAL upkeep is slot occupation, not a continuous drain
+// (§12.1 docs/manpower-economy-rewrite-plan.md) — structureUpkeepPerMinute
+// never emits them (confirmed in live-economy-snapshot.ts and
+// player-upkeep-incremental.ts), so only GOLD/FOOD are real ongoing rates
+// worth showing as a per-day amount here.
 const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
   resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
 ): string => {
   const parts: string[] = [];
   if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };

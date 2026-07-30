@@ -842,7 +842,9 @@ export const tileUpkeepHtml = (tile: Tile): string => {
   if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
   if (parts.length > 0) return parts.join(" · ");
   if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
-  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
+  // Observatory's CRYSTAL upkeep is 0 (OBSERVATORY_UPKEEP_PER_MIN — §12.1
+  // docs/manpower-economy-rewrite-plan.md): the CRYSTAL slot occupation is
+  // its upkeep now, there's no ongoing drain left to show here.
   return parts.join(" · ");
 };
 
