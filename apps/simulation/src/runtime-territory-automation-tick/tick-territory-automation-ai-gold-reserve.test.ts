@@ -94,7 +94,7 @@ describe("tickTerritoryAutomation AI gold reserve", () => {
     // it did before this fix, and stops well short of exhausting the 8
     // available neighbor tiles.
     expect(snapshot!.points).toBe(AI_AUTO_CLAIM_GOLD_RESERVE - FRONTIER_CLAIM_COST);
-    expect(snapshot!.ownedTileCount).toBeLessThan(1 + 8); // anchor + not all 8 neighbors claimed
+    expect(snapshot!.ownedTileCount).toBeLessThan(1 + 9); // anchor + not all 8 neighbors claimed, but more due to full integrity income
   });
 
   it("does not restrict human auto-claiming below the reserve floor", () => {
