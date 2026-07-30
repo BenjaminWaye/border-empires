@@ -759,14 +759,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
 
     const out: TileActionDef[] = [];
     if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
-      const exploreEnabled = reachable && exploreHasGold && exploreHasManpower;
+      const exploreEnabled = exploreHasGold && exploreHasManpower;
       out.push({
         id: "build_light_outpost_frontier" as TileActionDef["id"],
         label: "Build Light Outpost",
         detail: `Push into the unknown • expand + settle + build • +${LIGHT_OUTPOST_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !reachable ? "Must touch your territory" : !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : `Need ${totalExploreGold} gold`,
+          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : `Need ${totalExploreGold} gold`,
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
