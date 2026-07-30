@@ -20,9 +20,9 @@ const fallbackUpkeepEntriesForTile = (tile: Tile): TileUpkeepEntry[] => {
 const formatUpkeepEntry = (entry: TileUpkeepEntry): string => {
   const parts = upkeepResourceOrder
     .map((resource) => {
-      const amount = Number(entry.perMinute[resource] ?? 0);
-      if (amount <= 0.0001) return undefined;
-      return `${resourceIconForKey(resource)} ${amount.toFixed(2)}/m`;
+      const amount = Number(entry.perMinute[resource] ?? 0) * 1440;
+      if (amount <= 0.01) return undefined;
+      return `${resourceIconForKey(resource)} ${amount.toFixed(1)}/day`;
     })
     .filter((part): part is string => Boolean(part));
   return parts.join(" · ");

@@ -160,8 +160,8 @@ export const buildEconomicHegemonyObjective = (
   const leaderPlayerId = leader?.id;
   const leaderName = leader?.name ?? "No leader";
   const leaderValue = leader?.incomePerMinute ?? 0;
-  const progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${(runnerUp?.incomePerMinute ?? 0).toFixed(1)}`;
-  const thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
+  const progressLabel = `${(leaderValue * 1440).toFixed(1)} gold/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+  const thresholdLabel = `Need at least 1000 gold/day and 33% lead`;
   const conditionMet = Boolean(
     leaderPlayerId &&
       runnerUp &&
@@ -188,7 +188,7 @@ export const buildEconomicHegemonyObjective = (
 // incomePerMinute — same "N.N gold/m" format as buildEconomicHegemonyObjective's
 // progressLabel, so the two always agree.
 export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
-  `${incomePerMinute.toFixed(1)} gold/m`;
+  `${(incomePerMinute * 1440).toFixed(1)} gold/day`;
 
 // Refreshes the ECONOMIC_HEGEMONY entry of an otherwise-cached seasonVictory array with
 // the already-computed live objective, and refreshes/overrides that one player's
