@@ -136,7 +136,8 @@ export const handleFrontierCommandImpl = (
     actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
     isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
       (ctx.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
-        .includes(simulationTileKey(to.x, to.y)),
+        .includes(simulationTileKey(to.x, to.y)) ||
+      (actionType === "EXPAND" && !to.ownerId),
     isDockCrossing,
     isBridgeCrossing: ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
     targetShielded:
