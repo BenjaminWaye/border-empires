@@ -1546,13 +1546,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_light_outpost_frontier") {
       if (selected && !selected.ownerId) {
-        const k = keyFor(selected.x, selected.y);
-        const out = queueSpecificTargets([k]);
-        if (out.queued > 0) {
+        if (enqueueTarget(selected.x, selected.y)) {
           processActionQueue();
           pushFeed(`Queued frontier capture for Light Outpost at (${selected.x}, ${selected.y}).`, "combat", "info");
         } else {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Must touch your territory and have enough gold.");
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Could not queue action.");
         }
       }
       hideTileActionMenu();
