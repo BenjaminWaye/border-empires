@@ -595,7 +595,7 @@ export const structureInfoForKey = (
   if (type === "CUSTOMS_HOUSE") {
     return structure({
       title: "Harbor Exchange",
-      detail: "Harbor exchanges are built beside a dock and add +1 gold per minute for each connected owned dock.",
+      detail: "Harbor exchanges are built beside a dock and add +1440 gold per day for each connected owned dock.",
       glyph: "⚓",
       placement: "Build on a settled dock tile you own.",
       costBits: costBitsFor(type),
