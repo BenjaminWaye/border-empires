@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -99,12 +99,12 @@ export function emitPlayerStateUpdate(
       E: metrics.E,
       Ts: metrics.Ts,
       Es: metrics.Es,
-      // Authoritative empire-integrity percentage (local-support model,
-      // docs/manpower-economy-rewrite-plan.md §7.2) — sent alongside the raw
-      // T/E/Ts/Es counts (still used by client breakdown/tips UI) so the
-      // client can display the real mechanic instead of recomputing an
-      // approximation client-side from just two aggregate numbers.
-      integrityPct: Math.round(Math.max(0, Math.min(1, metrics.localSupportScore)) * 100),
+      // Authoritative empire-integrity percentage (global perimeter-ratio
+      // model, defensibilityScore) — sent alongside the raw T/E/Ts/Es counts
+      // (still used by client breakdown/tips UI) so the client can display the
+      // real mechanic instead of recomputing an approximation client-side from
+      // just two aggregate numbers.
+      integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.Ts, metrics.Es))) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),

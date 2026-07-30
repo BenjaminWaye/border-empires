@@ -1,11 +1,15 @@
 import { WORLD_HEIGHT, WORLD_WIDTH ,
   isSeaTerrain,
-  FORT_TIER_LADDER,
-  TOWN_GARRISON_BONUS,
-  garrisonBonusForFortDefenseMult,
-  localSupportRatioForTile
+  FORT_TIER_LADDER
 } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
+
+const LOCAL_SUPPORT_MAX_SIDES = 4;
+const TOWN_GARRISON_BONUS = 1;
+const garrisonBonusForFortDefenseMult = (defenseMult: number): number =>
+  (defenseMult / FORT_TIER_LADDER.THUNDER_BASTION.defenseMult) * LOCAL_SUPPORT_MAX_SIDES;
+const localSupportRatioForTile = (supportedSides: number, garrisonBonus: number): number =>
+  Math.min(1, Math.max(0, (supportedSides + garrisonBonus) / LOCAL_SUPPORT_MAX_SIDES));
 
 const wrap = (value: number, size: number): number => {
   const remainder = value % size;
