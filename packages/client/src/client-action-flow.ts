@@ -472,6 +472,29 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureBuild(tile.x, tile.y, kind);
   };
 
+  const sendLightOutpostBuild = (x: number, y: number): void => {
+    sendDevelopmentBuild(
+      { type: "BUILD_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" },
+      () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"),
+      { x, y, label: `Light Outpost at (${x}, ${y})`, optimisticKind: "LIGHT_OUTPOST" }
+    );
+  };
+
+  // Checked on the runtime loop's periodic tick: once a tile queued via the
+  // Light Outpost frontier action finishes settling, fire the build
+  // automatically so the user doesn't have to reopen the tile menu.
+  const processAutoBuildLightOutpostTargets = (): void => {
+    if (state.autoBuildLightOutpostTargets.size === 0) return;
+    for (const targetKey of [...state.autoBuildLightOutpostTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
+        state.autoBuildLightOutpostTargets.delete(targetKey);
+        if (!tile.economicStructure) sendLightOutpostBuild(tile.x, tile.y);
+      }
+    }
+  };
+
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
       ws,
@@ -1549,27 +1572,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
         if (!plan.reachable) {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No frontier path to that tile.");
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No expansion path to that tile.");
         } else {
-          // Queue all frontier expansion tiles along the path
-          let queued = 0;
-          for (const step of plan.steps) {
-            if (step.action === "EXPAND") {
-              if (enqueueTarget(step.target.x, step.target.y)) {
-                queued += 1;
-              }
-            }
-          }
-          // Then queue the final target for settling
-          if (enqueueTarget(selected.x, selected.y)) {
-            queued += 1;
-          }
-          if (queued > 0) {
-            processActionQueue();
-            pushFeed(`Queued Light Outpost expansion at (${selected.x}, ${selected.y}) — ${plan.expandCount} expand tiles.`, "combat", "info");
-          } else {
-            showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Could not queue expansion path.");
-          }
+          const targetKey = keyFor(selected.x, selected.y);
+          // Drive the frontier over via the same waypoint mechanism as
+          // "Expand Here" — it advances one owned-adjacent hop at a time so
+          // the claimed chain always stays connected. Once ownership is
+          // reached, auto-settle then auto-build pick up the baton.
+          state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+          state.autoSettleTargets.add(targetKey);
+          state.autoBuildLightOutpostTargets.add(targetKey);
+          const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";
+          pushFeed(`Expanding to Light Outpost site at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
+          processActionQueue();
         }
       }
       hideTileActionMenu();
@@ -1898,6 +1913,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     reconcileActionQueue, processPendingMusterAttacks,
     requestSettlement,
     sendDevelopmentBuild,
+    sendLightOutpostBuild,
+    processAutoBuildLightOutpostTargets,
     processDevelopmentQueue,
     processActionQueue,
     applyCombatOutcomeMessage,
