@@ -119,7 +119,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
     let bestResource: ResourceType | undefined;
@@ -185,7 +185,7 @@ export const buildEconomicHegemonyObjective = (
 };
 
 // Formats a live self-progress label for Economic Hegemony from a player's own
-// incomePerMinute — same "N.N gold/m" format as buildEconomicHegemonyObjective's
+// incomePerMinute — same "N.N gold/day" format as buildEconomicHegemonyObjective's
 // progressLabel, so the two always agree.
 export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
   `${(incomePerMinute * 1440).toFixed(1)} gold/day`;
