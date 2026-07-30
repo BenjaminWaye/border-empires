@@ -1,7 +1,11 @@
 import { resourceIconForKey } from "./client-map-display.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
-const upkeepResourceOrder = ["GOLD", "FOOD", "IRON", "SUPPLY", "CRYSTAL"] as const;
+// IRON/SUPPLY/CRYSTAL upkeep is slot occupation, not a continuous drain
+// (§12.1 docs/manpower-economy-rewrite-plan.md) — the server never emits
+// them on TileUpkeepEntry.perMinute, so only GOLD/FOOD are real ongoing
+// rates worth showing as a per-day amount here.
+const upkeepResourceOrder = ["GOLD", "FOOD"] as const;
 
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);
