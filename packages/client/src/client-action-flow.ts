@@ -480,6 +480,20 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     );
   };
 
+  // Checked on the runtime loop's periodic tick: when waypoint reaches a target
+  // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
+  const processAutoSettleTargets = (): void => {
+    if (state.autoSettleTargets.size === 0) return;
+    for (const targetKey of [...state.autoSettleTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
+        state.autoSettleTargets.delete(targetKey);
+        requestSettlement(tile.x, tile.y);
+      }
+    }
+  };
+
   // Checked on the runtime loop's periodic tick: once a tile queued via the
   // Light Outpost frontier action finishes settling, fire the build
   // automatically so the user doesn't have to reopen the tile menu.
@@ -1914,6 +1928,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestSettlement,
     sendDevelopmentBuild,
     sendLightOutpostBuild,
+    processAutoSettleTargets,
     processAutoBuildLightOutpostTargets,
     processDevelopmentQueue,
     processActionQueue,
