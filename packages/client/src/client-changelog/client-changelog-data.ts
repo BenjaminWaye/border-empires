@@ -314,6 +314,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Road surfaces are now cobblestone with individual stones, mortar gaps, wheel ruts, grass edges, puddles, and directional stone shading."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "light-outpost-exploration",
+    title: "Light Outposts reveal 5×5 area",
+    why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
+    changes: [
+      "Light Outposts now grant +5 vision, revealing a 5-tile radius (13×13 area) around them when built.",
+      "A \"Build Light Outpost\" action appears on owned tiles adjacent to unexplored terrain, making them the default exploration tool.",
+      "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
