@@ -616,6 +616,7 @@ export type TileActionDef = {
     | "abandon_territory"
     | "build_siege_camp"
     | "build_light_outpost"
+    | "build_light_outpost_frontier"
     | "enable_converter_structure"
     | "disable_converter_structure"
     | "muster_hold"
