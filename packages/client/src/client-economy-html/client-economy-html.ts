@@ -269,9 +269,9 @@ const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResourc
     ${head}
     <div class="economy-summary-stock">${stock.toFixed(1)}<span class="economy-summary-cap"> / ${formatCap(cap)}</span></div>
     <div class="economy-summary-rates">
-      <span>Gross ${gross.toFixed(2)}/m</span>
-      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
-      <span class="economy-rate ${args.rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
+      <span>Gross ${(gross * 1440).toFixed(1)}/day</span>
+      <span>Upkeep ${(upkeep * 1440).toFixed(1)}/day</span>
+      <span class="economy-rate ${args.rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</span>
     </div>
   </button>`;
 };
@@ -283,10 +283,11 @@ const economyBucketAmountLabel = (
   positive: boolean
 ): string => {
   const prefix = positive ? "+" : "-";
+  const perDay = bucket.amountPerMinute * 1440;
   if (bucket.resourceKey && bucket.resourceKey !== resource) {
-    return `${prefix}${bucket.amountPerMinute.toFixed(2)} ${args.prettyToken(bucket.resourceKey)}/m`;
+    return `${prefix}${perDay.toFixed(1)} ${args.prettyToken(bucket.resourceKey)}/day`;
   }
-  return `${prefix}${bucket.amountPerMinute.toFixed(2)}/m`;
+  return `${prefix}${perDay.toFixed(1)}/day`;
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
@@ -336,7 +337,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
                 <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${args.gold.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
               </div>
-              <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
+              <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
             </div>
             <div class="economy-detail-columns">
               <div class="economy-detail-column">

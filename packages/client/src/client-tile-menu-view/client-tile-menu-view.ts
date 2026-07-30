@@ -26,7 +26,7 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1 gold/m.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m.` : undefined; };
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1440 gold/day.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +720 Bank gold/day.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -133,7 +133,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1440 gold / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
   if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts manpower regen and speeds up outpost muster within 50 tiles. Also settles the nearest owned frontier tile within 20 tiles every 10 minutes and adds +10 connected-town income points across the linked town network.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
@@ -478,14 +478,14 @@ export const menuOverviewForTile = (
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
     const DOCK_BASE_INCOME_PER_MIN = 0.5;
     const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
-    pushLine(`Dock income ${goldPerMinute.toFixed(2)} gold/m`);
+    pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
       : `Connected to ${connectedDockCount} dock${connectedDockCount === 1 ? "" : "s"}.`);
     if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
     if (tile.dock?.modifiers?.length) {
       for (const modifier of tile.dock.modifiers) {
-        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${modifier.deltaGoldPerMinute.toFixed(2)} gold/m)`);
+        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${(modifier.deltaGoldPerMinute * 1440).toFixed(1)} gold/day)`);
       }
     }
   }

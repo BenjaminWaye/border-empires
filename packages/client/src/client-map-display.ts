@@ -820,9 +820,9 @@ export const tileProductionHtml = (tile: Tile): string => {
   const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
     .filter(([, value]) => Number(value) > 0)
     .map(([resource, value]) => `${resourceIconForKey(resource)} ${Number(value).toFixed(1)}/day`);
-  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
+  const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
   const parts: string[] = [];
-  if (tile.town || gpm > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+  if (tile.town || gpd > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpd.toFixed(1)}/day`);
   parts.push(...prodStrategic);
   return parts.join(" · ");
 };
@@ -837,14 +837,14 @@ export const tileUpkeepHtml = (tile: Tile): string => {
     upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
   }
   const parts: string[] = [];
-  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeepFromEntries.food.toFixed(2)}/m`);
-  if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeepFromEntries.iron.toFixed(2)}/m`);
-  if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeepFromEntries.supply.toFixed(2)}/m`);
-  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeepFromEntries.crystal.toFixed(2)}/m`);
-  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeepFromEntries.gold.toFixed(2)}/m`);
+  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeepFromEntries.iron * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeepFromEntries.supply * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
   if (parts.length > 0) return parts.join(" · ");
-  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
-  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${OBSERVATORY_UPKEEP_PER_MIN.toFixed(2)}/m`);
+  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
+  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
   return parts.join(" · ");
 };
 
@@ -897,10 +897,10 @@ export const formatYieldSummary = (tile: Tile): string => {
 
 export const formatUpkeepSummary = (upkeep: { food: number; iron: number; supply: number; crystal: number; gold: number }): string => {
   const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
+  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
+  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
+  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
+  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };

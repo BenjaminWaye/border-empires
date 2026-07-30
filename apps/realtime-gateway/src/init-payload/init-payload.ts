@@ -573,7 +573,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
     let bestResource: ResourceType | undefined;
@@ -678,8 +678,8 @@ const buildSeasonVictoryObjectives = (
       leaderPlayerId = leader?.id;
       leaderName = leader?.name ?? "No leader";
       leaderValue = leader?.incomePerMinute ?? 0;
-      progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${(runnerUp?.incomePerMinute ?? 0).toFixed(1)}`;
-      thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
+      progressLabel = `${(leaderValue * 1440).toFixed(1)} gold/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+      thresholdLabel = `Need at least 1000 gold/day and 33% lead`;
       conditionMet = Boolean(
         leaderPlayerId &&
           runnerUp &&

@@ -280,9 +280,8 @@ export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-// §24.1: old flat 200 gold/min was unreachable post ~288x rescale (§6.1);
-// re-anchored to 60x TOWN_BASE_GOLD_PER_MIN. `[proposed]`, not playtested.
-export const SEASON_VICTORY_ECONOMY_MIN_INCOME = TOWN_BASE_GOLD_PER_MIN * 60;
+// 1000 gold per day converted to per-minute for internal comparison.
+export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 1000 / 1440;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
 export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
 export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;
@@ -299,7 +298,7 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "ECONOMIC_HEGEMONY",
     name: "Economic Ascendancy",
-    description: "Lead the world economy by 33% while producing at least 200 gold per minute.",
+    description: "Lead the world economy by 33% while producing at least 1000 gold per day.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {
