@@ -359,8 +359,9 @@ describe("applyEconomyAccrual", () => {
     applyEconomyAccrual(ctx, player, 1_000 + 15_000);
 
     // 15s = 0.25 minutes of upkeep at the configured per-minute rates.
+    // FOOD upkeep is retired (§12.1), so only gold drains.
     expect(player.points).toBeCloseTo(100 - 0.5, 6);
-    expect(player.strategicResources?.FOOD).toBeCloseTo(10 - 0.25, 6);
+    expect(player.strategicResources?.FOOD).toBeCloseTo(10, 6);
     expect(player.strategicResources?.IRON).toBeCloseTo(10 - 0.25, 6);
     expect(player.strategicResources?.CRYSTAL).toBeCloseTo(10 - 0.25, 6);
     expect(player.strategicResources?.SUPPLY).toBeCloseTo(10 - 0.25, 6);
@@ -374,8 +375,9 @@ describe("applyEconomyAccrual", () => {
 
     applyEconomyAccrual(ctx, player, 1_000 + 15_000);
 
+    // FOOD upkeep is retired, so FOOD is never drained.
     expect(player.points).toBe(0);
-    expect(player.strategicResources?.FOOD).toBe(0);
+    expect(player.strategicResources?.FOOD).toBe(0.1);
   });
 
   it("drains upkeep from settled tile yield before touching points", () => {
