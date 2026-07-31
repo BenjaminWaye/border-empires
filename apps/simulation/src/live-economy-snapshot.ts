@@ -113,7 +113,6 @@ export const buildLivePlayerEconomySnapshot = (
       dormantEconomicStructureKeys
     );
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
-    if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
       const dockGoldPerMinute = economyPlayer
         ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, {
@@ -134,7 +133,6 @@ export const buildLivePlayerEconomySnapshot = (
     if (structure?.status === "active" && structure.type) {
       const upkeep = structureUpkeepPerMinute(structure.type);
       if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
-      if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
       if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
       const output = converterOutputPerMinute(structure.type);
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
