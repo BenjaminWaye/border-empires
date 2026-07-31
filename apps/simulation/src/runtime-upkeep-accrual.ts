@@ -213,9 +213,12 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
         };
       }
     }
+    // FOOD upkeep is retired (§12.1 docs/manpower-economy-rewrite-plan.md):
+    // towns and structures no longer drain FOOD per minute — any FOOD cost
+    // is slot occupation (Towns' FOOD consumption is a separate mechanic).
     const need: UpkeepNeed = {
       gold: Math.max(0, upkeep.gold) * elapsedMinutes,
-      FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
+      FOOD: 0,
       IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
       SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes

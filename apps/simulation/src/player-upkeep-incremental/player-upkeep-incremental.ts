@@ -102,17 +102,13 @@ export const tileUpkeepContribution = (
   let iron = 0;
   let crystal = 0;
   let supply = 0;
-  // Town food upkeep.
-  if (tile.town) {
-    food += townFoodUpkeepPerMinute(tile.town.populationTier);
-  }
 
-  // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
-  // Observatory (CRYSTAL slot) no longer carry a separate per-minute flow
-  // drain — the slot occupation itself is the upkeep. Settled-land gold
-  // upkeep (was a flat 0.04/min per tile) is retired too — §6 states
-  // gold's only remaining jobs post-rewrite are tech/rush-buys/synthesizer
-  // upkeep, and none of those are "own a settled tile."
+  // §12.1/§5.1/§11 (docs/manpower-economy-rewrite-plan.md): Fort (IRON slot),
+  // Siege Outpost (SUPPLY slot), Observatory (CRYSTAL slot), and all FOOD
+  // (town upkeep + structure food drains) no longer carry a separate
+  // per-minute flow drain — the slot occupation itself is the upkeep, and
+  // town FOOD consumption is a separate game mechanic unrelated to upkeep.
+  // Settled-land gold upkeep (was a flat 0.04/min per tile) is also retired.
 
   // Economic structure upkeep.
   const structure = tile.economicStructure;
@@ -121,12 +117,12 @@ export const tileUpkeepContribution = (
       case "FARMSTEAD":         gold    += FARMSTEAD_GOLD_UPKEEP / 10; break;
       case "CAMP":              gold    += CAMP_GOLD_UPKEEP / 10; break;
       case "MINE":              gold    += MINE_GOLD_UPKEEP / 10; break;
-      case "MARKET":            food    += MARKET_FOOD_UPKEEP / 10; break;
+      case "MARKET":            break;
       case "GRANARY":           gold    += GRANARY_GOLD_UPKEEP / 10; break;
-      case "BANK":              food    += BANK_FOOD_UPKEEP / 10; break;
+      case "BANK":              break;
       case "WOODEN_FORT":       gold    += WOODEN_FORT_GOLD_UPKEEP / 10; break;
       case "LIGHT_OUTPOST":     gold    += LIGHT_OUTPOST_GOLD_UPKEEP / 10; break;
-      case "CARAVANARY":        food    += CARAVANARY_FOOD_UPKEEP / 10; break;
+      case "CARAVANARY":        break;
       case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_FUR_SYNTHESIZER":
                                 gold    += ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
