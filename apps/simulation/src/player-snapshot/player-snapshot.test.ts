@@ -72,10 +72,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Old Growth",
           townPopulationTier: "TOWN"
         },
-        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
-        // Placed away from the town so it doesn't change the expected
-        // supportCurrent/supportMax (a §5 v1 global pool, not per-tile).
-        { x: 30, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles). Placed away from the town so
+        // it doesn't change supportCurrent/supportMax (a §5 v1 global pool).
+        { x: 30, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 31, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -84,7 +85,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "30,30"]
+          territoryTileKeys: ["10,10", "30,30", "31,30"]
         }
       ],
       pendingSettlements: [],
@@ -126,9 +127,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Warwick",
           townPopulationTier: "TOWN"
         },
-        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant,
-        // not the legacy strategicResources.FOOD stockpile below.
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles), not the legacy
+        // strategicResources.FOOD stockpile below.
         { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 11, y: 11, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
@@ -138,7 +141,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
+          territoryTileKeys: ["10,10", "11,10", "11,11"]
         }
       ],
       pendingSettlements: [],
@@ -183,8 +186,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townPopulationTier: "TOWN"
         },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
-        { x: 12, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles).
+        { x: 12, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 12, y: 11, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -193,7 +198,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10", "12,10"]
+          territoryTileKeys: ["10,10", "11,10", "12,10", "12,11"]
         }
       ],
       pendingSettlements: [],
@@ -1080,8 +1085,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 14, y: 9, terrain: "LAND" },
         { x: 15, y: 9, terrain: "LAND" },
         // §5.4: FISH gives 2 FOOD slot supply (was FARM's 1) — the TOWN-tier
-        // town needs 2 to not go dormant.
+        // town needs 4 to not go dormant, so two FISH tiles.
         { x: 13, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 16, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FISH" },
         { x: 15, y: 10, terrain: "LAND" },
         { x: 13, y: 11, terrain: "LAND" },
         { x: 14, y: 11, terrain: "LAND" },
@@ -1089,7 +1095,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       ],
       players: [
         { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
-        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "13,10"] }
+        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "13,10", "16,10"] }
       ],
       pendingSettlements: [],
       activeLocks: []

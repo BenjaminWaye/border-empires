@@ -360,6 +360,27 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "These show up in each structure's tile-detail upkeep listing."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-food-slot-demand",
+    title: "Towns now draw 4 food slots each",
+    why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
+    changes: [
+      "Each TOWN now consumes 4 FOOD resource slots (up from 2) to stay fed, so a growing empire needs proportionally more farms and fishing.",
+      "SETTLEMENTs still draw 0 food slots; CITY, GREAT_CITY, and METROPOLIS each add +1 on top of the town base, matching how their income scales."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-vision-bonus",
+    title: "Towns reveal one extra tile of vision",
+    why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
+    changes: [
+      "Every SETTLED town tile (TOWN and above) now reveals its surroundings one tile further than a plain owned tile — its own reveal is radius+1.",
+      "Settlements (SETTLEMENT tier) are unchanged and do not grant the extra ring.",
+      "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
