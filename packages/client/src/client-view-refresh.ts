@@ -15,7 +15,20 @@ export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "z
 // Removes the persisted camera location so the next page load starts at the
 // default position instead of restoring stale coordinates from a previous
 // season. Called on SEASON_ROLLOVER so the player doesn't land on darkness.
+// Also cancels any pending camera save to prevent a race condition where a
+// scheduled save could re-persist the old coordinates after this clears them.
 export const clearCameraLocation = (): void => {
+  // Cancel any pending save that might fire after we clear localStorage
+  if (pendingSaveTask !== undefined) {
+    if (typeof cancelIdleCallback === "function") {
+      cancelIdleCallback(pendingSaveTask);
+    } else {
+      clearTimeout(pendingSaveTask);
+    }
+    pendingSaveTask = undefined;
+  }
+  // Reset throttle so even if a save was in progress, future saves restart fresh
+  lastCameraSaveAt = 0;
   try {
     window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
   } catch {
@@ -35,10 +48,15 @@ let lastCameraSaveAt = 0;
 // player report). requestIdleCallback moves the actual write off the render
 // frame entirely; setTimeout is the fallback for environments without it
 // (older Safari, and Node in tests).
+let pendingSaveTask: number | undefined;
 const scheduleOffFrame: (task: () => void) => void =
   typeof requestIdleCallback === "function"
-    ? (task) => requestIdleCallback(task, { timeout: 500 })
-    : (task) => setTimeout(task, 0);
+    ? (task) => {
+        pendingSaveTask = requestIdleCallback(task, { timeout: 500 }) as unknown as number;
+      }
+    : (task) => {
+        pendingSaveTask = setTimeout(task, 0) as unknown as number;
+      };
 
 // Deliberately independent of the chunk-subscribe cooldown in
 // requestViewRefresh(): that logic only progresses once the camera crosses a
