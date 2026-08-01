@@ -40,4 +40,31 @@ describe("VisionExpansionCache", () => {
     expect(second.has("23,20")).toBe(true);
     expect(second.has("13,10")).toBe(false);
   });
+
+  it("dilates an owned town tile one extra ring (radius+1) than a plain tile", () => {
+    const cache = new VisionExpansionCache(200, 200);
+    // vision=1 → radius 1 for plain tiles, radius 2 for the town tile.
+    const plain = cache.getOrCompute("player-1", ["10,10"], 1, 0, 1);
+    expect(plain.has("11,10")).toBe(true); // dx=1 within radius 1
+    expect(plain.has("12,10")).toBe(false); // dx=2 outside radius 1
+
+    const town = cache.getOrCompute("player-1", ["10,10"], 1, 0, 2, new Set(["10,10"]));
+    expect(town.has("11,10")).toBe(true);
+    expect(town.has("12,10")).toBe(true); // town reveals the extra ring
+    expect(town.has("13,10")).toBe(false); // radius 2, not 3
+  });
+
+  it("applies the town +1 reveal through the injected footprint table", () => {
+    const terrainAt = (x: number, y: number): Terrain | undefined => "LAND";
+    const footprintTable = new VisionFootprintTable(200, 200, { terrainAt, getTerrainEpoch: () => 0 });
+    const cache = new VisionExpansionCache(200, 200, footprintTable);
+    // vision=4 → radius 4 for plain, radius 5 for the town tile.
+    const plain = cache.getOrCompute("player-1", ["10,10"], 4, 0, 1);
+    expect(plain.has("14,10")).toBe(true); // dx=4 within radius 4
+    expect(plain.has("15,10")).toBe(false); // dx=5 outside radius 4
+
+    const town = cache.getOrCompute("player-1", ["10,10"], 4, 0, 2, new Set(["10,10"]));
+    expect(town.has("15,10")).toBe(true); // town reveals the extra ring
+    expect(town.has("16,10")).toBe(false); // radius 5, not 6
+  });
 });

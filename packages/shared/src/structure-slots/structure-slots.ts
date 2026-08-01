@@ -155,22 +155,22 @@ export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
 // "doubles active Mine production" billing (§12).
 export const FOUNDRY_MINE_SLOT_BONUS = 2;
 
-// §5.3: "a town requires ~2 food slots to be powered (produce gold +
+// §5.3: "a town requires ~4 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its
 // tile, which already draws its own 1 FOOD slot via STRUCTURE_SLOT_REQUIREMENTS
 // above if it has an economicStructure. Domain effects (supportEconomicFoodUpkeepMult,
 // settledFoodUpkeepMult — plan §23.2) reduce this per-town for specific
 // players; this constant is the base, pre-domain-effect count.
-export const TOWN_FOOD_SLOT_DEMAND = 2;
+export const TOWN_FOOD_SLOT_DEMAND = 4;
 
 // Town tier upgrades (UPGRADE_TOWN_TIER) each permanently add +1 FOOD slot
 // demand on top of the base above, reflecting a bigger, better-fed
-// population. SETTLEMENT starts at 0 (the base 2 is stepped down by -2);
-// upgrading to TOWN brings it up to the base 2. The "one more FOOD slot per
-// upgrade step" applies to the manual growth steps beyond that: TOWN->CITY 3;
-// CITY->GREAT_CITY 4; GREAT_CITY->METROPOLIS 5.
+// population. SETTLEMENT starts at 0 (the base 4 is stepped down by -4);
+// upgrading to TOWN brings it up to the base 4. The "one more FOOD slot per
+// upgrade step" applies to the manual growth steps beyond that: TOWN->CITY 5;
+// CITY->GREAT_CITY 6; GREAT_CITY->METROPOLIS 7.
 const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
-  SETTLEMENT: -2,
+  SETTLEMENT: -4,
   TOWN: 0,
   CITY: 1,
   GREAT_CITY: 2,

@@ -347,6 +347,7 @@ import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runti
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
+import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -836,6 +837,8 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
+      // Seed town +1 vision for any player-owned town present at boot.
+      seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1952,6 +1955,7 @@ export class SimulationRuntime {
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3740,6 +3744,7 @@ export class SimulationRuntime {
         // inflates connectedTownCount for towns on either side.
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+        reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3762,7 +3767,11 @@ export class SimulationRuntime {
         this.manpowerStructureBonusCacheByPlayer.delete(playerId);
       },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
+      resyncVisionRadius: (playerId) => {
+        this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
+        // A base-radius change also moves every owned town's +1 reveal ring.
+        resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
+      },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
