@@ -322,6 +322,7 @@ function visibleTileProjection(
     ...(tile.resource ? { resource: tile.resource } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+    ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),

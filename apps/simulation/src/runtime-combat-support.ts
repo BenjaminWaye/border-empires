@@ -14,7 +14,7 @@ import {
   type FrontierCombatPreview,
   type OutpostPosition
 } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state/seed-state.js";
+import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
@@ -257,7 +257,7 @@ const resolveAttackCombat = (
   defender: RuntimePlayer | undefined
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
-  const attacker = ctx.players.get(lock.playerId);
+  const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = Boolean(
     previousTarget?.fort &&
       previousTarget.fort.status === "active" &&
@@ -267,11 +267,12 @@ const resolveAttackCombat = (
   );
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
+    dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
     attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
     attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
     defenderOwnerId: defenderOwnerId,
-    fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
+    fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
     fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
@@ -396,6 +397,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
     ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
     ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
     ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+    ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
     ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
     ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
   };

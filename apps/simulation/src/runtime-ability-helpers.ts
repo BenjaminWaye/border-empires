@@ -174,6 +174,15 @@ export function observatoryCastRadiusFor(player: DomainPlayer | undefined): numb
   return observatoryCastRadiusForPlayer(player, OBSERVATORY_CAST_RADIUS);
 }
 
+// Watchtower Engine's own observatory reaches +10 tiles further than a
+// built one — a fixed bonus that does NOT stack with tech/domain range
+// effects (unlike a real Observatory's range, which does), so it's computed
+// off the base radius directly rather than through observatoryCastRadiusFor.
+export const WATCHTOWER_ENGINE_OBSERVATORY_RANGE = OBSERVATORY_CAST_RADIUS + 10;
+
+const observatoryRangeForTile = (tile: DomainTileState, playerRange: number): number =>
+  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? WATCHTOWER_ENGINE_OBSERVATORY_RANGE : playerRange;
+
 export function pickReadyOwnedObservatoryForTarget(input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   territoryTileKeys: ReadonlySet<string>;
@@ -196,7 +205,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== input.playerId || obs.status !== "active") continue;
     const distance = wrappedChebyshev(tile.x, tile.y, input.targetX, input.targetY);
-    if (distance > input.range) continue;
+    if (distance > observatoryRangeForTile(tile, input.range)) continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > input.now) continue;
     if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;

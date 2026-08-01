@@ -151,6 +151,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
+      ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
@@ -288,6 +289,7 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
         ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
         ...(defenderTile.town ? { town: defenderTile.town } : {}),
         ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
+        ...(defenderTile.naturalWonder ? { naturalWonder: defenderTile.naturalWonder } : {}),
         ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
         ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
       };

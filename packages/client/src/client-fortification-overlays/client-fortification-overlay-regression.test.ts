@@ -13,7 +13,8 @@ describe("fortification overlay asset wiring", () => {
     const render = clientSource("../client-map-render/client-map-render.ts");
     const loop = clientSource("../client-runtime-loop.ts");
 
-    expect(render).toContain('FORT: createDirectionalOverlaySet("fort-ring-overlay")');
+    expect(render).toContain('const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay")');
+    expect(render).toContain("FORT: fortRingOverlaySet, IRON_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet");
     expect(render).toContain('WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay")');
     expect(render).toContain('SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static")');
     expect(render).toContain('LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")');

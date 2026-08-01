@@ -32,6 +32,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
     fortJson: cached.fortJson,
+    naturalWonderJson: cached.naturalWonderJson,
     observatoryJson: cached.observatoryJson,
     siegeOutpostJson: cached.siegeOutpostJson,
     economicStructureJson: cached.economicStructureJson,

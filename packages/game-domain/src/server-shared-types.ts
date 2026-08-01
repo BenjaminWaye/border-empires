@@ -9,6 +9,7 @@ import type {
   MissionKind,
   MissionState,
   MissionStats,
+  NaturalWonderType,
   OwnershipState,
   Player,
   PopulationTier,
@@ -300,6 +301,11 @@ export interface WatchtowerSiteState {
   activated: boolean;
   activatedByPlayerId?: string;
   revealUntil?: number;
+}
+
+export interface NaturalWonderSiteState {
+  tileKey: TileKey;
+  type: NaturalWonderType;
 }
 
 export interface TileHistoryState {
