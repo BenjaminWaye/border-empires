@@ -158,8 +158,6 @@ export const createInitialState = () => ({
   activeDevelopmentProcessCount: 0,
   defensibilityPct: 100,
   integrityWarningDismissed: false,
-  territoryT: 1,
-  exposureE: 4,
   settledT: 1,
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
@@ -472,6 +470,7 @@ export const createInitialState = () => ({
   discoveredTiles: new Set<string>(),
   discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
+  autoBuildLightOutpostTargets: new Set<string>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {

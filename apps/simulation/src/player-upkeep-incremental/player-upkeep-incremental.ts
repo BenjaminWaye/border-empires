@@ -52,12 +52,10 @@ import {
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   RADAR_SYSTEM_GOLD_UPKEEP,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-economy.js";
 
@@ -124,8 +122,8 @@ export const tileUpkeepContribution = (
       case "MARKET":            food    += MARKET_FOOD_UPKEEP / 10; break;
       case "GRANARY":           gold    += GRANARY_GOLD_UPKEEP / 10; break;
       case "BANK":              food    += BANK_FOOD_UPKEEP / 10; break;
-      case "WOODEN_FORT":       gold    += WOODEN_FORT_GOLD_UPKEEP / 10; break;
-      case "LIGHT_OUTPOST":     gold    += LIGHT_OUTPOST_GOLD_UPKEEP / 10; break;
+      case "WOODEN_FORT":       food    += 0.1; break;
+      case "LIGHT_OUTPOST":     food    += 0.1; break;
       case "CARAVANARY":        food    += CARAVANARY_FOOD_UPKEEP / 10; break;
       case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_FUR_SYNTHESIZER":
@@ -143,6 +141,26 @@ export const tileUpkeepContribution = (
       case "RADAR_SYSTEM":      gold    += RADAR_SYSTEM_GOLD_UPKEEP / 10; break;
       // AIRPORT: was crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed
       // per §12.1, the CRYSTAL slot occupation is the upkeep now.
+    }
+  }
+
+  // Fort family upkeep (food + increasing iron per tier).
+  const fort = tile.fort;
+  if (fort?.ownerId === ownerId && fort.status === "active") {
+    switch (fort.variant) {
+      case "FORT":            iron += 0.1; food += 0.1; break;
+      case "IRON_BASTION":    iron += 0.2; food += 0.1; break;
+      case "THUNDER_BASTION": iron += 0.4; food += 0.1; break;
+    }
+  }
+
+  // Siege outpost family upkeep (food + increasing supply per tier).
+  const siege = tile.siegeOutpost;
+  if (siege?.ownerId === ownerId && siege.status === "active") {
+    switch (siege.variant) {
+      case "SIEGE_OUTPOST":   supply += 0.1; food += 0.1; break;
+      case "SIEGE_TOWER":     supply += 0.2; food += 0.1; break;
+      case "DREAD_TOWER":     supply += 0.3; food += 0.1; break;
     }
   }
 

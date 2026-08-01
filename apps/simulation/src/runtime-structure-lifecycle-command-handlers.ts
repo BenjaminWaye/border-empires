@@ -9,6 +9,7 @@ import {
   structureBuildGoldCost,
   structureBuildManpowerCost,
   structureCostDefinition,
+  LIGHT_OUTPOST_VISION_BONUS,
   type BuildableStructureType,
   type FortVariant,
   type SiegeOutpostVariant
@@ -403,6 +404,10 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+
+  if (latest.economicStructure?.type === "LIGHT_OUTPOST" && LIGHT_OUTPOST_VISION_BONUS > 0) {
+    context.removeStructureVisionBonus(ownerId, targetKey, LIGHT_OUTPOST_VISION_BONUS);
+  }
 }
 
 export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {

@@ -1,4 +1,5 @@
 import { isForestTile } from "./client-constants.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-frontier-overlay.js";
@@ -88,8 +89,8 @@ type StartClientRuntimeLoopDeps = {
   drawResourceCornerMarker: (tile: Tile, px: number, py: number, size: number) => void;
   drawRoadOverlay: (directions: RoadDirections, px: number, py: number, size: number) => void;
   fortificationOverlayImageFor: (
-    kind: "FORT" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST",
-    opening: "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST"
+    kind: FortificationOverlayKind,
+    opening: FortificationOpening
   ) => HTMLImageElement | undefined;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
@@ -139,6 +140,8 @@ type StartClientRuntimeLoopDeps = {
   renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
+  processAutoSettleTargets: () => void;
+  processAutoBuildLightOutpostTargets: () => void;
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
@@ -1656,6 +1659,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
+    if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
+    if (state.autoBuildLightOutpostTargets.size > 0) deps.processAutoBuildLightOutpostTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,
       dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,

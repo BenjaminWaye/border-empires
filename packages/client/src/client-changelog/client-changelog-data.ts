@@ -264,6 +264,73 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "next",
+    title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
+    why: "Gold display as per-minute (/m) was hard to relate to actual gameplay pacing — a town earning 0.01 gold/min reads as \"nothing\" when it's actually 14.4 gold/day. Per-day rates make income, upkeep, and victory thresholds immediately meaningful without mental math.",
+    changes: [
+      "All gold (and most resource) rates now display as /day instead of /m — the HUD gold chip, economy panel, tile production/upkeep, build menu entries, empire intel, side panel, and season-end overlay all use per-day formatting.",
+      "Economic victory now requires 1000 gold/day (up from the old ~0.4/min / ~576/day effective threshold), with all labels and tooltips updated.",
+      "Gold storage cap now holds 24 hours of production (up from 12h), with a floor of 10 gold instead of 500.",
+      "Build menu upkeep strings corrected: non-synthesizer structures no longer show stale per-minute gold/food values (their slot occupation is their upkeep), and synthesizers now show correct per-day gold costs (30/45/40/60 gold/day)."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "light-outpost-exploration",
+    title: "Light Outposts reveal 5×5 area",
+    why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
+    changes: [
+      "Light Outposts now grant +5 vision, revealing a 5-tile radius (13×13 area) around them when built.",
+      "A \"Build Light Outpost\" action appears on owned tiles adjacent to unexplored terrain, making them the default exploration tool.",
+      "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "light-outpost-distant-expansion",
+    title: "Build Light Outpost on distant unexplored-adjacent tiles",
+    why: "Light Outpost was locked to tiles adjacent to your territory, but true frontier exploration means expanding into the unknown without claiming every tile in between. Distant unowned tiles adjacent to unexplored terrain are now a valid target for expansion.",
+    changes: [
+      "Light Outpost can now be built on any unowned tile adjacent to unexplored terrain, even if it's not adjacent to your current territory — the action handles frontier expansion end-to-end without intermediate claims.",
+      "\"Build Light Outpost\" now appears in the main actions tab (not buildings) so it's discoverable as a frontier-exploration tool, not a structure you place on your own land.",
+      "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "structure-upkeep-rebalance",
+    title: "Fort and outpost upkeep now runs on food plus their resource",
+    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
+    changes: [
+      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
+      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
+      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
+      "These show up in each structure's tile-detail upkeep listing."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-food-slot-demand",
+    title: "Towns now draw 4 food slots each",
+    why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
+    changes: [
+      "Each TOWN now consumes 4 FOOD resource slots (up from 2) to stay fed, so a growing empire needs proportionally more farms and fishing.",
+      "SETTLEMENTs still draw 0 food slots; CITY, GREAT_CITY, and METROPOLIS each add +1 on top of the town base, matching how their income scales."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-vision-bonus",
+    title: "Towns reveal one extra tile of vision",
+    why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
+    changes: [
+      "Every SETTLED town tile (TOWN and above) now reveals its surroundings one tile further than a plain owned tile — its own reveal is radius+1.",
+      "Settlements (SETTLEMENT tier) are unchanged and do not grant the extra ring.",
+      "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

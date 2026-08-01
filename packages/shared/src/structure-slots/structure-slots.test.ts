@@ -106,16 +106,16 @@ describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
 });
 
 describe("townFoodSlotDemandForTier", () => {
-  it("keeps SETTLEMENT and TOWN at the base 2 FOOD slots (SETTLEMENT->TOWN is the free baseline transition)", () => {
-    expect(townFoodSlotDemandForTier("SETTLEMENT")).toBe(2);
-    expect(townFoodSlotDemandForTier("TOWN")).toBe(2);
-    expect(townFoodSlotDemandForTier(undefined)).toBe(2);
+  it("gives SETTLEMENT 0 FOOD slots and TOWN 4 FOOD slots (no upkeep until upgraded)", () => {
+    expect(townFoodSlotDemandForTier("SETTLEMENT")).toBe(0);
+    expect(townFoodSlotDemandForTier("TOWN")).toBe(4);
+    expect(townFoodSlotDemandForTier(undefined)).toBe(4);
   });
 
   it("adds +1 FOOD slot per manual growth step beyond TOWN", () => {
-    expect(townFoodSlotDemandForTier("CITY")).toBe(3);
-    expect(townFoodSlotDemandForTier("GREAT_CITY")).toBe(4);
-    expect(townFoodSlotDemandForTier("METROPOLIS")).toBe(5);
+    expect(townFoodSlotDemandForTier("CITY")).toBe(5);
+    expect(townFoodSlotDemandForTier("GREAT_CITY")).toBe(6);
+    expect(townFoodSlotDemandForTier("METROPOLIS")).toBe(7);
   });
 });
 

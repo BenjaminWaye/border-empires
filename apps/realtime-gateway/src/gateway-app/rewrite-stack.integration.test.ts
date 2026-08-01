@@ -1654,10 +1654,12 @@ describe("rewrite stack integration", () => {
           ownerId: "player-1",
           ownershipState: "SETTLED"
         },
-        // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more.
+        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MARKET draws 1 more.
         { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-        { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
+        { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
       ],
       activeLocks: [],
       players: [

@@ -40,9 +40,9 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Towns · 10");
-    expect(html).toContain("+10.00/m");
+    expect(html).toContain("+14400.0/day");
     expect(html).toContain("Fur Synthesizer upkeep · 2");
-    expect(html).toContain("-1.40/m");
+    expect(html).toContain("-2016.0/day");
     expect(html).not.toContain("No upkeep on this resource");
   });
 
@@ -78,7 +78,7 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Fur Synthesizer upkeep");
-    expect(html).toContain("-12.00 GOLD/m");
+    expect(html).toContain("-17280.0 GOLD/day");
     expect(html).not.toContain("No upkeep on this resource");
   });
 
@@ -116,7 +116,7 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("Towns · 7");
     expect(html).toContain("Paused until manpower is full (3135/3300)");
-    expect(html).toContain("+0.00/m");
+    expect(html).toContain("+0.0/day");
   });
 
   it("falls back to a live income row when the session has rates but no detailed source buckets yet", () => {
@@ -148,7 +148,7 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("Live empire income");
     expect(html).toContain("Detailed source rows are still catching up on this session.");
-    expect(html).toContain("+10.80/m");
+    expect(html).toContain("+15552.0/day");
     expect(html).not.toContain("No current income");
   });
 

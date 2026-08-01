@@ -16,7 +16,6 @@ import {
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
@@ -26,8 +25,7 @@ import {
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 
 type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
@@ -187,7 +185,7 @@ const townPopulationGrowthPerMinute = (input: {
   return Number(growth.toFixed(4));
 };
 
-const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL", number>> => {
+const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
     case "CAMP": return { GOLD: CAMP_GOLD_UPKEEP / 10 };
@@ -195,8 +193,14 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" 
     case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
     case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
     case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
-    case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
+    case "WOODEN_FORT": return { FOOD: 0.1 };
+    case "LIGHT_OUTPOST": return { FOOD: 0.1 };
+    case "FORT": return { IRON: 0.1, FOOD: 0.1 };
+    case "IRON_BASTION": return { IRON: 0.2, FOOD: 0.1 };
+    case "THUNDER_BASTION": return { IRON: 0.4, FOOD: 0.1 };
+    case "SIEGE_OUTPOST": return { SUPPLY: 0.1, FOOD: 0.1 };
+    case "SIEGE_TOWER": return { SUPPLY: 0.2, FOOD: 0.1 };
+    case "DREAD_TOWER": return { SUPPLY: 0.3, FOOD: 0.1 };
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
@@ -329,20 +333,28 @@ export const buildSnapshotTileDetail = (
   if (townFoodUpkeep > 0.0001) {
     upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(townFoodUpkeep.toFixed(4)) } });
   }
-  // §6/§12.1 (docs/manpower-economy-rewrite-plan.md): no more flat
-  // per-settled-tile gold upkeep, and Fort/Siege Outpost/Observatory no
-  // longer carry a separate per-minute flow drain — the slot occupation
-  // itself is the upkeep, so fortJson/siegeOutpostJson/observatoryJson
-  // aren't consulted here at all.
-  const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-  if (structure?.status === "active" && structure.type) {
-    const upkeep = structureUpkeepPerMinute(structure.type);
+  const economicStructure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+  // Fort family (food + increasing iron), Siege family (food + increasing
+  // supply), and Observatory are surfaced here alongside economic structures.
+  const structures = [
+    economicStructure,
+    parseStructure<{ type?: string; variant?: string; status?: string }>(tile.fortJson),
+    parseStructure<{ type?: string; variant?: string; status?: string }>(tile.siegeOutpostJson),
+    parseStructure<{ type?: string; status?: string }>(tile.observatoryJson),
+  ].filter((value): value is { type?: string; variant?: string; status?: string } => Boolean(value));
+  for (const structure of structures) {
+    if (!structure?.status || structure.status !== "active") continue;
+    const type = structure.type ?? structure.variant;
+    if (!type) continue;
+    const upkeep = structureUpkeepPerMinute(type);
     const perMinute = {
       ...(upkeep.FOOD ? { FOOD: Number(upkeep.FOOD.toFixed(4)) } : {}),
       ...(upkeep.GOLD ? { GOLD: Number(upkeep.GOLD.toFixed(4)) } : {}),
-      ...(upkeep.CRYSTAL ? { CRYSTAL: Number(upkeep.CRYSTAL.toFixed(4)) } : {})
+      ...(upkeep.CRYSTAL ? { CRYSTAL: Number(upkeep.CRYSTAL.toFixed(4)) } : {}),
+      ...(upkeep.IRON ? { IRON: Number(upkeep.IRON.toFixed(4)) } : {}),
+      ...(upkeep.SUPPLY ? { SUPPLY: Number(upkeep.SUPPLY.toFixed(4)) } : {})
     };
-    if (Object.keys(perMinute).length > 0) upkeepEntries.push({ label: structure.type, perMinute });
+    if (Object.keys(perMinute).length > 0) upkeepEntries.push({ label: type, perMinute });
   }
   if (upkeepEntries.length > 0) update.upkeepEntries = upkeepEntries;
 
@@ -358,7 +370,7 @@ export const buildSnapshotTileDetail = (
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState as YieldSourceTile["ownershipState"] } : {}),
     ...(town ? { town: town as YieldSourceTile["town"] } : {}),
-    ...(structure ? { economicStructure: structure as YieldSourceTile["economicStructure"] } : {})
+    ...(economicStructure ? { economicStructure: economicStructure as YieldSourceTile["economicStructure"] } : {})
   };
   // Collect active Waterworks positions for the owning player so the radius
   // boost is reflected in the displayed yield rate (not just in accrual).

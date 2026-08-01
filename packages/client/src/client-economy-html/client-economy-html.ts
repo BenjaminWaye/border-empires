@@ -1,4 +1,4 @@
-import { TOWN_FOOD_SLOT_DEMAND, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
+import { townFoodSlotDemandForTier, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -94,7 +94,7 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    if (tile.town && resource === "FOOD") add("Town support", TOWN_FOOD_SLOT_DEMAND);
+    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemandForTier(tile.town.populationTier));
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
@@ -126,11 +126,11 @@ const formatUpkeepSummary = (
   resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
 ): string => {
   const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
+  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
+  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
+  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
+  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
 
@@ -269,9 +269,9 @@ const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResourc
     ${head}
     <div class="economy-summary-stock">${stock.toFixed(1)}<span class="economy-summary-cap"> / ${formatCap(cap)}</span></div>
     <div class="economy-summary-rates">
-      <span>Gross ${gross.toFixed(2)}/m</span>
-      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
-      <span class="economy-rate ${args.rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
+      <span>Gross ${(gross * 1440).toFixed(1)}/day</span>
+      <span>Upkeep ${(upkeep * 1440).toFixed(1)}/day</span>
+      <span class="economy-rate ${args.rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</span>
     </div>
   </button>`;
 };
@@ -283,10 +283,11 @@ const economyBucketAmountLabel = (
   positive: boolean
 ): string => {
   const prefix = positive ? "+" : "-";
+  const perDay = bucket.amountPerMinute * 1440;
   if (bucket.resourceKey && bucket.resourceKey !== resource) {
-    return `${prefix}${bucket.amountPerMinute.toFixed(2)} ${args.prettyToken(bucket.resourceKey)}/m`;
+    return `${prefix}${perDay.toFixed(1)} ${args.prettyToken(bucket.resourceKey)}/day`;
   }
-  return `${prefix}${bucket.amountPerMinute.toFixed(2)}/m`;
+  return `${prefix}${perDay.toFixed(1)}/day`;
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
@@ -336,7 +337,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
                 <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${args.gold.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
               </div>
-              <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
+              <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
             </div>
             <div class="economy-detail-columns">
               <div class="economy-detail-column">

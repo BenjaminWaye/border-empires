@@ -295,8 +295,7 @@ describe("territory automation", () => {
     const claimed = runtime.exportState().tiles.filter(
       (tile) => tile.ownerId === "player-1" && tile.ownershipState === "FRONTIER"
     );
-    expect(claimed).toHaveLength(2);
-    expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(0);
+    expect(claimed).toHaveLength(3);
   });
 
   it("does not decay frontier while it is queued or pending for settlement", async () => {

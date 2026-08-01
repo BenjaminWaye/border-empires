@@ -63,7 +63,8 @@ type HudDeps = {
     strategicProductionPerMinute: ClientState["strategicProductionPerMinute"],
     upkeepPerMinute: ClientState["upkeepPerMinute"],
     strategicAnim: ClientState["strategicAnim"],
-    rateToneClass: (value: number) => string
+    rateToneClass: (value: number) => string,
+    resourceSlots?: ClientState["resourceSlots"]
   ) => string;
   formatCooldownShort: (ms: number) => string;
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
@@ -281,10 +282,10 @@ export const renderClientHud = (deps: HudDeps): void => {
           ? " delta-down"
           : ""
       : "";
-  const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
-  const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
-  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}/m`;
-  const goldRateClass = rateToneClass(netGoldPerMinute);
+  const netGoldPerDay = (state.incomePerMinute - state.upkeepPerMinute.gold) * 1440;
+  const goldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(1)}/day`;
+  const mobileGoldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(0)}/day`;
+  const goldRateClass = rateToneClass(netGoldPerDay);
   const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(1)}/m`;
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
@@ -313,7 +314,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       state.strategicProductionPerMinute,
       state.upkeepPerMinute,
       state.strategicAnim,
-      rateToneClass
+      rateToneClass,
+      state.resourceSlots
     )}
   `;
   dom.collectVisibleDesktopBtn.disabled = !collectVisibleReady;
