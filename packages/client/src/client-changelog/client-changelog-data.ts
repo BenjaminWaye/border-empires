@@ -348,6 +348,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "structure-upkeep-rebalance",
+    title: "Fort and outpost upkeep now runs on food plus their resource",
+    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
+    changes: [
+      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
+      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
+      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
+      "These show up in each structure's tile-detail upkeep listing."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

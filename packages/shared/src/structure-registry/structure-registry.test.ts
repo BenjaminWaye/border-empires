@@ -306,6 +306,17 @@ describe("upkeep parity", () => {
   // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
   // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
   // per-minute (÷1440).
+  //
+  // Fort ladder (FORT, IRON_BASTION, THUNDER_BASTION) and Siege ladder
+  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) plus WOODEN_FORT and
+  // LIGHT_OUTPOST have FOOD + their resource upkeep instead of gold.
+  // WOODEN_FORT and LIGHT_OUTPOST have only FOOD (0.1/min).
+  // FORT: 0.1 IRON + 0.1 FOOD
+  // IRON_BASTION: 0.2 IRON + 0.1 FOOD
+  // THUNDER_BASTION: 0.4 IRON + 0.1 FOOD
+  // SIEGE_OUTPOST: 0.1 SUPPLY + 0.1 FOOD
+  // SIEGE_TOWER: 0.2 SUPPLY + 0.1 FOOD
+  // DREAD_TOWER: 0.3 SUPPLY + 0.1 FOOD
 
   const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
     FUR_SYNTHESIZER: { GOLD: 30 / 1440 },
@@ -314,6 +325,14 @@ describe("upkeep parity", () => {
     ADVANCED_IRONWORKS: { GOLD: 45 / 1440 },
     CRYSTAL_SYNTHESIZER: { GOLD: 40 / 1440 },
     ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 60 / 1440 },
+    WOODEN_FORT: { FOOD: 0.1 },
+    LIGHT_OUTPOST: { FOOD: 0.1 },
+    FORT: { IRON: 0.1, FOOD: 0.1 },
+    IRON_BASTION: { IRON: 0.2, FOOD: 0.1 },
+    THUNDER_BASTION: { IRON: 0.4, FOOD: 0.1 },
+    SIEGE_OUTPOST: { SUPPLY: 0.1, FOOD: 0.1 },
+    SIEGE_TOWER: { SUPPLY: 0.2, FOOD: 0.1 },
+    DREAD_TOWER: { SUPPLY: 0.3, FOOD: 0.1 },
   };
 
   const noUpkeepTypes = new Set([
@@ -323,10 +342,9 @@ describe("upkeep parity", () => {
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
     "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
-    "WOODEN_FORT", "LIGHT_OUTPOST", "CARAVANARY", "FOUNDRY",
+    "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
-    "AIRPORT", "FORT", "IRON_BASTION", "THUNDER_BASTION",
-    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "OBSERVATORY",
+    "AIRPORT", "OBSERVATORY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
