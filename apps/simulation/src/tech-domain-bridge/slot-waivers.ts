@@ -1,4 +1,5 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
+import { LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
 import { emptySlotWaivers, type SlotWaivers } from "../resource-slot-view/resource-slot-view.js";
 import { domainEntryById, techEntryById } from "./tech-domain-bridge.js";
 
@@ -30,11 +31,12 @@ export const maxEffectForPlayer = (
 // §23.2: the player's current resource-slot waivers (Dwarf Kingdom/Fortress
 // Realm/Supply State/Treasury State/Enduring Realm), read from their owned
 // techs/domains and handed to resource-slot-view.ts's demand/dormancy
-// functions. lightOutpostFoodSlotWaiverCount is built-in (always 5).
+// functions. lightOutpostFoodSlotWaiverCount is built-in (always
+// LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT), not tech/domain-gated.
 export const slotWaiversForPlayer = (player: Pick<DomainPlayer, "techIds" | "domainIds">): SlotWaivers => ({
   fortIronSlotWaiverCount: maxEffectForPlayer(player, "fortIronSlotWaiverCount"),
   outpostSupplySlotWaiverCount: maxEffectForPlayer(player, "outpostSupplySlotWaiverCount"),
-  lightOutpostFoodSlotWaiverCount: 5,
+  lightOutpostFoodSlotWaiverCount: LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT,
   firstTownsFoodSlotWaiverCount: maxEffectForPlayer(player, "firstTownsFoodSlotWaiverCount"),
   allTownsFoodSlotWaiverPerTown: maxEffectForPlayer(player, "allTownsFoodSlotWaiverPerTown")
 });
