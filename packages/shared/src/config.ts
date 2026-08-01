@@ -10,7 +10,7 @@ declare const process: {
 export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
-export const PLAYER_BASE_VISION = 4;
+export const PLAYER_BASE_VISION = 1;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,
 // visible incentive to hold hilly ground — 1 base + 1 hills bonus = 2.
 export const VISION_RADIUS = 1;
