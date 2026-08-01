@@ -15,7 +15,7 @@ describe("simulation runtime", () => {
     const elapsedMs = 60_000; // 1 minute
     const runtime = new SimulationRuntime({
       now: () => startMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 0 })]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [

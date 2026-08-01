@@ -190,7 +190,7 @@ export const resourceSlotSupplyForPlayer = (
  */
 type WaivableTile = Pick<
   DomainTileState,
-  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState"
+  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder"
 > &
   Partial<Pick<DomainTileState, "x" | "y">>;
 
@@ -215,7 +215,9 @@ const buildDemandContributors = (
     if (tile.fort?.ownerId === playerId) {
       addContributor(tileKey, "fort", (tile.fort.variant ?? "FORT") as SlotStructureType, tile.fort.activatedAt ?? 0);
     }
-    if (tile.observatory?.ownerId === playerId) {
+    // Watchtower Engine's own observatory is exempt — no upkeep is the
+    // wonder's whole point (see syncWatchtowerObservatory).
+    if (tile.observatory?.ownerId === playerId && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
     }
     if (tile.siegeOutpost?.ownerId === playerId) {

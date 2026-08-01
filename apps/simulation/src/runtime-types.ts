@@ -257,6 +257,7 @@ export type SimulationTileWireDelta = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  naturalWonderJson?: string | undefined;
   shardSiteJson?: string;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };

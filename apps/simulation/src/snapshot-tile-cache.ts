@@ -24,6 +24,7 @@ export type RuntimeState = {
     economicStructureJson?: string;
     sabotageJson?: string;
     shardSiteJson?: string;
+    naturalWonderJson?: string;
   }>;
   players: Array<{
     id: string;

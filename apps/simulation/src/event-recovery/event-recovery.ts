@@ -16,6 +16,7 @@ type RecoveredTileState = {
   resource?: DomainTileState["resource"];
   dockId?: DomainTileState["dockId"];
   shardSite?: DomainTileState["shardSite"];
+  naturalWonder?: DomainTileState["naturalWonder"];
   watchtower?: DomainTileState["watchtower"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
@@ -104,6 +105,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
@@ -178,6 +180,13 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.watchtower
         ? { watchtower: existing.watchtower }
+        : {}),
+    ...("naturalWonderJson" in tileDelta
+      ? (tileDelta.naturalWonderJson
+          ? { naturalWonder: parseOptionalJson<DomainTileState["naturalWonder"]>(tileDelta.naturalWonderJson) }
+          : {})
+      : existing?.naturalWonder
+        ? { naturalWonder: existing.naturalWonder }
         : {}),
     // For ownership + per-tile-structure fields, an empty-string delta value
     // means "explicit clear" (mirrors the existing shardSiteJson pattern just
@@ -409,6 +418,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
               ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+              ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.
               ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
