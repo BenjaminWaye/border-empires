@@ -8,16 +8,10 @@ import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { VisionExpansionCache } from "./vision-expansion-cache.js";
 
-// Owned SETTLED town tiles (populationTier above SETTLEMENT) each reveal one
-// extra ring (radius+1) around themselves. Settlements are deliberately
-// excluded — only real towns grant the +1 reveal.
-const settledTownTileKeysFor = (summary: PlayerRuntimeSummary): ReadonlySet<string> => {
-  const keys = new Set<string>();
-  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    if (tier !== "SETTLEMENT") keys.add(tileKey);
-  }
-  return keys;
-};
+// Every owned SETTLED town tile — at any population tier, including a bare
+// SETTLEMENT — reveals one extra ring (radius+1) around itself.
+const settledTownTileKeysFor = (summary: PlayerRuntimeSummary): ReadonlySet<string> =>
+  new Set(summary.ownedTownTierByTile.keys());
 
 export type RuntimeVisibilityClassification = {
   radiusSelfKeys: ReadonlySet<string>;

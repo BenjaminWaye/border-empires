@@ -1,7 +1,8 @@
 /**
  * Town +1 vision bonus — "every owned SETTLED town tile's own reveal is
- * radius+1". Kept out of runtime.ts (already oversized) so the runtime only
- * carries a handful of one-line calls into the streaming coverage cache.
+ * radius+1", at every population tier including a bare SETTLEMENT. Kept out
+ * of runtime.ts (already oversized) so the runtime only carries a handful of
+ * one-line calls into the streaming coverage cache.
  *
  * Full-export path (VisionExpansionCache) and the barb-activation union are
  * handled in their own modules (runtime-visibility-classifier.ts /
@@ -14,15 +15,9 @@ import { effectiveVisionRadiusForPlayer } from "./tech-domain-bridge/tech-domain
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
-/** A SETTLED tile owned by someone with a real town (TOWN tier and above). */
+/** A SETTLED tile owned by someone with a real town, at any population tier. */
 export const isSettledTownTile = (tile: DomainTileState | undefined): boolean =>
-  Boolean(
-    tile?.ownerId &&
-      tile.ownershipState === "SETTLED" &&
-      tile.town &&
-      tile.town.populationTier &&
-      tile.town.populationTier !== "SETTLEMENT"
-  );
+  Boolean(tile?.ownerId && tile.ownershipState === "SETTLED" && tile.town);
 
 const townVisionBonusRadiusFor = (players: ReadonlyMap<string, RuntimePlayer>, playerId: string): number =>
   (players.get(playerId) ? effectiveVisionRadiusForPlayer(players.get(playerId)!) : 1) + 1;
@@ -66,8 +61,7 @@ export const resyncPlayerTownVisionBonuses = (
   playerId: string,
   ownedTownTierByTile: ReadonlyMap<string, string>
 ): void => {
-  for (const [townKey, tier] of ownedTownTierByTile) {
-    if (tier === "SETTLEMENT") continue;
+  for (const townKey of ownedTownTierByTile.keys()) {
     const comma = townKey.indexOf(",");
     if (comma < 0) continue;
     const tx = Number(townKey.slice(0, comma));
