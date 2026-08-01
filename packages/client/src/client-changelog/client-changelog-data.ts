@@ -350,6 +350,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: Date.now(),
+    introducedIn: "structure-upkeep-rebalance",
+    title: "Fort and outpost upkeep now runs on food plus their resource",
+    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
+    changes: [
+      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
+      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
+      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
+      "These show up in each structure's tile-detail upkeep listing."
+    ]
+  },
+  {
+    createdAt: Date.now(),
     introducedIn: "town-food-slot-demand",
     title: "Towns now draw 4 food slots each",
     why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
