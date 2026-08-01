@@ -184,6 +184,10 @@ export class VisibilityCoverageTracker {
   private readonly cache: VisibilityCoverageCache;
   private readonly deps: VisibilityCoverageTrackerDeps;
   private readonly radiusBySource = new Map<string, number>();
+  // Last-applied town vision bonus radius per (source, tile), so a bonus can
+  // be removed exactly — including when the source's base radius changes and
+  // the +1 ring must move outward/inward.
+  private readonly townBonusRadiusBySourceAndTile = new Map<string, Map<string, number>>();
 
   constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps, footprintTable?: VisionFootprintTable) {
     this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable);
@@ -291,6 +295,50 @@ export class VisibilityCoverageTracker {
   removeTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(viewerId)) return;
     this.cache.removeFootprint(viewerId, x, y, bonusRadius, callbacks?.onLeave);
+  }
+
+  /**
+   * Applies the +1 "own reveal" bonus for an owned SETTLED town: a footprint
+   * of the source's base vision radius + 1 centered on the town. Because the
+   * town tile already contributes its base-radius footprint via
+   * tileOwnershipChanged, this stacked base+1 footprint (a superset) extends
+   * the town's own reveal by exactly one ring. Reuses the refcounted coverage
+   * cache so streaming tile-deltas stay consistent with the full-export path.
+   *
+   * Unlike the caller-managed addTileVisionBonus, the applied radius is
+   * tracked per (source, tile) so a base-radius change (tech/observatory) can
+   * move the +1 ring outward/inward by re-calling with the new radius. Applies
+   * to the source and its current allies, mirroring territory-based coverage.
+   */
+  setTownVisionBonus(sourceId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(sourceId)) return;
+    const tileKey = simulationTileKey(x, y);
+    const existing = this.townBonusRadiusBySourceAndTile.get(sourceId)?.get(tileKey);
+    if (existing === bonusRadius) return;
+    for (const viewerId of this.viewersForSource(sourceId)) {
+      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
+      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+    }
+    let byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
+    if (!byTile) {
+      byTile = new Map();
+      this.townBonusRadiusBySourceAndTile.set(sourceId, byTile);
+    }
+    byTile.set(tileKey, bonusRadius);
+  }
+
+  /** Reverses setTownVisionBonus when a tile stops being an owned town. */
+  removeTownVisionBonus(sourceId: string, x: number, y: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(sourceId)) return;
+    const tileKey = simulationTileKey(x, y);
+    const byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
+    const existing = byTile?.get(tileKey);
+    if (existing === undefined) return;
+    for (const viewerId of this.viewersForSource(sourceId)) {
+      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
+    }
+    byTile!.delete(tileKey);
+    if (byTile!.size === 0) this.townBonusRadiusBySourceAndTile.delete(sourceId);
   }
 
   /**
