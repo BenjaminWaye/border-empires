@@ -2627,42 +2627,37 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Renames are throttled to once per season, but the player's initial
             // profile setup (picking their first real name, gated on
             // profileComplete not yet being true) doesn't consume that allowance —
-            // only a rename of an already-complete profile does.
+            // only a rename of an already-complete profile does. Color changes are
+            // throttled the same way. Both checks share one season lookup since a
+            // single SET_PROFILE call can trigger both at once.
             const isRename = existingProfile?.profileComplete === true && existingProfile.name !== message.displayName;
-            let nameChangedSeasonId: string | undefined;
-            if (isRename) {
-              try {
-                nameChangedSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
-              } catch {
-                nameChangedSeasonId = undefined;
-              }
-              if (nameChangedSeasonId && existingProfile?.nameChangedSeasonId === nameChangedSeasonId) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "DISPLAY_NAME_LIMIT",
-                  message: "You can only change your display name once per season. Try again next season."
-                });
-                return;
-              }
-            }
-            // Color changes are also throttled to once per season for completed profiles.
             const isColorChange = existingProfile?.profileComplete === true && !colorUnchanged;
-            let colorChangedSeasonId: string | undefined;
-            if (isColorChange) {
+            let currentSeasonId: string | undefined;
+            if (isRename || isColorChange) {
               try {
-                colorChangedSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
+                currentSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
               } catch {
-                colorChangedSeasonId = undefined;
-              }
-              if (colorChangedSeasonId && existingProfile?.colorChangedSeasonId === colorChangedSeasonId) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "COLOR_LIMIT",
-                  message: "You can only change your empire colour once per season. Try again next season."
-                });
-                return;
+                currentSeasonId = undefined;
               }
             }
+            if (isRename && currentSeasonId && existingProfile?.nameChangedSeasonId === currentSeasonId) {
+              sendJson(socket, {
+                type: "ERROR",
+                code: "DISPLAY_NAME_LIMIT",
+                message: "You can only change your display name once per season. Try again next season."
+              });
+              return;
+            }
+            if (isColorChange && currentSeasonId && existingProfile?.colorChangedSeasonId === currentSeasonId) {
+              sendJson(socket, {
+                type: "ERROR",
+                code: "COLOR_LIMIT",
+                message: "You can only change your empire colour once per season. Try again next season."
+              });
+              return;
+            }
+            const nameChangedSeasonId = isRename ? currentSeasonId : undefined;
+            const colorChangedSeasonId = isColorChange ? currentSeasonId : undefined;
             const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {

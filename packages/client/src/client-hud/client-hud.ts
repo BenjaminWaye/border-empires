@@ -1093,7 +1093,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       const newColor = input.value.trim();
       if (currentColor && newColor !== currentColor && typeof window !== "undefined" && typeof window.confirm === "function") {
         const confirmed = window.confirm(
-          `Change your empire colour? You can only change your empire colour once per season.`
+          "Change your empire colour? You can only change your empire colour once per season."
         );
         if (!confirmed) return;
       }
