@@ -59,6 +59,9 @@ export type SlotWaivers = {
   // build-order first) need zero SUPPLY slots. A Siege Tower/Dread Tower's
   // separate IRON requirement is untouched by this waiver.
   outpostSupplySlotWaiverCount: number;
+  // Light Outpost FOOD slot waiver — the player's first N Light Outposts
+  // (earliest build-order first) need zero FOOD slots. Always 5 (built-in).
+  lightOutpostFoodSlotWaiverCount: number;
   // Treasury State — the player's first N settled towns (deterministic
   // tie-break by tile key — towns carry no founding timestamp, same
   // simplification already flagged below for dormancy ordering) each need 1
@@ -75,6 +78,7 @@ export type SlotWaivers = {
 export const emptySlotWaivers = (): SlotWaivers => ({
   fortIronSlotWaiverCount: 0,
   outpostSupplySlotWaiverCount: 0,
+  lightOutpostFoodSlotWaiverCount: 0,
   firstTownsFoodSlotWaiverCount: 0,
   allTownsFoodSlotWaiverPerTown: 0
 });
@@ -82,6 +86,7 @@ export const emptySlotWaivers = (): SlotWaivers => ({
 const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
   waivers.fortIronSlotWaiverCount <= 0 &&
   waivers.outpostSupplySlotWaiverCount <= 0 &&
+  waivers.lightOutpostFoodSlotWaiverCount <= 0 &&
   waivers.firstTownsFoodSlotWaiverCount <= 0 &&
   waivers.allTownsFoodSlotWaiverPerTown <= 0;
 
@@ -205,9 +210,13 @@ const buildDemandContributors = (
   waivers: SlotWaivers
 ): DormancyContributor[] => {
   const contributors: DormancyContributor[] = [];
+  // Track which economicStructure keys are LIGHT_OUTPOST for waiver identification below.
+  const lightOutpostKeys: Record<string, boolean> = {};
   const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
     for (const req of structureSlotRequirements(type)) {
-      contributors.push({ key: `${tileKey}:${field}`, resource: req.resource, count: req.count, activatedAt });
+      const key = `${tileKey}:${field}`;
+      contributors.push({ key, resource: req.resource, count: req.count, activatedAt });
+      if (field === "economicStructure" && type === "LIGHT_OUTPOST") lightOutpostKeys[key] = true;
     }
   };
   for (const tile of ownedTiles) {
@@ -233,10 +242,10 @@ const buildDemandContributors = (
       });
     }
   }
-  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers);
+  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, lightOutpostKeys);
 };
 
-const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers): DormancyContributor[] => {
+const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, lightOutpostKeys: Record<string, boolean> = {}): DormancyContributor[] => {
   const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeOutpost", waiveCount: number): ReadonlySet<string> => {
     if (waiveCount <= 0) return new Set();
     const activatedAtByKey = new Map<string, number>();
@@ -251,6 +260,26 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   const waivedForts = waiveEarliestStructures(":fort", waivers.fortIronSlotWaiverCount);
   const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostSupplySlotWaiverCount);
 
+  // LIGHT_OUTPOST waiver: find economicStructure keys that contain LIGHT_OUTPOST
+  // and waive the earliest ones. Track by tile key (deduplicate per-tile) with
+  // activation order matching Forts/Outposts above.
+  const waivedLightOutposts = new Set<string>();
+  if (waivers.lightOutpostFoodSlotWaiverCount > 0) {
+    const activatedAtByTileKey = new Map<string, number>();
+    for (const c of contributors) {
+      if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD") {
+        const tileKey = c.key.split(":")[0];
+        if (!activatedAtByTileKey.has(tileKey)) activatedAtByTileKey.set(tileKey, c.activatedAt);
+      }
+    }
+    const keys = [...activatedAtByTileKey.keys()].sort(
+      (a, b) => (activatedAtByTileKey.get(a) ?? 0) - (activatedAtByTileKey.get(b) ?? 0) || a.localeCompare(b)
+    );
+    for (const tileKey of keys.slice(0, waivers.lightOutpostFoodSlotWaiverCount)) {
+      waivedLightOutposts.add(`${tileKey}:economicStructure`);
+    }
+  }
+
   const townKeys = [...new Set(contributors.filter((c) => c.key.endsWith(":town")).map((c) => c.key))].sort((a, b) => a.localeCompare(b));
   const firstWaivedTownKeys = new Set(
     waivers.firstTownsFoodSlotWaiverCount > 0 ? townKeys.slice(0, waivers.firstTownsFoodSlotWaiverCount) : []
@@ -259,6 +288,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   return contributors.map((c) => {
     if (c.key.endsWith(":fort") && c.resource === "IRON" && waivedForts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":siegeOutpost") && c.resource === "SUPPLY" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD" && waivedLightOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
       if (waiver > 0) return { ...c, count: Math.max(0, c.count - waiver) };
