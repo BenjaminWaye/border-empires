@@ -129,8 +129,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Iron slot.";
   if (actionId === "build_crystal_synthesizer") return "Provides 1 Crystal slot on this support tile — hard-capped at 1, never upgradeable — for 40 gold/day upkeep. Gives a landlocked empire access without a real Crystal tile.";
   if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
-  if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
-  if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
+  if (actionId === "enable_converter_structure") return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
+  if (actionId === "disable_converter_structure") return "Disable this structure. It stops occupying resource slots, stops paying upkeep, and stops providing bonuses until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1440 gold / day per connected owned dock.";
