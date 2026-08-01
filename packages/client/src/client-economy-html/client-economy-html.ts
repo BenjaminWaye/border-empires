@@ -105,7 +105,7 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
       add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
     }
-    if (tile.economicStructure && tile.economicStructure.status !== "removing") {
+    if (tile.economicStructure && tile.economicStructure.status !== "removing" && tile.economicStructure.status !== "inactive") {
       const type = tile.economicStructure.type;
       const count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
       add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));

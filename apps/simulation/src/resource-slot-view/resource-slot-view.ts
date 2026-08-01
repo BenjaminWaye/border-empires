@@ -129,7 +129,7 @@ export const resourceSlotSupplyForPlayer = (
   //    a future pass, not attempted here.
   const totals = emptyResourceSlotTotals();
   for (const tile of settledTiles) {
-    const isActiveStructure = tile.economicStructure?.status === "active";
+    const isActiveStructure = tile.economicStructure?.status === "active" && tile.economicStructure?.inactiveReason !== "manual";
     const structureType = isActiveStructure ? (tile.economicStructure!.type as BuildableStructureType) : undefined;
 
     if (structureType && SYNTHESIZER_TYPE_SET.has(structureType)) {
@@ -223,7 +223,7 @@ const buildDemandContributors = (
     if (tile.siegeOutpost?.ownerId === playerId) {
       addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
     }
-    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
+    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type) && tile.economicStructure.inactiveReason !== "manual") {
       addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
