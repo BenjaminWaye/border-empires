@@ -124,4 +124,52 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     expect(inAreaKeys().has("10,12")).toBe(true);
     expect(inAreaKeys().has("10,13")).toBe(false);
   });
+
+  it("forming/breaking an alliance shares/withdraws the ally's town +1 ring on the streaming path", async () => {
+    const tiles: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" }> = [];
+    for (let x = 27; x <= 33; x += 1) {
+      for (let y = 27; y <= 34; y += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    tiles.push({ x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Ally", type: "FARMING", populationTier: "TOWN" } });
+
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: { tiles, activeLocks: [] }
+    });
+
+    const inAreaKeys = () =>
+      new Set(runtime.exportTilesInAreaForPlayer("player-1", 30, 30, 4).map((t) => `${t.x},${t.y}`));
+
+    // Not allied yet — player-1 shouldn't see any of player-2's territory.
+    expect(inAreaKeys().has("30,31")).toBe(false);
+    expect(inAreaKeys().has("30,32")).toBe(false);
+
+    runtime.submitCommand({
+      commandId: "sync-alliance-on", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "SYNC_ALLIANCE", payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: true })
+    });
+    await Promise.resolve();
+
+    // Allied: base territory is visible, and so is the ally town's +1 ring —
+    // this ring is stacked on top of the base footprint via a separate
+    // per-source bonus map, so alliance sync must propagate it explicitly.
+    expect(inAreaKeys().has("30,31")).toBe(true);
+    expect(inAreaKeys().has("30,32")).toBe(true);
+
+    runtime.submitCommand({
+      commandId: "sync-alliance-off", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
+      type: "SYNC_ALLIANCE", payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: false })
+    });
+    await Promise.resolve();
+
+    // Alliance broken: both the base territory and the town's +1 ring withdraw.
+    expect(inAreaKeys().has("30,31")).toBe(false);
+    expect(inAreaKeys().has("30,32")).toBe(false);
+  });
 });
