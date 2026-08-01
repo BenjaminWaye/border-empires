@@ -979,12 +979,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
           detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
           ...tileActionAvailability(
-            tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
-            tile.economicStructure.status === "under_construction"
-              ? `${economicStructureName(tile.economicStructure.type)} still building`
-              : downtimeRemainingMs > 0
-                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Needs enough gold for one upkeep tick",
+            downtimeRemainingMs <= 0,
+            downtimeRemainingMs > 0
+              ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+              : "Needs enough gold for one upkeep tick",
             isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
           )
         });

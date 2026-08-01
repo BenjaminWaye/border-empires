@@ -5,7 +5,7 @@ import {
   parseConverterTogglePayload,
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
-import { economicStructureGoldUpkeepPerInterval, isConverterStructureType } from "./runtime-structure-rules/runtime-structure-rules.js";
+import { economicStructureGoldUpkeepPerInterval } from "./runtime-structure-rules/runtime-structure-rules.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
