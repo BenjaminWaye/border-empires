@@ -184,6 +184,10 @@ export class VisibilityCoverageTracker {
   private readonly cache: VisibilityCoverageCache;
   private readonly deps: VisibilityCoverageTrackerDeps;
   private readonly radiusBySource = new Map<string, number>();
+  // Last-applied town vision bonus radius per (source, tile), so a bonus can
+  // be removed exactly — including when the source's base radius changes and
+  // the +1 ring must move outward/inward.
+  private readonly townBonusRadiusBySourceAndTile = new Map<string, Map<string, number>>();
 
   constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps, footprintTable?: VisionFootprintTable) {
     this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable);
@@ -276,10 +280,79 @@ export class VisibilityCoverageTracker {
   }
 
   /**
+   * Adds a permanent vision bonus from a specific tile (e.g. a light outpost's
+   * +5 vision). Unlike tileOwnershipChanged this does NOT go through
+   * radiusBySource — it's a flat extra footprint that stacks on top of the
+   * owner's territory-based coverage. Call removeTileVisionBonus with the exact
+   * same (x, y, bonusRadius) when the bonus source is removed.
+   */
+  addTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+  }
+
+  /** Reverses addTileVisionBonus when the vision-bonus source is removed. */
+  removeTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.removeFootprint(viewerId, x, y, bonusRadius, callbacks?.onLeave);
+  }
+
+  /**
+   * Applies the +1 "own reveal" bonus for an owned SETTLED town: a footprint
+   * of the source's base vision radius + 1 centered on the town. Because the
+   * town tile already contributes its base-radius footprint via
+   * tileOwnershipChanged, this stacked base+1 footprint (a superset) extends
+   * the town's own reveal by exactly one ring. Reuses the refcounted coverage
+   * cache so streaming tile-deltas stay consistent with the full-export path.
+   *
+   * Unlike the caller-managed addTileVisionBonus, the applied radius is
+   * tracked per (source, tile) so a base-radius change (tech/observatory) can
+   * move the +1 ring outward/inward by re-calling with the new radius. Applies
+   * to the source and its current allies, mirroring territory-based coverage.
+   */
+  setTownVisionBonus(sourceId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(sourceId)) return;
+    const tileKey = simulationTileKey(x, y);
+    const existing = this.townBonusRadiusBySourceAndTile.get(sourceId)?.get(tileKey);
+    if (existing === bonusRadius) return;
+    for (const viewerId of this.viewersForSource(sourceId)) {
+      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
+      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+    }
+    let byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
+    if (!byTile) {
+      byTile = new Map();
+      this.townBonusRadiusBySourceAndTile.set(sourceId, byTile);
+    }
+    byTile.set(tileKey, bonusRadius);
+  }
+
+  /** Reverses setTownVisionBonus when a tile stops being an owned town. */
+  removeTownVisionBonus(sourceId: string, x: number, y: number, callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(sourceId)) return;
+    const tileKey = simulationTileKey(x, y);
+    const byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
+    const existing = byTile?.get(tileKey);
+    if (existing === undefined) return;
+    for (const viewerId of this.viewersForSource(sourceId)) {
+      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
+    }
+    byTile!.delete(tileKey);
+    if (byTile!.size === 0) this.townBonusRadiusBySourceAndTile.delete(sourceId);
+  }
+
+  /**
    * Call when two players become or stop being allies. Adds/removes each
    * side's entire current territory footprint to/from the other's coverage —
    * O(territory × radius²) once per alliance change (rare), instead of any
    * per-tile cost on the hot capture/loss path.
+   *
+   * Also adds/removes each side's town +1 vision-bonus rings (see
+   * setTownVisionBonus) to/from the other's coverage. Those rings are stacked
+   * on top of the base territory footprint above and are keyed per-source in
+   * townBonusRadiusBySourceAndTile, so they don't get swept in by
+   * addSourceContribution/removeSourceContribution — without this they'd only
+   * reach a new ally once some unrelated tile event happened to touch the town.
    */
   syncAllianceChange(actorId: string, targetId: string, allied: boolean, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(actorId) || this.isBarbarian(targetId)) return;
@@ -290,9 +363,36 @@ export class VisibilityCoverageTracker {
     if (allied) {
       this.cache.addSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onEnter);
       this.cache.addSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onEnter);
+      this.applyTownBonusesToViewer(actorId, targetId, callbacks?.onEnter);
+      this.applyTownBonusesToViewer(targetId, actorId, callbacks?.onEnter);
     } else {
       this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onLeave);
       this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onLeave);
+      this.applyTownBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
+      this.applyTownBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
+    }
+  }
+
+  /**
+   * Adds (onEnter set) or removes (onLeave set) every currently-tracked town
+   * vision-bonus footprint of `sourceId` to/from `viewerId`'s coverage. Used
+   * by syncAllianceChange to keep a source's town rings in sync with its
+   * current ally set, mirroring what setTownVisionBonus/removeTownVisionBonus
+   * already do for viewersForSource(sourceId) on every town add/remove/resync.
+   */
+  private applyTownBonusesToViewer(
+    sourceId: string,
+    viewerId: string,
+    onEnter?: (viewerId: string, tileKey: string) => void,
+    onLeave?: (viewerId: string, tileKey: string) => void
+  ): void {
+    const byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
+    if (!byTile) return;
+    for (const [tileKey, radius] of byTile) {
+      const parsed = parseTileKey(tileKey);
+      if (!parsed) continue;
+      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter);
+      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave);
     }
   }
 }

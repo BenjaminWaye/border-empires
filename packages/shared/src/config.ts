@@ -30,14 +30,14 @@ export const FOREST_VISION_RANGE = 1;
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 3_000;
-export const FRONTIER_CLAIM_COST = 1;
+export const FRONTIER_CLAIM_COST = 0;
 export const FRONTIER_CLAIM_MS = 1_250;
 export const FOREST_FRONTIER_CLAIM_MULT = 4;
 // Additive (not multiplicative like the forest claim mult above) — hills
 // aren't as slow to break ground on as dense forest, just a bit rougher.
 // See isHillsTileAt usage in runtime-frontier-command.ts.
 export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 1_500;
-export const SETTLE_COST = 4;
+export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**
  * AI-only reserve: the automatic per-tick frontier auto-claim (see
@@ -162,6 +162,7 @@ export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
 export const ECONOMIC_STRUCTURE_REMOVE_MS = 5 * 60_000;
 export const LIGHT_OUTPOST_BUILD_MS = 60_000;
 export const LIGHT_OUTPOST_ATTACK_MULT = 1.25;
+export const LIGHT_OUTPOST_VISION_BONUS = 5;
 export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;

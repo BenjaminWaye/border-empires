@@ -114,6 +114,7 @@ import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, que
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -469,6 +470,43 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const optimisticStructureBuildForAction = (actionId: TileActionDef["id"], tile: Tile, kind: OptimisticStructureKind) => (): void => {
     if (!shouldOptimisticallyBuildOnSelectedTile(actionId, tile)) return;
     applyOptimisticStructureBuild(tile.x, tile.y, kind);
+  };
+
+  const sendLightOutpostBuild = (x: number, y: number): void => {
+    sendDevelopmentBuild(
+      { type: "BUILD_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" },
+      () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"),
+      { x, y, label: `Light Outpost at (${x}, ${y})`, optimisticKind: "LIGHT_OUTPOST" }
+    );
+  };
+
+  // Checked on the runtime loop's periodic tick: when waypoint reaches a target
+  // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
+  const processAutoSettleTargets = (): void => {
+    if (state.autoSettleTargets.size === 0) return;
+    for (const targetKey of [...state.autoSettleTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
+        state.autoSettleTargets.delete(targetKey);
+        requestSettlement(tile.x, tile.y);
+      }
+    }
+  };
+
+  // Checked on the runtime loop's periodic tick: once a tile queued via the
+  // Light Outpost frontier action finishes settling, fire the build
+  // automatically so the user doesn't have to reopen the tile menu.
+  const processAutoBuildLightOutpostTargets = (): void => {
+    if (state.autoBuildLightOutpostTargets.size === 0) return;
+    for (const targetKey of [...state.autoBuildLightOutpostTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
+        state.autoBuildLightOutpostTargets.delete(targetKey);
+        if (!tile.economicStructure) sendLightOutpostBuild(tile.x, tile.y);
+      }
+    }
   };
 
   const processDevelopmentQueue = (): boolean =>
@@ -1544,6 +1582,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         label: `${siegeVariantLabel} at (${selected.x}, ${selected.y})`,
         optimisticKind: "SIEGE_OUTPOST"
       });
+    if (actionId === "build_light_outpost_frontier") {
+      if (selected && !selected.ownerId) {
+        const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+        if (!plan.reachable) {
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No expansion path to that tile.");
+        } else {
+          const targetKey = keyFor(selected.x, selected.y);
+          // Drive the frontier over via the same waypoint mechanism as
+          // "Expand Here" — it advances one owned-adjacent hop at a time so
+          // the claimed chain always stays connected. Once ownership is
+          // reached, auto-settle then auto-build pick up the baton.
+          state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+          state.autoSettleTargets.add(targetKey);
+          state.autoBuildLightOutpostTargets.add(targetKey);
+          const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";
+          pushFeed(`Expanding to Light Outpost site at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
+          processActionQueue();
+        }
+      }
+      hideTileActionMenu();
+      return;
+    }
     if (actionId === "build_light_outpost")
       sendDevelopmentBuild(
         { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "LIGHT_OUTPOST" },
@@ -1867,6 +1927,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     reconcileActionQueue, processPendingMusterAttacks,
     requestSettlement,
     sendDevelopmentBuild,
+    sendLightOutpostBuild,
+    processAutoSettleTargets,
+    processAutoBuildLightOutpostTargets,
     processDevelopmentQueue,
     processActionQueue,
     applyCombatOutcomeMessage,

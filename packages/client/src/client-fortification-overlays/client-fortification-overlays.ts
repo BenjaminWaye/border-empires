@@ -1,6 +1,6 @@
 import type { Tile } from "../client-types.js";
 
-export type FortificationOverlayKind = "FORT" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST";
+export type FortificationOverlayKind = "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
 type FortificationOverlayDeps = {
@@ -19,7 +19,12 @@ const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: Exclude<Fortifica
 
 export const fortificationOverlayKindForTile = (tile: Tile | undefined): FortificationOverlayKind | undefined => {
   if (!tile) return undefined;
-  if (tile.fort) return "FORT";
+  if (tile.fort) {
+    const variant = tile.fort.variant;
+    if (variant === "IRON_BASTION") return "IRON_BASTION";
+    if (variant === "THUNDER_BASTION") return "THUNDER_BASTION";
+    return "FORT";
+  }
   if (tile.siegeOutpost) return "SIEGE_OUTPOST";
   if (tile.economicStructure?.type === "WOODEN_FORT") return "WOODEN_FORT";
   if (tile.economicStructure?.type === "LIGHT_OUTPOST") return "LIGHT_OUTPOST";

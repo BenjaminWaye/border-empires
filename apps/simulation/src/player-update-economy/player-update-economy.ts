@@ -20,7 +20,6 @@ import {
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
@@ -28,8 +27,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -147,8 +145,14 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
     case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
     case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
-    case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
+    case "WOODEN_FORT": return { FOOD: 0.1 };
+    case "LIGHT_OUTPOST": return { FOOD: 0.1 };
+    case "FORT": return { IRON: 0.1, FOOD: 0.1 };
+    case "IRON_BASTION": return { IRON: 0.2, FOOD: 0.1 };
+    case "THUNDER_BASTION": return { IRON: 0.4, FOOD: 0.1 };
+    case "SIEGE_OUTPOST": return { SUPPLY: 0.1, FOOD: 0.1 };
+    case "SIEGE_TOWER": return { SUPPLY: 0.2, FOOD: 0.1 };
+    case "DREAD_TOWER": return { SUPPLY: 0.3, FOOD: 0.1 };
     case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
@@ -358,6 +362,13 @@ export const buildPlayerUpdateEconomySnapshot = (
   const supplySources = new Map<string, EconomyBucket>();
   const supplySinks = new Map<string, EconomyBucket>();
   const shardSources = new Map<string, EconomyBucket>();
+  const addUpkeepSinks = (label: string, upkeep: Partial<Record<EconomyResourceKey, number>>): void => {
+    if (upkeep.GOLD) addBucket(goldSinks, label, upkeep.GOLD, { count: 1 });
+    if (upkeep.FOOD) addBucket(foodSinks, label, upkeep.FOOD, { count: 1 });
+    if (upkeep.CRYSTAL) addBucket(crystalSinks, label, upkeep.CRYSTAL, { count: 1 });
+    if (upkeep.IRON) addBucket(ironSinks, label, upkeep.IRON, { count: 1 });
+    if (upkeep.SUPPLY) addBucket(supplySinks, label, upkeep.SUPPLY, { count: 1 });
+  };
   const dockEconomyContext = dockContext
     ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey, dormantEconomicStructureKeys }
     : undefined;
@@ -413,24 +424,19 @@ export const buildPlayerUpdateEconomySnapshot = (
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
       goldCapIncomePerMinute += dockGoldPerMinute * dockGoldCapMult;
     }
-    // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
-    // Observatory (CRYSTAL slot) no longer carry a separate per-minute
-    // flow drain — the slot occupation itself is the upkeep, so no bucket
-    // is added here. The fortGoldUpkeepMult/fortIronUpkeepMult/
-    // outpostSupplyUpkeepMult domain effects (Dwarf Kingdom/Fortress
-    // Realm/Supply State) are now fully inert — their only consumer was
-    // this removed upkeep; §23.2 (docs/manpower-economy-rewrite-plan.md)
-    // still needs its own redesign into count-based slot waivers.
+    // Observatory's CRYSTAL slot is still its only upkeep; Fort/Siege Outpost now also drain FOOD + their resource (below).
     const structure = tile.economicStructure;
     if (structure?.ownerId === player.id && structure.status === "active") {
-      const upkeep = structureUpkeepPerMinute(structure.type);
-      if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
-      if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
-      if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
+      addUpkeepSinks(structure.type, structureUpkeepPerMinute(structure.type));
       const output = converterOutputPerMinute(structure.type);
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+    }
+    for (const military of [tile.fort, tile.siegeOutpost]) {
+      if (military?.ownerId === player.id && military.status === "active" && military.variant) {
+        addUpkeepSinks(military.variant, structureUpkeepPerMinute(military.variant));
+      }
     }
   }
 

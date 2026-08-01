@@ -102,8 +102,9 @@ export const structureOverlayImages = {
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
   WORLD_ENGINE: loadOverlayImage("world-engine-overlay.svg")
 } as const;
+const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for IRON_BASTION/THUNDER_BASTION (3D-only art)
 const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
-  FORT: createDirectionalOverlaySet("fort-ring-overlay"),
+  FORT: fortRingOverlaySet, IRON_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
   SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
   WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
   LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")

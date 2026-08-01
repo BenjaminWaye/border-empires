@@ -347,6 +347,7 @@ import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runti
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
+import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -836,6 +837,8 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
+      // Seed town +1 vision for any player-owned town present at boot.
+      seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1166,7 +1169,7 @@ export class SimulationRuntime {
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.localSupportScore));
+            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
           }
         : undefined,
       foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
@@ -1694,7 +1697,7 @@ export class SimulationRuntime {
         // emitPlayerStateUpdate will emit the corrected value in the same tick.
         const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
         if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.localSupportScore));
+          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
         }
       }
       const settledTiles = this.settledTilesForPlayer(player.id);
@@ -1952,6 +1955,7 @@ export class SimulationRuntime {
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     if (!sameOwner && tile.naturalWonder) { if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3740,6 +3744,7 @@ export class SimulationRuntime {
         // inflates connectedTownCount for towns on either side.
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+        reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3762,7 +3767,11 @@ export class SimulationRuntime {
         this.manpowerStructureBonusCacheByPlayer.delete(playerId);
       },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
+      resyncVisionRadius: (playerId) => {
+        this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
+        // A base-radius change also moves every owned town's +1 reveal ring.
+        resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
+      },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
@@ -4252,6 +4261,8 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
+      addStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.applyStructureVisionBonus(ownerId, targetKey, bonusRadius),
+      removeStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.removeStructureVisionBonus(ownerId, targetKey, bonusRadius),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
@@ -4301,6 +4312,24 @@ export class SimulationRuntime {
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
     completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
+  }
+
+  private applyStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
+    const separator = targetKey.indexOf(",");
+    if (separator < 0) return;
+    const x = Number(targetKey.slice(0, separator));
+    const y = Number(targetKey.slice(separator + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
+    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
+  }
+
+  private removeStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
+    const separator = targetKey.indexOf(",");
+    if (separator < 0) return;
+    const x = Number(targetKey.slice(0, separator));
+    const y = Number(targetKey.slice(separator + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
+    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {

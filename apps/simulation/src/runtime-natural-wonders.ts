@@ -68,3 +68,14 @@ export const stampQuickforgeRushUse = (player: RuntimePlayer | undefined, nowMs:
   if (!player) return;
   player.wonderLastFreeRushBuyAt = Math.floor(nowMs / 86_400_000) * 86_400_000;
 };
+
+// Deepwater Engine: attacks originating from a dock tile the attacker owns
+// get the wonder's attack multiplier; everything else is unaffected.
+export const dockAttackMultiplierForOrigin = (
+  attacker: RuntimePlayer | undefined,
+  originTile: DomainTileState | undefined,
+  playerId: string
+): number | undefined =>
+  attacker?.wonderDockAttackMultiplier && originTile?.dockId && originTile.ownerId === playerId
+    ? attacker.wonderDockAttackMultiplier
+    : undefined;

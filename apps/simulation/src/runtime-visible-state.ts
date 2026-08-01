@@ -124,6 +124,18 @@ export function exportBarbActivationVisibleUnion(input: {
       if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
       radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius);
     }
+    // Owned SETTLED towns reveal one extra ring (radius+1), matching the
+    // full-export VisionExpansionCache so barb-activation eligibility stays
+    // consistent with what the player actually sees.
+    for (const [townKey, tier] of summary.ownedTownTierByTile) {
+      if (tier === "SETTLEMENT") continue;
+      const [rawX, rawY] = townKey.split(",");
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius + 1);
+      if (radius + 1 > maxRadius) maxRadius = radius + 1;
+    }
   }
 
   const union = new Set<string>();

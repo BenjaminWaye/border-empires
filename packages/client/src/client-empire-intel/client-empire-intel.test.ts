@@ -35,7 +35,7 @@ describe("empire intel rendering", () => {
   });
 
   it("keeps the compact feed summary", () => {
-    expect(revealEmpireStatsFeedText(stats)).toContain("12.5/m");
+    expect(revealEmpireStatsFeedText(stats)).toContain("18000.0/day");
     expect(revealEmpireStatsFeedText(stats)).toContain("24 tiles");
   });
 });
