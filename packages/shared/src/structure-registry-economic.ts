@@ -248,9 +248,10 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   }),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
-  // §12.1: the IRON slot occupation is its upkeep now, no gold drain.
+  // Food upkeep only (0.1/min) — no gold drain.
   WOODEN_FORT: econSpec("WOODEN_FORT", 0, {
     manpower: 30,
     buildMs: WOODEN_FORT_BUILD_MS,
+    upkeep: [{ label: "Food upkeep", perMinute: { FOOD: 0.1 } }],
   }),
 };
