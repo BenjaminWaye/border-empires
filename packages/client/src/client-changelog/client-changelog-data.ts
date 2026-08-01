@@ -327,8 +327,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Towns reveal one extra tile of vision",
     why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
     changes: [
-      "Every SETTLED town tile (TOWN and above) now reveals its surroundings one tile further than a plain owned tile — its own reveal is radius+1.",
-      "Settlements (SETTLEMENT tier) are unchanged and do not grant the extra ring.",
+      "Every SETTLED town tile — including a freshly-founded SETTLEMENT — now reveals its surroundings one tile further than a plain owned tile; its own reveal is radius+1.",
       "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
     ]
   },

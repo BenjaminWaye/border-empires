@@ -49,7 +49,7 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     expect(keys.has("10,13")).toBe(false);
   });
 
-  it("a SETTLEMENT tile does not grant the +1 reveal", () => {
+  it("a SETTLEMENT tile also grants the +1 reveal", () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" }> = [];
     for (let x = 7; x <= 13; x += 1) {
       for (let y = 7; y <= 14; y += 1) {
@@ -65,7 +65,8 @@ describe("SimulationRuntime town +1 vision reveal", () => {
 
     const keys = visibleTileKeys(runtime, "player-1");
     expect(keys.has("10,11")).toBe(true); // base radius
-    expect(keys.has("10,12")).toBe(false); // no +1 ring for settlements
+    expect(keys.has("10,12")).toBe(true); // +1 ring applies to settlements too
+    expect(keys.has("10,13")).toBe(false); // outside even the +1 ring
   });
 
   it("an ally's SETTLED town reveal is visible to the player", () => {
@@ -89,7 +90,7 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     expect(keys.has("30,32")).toBe(true);
   });
 
-  it("upgrading a SETTLEMENT to a TOWN grants the +1 reveal on the streaming path", async () => {
+  it("a SETTLEMENT already grants the +1 reveal on the streaming path, unchanged by upgrading to a TOWN", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED"; resource?: "FISH" }> = [];
     for (let x = 7; x <= 13; x += 1) {
       for (let y = 7; y <= 14; y += 1) {
@@ -111,8 +112,9 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     const inAreaKeys = () =>
       new Set(runtime.exportTilesInAreaForPlayer("player-1", 10, 10, 3).map((t) => `${t.x},${t.y}`));
 
-    // Settlement reveals only base radius → the +1 ring is not visible yet.
-    expect(inAreaKeys().has("10,12")).toBe(false);
+    // The SETTLEMENT's +1 ring is already visible on the streaming path at boot.
+    expect(inAreaKeys().has("10,12")).toBe(true);
+    expect(inAreaKeys().has("10,13")).toBe(false);
 
     runtime.submitCommand({
       commandId: "upgrade-town", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
@@ -120,7 +122,7 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     });
     await Promise.resolve();
 
-    // After the upgrade the town's +1 ring is visible on the streaming path.
+    // The ring is unaffected by the tier upgrade — still exactly one ring out.
     expect(inAreaKeys().has("10,12")).toBe(true);
     expect(inAreaKeys().has("10,13")).toBe(false);
   });
