@@ -2645,7 +2645,25 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 return;
               }
             }
-            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId);
+            // Color changes are also throttled to once per season for completed profiles.
+            const isColorChange = existingProfile?.profileComplete === true && !colorUnchanged;
+            let colorChangedSeasonId: string | undefined;
+            if (isColorChange) {
+              try {
+                colorChangedSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
+              } catch {
+                colorChangedSeasonId = undefined;
+              }
+              if (colorChangedSeasonId && existingProfile?.colorChangedSeasonId === colorChangedSeasonId) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "COLOR_LIMIT",
+                  message: "You can only change your empire colour once per season. Try again next season."
+                });
+                return;
+              }
+            }
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
