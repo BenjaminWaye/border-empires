@@ -73,11 +73,11 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
       tile({ x: 2, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
       tile({ x: 3, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })
     ];
-    // Unwaived: 4 towns * 2 FOOD = 8.
-    expect(resourceSlotDemandForPlayer(tiles, "p1").FOOD).toBe(8);
+    // Unwaived: 4 towns * 4 FOOD = 16.
+    expect(resourceSlotDemandForPlayer(tiles, "p1").FOOD).toBe(16);
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), firstTownsFoodSlotWaiverCount: 3 });
-    // First 3 (by tile-key order "0,0" < "1,0" < "2,0" < "3,0") drop to 1 FOOD each, 4th stays at 2.
-    expect(waived.FOOD).toBe(1 + 1 + 1 + 2);
+    // First 3 (by tile-key order "0,0" < "1,0" < "2,0" < "3,0") drop to 3 FOOD each, 4th stays at 4.
+    expect(waived.FOOD).toBe(3 + 3 + 3 + 4);
   });
 
   it("allTownsFoodSlotWaiverPerTown reduces every town by 1, uncapped", () => {
@@ -86,7 +86,7 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
       tile({ x: 1, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })
     ];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), allTownsFoodSlotWaiverPerTown: 1 });
-    expect(waived.FOOD).toBe(1 + 1);
+    expect(waived.FOOD).toBe(3 + 3);
   });
 
   it("combining firstTownsFoodSlotWaiverCount and allTownsFoodSlotWaiverPerTown takes the max per town, not the sum", () => {
@@ -97,8 +97,8 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
       firstTownsFoodSlotWaiverCount: 1,
       allTownsFoodSlotWaiverPerTown: 1
     });
-    // Base town FOOD demand is 2; both waivers independently say "1 fewer" -> stays at 1, not 0.
-    expect(waived.FOOD).toBe(1);
+    // Base town FOOD demand is 4; both waivers independently say "1 fewer" -> stays at 3, not 0.
+    expect(waived.FOOD).toBe(3);
   });
 
   it("a waiver never drives demand negative", () => {

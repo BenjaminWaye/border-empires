@@ -8,6 +8,17 @@ import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { VisionExpansionCache } from "./vision-expansion-cache.js";
 
+// Owned SETTLED town tiles (populationTier above SETTLEMENT) each reveal one
+// extra ring (radius+1) around themselves. Settlements are deliberately
+// excluded — only real towns grant the +1 reveal.
+const settledTownTileKeysFor = (summary: PlayerRuntimeSummary): ReadonlySet<string> => {
+  const keys = new Set<string>();
+  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
+    if (tier !== "SETTLEMENT") keys.add(tileKey);
+  }
+  return keys;
+};
+
 export type RuntimeVisibilityClassification = {
   radiusSelfKeys: ReadonlySet<string>;
   radiusAllyKeys: Map<string, ReadonlySet<string>>;
@@ -51,19 +62,22 @@ export const classifyVisibilityForPlayer = (input: {
       primarySummary.territoryTileKeys,
       primaryPlayer.mods?.vision ?? 1,
       visionRadiusBonusForPlayer(primaryPlayer),
-      input.tileCollectionVersionForPlayer(input.playerId)
+      input.tileCollectionVersionForPlayer(input.playerId),
+      settledTownTileKeysFor(primarySummary)
     );
     for (const key of radiusSelfKeys) fullVisionKeys.add(key);
     for (const allyId of primaryPlayer.allies) {
       const ally = input.players.get(allyId);
       if (!ally) continue;
       input.applyManpowerRegen(ally);
+      const allySummary = input.summaryForPlayer(allyId);
       const allyKeys = input.visionExpansionCache.getOrCompute(
         allyId,
-        input.summaryForPlayer(allyId).territoryTileKeys,
+        allySummary.territoryTileKeys,
         ally.mods?.vision ?? 1,
         visionRadiusBonusForPlayer(ally),
-        input.tileCollectionVersionForPlayer(allyId)
+        input.tileCollectionVersionForPlayer(allyId),
+        settledTownTileKeysFor(allySummary)
       );
       radiusAllyKeys.set(allyId, allyKeys);
       for (const key of allyKeys) fullVisionKeys.add(key);
