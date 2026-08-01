@@ -13,7 +13,7 @@ import {
   ShaderMaterial,
   TorusGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -28,12 +28,7 @@ const uCyan = { value: new Color(0x40d8ff) };
 
 const groundMat = (): ShaderMaterial =>
   new ShaderMaterial({
-    uniforms: {
-      uTime,
-      uCyan,
-      uStone: { value: new Color(0x141210) },
-      uBrass: { value: new Color(0x1e1a10) },
-    },
+    uniforms: { uTime, uCyan },
     vertexShader: `
       varying vec3 vWorldPos;
       void main() {
@@ -44,19 +39,19 @@ const groundMat = (): ShaderMaterial =>
     `,
     fragmentShader: `
       uniform float uTime;
-      uniform vec3 uCyan, uStone, uBrass;
+      uniform vec3 uCyan;
       varying vec3 vWorldPos;
-      float hash(vec2 p) { p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
       void main() {
         vec2 p = vWorldPos.xz;
-        float n = hash(floor(p*4.0))*0.3;
-        vec3 base = mix(uStone, uBrass, n);
-        float beam = abs(dot(normalize(p), vec2(sin(uTime*0.5), cos(uTime*0.5))));
-        beam = pow(beam, 16.0)*0.2;
-        base += uCyan * beam * exp(-length(p)*0.5);
-        gl_FragColor = vec4(base, 1.0);
+        float dist = length(p);
+        float pulse = sin(uTime*1.0)*0.15+0.85;
+        float glow = exp(-dist*1.2)*0.7*pulse;
+        float alpha = clamp(glow*1.4, 0.0, 1.0) * smoothstep(1.5, 1.0, dist);
+        gl_FragColor = vec4(uCyan*1.4, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Brass telescope shader ───────────────────────────────── */
@@ -179,11 +174,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#040610" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's beam-sweep ground glow layered
+  // on top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const bm = brassMat();
@@ -245,6 +243,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       bm.dispose(); bm2.dispose();

@@ -13,7 +13,7 @@ import {
   RingGeometry,
   ShaderMaterial,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -27,11 +27,7 @@ const uTime = { value: 0 };
 
 const groundMat = (): ShaderMaterial =>
   new ShaderMaterial({
-    uniforms: {
-      uTime,
-      uDark: { value: new Color(0x080a10) },
-      uGrid: { value: new Color(0x182030) },
-    },
+    uniforms: { uTime, uGrid: { value: new Color(0xc89830) } },
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vWorldPos;
@@ -44,26 +40,25 @@ const groundMat = (): ShaderMaterial =>
     `,
     fragmentShader: `
       uniform float uTime;
-      uniform vec3 uDark, uGrid;
+      uniform vec3 uGrid;
       varying vec2 vUv;
       varying vec3 vWorldPos;
       void main() {
         vec2 p = vWorldPos.xz;
+        float dist = length(p);
         // Map-like grid lines
         float gx = smoothstep(0.015, 0.0, abs(fract(p.x*3.0)-0.5)-0.485);
         float gy = smoothstep(0.015, 0.0, abs(fract(p.y*3.0)-0.5)-0.485);
         float grid = max(gx, gy);
-        vec3 base = mix(uDark, uGrid, grid*0.4);
-        // Faint compass rose at center
-        float dist = length(p);
-        float rose = smoothstep(0.4, 0.38, dist) - smoothstep(0.38, 0.35, dist);
-        rose *= step(0.35, dist);
-        float angle = atan(p.y, p.x);
-        rose *= max(sin(angle*4.0), 0.0);
-        base += vec3(0.15, 0.12, 0.08) * rose * 0.3;
-        gl_FragColor = vec4(base, 1.0);
+        // Compass ring at center
+        float ring = smoothstep(0.4, 0.38, dist) - smoothstep(0.38, 0.35, dist);
+        float fade = smoothstep(1.5, 1.0, dist);
+        float alpha = clamp(grid*0.5 + ring*0.8, 0.0, 1.0) * fade;
+        gl_FragColor = vec4(uGrid, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Brass ring shader ────────────────────────────────────── */
@@ -200,11 +195,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#040608" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's map-grid + compass-rose effect
+  // layered on top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(12, 12, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const bm = brassMat();
@@ -302,6 +300,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       bm.dispose(); pm.dispose(); lensMat.dispose();

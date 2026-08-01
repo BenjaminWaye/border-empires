@@ -12,7 +12,7 @@ import {
   ShaderMaterial,
   BoxGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -52,16 +52,20 @@ const groundMat = (): ShaderMaterial =>
       }
       void main() {
         vec2 p = vWorldPos.xz;
+        float dist = length(p);
         float n = noise(p*4.0)*0.6+noise(p*9.0)*0.2;
-        vec3 base = mix(uDark, uCrack, n);
-        float impact = exp(-length(p)*2.0)*0.6;
+        vec3 scorch = mix(uDark, uCrack, n);
+        float impact = exp(-dist*1.4)*0.7;
         float pulse = sin(uTime*3.0)*0.15+0.85;
-        base += uOrange * impact * pulse;
+        vec3 color = scorch + uOrange * impact * pulse;
         float crack = smoothstep(0.7,0.75,n)*0.3;
-        base += uOrange*0.4*crack*pulse;
-        gl_FragColor = vec4(base, 1.0);
+        color += uOrange*0.4*crack*pulse;
+        float alpha = clamp(impact*1.4 + crack*1.2, 0.0, 1.0) * smoothstep(1.5, 1.0, dist);
+        gl_FragColor = vec4(color, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Iron material shader ─────────────────────────────────── */
@@ -153,11 +157,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#080504" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's scorched-earth effect layered on
+  // top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const im = ironMat();
@@ -229,6 +236,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       im.dispose();

@@ -14,7 +14,7 @@ import {
   RingGeometry,
   ShaderMaterial,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -29,12 +29,7 @@ const uBrass = { value: new Color(0xd4a540) };
 
 const groundMat = (): ShaderMaterial =>
   new ShaderMaterial({
-    uniforms: {
-      uTime,
-      uBrass,
-      uDark: { value: new Color(0x100e08) },
-      uPlate: { value: new Color(0x1e1a10) },
-    },
+    uniforms: { uTime, uBrass },
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vWorldPos;
@@ -47,25 +42,28 @@ const groundMat = (): ShaderMaterial =>
     `,
     fragmentShader: `
       uniform float uTime;
-      uniform vec3 uBrass, uDark, uPlate;
+      uniform vec3 uBrass;
       varying vec2 vUv;
       varying vec3 vWorldPos;
       float hash(vec2 p) { p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
       void main() {
         vec2 p = vWorldPos.xz;
+        float dist = length(p);
         // Grid lines (engraved circuits)
         float gx = smoothstep(0.02, 0.0, abs(fract(p.x*2.0)-0.5)-0.48);
         float gy = smoothstep(0.02, 0.0, abs(fract(p.y*2.0)-0.5)-0.48);
-        float grid = max(gx, gy)*0.3;
+        float grid = max(gx, gy);
         // Scrolling light along grid
         float scroll = sin(p.x*4.0+uTime*1.5)*sin(p.y*4.0-uTime*0.8)*0.5+0.5;
         scroll *= grid*2.0;
-        vec3 base = mix(uDark, uPlate, 0.3);
-        base += uBrass * grid * 0.3;
-        base += uBrass * scroll * 0.15;
-        gl_FragColor = vec4(base, 1.0);
+        vec3 color = uBrass * (0.6 + scroll*0.4);
+        float fade = smoothstep(1.5, 1.0, dist);
+        float alpha = grid * (0.55 + scroll*0.3) * fade;
+        gl_FragColor = vec4(color, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Brass frame shader ───────────────────────────────────── */
@@ -195,11 +193,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#080604" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's engraved-circuit effect layered
+  // on top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const bm = brassMat();
@@ -262,6 +263,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       bm.dispose(); gl.dispose();
