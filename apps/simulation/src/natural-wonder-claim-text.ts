@@ -42,7 +42,7 @@ const NATURAL_WONDER_CLAIM_TEXT: Record<NaturalWonderType, { name: string; flavo
   WATCHTOWER_ENGINE: {
     name: "the Watchtower Engine",
     flavor: "a brass telescope sweeps a cyan aether beam slowly across the night sky",
-    boon: "acts as a free Observatory — cast crystal abilities with no CRYSTAL upkeep"
+    boon: "acts as a free Observatory with +10 cast radius, no CRYSTAL upkeep"
   },
   CARTOGRAPHERS_LENS: {
     name: "the Cartographer's Lens",

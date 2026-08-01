@@ -141,10 +141,13 @@ red-hot forge glow.
 
 **Effect:** The wonder tile itself acts as a fully-functional Observatory for
 its controller — eligible to cast crystal abilities (Aether Lance, Reveal
-Empire, Aether Bridge, Aether Wall, ...) at the standard Observatory cast
-radius (20 base) and cooldown, but exempt from the CRYSTAL slot upkeep a
-built Observatory requires. A player with zero built Observatories can still
-cast crystal abilities as long as they hold this wonder.
+Empire, Aether Bridge, Aether Wall, ...) at the standard Observatory cooldown,
+but exempt from the CRYSTAL slot upkeep a built Observatory requires. A
+player with zero built Observatories can still cast crystal abilities as
+long as they hold this wonder. Its cast radius is a fixed base (20) + 10 =
+30 — a flat bonus over an untouched Observatory that does NOT stack with
+observatory-range tech/domain effects (those only apply to actually-built
+Observatories).
 
 **Spawn:** DEEP_FOREST region. LAND tile.
 

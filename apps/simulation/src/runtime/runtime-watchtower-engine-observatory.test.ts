@@ -89,6 +89,79 @@ describe("Watchtower Engine acts as an Observatory", () => {
     }));
   });
 
+  it("reaches a target beyond a base (untechd) Observatory's range", async () => {
+    // Base OBSERVATORY_CAST_RADIUS is 20; the wonder's fixed +10 puts it at
+    // 30. A target at distance 25 is out of reach for a plain, tech-free
+    // Observatory but within the wonder's fixed range.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires"]) })],
+        ["player-2", buildAiOpponent()]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", naturalWonder: { type: "WATCHTOWER_ENGINE" } },
+          { x: 25, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ] as never,
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "lance-far",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 25, y: 0 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "lance-far" }));
+  });
+
+  it("does NOT stack its fixed +10 with observatory-range techs", async () => {
+    // beacon-towers + grand-cartography each grant observatoryRangeBonus: 5,
+    // which would put a REAL Observatory at 20+10=30. If the wonder's range
+    // stacked with tech it would reach 30+10=40; it must not — a target at
+    // distance 35 (beyond the wonder's fixed 30, but within what a
+    // "tech-boosted observatory + 10" would wrongly reach) must be rejected.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires", "beacon-towers", "grand-cartography"]) })],
+        ["player-2", buildAiOpponent()]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", naturalWonder: { type: "WATCHTOWER_ENGINE" } },
+          { x: 35, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ] as never,
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "lance-too-far",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 35, y: 0 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "lance-too-far",
+      code: "AETHER_LANCE_INVALID",
+      message: "no ready observatory in range"
+    }));
+  });
+
   it("rejects a REMOVE_STRUCTURE attempt against the wonder's observatory", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
