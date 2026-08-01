@@ -268,7 +268,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
     const activatedAtByTileKey = new Map<string, number>();
     for (const c of contributors) {
       if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD") {
-        const tileKey = c.key.split(":")[0];
+        const tileKey = c.key.slice(0, c.key.length - ":economicStructure".length);
         if (!activatedAtByTileKey.has(tileKey)) activatedAtByTileKey.set(tileKey, c.activatedAt);
       }
     }

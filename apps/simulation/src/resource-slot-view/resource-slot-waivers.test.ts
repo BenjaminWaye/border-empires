@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
 import { emptySlotWaivers, resourceSlotDemandForPlayer, resourceSlotDormantContributorsForPlayer } from "./resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 
@@ -36,8 +37,11 @@ describe("§23.2 slot waivers — tech-domain-bridge wiring", () => {
     expect(slotWaiversForPlayer(enduring).allTownsFoodSlotWaiverPerTown).toBe(1);
   });
 
-  it("a player with no relevant tech/domain gets an all-zero waiver set", () => {
-    expect(slotWaiversForPlayer({ techIds: new Set(), domainIds: new Set() })).toEqual(emptySlotWaivers());
+  it("a player with no relevant tech/domain gets an all-zero waiver set except the built-in Light Outpost waiver", () => {
+    expect(slotWaiversForPlayer({ techIds: new Set(), domainIds: new Set() })).toEqual({
+      ...emptySlotWaivers(),
+      lightOutpostFoodSlotWaiverCount: LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT
+    });
   });
 });
 
@@ -105,6 +109,29 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
     const tiles = [tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } })];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), fortIronSlotWaiverCount: 99 });
     expect(waived.IRON).toBe(0);
+  });
+
+  it("lightOutpostFoodSlotWaiverCount waives FOOD for the earliest-built N Light Outposts, leaving later ones charged", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST", status: "active", activatedAt: 100 } }),
+      tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST", status: "active", activatedAt: 200 } }),
+      tile({ x: 2, y: 0, economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST", status: "active", activatedAt: 300 } })
+    ];
+    // Unwaived: 3 outposts * 1 FOOD = 3.
+    expect(resourceSlotDemandForPlayer(tiles, "p1").FOOD).toBe(3);
+    // Waive the first 2 built -> only the 3rd (activatedAt 300) still demands 1 FOOD.
+    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), lightOutpostFoodSlotWaiverCount: 2 });
+    expect(waived.FOOD).toBe(1);
+  });
+
+  it("the built-in Light Outpost waiver doesn't touch a Farmstead/Market's own FOOD demand on other tiles", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST", status: "active", activatedAt: 100 } }),
+      tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "MARKET", status: "active", activatedAt: 200 } })
+    ];
+    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), lightOutpostFoodSlotWaiverCount: 5 });
+    // Light Outpost waived to 0, Market still demands its own 1 FOOD slot.
+    expect(waived.FOOD).toBe(1);
   });
 });
 

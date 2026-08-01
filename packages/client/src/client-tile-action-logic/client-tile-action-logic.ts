@@ -55,6 +55,7 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
+import { hasFreeResourceSlotsForLightOutpost, missingLightOutpostSlotReason } from "../client-light-outpost-food-slot/client-light-outpost-food-slot.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -385,8 +386,6 @@ export const lineStepsBetween = (
   }
   return out;
 };
-
-
 
 export const tileActionAvailability = (
   enabled: boolean,
@@ -759,14 +758,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
 
     const out: TileActionDef[] = [];
     if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
-      const exploreEnabled = exploreHasGold && exploreHasManpower;
+      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForLightOutpost(state);
       out.push({
         id: "build_light_outpost_frontier" as TileActionDef["id"],
         label: "Build Light Outpost",
         detail: `Push into the unknown • expand + settle + build • +${LIGHT_OUTPOST_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : `Need ${totalExploreGold} gold`,
+          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingLightOutpostSlotReason(state) ?? "Unavailable"),
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
@@ -1538,12 +1537,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.gold >= deps.structureGoldCost("LIGHT_OUTPOST") &&
             state.manpower >= structureBuildManpowerCost("LIGHT_OUTPOST") &&
-            hasFreeResourceSlots(state, "LIGHT_OUTPOST"),
+            hasFreeResourceSlotsForLightOutpost(state),
           state.gold < deps.structureGoldCost("LIGHT_OUTPOST")
             ? `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`
             : state.manpower < structureBuildManpowerCost("LIGHT_OUTPOST")
               ? `Need ${structureBuildManpowerCost("LIGHT_OUTPOST")} manpower`
-              : (missingResourceSlotReason(state, "LIGHT_OUTPOST") ?? "Unavailable"),
+              : (missingLightOutpostSlotReason(state) ?? "Unavailable"),
           `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
           slots,
           deps
