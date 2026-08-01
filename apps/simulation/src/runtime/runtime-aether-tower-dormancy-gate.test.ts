@@ -19,6 +19,7 @@ describe("§5.4 Aether Tower dormancy gate", () => {
   it("AIRPORT_BOMBARD rejects when the powering Aether Tower is FOOD-dormant, even with a fully-supplied airport", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
+      seedTiles: new Map(),
       initialPlayers: new Map([
         ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, strategicResources: { CRYSTAL: 1_000 } })],
         ["player-2", buildAiOpponent()]
@@ -42,10 +43,13 @@ describe("§5.4 Aether Tower dormancy gate", () => {
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
           // Full CRYSTAL supply for AIRPORT(1) + AETHER_TOWER(1) — neither
-          // is CRYSTAL-dormant. No FOOD supply beyond the seed world's own
-          // Nauticus town (which already nets a 1-slot FOOD shortfall on
-          // its own, §5.3), so AETHER_TOWER's separate 1 FOOD slot demand
-          // is unmet and it goes FOOD-dormant.
+          // is CRYSTAL-dormant. No FOOD supply anywhere (seedTiles: new
+          // Map() opts out of the default seed world, so there's no hidden
+          // Nauticus town either — SETTLEMENT-tier towns net 0 FOOD demand,
+          // §5.3, so leaving it in would just donate its FARM tile's spare
+          // FOOD slot to the tower instead of isolating it), so
+          // AETHER_TOWER's separate 1 FOOD slot demand is unmet against 0
+          // supply and it goes FOOD-dormant.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }
