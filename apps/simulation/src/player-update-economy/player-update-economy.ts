@@ -20,7 +20,6 @@ import {
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
@@ -28,8 +27,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -147,8 +145,14 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
     case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
     case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
-    case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
+    case "WOODEN_FORT": return { FOOD: 0.1 };
+    case "LIGHT_OUTPOST": return { FOOD: 0.1 };
+    case "FORT": return { IRON: 0.1, FOOD: 0.1 };
+    case "IRON_BASTION": return { IRON: 0.2, FOOD: 0.1 };
+    case "THUNDER_BASTION": return { IRON: 0.4, FOOD: 0.1 };
+    case "SIEGE_OUTPOST": return { SUPPLY: 0.1, FOOD: 0.1 };
+    case "SIEGE_TOWER": return { SUPPLY: 0.2, FOOD: 0.1 };
+    case "DREAD_TOWER": return { SUPPLY: 0.3, FOOD: 0.1 };
     case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
