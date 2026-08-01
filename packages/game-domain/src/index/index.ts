@@ -46,7 +46,6 @@ export type DomainPlayer = {
   manpower: number;
   manpowerUpdatedAt?: number;
   manpowerCapSnapshot?: number;
-  wonderObservatoryRangeBonus?: number;
   wonderVisionRadiusBonus?: number;
   wonderDockGoldMultiplier?: number;
   wonderDockAttackMultiplier?: number;
@@ -102,7 +101,8 @@ export type PlayerEventLogEntryType =
   | "IMPERIAL_EXCHANGE_LEVY_HIT"
   | "IMPERIAL_EXCHANGE_LEVY_CAST"
   | "MONUMENT_CLAIMED"
-  | "MONUMENT_LOST_TO_RIVAL";
+  | "MONUMENT_LOST_TO_RIVAL"
+  | "NATURAL_WONDER_CLAIMED";
 
 export type PlayerEventLogEntry = {
   id: string;

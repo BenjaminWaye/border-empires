@@ -928,7 +928,7 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
-    } for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
+    } for (const tile of this.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
@@ -1954,7 +1954,7 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
-    if (!sameOwner && tile.naturalWonder) { if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
   }
 

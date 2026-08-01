@@ -1732,7 +1732,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // under-construction and active states both show up — visual
         // status differentiation can come later.
         if (tile?.observatory && terrain === "LAND") {
-          structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY"); // Watchtower has its own wonder mesh below
           // Float a "recharging" badge over our own active observatory
           // while its crystal-casting cooldown is still running, so the
           // map shows at a glance why a cast just did nothing. Exact

@@ -1,11 +1,11 @@
-import type { DomainTileState } from "@border-empires/game-domain";
+import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import { naturalWonderClaimEventText } from "./natural-wonder-claim-text.js";
 
 export type WonderCacheByPlayer = Map<string, Set<string>>;
 
 const applyWonderBonusFields = (player: RuntimePlayer, set: ReadonlySet<string>): void => {
-  player.wonderObservatoryRangeBonus = set.has("WATCHTOWER_ENGINE") ? 10 : 0;
   player.wonderVisionRadiusBonus = set.has("CARTOGRAPHERS_LENS") ? 1 : 0;
   player.wonderDockGoldMultiplier = set.has("DEEPWATER_ENGINE") ? 2 : 1;
   player.wonderDockAttackMultiplier = set.has("DEEPWATER_ENGINE") ? 1.15 : 1;
@@ -45,6 +45,16 @@ export const applyConscriptionEngineFirstClaim = (tile: DomainTileState, players
   if (player) player.manpower += 2000;
 };
 
+// Every claim (not just first-ever) drops a "Recent Events" entry for the
+// new human owner — mirrors TOWN_LOST/MONUMENT_CLAIMED. AI/barbarian owners
+// don't have anyone reading their event log, so skip them.
+export const announceNaturalWonderClaim = (tile: DomainTileState, players: Map<string, RuntimePlayer>, nowMs: number): void => {
+  if (!tile.naturalWonder || !tile.ownerId) return;
+  const player = players.get(tile.ownerId);
+  if (!player || player.id.startsWith("barbarian-") || player.isAi) return;
+  appendPlayerEventLogEntry(player, { type: "NATURAL_WONDER_CLAIMED", text: naturalWonderClaimEventText(tile.naturalWonder.type), occurredAt: nowMs });
+};
+
 // Foundry Heart: +1 of every strategic resource slot for the controller.
 export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: ResourceSlotTotals): void => {
   if (!hasFoundryHeart) return;
@@ -79,3 +89,20 @@ export const dockAttackMultiplierForOrigin = (
   attacker?.wonderDockAttackMultiplier && originTile?.dockId && originTile.ownerId === playerId
     ? attacker.wonderDockAttackMultiplier
     : undefined;
+
+// Watchtower Engine: the wonder tile itself IS an Observatory for its
+// controller — full cast-ability eligibility (pickReadyOwnedObservatory*)
+// and the same per-tile cooldownUntil, at the base OBSERVATORY_CAST_RADIUS
+// (20, already well past "10+") since it stacks with a player's other
+// tech/domain range bonuses like any real observatory. Kept exempt from
+// CRYSTAL slot demand (buildDemandContributors) so it never goes dormant —
+// "no upkeep" is the wonder's whole point. Synced on every ownership change
+// so a captured wonder immediately grants/revokes casting for the new/old
+// owner; cooldownUntil carries over across ownership changes on purpose
+// (a freshly captured tower shouldn't reset someone else's cooldown clock).
+export const syncWatchtowerObservatory = (tile: DomainTileState): void => {
+  if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") return;
+  tile.observatory = tile.ownerId
+    ? { ownerId: tile.ownerId, status: "active", cooldownUntil: tile.observatory?.cooldownUntil }
+    : undefined;
+};

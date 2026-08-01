@@ -345,7 +345,12 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     return;
   }
   const fort = target.fort?.ownerId === command.playerId ? target.fort : undefined;
-  const observatory = target.observatory?.ownerId === command.playerId ? target.observatory : undefined;
+  // Watchtower Engine's observatory isn't a built structure — nothing to
+  // demolish, it comes and goes with the wonder tile's ownership.
+  const observatory =
+    target.observatory?.ownerId === command.playerId && target.naturalWonder?.type !== "WATCHTOWER_ENGINE"
+      ? target.observatory
+      : undefined;
   const siegeOutpost = target.siegeOutpost?.ownerId === command.playerId ? target.siegeOutpost : undefined;
   const economicStructure = target.economicStructure?.ownerId === command.playerId ? target.economicStructure : undefined;
   const ownedStructure = fort ?? observatory ?? siegeOutpost ?? economicStructure;
