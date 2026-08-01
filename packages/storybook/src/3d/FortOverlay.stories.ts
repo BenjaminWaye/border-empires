@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
-import type { FortificationOpening, FortificationOverlayKind } from "@client/client-fortification-overlays.js";
+import type { FortificationOpening, FortificationOverlayKind } from "@client/client-fortification-overlays/client-fortification-overlays.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -9,7 +9,14 @@ type Args = {
   cameraDistance: number;
 };
 
-const KINDS: ReadonlyArray<FortificationOverlayKind> = ["FORT", "SIEGE_OUTPOST", "WOODEN_FORT", "LIGHT_OUTPOST"];
+const KINDS: ReadonlyArray<FortificationOverlayKind> = [
+  "FORT",
+  "IRON_BASTION",
+  "THUNDER_BASTION",
+  "WOODEN_FORT",
+  "LIGHT_OUTPOST",
+  "SIEGE_OUTPOST"
+];
 const OPENINGS: ReadonlyArray<FortificationOpening> = ["CLOSED", "NORTH", "EAST", "SOUTH", "WEST"];
 
 const render = (args: Args): HTMLElement => {
@@ -35,6 +42,30 @@ export default meta;
 type Story = StoryObj<Args>;
 export const FortClosed: Story = {};
 export const FortGateNorth: Story = { args: { kind: "FORT", opening: "NORTH" } };
-export const SiegeOutpost: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
+export const IronBastionClosed: Story = { args: { kind: "IRON_BASTION", opening: "CLOSED" } };
+export const IronBastionGateNorth: Story = { args: { kind: "IRON_BASTION", opening: "NORTH" } };
+export const IronBastionGateEast: Story = { args: { kind: "IRON_BASTION", opening: "EAST" } };
+export const IronBastionGateSouth: Story = { args: { kind: "IRON_BASTION", opening: "SOUTH" } };
+export const IronBastionGateWest: Story = { args: { kind: "IRON_BASTION", opening: "WEST" } };
+export const ThunderBastionClosed: Story = { args: { kind: "THUNDER_BASTION", opening: "CLOSED" } };
+export const ThunderBastionGateNorth: Story = { args: { kind: "THUNDER_BASTION", opening: "NORTH" } };
+export const ThunderBastionGateEast: Story = { args: { kind: "THUNDER_BASTION", opening: "EAST" } };
+export const ThunderBastionGateSouth: Story = { args: { kind: "THUNDER_BASTION", opening: "SOUTH" } };
+export const ThunderBastionGateWest: Story = { args: { kind: "THUNDER_BASTION", opening: "WEST" } };
 export const WoodenFort: Story = { args: { kind: "WOODEN_FORT", opening: "EAST" } };
 export const LightOutpost: Story = { args: { kind: "LIGHT_OUTPOST", opening: "CLOSED" } };
+export const SiegeOutpost: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
+
+export const AllVariants: Story = {
+  args: { cameraDistance: 8 },
+  render: (args) => {
+    const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1d1810" });
+    const overlay = createFortOverlay(stage.scene, KINDS.length);
+    const startX = -((KINDS.length - 1) * 1.35) / 2;
+    KINDS.forEach((kind, index) => {
+      overlay.addInstance(startX + index * 1.35, 0, 0, kind, kind === "LIGHT_OUTPOST" || kind === "SIEGE_OUTPOST" ? "CLOSED" : "NORTH");
+    });
+    overlay.commit();
+    return wrapWithCleanup(stage, [overlay.dispose]);
+  }
+};
