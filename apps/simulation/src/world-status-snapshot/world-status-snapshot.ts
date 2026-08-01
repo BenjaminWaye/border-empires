@@ -56,7 +56,8 @@ const toFallbackWorldTile = (tile: DomainTileState): WorldTile => ({
   ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
   ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
   ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
-  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {})
+  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+  ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {})
 });
 
 export const buildWorldStatusSnapshot = (

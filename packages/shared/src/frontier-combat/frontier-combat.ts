@@ -26,6 +26,8 @@ export type FrontierCombatPreview = {
 // to resolve both and pass them in here together.
 export type FrontierCombatModifiers = {
   attackerOutpostMult?: number;
+  // Applied when the attack originates from a dock-crossing (origin tile is an owned dock).
+  dockAttackMult?: number | undefined;
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
   attackVsBarbariansMult?: number;
@@ -81,6 +83,7 @@ const buildFrontierCombatPreviewImpl = (
   modifiers: FrontierCombatModifiers = {}
 ): FrontierCombatPreview => {
   let atkMult = modifiers.attackerOutpostMult ?? 1;
+  if (modifiers.dockAttackMult != null) atkMult *= modifiers.dockAttackMult;
   if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
   if (target.fortVariant) atkMult *= modifiers.attackVsFortsMult ?? 1;
   if (modifiers.defenderOwnerId?.startsWith("barbarian")) atkMult *= modifiers.attackVsBarbariansMult ?? 1;

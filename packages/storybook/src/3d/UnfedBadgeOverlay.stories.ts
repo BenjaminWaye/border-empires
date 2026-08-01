@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createUnfedBadgeOverlay } from "@client/client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
+import { createResourceBadgeOverlay } from "@client/client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -11,7 +11,7 @@ type Args = {
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#2a1d12" });
   const maxTiles = (args.gridRadius * 2 + 1) ** 2;
-  const overlay = createUnfedBadgeOverlay(stage.scene, maxTiles);
+  const overlay = createResourceBadgeOverlay(stage.scene, maxTiles, "🍞");
   forEachGridCell({ radius: args.gridRadius, spacing: args.spacing }, (x, z) => {
     overlay.addInstance(x, z, 0);
   });

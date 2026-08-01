@@ -216,7 +216,7 @@ import {
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
-import {
+import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   buildRuntimeSnapshotSections,
   buildRuntimeSnapshotSectionsAsync,
   mapTile,
@@ -655,7 +655,7 @@ export class SimulationRuntime {
   // §5.4 dormancy: derived from both supply and demand, so it must be
   // invalidated on the union of their triggers — piggybacks on the demand
   // cache's unconditional (not SETTLED-gated) invalidation below.
-  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>();
+  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>(); private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
   // AI-only rebuild coalescing (2026-07-29 login-stall investigation): AI
   // players settle/expand continuously with no live subscriber, so a
   // continuous-settling AI empire was paying a fresh O(settled-tiles)
@@ -925,7 +925,7 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
-    }
+    } for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
@@ -1529,7 +1529,7 @@ export class SimulationRuntime {
   }
 
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     if (spawned && this.pendingImperialWard?.playerId === playerId) {
       const player = this.players.get(playerId);
       if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
@@ -1598,7 +1598,7 @@ export class SimulationRuntime {
   private playerManpowerCap(player: RuntimePlayer): number {
     if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
     const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
+    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount) + (wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
@@ -1951,7 +1951,7 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
-    flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    if (!sameOwner && tile.naturalWonder) { if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -2663,7 +2663,7 @@ export class SimulationRuntime {
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
       const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-      return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
+      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
@@ -3381,12 +3381,12 @@ export class SimulationRuntime {
       // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
       // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
       // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
-      const price = rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST);
+      const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), this.now());
       if (actor.points < price) {
         this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
         return;
       }
-      actor.points -= price;
+      actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
       this.resolvePendingSettlement({
         ownerId: pendingSettlement.ownerId,
         tileKey: pendingSettlement.tileKey,
@@ -3424,12 +3424,12 @@ export class SimulationRuntime {
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
       : spec.buildMs;
     const remainingMs = completesAt - this.now();
-    const price = rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType));
+    const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), this.now());
     if (actor.points < price) {
       this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
       return;
     }
-    actor.points -= price;
+    actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
     this.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
     this.emitPlayerStateUpdate(command);
   }

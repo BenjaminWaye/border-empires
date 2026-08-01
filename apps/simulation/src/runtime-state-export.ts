@@ -4,7 +4,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
-import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
+import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -35,6 +35,7 @@ export type RuntimeExportState = {
     resource?: string;
     dockId?: string;
     shardSiteJson?: string;
+    naturalWonderJson?: string;
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
@@ -107,29 +108,8 @@ export type RuntimeExportState = {
 // for AI players are needed once per second.
 export type RuntimeAiPlayerMetricsRow = { id: string; isAi: boolean; points: number; incomePerMinute: number; settledTileCount: number; ownedTileCount: number };
 
-export type RuntimePlayerDebugSnapshot = Array<{
-  id: string;
-  name?: string;
-  isAi: boolean;
-  points: number;
-  manpower: number;
-  manpowerCap: number;
-  manpowerRegenPerMinute: number;
-  techIds: string[];
-  domainIds: string[];
-  strategicResources: Partial<Record<StrategicResourceKey, number>>;
-  settledTileCount: number;
-  ownedTileCount: number;
-  townCount: number;
-  incomePerMinute: number;
-  strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  activeDevelopmentProcessCount: number;
-  /** True iff a *player-issued* frontier lock would block the AI planner. */
-  plannerBlocked: boolean;
-  /** True iff any lock exists for this player (player-issued OR territory-automation). */
-  hasAnyLock: boolean;
-  allies: string[];
-}>;
+export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
+export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
 type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
@@ -156,6 +136,7 @@ const toRuntimeExportTile = (
   if (tile.resource) entry.resource = tile.resource;
   if (tile.dockId) entry.dockId = tile.dockId;
   if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+  if (cached.naturalWonderJson) entry.naturalWonderJson = cached.naturalWonderJson;
   if (tile.ownerId) entry.ownerId = tile.ownerId;
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
@@ -287,52 +268,6 @@ export async function buildRuntimeExportStateAsync(
     terrainEpoch: input.terrainEpoch,
     growthStalledNoFoodCounter: input.growthStalledNoFoodCounter
   };
-}
-
-type PlayerDebugInput = {
-  locksByTile: ReadonlyMap<string, LockRecord>;
-  players: ReadonlyMap<string, DomainPlayer>;
-  refreshManpowerOnly: (player: DomainPlayer) => void;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  playerManpowerCap: (player: DomainPlayer) => number;
-  playerManpowerRegenPerMinute: (player: DomainPlayer) => number;
-  estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
-};
-
-export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): RuntimePlayerDebugSnapshot {
-  const plannerBlockedIds = new Set<string>();
-  const anyLockIds = new Set<string>();
-  for (const lock of input.locksByTile.values()) {
-    anyLockIds.add(lock.playerId);
-    if (lock.source !== "automation") plannerBlockedIds.add(lock.playerId);
-  }
-  return [...input.players.values()]
-    .map((player) => {
-      input.refreshManpowerOnly(player);
-      const summary = input.summaryForPlayer(player.id);
-      return {
-        id: player.id,
-        ...(player.name ? { name: player.name } : {}),
-        isAi: player.isAi === true,
-        points: player.points,
-        manpower: player.manpower,
-        manpowerCap: input.playerManpowerCap(player),
-        manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
-        techIds: [...player.techIds].sort(),
-        domainIds: [...(player.domainIds ?? [])].sort(),
-        strategicResources: { ...(player.strategicResources ?? {}) },
-        settledTileCount: summary.settledTileCount,
-        ownedTileCount: summary.territoryTileKeys.size,
-        townCount: summary.townCount,
-        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(player.id),
-        strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        plannerBlocked: plannerBlockedIds.has(player.id),
-        hasAnyLock: anyLockIds.has(player.id),
-        allies: [...player.allies].sort()
-      };
-    })
-    .sort((left, right) => left.id.localeCompare(right.id));
 }
 
 type PlannerTileKeys = {

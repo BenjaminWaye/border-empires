@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
-import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
+import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js"; import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -289,8 +289,8 @@ export const multiplicativeEffectForPlayer = (
 };
 
 export const effectiveVisionRadiusForPlayer = (
-  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
-): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));
+  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus">
+): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0));
 
 /**
  * Effective crystal-observatory cast radius for a player, mirroring the client's
@@ -300,11 +300,11 @@ export const effectiveVisionRadiusForPlayer = (
  * observatoryCastRadiusBonus is intentionally omitted — no catalog entry sets it.
  */
 export const observatoryCastRadiusForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  player: Pick<DomainPlayer, "techIds" | "domainIds" | "wonderObservatoryRangeBonus">,
   baseRadius: number
 ): number =>
   baseRadius +
-  additiveEffectForPlayer(player, "observatoryRangeBonus");
+  additiveEffectForPlayer(player, "observatoryRangeBonus") + (player.wonderObservatoryRangeBonus ?? 0);
 
 export const chooseAiTechChoiceForPlayer = (
   player: AiProgressionPlayer,
@@ -430,10 +430,9 @@ export const chooseTechForPlayer = (
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available)) {
-    return { ok: false, reason: "requirements not met" };
-  }
-  player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
+  const goldCost = goldCostForTechResearch(player, tech);
+  if (player.points < goldCost || !hasResources(required, available)) { return { ok: false, reason: "requirements not met" }; }
+  player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
   player.techIds.add(techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
