@@ -265,7 +265,7 @@ const meta: Meta<Args> = {
       description: {
         component:
           "The Watchtower Engine — a tall brass telescope with a sweeping aether beam, rotating gear mechanism, " +
-          "and star-like particles. Passive effect: the wonder itself acts as a free Observatory — cast crystal abilities at the standard range and cooldown, no CRYSTAL upkeep.",
+          "and star-like particles. Passive effect: the wonder itself acts as a free Observatory (no CRYSTAL upkeep) with a fixed +10 cast radius over the base — a flat bonus that doesn't stack with observatory-range tech.",
       },
     },
   },
