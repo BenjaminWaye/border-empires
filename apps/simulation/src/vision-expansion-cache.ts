@@ -27,6 +27,8 @@ import type { VisionFootprintTable } from "./vision-footprint-table.js";
 
 type ExpansionEntry = { sig: string; keys: ReadonlySet<string> };
 
+const NO_TOWN_KEYS: ReadonlySet<string> = new Set<string>();
+
 export class VisionExpansionCache {
   private readonly cache = new Map<string, ExpansionEntry>();
   private readonly worldWidth: number;
@@ -50,12 +52,13 @@ export class VisionExpansionCache {
     territoryTileKeys: Iterable<string>,
     vision: number,
     visionRadiusBonus: number,
-    tileCollectionVersion: number
+    tileCollectionVersion: number,
+    townTileKeys: ReadonlySet<string> = NO_TOWN_KEYS
   ): ReadonlySet<string> {
     const sig = `${tileCollectionVersion}:${vision}:${visionRadiusBonus}`;
     const cached = this.cache.get(playerId);
     if (cached && cached.sig === sig) return cached.keys;
-    const keys = this.expand(territoryTileKeys, vision, visionRadiusBonus);
+    const keys = this.expand(territoryTileKeys, vision, visionRadiusBonus, townTileKeys);
     this.cache.set(playerId, { sig, keys });
     return keys;
   }
@@ -71,9 +74,11 @@ export class VisionExpansionCache {
   private expand(
     territoryTileKeys: Iterable<string>,
     vision: number,
-    visionRadiusBonus: number
+    visionRadiusBonus: number,
+    townTileKeys: ReadonlySet<string>
   ): Set<string> {
     const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
+    const townRadius = radius + 1;
     const W = this.worldWidth;
     const H = this.worldHeight;
     const result = new Set<string>();
@@ -82,14 +87,17 @@ export class VisionExpansionCache {
       const x = Number(tileKey.slice(0, comma));
       const y = Number(tileKey.slice(comma + 1));
       if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      // Each owned SETTLED town tile dilates one extra ring (radius+1) vs a
+      // plain owned tile — "every town tile's own reveal is +1".
+      const effectiveRadius = townTileKeys.has(tileKey) ? townRadius : radius;
       if (this.footprintTable) {
-        for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius)) {
+        for (const [dx, dy] of this.footprintTable.getOffsets(x, y, effectiveRadius)) {
           result.add(simulationTileKey(((x + dx) % W + W) % W, ((y + dy) % H + H) % H));
         }
         continue;
       }
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -effectiveRadius; dy <= effectiveRadius; dy++) {
+        for (let dx = -effectiveRadius; dx <= effectiveRadius; dx++) {
           result.add(simulationTileKey(((x + dx) % W + W) % W, ((y + dy) % H + H) % H));
         }
       }

@@ -72,17 +72,13 @@ const makeTownTile = (
 });
 
 // §5.4: population growth requires a town's FOOD slot demand not be dormant
-// (there's only one food mechanic now — slots, not a stockpile). A bare FISH
-// tile gives 2 base FOOD slot supply, exactly covering TOWN_FOOD_SLOT_DEMAND
-// for the one town each of these fixtures owns.
-const makeFoodTile = (ownerId: string, x = 11, y = 10) => ({
-  x,
-  y,
-  terrain: "LAND" as const,
-  ownerId,
-  ownershipState: "SETTLED" as const,
-  resource: "FISH" as const
-});
+// (there's only one food mechanic now — slots, not a stockpile). Each FISH
+// tile gives 2 base FOOD slot supply; a town now demands 4 (TOWN_FOOD_SLOT_DEMAND),
+// so the fixture provides two FISH tiles to cover the one town it owns.
+const makeFoodTile = (ownerId: string, x = 11, y = 10) => [
+  { x, y, terrain: "LAND" as const, ownerId, ownershipState: "SETTLED" as const, resource: "FISH" as const },
+  { x: x + 1, y, terrain: "LAND" as const, ownerId, ownershipState: "SETTLED" as const, resource: "FISH" as const }
+];
 
 /** Parse townJson from an exportState tile. */
 const townPop = (tile: { townJson?: string; townPopulationTier?: string }): number | undefined => {
@@ -103,7 +99,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [tile, makeFoodTile("p1")],
+        tiles: [tile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -157,7 +153,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [makeTownTile(10, 10, "p1"), makeFoodTile("p1")],
+        tiles: [makeTownTile(10, 10, "p1"), ...makeFoodTile("p1")],
         activeLocks: [lockNear]
       }
     });
@@ -185,7 +181,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [pausedTile, makeFoodTile("p1")],
+        tiles: [pausedTile, ...makeFoodTile("p1")],
         activeLocks: []           // no active lock — pause persists from timestamp
       }
     });
@@ -207,7 +203,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [recentWarTile, makeFoodTile("p1")],
+        tiles: [recentWarTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -237,7 +233,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [longPeaceTile, makeFoodTile("p1")],
+        tiles: [longPeaceTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -267,7 +263,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [expiredPauseTile, makeFoodTile("p1")],
+        tiles: [expiredPauseTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -307,7 +303,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [makeTownTile(10, 10, "p1"), settlementTile, makeFoodTile("p1")],
+        tiles: [makeTownTile(10, 10, "p1"), settlementTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -342,7 +338,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [shockedTile, makeFoodTile("p1")],
+        tiles: [shockedTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -364,7 +360,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [nearCapTile, makeFoodTile("p1")],
+        tiles: [nearCapTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -389,7 +385,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [almostCityTile, makeFoodTile("p1")],
+        tiles: [almostCityTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -416,7 +412,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [cappedTile, makeFoodTile("p1")],
+        tiles: [cappedTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -435,7 +431,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["barbarian-1", barbPlayer]]),
       initialState: {
-        tiles: [barbTile, makeFoodTile("p1")],
+        tiles: [barbTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
@@ -467,7 +463,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
       now: () => now,
       initialPlayers: new Map([["p1", player]]),
       initialState: {
-        tiles: [unfedTile, makeFoodTile("p1")],
+        tiles: [unfedTile, ...makeFoodTile("p1")],
         activeLocks: []
       }
     });
