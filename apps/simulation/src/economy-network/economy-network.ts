@@ -14,7 +14,7 @@ import {
   type TownConnectivityState
 } from "./town-connectivity-incremental.js";
 
-export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods">;
+export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods" | "wonderDockGoldMultiplier">;
 
 export type ConnectedTownNetworkEntry = {
   connectedTownCount: number;
@@ -709,7 +709,7 @@ export const dockBaseGoldPerMinuteForPlayer = (
   const connectedDockCount = context ? dockConnectedOwnedSettledCount(keyFor(tile.x, tile.y), player.id, context) : 0;
   const base =
     DOCK_INCOME_PER_MIN *
-    dockGoldOutputMultiplierForPlayer(player) *
+    dockGoldOutputMultiplierForPlayer(player) * (player.wonderDockGoldMultiplier ?? 1) *
     (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
   const harborExchangeBonus =
     context &&

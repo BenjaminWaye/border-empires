@@ -68,6 +68,31 @@ describe("frontier combat", () => {
     expect(preview.atkEff).toBe(10);
   });
 
+  it("applies dockAttackMult when present", () => {
+    const baseline = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" }
+    );
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { dockAttackMult: 1.15 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(1.15, 6);
+    expect(boosted.atkEff).toBeCloseTo(11.5, 6);
+    expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
+  });
+
+  it("leaves atkMult unchanged when dockAttackMult is undefined", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { dockAttackMult: undefined }
+    );
+
+    expect(preview.atkMult).toBe(1);
+    expect(preview.atkEff).toBe(10);
+  });
+
   it("keeps preview and resolution tagged to the same combat module", () => {
     expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
   });

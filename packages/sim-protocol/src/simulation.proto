@@ -134,6 +134,7 @@ message TileDelta {
   string visibility_state = 25;
   uint64 breach_shock_until = 26;
   optional string watchtower_json = 27;
+  optional string natural_wonder_json = 28;
 }
 
 message DockRoute {

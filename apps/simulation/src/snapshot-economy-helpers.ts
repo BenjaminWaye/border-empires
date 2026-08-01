@@ -276,7 +276,7 @@ export const buildStrategicProductionByPlayerAsync = async (
 // player's fed set at once).
 type SlotTileEconomicStructure = DomainTileState["economicStructure"];
 type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
-type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder">;
 
 const parsedSlotTiles = (
   runtimeState: RuntimeState
@@ -298,6 +298,7 @@ const parsedSlotTiles = (
       fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
       siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      naturalWonder: parseStructure<DomainTileState["naturalWonder"]>(tile.naturalWonderJson),
       economicStructure,
       town: parseTown(tile) as DomainTileState["town"],
       ownerId: tile.ownerId,

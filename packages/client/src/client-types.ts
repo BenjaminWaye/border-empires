@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -82,8 +82,8 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
-  // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  naturalWonder?: { type: NaturalWonderType; claimedAt?: number; lastFreeRushBuyAt?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";

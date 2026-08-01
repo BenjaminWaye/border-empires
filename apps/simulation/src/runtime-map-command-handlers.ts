@@ -127,6 +127,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     sabotage: undefined,
     fort: undefined,
     observatory: undefined,
+    naturalWonder: undefined,
     siegeOutpost: undefined,
     economicStructure: undefined
   };

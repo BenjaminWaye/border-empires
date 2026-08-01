@@ -80,7 +80,7 @@ type ProtoTileDelta = {
   sabotage_json?: string;
   sabotageJson?: string;
   shard_site_json?: string;
-  shardSiteJson?: string;
+  shardSiteJson?: string; natural_wonder_json?: string; naturalWonderJson?: string;
   watchtower_json?: string;
   watchtowerJson?: string;
   muster_json?: string;
@@ -330,7 +330,7 @@ export type SimulationClientEvent =
         siegeOutpostJson?: string | undefined;
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
-        shardSiteJson?: string | undefined;
+        shardSiteJson?: string | undefined; naturalWonderJson?: string | undefined;
         watchtowerJson?: string | undefined;
         musterJson?: string | undefined;
         visibilityState?: VisibilityState | undefined;
@@ -437,7 +437,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("sabotage_json" in tile || "sabotageJson" in tile) normalized.sabotageJson = tile.sabotage_json || tile.sabotageJson || undefined;
   if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
-  if ("watchtower_json" in tile || "watchtowerJson" in tile) normalized.watchtowerJson = tile.watchtower_json || tile.watchtowerJson || undefined;
+  if ("natural_wonder_json" in tile || "naturalWonderJson" in tile) normalized.naturalWonderJson = tile.natural_wonder_json || tile.naturalWonderJson || undefined; if ("watchtower_json" in tile || "watchtowerJson" in tile) normalized.watchtowerJson = tile.watchtower_json || tile.watchtowerJson || undefined;
   if ("muster_json" in tile || "musterJson" in tile) normalized.musterJson = tile.muster_json || tile.musterJson || undefined;
   const vs = tile.visibility_state || tile.visibilityState;
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;

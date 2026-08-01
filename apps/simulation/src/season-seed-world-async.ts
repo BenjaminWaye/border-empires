@@ -22,6 +22,7 @@ import {
   key,
   parseKey,
   type ClusterDefinition,
+  type NaturalWonderSiteState,
   type ShardSiteState,
   type TerrainShapeState,
   type TownDefinition,
@@ -46,7 +47,7 @@ import {
   type GeneratedDockState,
   type GeneratedSeasonSeedWorld
 } from "./season-seed-world.js";
-import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js";
+import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
@@ -102,6 +103,7 @@ export const createSeasonSeedWorldAsync = async (
   const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
+  const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
   const playersForTerrain = new Map<string, Player>();
@@ -199,6 +201,7 @@ export const createSeasonSeedWorldAsync = async (
     clusterByTile,
     townsByTile
   });
+  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
@@ -232,6 +235,7 @@ export const createSeasonSeedWorldAsync = async (
   activeSeason.worldSeed = worldSeed;
   setWorldSeed(worldSeed, style);
   islandConnectivityRuntime.ensureLandMassesReachSea();
+  naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]
@@ -324,6 +328,7 @@ export const createSeasonSeedWorldAsync = async (
     ownership.set(tk, playerId);
     shardSitesByTile.delete(tk);
     watchtowersByTile.delete(tk);
+    naturalWondersByTile.delete(tk);
     townsByTile.set(tk, createSettlementTown(tk, townsRuntime.townTypeAt(spawn.x, spawn.y)));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
   };
@@ -352,7 +357,7 @@ export const createSeasonSeedWorldAsync = async (
   });
   await onYield?.();
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, terrainAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();

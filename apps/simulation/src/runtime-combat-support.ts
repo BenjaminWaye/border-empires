@@ -238,6 +238,13 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const previousTarget = ctx.tiles.get(lock.targetKey);
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId);
+  const originTile = ctx.tiles.get(lock.originKey);
+  const dockAttackMult =
+    attacker?.wonderDockAttackMultiplier &&
+    originTile?.dockId &&
+    originTile.ownerId === lock.playerId
+      ? attacker.wonderDockAttackMultiplier
+      : undefined;
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const targetHasActiveFort = Boolean(
@@ -250,11 +257,12 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const nowMs = ctx.now();
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
+    dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
     attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
     attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
     defenderOwnerId: defenderOwnerId,
-    fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
+    fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
     musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
     fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
@@ -374,6 +382,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
     ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
     ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
     ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+    ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
     ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
     ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
   };

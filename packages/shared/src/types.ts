@@ -16,9 +16,8 @@ export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
 export type TownType = "MARKET" | "FARMING";
-export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
-export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
-export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+export type { EmpireVisualTint, EmpireBorderStyle, EmpireStructureAccent } from "./empire-cosmetics-types.js";
+export type { NaturalWonderType, NaturalWonderState } from "./natural-wonder-types.js";
 export type EconomicStructureType =
   | "FARMSTEAD"
   | "WATERWORKS"
@@ -74,9 +73,9 @@ export type SeasonVictoryPathId =
 
 export interface EmpireVisualStyle {
   primaryOverlay: string;
-  secondaryTint: EmpireVisualTint;
-  borderStyle: EmpireBorderStyle;
-  structureAccent: EmpireStructureAccent;
+  secondaryTint: import("./empire-cosmetics-types.js").EmpireVisualTint;
+  borderStyle: import("./empire-cosmetics-types.js").EmpireBorderStyle;
+  structureAccent: import("./empire-cosmetics-types.js").EmpireStructureAccent;
 }
 
 export interface TileHistory {
@@ -232,6 +231,7 @@ export interface Tile {
     amount: number;
     expiresAt?: number;
   } | null;
+  naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
   // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil).
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
   town?: {

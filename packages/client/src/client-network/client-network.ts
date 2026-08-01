@@ -1904,7 +1904,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update || "watchtowerJson" in update ||
+            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
