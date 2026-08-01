@@ -13,7 +13,7 @@ import {
   TorusGeometry,
   RingGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -53,15 +53,18 @@ const groundMat = (): ShaderMaterial =>
       }
       void main() {
         vec2 p = vWorldPos.xz;
-        float n = noise(p*5.0)*0.6+noise(p*11.0)*0.2;
-        vec3 base = mix(uStone, uMoss, n);
         float dist = length(p);
-        float pipe = exp(-dist*1.0)*0.15;
+        float n = noise(p*5.0)*0.6+noise(p*11.0)*0.2;
+        vec3 stoneMoss = mix(uStone, uMoss, n);
+        float pipe = exp(-dist*1.0)*0.4;
         float pulse = sin(uTime*0.8)*0.15+0.85;
-        base += uCopper * pipe * pulse;
-        gl_FragColor = vec4(base, 1.0);
+        vec3 color = stoneMoss + uCopper * pipe * pulse;
+        float alpha = clamp(pipe*1.3 + n*0.3, 0.0, 1.0) * smoothstep(1.5, 1.0, dist);
+        gl_FragColor = vec4(color, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Copper pipe/lattice shader ───────────────────────────── */
@@ -172,11 +175,14 @@ const render = (args: Args): HTMLElement => {
   const scene = stage.scene;
   const s = args.latticeScale;
 
-  // Ground
+  // Ground: grass field with the wonder's mossy stone effect layered on
+  // top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const cm = copperMat();
@@ -246,6 +252,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       cm.dispose();

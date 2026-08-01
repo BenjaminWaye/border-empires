@@ -12,7 +12,7 @@ import {
   Points,
   ShaderMaterial,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -23,7 +23,7 @@ type Args = {
 const uTime = { value: 0 };
 const uCyan = { value: new Color(0x40d8ff) };
 
-/* ── Ground shader ─────────────────────────────────────────── */
+/* ── Ground shader — the wonder's own tile only; grass fills the rest ── */
 
 const groundMat = (fissureCount: number): ShaderMaterial =>
   new ShaderMaterial({
@@ -31,8 +31,6 @@ const groundMat = (fissureCount: number): ShaderMaterial =>
       uTime,
       uFissureCount: { value: fissureCount },
       uCyan,
-      uDark: { value: new Color(0x0e1018) },
-      uMid: { value: new Color(0x1a2030) },
     },
     vertexShader: `
       varying vec3 vWorldPos;
@@ -46,21 +44,8 @@ const groundMat = (fissureCount: number): ShaderMaterial =>
       uniform float uTime;
       uniform float uFissureCount;
       uniform vec3 uCyan;
-      uniform vec3 uDark;
-      uniform vec3 uMid;
       varying vec3 vWorldPos;
 
-      float hash(vec2 p) {
-        p = fract(p * vec2(123.34, 456.21));
-        p += dot(p, p + 45.32);
-        return fract(p.x * p.y);
-      }
-      float noise(vec2 p) {
-        vec2 i = floor(p), f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(hash(i), hash(i+vec2(1,0)), f.x),
-                   mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
-      }
       float fissure(vec2 p, float angle, float w) {
         float c = cos(angle), s = sin(angle);
         float along = dot(p, vec2(c,s));
@@ -71,8 +56,6 @@ const groundMat = (fissureCount: number): ShaderMaterial =>
       void main() {
         vec2 p = vWorldPos.xz;
         float dist = length(p);
-        float n = noise(p*2.5)*0.5 + noise(p*6.0)*0.25 + noise(p*14.0)*0.125;
-        vec3 base = mix(uDark, uMid, n*0.6);
         float fg = 0.0;
         for (float i = 0.0; i < 12.0; i++) {
           if (i >= uFissureCount) break;
@@ -82,13 +65,13 @@ const groundMat = (fissureCount: number): ShaderMaterial =>
         fg = clamp(fg, 0.0, 1.0);
         float pulse = sin(uTime*1.2)*0.15+0.85;
         float cg = exp(-dist*1.8)*0.7;
-        vec3 color = base;
-        color = mix(color, uCyan*1.8*pulse, fg*0.8);
-        color += uCyan*0.5*pulse*cg;
-        color += uCyan*exp(-dist*2.5)*0.2*pulse;
-        gl_FragColor = vec4(color, 1.0);
+        float glow = exp(-dist*2.5)*0.2*pulse;
+        float alpha = clamp(fg*0.9*pulse + cg*0.5 + glow, 0.0, 1.0);
+        gl_FragColor = vec4(uCyan*1.6*pulse, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Shell shader ──────────────────────────────────────────── */
@@ -223,11 +206,16 @@ const render = (args: Args): HTMLElement => {
     background: "#080b10",
   });
 
-  // Ground
+  // Ground: grass everywhere (no hole — the wonder's effect plane is
+  // transparent, so it overlays the grass instead of replacing it), with
+  // the wonder's own fissure effect layered on top, spanning its tile + 8
+  // neighbors (3x3).
+  const grass = createGrassGround(6);
+  stage.scene.add(grass.group);
   const gMat = groundMat(args.fissureCount);
-  const ground = new Mesh(new PlaneGeometry(12, 12, 64, 64), gMat);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 48, 48), gMat);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.02;
+  ground.position.y = -0.005;
   stage.scene.add(ground);
 
   // Shell
@@ -267,6 +255,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gMat.dispose(); ground.geometry.dispose();
       sMat.dispose(); (shell.geometry as IcosahedronGeometry).dispose();
@@ -285,9 +274,10 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "The Foundry Heart — a pulsing crystal geode with glowing aether core, " +
-          "fissure lines radiating outward on the ground, and floating particle shards. " +
-          "Passive effect: owner gains +1 slot of each resource type (FOOD, IRON, CRYSTAL, SUPPLY).",
+          "The Foundry Heart — a pulsing crystal geode with glowing aether core, cracked " +
+          "fissure ground spanning its tile and 8 neighbors, and floating particle shards, " +
+          "surrounded by ordinary grass. Passive effect: owner gains +1 slot of each " +
+          "resource type (FOOD, IRON, CRYSTAL, SUPPLY).",
       },
     },
   },
@@ -313,7 +303,7 @@ export const CloseUp: Story = {
   args: { cameraDistance: 2.5, shellOpacity: 0.85, fissureCount: 6 },
 };
 export const WideView: Story = {
-  args: { cameraDistance: 7, shellOpacity: 0.92, fissureCount: 8 },
+  args: { cameraDistance: 8, shellOpacity: 0.92, fissureCount: 8 },
 };
 export const GhostShell: Story = {
   args: { cameraDistance: 3.5, shellOpacity: 0.45, fissureCount: 6 },

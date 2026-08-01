@@ -12,7 +12,7 @@ import {
   ShaderMaterial,
   BoxGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -23,16 +23,11 @@ type Args = {
 const uTime = { value: 0 };
 const uAmber = { value: new Color(0xe8a030) };
 
-/* ── Scorched ground shader ───────────────────────────────── */
+/* ── Scorched-ground overlay — layers over grass, doesn't replace it ── */
 
 const groundMat = (): ShaderMaterial =>
   new ShaderMaterial({
-    uniforms: {
-      uTime,
-      uAmber,
-      uDark: { value: new Color(0x12100c) },
-      uWarm: { value: new Color(0x2a1e14) },
-    },
+    uniforms: { uTime, uAmber },
     vertexShader: `
       varying vec3 vWorldPos;
       void main() {
@@ -43,7 +38,7 @@ const groundMat = (): ShaderMaterial =>
     `,
     fragmentShader: `
       uniform float uTime;
-      uniform vec3 uAmber, uDark, uWarm;
+      uniform vec3 uAmber;
       varying vec3 vWorldPos;
       float hash(vec2 p) { p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
       float noise(vec2 p) {
@@ -52,14 +47,17 @@ const groundMat = (): ShaderMaterial =>
       }
       void main() {
         vec2 p = vWorldPos.xz;
+        float dist = length(p);
         float n = noise(p*3.0)*0.5+noise(p*7.0)*0.25;
-        vec3 base = mix(uDark, uWarm, n);
-        float heat = exp(-length(p)*1.5)*0.4;
+        float heat = exp(-dist*1.2)*0.6;
         float pulse = sin(uTime*0.8)*0.1+0.9;
-        base += uAmber * heat * pulse;
-        gl_FragColor = vec4(base, 1.0);
+        float scorch = smoothstep(1.6, 0.0, dist) * (0.25 + n*0.35);
+        float alpha = clamp(heat*pulse + scorch, 0.0, 1.0);
+        gl_FragColor = vec4(uAmber*(0.7+heat*pulse), alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Building metal shader ────────────────────────────────── */
@@ -154,11 +152,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0a0808" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's scorched-earth effect layered on
+  // top, spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const bm = buildingMat();
@@ -232,6 +233,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       bm.dispose();

@@ -12,7 +12,7 @@ import {
   ShaderMaterial,
   BoxGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -52,15 +52,18 @@ const groundMat = (): ShaderMaterial =>
       }
       void main() {
         vec2 p = vWorldPos.xz;
-        float n = noise(p*5.0)*0.6+noise(p*12.0)*0.15;
-        vec3 base = mix(uDark, uEmber, n);
         float dist = length(p);
-        float heat = exp(-dist*1.8)*0.5;
+        float n = noise(p*5.0)*0.6+noise(p*12.0)*0.15;
+        vec3 ember = mix(uDark, uEmber, n);
+        float heat = exp(-dist*1.2)*0.7;
         float pulse = sin(uTime*2.5)*0.15+0.85;
-        base += uRedHot * heat * pulse;
-        gl_FragColor = vec4(base, 1.0);
+        vec3 color = ember + uRedHot * heat * pulse;
+        float alpha = clamp(heat*1.4, 0.0, 1.0) * smoothstep(1.5, 1.0, dist);
+        gl_FragColor = vec4(color, alpha);
       }
     `,
+    transparent: true,
+    depthWrite: false,
   });
 
 /* ── Dark metal shader ────────────────────────────────────── */
@@ -151,11 +154,14 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#060404" });
   const scene = stage.scene;
 
-  // Ground
+  // Ground: grass field with the wonder's hot-metal glow layered on top,
+  // spanning its tile + 8 neighbors (3x3).
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const gm = groundMat();
-  const ground = new Mesh(new PlaneGeometry(10, 10, 32, 32), gm);
+  const ground = new Mesh(new PlaneGeometry(3, 3, 32, 32), gm);
   ground.geometry.rotateX(-Math.PI / 2);
-  ground.position.y = -0.01;
+  ground.position.y = -0.005;
   scene.add(ground);
 
   const mm = metalMat();
@@ -223,6 +229,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       gm.dispose(); ground.geometry.dispose();
       mm.dispose();

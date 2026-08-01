@@ -13,7 +13,7 @@ import {
   ShaderMaterial,
   TorusGeometry,
 } from "three";
-import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -63,7 +63,8 @@ const waterMat = (): ShaderMaterial =>
         base += uTeal * ripple * 0.6;
         float edge = smoothstep(0.8, 0.2, dist)*0.3;
         base += uTeal * edge * (sin(uTime*1.5)*0.2+0.8);
-        gl_FragColor = vec4(base, 0.88);
+        float fade = smoothstep(1.5, 1.0, dist);
+        gl_FragColor = vec4(base, 0.88*fade);
       }
     `,
     transparent: true,
@@ -178,9 +179,12 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#040c14" });
   const scene = stage.scene;
 
-  // Water surface
+  // Grass field, with the water surface spanning the wonder's tile + 8
+  // neighbors (3x3) layered on top.
+  const grass = createGrassGround(6);
+  scene.add(grass.group);
   const wm = waterMat();
-  const water = new Mesh(new PlaneGeometry(10, 10, 48, 48), wm);
+  const water = new Mesh(new PlaneGeometry(3, 3, 32, 32), wm);
   water.geometry.rotateX(-Math.PI / 2);
   water.position.y = 0.0;
   scene.add(water);
@@ -248,6 +252,7 @@ const render = (args: Args): HTMLElement => {
 
   return wrapWithCleanup(stage, [
     () => cancelAnimationFrame(rafId),
+    grass.dispose,
     () => {
       wm.dispose(); water.geometry.dispose();
       gm.dispose();
