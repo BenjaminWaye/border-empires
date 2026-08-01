@@ -127,8 +127,7 @@ export function exportBarbActivationVisibleUnion(input: {
     // Owned SETTLED towns reveal one extra ring (radius+1), matching the
     // full-export VisionExpansionCache so barb-activation eligibility stays
     // consistent with what the player actually sees.
-    for (const [townKey, tier] of summary.ownedTownTierByTile) {
-      if (tier === "SETTLEMENT") continue;
+    for (const townKey of summary.ownedTownTierByTile.keys()) {
       const [rawX, rawY] = townKey.split(",");
       const x = Number(rawX);
       const y = Number(rawY);
