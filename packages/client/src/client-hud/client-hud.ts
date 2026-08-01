@@ -26,7 +26,7 @@ import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from ".
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
-import { updateSettingsDisplayName, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
+import { updateSettingsDisplayName, updateSettingsColor, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
@@ -975,9 +975,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   `;
   dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
 
-  // Skip the rebuild while the player is typing a new name, or a background
-  // re-render would wipe unsaved keystrokes and reset focus/cursor position.
-  if (!(document.activeElement instanceof Element && document.activeElement.matches("[data-settings-display-name]"))) {
+  // Skip the rebuild while the player is typing a new name or changing color,
+  // or a background re-render would wipe unsaved keystrokes and reset focus.
+  if (!(document.activeElement instanceof Element && (document.activeElement.matches("[data-settings-display-name]") || document.activeElement.matches("[data-settings-color]")))) {
     dom.panelSettingsEl.innerHTML = `
       <div class="card auth-settings-card">
         <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
@@ -990,6 +990,15 @@ export const renderClientHud = (deps: HudDeps): void => {
             <div class="row settings-display-name-row">
               <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authSessionReady ? "" : "disabled"} data-settings-display-name />
               <button type="button" class="panel-btn" data-settings-update-display-name ${state.authSessionReady ? "" : "disabled"}>Update</button>
+            </div>
+          </label>
+        </div>
+        <div class="settings-color-field">
+          <label>
+            <p>Empire Colour</p>
+            <div class="row settings-color-row">
+              <input type="color" value="${state.playerColors.get(state.me) ?? "#38b000"}" ${state.authSessionReady ? "" : "disabled"} data-settings-color />
+              <button type="button" class="panel-btn" data-settings-update-color ${state.authSessionReady ? "" : "disabled"}>Update</button>
             </div>
           </label>
         </div>
@@ -1071,6 +1080,30 @@ export const renderClientHud = (deps: HudDeps): void => {
         pushFeed,
         setPendingDisplayNameChange: (name) => {
           state.pendingDisplayNameChange = name;
+        }
+      });
+    };
+  });
+  const settingsUpdateColorButtons = dom.hud.querySelectorAll("[data-settings-update-color]") as NodeListOf<HTMLButtonElement>;
+  settingsUpdateColorButtons.forEach((updateBtn: HTMLButtonElement) => {
+    updateBtn.onclick = async () => {
+      const input = updateBtn.closest(".settings-color-row")?.querySelector<HTMLInputElement>("[data-settings-color]");
+      if (!input) return;
+      const currentColor = state.playerColors.get(state.me) ?? "#38b000";
+      const newColor = input.value.trim();
+      if (currentColor && newColor !== currentColor && typeof window !== "undefined" && typeof window.confirm === "function") {
+        const confirmed = window.confirm(
+          `Change your empire colour? You can only change your empire colour once per season.`
+        );
+        if (!confirmed) return;
+      }
+      await updateSettingsColor(newColor, {
+        currentName: state.meName,
+        currentColor,
+        sendGameMessage,
+        pushFeed,
+        setPendingColorChange: (color) => {
+          state.pendingColorChange = color;
         }
       });
     };
