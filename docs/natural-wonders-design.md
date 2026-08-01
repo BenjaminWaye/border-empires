@@ -139,16 +139,20 @@ red-hot forge glow.
 
 ### 2.8 — The Watchtower Engine
 
-**Effect:** All observatories owned by the controller gain +10 tiles to all
-range types (vision range, cast radius for aether abilities, and protection
-radius). Implemented as a flat +10 `observatoryRangeBonus` additive effect.
+**Effect:** The wonder tile itself acts as a fully-functional Observatory for
+its controller — eligible to cast crystal abilities (Aether Lance, Reveal
+Empire, Aether Bridge, Aether Wall, ...) at the standard Observatory cast
+radius (20 base) and cooldown, but exempt from the CRYSTAL slot upkeep a
+built Observatory requires. A player with zero built Observatories can still
+cast crystal abilities as long as they hold this wonder.
 
 **Spawn:** DEEP_FOREST region. LAND tile.
 
-**Why:** Observatory range is 20 base, max 40. +10 brings it to 30 — within
-cap, significant across all range dimensions (vision, aether abilities, and
-protection), and transforms the deep forest region into an intelligence
-stronghold.
+**Why:** Crystal abilities are gated behind an Observatory's CRYSTAL slot and
+cooldown — a real cost for players without spare CRYSTAL supply. Holding this
+wonder grants that access for free, transforming the deep forest region into
+an intelligence stronghold worth fighting over even for players who haven't
+invested in Observatories yet.
 
 **3D:** Tall brass telescope tower with a sweeping aether beam (rotating cyan
 light cone). Star particles floating around it.

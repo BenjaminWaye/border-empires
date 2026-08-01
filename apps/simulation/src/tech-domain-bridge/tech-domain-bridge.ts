@@ -300,11 +300,10 @@ export const effectiveVisionRadiusForPlayer = (
  * observatoryCastRadiusBonus is intentionally omitted — no catalog entry sets it.
  */
 export const observatoryCastRadiusForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds" | "wonderObservatoryRangeBonus">,
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
   baseRadius: number
 ): number =>
-  baseRadius +
-  additiveEffectForPlayer(player, "observatoryRangeBonus") + (player.wonderObservatoryRangeBonus ?? 0);
+  baseRadius + additiveEffectForPlayer(player, "observatoryRangeBonus");
 
 export const chooseAiTechChoiceForPlayer = (
   player: AiProgressionPlayer,

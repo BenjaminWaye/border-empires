@@ -259,9 +259,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Bastion Frame: fort defense multipliers +0.5×",
       "Calculating Engine: tech gold costs -10%",
       "Quickforge: once per day, rush-buy costs 0 gold",
-      "Watchtower Engine: +10 observatory range (all types)",
+      "Watchtower Engine: acts as a free Observatory, no CRYSTAL upkeep",
       "Cartographer's Lens: +1 vision range on all owned tiles",
-      "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more."
+      "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more.",
+      "Claiming a wonder adds a Recent Events entry with its flavor text and the exact boon it grants."
     ]
   },
   {
