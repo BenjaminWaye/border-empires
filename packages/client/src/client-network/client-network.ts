@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
+import { clearCameraLocation } from "../client-view-refresh.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -2861,7 +2862,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
-        try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
+        clearCameraLocation();
+        state.camX = 0;
+        state.camY = 0;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();
