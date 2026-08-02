@@ -42,6 +42,7 @@ import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
+import { createCombinedWorkerHost, type CombinedWorkerHost } from "../ai/combined-worker-host.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
 import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
@@ -1668,10 +1669,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     | ReturnType<typeof createSystemCommandProducer>
     | ReturnType<typeof createWorkerSystemCommandProducer>
     | undefined;
+  // P3 thread-consolidation (checkpoint-contention fallback plan): when
+  // useAiWorker is on, the AI and system producers share ONE worker thread
+  // instead of one each — one fewer OS thread contending for the single
+  // shared vCPU. Owned here (not by either producer) since it outlives
+  // whichever producer(s) happen to be enabled this round.
+  let combinedWorkerHost: CombinedWorkerHost | undefined;
   let unsubscribeRuntimeEvents: (() => void) | undefined;
   const closeAutopilots = (): void => {
     aiCommandProducer?.close();
     systemCommandProducer?.close();
+    // Only terminate the shared worker after both producers have released it.
+    combinedWorkerHost?.close();
+    combinedWorkerHost = undefined;
     aiCommandProducer = undefined;
     systemCommandProducer = undefined;
   };
@@ -1691,6 +1701,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const startAutopilots = async (): Promise<void> => {
     closeAutopilots();
+    if (useAiWorker && (aiAutopilotEnabled || systemAutopilotEnabled)) {
+      // One shared worker thread serves both the AI and system producers
+      // (P3 thread-consolidation — see combined-worker-host.ts) instead of
+      // each spawning its own. Created once per autopilot startup cycle;
+      // closeAutopilots() (called above, and on season end / shutdown)
+      // terminates it again.
+      combinedWorkerHost = createCombinedWorkerHost({});
+    }
     const aiPlayerIds = resolveAutopilotAiPlayerIds();
     // Per-player rolling time-budget trackers — each AI gets its own
     // 200ms-per-1s-window budget so one large/expensive AI cannot exhaust
@@ -1748,6 +1766,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             startingClientSeqByPlayer: await nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
+            ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("ai") } : {}),
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
@@ -1907,6 +1926,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             shouldRun: systemShouldRun,
             startingClientSeqByPlayer: await nextClientSeqByPlayers(systemPlayerIds),
             tickIntervalMs: options.systemTickMs ?? 500,
+            ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("system") } : {}),
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
             },
