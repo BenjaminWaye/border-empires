@@ -1513,7 +1513,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.manpower < structureBuildManpowerCost("GARRISON_HALL")
                     ? `Need ${structureBuildManpowerCost("GARRISON_HALL")} manpower`
                     : (missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable"),
-            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +75 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network`,
+            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network`,
             slots,
             deps
           )
@@ -1969,7 +1969,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     : state.manpower < structureBuildManpowerCost("RAIL_DEPOT")
                       ? `Need ${structureBuildManpowerCost("RAIL_DEPOT")} manpower`
                       : (missingResourceSlotReason(state, "RAIL_DEPOT") ?? "Unavailable"),
-            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+75 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`,
+            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`,
             slots,
             deps
           )

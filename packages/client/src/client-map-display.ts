@@ -1,6 +1,6 @@
 import {
   OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES,
-  economicStructureBuildDurationMs, structureBuildDurationMs,
+  economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost,
   structureCostDefinition, structureSlotRequirements, type BuildableStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
@@ -136,13 +136,13 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine production.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
-  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
+  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius and adds +150 manpower cap to this town (+300 more, plus +0.1 manpower/min empire-wide, if a Rail Depot is in this town's connected network).";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and cuts settled-tile upkeep by 20% in a 10-tile radius.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
   if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for full-map vision for 24 hours.";
-  if (kind === "RAIL_DEPOT") return "Mustering hub: boosts manpower regen and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
+  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Garrison Hall in its connected-town network (+300 manpower cap, +0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
   if (kind === "WEATHER_ENGINE") return "Blocks hostile bombardment and hostile observatory actions within 30 tiles.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
@@ -290,13 +290,13 @@ export const structureInfoForKey = (
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
-    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles"];
+    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes, free", "Requires nearby Aether Tower power"];
-    if (key === "RAIL_DEPOT") return ["+0.5 manpower regen per depot", "Boosts outpost muster speed within 50 tiles"];
+    if (key === "RAIL_DEPOT") return ["+300 manpower cap and +0.1 manpower/min for every Garrison Hall in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Aether Tower power"];
@@ -341,12 +341,14 @@ export const structureInfoForKey = (
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "IRON_BASTION") return ["1,800 gold", "2 IRON slots"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "4 IRON slots"];
-    if (key === "SIEGE_TOWER") return ["1,800 gold", "2 SUPPLY slots", "1 IRON slot"];
-    if (key === "DREAD_TOWER") return ["4,200 gold", "3 SUPPLY slots", "2 IRON slots"];
+    if (key === "IRON_BASTION") return ["1,800 gold", "300 manpower", "2 IRON slots"];
+    if (key === "THUNDER_BASTION") return ["4,200 gold", "300 manpower", "4 IRON slots"];
+    if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"];
+    if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"];
     const baseKey = structureBaseKey(key);
     const bits = [`${structureCostDefinition(baseKey).baseGoldCost.toLocaleString()} gold`];
+    const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
+    if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
       for (const requirement of structureSlotRequirements(baseKey)) bits.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
     }
@@ -625,7 +627,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that boost manpower regen and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network.",
+      detail: "Rail Depots are mustering hubs that amplify every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -665,7 +667,7 @@ export const structureInfoForKey = (
   if (type === "GARRISON_HALL") {
     return structure({
       title: "Garrison Hall",
-      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles.",
+      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
