@@ -331,6 +331,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
     ]
   },
+  {
+    createdAt: 1785649123000, // 2026.08.02.1
+    introducedIn: "2026.08.02.1",
+    title: "First 5 Light Outposts no longer cost a FOOD slot",
+    why: "A FOOD slot requirement made early exploration compete with a player's actual economy for the same scarce resource, discouraging the frontier-pushing Light Outposts already exist to encourage.",
+    changes: [
+      "Your first 5 Light Outposts (earliest-built first) now cost 0 FOOD slots; only the 6th onward draws from your FOOD slot pool like other structures.",
+      "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
