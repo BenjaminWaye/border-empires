@@ -2,7 +2,7 @@ import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changel
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource, type SlotResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
@@ -471,7 +471,7 @@ export const createInitialState = () => ({
   discoveredTiles: new Set<string>(),
   discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
-  autoBuildLightOutpostTargets: new Set<string>(),
+  autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {

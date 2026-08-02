@@ -46,7 +46,7 @@ const createState = () =>
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
-    autoSettleTargets: new Set<string>(["60,302"]),
+    autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "FARMSTEAD"]]),
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
     attackPreviewCacheByKey: new Map<string, unknown>(),
@@ -488,7 +488,7 @@ describe("client network regression guards", () => {
     expect(state.capture).toBeUndefined();
     expect(state.combatStartAck).toBe(false);
     expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
-    expect(state.lastSubAt).toBe(0);
+    expect(state.lastSubAt).toBe(0); expect(state.autoSettleTargets.has("60,302")).toBe(false); expect(state.autoBuildTargets.has("60,302")).toBe(false);
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();

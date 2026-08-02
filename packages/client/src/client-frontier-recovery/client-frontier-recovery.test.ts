@@ -15,7 +15,8 @@ describe("sweepExpiredFrontierRecovery", () => {
       actionCurrent: undefined,
       actionTargetKey: "",
       capture: undefined,
-      autoSettleTargets: new Set(["12,18"])
+      autoSettleTargets: new Set(["12,18"]),
+      autoBuildTargets: new Map([["12,18", "FARMSTEAD"]])
     } as any;
 
     const changed = sweepExpiredFrontierRecovery(
@@ -33,6 +34,7 @@ describe("sweepExpiredFrontierRecovery", () => {
     expect(state.frontierSyncWaitUntilByTarget.has("12,18")).toBe(false);
     expect(state.frontierLateAckUntilByTarget.has("12,18")).toBe(false);
     expect(state.autoSettleTargets.has("12,18")).toBe(false);
+    expect(state.autoBuildTargets.has("12,18")).toBe(false);
     expect(clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
     expect(dropQueuedTargetKeyIfAbsent).toHaveBeenCalledWith("12,18");
     expect(requestViewRefresh).toHaveBeenCalledWith(1, true);
@@ -53,7 +55,8 @@ describe("sweepExpiredFrontierRecovery", () => {
       actionCurrent: { x: 12, y: 18 },
       actionTargetKey: "12,18",
       capture: undefined,
-      autoSettleTargets: new Set()
+      autoSettleTargets: new Set(),
+      autoBuildTargets: new Map()
     } as any;
 
     const changed = sweepExpiredFrontierRecovery(
