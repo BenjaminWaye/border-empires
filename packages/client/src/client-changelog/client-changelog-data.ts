@@ -21,40 +21,11 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release. Order doesn't
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  // 2026.07.26.1 ("Expand and Settle now cost manpower") pruned: aged out of the 6-day window during this merge.
-  {
-    createdAt: 1785115000000, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Manpower now gates every structure build",
-    why: "Structure build costs already draw manpower (Market, Bank, Farmstead, synthesizers, and everything else), but the build menu only checked gold, so it offered builds you couldn't actually afford until the server rejected them. This closes that gap for the roughly 30 remaining economic structures, matching the fix already shipped for Expand/Settle.",
-    changes: [
-      "Every economic structure's build/upgrade option (Market, Bank, Farmstead, Camp, Mine, Granary, Census Hall, Clearing House, Caravanary, all three Synthesizers and their Advanced upgrades, Exchange House, Rail Depot, Garrison Hall, Governor's Office, Foundry, Waterworks, Radar System, Airport, Aether Tower, Customs House, and all four monument parts) now checks and displays its manpower cost, not just gold and strategic resources.",
-      "The build menu now tells you specifically when you're short on manpower instead of only ever citing gold or a resource."
-    ]
-  },
-  {
-    createdAt: 1785118000000, // 2026.07.27.2
-    introducedIn: "2026.07.27.2",
-    title: "Structures no longer cost gold to build",
-    why: "Gold income was cut about 288x in an earlier update so a strong empire could no longer coast on it forever, but every structure's build-gold price stayed at its old, pre-cut value — Bank was still 3,200 gold against an economy earning roughly 10 gold/day/town. That made every structure both far too expensive in gold and, on top of that, also required its full manpower price, a double-tax nobody could realistically pay. Gold now only matters for tech, rush-buys, and a few structures' ongoing upkeep, never for the act of building.",
-    changes: [
-      "Every structure's build gold cost is now 0 — manpower (and, for some structures, a strategic resource) is the entire build price.",
-      "This includes Forts, Siege Outposts, Light/Wooden Outposts, and all four monument parts and their final assemblies, not just the everyday economic buildings.",
-      "The four monument assemblies (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) are no longer mislabeled \"Free after 3 parts\" — they show and require their real manpower + SHARD cost.",
-      "Cost displays across the build menu no longer show a stray \"0 gold +\" — the gold clause disappears entirely when it's zero."
-    ]
-  },
-  {
-    createdAt: 1785121000000, // 2026.07.27.3
-    introducedIn: "2026.07.27.3",
-    title: "Garrison Hall and Rail Depot now grant real manpower bonuses",
-    why: "Garrison Hall previously did nothing but cost resources and gold upkeep — its old \"+20% defense\" description was never actually implemented. Rail Depot's manpower regen was a flat bonus per depot with no cap on how many you could spam. This wires up the manpower structure tree the economy rewrite was missing: acquiring towns still grows your manpower on its own, but investing in Garrison Halls and a connected Rail Depot network now gives a real, earned way to grow further.",
-    changes: [
-      "Garrison Hall now grants +150 manpower cap to the town it's built in, unconditionally.",
-      "Rail Depot no longer gives a flat manpower regen bonus per depot. Instead, only one Rail Depot may be built per connected-town network, and it amplifies every Garrison Hall already in that network: +75 manpower cap and +0.1 manpower/min, per Garrison Hall, with no cap on how many Garrison Halls can contribute.",
-      "Trying to build a second Rail Depot in a network that already has one is now rejected — build menus and the manpower breakdown panel reflect the new bonuses."
-    ]
-  },
+  // 2026.07.26.1 ("Expand and Settle now cost manpower"), 2026.07.27.1
+  // ("Manpower now gates every structure build"), 2026.07.27.2 ("Structures
+  // no longer cost gold to build"), and 2026.07.27.3 ("Garrison Hall and
+  // Rail Depot now grant real manpower bonuses") pruned: aged out of the
+  // 6-day window during this merge.
   {
     createdAt: 1785199000000, // 2026.07.28.1
     introducedIn: "2026.07.28.1",
@@ -128,17 +99,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Applies to the normal ownership overlay and both fogged-tile ownership overlays (last-witnessed owner tint on tiles you no longer have vision of)."
     ]
   },
-  {
-    createdAt: 1785130609961, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Fixed: large-empire logins could still stall for 15+ seconds",
-    why: "The 2026.07.25.1 duplicate-sign-in fix defined guards on both the client and the gateway, but neither was actually wired into the real login path — the client kept sending sign-in through its original unguarded code, and the gateway never checked its guard flag. A duplicate sign-in message (e.g. a flaky mobile connection triggering a reconnect while the first attempt was still finishing) could still run two full, concurrent login pipelines against the same connection, doubling snapshot-build work and sometimes leaving the connection stuck on the loading screen indefinitely.",
-    changes: [
-      "The client's duplicate-sign-in guard is now actually used on every sign-in attempt, including the very first one after opening Google sign-in.",
-      "The gateway now also drops a duplicate sign-in message on the same connection instead of processing it a second time in parallel.",
-      "Fixed a related gateway bug where a player's connection was permanently treated as \"already has data cached\" after their first login, even after a disconnect cleared that cache — a flaky connection with repeated drops could end up requesting an empty world snapshot with nothing to fill it back in."
-    ]
-  },
+  // 2026.07.27.1 ("Fixed: large-empire logins could still stall for 15+
+  // seconds") pruned: aged out of the 6-day window during this merge.
   {
     createdAt: 1785147877000, // 2026.07.27.2
     introducedIn: "2026.07.27.2",
@@ -149,17 +111,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
     ]
   },
-  {
-    createdAt: 1785129932105, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Fixed: unexplored-tile waypoints stopped working entirely",
-    why: "An unrelated merge on client-action-flow.ts accidentally reverted the unexplored-tile waypoint feature back to its pre-feature state — clicking an unexplored tile went back to silently doing nothing (no menu, no selection) instead of opening the \"Unexplored\" menu with an Expand Here option.",
-    changes: [
-      "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
-    ]
-  },
-  // 2026.07.23.1 through 2026.07.26.2 pruned: aged out of the 6-day window
-  // during this merge.
+  // 2026.07.23.1 through 2026.07.27.1 ("Fixed: unexplored-tile waypoints
+  // stopped working entirely") pruned: aged out of the 6-day window during
+  // this merge.
   {
     createdAt: 1785200000000, // 2026.07.27.3
     introducedIn: "2026.07.27.3",
