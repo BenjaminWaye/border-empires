@@ -1,4 +1,5 @@
 import { isForestTile } from "./client-constants.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-frontier-overlay.js";
@@ -88,8 +89,8 @@ type StartClientRuntimeLoopDeps = {
   drawResourceCornerMarker: (tile: Tile, px: number, py: number, size: number) => void;
   drawRoadOverlay: (directions: RoadDirections, px: number, py: number, size: number) => void;
   fortificationOverlayImageFor: (
-    kind: "FORT" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST",
-    opening: "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST"
+    kind: FortificationOverlayKind,
+    opening: FortificationOpening
   ) => HTMLImageElement | undefined;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;

@@ -1381,6 +1381,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
         authProfileColorEl.value = myTileColor;
+        if (state.pendingColorChange && state.pendingColorChange === myTileColor) {
+          state.pendingColorChange = "";
+          pushFeed("Empire colour updated.", "info", "success");
+        }
       }
       if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
       const myVisualStyle = msg.visualStyle as any;
@@ -1903,7 +1907,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update || "watchtowerJson" in update ||
+            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
@@ -2367,10 +2371,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
         setAuthStatus(fullMessage, "error");
         syncAuthOverlay();
-        // A pending display-name change rides on the same SET_PROFILE message as
-        // the (unchanged) color, so a color-collision rejection here also means
-        // the name update was never persisted — surface that on the Settings feed
-        // too, since the auth overlay above isn't visible from there.
+        // A pending display-name or color change rides on the same SET_PROFILE
+        // message as the (unchanged) color, so a color-collision rejection here
+        // also means both updates were never persisted — surface that on the
+        // Settings feed too, since the auth overlay above isn't visible from there.
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
+        }
         if (state.pendingDisplayNameChange) {
           state.pendingDisplayNameChange = "";
           pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
@@ -2382,12 +2390,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         pushFeed(errorMessage, "error", "warn");
         return;
       }
-      // A generic gateway internal error can also orphan a pending name change.
-      // Clear it here so the next PLAYER_UPDATE doesn't silently skip its feed
+      if (errorCode === "COLOR_LIMIT") {
+        state.pendingColorChange = "";
+        pushFeed(errorMessage, "error", "warn");
+        return;
+      }
+      // A generic gateway internal error can also orphan pending profile changes.
+      // Clear them here so the next PLAYER_UPDATE doesn't silently skip its feed
       // message, even though the error is also surfaced via the generic handler.
-      if (errorCode === "GATEWAY_INTERNAL_ERROR" && state.pendingDisplayNameChange) {
-        state.pendingDisplayNameChange = "";
-        pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
+      if (errorCode === "GATEWAY_INTERNAL_ERROR") {
+        if (state.pendingDisplayNameChange) {
+          state.pendingDisplayNameChange = "";
+          pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
+        }
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${errorMessage}`, "error", "error");
+        }
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";

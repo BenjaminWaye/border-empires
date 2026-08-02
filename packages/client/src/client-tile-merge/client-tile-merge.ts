@@ -41,6 +41,7 @@ export type CommonTileFieldsUpdate = {
   frontierDecayAt?: number | null | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | null | undefined;
   shardSite?: Tile["shardSite"];
+  naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
   town?: Tile["town"];
   fort?: Tile["fort"];
@@ -92,6 +93,11 @@ export const applyCommonTileFields = (
     else if (claimedShardSite && normalizedUpdate.ownerId === ctx.me && normalizedUpdate.ownershipState === "FRONTIER") {
       merged.shardSite = claimedShardSite;
     } else delete merged.shardSite;
+  }
+
+  if ("naturalWonder" in normalizedUpdate) {
+    if (normalizedUpdate.naturalWonder) merged.naturalWonder = normalizedUpdate.naturalWonder;
+    else delete merged.naturalWonder;
   }
 
   if ("watchtower" in normalizedUpdate) {

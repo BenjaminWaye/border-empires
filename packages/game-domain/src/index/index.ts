@@ -5,6 +5,7 @@ export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-island-connectivity.js";
+export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
@@ -45,6 +46,14 @@ export type DomainPlayer = {
   manpower: number;
   manpowerUpdatedAt?: number;
   manpowerCapSnapshot?: number;
+  wonderVisionRadiusBonus?: number;
+  wonderDockGoldMultiplier?: number;
+  wonderDockAttackMultiplier?: number;
+  wonderMusterRateMultiplier?: number;
+  wonderMusterExtraFlag?: number;
+  wonderFortDefenseBonus?: number;
+  wonderTechGoldDiscount?: number;
+  wonderLastFreeRushBuyAt?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
   mods?: {
@@ -92,7 +101,8 @@ export type PlayerEventLogEntryType =
   | "IMPERIAL_EXCHANGE_LEVY_HIT"
   | "IMPERIAL_EXCHANGE_LEVY_CAST"
   | "MONUMENT_CLAIMED"
-  | "MONUMENT_LOST_TO_RIVAL";
+  | "MONUMENT_LOST_TO_RIVAL"
+  | "NATURAL_WONDER_CLAIMED";
 
 export type PlayerEventLogEntry = {
   id: string;
@@ -237,6 +247,13 @@ export type DomainTileState = {
         targetY?: number;
         setAt?: number;
         updatedAt: number;
+      }
+    | undefined;
+  naturalWonder?:
+    | {
+        type: import("@border-empires/shared").NaturalWonderType;
+        claimedAt?: number;
+        lastFreeRushBuyAt?: number;
       }
     | undefined;
 };

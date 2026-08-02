@@ -5,6 +5,7 @@ import type {
   EconomicStructure,
   Fort,
   LandBiome,
+  NaturalWonderType,
   Observatory,
   OwnershipState,
   Player,
@@ -19,6 +20,7 @@ import type {
 type SystemSimulationCommand = { type: string; [key: string]: unknown };
 import type {
   ClusterDefinition,
+  NaturalWonderSiteState,
   ShardSiteState,
   StrategicResource,
   TerrainShapeState,
@@ -191,6 +193,26 @@ export interface ServerWorldgenWatchtowersDeps {
 export interface ServerWorldgenWatchtowersRuntime {
   generateWatchtowers: (seed: number) => void;
   canPlaceWatchtowerAt: (x: number, y: number) => boolean;
+}
+
+export interface ServerWorldgenNaturalWondersDeps {
+  seeded01: (x: number, y: number, seed: number) => number;
+  naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
+  WORLD_WIDTH: number;
+  WORLD_HEIGHT: number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  landBiomeAt: (x: number, y: number) => LandBiome | undefined;
+  grassShadeAt: (x: number, y: number) => "LIGHT" | "DARK" | undefined;
+  key: (x: number, y: number) => TileKey;
+  docksByTile: Map<TileKey, Dock>;
+  clusterByTile: Map<TileKey, string>;
+  clustersById: Map<string, ClusterDefinition>;
+  townsByTile: Map<TileKey, TownDefinition>;
+}
+
+export interface ServerWorldgenNaturalWondersRuntime {
+  generateNaturalWonders: (seed: number) => void;
 }
 
 export interface ServerWorldgenTerrainDeps {

@@ -26,7 +26,6 @@ import {
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_IRON_PER_DAY,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
@@ -35,7 +34,6 @@ import {
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP,
   type SnapshotEconomySection,
   type SnapshotPlayersSection,
   type SnapshotSystemsSection,
@@ -266,8 +264,6 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "CAMP": return CAMP_GOLD_UPKEEP / 10;
     case "MINE": return MINE_GOLD_UPKEEP / 10;
     case "GRANARY": return GRANARY_GOLD_UPKEEP / 10;
-    case "WOODEN_FORT": return WOODEN_FORT_GOLD_UPKEEP / 10;
-    case "LIGHT_OUTPOST": return LIGHT_OUTPOST_GOLD_UPKEEP / 10;
     // §6.4 (docs/manpower-economy-rewrite-plan.md): this switch previously
     // had BOTH the base and Advanced Fur Synthesizer cases returning
     // CAMP_GOLD_UPKEEP instead of their own rate — a third, previously-
@@ -290,10 +286,14 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
   }
 };
 
+// §upkeep-rebalance: Light Outpost/Wooden Fort and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
+const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   if (structureType === "MARKET") return MARKET_FOOD_UPKEEP / 10;
   if (structureType === "BANK") return BANK_FOOD_UPKEEP / 10;
   if (structureType === "CARAVANARY") return CARAVANARY_FOOD_UPKEEP / 10;
+  if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
 };
 

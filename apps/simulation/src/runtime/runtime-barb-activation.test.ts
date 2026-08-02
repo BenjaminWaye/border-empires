@@ -54,6 +54,34 @@ describe("runtime.exportBarbActivationVisibleUnion", () => {
     expect(union.keys.length).toBe(1);
   });
 
+  it("a SETTLED town tile's +1 reveal makes barb tiles eligible one extra ring out", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        makePlayer("player-1"),
+        makePlayer("barbarian-1")
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Town at (50,50): base radius 1 + 1 town ring = reveals distance 2.
+          { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "TOWN" } },
+          // Plain tile at (60,60): reveals only distance 1.
+          { x: 60, y: 60, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // Barb tiles just outside base radius but inside the town's +1 ring.
+          { x: 52, y: 52, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
+          // Barb tile outside the plain tile's base radius (distance 2).
+          { x: 62, y: 62, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const union = runtime.exportBarbActivationVisibleUnion();
+    expect(union.keys).toContain("52,52"); // via the town's +1 reveal
+    expect(union.keys).not.toContain("62,62"); // outside the plain tile's radius
+  });
+
   it("returns a stable signature when nothing changes (cache hit)", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

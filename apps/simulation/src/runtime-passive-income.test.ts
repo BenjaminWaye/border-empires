@@ -4,7 +4,7 @@ import { SimulationRuntime } from "./runtime/runtime.js";
 const testRuntimePlayer = (id: string, isAi: boolean) => ({
   id,
   isAi,
-  points: 100,
+  points: 0, // below the 24h-production/floor-of-10 gold storage cap so income has room to grow
   manpower: 150,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),

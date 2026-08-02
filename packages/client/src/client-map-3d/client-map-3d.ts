@@ -75,7 +75,7 @@ import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { hasActiveOwnedOutpostAura } from "../client-outpost-aura-tile/client-outpost-aura-tile.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
-import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js";
+import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -170,7 +170,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
-  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
@@ -1457,7 +1457,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
-    shardOverlay.clear(); watchtowerOverlay.clear();
+    shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
     fortOverlay.clear();
     resourceOverlay.clear();
     attackOverlay.clear();
@@ -1692,7 +1692,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1732,7 +1732,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // under-construction and active states both show up — visual
         // status differentiation can come later.
         if (tile?.observatory && terrain === "LAND") {
-          structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY"); // Watchtower has its own wonder mesh below
           // Float a "recharging" badge over our own active observatory
           // while its crystal-casting cooldown is still running, so the
           // map shows at a glance why a cast just did nothing. Exact
@@ -1889,7 +1889,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
-    shardOverlay.commit(); watchtowerOverlay.commit();
+    shardOverlay.commit(); watchtowerOverlay.commit(); naturalWonderOverlays.commit();
     fortOverlay.commit();
     resourceOverlay.commit();
     attackOverlay.commit();
@@ -1960,7 +1960,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -2099,7 +2099,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aegisLockFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
-    shardOverlay.dispose(); watchtowerOverlay.dispose();
+    shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
     fortOverlay.dispose();
     resourceOverlay.dispose();
     attackOverlay.dispose();
