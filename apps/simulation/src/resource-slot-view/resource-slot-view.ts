@@ -109,7 +109,8 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
   waterworksKeys: ReadonlySet<string> = new Set(),
-  foundryKeys: ReadonlySet<string> = new Set()
+  foundryKeys: ReadonlySet<string> = new Set(),
+  domainGrantedSupply?: Partial<Record<SlotResource, number>>
 ): ResourceSlotTotals => {
   // §5.4: deliberately NOT dormancy-aware, for two different reasons per
   // structure family:
@@ -165,6 +166,12 @@ export const resourceSlotSupplyForPlayer = (
       slots += FOUNDRY_MINE_SLOT_BONUS;
     }
     totals[base.slotResource] += slots;
+  }
+  if (domainGrantedSupply) {
+    for (const resource of Object.keys(domainGrantedSupply) as SlotResource[]) {
+      const count = domainGrantedSupply[resource];
+      if (count && count > 0) totals[resource] += count;
+    }
   }
   return totals;
 };

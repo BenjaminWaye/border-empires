@@ -218,25 +218,20 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
 
   if (progressionChoice?.type === "CHOOSE_DOMAIN") {
     // Clockwork Stipend asks for a per-resource sub-choice. The AI picks
-    // whichever offered resource it is currently most stockpile-starved on,
-    // weighted by trickle rate so CRYSTAL's lower 0.1/min rate doesn't pull
-    // it away from a more impactful 0.2/min on IRON/SUPPLY. Effective need =
-    // stockpile / ratePerMinute (lower → starved relative to what this trickle
-    // can repair). Ties break IRON > SUPPLY > CRYSTAL (most universally useful
-    // for fort/outpost upkeep).
+    // whichever offered resource it expects to use most. Priority: IRON (forts,
+    // most structures) > SUPPLY (outposts) > CRYSTAL (research, narrow use).
     const aiDomainPayload: { domainId: string; chosenTrickleResource?: ChosenTrickleResource } = {
       domainId: progressionChoice.id
     };
     if (progressionChoice.id === "clockwork-stipend") {
-      const stockpile = input.strategicResources ?? {};
-      const candidates: Array<{ resource: ChosenTrickleResource; rate: number; stock: number }> = [
-        { resource: "IRON", rate: 0.2, stock: stockpile.IRON ?? 0 },
-        { resource: "SUPPLY", rate: 0.2, stock: stockpile.SUPPLY ?? 0 },
-        { resource: "CRYSTAL", rate: 0.1, stock: stockpile.CRYSTAL ?? 0 }
+      const candidates: Array<{ resource: ChosenTrickleResource; priority: number }> = [
+        { resource: "IRON", priority: 0 },
+        { resource: "SUPPLY", priority: 1 },
+        { resource: "CRYSTAL", priority: 2 }
       ];
       let best = candidates[0]!;
       for (const candidate of candidates) {
-        if (candidate.stock / candidate.rate < best.stock / best.rate) best = candidate;
+        if (candidate.priority < best.priority) best = candidate;
       }
       aiDomainPayload.chosenTrickleResource = best.resource;
     }

@@ -16,8 +16,8 @@ import {
   chooseAiDomainChoiceForPlayer,
   chooseAiTechChoiceForPlayer,
   chooseDomainForPlayer,
-  chosenTrickleOptionsForDomain,
-  chosenTrickleRateForPlayer,
+  domainGrantedResourceSlots,
+  domainHasResourceSubChoice,
   multiplicativeEffectForPlayer,
   recomputeMods,
   resolveDataPath
@@ -176,7 +176,7 @@ describe("tier-1 domain effects are wired", () => {
   });
 });
 
-describe("Clockwork Stipend trickle resource choice", () => {
+describe("Clockwork Stipend resource slot grant", () => {
   const baseClockworkPlayer = (): {
     id: string;
     isAi: boolean;
@@ -198,39 +198,19 @@ describe("Clockwork Stipend trickle resource choice", () => {
     strategicResources: { FOOD: 500 } as Record<string, number>
   });
 
-  it("publishes the offered per-resource trickle rates", () => {
-    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
-    expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
+  it("publishes domainHasResourceSubChoice as true for clockwork-stipend", () => {
+    expect(domainHasResourceSubChoice("clockwork-stipend")).toBe(true);
+    // Sanity: a domain without the slot grant returns false.
+    expect(domainHasResourceSubChoice("iron-bastions")).toBe(false);
   });
 
-  it("data file's clockwork-stipend options match TRICKLE_RESOURCE_KEYS exactly", () => {
-    // Parity guard, both directions:
-    //
-    //   1. If TRICKLE_RESOURCE_KEYS is widened without updating the data file,
-    //      the raw-data subset check below fails because shared has extra keys
-    //      the data doesn't carry (the validator would silently return undefined
-    //      for those — a real correctness bug).
-    //   2. If the data file grows an extra rate (e.g. SHARD: 0.5) without
-    //      widening TRICKLE_RESOURCE_KEYS, the raw-data superset check below
-    //      fails because data has a key shared doesn't honor (the sim and
-    //      client would both silently ignore it — not a bug today but a
-    //      maintenance trap).
-    //
-    // We read the JSON directly rather than going through the bridge so we're
-    // checking the source data, not the already-filtered helper output.
+  it("data file's clockwork-stipend carries chosenResourceSlotGrant: 1", () => {
     const rawTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as {
       domains: Array<{ id: string; effects?: Record<string, unknown> }>;
     };
     const clockwork = rawTree.domains.find((domain) => domain.id === "clockwork-stipend");
     expect(clockwork).toBeDefined();
-    const rawOptions = clockwork!.effects?.chosenResourceTrickleOptions as Record<string, unknown> | undefined;
-    expect(rawOptions).toBeDefined();
-    expect(Object.keys(rawOptions!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
-
-    // Belt-and-braces: every data key passes the runtime guard.
-    for (const key of Object.keys(rawOptions!)) {
-      expect(isChosenTrickleResource(key)).toBe(true);
-    }
+    expect(clockwork!.effects?.chosenResourceSlotGrant).toBe(1);
   });
 
   it("isChosenTrickleResource rejects unrelated resource keys and non-strings", () => {
@@ -250,13 +230,12 @@ describe("Clockwork Stipend trickle resource choice", () => {
     const player = baseClockworkPlayer();
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", []);
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.reason).toMatch(/trickle resource choice required/);
+    if (!outcome.ok) expect(outcome.reason).toMatch(/resource choice required/);
     expect(player.domainIds.has("clockwork-stipend")).toBe(false);
   });
 
   it("rejects unsupported sub-choices (e.g. SHARD)", () => {
     const player = baseClockworkPlayer();
-    // SHARD is a strategic resource but not in the offered table.
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
       chosenTrickleResource: "SHARD" as unknown as "IRON"
     });
@@ -271,29 +250,25 @@ describe("Clockwork Stipend trickle resource choice", () => {
     expect(player.chosenTrickleResource).toBe("CRYSTAL");
   });
 
-  it("chosenTrickleRateForPlayer returns the rate matching the locked pick", () => {
+  it("domainGrantedResourceSlots returns the slot grant for the locked pick", () => {
     const player = {
       domainIds: new Set<string>(["clockwork-stipend"]),
       chosenTrickleResource: "IRON" as const
     };
-    expect(chosenTrickleRateForPlayer(player)).toEqual({ resource: "IRON", ratePerMinute: 0.2 });
+    expect(domainGrantedResourceSlots(player)).toEqual({ IRON: 1 });
   });
 
-  it("chosenTrickleRateForPlayer returns undefined when no resource is locked", () => {
+  it("domainGrantedResourceSlots returns undefined when no resource is locked", () => {
     const player = { domainIds: new Set<string>(["clockwork-stipend"]) };
-    expect(chosenTrickleRateForPlayer(player)).toBeUndefined();
+    expect(domainGrantedResourceSlots(player)).toBeUndefined();
   });
 
   it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
-    // Simulate a player who already locked IRON on a prior run (e.g. snapshot
-    // recovery, or a future second-trickle domain). Calling chooseDomainForPlayer
-    // with a different valid sub-choice MUST NOT reassign the locked value.
     const player = baseClockworkPlayer();
     player.chosenTrickleResource = "IRON";
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "SUPPLY" });
     expect(outcome.ok).toBe(true);
     expect(player.domainIds.has("clockwork-stipend")).toBe(true);
-    // Locked forever — the SUPPLY pick we just passed in is ignored.
     expect(player.chosenTrickleResource).toBe("IRON");
   });
 });
@@ -373,15 +348,13 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice!.score).toBeGreaterThan(0);
   });
 
-  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities (§19)", () => {
+  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities", () => {
     // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
     // crystal, so the AI fell back to clockwork-stipend despite its lower
-    // score. §19 dropped every domain's FOOD/IRON/CRYSTAL/SUPPLY quantity
-    // cost (kept gold + SHARD only, both flat per tier) — mercantile-charter
+    // score. §19 dropped every domain's cost to gold + SHARD only — mercantile-charter
     // and clockwork-stipend are both tier 1 (40 gold, no shard), so neither
     // is gated by strategicResources anymore and the AI should just take the
-    // higher-scored candidate, same as it already does for tech (see the
-    // gold-tier tests above).
+    // higher-scored candidate.
     const choice = chooseAiDomainChoiceForPlayer(
       {
         id: "ai-4",

@@ -88,7 +88,8 @@ import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-stor
 import {
   additiveEffectForPlayer,
   effectiveVisionRadiusForPlayer,
-  multiplicativeEffectForPlayer
+  multiplicativeEffectForPlayer,
+  domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import {
@@ -2662,8 +2663,7 @@ export class SimulationRuntime {
 
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
-      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-      return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys);
+      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.players.get(playerId); return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined);
     });
   }
 

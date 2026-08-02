@@ -129,13 +129,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "outpostSupplySlotWaiverCount" && typeof value === "number") return `First ${value} Siege Outposts need no SUPPLY slot`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "chosenResourceTrickleOptions" && value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, rate]) => typeof rate === "number");
-    if (entries.length === 0) return null;
-    const summary = entries
-      .map(([resource, rate]) => `${String(resource).toLowerCase()} +${(rate as number).toFixed(2)}/min`)
-      .join(", ");
-    return `Pick one on confirm: ${summary}`;
+  if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
+    return `Pick one on confirm: +${value} free slot of chosen resource`;
   }
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
@@ -255,24 +250,17 @@ export const techOwnedHtml = (
     .join("");
 };
 
-// Returns the set of valid trickle resource keys offered by this domain's
-// chosenResourceTrickleOptions effect, or null if the effect is absent /
-// malformed / present-but-empty. The TRICKLE_RESOURCE_KEYS list is the
-// shared contract with the sim's chosenTrickleOptionsForDomain — any change
-// to the offered resource set must flip a single constant in shared.
-const domainTrickleOptionKeys = (
+// Returns the set of valid resource keys offered by this domain's
+// chosenResourceSlotGrant effect, or null if the effect is absent.
+// The TRICKLE_RESOURCE_KEYS list is the shared contract with the sim's
+// domainHasResourceSubChoice — any change to the offered resource set
+// must flip a single constant in shared.
+const domainResourceSlotKeys = (
   domain: DomainInfo | undefined
 ): ReadonlySet<ChosenTrickleResource> | null => {
-  const raw = domain?.effects?.chosenResourceTrickleOptions;
-  if (!raw || typeof raw !== "object") return null;
-  const rawRecord = raw as Record<string, unknown>;
-  const keys = new Set<ChosenTrickleResource>();
-  for (const candidate of TRICKLE_RESOURCE_KEYS) {
-    const rate = rawRecord[candidate];
-    if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) continue;
-    keys.add(candidate);
-  }
-  return keys.size > 0 ? keys : null;
+  const grant = domain?.effects?.chosenResourceSlotGrant;
+  if (typeof grant !== "number" || !Number.isFinite(grant) || grant <= 0) return null;
+  return new Set(TRICKLE_RESOURCE_KEYS);
 };
 
 export const domainOwnedHtml = (
@@ -286,16 +274,16 @@ export const domainOwnedHtml = (
     .map((id) => {
       const domain = catalogById.get(id);
       // Surface the player's locked resource on the owned card ONLY when this
-      // specific domain's options table actually offered that resource. This
-      // prevents a future trickle-offering domain with a narrower table (e.g.
-      // only IRON) from misleadingly displaying "(SUPPLY trickle)" because the
-      // player happens to have locked SUPPLY on a different domain.
-      const offeredKeys = domainTrickleOptionKeys(domain);
-      const trickleSuffix =
+      // specific domain offered that resource. This prevents a future domain
+      // with a narrower table (e.g. only IRON) from misleadingly displaying
+      // "(SUPPLY slot)" because the player happens to have locked SUPPLY on
+      // a different domain.
+      const offeredKeys = domainResourceSlotKeys(domain);
+      const slotSuffix =
         offeredKeys && chosenTrickleResource && offeredKeys.has(chosenTrickleResource)
-          ? ` <em>(${chosenTrickleResource} trickle)</em>`
+          ? ` <em>(${chosenTrickleResource} slot)</em>`
           : "";
-      return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
+      return `<article class="card"><strong>${domain?.name ?? id}${slotSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
     })
     .join("");
 };
@@ -701,16 +689,16 @@ export const renderDomainDetailCardHtml = (args: {
   // domain offered it — same gate as the owned-summary card, so a
   // future narrower-table domain doesn't claim credit for a pick made on
   // another domain.
-  const detailOfferedKeys = domainTrickleOptionKeys(domain);
-  const detailTrickleRate =
+  const detailOfferedKeys = domainResourceSlotKeys(domain);
+  const detailSlotGrant =
     owned && chosenTrickleResource && detailOfferedKeys?.has(chosenTrickleResource)
-      ? (domain.effects?.chosenResourceTrickleOptions as Record<string, number> | undefined)?.[chosenTrickleResource]
+      ? (domain.effects?.chosenResourceSlotGrant as number | undefined)
       : undefined;
-  const trickleSection =
-    detailTrickleRate !== undefined && detailTrickleRate > 0
+  const slotSection =
+    detailSlotGrant !== undefined && detailSlotGrant > 0
       ? `<section class="structure-info-section">
         <span class="structure-info-section-label">Your pick</span>
-        <strong>${chosenTrickleResource} (+${detailTrickleRate.toFixed(2)}/min, locked)</strong>
+        <strong>${chosenTrickleResource} (+${detailSlotGrant} slot${detailSlotGrant === 1 ? "" : "s"}, locked)</strong>
       </section>`
       : "";
   const tierRuleText =
@@ -744,7 +732,7 @@ export const renderDomainDetailCardHtml = (args: {
       <p class="domain-detail-tier-rule">${tierRuleText}</p>
       ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       <p>${domain.description}</p>
-      ${trickleSection}
+      ${slotSection}
       <section class="structure-info-section">
         <span class="structure-info-section-label">Benefits</span>
         <strong>${formatDomainBenefitSummary(domain)}</strong>
