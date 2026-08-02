@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
 
 import type { Tile } from "../client-types.js";
 
@@ -12,6 +12,7 @@ const prettyToken = (value: string): string => value;
 
 const createSubject = (tiles?: Tile[]) => {
   const state = createInitialState();
+  state.me = "me";
   for (const tile of tiles ?? []) state.tiles.set(`${tile.x},${tile.y}`, tile);
   return createClientRuntimeDisplaySupport({
     state,
@@ -19,6 +20,9 @@ const createSubject = (tiles?: Tile[]) => {
     prettyToken
   });
 };
+
+const lightOutpostTile = (x: number, y: number): Tile =>
+  createTile({ x, y, ownerId: "me", economicStructure: { ownerId: "me", type: "LIGHT_OUTPOST", status: "active" } });
 
 
 const createTile = (overrides: Partial<Tile>): Tile => ({
@@ -75,5 +79,27 @@ describe("client runtime display support", () => {
     const { terrainLabel } = createSubject([createTile({ x: 11, y: 11, landBiome: "GRASS", regionType: "DEEP_FOREST" })]);
 
     expect(terrainLabel(11, 11, "LAND")).toBe("GRASS");
+  });
+
+  describe("structureCostText for LIGHT_OUTPOST", () => {
+    it("omits the FOOD slot line entirely while the player owns fewer than LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts", () => {
+      const tiles = Array.from({ length: LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT - 1 }, (_, i) => lightOutpostTile(i, 0));
+      const { structureCostText } = createSubject(tiles);
+
+      expect(structureCostText("LIGHT_OUTPOST")).not.toContain("FOOD slot");
+    });
+
+    it("shows the FOOD slot line once the player already owns LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts", () => {
+      const tiles = Array.from({ length: LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT }, (_, i) => lightOutpostTile(i, 0));
+      const { structureCostText } = createSubject(tiles);
+
+      expect(structureCostText("LIGHT_OUTPOST")).toContain("1 FOOD slot");
+    });
+
+    it("omits the FOOD slot line with zero owned outposts (the common case a fresh player sees)", () => {
+      const { structureCostText } = createSubject();
+
+      expect(structureCostText("LIGHT_OUTPOST")).not.toContain("FOOD slot");
+    });
   });
 });

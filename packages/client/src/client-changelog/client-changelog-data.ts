@@ -282,6 +282,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The structure-info popup's cost card now shows manpower cost for every structure (it previously omitted manpower entirely), and Garrison Hall/Rail Depot's effect descriptions now mention their manpower bonuses instead of only their secondary effects."
     ]
   },
+  {
+    createdAt: 1785670919000, // 2026.08.02.2
+    introducedIn: "2026.08.02.2",
+    title: "Build Light Outpost menu no longer shows a FOOD slot cost for your free first 5",
+    why: "The button correctly let you build your first 5 Light Outposts for free, but the cost line next to it still said \"1 FOOD slot\" regardless — misleading copy that looked like a hard requirement even when nothing would actually be charged.",
+    changes: [
+      "The \"Build Light Outpost\" cost line now omits the FOOD slot entirely while you're within your free first 5; it only appears once it actually applies, starting with your 6th outpost."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
