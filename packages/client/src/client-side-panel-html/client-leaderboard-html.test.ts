@@ -66,7 +66,7 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 docks");
-    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1.0 | tech 1");
+    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1440.0/day | tech 1");
     expect(html).toContain("11. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (7.0)");
     expect(html).toContain("8. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (3.5)");
     expect(html).toContain("13. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (2.0)");
