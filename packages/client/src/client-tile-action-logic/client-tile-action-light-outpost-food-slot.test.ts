@@ -155,3 +155,31 @@ describe("Light Outpost FOOD-slot gate — build_light_outpost (direct build on 
     expect(action?.disabledReason).toBe("Need a free FOOD slot");
   });
 });
+
+describe("Light Outpost FOOD-slot gate — build_light_outpost on an owned FRONTIER tile (settle-then-build)", () => {
+  it(`appears on a FRONTIER owned tile with fewer than ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+    const state = richState();
+    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT - 1);
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+
+    const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
+    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    expect(action).toBeDefined();
+    expect(action?.disabled).not.toBe(true);
+    expect(action?.cost).toContain("settle + build");
+  });
+
+  it(`still bites with "Need a free FOOD slot" past ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+    const state = richState();
+    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT);
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+
+    const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
+    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    expect(action).toBeDefined();
+    expect(action?.disabled).toBe(true);
+    expect(action?.disabledReason).toBe("Need a free FOOD slot");
+  });
+});
