@@ -17,11 +17,14 @@ const INDICES_PER_TILE = 6;
 // domeFalloff) instead of bridging it with one flat plane, which used to
 // leave the dome poking through the overlay's edge or, worse, sitting
 // entirely buried under the hill (only the flat quad's corners, outside the
-// dome's DOME_RADIUS, ever matched the visible surface). Lower subdivision
-// than the terrain mesh's own SUBDIV=10 -- this is a soft translucent tint,
-// not a hard-shaded surface, so the coarser facets don't read as visibly
-// different from the true curve.
-const HILL_SUBDIV = 6;
+// dome's DOME_RADIUS, ever matched the visible surface). Matches the
+// terrain mesh's own SUBDIV exactly (client-map-3d-hills.ts) rather than
+// approximating it at a coarser resolution: same per-vertex domeFalloff
+// sample points, same triangle diagonal split, so this surface is a
+// constant-offset parallel of the real dome everywhere (not just at
+// shared vertices) — required now that the overlay renders with normal
+// depth testing and needs to never dip below the opaque terrain.
+const HILL_SUBDIV = 10;
 const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
 const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
 // Small clearance above the dome's own surface height so the two coincident
@@ -95,7 +98,16 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
     transparent: true,
     opacity,
     depthWrite: false,
-    depthTest: false,
+    // depthTest was previously disabled to keep the overlay visible on
+    // top of hill domes, back when hill tiles used one flat bridging
+    // plane that sank below the dome's peak. addHillTile now drapes the
+    // overlay as a constant-offset parallel of the dome's own mesh (same
+    // SUBDIV, same per-vertex formula, same triangulation — see
+    // HILL_SUBDIV above), so it always sits above the terrain and depth
+    // testing can stay on. With it off, the overlay ignored the depth
+    // buffer entirely and painted over every opaque object on screen —
+    // including towns/structures standing on the tile — tinting them
+    // instead of just the ground beneath them.
     side: DoubleSide
   });
   const mesh = new Mesh(geometry, material);
