@@ -35,7 +35,7 @@ type NormalizedGatewayTileUpdate = {
   siegeOutpost?: Tile["siegeOutpost"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
-  shardSite?: Tile["shardSite"] | undefined;
+  shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
   watchtower?: Tile["watchtower"] | undefined;
   muster?: Tile["muster"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
@@ -71,7 +71,7 @@ export type GatewayTileUpdate = {
   siegeOutpostJson?: string;
   economicStructureJson?: string;
   sabotageJson?: string;
-  shardSiteJson?: string;
+  shardSiteJson?: string; naturalWonderJson?: string;
   watchtowerJson?: string;
   musterJson?: string;
   yield?: Tile["yield"];
@@ -286,7 +286,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
-  if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
+  if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("ownershipState" in update) {

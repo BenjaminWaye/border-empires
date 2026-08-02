@@ -103,9 +103,10 @@ export const tickMuster = (input: MusterTickInput): void => {
 
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
+      const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
       const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
       const inflow = Math.min(
-        (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * elapsedMin,
+        (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
         headroom,
         player.manpower
       );

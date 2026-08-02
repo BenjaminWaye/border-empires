@@ -1,8 +1,6 @@
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { isTechHighlightEffectKey } from "../client-tech-payoffs.js";
-
-const BASE_EMPIRE_VISION_RADIUS = 4;
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 type ActiveBonusContext = {
@@ -326,7 +324,7 @@ export const techCurrentModsHtml = (
     })
     .filter((entry): entry is Extract<ActiveBonusBreakdownEntry, { kind: "radius" }> => Boolean(entry));
   const visionRadiusBonus = radiusEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const effectiveVisionRadius = Math.max(1, Math.floor(BASE_EMPIRE_VISION_RADIUS * (mods.vision ?? 1)) + visionRadiusBonus);
+  const effectiveVisionRadius = Math.max(1, Math.floor(PLAYER_BASE_VISION * (mods.vision ?? 1)) + visionRadiusBonus);
 
   const statDefs = [
     {

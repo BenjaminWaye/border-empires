@@ -32,6 +32,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),

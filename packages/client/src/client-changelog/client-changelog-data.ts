@@ -21,18 +21,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release. Order doesn't
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  {
-    createdAt: 1785030000000, // 2026.07.26.1
-    introducedIn: "2026.07.26.1",
-    title: "Expand and Settle now cost manpower",
-    why: "Gold's income scaled up with empire size while EXPAND and SETTLE stayed flat-priced, so both actions decayed into a non-decision by mid-game — the one currency that funded expansion could never stay scarce. Manpower, by contrast, is already structurally throttled (deep cap, slow regen), so moving expansion onto it keeps every claim and settlement a real, ongoing cost.",
-    changes: [
-      "Claiming a frontier tile now costs 10 manpower; settling a claimed tile now costs 20 manpower, in addition to their existing (now much smaller) gold costs.",
-      "A new player starts with a larger manpower pool (576, regenerating at 0.4/min) so early expansion still feels generous — sized to cover roughly 40 claims and 8 settles before waiting on regen.",
-      "Capturing or founding a new town immediately adds that town's own manpower cap and regen on top of your starting pool, instead of being masked by it.",
-      "The map, waypoint planner, and bulk auto-settle queue all now show and respect the real manpower cost, so they no longer offer an expand/settle you can't actually afford."
-    ]
-  },
+  // 2026.07.26.1 ("Expand and Settle now cost manpower") pruned: aged out of the 6-day window during this merge.
   {
     createdAt: 1785115000000, // 2026.07.27.1
     introducedIn: "2026.07.27.1",
@@ -178,70 +167,13 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
     ]
   },
-  {
-    createdAt: 1784937780000, // 2026.07.25.3
-    introducedIn: "2026.07.25.3",
-    title: "Hills are now a real strategic prize",
-    why: "Hills granted only a modest, easily-ignored vision bump, were scattered uniformly across the whole map instead of forming meaningful highland regions, and cost the same to claim as flat ground — nothing made fighting for high ground feel worthwhile.",
-    changes: [
-      "Base vision range lowered to 1 tile, so the hills vision bonus is now a real difference-maker: standing on a hill sees 2 tiles out instead of 1.",
-      "Hills now cluster into highland regions (much like forests cluster into deep-forest regions), with only a rare scattering of standalone hills elsewhere.",
-      "Expanding onto a hills tile now takes 1.5 seconds longer than claiming flat ground, reflecting the rougher terrain."
-    ]
-  },
-  {
-    createdAt: 1784937720000, // 2026.07.25.2
-    introducedIn: "2026.07.25.2",
-    title: "Fixed: waypoints to distant unexplored tiles could report no path even though one existed",
-    why: "The 2026.07.24.5 unexplored-waypoint fix only treated the destination tile itself as reachable land — it still assumed every other unexplored tile in between was a wall. That made \"Expand Here\" work when the target was directly adjacent to your territory, but fail for anything farther away, since almost any real route to unscouted land crosses other unscouted tiles too.",
-    changes: [
-      "Waypoints toward any unexplored tile now treat every undiscovered tile along the route the same optimistic way as the destination — reachable, until real data proves otherwise."
-    ]
-  },
-  {
-    createdAt: 1784937660000, // 2026.07.25.1
-    introducedIn: "2026.07.25.1",
-    title: "Faster login for large empires",
-    why: "Players with large territories could wait 10+ seconds on the loading screen. The login pipeline was doing the same heavy work multiple times: the client could send a duplicate sign-in request, the server marshalled the full visible tile set twice, and the snapshot builder re-computed vision coverage that the export step had already resolved.",
-    changes: [
-      "Duplicate sign-in requests during a single connection are now deduplicated on both the client and the server, so one login no longer triggers two full snapshot builds.",
-      "The live subscription no longer re-marshals your entire visible tile set when the bootstrap snapshot already delivered it.",
-      "The snapshot builder skips a redundant vision-coverage recompute on fog-of-war logins, cutting seconds off large-empire snapshot builds."
-    ]
-  },
-  {
-    createdAt: 1784927317000, // 2026.07.24.3 (restored)
-    introducedIn: "2026.07.24.3",
-    title: "Watchtowers are now rarer",
-    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
-    changes: [
-      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
-    ]
-  },
-  {
-    createdAt: 1784923957000, // 2026.07.24.1 (restored)
-    introducedIn: "2026.07.24.1",
-    title: "New structure: Watchtowers",
-    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
-    changes: [
-      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
-      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
-      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
-    ]
-  },
-  {
-    createdAt: 1784851260000, // 2026.07.24.1
-    introducedIn: "2026.07.24.1",
-    title: "Hills terrain: +1 vision, visible in 2D and 3D",
-    why: "The map previously had no way to reward holding high ground — every land tile granted the same vision range regardless of terrain relief.",
-    changes: [
-      "Hills tiles now grant +1 extra vision range to whoever is standing on them.",
-      "In the 3D map, hills raise the ground itself into a distinct flat-topped rise — even a single, isolated hills tile pops fully out of completely flat surrounding ground.",
-      "In the 2D map, hills tiles are marked with a rolling-mound icon."
-    ]
-  },
-  // 2026.07.23.1 ("Terrain now blocks and limits vision") pruned: aged out
-  // of the 6-day window during this merge.
+  // 2026.07.25.3 ("Hills are now a real strategic prize"), 2026.07.25.2
+  // ("Fixed: waypoints to distant unexplored tiles..."), 2026.07.25.1
+  // ("Faster login for large empires"), 2026.07.24.3 ("Watchtowers are now
+  // rarer"), 2026.07.24.1 ("New structure: Watchtowers" and "Hills terrain:
+  // +1 vision, visible in 2D and 3D"), and 2026.07.23.1 ("Terrain now blocks
+  // and limits vision") all pruned: aged out of the 6-day window during
+  // this merge.
   {
     createdAt: 1785200000000, // 2026.07.27.3
     introducedIn: "2026.07.27.3",
@@ -315,6 +247,25 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1785575868160, // next
+    introducedIn: "next",
+    title: "Natural Wonders dot the landscape",
+    why: "9 ancient wonders are now scattered across the world. Claim them to gain permanent bonuses — more manpower, stronger forts, faster mustering, and more.",
+    changes: [
+      "Foundry Heart: +1 slot for FOOD/IRON/CRYSTAL/SUPPLY",
+      "Deepwater Engine: dock gold income doubled, dock attacks +15% ATK",
+      "Conscription Engine: +2000 manpower cap, instant +2000 on first claim",
+      "Warpress: 2× muster rate, +1 extra flag (max 6)",
+      "Bastion Frame: fort defense multipliers +0.5×",
+      "Calculating Engine: tech gold costs -10%",
+      "Quickforge: once per day, rush-buy costs 0 gold",
+      "Watchtower Engine: acts as a free Observatory, no CRYSTAL upkeep",
+      "Cartographer's Lens: +1 vision range on all owned tiles",
+      "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more.",
+      "Claiming a wonder adds a Recent Events entry with its flavor text and the exact boon it grants."
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "next",
     title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
@@ -346,6 +297,38 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Light Outpost can now be built on any unowned tile adjacent to unexplored terrain, even if it's not adjacent to your current territory — the action handles frontier expansion end-to-end without intermediate claims.",
       "\"Build Light Outpost\" now appears in the main actions tab (not buildings) so it's discoverable as a frontier-exploration tool, not a structure you place on your own land.",
       "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "structure-upkeep-rebalance",
+    title: "Fort and outpost upkeep now runs on food plus their resource",
+    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
+    changes: [
+      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
+      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
+      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
+      "These show up in each structure's tile-detail upkeep listing."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-food-slot-demand",
+    title: "Towns now draw 4 food slots each",
+    why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
+    changes: [
+      "Each TOWN now consumes 4 FOOD resource slots (up from 2) to stay fed, so a growing empire needs proportionally more farms and fishing.",
+      "SETTLEMENTs still draw 0 food slots; CITY, GREAT_CITY, and METROPOLIS each add +1 on top of the town base, matching how their income scales."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "town-vision-bonus",
+    title: "Towns reveal one extra tile of vision",
+    why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
+    changes: [
+      "Every SETTLED town tile — including a freshly-founded SETTLEMENT — now reveals its surroundings one tile further than a plain owned tile; its own reveal is radius+1.",
+      "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
     ]
   },
   {

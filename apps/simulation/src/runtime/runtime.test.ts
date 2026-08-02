@@ -15,7 +15,7 @@ describe("simulation runtime", () => {
     const elapsedMs = 60_000; // 1 minute
     const runtime = new SimulationRuntime({
       now: () => startMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 0 })]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [
@@ -3597,9 +3597,11 @@ describe("simulation runtime", () => {
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
             },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            // §5.3: the town draws 2 FOOD slots, GARRISON_HALL draws 1 more.
+            // §5.3: the town draws 4 FOOD slots, GARRISON_HALL draws 1 more.
             { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []
@@ -5361,16 +5363,20 @@ describe("simulation runtime", () => {
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "One" } },
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Two" } },
           { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } },
-          // §5.4: each town needs 2 FOOD slots to not go dormant, plus
-          // METROPOLIS's +3 tier step (townFoodSlotDemandForTier) — 6 FISH
-          // tiles (2 slots each = 12) cover all 4 towns' demand (2+2+2+5=11)
+          // §5.4: each town needs 4 FOOD slots to not go dormant (TOWN_FOOD_SLOT_DEMAND),
+          // plus METROPOLIS's +3 tier step (townFoodSlotDemandForTier) — 10 FISH
+          // tiles (2 slots each = 20) cover all 4 towns' demand (7+4+4+4=19)
           // with a slot to spare.
           { x: 1, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 21, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 31, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 41, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 51, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
+          { x: 51, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 61, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 71, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 81, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 91, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: [],
         players: [
@@ -6275,6 +6281,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 3, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
             {
               x: 2,
@@ -6288,7 +6295,7 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      // Supply = 2 FOOD slots (bare FISH tile). Demand = 2 (town) + 1 (Market) = 3, short by 1 —
+      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Market) = 5, short by 1 —
       // shedding just the newer Market covers it, so the town isn't touched.
       expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
@@ -6310,6 +6317,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 3, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
             {
               x: 1,
               y: 0,
@@ -6337,8 +6345,8 @@ describe("simulation runtime", () => {
           activeLocks: []
         }
       });
-      // Same supply/demand shape as the test above: 2 FOOD slots supply,
-      // 2 (town) + 1 (Market) = 3 demand — the newer Market goes dormant,
+      // Same supply/demand shape as the test above: 4 FOOD slots supply,
+      // 4 (town) + 1 (Market) = 5 demand — the newer Market goes dormant,
       // the town stays fed.
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
 
@@ -8118,9 +8126,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
           })),
-          // §5.4: the town needs 2 FOOD slots to not go dormant (which would
+          // §5.4: the town needs 4 FOOD slots to not go dormant (which would
           // otherwise zero its gold income and make it non-yield-bearing).
-          { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
+          { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+          { x: 8, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
         ],
         // lastCollectedAt = now means zero elapsed time → live buffer = 0.
         tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
@@ -8212,10 +8221,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
           })),
-          // §5.4: 4 towns need 2 FOOD slots each (8 total) to not go dormant
-          // (which would otherwise zero their gold income) — 4 FISH tiles
+          // §5.4: 4 towns need 4 FOOD slots each (16 total) to not go dormant
+          // (which would otherwise zero their gold income) — 8 FISH tiles
           // (2 slots each) cover it, placed well outside the BFS neighborhood.
-          ...[[100, 100], [101, 100], [102, 100], [103, 100]].map(([x, y]) => ({
+          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100]].map(([x, y]) => ({
             x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
           }))
         ],

@@ -38,6 +38,7 @@ export type TileLastEmittedRefs = {
   economicStructureRef: unknown;
   sabotageRef: unknown;
   shardSiteRef: unknown;
+  naturalWonderRef: unknown;
   musterRef: unknown;
 };
 
@@ -56,6 +57,8 @@ interface Entry {
   sabotageRef: unknown;
   shardSiteJson: string | undefined;
   shardSiteRef: unknown;
+  naturalWonderJson: string | undefined;
+  naturalWonderRef: unknown;
   musterJson: string | undefined;
   musterRef: unknown;
   lastEmitted: TileLastEmittedRefs | undefined;
@@ -69,6 +72,7 @@ export type AllSubstructureJson = {
   economicStructureJson: string | undefined;
   sabotageJson: string | undefined;
   shardSiteJson: string | undefined;
+  naturalWonderJson: string | undefined;
   musterJson: string | undefined;
 };
 
@@ -90,6 +94,7 @@ export class TileDeltaStringifyCache {
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
+        naturalWonderJson: undefined, naturalWonderRef: undefined,
         musterJson: undefined, musterRef: undefined,
         lastEmitted: undefined
       };
@@ -124,6 +129,10 @@ export class TileDeltaStringifyCache {
       entry.shardSiteRef = tile.shardSite;
       entry.shardSiteJson = tile.shardSite ? JSON.stringify(tile.shardSite) : undefined;
     }
+    if (tile.naturalWonder !== entry.naturalWonderRef) {
+      entry.naturalWonderRef = tile.naturalWonder;
+      entry.naturalWonderJson = tile.naturalWonder ? JSON.stringify(tile.naturalWonder) : undefined;
+    }
     if (tile.muster !== entry.musterRef) {
       entry.musterRef = tile.muster;
       entry.musterJson = tile.muster ? JSON.stringify(tile.muster) : undefined;
@@ -137,6 +146,7 @@ export class TileDeltaStringifyCache {
       economicStructureJson: entry.economicStructureJson,
       sabotageJson: entry.sabotageJson,
       shardSiteJson: entry.shardSiteJson,
+      naturalWonderJson: entry.naturalWonderJson,
       musterJson: entry.musterJson
     };
   }
@@ -219,6 +229,7 @@ export class TileDeltaStringifyCache {
     if (tile.sabotage !== last.sabotageRef) { (delta as Record<string, unknown>).sabotageJson = fullDelta.sabotageJson; hasFieldChanges = true; }
     if (tile.muster !== last.musterRef) { (delta as Record<string, unknown>).musterJson = fullDelta.musterJson; hasFieldChanges = true; }
     if (tile.shardSite !== last.shardSiteRef) { (delta as Record<string, unknown>).shardSiteJson = fullDelta.shardSiteJson; hasFieldChanges = true; }
+    if (tile.naturalWonder !== last.naturalWonderRef) { (delta as Record<string, unknown>).naturalWonderJson = fullDelta.naturalWonderJson; hasFieldChanges = true; }
 
     const lastTown = last.townRef as DomainTileState["town"] | undefined;
     if (tile.town?.type !== lastTown?.type) { (delta as Record<string, unknown>).townType = tile.town?.type; hasFieldChanges = true; }
@@ -264,6 +275,7 @@ export class TileDeltaStringifyCache {
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
+        naturalWonderJson: undefined, naturalWonderRef: undefined,
         musterJson: undefined, musterRef: undefined,
         lastEmitted: undefined
       };
@@ -285,6 +297,7 @@ export class TileDeltaStringifyCache {
       economicStructureRef: tile.economicStructure,
       sabotageRef: tile.sabotage,
       shardSiteRef: tile.shardSite,
+      naturalWonderRef: tile.naturalWonder,
       musterRef: tile.muster,
     };
   }
@@ -305,6 +318,7 @@ export class TileDeltaStringifyCache {
       entry.economicStructureJson = undefined; entry.economicStructureRef = undefined;
       entry.sabotageJson = undefined; entry.sabotageRef = undefined;
       entry.shardSiteJson = undefined; entry.shardSiteRef = undefined;
+      entry.naturalWonderJson = undefined; entry.naturalWonderRef = undefined;
       entry.musterJson = undefined; entry.musterRef = undefined;
       entry.lastEmitted = preserved;
     }

@@ -963,27 +963,26 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    if (tile.economicStructure && isConverterStructureType(tile.economicStructure.type)) {
+    if (tile.economicStructure) {
       const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
+      const isConverter = isConverterStructureType(tile.economicStructure.type);
       if (tile.economicStructure.status === "active") {
         out.push({
           id: "disable_converter_structure" as TileActionDef["id"],
           label: `Disable ${economicStructureName(tile.economicStructure.type)}`,
           detail: deps.buildDetailTextForAction("disable_converter_structure", tile)
         });
-      } else {
+      } else if (tile.economicStructure.status === "inactive") {
         out.push({
           id: "enable_converter_structure" as TileActionDef["id"],
           label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
           detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
           ...tileActionAvailability(
-            tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
-            tile.economicStructure.status === "under_construction"
-              ? `${economicStructureName(tile.economicStructure.type)} still building`
-              : downtimeRemainingMs > 0
-                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Needs enough gold for one upkeep tick",
-            "Pays one upkeep tick immediately"
+            downtimeRemainingMs <= 0,
+            downtimeRemainingMs > 0
+              ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+              : "Needs enough gold for one upkeep tick",
+            isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
           )
         });
       }

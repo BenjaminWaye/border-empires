@@ -40,6 +40,7 @@ const MUTABLE_TILE_FIELDS = [
   "town",
   "fort",
   "observatory",
+  "naturalWonder",
   "siegeOutpost",
   "economicStructure",
   "sabotage",

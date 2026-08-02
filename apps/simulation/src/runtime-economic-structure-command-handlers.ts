@@ -5,7 +5,7 @@ import {
   parseConverterTogglePayload,
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
-import { economicStructureGoldUpkeepPerInterval, isConverterStructureType } from "./runtime-structure-rules/runtime-structure-rules.js";
+import { economicStructureGoldUpkeepPerInterval } from "./runtime-structure-rules/runtime-structure-rules.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
@@ -94,25 +94,22 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
   const target = context.tiles.get(targetKey);
   const structure = target?.economicStructure;
   if (!target || !structure || structure.ownerId !== command.playerId) {
-    context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "no owned converter on tile"); return;
-  }
-  if (!isConverterStructureType(structure.type)) {
-    context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "only converter structures can be toggled"); return;
+    context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "no owned structure on tile"); return;
   }
   if (structure.status === "under_construction" || structure.status === "removing") {
-    context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is not ready"); return;
+    context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure is not ready"); return;
   }
   if (structure.disabledUntil && structure.disabledUntil > context.now()) {
-    context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is recovering from overload"); return;
+    context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure is recovering from overload"); return;
   }
 
   if (payload.enabled) {
     if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-      context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter requires settled owned tile"); return;
+      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure requires settled owned tile"); return;
     }
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
     if (actor.points < upkeep) {
-      context.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "insufficient gold for converter upkeep"); return;
+      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient gold for structure upkeep"); return;
     }
     actor.points -= upkeep;
   }

@@ -74,6 +74,7 @@ const toRecoveredTile = (tile: DomainTileState): RecoveredSimulationState["tiles
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(tile.town ? { town: tile.town } : {}),
