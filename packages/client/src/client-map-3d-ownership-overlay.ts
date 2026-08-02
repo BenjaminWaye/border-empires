@@ -95,7 +95,15 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
     transparent: true,
     opacity,
     depthWrite: false,
-    depthTest: false,
+    // depthTest was previously disabled to keep the overlay visible on
+    // top of hill domes, back when hill tiles used one flat bridging
+    // plane that sank below the dome's peak. Now that addHillTile drapes
+    // the overlay over the dome's own curve (with a small clearance —
+    // see HILL_DRAPE_CLEARANCE), the geometry already sits above the
+    // terrain, so depth testing can stay on. With it off, the overlay
+    // ignored the depth buffer entirely and painted over every opaque
+    // object on screen — including towns/structures standing on the
+    // tile — tinting them instead of just the ground beneath them.
     side: DoubleSide
   });
   const mesh = new Mesh(geometry, material);

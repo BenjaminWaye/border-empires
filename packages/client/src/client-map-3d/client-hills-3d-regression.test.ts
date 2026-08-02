@@ -94,10 +94,18 @@ describe("3d hills rendering regression guard", () => {
     expect(mock.fillCalls).toBe(0);
   });
 
-  it("ownership overlay material uses depthTest:false to stay visible on top of hill domes", () => {
+  it("ownership overlay material keeps depth testing on now that hill tiles are vertex-draped", () => {
+    // depthTest:false used to be required to keep the overlay visible on
+    // top of hill domes, back when hill tiles used one flat bridging
+    // plane that sank below the dome's peak. addHillTile now drapes the
+    // overlay over the dome's own curve (with clearance), so the
+    // geometry already sits above the terrain and depth testing can
+    // stay on — leaving it off made the overlay ignore the depth buffer
+    // and paint over every opaque object on screen, including
+    // towns/structures standing on the tile.
     const overlaySource = clientSource("../client-map-3d-ownership-overlay.ts");
-    expect(overlaySource).toContain("depthTest: false,");
-    // depthWrite: false is already set — verify both so neither regresses.
+    expect(overlaySource).not.toContain("depthTest: false,");
+    // depthWrite: false stays — verify it doesn't regress.
     expect(overlaySource).toContain("depthWrite: false,");
   });
 
