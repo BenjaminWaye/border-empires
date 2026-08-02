@@ -158,22 +158,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
     ]
   },
-  {
-    createdAt: 1785096000000, // 2026.07.26.1
-    introducedIn: "2026.07.26.1",
-    title: "Fixed seeing darkness after a new season starts",
-    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
-    changes: [
-      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
-    ]
-  },
-  // 2026.07.25.3 ("Hills are now a real strategic prize"), 2026.07.25.2
-  // ("Fixed: waypoints to distant unexplored tiles..."), 2026.07.25.1
-  // ("Faster login for large empires"), 2026.07.24.3 ("Watchtowers are now
-  // rarer"), 2026.07.24.1 ("New structure: Watchtowers" and "Hills terrain:
-  // +1 vision, visible in 2D and 3D"), and 2026.07.23.1 ("Terrain now blocks
-  // and limits vision") all pruned: aged out of the 6-day window during
-  // this merge.
+  // 2026.07.23.1 through 2026.07.26.2 pruned: aged out of the 6-day window
+  // during this merge.
   {
     createdAt: 1785200000000, // 2026.07.27.3
     introducedIn: "2026.07.27.3",
@@ -182,16 +168,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The bulk WebSocket channel now skips the prepare-player, bootstrap-subscribe, live-subscribe, and snapshot-build steps during login, cutting per-login CPU work roughly in half.",
       "Login stalls for large empires should be significantly shorter on mobile and slow connections."
-    ]
-  },
-  {
-    createdAt: 1785097225841, // 2026.07.26.2
-    introducedIn: "2026.07.26.2",
-    title: "Snappier actions during heavy fights",
-    why: "Closing a tile menu or clicking a non-muster tile sent a pointless \"stop watching muster\" request to the server every single time — even when you were never watching one. During rapid attacking this fired several times a second, and each one cost the server a full command round-trip that always failed, adding to server-side delays that could make combat results arrive late.",
-    changes: [
-      "The client now only tells the server to stop watching a muster flag when it actually started watching one.",
-      "Server-side: muster watch toggles are no longer written to the command database at all — they are view state, not game actions — eliminating a steady stream of database errors."
     ]
   },
   {
@@ -339,6 +315,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Your first 5 Light Outposts (earliest-built first) now cost 0 FOOD slots; only the 6th onward draws from your FOOD slot pool like other structures.",
       "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
+    ]
+  },
+  {
+    createdAt: 1785618075910, // 2026.08.01.1
+    introducedIn: "2026.08.01.1",
+    title: "Rail Depot's Garrison Hall bonus quadrupled; stale crystal costs removed",
+    why: "Rail Depot's per-Garrison-Hall cap amplifier was only +75, a small fraction of a single Metropolis's 2,400 cap, undercutting the network investment it was meant to reward. Separately, several structures (Garrison Hall included) still displayed a CRYSTAL build cost left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — that CRYSTAL amount was never actually charged, just confusing, stale copy.",
+    changes: [
+      "Rail Depot's network amplifier now grants +300 manpower cap per Garrison Hall (up from +75), on top of its existing +0.1 manpower/min per Garrison Hall.",
+      "Removed the leftover CRYSTAL build-cost line for Garrison Hall, Rail Depot, Customs House, Radar System, Exchange House, Airport, and the four monument parts — none of them have actually charged CRYSTAL since resource costs moved to permanent slot occupation; their real, current cost (manpower + slots) is unchanged and now displays correctly everywhere.",
+      "The structure-info popup's cost card now shows manpower cost for every structure (it previously omitted manpower entirely), and Garrison Hall/Rail Depot's effect descriptions now mention their manpower bonuses instead of only their secondary effects."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

@@ -249,10 +249,10 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");
     expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.6x to 1.8x");
     expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 1.8x to 2.0x");
-    expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "2 IRON slots"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "4 IRON slots"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "2 SUPPLY slots", "1 IRON slot"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "3 SUPPLY slots", "2 IRON slots"]);
+    expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower", "2 IRON slots"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "300 manpower", "4 IRON slots"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"]);
   });
 
   it("provides structure art for dedicated economic overlays", () => {

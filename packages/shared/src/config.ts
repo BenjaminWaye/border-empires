@@ -235,7 +235,7 @@ export const OUTPOST_DEPOT_RADIUS = 5;
 // every Garrison Hall already in that network, uncapped in count.
 export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
 export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
-export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 75;
+export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
 // Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.
