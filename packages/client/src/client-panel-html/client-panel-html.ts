@@ -359,7 +359,7 @@ export const leaderboardHtml = (
   playerColors: ReadonlyMap<string, string> = new Map()
 ): string => {
   const overallLineText = (entry: LeaderboardOverallEntry): string =>
-    `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs}`;
+    `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
   const overallLineHtml = (entry: LeaderboardOverallEntry): string =>
     `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs}`;
   const metricLineText = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
