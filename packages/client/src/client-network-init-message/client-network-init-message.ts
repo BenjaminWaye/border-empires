@@ -109,7 +109,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // instead of restoring stale coordinates from a previous season.
   if (
     Boolean(incomingSeason?.seasonId) &&
-    state.bridgeDebugSeasonId !== "" &&
     state.bridgeDebugSeasonId !== incomingSeason?.seasonId
   ) {
     clearCameraLocation();

@@ -217,4 +217,35 @@ describe("INIT clears stale camera on season change", () => {
     expect(state.camX).toBe(500);
     expect(state.camY).toBe(300);
   });
+
+  // Regression for issue #8 (reload-after-rollover scenario): when a player
+  // reloads their browser AFTER a season has already rolled over on the server,
+  // bridgeDebugSeasonId is "" (initial value) but localStorage still has the old
+  // camera position. The season detection must trigger even on first load
+  // (empty string !== new seasonId) so the stale camera is cleared before
+  // cameraRestoredFromStorage flag is used.
+  it("clears persisted camera on first load in new season (reload-after-rollover scenario)", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+
+    const state = createState();
+    // Fresh page reload: cameraRestoredFromStorage = true, camX/Y restored from storage
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+    // bridgeDebugSeasonId is "" on app startup (initial value)
+    state.bridgeDebugSeasonId = "";
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    // Player receives INIT with new seasonId (season has rolled over on server)
+    sendInitWithSeason(ws, "season-2");
+
+    // Camera should be cleared, cameraRestoredFromStorage consumed
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(false);
+    expect(state.cameraRestoredFromStorage).toBe(false);
+    // Camera should center on home tile (INIT handler line 247 does this)
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+  });
 });
