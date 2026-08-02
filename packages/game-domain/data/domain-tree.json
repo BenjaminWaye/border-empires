@@ -52,11 +52,11 @@
       "id": "clockwork-stipend",
       "tier": 1,
       "name": "Clockwork Stipend",
-      "description": "Imperial machinery ticks forward a steady supply of one chosen resource (iron or supply at 0.2/min, crystal at 0.1/min), regardless of the map.",
+      "description": "Imperial machinery allocates dedicated logistics slots for one chosen resource (iron, supply, or crystal), regardless of the map.",
       "requiresTechId": "agriculture",
       "cost": { "gold": 40 },
       "effects": {
-        "chosenResourceTrickleOptions": { "IRON": 0.2, "SUPPLY": 0.2, "CRYSTAL": 0.1 }
+        "chosenResourceSlotGrant": 1
       }
     },
     {
