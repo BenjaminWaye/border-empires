@@ -7,9 +7,16 @@ import { storageSet, type ClientState } from "./client-state/client-state.js";
 // Persists the player's last-viewed map location so a reload/reconnect (or a
 // fresh login on the same browser) drops them back where they were instead
 // of always re-centering on their empire. Best-effort: storage failures are
-// swallowed by storageSet.
-export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom">): void => {
-  storageSet(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom }));
+// swallowed by storageSet. bridgeDebugSeasonId is tagged onto the saved
+// payload (when known) so a later fresh page load can tell whether the
+// restored position still belongs to the current season — see
+// cameraLocationInitialState() and the INIT handler in
+// client-network-init-message.ts for why that's needed.
+export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom"> & { bridgeDebugSeasonId?: string | undefined }): void => {
+  storageSet(
+    CAMERA_LOCATION_STORAGE_KEY,
+    JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom, seasonId: state.bridgeDebugSeasonId || undefined })
+  );
 };
 
 // Removes the persisted camera location so the next page load starts at the
@@ -65,14 +72,14 @@ const scheduleOffFrame: (task: () => void) => void =
 // happen far more often than that, so this has its own lightweight,
 // unconditional (not gated on auth/socket/queued-action state) time-based
 // throttle instead of piggybacking on the subscribe gate.
-export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom">): void => {
+export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom"> & { bridgeDebugSeasonId?: string | undefined }): void => {
   const now = Date.now();
   if (now - lastCameraSaveAt < CAMERA_SAVE_THROTTLE_MS) return;
   lastCameraSaveAt = now;
   // Snapshot now — this runs inside the render loop's rAF callback, and by
   // the time the idle callback fires the caller's `state` object may have
   // moved on to a newer camera position than what triggered this save.
-  const snapshot = { camX: state.camX, camY: state.camY, zoom: state.zoom };
+  const snapshot = { camX: state.camX, camY: state.camY, zoom: state.zoom, bridgeDebugSeasonId: state.bridgeDebugSeasonId };
   scheduleOffFrame(() => saveCameraLocation(snapshot));
 };
 
@@ -147,7 +154,7 @@ export const maybeRefreshForCamera = (
   state: Pick<
     ClientState,
     "authSessionReady" | "camX" | "camY" | "zoom" | "lastSubCx" | "lastSubCy" | "actionInFlight" | "capture" | "actionQueue"
-  >,
+  > & { bridgeDebugSeasonId?: string | undefined },
   deps: {
     ws: RealtimeSocket;
     requestViewRefresh: (radius?: number, force?: boolean) => void;

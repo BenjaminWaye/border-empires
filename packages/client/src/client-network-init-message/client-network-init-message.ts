@@ -107,9 +107,22 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // If the season changed since the camera was last saved, discard the
   // persisted camera location so the INIT handler centers on the home tile
   // instead of restoring stale coordinates from a previous season.
+  //
+  // bridgeDebugSeasonId is in-memory-only and always "" on a fresh page
+  // load (it's only populated once an INIT has been processed this browser
+  // session), so it can only detect a season change for an in-session
+  // reconnect. To also catch a season that rolled over while the tab was
+  // closed, fall back to cameraRestoredSeasonId — the season tag saved
+  // alongside the camera position itself (see client-camera-storage.ts) —
+  // whenever bridgeDebugSeasonId hasn't been established yet. If neither is
+  // known (nothing saved, or a pre-migration save with no season tag),
+  // there's nothing safe to compare against, so leave the camera alone.
+  const knownCameraSeasonId = state.bridgeDebugSeasonId !== "" ? state.bridgeDebugSeasonId : state.cameraRestoredSeasonId;
   if (
     Boolean(incomingSeason?.seasonId) &&
-    state.bridgeDebugSeasonId !== incomingSeason?.seasonId
+    knownCameraSeasonId !== undefined &&
+    knownCameraSeasonId !== "" &&
+    knownCameraSeasonId !== incomingSeason?.seasonId
   ) {
     clearCameraLocation();
     state.cameraRestoredFromStorage = false;
