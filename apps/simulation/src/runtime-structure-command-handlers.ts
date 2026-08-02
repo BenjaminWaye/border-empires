@@ -12,7 +12,7 @@ import {
   structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
-  LIGHT_OUTPOST_VISION_BONUS, SYNTHESIZER_STRUCTURE_TYPES,
+  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, LIGHT_OUTPOST_VISION_BONUS, SYNTHESIZER_STRUCTURE_TYPES,
   type BuildableStructureType,
   type EconomicStructureType,
   type SlotStructureType
@@ -233,17 +233,16 @@ function spendStrategicCost(
 }
 
 // §5.1/§5.6: a structure permanently occupies a slot of its required
-// resource(s) for as long as it exists — construction just needs a free
-// slot at build time, no stockpile spend. `tileField`/`target` let an
-// in-place upgrade (Fort/Siege tier ladders, granary Advanced pair) net out
-// the requirement it's about to overwrite on its own tile, so it only needs
+// resource(s) for as long as it exists — construction just needs a free slot
+// at build time, no stockpile spend. `tileField`/`target` let an in-place
+// upgrade (Fort/Siege tier ladders, granary Advanced pair) net out the
+// requirement it's about to overwrite on its own tile, so it only needs
 // *additional* capacity for the delta, not the new tier's full requirement
 // stacked on top of the old one it's replacing.
-//
-// Synthesizers (SYNTHESIZER_STRUCTURE_TYPES) skip this gate entirely: per
-// §6.4 they're a slot *source*, not a consumer (resource-slot-view.ts) — a
-// landlocked player with zero free slots of that resource must still be
-// able to build the one synthesizer that grants them their first one.
+// Synthesizers skip this gate entirely (§6.4: a slot *source*, not a
+// consumer — must be buildable even with zero free slots). LIGHT_OUTPOST
+// skips it too below LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT owned, waived to 0
+// FOOD demand once built (slot-waivers.ts).
 function hasFreeResourceSlots(
   context: RuntimeStructureCommandContext,
   command: CommandEnvelope,
@@ -253,6 +252,7 @@ function hasFreeResourceSlots(
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
 ): boolean {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
+  if (structureType === "LIGHT_OUTPOST" && context.ownedStructureCountForPlayer(command.playerId, "LIGHT_OUTPOST") < LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) return true;
   const requirements = structureSlotRequirements(slotStructureType);
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
