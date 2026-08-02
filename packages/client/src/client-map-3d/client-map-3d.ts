@@ -1765,7 +1765,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const settleColor = ownerId
             ? tmpSettleOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
             : SETTLE_FALLBACK_COLOR;
-          settleOverlay.addInstance(x, z, surfaceY, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
+          if (isHillsTile(wx, wy)) {
+            const wxOwn = deps.wrapX(wx + 1);
+            const wyOwn = deps.wrapY(wy + 1);
+            const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+            const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+            const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+            const corner11Y = heightfield.cornerYAt(wxOwn, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+            const x0 = x - 0.5;
+            const x1 = x + 0.5;
+            const z0 = z - 0.5;
+            const z1 = z + 0.5;
+            settleOverlay.addHillTile(x0, x1, z0, z1, corner00Y, corner10Y, corner01Y, corner11Y, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
+          } else {
+            settleOverlay.addInstance(x, z, surfaceY, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
+          }
         }
         if (tile) {
           const fortKind = fortificationOverlayKindForTile(tile);

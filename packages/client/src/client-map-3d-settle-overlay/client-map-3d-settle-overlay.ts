@@ -1,12 +1,17 @@
 import {
   BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
   Color,
   InstancedMesh,
   Matrix4,
+  Mesh,
   MeshStandardMaterial,
   PlaneGeometry,
   Scene
 } from "three";
+import { domeFalloff } from "../client-map-3d-hills.js";
+import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Local wander helper. Replaces the shared `settlePixelWanderPoint` for
 // the 3D path because the shared seed (in client-capture-effects.ts)
@@ -89,6 +94,11 @@ const FRAME_HEIGHT = 0.012;
 const FRAME_HALF = TINT_SIZE * 0.5 - FRAME_THICKNESS * 0.5;
 const FRAME_Y = TINT_Y + 0.003;
 
+const HILL_SUBDIV = 6;
+const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
+const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
+const HILL_DRAPE_CLEARANCE = 0.012;
+
 type TileEntry = {
   readonly worldTileX: number;
   readonly worldTileY: number;
@@ -105,6 +115,21 @@ export type SettleOverlay = {
     sceneX: number,
     sceneZ: number,
     surfaceY: number,
+    ownerColor: Color,
+    startAt: number,
+    resolvesAt: number,
+    worldTileX: number,
+    worldTileY: number
+  ) => void;
+  readonly addHillTile: (
+    x0: number,
+    x1: number,
+    z0: number,
+    z1: number,
+    corner00Y: number,
+    corner10Y: number,
+    corner01Y: number,
+    corner11Y: number,
     ownerColor: Color,
     startAt: number,
     resolvesAt: number,
@@ -154,12 +179,17 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     depthWrite: false
   });
 
-  const peopleMesh = new InstancedMesh(personGeometry, personMaterial, maxTiles * PEOPLE_PER_TILE);
+  // Flat entries and hill entries are capped independently (`maxTiles`
+  // vs. `maxHillTiles`), but the frame perimeter and people wander share
+  // one InstancedMesh across both, so their capacity must cover the sum.
+  const maxHillTiles = Math.min(maxTiles, 1000);
+  const maxFrameEntries = maxTiles + maxHillTiles;
+  const peopleMesh = new InstancedMesh(personGeometry, personMaterial, maxFrameEntries * PEOPLE_PER_TILE);
   const tintMesh = new InstancedMesh(tintGeometry, tintMaterial, maxTiles);
-  const frameNMesh = new InstancedMesh(frameGeometry, frameMaterial, maxTiles);
-  const frameSMesh = new InstancedMesh(frameGeometry, frameMaterial, maxTiles);
-  const frameEMesh = new InstancedMesh(frameGeometry, frameMaterial, maxTiles);
-  const frameWMesh = new InstancedMesh(frameGeometry, frameMaterial, maxTiles);
+  const frameNMesh = new InstancedMesh(frameGeometry, frameMaterial, maxFrameEntries);
+  const frameSMesh = new InstancedMesh(frameGeometry, frameMaterial, maxFrameEntries);
+  const frameEMesh = new InstancedMesh(frameGeometry, frameMaterial, maxFrameEntries);
+  const frameWMesh = new InstancedMesh(frameGeometry, frameMaterial, maxFrameEntries);
   const allMeshes = [peopleMesh, tintMesh, frameNMesh, frameSMesh, frameEMesh, frameWMesh];
   for (const m of allMeshes) {
     m.frustumCulled = false;
@@ -167,6 +197,15 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     m.renderOrder = 5;
   }
   scene.add(...allMeshes);
+
+  const hillTintGeom = new BufferGeometry();
+  hillTintGeom.setAttribute("position", new BufferAttribute(new Float32Array(maxHillTiles * HILL_VERTS_PER_TILE * 3), 3));
+  hillTintGeom.setAttribute("color", new BufferAttribute(new Float32Array(maxHillTiles * HILL_VERTS_PER_TILE * 3), 3));
+  hillTintGeom.setIndex(new BufferAttribute(new Uint32Array(maxHillTiles * HILL_INDICES_PER_TILE), 1));
+  const hillTintMesh = new Mesh(hillTintGeom, tintMaterial);
+  hillTintMesh.renderOrder = 5;
+  scene.add(hillTintMesh);
+  let hillTintCount = 0;
 
   // Hoisted temps so commit() and tick() don't allocate per call. The
   // 90° rotation matrix is a constant — built once and reused.
@@ -178,9 +217,19 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   const rotateY90 = new Matrix4().makeRotationY(Math.PI * 0.5);
 
   const entries: TileEntry[] = [];
+  // Hill tiles are tracked separately from `entries` so the flat
+  // `tintMesh` InstancedMesh never gets a matrix written for them — that
+  // mesh is a flat plane and would clip into/poke through the dome
+  // exactly like the bug this drape logic fixes. Hill tiles get their
+  // tint from `hillTintMesh` (vertex-draped) instead; they still share
+  // the frame perimeter and people-wander logic with flat entries, using
+  // the hill's domed peak height rather than flat ground height.
+  const hillEntries: TileEntry[] = [];
 
   const clear = (): void => {
     entries.length = 0;
+    hillEntries.length = 0;
+    hillTintCount = 0;
   };
 
   const addInstance = (
@@ -195,26 +244,103 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   ): void => {
     if (entries.length >= maxTiles) return;
     entries.push({ worldTileX, worldTileY, sceneX, sceneZ, surfaceY, startAt, resolvesAt });
-    // Tint colour is set right away (doesn't change per frame).
     tmpColor.copy(ownerColor);
     tintMesh.setColorAt(entries.length - 1, tmpColor);
+  };
+
+  const addHillTile = (
+    x0: number,
+    x1: number,
+    z0: number,
+    z1: number,
+    corner00Y: number,
+    corner10Y: number,
+    corner01Y: number,
+    corner11Y: number,
+    ownerColor: Color,
+    startAt: number,
+    resolvesAt: number,
+    worldTileX: number,
+    worldTileY: number
+  ): void => {
+    if (hillTintCount >= maxHillTiles) return;
+    // Peak height at the tile's own center (r=0 → domeFalloff=1), used to
+    // place the frame perimeter and wandering people on top of the dome
+    // instead of at flat ground level.
+    const avgCornerY = (corner00Y + corner10Y + corner01Y + corner11Y) * 0.25;
+    const domePeakY = avgCornerY + HEIGHTFIELD_HILLS_ELEVATION_BONUS + HILL_DRAPE_CLEARANCE;
+    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: domePeakY, startAt, resolvesAt });
+
+    const positions = hillTintGeom.getAttribute("position") as BufferAttribute;
+    const colors = hillTintGeom.getAttribute("color") as BufferAttribute;
+    const indices = hillTintGeom.getIndex() as BufferAttribute;
+
+    const vertsPerRow = HILL_SUBDIV + 1;
+    const baseVertex = hillTintCount * HILL_VERTS_PER_TILE;
+    let vi = baseVertex;
+
+    for (let b = 0; b <= HILL_SUBDIV; b += 1) {
+      for (let a = 0; a <= HILL_SUBDIV; a += 1) {
+        const fx = a / HILL_SUBDIV;
+        const fz = b / HILL_SUBDIV;
+        const u = fx - 0.5;
+        const v = fz - 0.5;
+        const r = Math.hypot(u, v);
+        const top = corner00Y + (corner10Y - corner00Y) * fx;
+        const bottom = corner01Y + (corner11Y - corner01Y) * fx;
+        const groundY = top + (bottom - top) * fz;
+        const p = vi * 3;
+        positions.array[p + 0] = x0 + (x1 - x0) * fx;
+        (positions.array as Float32Array)[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        positions.array[p + 2] = z0 + (z1 - z0) * fz;
+        colors.array[p + 0] = ownerColor.r;
+        colors.array[p + 1] = ownerColor.g;
+        colors.array[p + 2] = ownerColor.b;
+        vi += 1;
+      }
+    }
+
+    const baseIndex = hillTintCount * HILL_INDICES_PER_TILE;
+    let ii = baseIndex;
+    for (let b = 0; b < HILL_SUBDIV; b += 1) {
+      for (let a = 0; a < HILL_SUBDIV; a += 1) {
+        const i00 = baseVertex + b * vertsPerRow + a;
+        const i10 = i00 + 1;
+        const i01 = i00 + vertsPerRow;
+        const i11 = i01 + 1;
+        (indices.array as Uint32Array)[ii + 0] = i00;
+        (indices.array as Uint32Array)[ii + 1] = i01;
+        (indices.array as Uint32Array)[ii + 2] = i10;
+        (indices.array as Uint32Array)[ii + 3] = i10;
+        (indices.array as Uint32Array)[ii + 4] = i01;
+        (indices.array as Uint32Array)[ii + 5] = i11;
+        ii += 6;
+      }
+    }
+
+    hillTintCount += 1;
   };
 
   const commit = (): void => {
     // commit() finalises tint + frame counts and signals the colour
     // attribute as dirty. People matrices are written by tick() per
     // frame so the wander animates regardless of orchestrator throttle.
+    // tintMesh (flat plane) only covers flat-ground entries — hill tiles
+    // render their tint via hillTintMesh instead so they don't get a
+    // flat plate clipping into the dome on top of the draped one.
     tintMesh.count = entries.length;
-    frameNMesh.count = entries.length;
-    frameSMesh.count = entries.length;
-    frameEMesh.count = entries.length;
-    frameWMesh.count = entries.length;
+    const frameCount = entries.length + hillEntries.length;
+    frameNMesh.count = frameCount;
+    frameSMesh.count = frameCount;
+    frameEMesh.count = frameCount;
+    frameWMesh.count = frameCount;
     if (tintMesh.instanceColor) tintMesh.instanceColor.needsUpdate = true;
 
-    for (let i = 0; i < entries.length; i += 1) {
-      const e = entries[i]!;
-      // Frame perimeter (does not animate). Tint plate matrix is set in
-      // tick() so it can grow with progress.
+    // Frame perimeter (does not animate) covers both flat and hill
+    // entries, using each entry's own surfaceY (flat ground vs. the
+    // hill's domed peak) so it sits on the visible surface either way.
+    for (let i = 0; i < frameCount; i += 1) {
+      const e = i < entries.length ? entries[i]! : hillEntries[i - entries.length]!;
       matrix.makeTranslation(e.sceneX, e.surfaceY + FRAME_Y, e.sceneZ - FRAME_HALF);
       frameNMesh.setMatrixAt(i, matrix);
       matrix.makeTranslation(e.sceneX, e.surfaceY + FRAME_Y, e.sceneZ + FRAME_HALF);
@@ -230,11 +356,21 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     frameSMesh.instanceMatrix.needsUpdate = true;
     frameEMesh.instanceMatrix.needsUpdate = true;
     frameWMesh.instanceMatrix.needsUpdate = true;
+
+    if (hillTintCount > 0) {
+      const posAttr = hillTintGeom.getAttribute("position");
+      const colAttr = hillTintGeom.getAttribute("color");
+      const idxAttr = hillTintGeom.getIndex();
+      if (posAttr) posAttr.needsUpdate = true;
+      if (colAttr) colAttr.needsUpdate = true;
+      if (idxAttr) idxAttr.needsUpdate = true;
+    }
   };
 
   const tick = (nowMs: number): void => {
     tintMesh.count = entries.length;
-    if (entries.length === 0) {
+    const totalCount = entries.length + hillEntries.length;
+    if (totalCount === 0) {
       peopleMesh.count = 0;
       return;
     }
@@ -242,25 +378,31 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     // Tint plate animates here every frame so the fill grows continuously
     // even between rebuilds. Compose translation + non-uniform scale per
     // entry: width = TINT_SIZE * progress, anchored at the west edge so
-    // the colour sweeps in from the left.
+    // the colour sweeps in from the left. Hill tiles skip this (their
+    // tint is the vertex-draped hillTintMesh, which doesn't animate a
+    // fill sweep) but still get people wander below.
     // startAt / resolvesAt are recorded as Date.now() at addInstance time
     // (matches the queue-logic side); read the wall clock once per tick
     // and reuse for every entry.
     const nowDate = Date.now();
     let writeIdx = 0;
-    for (let entryIdx = 0; entryIdx < entries.length; entryIdx += 1) {
-      const e = entries[entryIdx]!;
+    for (let idx = 0; idx < totalCount; idx += 1) {
+      const isHill = idx >= entries.length;
+      const e = isHill ? hillEntries[idx - entries.length]! : entries[idx]!;
       const totalMs = Math.max(1, e.resolvesAt - e.startAt);
       const progress = Math.max(0, Math.min(1, (nowDate - e.startAt) / totalMs));
-      const fillProgress = Math.max(0.04, progress);
-      const halfWidth = TINT_HALF * fillProgress;
-      const centerX = e.sceneX - TINT_HALF + halfWidth;
-      tmpScale.x = fillProgress;
-      tmpScale.y = 1;
-      tmpScale.z = 1;
-      tmpTintMatrix.makeScale(tmpScale.x, tmpScale.y, tmpScale.z);
-      tmpTintMatrix.setPosition(centerX, e.surfaceY + TINT_Y, e.sceneZ);
-      tintMesh.setMatrixAt(entryIdx, tmpTintMatrix);
+
+      if (!isHill) {
+        const fillProgress = Math.max(0.04, progress);
+        const halfWidth = TINT_HALF * fillProgress;
+        const centerX = e.sceneX - TINT_HALF + halfWidth;
+        tmpScale.x = fillProgress;
+        tmpScale.y = 1;
+        tmpScale.z = 1;
+        tmpTintMatrix.makeScale(tmpScale.x, tmpScale.y, tmpScale.z);
+        tmpTintMatrix.setPosition(centerX, e.surfaceY + TINT_Y, e.sceneZ);
+        tintMesh.setMatrixAt(idx, tmpTintMatrix);
+      }
 
       // Active people count grows with progress so a freshly-started
       // settlement starts with PEOPLE_MIN wandering and ramps up to the
@@ -292,13 +434,15 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
 
   const dispose = (): void => {
     scene.remove(...allMeshes);
+    scene.remove(hillTintMesh);
     personGeometry.dispose();
     tintGeometry.dispose();
     frameGeometry.dispose();
+    hillTintGeom.dispose();
     personMaterial.dispose();
     tintMaterial.dispose();
     frameMaterial.dispose();
   };
 
-  return { clear, addInstance, commit, tick, dispose };
+  return { clear, addInstance, addHillTile, commit, tick, dispose };
 };
