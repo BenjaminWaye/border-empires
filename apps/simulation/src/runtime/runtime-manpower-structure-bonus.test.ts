@@ -2,7 +2,7 @@
  * Regression tests for §4.4 of docs/manpower-economy-rewrite-plan.md: the
  * manpower-boosting structure tree. Garrison Hall grants a flat +150
  * manpower cap to its own town; a single Rail Depot per connected-town
- * network amplifies every Garrison Hall in that network (+75 cap, +0.1
+ * network amplifies every Garrison Hall in that network (+300 cap, +0.1
  * regen/min each); and a second Rail Depot in an already-covered network
  * is rejected outright — even mid-construction, before the first one goes
  * active.

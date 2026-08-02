@@ -126,6 +126,7 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 // player-update-economy.ts/player-upkeep-incremental.ts/snapshot-economy-
 // helpers.ts/tile-detail-snapshot.ts naturally go inert).
 export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0;
+export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
 export const AIRPORT_BOMBARD_RANGE = 30;
 export const AIRPORT_BOMBARD_COOLDOWN_MS = 20 * 60_000;
 export const AIRPORT_BOMBARD_BASE_MISS_CHANCE = 0.15;
@@ -143,10 +144,13 @@ export const WATERWORKS_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
 export const RADAR_SYSTEM_RADIUS = 30;
 export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17: free activation, takes 100% of chosen target's gold.
+export const WORLD_ENGINE_STRIKE_GOLD_COST = 15_000;
 export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 60 * 60_000;
 export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
 export const AEGIS_DOME_PROTECTION_RADIUS = 30;
+export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
+export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 90 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 // Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
 // no cooldown between charges — a player can burn all 3 back-to-back.
