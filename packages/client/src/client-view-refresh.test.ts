@@ -171,6 +171,21 @@ describe("camera location save", () => {
     expect(readSaved()).toEqual({ x: 7, y: 8, zoom: 15 });
   });
 
+  // seasonId is tagged onto the saved payload (when known) so a later fresh
+  // page load can tell whether the restored position is still current — see
+  // the INIT handler in client-network-init-message.ts.
+  it("saveCameraLocation tags the payload with bridgeDebugSeasonId when provided", () => {
+    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "season-9" });
+    const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15, seasonId: "season-9" });
+  });
+
+  it("saveCameraLocation omits seasonId when bridgeDebugSeasonId is not provided or empty", () => {
+    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "" });
+    const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15 });
+  });
+
   it("clearCameraLocation removes the persisted camera location from localStorage", () => {
     saveCameraLocation({ camX: 100, camY: 200, zoom: 40 });
     expect(readSaved()).toEqual({ x: 100, y: 200, zoom: 40 });
