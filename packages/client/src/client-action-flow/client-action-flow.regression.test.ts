@@ -30,4 +30,11 @@ describe("client action flow regressions", () => {
     expect(source).toContain("state.autoSettleTargets.add(targetKey);");
     expect(source).toContain("state.autoBuildTargets.set(targetKey, structureType);");
   });
+
+  it("opens the tile detail panel for a fogged tile using cached data instead of showing nothing", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain('if (vis === "fogged") {');
+    expect(source).toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
+  });
 });
