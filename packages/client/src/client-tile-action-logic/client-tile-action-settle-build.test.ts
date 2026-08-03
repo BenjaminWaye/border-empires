@@ -176,3 +176,38 @@ describe("settle + build — placement-overlay building (FOUNDRY)", () => {
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "FOUNDRY"));
   });
 });
+
+describe("settle + build — settled-only building with no resource/town/dock surface (WOODEN_FORT / OBSERVATORY)", () => {
+  const bareFrontierState = (techIds: string[]): ReturnType<typeof createInitialState> => {
+    const state = richState();
+    state.techIds = techIds;
+    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+      state.resourceSlots.supply[resource] = 5;
+    }
+    return state;
+  };
+
+  it("shows build_wooden_fort on a bare FRONTIER owned LAND tile with no resource, town, or dock", () => {
+    const state = bareFrontierState([]);
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+
+    const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
+    const action = findAction(actions, "build_wooden_fort");
+    expect(action).toBeDefined();
+    expect(action?.disabled).not.toBe(true);
+    expect(action?.detail).toBe(" • settles this tile first");
+  });
+
+  it("shows build_observatory on the same bare FRONTIER owned LAND tile", () => {
+    const state = bareFrontierState(["cartography"]);
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+
+    const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
+    const action = findAction(actions, "build_observatory");
+    expect(action).toBeDefined();
+    expect(action?.disabled).not.toBe(true);
+    expect(action?.detail).toBe(" • settles this tile first");
+  });
+});

@@ -32,7 +32,8 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   type SlotResource,
   type SlotStructureType,
-  type StructureSlotRequirement
+  type StructureSlotRequirement,
+  type OwnershipState
 } from "@border-empires/shared";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
@@ -396,6 +397,14 @@ export const tileActionAvailability = (
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
 };
 
+// A tile counts as the "settled" placement surface once a build queued on it
+// is guaranteed to settle first — currently that's any owned FRONTIER tile
+// (chainedBuildAvailability/handleBuildAction auto-settle-then-build). Once
+// the same chain is extended to unowned/expand targets, add that case here
+// rather than special-casing ownershipState at each call site.
+const buildSurfaceOwnershipState = (tile: Tile): OwnershipState | undefined =>
+  tile.ownerId && tile.ownershipState === "FRONTIER" ? "SETTLED" : tile.ownershipState;
+
 const buildShowsOnTile = (
   structureType: BuildableStructureId,
   tile: Tile,
@@ -403,7 +412,7 @@ const buildShowsOnTile = (
   supportedDockCount: number
 ): boolean =>
   structureShowsOnTile(structureType, {
-    ownershipState: tile.ownershipState,
+    ownershipState: buildSurfaceOwnershipState(tile),
     resource: tile.resource as
       | "FARM"
       | "WOOD"
