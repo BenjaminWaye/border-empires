@@ -107,7 +107,6 @@ import {
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
-import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
@@ -470,8 +469,9 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Increments ONLY on tile ownership change (not muster/population/income ticks) — VisionExpansionCache's
-  // key, so unrelated per-tick mutations don't bust the O(territory×r²) expansion.
+  // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
+  // signature key for getBarbActivationVisionSignature/exportBarbActivationVisibleUnion's
+  // own territory-dilation cache, so unrelated per-tick mutations don't bust it.
   private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
@@ -607,8 +607,6 @@ export class SimulationRuntime {
   // Running counter of growth ticks skipped due to insufficient food.
   // Exposed for diagnostics / metrics.
   growthStalledNoFoodCounter = 0;
-  // Per-player vision expansion cache; miss cost is O(territory×r²), wrapped in trackSyncMainThreadTask below.
-  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT, this.visionFootprintTable);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState on any
   // income/upkeep-relevant tile mutation; keyed by player ID, missing = dirty.
@@ -905,7 +903,7 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
         if (LIGHT_OUTPOST_VISION_BONUS > 0) {
-          this.visibilityCoverage.addTileVisionBonus(ownerId, tile.x, tile.y, LIGHT_OUTPOST_VISION_BONUS);
+          this.visibilityCoverage.addTileVisionBonus(ownerId, tile.x, tile.y, LIGHT_OUTPOST_VISION_BONUS, undefined, "light-outpost");
         }
       }
       // Populate musterTilesByOwner index (mustering system).
@@ -1903,9 +1901,9 @@ export class SimulationRuntime {
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
-      // Ownership changed → bump the territory version so VisionExpansionCache
-      // knows to recompute. Same-owner mutations (muster, pop growth, income)
-      // leave this counter unchanged so the O(territory×r²) expansion stays warm.
+      // Ownership changed → bump the territory version so the barb-activation
+      // signature (getBarbActivationVisionSignature) knows to recompute. Same-owner
+      // mutations (muster, pop growth, income) leave this counter unchanged.
       if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
       if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
       this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks);
@@ -2195,7 +2193,6 @@ export class SimulationRuntime {
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.aiSpatialFocusProductiveByPlayer.delete(playerId);
       this.aiHotFrontierStreakByPlayer.delete(playerId);
-      this.visionExpansionCache.invalidate(playerId);
       if (player.isAi) {
         const nowMs = this.now();
         const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
@@ -2494,16 +2491,14 @@ export class SimulationRuntime {
       locksByTile: this.locksByTile,
       docks: this.docks,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
-      summaryForPlayer: (visiblePlayerId) => this.summaryForPlayer(visiblePlayerId),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visionExpansionCache: this.visionExpansionCache,
-      tileCollectionVersionForPlayer: (visiblePlayerId) =>
-        this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0,
       visibilityCoverage: this.visibilityCoverage
     });
     // Named so an event_loop_blocked incident can see this instead of an
-    // empty mainThreadTasks — this is the O(territory×r²) vision-expansion
-    // cache-miss cost documented on VisionExpansionCache.
+    // empty mainThreadTasks — classification itself is now an O(territory)
+    // read of the incrementally-maintained coverage cache (see
+    // visibility-coverage-cache.ts), but dock-reveal collection can still
+    // scan every dock link, so this stays wrapped.
     return this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("classify_visibility_for_player", { playerId }, run)
       : run();
@@ -4325,7 +4320,7 @@ export class SimulationRuntime {
     const x = Number(targetKey.slice(0, separator));
     const y = Number(targetKey.slice(separator + 1));
     if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
+    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks, "light-outpost");
   }
 
   private removeStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
@@ -4334,7 +4329,7 @@ export class SimulationRuntime {
     const x = Number(targetKey.slice(0, separator));
     const y = Number(targetKey.slice(separator + 1));
     if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
+    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks, "light-outpost");
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {

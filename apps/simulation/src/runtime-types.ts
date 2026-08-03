@@ -200,8 +200,8 @@ export type SimulationRuntimeOptions = {
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
   // Wraps the exact synchronous blocks worth attributing on an event_loop_blocked
-  // stall (currently: classifyVisibilityForPlayer's vision-expansion-cache-miss
-  // path). Optional so tests/other callers can omit it; falls back to a plain call.
+  // stall (currently: classifyVisibilityForPlayer). Optional so tests/other
+  // callers can omit it; falls back to a plain call.
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   onCaptureRevealBuilt?: (sample: {
     commandId: string;
