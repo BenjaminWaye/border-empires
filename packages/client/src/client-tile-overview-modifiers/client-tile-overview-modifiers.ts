@@ -1,5 +1,19 @@
-import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+
+type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
+
+// Boon is live once this tile is SETTLED under the viewer (mirrors
+// settledTilesForPlayer/refreshPlayerWonders server-side) — ownership alone
+// (FRONTIER) doesn't activate it yet, and claimedAt is unrelated (a one-time
+// Conscription Engine latch, not a general activation flag).
+export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind): string | undefined => {
+  if (!tile.naturalWonder) return undefined;
+  const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];
+  if (ownerKind === "mine-settled") return `Natural wonder: ${name} — active. Boon: ${boon}.`;
+  if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Settle this tile to activate: ${boon}.`;
+  return `Natural wonder: ${name}. Boon: ${boon}.`;
+};
 
 export type TileOverviewModifier = {
   reason: string;
