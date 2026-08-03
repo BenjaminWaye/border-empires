@@ -32,6 +32,7 @@ import {
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  LIGHT_OUTPOST_VISION_BONUS,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -894,7 +895,7 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
-      // Populate activeLightOutpostsByOwner index
+      // Populate activeLightOutpostsByOwner index and restore vision bonus at boot.
       if (
         tile.economicStructure?.ownerId === ownerId &&
         tile.economicStructure.type === "LIGHT_OUTPOST" &&
@@ -903,6 +904,9 @@ export class SimulationRuntime {
         let set = this.activeLightOutpostsByOwner.get(ownerId);
         if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
+        if (LIGHT_OUTPOST_VISION_BONUS > 0) {
+          this.visibilityCoverage.addTileVisionBonus(ownerId, tile.x, tile.y, LIGHT_OUTPOST_VISION_BONUS);
+        }
       }
       // Populate musterTilesByOwner index (mustering system).
       if (tile.muster?.ownerId) {
