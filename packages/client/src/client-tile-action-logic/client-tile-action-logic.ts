@@ -18,7 +18,6 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
-  structureShowsOnTile,
   bestFortTierForTech,
   FORT_VARIANT_LABELS,
   nextFortTierForUpgrade,
@@ -32,8 +31,7 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   type SlotResource,
   type SlotStructureType,
-  type StructureSlotRequirement,
-  type OwnershipState
+  type StructureSlotRequirement
 } from "@border-empires/shared";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
@@ -51,7 +49,7 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
@@ -396,36 +394,6 @@ export const tileActionAvailability = (
   if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
 };
-
-// A tile counts as the "settled" placement surface once a build queued on it
-// is guaranteed to settle first — currently that's any owned FRONTIER tile
-// (chainedBuildAvailability/handleBuildAction auto-settle-then-build). Once
-// the same chain is extended to unowned/expand targets, add that case here
-// rather than special-casing ownershipState at each call site.
-const buildSurfaceOwnershipState = (tile: Tile): OwnershipState | undefined =>
-  tile.ownerId && tile.ownershipState === "FRONTIER" ? "SETTLED" : tile.ownershipState;
-
-const buildShowsOnTile = (
-  structureType: BuildableStructureId,
-  tile: Tile,
-  supportedTownCount: number,
-  supportedDockCount: number
-): boolean =>
-  structureShowsOnTile(structureType, {
-    ownershipState: buildSurfaceOwnershipState(tile),
-    resource: tile.resource as
-      | "FARM"
-      | "WOOD"
-      | "IRON"
-      | "GEMS"
-      | "FISH"
-      | "FUR"
-      | undefined,
-    dockId: tile.dockId,
-    townPopulationTier: tile.town?.populationTier,
-    supportedTownCount,
-    supportedDockCount
-  });
 
 const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
   structurePlacementMetadata(structureType).requiresBorder === "border";
