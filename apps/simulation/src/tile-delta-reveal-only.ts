@@ -3,6 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { type TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
+import { overlayJsonFieldsFrom } from "./tile-delta-overlay-fields.js";
 
 export const tileDeltaRevealOnly = (
   tile: DomainTileState,
@@ -16,7 +17,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
     ...(tile.resource ? { resource: tile.resource } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
-    ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
+    ...overlayJsonFieldsFrom(cached),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
     // own-property existence to detect clears (uncapture, structure removal).
     // This path also fires for a tile's first-ever exposure to a given
@@ -30,14 +31,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
-    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-    fortJson: cached.fortJson,
-    naturalWonderJson: cached.naturalWonderJson,
-    observatoryJson: cached.observatoryJson,
-    siegeOutpostJson: cached.siegeOutpostJson,
-    economicStructureJson: cached.economicStructureJson,
-    sabotageJson: cached.sabotageJson,
-    musterJson: cached.musterJson
+    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
   };
   // Always full, never sparse-diffed: this path fires for tiles entering a
   // player's fog-of-war radius, which may be the first delta that specific
