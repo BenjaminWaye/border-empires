@@ -1663,6 +1663,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (vis === "fogged") {
       state.selected = { x: wx, y: wy };
       resetAttackPreviewState(state);
+      if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);
       renderHud();
       return;
     }
