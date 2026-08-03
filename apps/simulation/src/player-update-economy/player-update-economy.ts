@@ -4,26 +4,13 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FLAT_GOLD_BONUS_PER_MIN,
   BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
-  BANK_FOOD_UPKEEP,
-  CAMP_GOLD_UPKEEP,
-  CARAVANARY_FOOD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  CUSTOMS_HOUSE_GOLD_UPKEEP,
   DOCK_INCOME_PER_MIN,
-  FARMSTEAD_GOLD_UPKEEP,
-  FOUNDRY_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  GARRISON_HALL_GOLD_UPKEEP,
-  GOVERNORS_OFFICE_GOLD_UPKEEP,
-  GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  MARKET_FOOD_UPKEEP,
-  MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
-  RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
@@ -139,33 +126,16 @@ const converterOutputPerMinute = (_structureType: string): Partial<Record<Strate
 
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<EconomyResourceKey, number>> => {
   switch (structureType) {
-    case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
-    case "CAMP": return { GOLD: CAMP_GOLD_UPKEEP / 10 };
-    case "MINE": return { GOLD: MINE_GOLD_UPKEEP / 10 };
-    case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
-    case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
-    case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { FOOD: 0.1 };
-    case "LIGHT_OUTPOST": return { FOOD: 0.1 };
-    case "FORT": return { IRON: 0.1, FOOD: 0.1 };
-    case "IRON_BASTION": return { IRON: 0.2, FOOD: 0.1 };
-    case "THUNDER_BASTION": return { IRON: 0.4, FOOD: 0.1 };
-    case "SIEGE_OUTPOST": return { SUPPLY: 0.1, FOOD: 0.1 };
-    case "SIEGE_TOWER": return { SUPPLY: 0.2, FOOD: 0.1 };
-    case "DREAD_TOWER": return { SUPPLY: 0.3, FOOD: 0.1 };
-    case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
+    // Every structure except the synthesizer family (Fur/Iron/Crystal +
+    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/IRON/CRYSTAL/SUPPLY
+    // are slot-based (structure-slots.ts), not a per-minute drain, and only
+    // the synthesizers still have a real GOLD cost for their conversion.
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
-    case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
-    case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
-    case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
-    case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };
