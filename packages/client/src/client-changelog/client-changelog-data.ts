@@ -258,6 +258,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: Date.now(),
+    introducedIn: "town-upgrade-ready-badge",
+    title: "Towns that can upgrade to their next tier now show a floating badge",
+    why: "A town that has grown enough population to reach its next tier (Town→City→Great City→Metropolis) had no at-a-glance signal on the map — you only found out by clicking the town and reading its \"Next size\" line or the upgrade action in the tile-menu. The map already floats a badge over towns missing food, so the same style of badge now flags towns with an upgrade waiting.",
+    changes: [
+      "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
+      "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
+    ]
+  },
+  {
     createdAt: 1785786820000, // 2026.08.03.4
     introducedIn: "2026.08.03.4",
     title: "Natural wonder tiles now show what they do in the tile detail panel",
@@ -267,15 +277,24 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1785786821000, // 2026.08.03.5
-    introducedIn: "2026.08.03.5",
-    title: "Fixed fake Fort/Siege/Light Outpost upkeep, a stray attack-range overlay, and an Economy tab overcount",
-    why: "Forts, Siege Outposts, and Light Outposts each carried a leftover per-minute FOOD/IRON/SUPPLY upkeep entry from before Food/Iron/Crystal/Supply became development-resource slots — the tile detail panel showed a Light Outpost as costing '144.0/day' food even though its real cost is a single permanent FOOD slot already billed elsewhere, and the same double-billing applied to every Fort and Siege Outpost tier. Separately, selecting an outpost drew a red attack-range ring left over from a shelved mechanic, and the Economy tab's 'Occupied by' breakdown ignored the waiver that makes a player's first 5 Light Outposts free, so a 4-outpost empire was shown as using 4 FOOD slots instead of 0.",
+    createdAt: 1785790524109, // 2026.08.03.6
+    introducedIn: "2026.08.03.6",
+    title: "Removed Fort/Siege/Light Outpost's per-minute FOOD/IRON/SUPPLY drain, a stray attack-range overlay, and an Economy tab overcount",
+    why: "Forts, Siege Outposts, and Light Outposts each drained a separate per-minute FOOD/IRON/SUPPLY cost from your stockpile on top of already occupying a resource slot for the same structure — the tile detail panel showed a Light Outpost costing '144.0/day' food in addition to its 1 FOOD slot, meaning a single outpost billed you twice for the same resource. Separately, selecting an outpost drew a red attack-range ring left over from a shelved mechanic, and the Economy tab's 'Occupied by' breakdown ignored the waiver that makes a player's first 5 Light Outposts free, so a 4-outpost empire was shown as using 4 FOOD slots instead of 0.",
     changes: [
-      "Removed the stale per-minute FOOD/IRON/SUPPLY upkeep entries for Fort, Iron Bastion, Thunder Bastion, Wooden Fort, Siege Outpost, Siege Tower, Dread Tower, and Light Outpost — their real cost is the resource-slot occupation shown elsewhere, not a separate daily drain.",
-      "The tile detail Upkeep section now shows the actual resource-slot cost (e.g. 'Fort: 1 IRON slot') for any active fort/siege/economic structure instead of a fabricated per-day rate.",
+      "Fort, Iron Bastion, Thunder Bastion, Wooden Fort, Siege Outpost, Siege Tower, Dread Tower, and Light Outpost no longer drain FOOD/IRON/SUPPLY per minute — their only ongoing cost is the resource slot they occupy.",
+      "The tile detail Upkeep section now shows the resource-slot cost (e.g. 'Fort: 1 IRON slot') for any active fort/siege/economic structure instead of the removed per-day drain.",
       "Disabled the red attack-sweep-range overlay that appeared when selecting a Light Outpost or Siege Outpost — it wasn't tied to any real attack mechanic.",
       "The Economy tab's FOOD slot breakdown now correctly applies the free-slot waiver, so Light Outposts under the waiver count no longer inflate the 'Occupied by' total."
+    ]
+  },
+  {
+    createdAt: 1785790524108, // 2026.08.03.5
+    introducedIn: "2026.08.03.5",
+    title: "Fixed: the off-screen alert arrows (unfed town / active muster) were the biggest source of frame lag",
+    why: "The pulsing arrow that points toward an off-screen unfed town or active muster flag re-scanned every tile you had ever discovered this session, every single frame, to find its target — on a long-lived session with a lot of explored map, that scan alone was averaging ~5.8ms/frame and spiking past 20ms, chewing through most of the mobile frame budget.",
+    changes: [
+      "That scan now only re-runs a few times a second instead of every frame; the arrow itself still redraws and tracks the camera every frame, so it stays smooth with no flicker, it just detects new/cleared alerts within about a fifth of a second instead of instantly."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { toProtoEvent } from "./proto-serialization.js";
+import { toFullSnapshotProtoTile, toProtoEvent } from "./proto-serialization.js";
 
 describe("toProtoEvent — ownershipClearOnly marker", () => {
   it("emits ownership_clear_only in BOTH the snake_case proto array and the camelCase array when set", () => {
@@ -70,5 +70,50 @@ describe("toProtoEvent — town clear (razed settlement) propagation", () => {
 
     expect(proto.tile_deltas?.[0]).not.toHaveProperty("town_json");
     expect(proto.tileDeltas?.[0]).not.toHaveProperty("townJson");
+  });
+});
+
+describe("toProtoEvent — natural wonder propagation", () => {
+  it("emits natural_wonder_json/naturalWonderJson on both proto arrays", () => {
+    // Regression (#1157/#1160): the .proto schema and gateway-side
+    // normalizeTile already supported natural_wonder_json/naturalWonderJson,
+    // but toProtoEvent's tile_deltas/tileDeltas mappings never read
+    // tile.naturalWonderJson, so it never crossed the sim -> gateway gRPC
+    // boundary even after the wire-delta builder was fixed to include it.
+    const event = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-5",
+      playerId: "player-1",
+      tileDeltas: [{ x: 7, y: 7, naturalWonderJson: '{"type":"DEEPWATER_ENGINE"}' }]
+    } as unknown as SimulationEvent;
+
+    const proto = toProtoEvent(event);
+
+    expect(proto.tile_deltas?.[0]?.natural_wonder_json).toBe('{"type":"DEEPWATER_ENGINE"}');
+    expect(proto.tileDeltas?.[0]?.naturalWonderJson).toBe('{"type":"DEEPWATER_ENGINE"}');
+  });
+
+  it("omits natural_wonder_json/naturalWonderJson when the key is absent", () => {
+    const event = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-6",
+      playerId: "player-1",
+      tileDeltas: [{ x: 8, y: 8, terrain: "LAND" }]
+    } as unknown as SimulationEvent;
+
+    const proto = toProtoEvent(event);
+
+    expect(proto.tile_deltas?.[0]).not.toHaveProperty("natural_wonder_json");
+    expect(proto.tileDeltas?.[0]).not.toHaveProperty("naturalWonderJson");
+  });
+
+  it("toFullSnapshotProtoTile includes natural_wonder_json for the full-snapshot path", () => {
+    const proto = toFullSnapshotProtoTile({
+      x: 9,
+      y: 9,
+      naturalWonderJson: '{"type":"FOUNDRY_HEART"}'
+    });
+
+    expect(proto.natural_wonder_json).toBe('{"type":"FOUNDRY_HEART"}');
   });
 });
