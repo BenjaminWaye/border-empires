@@ -138,8 +138,14 @@ export const createResourceBadgeOverlay = (scene: Scene, maxTiles: number, icon:
   mesh.frustumCulled = false;
   mesh.count = 0;
   // Draw on top of town/forest silhouettes so the badge reads from any
-  // orbit angle without depth-fighting the spire roof.
-  mesh.renderOrder = 7;
+  // orbit angle without depth-fighting the spire roof. Must also clear the
+  // road overlay's renderOrder (25, client-map-3d-road-overlay.ts) — both
+  // are transparent, and a badge sitting below the road in draw order got
+  // painted over by it wherever a road passes under a floating badge, even
+  // though the badge floats well above the road visually. 27 keeps it below
+  // the transient selection/waypoint marker band (28+) but above every
+  // ground/road overlay.
+  mesh.renderOrder = 27;
   group.add(mesh);
 
   // Per-instance positions for tick() to re-compose matrices with the
