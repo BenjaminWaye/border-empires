@@ -1,4 +1,4 @@
-import { townFoodSlotDemandForTier, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
+import { townFoodSlotDemandForTier, structureSlotRequirements, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -91,6 +91,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     }
     buckets.set(label, { label, amountPerMinute: count, count: 1, ...(dormant ? { dormantCount: 1 } : {}) });
   };
+  // §23.2: the player's first LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts are
+  // waived server-side (slot-waivers.ts) and never bill a FOOD slot — mirror
+  // that here so this breakdown doesn't overcount vs. the demand total above it.
+  let waivedLightOutpostsRemaining = resource === "FOOD" ? LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT : 0;
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
@@ -107,7 +111,11 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     }
     if (tile.economicStructure && tile.economicStructure.status !== "removing" && tile.economicStructure.status !== "inactive") {
       const type = tile.economicStructure.type;
-      const count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
+      let count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
+      if (type === "LIGHT_OUTPOST" && resource === "FOOD" && waivedLightOutpostsRemaining > 0) {
+        waivedLightOutpostsRemaining -= 1;
+        count = 0;
+      }
       add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));
     }
   }

@@ -193,14 +193,10 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" 
     case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
     case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
     case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { FOOD: 0.1 };
-    case "LIGHT_OUTPOST": return { FOOD: 0.1 };
-    case "FORT": return { IRON: 0.1, FOOD: 0.1 };
-    case "IRON_BASTION": return { IRON: 0.2, FOOD: 0.1 };
-    case "THUNDER_BASTION": return { IRON: 0.4, FOOD: 0.1 };
-    case "SIEGE_OUTPOST": return { SUPPLY: 0.1, FOOD: 0.1 };
-    case "SIEGE_TOWER": return { SUPPLY: 0.2, FOOD: 0.1 };
-    case "DREAD_TOWER": return { SUPPLY: 0.3, FOOD: 0.1 };
+    // WOODEN_FORT/FORT/IRON_BASTION/THUNDER_BASTION (FOOD+IRON) and
+    // SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER (FOOD+SUPPLY) — removed per
+    // §12.1, same as AIRPORT below: their slot occupation (structure-slots.ts)
+    // is the upkeep now, not a separate continuous per-minute drain.
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };

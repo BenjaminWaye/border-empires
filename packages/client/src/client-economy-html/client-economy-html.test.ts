@@ -305,8 +305,10 @@ describe("renderEconomyPanelHtml", () => {
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
+        // Only 1 of the 6 owned outposts bills a FOOD slot — the first
+        // LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT (5) are waived (§23.2).
         supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        demand: { FOOD: 1, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
       },
       dormantStructures: [],
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
@@ -317,7 +319,9 @@ describe("renderEconomyPanelHtml", () => {
         { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
         { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
         { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 4, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 5, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
       ],
       economyBreakdown,
       isMobile: true,
@@ -329,11 +333,48 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("LIGHT_OUTPOST");
-    expect(html).toContain("4 slots");
+    expect(html).toContain("1 slot<");
+    expect(html).not.toContain("6 slots");
     expect(html).not.toContain("No upkeep beyond the slots above");
     expect(html).not.toContain("LIGHT_OUTPOST · 4");
     expect(html).not.toContain("-576.0/day");
     expect(html).not.toContain("576.0/day");
+  });
+
+  it("waives the FOOD slot entirely for light outposts under the free-slot count", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "FOOD",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+      ],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).not.toContain("LIGHT_OUTPOST");
+    expect(html).toContain("No structures using a FOOD slot yet");
   });
 
   it("keeps cross-resource flow upkeep (gold) on the GOLD card, not the slot tab", () => {
