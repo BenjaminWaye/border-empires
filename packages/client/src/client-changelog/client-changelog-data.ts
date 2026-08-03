@@ -277,6 +277,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1785790524109, // 2026.08.03.6
+    introducedIn: "2026.08.03.6",
+    title: "Removed Fort/Siege/Light Outpost's per-minute FOOD/IRON/SUPPLY drain, a stray attack-range overlay, and an Economy tab overcount",
+    why: "Forts, Siege Outposts, and Light Outposts each drained a separate per-minute FOOD/IRON/SUPPLY cost from your stockpile on top of already occupying a resource slot for the same structure — the tile detail panel showed a Light Outpost costing '144.0/day' food in addition to its 1 FOOD slot, meaning a single outpost billed you twice for the same resource. Separately, selecting an outpost drew a red attack-range ring left over from a shelved mechanic, and the Economy tab's 'Occupied by' breakdown ignored the waiver that makes a player's first 5 Light Outposts free, so a 4-outpost empire was shown as using 4 FOOD slots instead of 0.",
+    changes: [
+      "Fort, Iron Bastion, Thunder Bastion, Wooden Fort, Siege Outpost, Siege Tower, Dread Tower, and Light Outpost no longer drain FOOD/IRON/SUPPLY per minute — their only ongoing cost is the resource slot they occupy.",
+      "The tile detail Upkeep section now shows the resource-slot cost (e.g. 'Fort: 1 IRON slot') for any active fort/siege/economic structure instead of the removed per-day drain.",
+      "Disabled the red attack-sweep-range overlay that appeared when selecting a Light Outpost or Siege Outpost — it wasn't tied to any real attack mechanic.",
+      "The Economy tab's FOOD slot breakdown now correctly applies the free-slot waiver, so Light Outposts under the waiver count no longer inflate the 'Occupied by' total."
+    ]
+  },
+  {
     createdAt: 1785790524108, // 2026.08.03.5
     introducedIn: "2026.08.03.5",
     title: "Fixed: the off-screen alert arrows (unfed town / active muster) were the biggest source of frame lag",

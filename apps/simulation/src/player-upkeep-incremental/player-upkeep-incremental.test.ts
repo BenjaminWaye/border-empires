@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { BANK_FOOD_UPKEEP } from "@border-empires/game-domain";
 
 import {
   tileUpkeepContribution,
@@ -91,49 +90,39 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.supply).toBe(0);
   });
 
-  it("charges WOODEN_FORT food upkeep, no gold (structure-upkeep-rebalance)", () => {
+  it("charges no WOODEN_FORT upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       economicStructure: { ownerId: PLAYER_ID, status: "active", type: "WOODEN_FORT" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
-    expect(contrib.food).toBeCloseTo(0.1, 8);
+    expect(contrib.food).toBe(0);
   });
 
-  it("charges fort-ladder food + iron upkeep per tier (structure-upkeep-rebalance)", () => {
+  it("charges no fort-ladder upkeep (§12.1: IRON slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    const cases: Array<[string, number]> = [
-      ["FORT", 0.1],
-      ["IRON_BASTION", 0.2],
-      ["THUNDER_BASTION", 0.4]
-    ];
-    for (const [variant, iron] of cases) {
+    for (const variant of ["FORT", "IRON_BASTION", "THUNDER_BASTION"]) {
       const tile = settledTile(0, 0, {
         fort: { ownerId: PLAYER_ID, status: "active", variant }
       });
       const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
       expect(contrib.gold).toBe(0);
-      expect(contrib.iron).toBeCloseTo(iron, 8);
-      expect(contrib.food).toBeCloseTo(0.1, 8);
+      expect(contrib.iron).toBe(0);
+      expect(contrib.food).toBe(0);
     }
   });
 
-  it("charges siege-ladder food + supply upkeep per tier (structure-upkeep-rebalance)", () => {
+  it("charges no siege-ladder upkeep (§12.1: SUPPLY slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    const cases: Array<[string, number]> = [
-      ["SIEGE_OUTPOST", 0.1],
-      ["SIEGE_TOWER", 0.2],
-      ["DREAD_TOWER", 0.3]
-    ];
-    for (const [variant, supply] of cases) {
+    for (const variant of ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]) {
       const tile = settledTile(0, 0, {
         siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant }
       });
       const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
       expect(contrib.gold).toBe(0);
-      expect(contrib.supply).toBeCloseTo(supply, 8);
-      expect(contrib.food).toBeCloseTo(0.1, 8);
+      expect(contrib.supply).toBe(0);
+      expect(contrib.food).toBe(0);
     }
   });
 
@@ -155,13 +144,13 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.crystal).toBe(0);
   });
 
-  it("charges BANK food upkeep", () => {
+  it("charges no BANK upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       economicStructure: { ownerId: PLAYER_ID, status: "active", type: "BANK" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
-    expect(contrib.food).toBeCloseTo(BANK_FOOD_UPKEEP / 10, 8);
+    expect(contrib.food).toBe(0);
   });
 
   it("charges no CAMP gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {

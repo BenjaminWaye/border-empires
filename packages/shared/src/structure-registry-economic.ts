@@ -185,9 +185,9 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   ASTRAL_DOCK: econSpec("ASTRAL_DOCK"),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
-  // Food upkeep only (0.1/min) — no gold drain.
+  // §12.1: FOOD cost is already charged as a resource-slot occupation
+  // (structure-slots.ts) — no separate per-minute drain, no gold drain.
   WOODEN_FORT: econSpec("WOODEN_FORT", {
     buildMs: WOODEN_FORT_BUILD_MS,
-    upkeep: [{ label: "Food upkeep", perMinute: { FOOD: 0.1 } }],
   }),
 };

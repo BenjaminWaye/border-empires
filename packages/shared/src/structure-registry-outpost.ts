@@ -14,7 +14,7 @@ import {
   tileIsLand,
   tileIsSettled,
 } from "./structure-registry/structure-registry.js";
-import type { SiegeOutpostVariant, TileUpkeepEntry } from "./types.js";
+import type { SiegeOutpostVariant } from "./types.js";
 
 // ── Outpost family ─────────────────────────────────────────────────
 // Three siege variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) + LIGHT_OUTPOST.
@@ -36,23 +36,9 @@ const outpostPlacement: StructureSpec["placement"] = [
   // LIGHT_OUTPOST uses structureShowsOnTile("LIGHT_OUTPOST", ...) via the economic handler.
 ];
 
-// Per-minute upkeep for the siege ladder: 1 FOOD base on every tier, plus an
-// increasing SUPPLY rate per tier (SIEGE_OUTPOST 0.1, SIEGE_TOWER 0.2,
-// DREAD_TOWER 0.3). This is a real, nonzero, live drain — mirrors
-// structureUpkeepPerMinute in apps/simulation/src/player-update-economy/
-// player-update-economy.ts (there is also a near-duplicate copy in
-// apps/simulation/src/snapshot-economy-helpers.ts; both agree on the siege
-// ladder). Distinct from, and in addition to, the siege ladder's slot
-// occupation (1/2/3 SUPPLY, structure-slots.ts), which gates whether the
-// outpost can be built/exist at all rather than draining anything per
-// minute. This field itself has zero runtime consumers in
-// apps/simulation/src — it is a mirror kept in sync by hand, not the thing
-// actually charged.
-const SIEGE_UPKEEP: Partial<Record<SiegeOutpostVariant, TileUpkeepEntry>> = {
-  SIEGE_OUTPOST: { label: "Siege upkeep", perMinute: { SUPPLY: 0.1, FOOD: 0.1 } },
-  SIEGE_TOWER: { label: "Siege upkeep", perMinute: { SUPPLY: 0.2, FOOD: 0.1 } },
-  DREAD_TOWER: { label: "Siege upkeep", perMinute: { SUPPLY: 0.3, FOOD: 0.1 } },
-};
+// §12.1: the siege ladder's SUPPLY cost is already charged as a
+// resource-slot occupation (structure-slots.ts) — no separate per-minute
+// drain on top of that, same as Observatory/Airport.
 
 function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
   const tier = SIEGE_TIER_LADDER[variant];
@@ -73,7 +59,7 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: outpostPlacement,
-    upkeep: SIEGE_UPKEEP[variant] ? [SIEGE_UPKEEP[variant]!] : [],
+    upkeep: [],
     tileField: "siegeOutpost",
   };
 }
@@ -99,7 +85,9 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
   // §12.1 (docs/manpower-economy-rewrite-plan.md): retired to 0 like the
   // rest of the non-synthesizer structure roster — LIGHT_OUTPOST_GOLD_UPKEEP
   // is 0 now, gold's only remaining jobs are tech/rush-buys/synthesizer upkeep.
-  upkeep: [{ label: "Food upkeep", perMinute: { FOOD: 0.1 } }],
+  // Food cost is already represented as a FOOD resource slot (see
+  // structure-slots.ts), so no separate continuous per-minute drain here.
+  upkeep: [],
   // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.
   // Phase 4 collapses to tile.structure.
   tileField: "economicStructure",
