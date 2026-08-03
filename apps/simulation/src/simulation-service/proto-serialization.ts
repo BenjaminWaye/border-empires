@@ -47,6 +47,7 @@ export type ProtoSimulationEvent = {
     economic_structure_json?: string | undefined;
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
+    natural_wonder_json?: string | undefined;
     watchtower_json?: string | undefined;
     muster_json?: string | undefined;
     breach_shock_until?: number | undefined;
@@ -73,6 +74,7 @@ export type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    naturalWonderJson?: string | undefined;
     watchtowerJson?: string | undefined;
     musterJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
@@ -112,6 +114,7 @@ export type SimulationTileDelta = {
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   shardSiteJson?: string | undefined;
+  naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
 };
 
@@ -190,6 +193,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
           ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
+          ...("naturalWonderJson" in tile ? { natural_wonder_json: tile.naturalWonderJson ?? "" } : {}),
           ...("watchtowerJson" in tile ? { watchtower_json: tile.watchtowerJson ?? "" } : {}),
           ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
@@ -223,6 +227,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
           ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
           ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
+          ...("naturalWonderJson" in tile ? { naturalWonderJson: tile.naturalWonderJson } : {}),
           ...("watchtowerJson" in tile ? { watchtowerJson: tile.watchtowerJson } : {}),
           ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
@@ -249,6 +254,7 @@ export const toFullSnapshotProtoTile = (tile: {
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
   economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
+  naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
   musterJson?: string | undefined;
   breachShockUntil?: number | undefined;
@@ -273,6 +279,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
   ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
   ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
+  ...(tile.naturalWonderJson ? { natural_wonder_json: tile.naturalWonderJson } : {}),
   ...(tile.watchtowerJson ? { watchtower_json: tile.watchtowerJson } : {}),
   ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
