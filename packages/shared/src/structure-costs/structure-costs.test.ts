@@ -41,6 +41,14 @@ describe("structureCostDefinition", () => {
 });
 
 describe("FORT_TIER_LADDER", () => {
+  test("WOODEN_FORT costs 0 gold, 0 iron, 150 manpower, 1.35x defense", () => {
+    const tier = FORT_TIER_LADDER.WOODEN_FORT;
+    expect(tier.gold).toBe(0);
+    expect(tier.iron).toBe(0);
+    expect(tier.manpower).toBe(150);
+    expect(tier.defenseMult).toBe(1.35);
+  });
+
   test("FORT is the base tier with 0 gold, 45 iron, 300 manpower, 2.5x defense", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(tier.gold).toBe(0);
