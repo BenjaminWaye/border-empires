@@ -35,8 +35,12 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
     expect(structureCostDefinition("BANK").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
-    expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toEqual({ resource: "CRYSTAL", amount: 60 });
-    expect(structureCostDefinition("GARRISON_HALL").resourceCost).toEqual({ resource: "CRYSTAL", amount: 80 });
+    // #1134 removed these as stale build-time crystal costs — the slot
+    // system (structure-slots.ts) is the real FOOD/IRON/CRYSTAL/SUPPLY gate
+    // now, not a spent build cost (RETIRED_STOCKPILE_RESOURCE_KEYS strips
+    // these before spend regardless of what's declared here).
+    expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("GARRISON_HALL").resourceCost).toBeUndefined();
   });
 });
 
