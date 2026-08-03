@@ -1621,7 +1621,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const fxMs = phaseMs();
 
     deps.drawMiniMap();
-    if (nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
+    if (persistentAlertsComputedAt === 0 || nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
       persistentAlertsCache = persistentAlertsForState(state);
       persistentAlertsComputedAt = nowMs;
     }
