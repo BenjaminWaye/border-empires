@@ -39,6 +39,11 @@ export const classifyVisibilityForPlayer = (input: {
   // so large empires pay O(territory×r²) at most once between tile mutations.
   visionExpansionCache: VisionExpansionCache;
   tileCollectionVersionForPlayer: (playerId: string) => number;
+  // Optional incremental visibility coverage (includes structure-based bonuses like
+  // light outposts). If omitted, only territory-based vision is included. When
+  // provided, used to supplement the expansion cache result with any additional
+  // visible tiles from structure vision bonuses.
+  visibilityCoverage?: { visibleKeysForViewer(viewerId: string): ReadonlySet<string> };
 }): RuntimeVisibilityClassification => {
   const radiusAllyKeys = new Map<string, ReadonlySet<string>>();
   const lockOriginKeys = new Set<string>();
@@ -116,6 +121,15 @@ export const classifyVisibilityForPlayer = (input: {
     )) {
       dockRevealKeys.add(revealKey);
       fullVisionKeys.add(revealKey);
+    }
+  }
+  // Include structure-based vision bonuses (e.g., light outposts) from the
+  // incremental coverage tracker. These supplement territory-based vision
+  // from the expansion cache and are essential for the initial full-visibility
+  // export to match streaming tile-delta visibility.
+  if (input.visibilityCoverage) {
+    for (const key of input.visibilityCoverage.visibleKeysForViewer(input.playerId)) {
+      fullVisionKeys.add(key);
     }
   }
 

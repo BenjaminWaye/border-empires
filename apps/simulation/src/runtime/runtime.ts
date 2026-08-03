@@ -2498,7 +2498,8 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       visionExpansionCache: this.visionExpansionCache,
       tileCollectionVersionForPlayer: (visiblePlayerId) =>
-        this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0
+        this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0,
+      visibilityCoverage: this.visibilityCoverage
     });
     // Named so an event_loop_blocked incident can see this instead of an
     // empty mainThreadTasks — this is the O(territory×r²) vision-expansion
