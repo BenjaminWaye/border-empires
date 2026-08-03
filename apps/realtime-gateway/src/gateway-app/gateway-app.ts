@@ -2989,6 +2989,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("CANCEL_STRUCTURE_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "RUSH_BUY") {
             await dispatchDurableCommand("RUSH_BUY", { x: message.x, y: message.y }, true);
+          } else if (message.type === "CANCEL_SETTLE") {
+            await dispatchDurableCommand("CANCEL_SETTLE", { x: message.x, y: message.y });
           } else if (message.type === "REMOVE_STRUCTURE") {
             await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
