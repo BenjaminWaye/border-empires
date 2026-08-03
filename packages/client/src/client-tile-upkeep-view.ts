@@ -1,4 +1,5 @@
-import { resourceIconForKey } from "./client-map-display.js";
+import { structureSlotRequirements, SYNTHESIZER_STRUCTURE_TYPES, type BuildableStructureType, type SlotStructureType } from "@border-empires/shared";
+import { economicStructureName, resourceIconForKey } from "./client-map-display.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
 const upkeepResourceOrder = ["GOLD", "FOOD", "IRON", "SUPPLY", "CRYSTAL"] as const;
@@ -28,8 +29,35 @@ const formatUpkeepEntry = (entry: TileUpkeepEntry): string => {
   return parts.join(" · ");
 };
 
+// §12.1: every fort/siege/economic structure's real upkeep is its
+// resource-slot occupation (structure-slots.ts), not a continuous
+// per-minute drain — show "N <resource> slot(s)" per active structure on
+// this tile instead of a fabricated /day rate. Synthesizers are exempt
+// (they provide a slot, never consume one).
+const slotLinesForTile = (tile: Tile): TileOverviewLine[] => {
+  const lines: TileOverviewLine[] = [];
+  const pushSlotLines = (label: string, structureType: SlotStructureType): void => {
+    if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) return;
+    for (const requirement of structureSlotRequirements(structureType)) {
+      lines.push({ html: `${label}: ${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}` });
+    }
+  };
+  if (tile.fort && tile.fort.status === "active") pushSlotLines("Fort", tile.fort.variant ?? "FORT");
+  if (tile.siegeOutpost && tile.siegeOutpost.status === "active") {
+    pushSlotLines("Siege Outpost", tile.siegeOutpost.variant ?? "SIEGE_OUTPOST");
+  }
+  if (tile.economicStructure && tile.economicStructure.status === "active") {
+    pushSlotLines(economicStructureName(tile.economicStructure.type), tile.economicStructure.type);
+  }
+  return lines;
+};
+
 export const tileOverviewUpkeepLines = (tile: Tile): TileOverviewLine[] => {
   const entries = (tile.upkeepEntries ?? fallbackUpkeepEntriesForTile(tile)).filter(hasUpkeepAmount);
-  if (entries.length === 0) return [];
-  return [{ html: "Upkeep", kind: "section" }, ...entries.map((entry) => ({ html: `${entry.label}: ${formatUpkeepEntry(entry)}` }))];
+  const lines: TileOverviewLine[] = [
+    ...entries.map((entry) => ({ html: `${entry.label}: ${formatUpkeepEntry(entry)}` })),
+    ...slotLinesForTile(tile),
+  ];
+  if (lines.length === 0) return [];
+  return [{ html: "Upkeep", kind: "section" }, ...lines];
 };

@@ -7,7 +7,7 @@ import {
 } from "./structure-costs/structure-costs.js";
 import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import { noConflictingStructure, ownerOwnsTile, tileIsLand, tileIsSettled } from "./structure-registry/structure-registry.js";
-import type { FortVariant, TileUpkeepEntry } from "./types.js";
+import type { FortVariant } from "./types.js";
 
 // ── Fort family ────────────────────────────────────────────────────
 
@@ -25,16 +25,9 @@ const fortPlacement: StructureSpec["placement"] = [
   // The per-handler predicate varies (settled/resource/town/support/dock).
 ];
 
-// Per-minute upkeep for the fort ladder: 1 FOOD base on every tier, plus an
-// increasing IRON rate per tier (FORT 0.1, IRON_BASTION 0.2, THUNDER_BASTION
-// 0.4). Mirrors the slot occupation (1/2/4 IRON) and the sim's
-// structureUpkeepPerMinute.
-const FORT_UPKEEP: Partial<Record<FortVariant, TileUpkeepEntry>> = {
-  WOODEN_FORT: { label: "Food upkeep", perMinute: { FOOD: 0.1 } },
-  FORT: { label: "Fort upkeep", perMinute: { IRON: 0.1, FOOD: 0.1 } },
-  IRON_BASTION: { label: "Fort upkeep", perMinute: { IRON: 0.2, FOOD: 0.1 } },
-  THUNDER_BASTION: { label: "Fort upkeep", perMinute: { IRON: 0.4, FOOD: 0.1 } },
-};
+// §12.1: the fort ladder's IRON (and WOODEN_FORT's FOOD) cost is already
+// charged as a resource-slot occupation (structure-slots.ts) — no
+// separate per-minute drain on top of that, same as Observatory/Airport.
 
 function fortSpec(variant: FortVariant): StructureSpec {
   const tier = FORT_TIER_LADDER[variant];
@@ -55,7 +48,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: fortPlacement,
-    upkeep: FORT_UPKEEP[variant] ? [FORT_UPKEEP[variant]!] : [],
+    upkeep: [],
     tileField: "fort",
   };
 }
