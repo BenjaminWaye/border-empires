@@ -237,6 +237,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1785758343576, // event-log-explicit-sort
+    introducedIn: "event-log-explicit-sort",
+    title: "Recent Events feed now sorts explicitly instead of assuming server order",
+    why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
+    changes: [
+      "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "economy-slot-upkeep-no-daily-flow",
     title: "Economy panel no longer shows slot upkeep as a negative daily flow",
