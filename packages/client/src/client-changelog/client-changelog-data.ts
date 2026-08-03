@@ -247,6 +247,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "An owned frontier tile now also counts as the \"settled\" placement surface for menu purposes, so every building type appears and queues its settle-then-build chain the same way resource/town/dock-gated buildings already did."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "badge-render-order-above-roads",
+    title: "Fixed: food/resource-shortage badges could render behind roads",
+    why: "The floating badge shown over a dormant/unfed structure (and the observatory cooldown badge) drew earlier than the road overlay even though both are transparent, so wherever a road ran under one of these badges, the road painted over it and hid it — despite the badge floating well above the road visually.",
+    changes: [
+      "The dormant-structure/unfed-town badge and the observatory cooldown badge now always render above roads, so they stay visible on tiles a road passes through.",
+      "This applies to every structure type that can go dormant from a resource-slot shortfall (Light Outpost included), not just towns."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
