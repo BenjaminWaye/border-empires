@@ -267,6 +267,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
     ]
   },
+  {
+    createdAt: 1785786820000, // 2026.08.03.4
+    introducedIn: "2026.08.03.4",
+    title: "Natural wonder tiles now show what they do in the tile detail panel",
+    why: "Worldgen has placed natural wonders (Deepwater Engine, Foundry Heart, Bastion Frame, etc.) on the map for a while, but the tile detail Overview tab never mentioned them at all — a wonder tile you'd claimed just looked like an ordinary frontier or settled tile, with no way to tell it was special or what claiming/settling it would grant.",
+    changes: [
+      "The Overview tab now shows a natural wonder's name and boon on any tile that has one, and notes whether the boon is already active (settled and owned by you), still needs the tile settled first (owned but frontier), or is just informational (not yours yet)."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
