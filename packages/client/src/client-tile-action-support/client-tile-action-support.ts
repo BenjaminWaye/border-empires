@@ -228,7 +228,7 @@ export const splitTileActionsIntoTabs = (
     });
   const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
   return {
-    actions: actionRows.some(visibleIfShown) ? actionRows : [],
+    actions: actionRows,
     buildings: buildingRows.length ? buildingRows : [],
     crystal: crystalRows.length > 0 ? crystalRows : []
   };
