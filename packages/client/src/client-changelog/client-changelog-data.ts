@@ -258,6 +258,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: Date.now(),
+    introducedIn: "town-upgrade-ready-badge",
+    title: "Towns that can upgrade to their next tier now show a floating badge",
+    why: "A town that has grown enough population to reach its next tier (Town→City→Great City→Metropolis) had no at-a-glance signal on the map — you only found out by clicking the town and reading its \"Next size\" line or the upgrade action in the tile-menu. The map already floats a badge over towns missing food, so the same style of badge now flags towns with an upgrade waiting.",
+    changes: [
+      "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
+      "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
+    ]
+  },
+  {
     createdAt: 1785786820000, // 2026.08.03.4
     introducedIn: "2026.08.03.4",
     title: "Natural wonder tiles now show what they do in the tile detail panel",

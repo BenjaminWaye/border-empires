@@ -81,6 +81,24 @@ export const shouldShowTownUnfedWarning = (tile: Tile): boolean => {
   return true;
 };
 
+// Mirror of the "Upgrade Town to City"-style action in client-tile-action-logic.ts.
+// nextPopulationTierUpgrade is stamped server-side for owned, settled towns
+// (live-town-summary.ts) and only reaches the client for non-SETTLEMENT targets
+// (CITY/GREAT_CITY/METROPOLIS — client-gateway-sync.ts filters SETTLEMENT's
+// always-true Town step), so a badge here means the town has already reached the
+// population threshold for its next tier and the tile-menu upgrade action is
+// enabled on the population axis. Map badges must only paint when the tile-menu
+// would also offer the upgrade — same parity rule as shouldShowTownUnfedWarning.
+export const shouldShowTownUpgradeReadyBadge = (tile: Tile): boolean => {
+  const town = tile.town;
+  if (!town) return false;
+  if (!tile.ownerId) return false;
+  if (tile.terrain !== "LAND") return false;
+  if (tile.ownershipState !== "SETTLED") return false;
+  if (town.populationTier === "SETTLEMENT") return false;
+  return town.nextPopulationTierUpgrade?.available === true;
+};
+
 export const townNextGrowthEtaLabel = (
   town: NonNullable<Tile["town"]>,
   options?: { explainUnfed?: boolean }

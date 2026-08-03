@@ -41,6 +41,7 @@ import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-de
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createMusterCombatFx } from "../client-map-3d-muster-combat-fx.js";
 import { syncCaptureOverlays } from "../client-map-3d-capture-overlays.js";
@@ -56,7 +57,7 @@ import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/c
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
-import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
+import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
@@ -76,6 +77,7 @@ import { fortificationOpeningForTile, fortificationOverlayKindForTile, type Fort
 import { hasActiveOwnedOutpostAura } from "../client-outpost-aura-tile/client-outpost-aura-tile.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
+import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -152,6 +154,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     CRYSTAL: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.CRYSTAL), SUPPLY: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.SUPPLY)
   };
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
   const musterCombatFx = createMusterCombatFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene);
@@ -900,13 +903,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
   };
-  const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {
-    const [xRaw, yRaw] = tileKey.split(",");
-    const x = Number(xRaw);
-    const y = Number(yRaw);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-    return { x, y };
-  };
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
     tiles: Array<{ x: number; y: number }>,
@@ -957,30 +953,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
-  };
-  // Lighten a hex color by mixing toward white. Used for the waypoint
-  // flag so its empire-color outline pops against owned territory
-  // rendered in the same hue at lower brightness.
-  const lightenHex = (hex: string, amount: number): string => {
-    const trimmed = hex.trim().replace(/^#/, "");
-    let r: number;
-    let g: number;
-    let b: number;
-    if (/^[0-9a-fA-F]{3}$/.test(trimmed)) {
-      r = parseInt(trimmed[0]! + trimmed[0]!, 16);
-      g = parseInt(trimmed[1]! + trimmed[1]!, 16);
-      b = parseInt(trimmed[2]! + trimmed[2]!, 16);
-    } else if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
-      const value = parseInt(trimmed, 16);
-      r = (value >> 16) & 0xff;
-      g = (value >> 8) & 0xff;
-      b = value & 0xff;
-    } else {
-      return hex;
-    }
-    const k = Math.max(0, Math.min(1, amount));
-    const mix = (channel: number): number => Math.round(channel + (255 - channel) * k);
-    return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
   };
   const syncWaypointMarkers = (): void => {
     hideLineMarkerPool(waypointPathMarkers);
@@ -1452,6 +1424,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
+    upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear();
     supplyLineOverlay.clear();
     dockOverlay.clear();
@@ -1681,6 +1654,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           if (tile && shouldShowTownUnfedWarning(tile) && !dormantStructureResourceByTileKey.has(tileKey)) {
             resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY);
           }
+          // Mirror of the "Upgrade Town to City"-style action in the tile-menu —
+          // see shouldShowTownUpgradeReadyBadge in client-town-growth.ts. Green
+          // up-arrow badge over a town whose population has hit the threshold for
+          // its next tier. Kept independent of the unfed badge above: a town
+          // ready to grow is very rarely also stalled, and if both apply the two
+          // badges bob in the same band without conflicting.
+          if (tile && shouldShowTownUpgradeReadyBadge(tile)) {
+            upgradeReadyBadgeOverlay.addInstance(x, z, surfaceY);
+          }
         }
         // §21.1: floating badge for a dormant non-town structure — independent of the town block above (most structures aren't on a town tile).
         if (tile && terrain === "LAND") {
@@ -1890,6 +1872,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.commit();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
+    upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit();
     syncCaptureOverlays(
       deps.state,
@@ -1992,6 +1975,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.tick(nowMs);
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
+    upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
     musterCombatFx.tick(nowMs, deps.state.capture);
     supplyLineOverlay.tick(nowMs);
@@ -2095,6 +2079,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.dispose();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
+    upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose();
     musterCombatFx.dispose();
     supplyLineOverlay.dispose();
