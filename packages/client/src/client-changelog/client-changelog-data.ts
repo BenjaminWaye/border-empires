@@ -23,42 +23,13 @@ export type ClientChangelogEntry = {
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.07.26.1 ("Expand and Settle now cost manpower"), 2026.07.27.1
   // ("Manpower now gates every structure build"), 2026.07.27.2 ("Structures
-  // no longer cost gold to build"), and 2026.07.27.3 ("Garrison Hall and
-  // Rail Depot now grant real manpower bonuses") pruned: aged out of the
-  // 6-day window during this merge.
-  {
-    createdAt: 1785199000000, // 2026.07.28.1
-    introducedIn: "2026.07.28.1",
-    title: "Rush-buy: finish an in-progress settle or build for gold",
-    why: "Manpower is scarce and slow to regenerate by design, but that also means an in-progress Settle or structure build has no way to speed up once started — gold, meanwhile, had nothing to spend on outside of tech and upkeep. Rush-buy gives gold a second job: pay to finish something you're already building right now, priced by how much time is actually left, not the action's full cost.",
-    changes: [
-      "A tile that's actively settling or has a structure under construction now shows a rush-buy button (⏩🪙) next to its remaining-time countdown in the tile detail panel.",
-      "The price scales down as the timer progresses — rushing something nearly done costs almost nothing, rushing something you just started costs close to the full price (anchored at 0.5 gold per manpower point the action costs).",
-      "Applies to Settle and every structure build (Fort/Siege tier upgrades included) — not to removals, which can't be rushed."
-    ]
-  },
-  {
-    createdAt: 1785202000000, // 2026.07.28.2
-    introducedIn: "2026.07.28.2",
-    title: "Economy panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock numbers",
-    why: "Food, Iron, Crystal, and Supply stopped being stockpiled quantities and became discrete building/town slots several updates ago, but the economy breakdown panel kept showing them with the old stock/cap/income/upkeep flow layout — numbers that no longer meant anything once those resources became slots. Gold is the only resource left that actually works that way now.",
-    changes: [
-      "The Food/Iron/Crystal/Supply cards and detail views now show \"used / available\" slots instead of a stockpile amount, with a clear status (free, fully committed, or no access to this resource yet) instead of a gross/upkeep/net rate.",
-      "The detail view's old \"Income Sources\" column is replaced with \"Occupied by\" for these four resources, listing which structures and towns are using up a slot right now. The Upkeep column (e.g. a synthesizer's gold upkeep) is unchanged.",
-      "Gold keeps its existing stock/cap/income/upkeep display — it's still a real stockpile, not a slot."
-    ]
-  },
-  {
-    createdAt: 1785205000000, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Food is now purely a slot resource; town growth costs gold + a Food slot",
-    why: "Food previously had two overlapping mechanics: the slot system (this update's earlier entry) alongside a leftover production/upkeep flow that towns and Market/Bank/Caravanary still drained every minute, plus a Food-stockpile lump sum to grow a town's tier. That second mechanic is retired entirely — Food now works exactly like Iron/Crystal/Supply, and towns keep growing on gold, the resource the game already asks you to manage everywhere else.",
-    changes: [
-      "Farmstead's Food bonus, town Food upkeep, and every structure's Food upkeep are gone — Food is consumed only by occupying a slot (towns and FOOD-tagged structures), never by a per-minute drain.",
-      "Upgrading a town's tier (Settlement→Town→City→Great City→Metropolis) now costs gold (20/40/80/160 for each step) plus a free Food slot, instead of a Food lump sum — each upgrade past Town also permanently adds +1 to that town's Food slot demand.",
-      "If Food supply ever falls short of demand, the newest thing drawing on it (a freshly built structure, or the town itself) goes unfed first — an established town keeps its own Food-gated income and growth ahead of whatever was just built or captured."
-    ]
-  },
+  // no longer cost gold to build"), 2026.07.27.3 ("Garrison Hall and
+  // Rail Depot now grant real manpower bonuses"), 2026.07.28.1 ("Rush-buy:
+  // finish an in-progress settle or build for gold"), 2026.07.28.2 ("Economy
+  // panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock
+  // numbers"), and 2026.07.28.3 ("Food is now purely a slot resource; town
+  // growth costs gold + a Food slot") pruned: aged out of the 6-day window
+  // during this merge.
   {
     createdAt: 1785230720833, // 2026.07.28.3
     introducedIn: "2026.07.28.3",
@@ -79,72 +50,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Each discovery tip reappears after 30 days/a season if dismissed (same window as Empire Integrity). A \"Don't show tooltips\" checkbox on the tip lets you mute all discovery tips for that same window in one action."
     ]
   },
-  {
-    createdAt: 1785215980277, // 2026.07.28.1
-    introducedIn: "2026.07.28.1",
-    title: "Fixed: hill tiles had no grid square around them in 3D mode",
-    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
-    changes: [
-      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
-      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
-    ]
-  },
-  {
-    createdAt: 1785200500000, // 2026.07.27.4
-    introducedIn: "2026.07.27.4",
-    title: "Fixed: territory ownership overlay didn't follow the hill's shape",
-    why: "The 3D hills dome mesh rises above the flat terrain grid, but the ownership overlay (and its fogged-tile variants) drew one flat plane between a tile's 4 corners regardless. On a hill, that plane either sank into the dome or floated as a flat plate poking above/through it, instead of tracing the hill's actual curve.",
-    changes: [
-      "Owned hill tiles now render their ownership tint draped over the hill's real curved surface, matching the terrain exactly instead of a flat plane cutting through it.",
-      "Applies to the normal ownership overlay and both fogged-tile ownership overlays (last-witnessed owner tint on tiles you no longer have vision of)."
-    ]
-  },
   // 2026.07.27.1 ("Fixed: large-empire logins could still stall for 15+
-  // seconds") and 2026.07.27.2 ("Fixed: ownership overlay and buildings
-  // invisible on hills in 3D mode") pruned: aged out of the 6-day window
-  // during this merge.
-  {
-    createdAt: 1785200000000, // 2026.07.27.3
-    introducedIn: "2026.07.27.3",
-    title: "Fixed: login stalls on mobile reduced by ~50%",
-    why: "Every login opened two WebSocket connections (control and bulk) and ran the full heavyweight login pipeline on both — doubling prepare-player, bootstrap-subscribe, and snapshot-build work on the CPU-constrained staging box. The bulk channel only needs identity resolution and socket attachment; everything else was redundant.",
-    changes: [
-      "The bulk WebSocket channel now skips the prepare-player, bootstrap-subscribe, live-subscribe, and snapshot-build steps during login, cutting per-login CPU work roughly in half.",
-      "Login stalls for large empires should be significantly shorter on mobile and slow connections."
-    ]
-  },
-  {
-    createdAt: 1785215000000, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Discovery tips for docks and barbarians; Storybook catalog for reviewing all tip copy",
-    why: "Docks and barbarian territories are important strategic features but had no in-game explanation when first encountered. A Storybook story now renders every discovery tip from the source data so copy can be reviewed in one place.",
-    changes: [
-      "Added a one-time discovery tip for the first dock you discover, explaining that docks connect across the sea for launching attacks and expanding onto distant shores.",
-      "Added a one-time discovery tip for the first barbarian tile you discover, explaining that barbarian camps spawn patrols and that clearing them yields gold and expands your border.",
-      "Added a Storybook story (UI/Discovery Tips) that renders every discovery tip from the source data — copy changes to client-discovery-tips.ts automatically update the story."
-    ]
-  },
-  {
-    createdAt: 1785215100000, // 2026.07.28.4
-    introducedIn: "2026.07.28.4",
-    title: "New season now requires 5 players to vote",
-    why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
-    changes: [
-      '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
-      "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
-      "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
-    ]
-  },
-  {
-    createdAt: 1785215200000, // 2026.07.28.5
-    introducedIn: "2026.07.28.5",
-    title: "Season-end Misc tab with deadliest tile and longest road",
-    why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
-    changes: [
-      "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
-      "Tracks manpower losses per tile across the entire season."
-    ]
-  },
+  // seconds"), 2026.07.27.2 ("Fixed: ownership overlay and buildings
+  // invisible on hills in 3D mode"), 2026.07.27.3 ("Fixed: login stalls on
+  // mobile reduced by ~50%"), 2026.07.27.4 ("Fixed: territory ownership
+  // overlay didn't follow the hill's shape"), 2026.07.28.1 ("Fixed: hill
+  // tiles had no grid square around them in 3D mode"), 2026.07.28.3
+  // ("Discovery tips for docks and barbarians..."), 2026.07.28.4 ("New
+  // season now requires 5 players to vote"), and 2026.07.28.5 ("Season-end
+  // Misc tab with deadliest tile and longest road") pruned: aged out of the
+  // 6-day window during this merge.
   {
     createdAt: Date.now(),
     introducedIn: "next",
@@ -301,6 +216,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
       "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
       "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
+    ]
+  },
+  {
+    createdAt: 1785739605000, // 2026.08.03.2
+    introducedIn: "2026.08.03.2",
+    title: "Fixed: Build Light Outpost button disappeared when out of FOOD slots",
+    why: "The Actions tab hid itself entirely whenever every action on it was disabled, so a player with 5+ Light Outposts and no free FOOD slot lost the button instead of seeing why it was unavailable.",
+    changes: [
+      "Disabled actions are now always shown with their blocker message instead of hiding the whole Actions tab, matching how the Buildings tab already behaves."
     ]
   }
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day

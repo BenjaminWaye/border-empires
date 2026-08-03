@@ -604,6 +604,52 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
+  it("restores an active light outpost's vision bonus into the coverage cache on boot", () => {
+    // Simulates a server restart: the outpost was already active before this
+    // SimulationRuntime instance was constructed, so its vision bonus must be
+    // re-applied while indexing tiles, not just when the outpost is built.
+    // The bonus lives in the refcounted visibilityCoverage cache (consumed by
+    // filterTileDeltasForPlayer), not the territorial vision-expansion cache
+    // used by exportVisibleStateForPlayer.
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 60,
+            y: 60,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "active" }
+          },
+          { x: 65, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 66, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const deltas = [
+      // 5 tiles from the outpost — only reachable via LIGHT_OUTPOST_VISION_BONUS
+      // (5), not player-1's base territory radius (the outpost tile itself is
+      // player-1's only territory).
+      { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
+      // 6 tiles from the outpost — outside even the bonus radius.
+      { x: 66, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" }
+    ];
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+
+    expect(filtered.some((delta) => delta.x === 65 && delta.y === 60)).toBe(true);
+    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(false);
+  });
+
   it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
