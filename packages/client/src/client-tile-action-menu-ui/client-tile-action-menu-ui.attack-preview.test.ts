@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { openSingleTileActionMenu } from "./client-tile-action-menu-ui.js";
+import { requestAttackPreviewForTarget } from "../client-queue-logic/client-queue-logic.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 
 const makeMenuEl = (): HTMLDivElement =>
@@ -62,5 +63,32 @@ describe("openSingleTileActionMenu attack preview request", () => {
     openSingleTileActionMenu(state, enemyTile(), 100, 120, deps(requestAttackPreviewForTarget), { requestAttackPreview: false });
 
     expect(requestAttackPreviewForTarget).not.toHaveBeenCalled();
+  });
+
+  it("opens the panel for a fogged tile with stale enemy ownership without sending a live ATTACK_PREVIEW request", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const send = vi.fn();
+    const ws = { readyState: 1, OPEN: 1, send } as unknown as Parameters<typeof requestAttackPreviewForTarget>[2]["ws"];
+    const foggedEnemyTile: Tile = { x: 5, y: 7, terrain: "LAND", ownerId: "enemy", fogged: true };
+
+    openSingleTileActionMenu(
+      state,
+      foggedEnemyTile,
+      100,
+      120,
+      deps((tile) =>
+        requestAttackPreviewForTarget(state, tile, {
+          ws,
+          authSessionReady: true,
+          keyFor: (x: number, y: number) => `${x},${y}`,
+          pickOriginForTarget: () => ({ x: 4, y: 7, terrain: "LAND", ownerId: "me", fogged: false })
+        })
+      )
+    );
+
+    expect(state.tileActionMenu.mode).toBe("single");
+    expect(state.tileActionMenu.currentTileKey).toBe("5,7");
+    expect(send).not.toHaveBeenCalled();
   });
 });
