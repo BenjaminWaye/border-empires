@@ -291,6 +291,25 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The \"Build Light Outpost\" cost line now omits the FOOD slot entirely while you're within your free first 5; it only appears once it actually applies, starting with your 6th outpost."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "wooden-fort-no-iron-build",
+    title: "Wooden Fort no longer charges a lump-sum iron cost to build",
+    why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
+    changes: [
+      "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies, matching every other fort tier's build model."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "economy-slot-upkeep-no-daily-flow",
+    title: "Economy panel no longer shows slot upkeep as a negative daily flow",
+    why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
+    changes: [
+      "On the Food/Iron/Crystal/Supply cards, the Upkeep column now only lists genuine flow upkeep that costs a different resource (e.g. a synthesizer's gold upkeep); own-resource slot upkeep appears once, as the slot count in \"Occupied by\".",
+      "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
