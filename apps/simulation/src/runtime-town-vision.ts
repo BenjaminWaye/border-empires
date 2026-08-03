@@ -4,10 +4,11 @@
  * of runtime.ts (already oversized) so the runtime only carries a handful of
  * one-line calls into the streaming coverage cache.
  *
- * Full-export path (VisionExpansionCache) and the barb-activation union are
- * handled in their own modules (runtime-visibility-classifier.ts /
- * runtime-visible-state.ts); this module owns the streaming tile-delta path
- * (VisibilityCoverageTracker) plus the shared "is this a settled town" test.
+ * The full-export path (runtime-visibility-classifier.ts) and the streaming
+ * tile-delta path both read town rings from the same VisibilityCoverageTracker
+ * this module writes to; the barb-activation union (runtime-visible-state.ts)
+ * has its own separate, independent computation. This module owns the shared
+ * "is this a settled town" test plus the town-ring add/remove/resync calls.
  */
 
 import type { DomainTileState } from "@border-empires/game-domain";

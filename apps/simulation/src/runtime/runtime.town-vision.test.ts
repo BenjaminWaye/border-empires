@@ -4,8 +4,8 @@ import { SimulationRuntime } from "./runtime.js";
 
 // Owned SETTLED towns reveal one extra ring (radius+1) around themselves,
 // while plain owned tiles reveal only the base radius. This pins the
-// full-export visibility path (classifyVisibilityForPlayer +
-// VisionExpansionCache) for the town +1 vision feature.
+// full-export visibility path (classifyVisibilityForPlayer, backed by
+// VisibilityCoverageCache) for the town +1 vision feature.
 
 const makePlayer = (id: string, allies: string[] = []) => ({
   id,
@@ -80,8 +80,13 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
+        // Alliances are always synced symmetrically in production (see
+        // handleSyncAllianceCommand, which adds each side to the other's
+        // allies together) — the coverage cache's ally propagation
+        // (viewersForSource) relies on that invariant, so both sides must
+        // declare each other here too.
         ["player-1", makePlayer("player-1", ["player-2"])],
-        ["player-2", makePlayer("player-2")]
+        ["player-2", makePlayer("player-2", ["player-1"])]
       ]),
       initialState: { tiles, activeLocks: [] }
     });

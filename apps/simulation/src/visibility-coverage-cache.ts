@@ -22,6 +22,8 @@
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
 
+const EMPTY_REASONS: ReadonlySet<string> = new Set();
+
 const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {
   const separator = tileKey.indexOf(",");
   if (separator < 0) return undefined;
@@ -33,6 +35,16 @@ const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => 
 
 export class VisibilityCoverageCache {
   private readonly coverage = new Map<string, Map<string, number>>();
+  // viewerId -> tileKey -> reason -> refcount. Populated in lockstep with
+  // `coverage` whenever a caller supplies a `reason` tag (e.g. "radius:self",
+  // "radius:ally:<id>", "light-outpost", "temporary-reveal" — see
+  // VisibilityCoverageTracker for the vocabulary), so the full-export
+  // visibility audit (runtime-visible-state.ts) can explain *why* a tile is
+  // visible without recomputing anything from scratch. Refcounted the same
+  // way `coverage` is: a cell can be reached by the same reason from two
+  // different sources (e.g. two owned tiles both dilating into it), and the
+  // tag must survive until every such contribution is withdrawn.
+  private readonly reasons = new Map<string, Map<string, Map<string, number>>>();
   private readonly worldWidth: number;
   private readonly worldHeight: number;
   private readonly footprintTable: VisionFootprintTable | undefined;
@@ -65,16 +77,63 @@ export class VisibilityCoverageCache {
   }
 
   /**
+   * Every reason tag currently contributing to `tileKey`'s visibility for
+   * `viewerId` (empty if the tile isn't covered, or was covered without a
+   * reason tag). Not on the hot path — only called for the audit's rare
+   * "tile owned by someone else, currently visible" case.
+   */
+  reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string> {
+    const byReason = this.reasons.get(viewerId)?.get(tileKey);
+    return byReason ? new Set(byReason.keys()) : EMPTY_REASONS;
+  }
+
+  private addReason(viewerId: string, tileKey: string, reason: string): void {
+    let byTile = this.reasons.get(viewerId);
+    if (!byTile) {
+      byTile = new Map();
+      this.reasons.set(viewerId, byTile);
+    }
+    let byReason = byTile.get(tileKey);
+    if (!byReason) {
+      byReason = new Map();
+      byTile.set(tileKey, byReason);
+    }
+    byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
+  }
+
+  private removeReason(viewerId: string, tileKey: string, reason: string): void {
+    const byTile = this.reasons.get(viewerId);
+    const byReason = byTile?.get(tileKey);
+    if (!byReason) return;
+    const next = (byReason.get(reason) ?? 0) - 1;
+    if (next <= 0) {
+      byReason.delete(reason);
+      if (byReason.size === 0) byTile!.delete(tileKey);
+      if (byTile!.size === 0) this.reasons.delete(viewerId);
+    } else {
+      byReason.set(reason, next);
+    }
+  }
+
+  /**
    * `onEnter`, if supplied, fires exactly once per cell whose refcount
    * crosses 0→1 for this viewer (a genuine "this tile just entered vision"
    * edge, not every refcount increment). Kept allocation-free on the hot
    * O(radius²) path — no per-cell closures beyond the one passed in.
    */
-  addFootprint(viewerId: string, x: number, y: number, radius: number, onEnter?: (viewerId: string, tileKey: string) => void): void {
+  addFootprint(
+    viewerId: string,
+    x: number,
+    y: number,
+    radius: number,
+    onEnter?: (viewerId: string, tileKey: string) => void,
+    reason?: string
+  ): void {
     const map = this.mapFor(viewerId);
     this.forEachDilatedCell(x, y, radius, (key) => {
       const next = (map.get(key) ?? 0) + 1;
       map.set(key, next);
+      if (reason) this.addReason(viewerId, key, reason);
       if (next === 1 && onEnter) onEnter(viewerId, key);
     });
   }
@@ -84,10 +143,18 @@ export class VisibilityCoverageCache {
    * crosses 1→0 for this viewer (a genuine "this tile just left vision"
    * edge).
    */
-  removeFootprint(viewerId: string, x: number, y: number, radius: number, onLeave?: (viewerId: string, tileKey: string) => void): void {
+  removeFootprint(
+    viewerId: string,
+    x: number,
+    y: number,
+    radius: number,
+    onLeave?: (viewerId: string, tileKey: string) => void,
+    reason?: string
+  ): void {
     const map = this.coverage.get(viewerId);
     if (!map) return;
     this.forEachDilatedCell(x, y, radius, (key) => {
+      if (reason) this.removeReason(viewerId, key, reason);
       const next = (map.get(key) ?? 0) - 1;
       if (next <= 0) {
         map.delete(key);
@@ -104,12 +171,13 @@ export class VisibilityCoverageCache {
     viewerId: string,
     territoryTileKeys: Iterable<string>,
     radius: number,
-    onEnter?: (viewerId: string, tileKey: string) => void
+    onEnter?: (viewerId: string, tileKey: string) => void,
+    reason?: string
   ): void {
     for (const tileKey of territoryTileKeys) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      this.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter);
+      this.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, reason);
     }
   }
 
@@ -118,12 +186,13 @@ export class VisibilityCoverageCache {
     viewerId: string,
     territoryTileKeys: Iterable<string>,
     radius: number,
-    onLeave?: (viewerId: string, tileKey: string) => void
+    onLeave?: (viewerId: string, tileKey: string) => void,
+    reason?: string
   ): void {
     for (const tileKey of territoryTileKeys) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      this.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave);
+      this.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, reason);
     }
   }
 
@@ -189,8 +258,10 @@ export interface VisibilityCoverageTrackerDeps {
  * removals cancel out exactly what was added, and excludes barbarians (never
  * a subscribed gateway client, so a self-viewer entry for them is pure
  * waste on every walk/multiply tick). Takes its players/territory lookups
- * once at construction (mirrors VisionExpansionCache's constructor shape)
- * so call sites stay a single line each.
+ * once at construction so call sites stay a single line each. The sole
+ * source of truth for territory, ally, town-ring, and structure-bonus vision
+ * for both the streaming tile-delta path and the full-export/login path (see
+ * runtime-visibility-classifier.ts).
  */
 export class VisibilityCoverageTracker {
   private readonly cache: VisibilityCoverageCache;
@@ -215,8 +286,18 @@ export class VisibilityCoverageTracker {
     this.cache.forEachVisibleKey(viewerId, cb);
   }
 
+  /** Pass-through — see VisibilityCoverageCache.reasonsForTile. */
+  reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string> {
+    return this.cache.reasonsForTile(viewerId, tileKey);
+  }
+
   private isBarbarian(playerId: string): boolean {
     return playerId.startsWith("barbarian-");
+  }
+
+  /** "radius:self" if `viewerId` IS `sourceId`, else "radius:ally:<sourceId>" — the same self/ally split the old (pre-unification) full-export path derived for free from computing each source's dilation separately. */
+  private territoryReason(sourceId: string, viewerId: string): string {
+    return viewerId === sourceId ? "radius:self" : `radius:ally:${sourceId}`;
   }
 
   private radiusForSource(sourceId: string): number {
@@ -248,11 +329,15 @@ export class VisibilityCoverageTracker {
   ): void {
     if (previousOwnerId && !this.isBarbarian(previousOwnerId)) {
       const radius = this.radiusForSource(previousOwnerId);
-      for (const viewerId of this.viewersForSource(previousOwnerId)) this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave);
+      for (const viewerId of this.viewersForSource(previousOwnerId)) {
+        this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave, this.territoryReason(previousOwnerId, viewerId));
+      }
     }
     if (nextOwnerId && !this.isBarbarian(nextOwnerId)) {
       const radius = this.radiusForSource(nextOwnerId);
-      for (const viewerId of this.viewersForSource(nextOwnerId)) this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter);
+      for (const viewerId of this.viewersForSource(nextOwnerId)) {
+        this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter, this.territoryReason(nextOwnerId, viewerId));
+      }
     }
   }
 
@@ -271,9 +356,13 @@ export class VisibilityCoverageTracker {
     if (viewers.length > 0) {
       const territoryTileKeys = this.deps.territoryTileKeysForPlayer(playerId);
       if (oldRadius !== undefined) {
-        for (const viewerId of viewers) this.cache.removeSourceContribution(viewerId, territoryTileKeys, oldRadius, callbacks?.onLeave);
+        for (const viewerId of viewers) {
+          this.cache.removeSourceContribution(viewerId, territoryTileKeys, oldRadius, callbacks?.onLeave, this.territoryReason(playerId, viewerId));
+        }
       }
-      for (const viewerId of viewers) this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius, callbacks?.onEnter);
+      for (const viewerId of viewers) {
+        this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius, callbacks?.onEnter, this.territoryReason(playerId, viewerId));
+      }
     }
     this.radiusBySource.set(playerId, newRadius);
   }
@@ -287,13 +376,13 @@ export class VisibilityCoverageTracker {
    */
   addTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(viewerId)) return;
-    this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter);
+    this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter, "temporary-reveal");
   }
 
   /** Reverses addTemporaryReveal once the timed effect expires. */
   removeTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(viewerId)) return;
-    this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave);
+    this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave, "temporary-reveal");
   }
 
   /**
@@ -301,17 +390,31 @@ export class VisibilityCoverageTracker {
    * +5 vision). Unlike tileOwnershipChanged this does NOT go through
    * radiusBySource — it's a flat extra footprint that stacks on top of the
    * owner's territory-based coverage. Call removeTileVisionBonus with the exact
-   * same (x, y, bonusRadius) when the bonus source is removed.
+   * same (x, y, bonusRadius, reason) when the bonus source is removed.
    */
-  addTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+  addTileVisionBonus(
+    viewerId: string,
+    x: number,
+    y: number,
+    bonusRadius: number,
+    callbacks?: VisibilityTransitionCallbacks,
+    reason = "structure-bonus"
+  ): void {
     if (this.isBarbarian(viewerId)) return;
-    this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+    this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, reason);
   }
 
   /** Reverses addTileVisionBonus when the vision-bonus source is removed. */
-  removeTileVisionBonus(viewerId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+  removeTileVisionBonus(
+    viewerId: string,
+    x: number,
+    y: number,
+    bonusRadius: number,
+    callbacks?: VisibilityTransitionCallbacks,
+    reason = "structure-bonus"
+  ): void {
     if (this.isBarbarian(viewerId)) return;
-    this.cache.removeFootprint(viewerId, x, y, bonusRadius, callbacks?.onLeave);
+    this.cache.removeFootprint(viewerId, x, y, bonusRadius, callbacks?.onLeave, reason);
   }
 
   /**
@@ -333,8 +436,9 @@ export class VisibilityCoverageTracker {
     const existing = this.townBonusRadiusBySourceAndTile.get(sourceId)?.get(tileKey);
     if (existing === bonusRadius) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
-      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter);
+      const reason = this.territoryReason(sourceId, viewerId);
+      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, reason);
+      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, reason);
     }
     let byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
     if (!byTile) {
@@ -352,7 +456,7 @@ export class VisibilityCoverageTracker {
     const existing = byTile?.get(tileKey);
     if (existing === undefined) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave);
+      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, this.territoryReason(sourceId, viewerId));
     }
     byTile!.delete(tileKey);
     if (byTile!.size === 0) this.townBonusRadiusBySourceAndTile.delete(sourceId);
@@ -378,13 +482,13 @@ export class VisibilityCoverageTracker {
     const actorTerritory = this.deps.territoryTileKeysForPlayer(actorId);
     const targetTerritory = this.deps.territoryTileKeysForPlayer(targetId);
     if (allied) {
-      this.cache.addSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onEnter);
-      this.cache.addSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onEnter);
+      this.cache.addSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onEnter, `radius:ally:${actorId}`);
+      this.cache.addSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onEnter, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyTownBonusesToViewer(targetId, actorId, callbacks?.onEnter);
     } else {
-      this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onLeave);
-      this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onLeave);
+      this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onLeave, `radius:ally:${actorId}`);
+      this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onLeave, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
       this.applyTownBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
     }
@@ -405,11 +509,12 @@ export class VisibilityCoverageTracker {
   ): void {
     const byTile = this.townBonusRadiusBySourceAndTile.get(sourceId);
     if (!byTile) return;
+    const reason = `radius:ally:${sourceId}`;
     for (const [tileKey, radius] of byTile) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter);
-      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave);
+      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, reason);
+      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, reason);
     }
   }
 }
