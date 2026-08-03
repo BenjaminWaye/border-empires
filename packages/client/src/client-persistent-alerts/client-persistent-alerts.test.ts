@@ -4,6 +4,7 @@ import {
   drawPersistentAlertLocators,
   nearestPersistentAlerts,
   notificationCategoryForServerError,
+  type PersistentAlert,
   type PersistentAlertLocator,
   persistentAlertLocatorAt,
   persistentAlertsForState
@@ -203,5 +204,58 @@ describe("persistent alerts", () => {
     });
 
     expect(state.persistentAlertLocators.map((locator) => locator.id)).toEqual(["town_unfed:40,10"]);
+  });
+
+  it("uses precomputedAlerts when provided instead of scanning state.tiles", () => {
+    const precomputedAlerts: PersistentAlert[] = [
+      {
+        id: "muster_active:5,5",
+        kind: "muster_active",
+        title: "Muster flag active",
+        detail: "Holding 100 manpower at (5, 5).",
+        x: 5,
+        y: 5,
+        severity: "warn"
+      }
+    ];
+    const state = {
+      me: "me",
+      camX: 10,
+      camY: 10,
+      persistentAlertLocators: [] as PersistentAlertLocator[],
+      tiles: new Map<string, Tile>([
+        ["10,10", unfedTownTile({ x: 10, y: 10 })]
+      ])
+    };
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      translate: () => undefined,
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill: () => undefined,
+      stroke: () => undefined,
+      rotate: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      closePath: () => undefined,
+      fillText: () => undefined,
+      scale: () => undefined,
+      globalAlpha: 1
+    } as unknown as CanvasRenderingContext2D;
+
+    drawPersistentAlertLocators(state, {
+      ctx,
+      canvas: { width: 100, height: 100 } as HTMLCanvasElement,
+      worldToScreen: (wx, wy) => (wx === 5 ? { sx: 180, sy: 50 } : { sx: 50 + (wx - 10) * 10, sy: 50 + (wy - 10) * 10 }),
+      toroidDelta: (from, to) => to - from,
+      size: 1,
+      halfW: 0,
+      halfH: 0,
+      nowMs: 0,
+      precomputedAlerts
+    });
+
+    expect(state.persistentAlertLocators.map((locator) => locator.id)).toEqual(["muster_active:5,5"]);
   });
 });
