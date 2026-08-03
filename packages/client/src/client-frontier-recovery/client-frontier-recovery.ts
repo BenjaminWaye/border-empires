@@ -10,6 +10,7 @@ type FrontierRecoveryState = Pick<
   | "actionTargetKey"
   | "capture"
   | "autoSettleTargets"
+  | "autoBuildTargets"
 >;
 
 type SweepFrontierRecoveryDeps = {
@@ -47,6 +48,7 @@ export const sweepExpiredFrontierRecovery = (
     state.frontierSyncWaitUntilByTarget.delete(tileKey);
     state.frontierLateAckUntilByTarget.delete(tileKey);
     state.autoSettleTargets.delete(tileKey);
+    state.autoBuildTargets.delete(tileKey);
     deps.dropQueuedTargetKeyIfAbsent(tileKey);
     if (targetMatchesActiveAction(state, tileKey)) continue;
     const tile = state.tiles.get(tileKey);
