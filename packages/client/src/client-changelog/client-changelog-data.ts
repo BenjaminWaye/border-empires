@@ -281,6 +281,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1785697200000, // 2026.08.03.1
+    introducedIn: "2026.08.03.1",
+    title: "Fixed: removing a structure crashed the game",
+    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
+    changes: [
+      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
+      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "buildings-tab-always-show",
     title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
@@ -293,4 +303,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
     ]
   }
+  // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
+  // window test only keeps entries within the latest 6 days of the newest
+  // entry's createdAt -- see git history for the full changelog.
 ];
