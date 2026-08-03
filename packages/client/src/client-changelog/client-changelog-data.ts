@@ -27,29 +27,12 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Rail Depot now grant real manpower bonuses"), 2026.07.28.1 ("Rush-buy:
   // finish an in-progress settle or build for gold"), 2026.07.28.2 ("Economy
   // panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock
-  // numbers"), and 2026.07.28.3 ("Food is now purely a slot resource; town
-  // growth costs gold + a Food slot") pruned: aged out of the 6-day window
-  // during this merge.
-  {
-    createdAt: 1785230720833, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Fixed: farms, towns, and other overlays floated above hills in 3D mode",
-    why: "The 3D renderer's shared surfaceY calculation (used to place buildings, towns, resource icons, and every other tile overlay) already picked up a hill tile's elevation bonus from heightfield.elevationAt(), then added that same bonus a second time for any tile flagged as hills. That doubled the hill's height bump under every overlay on a hill tile, so farms, towns, and resource icons rendered a full bonus-height above the visible hill dome instead of resting on its peak.",
-    changes: [
-      "Removed the duplicate hills-elevation bonus from the 3D overlay placement formula — buildings, farms, towns, and resource icons now sit directly on the hill's surface instead of floating above it."
-    ]
-  },
-  {
-    createdAt: 1785225359405, // 2026.07.28.2
-    introducedIn: "2026.07.28.2",
-    title: "Fixed: Empire Integrity warning nagged you on every login; added discovery tips",
-    why: "The Empire Integrity dismissal was stored under a single global localStorage key with no per-account scoping, so on a shared browser/device a dismissal from one account could leak onto (or get overwritten by) another account, making the warning reappear even after you'd dismissed it. Separately, new players had no in-game explanation of what towns and resource tiles do or why they're worth capturing.",
-    changes: [
-      "Empire Integrity warning dismissal is now scoped per account, so dismissing it actually keeps it hidden for that login going forward (it still resurfaces after 30 days or once integrity recovers above 90%).",
-      "Added a tip the first time you discover a town, and separate tips for the first Food, Iron, Crystal, and Supply resource tile you discover, each explaining why it's worth capturing.",
-      "Each discovery tip reappears after 30 days/a season if dismissed (same window as Empire Integrity). A \"Don't show tooltips\" checkbox on the tip lets you mute all discovery tips for that same window in one action."
-    ]
-  },
+  // numbers"), 2026.07.28.3 ("Food is now purely a slot resource; town
+  // growth costs gold + a Food slot"), 2026.07.28.2 ("Fixed: Empire
+  // Integrity warning nagged you on every login; added discovery tips"), and
+  // 2026.07.28.3 ("Fixed: farms, towns, and other overlays floated above
+  // hills in 3D mode") pruned: aged out of the 6-day window during this
+  // merge.
   // 2026.07.27.1 ("Fixed: large-empire logins could still stall for 15+
   // seconds"), 2026.07.27.2 ("Fixed: ownership overlay and buildings
   // invisible on hills in 3D mode"), 2026.07.27.3 ("Fixed: login stalls on
@@ -234,6 +217,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
     changes: [
       "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies."
+    ]
+  },
+  {
+    createdAt: 1785758343576, // event-log-explicit-sort
+    introducedIn: "event-log-explicit-sort",
+    title: "Recent Events feed now sorts explicitly instead of assuming server order",
+    why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
+    changes: [
+      "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
     ]
   },
   {
