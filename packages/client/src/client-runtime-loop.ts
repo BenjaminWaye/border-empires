@@ -25,7 +25,7 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
-import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
+import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
@@ -36,6 +36,13 @@ import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/c
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+
+// Persistent-alert tile scan is O(all tiles ever discovered this session,
+// up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
+// on mobile when run every frame. Town-unfed / muster-active status only
+// changes on human timescales, so recomputing on a ~220ms cadence is
+// visually lossless while cutting scan frequency by ~80-90%.
+const PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS = 220;
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -162,6 +169,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  let persistentAlertsCache: PersistentAlert[] = [];
+  let persistentAlertsComputedAt = 0;
   const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
     requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
   });
@@ -1612,6 +1621,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const fxMs = phaseMs();
 
     deps.drawMiniMap();
+    if (nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
+      persistentAlertsCache = persistentAlertsForState(state);
+      persistentAlertsComputedAt = nowMs;
+    }
     drawPersistentAlertLocators(state, {
       ctx: deps.ctx,
       canvas: deps.canvas,
@@ -1620,7 +1633,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       size,
       halfW,
       halfH,
-      nowMs
+      nowMs,
+      precomputedAlerts: persistentAlertsCache
     });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
