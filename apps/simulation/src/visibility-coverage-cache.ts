@@ -53,6 +53,18 @@ export class VisibilityCoverageCache {
   }
 
   /**
+   * Allocation-free variant of visibleKeysForViewer for hot-path callers
+   * (e.g. merging structure-bonus coverage into a full visibility export) —
+   * iterates the viewer's existing coverage map directly instead of copying
+   * it into a new Set.
+   */
+  forEachVisibleKey(viewerId: string, cb: (key: string) => void): void {
+    const map = this.coverage.get(viewerId);
+    if (!map) return;
+    for (const key of map.keys()) cb(key);
+  }
+
+  /**
    * `onEnter`, if supplied, fires exactly once per cell whose refcount
    * crosses 0→1 for this viewer (a genuine "this tile just entered vision"
    * edge, not every refcount increment). Kept allocation-free on the hot
@@ -196,6 +208,11 @@ export class VisibilityCoverageTracker {
 
   isVisible(viewerId: string, tileKey: string): boolean {
     return this.cache.isVisible(viewerId, tileKey);
+  }
+
+  /** Allocation-free pass-through — see VisibilityCoverageCache.forEachVisibleKey. */
+  forEachVisibleKey(viewerId: string, cb: (key: string) => void): void {
+    this.cache.forEachVisibleKey(viewerId, cb);
   }
 
   private isBarbarian(playerId: string): boolean {

@@ -42,8 +42,9 @@ export const classifyVisibilityForPlayer = (input: {
   // Optional incremental visibility coverage (includes structure-based bonuses like
   // light outposts). If omitted, only territory-based vision is included. When
   // provided, used to supplement the expansion cache result with any additional
-  // visible tiles from structure vision bonuses.
-  visibilityCoverage?: { visibleKeysForViewer(viewerId: string): ReadonlySet<string> };
+  // visible tiles from structure vision bonuses. forEachVisibleKey is allocation-free
+  // (no intermediate Set) since this runs on every login/reconnect classification.
+  visibilityCoverage?: { forEachVisibleKey(viewerId: string, cb: (key: string) => void): void };
 }): RuntimeVisibilityClassification => {
   const radiusAllyKeys = new Map<string, ReadonlySet<string>>();
   const lockOriginKeys = new Set<string>();
@@ -128,9 +129,7 @@ export const classifyVisibilityForPlayer = (input: {
   // from the expansion cache and are essential for the initial full-visibility
   // export to match streaming tile-delta visibility.
   if (input.visibilityCoverage) {
-    for (const key of input.visibilityCoverage.visibleKeysForViewer(input.playerId)) {
-      fullVisionKeys.add(key);
-    }
+    input.visibilityCoverage.forEachVisibleKey(input.playerId, (key) => fullVisionKeys.add(key));
   }
 
   const lockTargetOnlyKeys = new Set<string>();
