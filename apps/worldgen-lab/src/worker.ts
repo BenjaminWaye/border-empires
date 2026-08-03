@@ -8,9 +8,17 @@ import {
   regionTypeAt,
   grassShadeAt,
   type WorldStyle,
-  type NaturalWonderType
+  type NaturalWonderType,
+  type Dock,
+  type TileKey
 } from "@border-empires/shared";
-import { createServerWorldgenNaturalWonders, key as tileKeyOf } from "@border-empires/game-domain";
+import {
+  createServerWorldgenNaturalWonders,
+  key as tileKeyOf,
+  type ClusterDefinition,
+  type NaturalWonderSiteState,
+  type TownDefinition
+} from "@border-empires/game-domain";
 
 export type MapStyle = "continents" | "islands";
 
@@ -230,7 +238,7 @@ const estimateTownCount = (terrain: Uint8Array, seed: number): { count: number; 
 // accurate as those predicates evolve. Cluster centers aren't tracked in the
 // lab (no resource-cluster model), so the §3.2 "≥12 from cluster center"
 // exclusion is skipped — a lab approximation, same as estimateTownCount's.
-const estimateNaturalWonders = (
+const placeNaturalWonders = (
   terrain: Uint8Array,
   townIndices: Uint32Array,
   dockSiteIndices: Uint32Array,
@@ -242,16 +250,20 @@ const estimateNaturalWonders = (
   };
   const regionTypeAtLocal = (x: number, y: number) => (localTerrainAt(x, y) === "LAND" ? regionTypeAt(x, y) : undefined);
 
-  const townsByTile = new Map<string, true>();
+  // Only tile membership matters to the placement predicates (isVacantLandTile
+  // just calls .has()), so these are approximated as presence-only maps and
+  // cast to their real value types at the call site below — same narrowing
+  // idiom production uses in season-seed-natural-wonders.ts.
+  const townsByTile = new Map<TileKey, boolean>();
   for (const flatIdx of townIndices) {
     townsByTile.set(tileKeyOf(flatIdx % WORLD_WIDTH, Math.floor(flatIdx / WORLD_WIDTH)), true);
   }
-  const docksByTile = new Map<string, true>();
+  const docksByTile = new Map<TileKey, boolean>();
   for (const flatIdx of dockSiteIndices) {
     docksByTile.set(tileKeyOf(flatIdx % WORLD_WIDTH, Math.floor(flatIdx / WORLD_WIDTH)), true);
   }
 
-  const naturalWondersByTile = new Map<string, { tileKey: string; type: NaturalWonderType }>();
+  const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
   const wondersRuntime = createServerWorldgenNaturalWonders({
     seeded01,
     naturalWondersByTile,
@@ -262,11 +274,11 @@ const estimateNaturalWonders = (
     landBiomeAt,
     grassShadeAt,
     key: tileKeyOf,
-    docksByTile,
-    clusterByTile: new Map(),
-    clustersById: new Map(),
-    townsByTile
-  } as unknown as Parameters<typeof createServerWorldgenNaturalWonders>[0]);
+    docksByTile: docksByTile as unknown as Map<TileKey, Dock>,
+    clusterByTile: new Map<TileKey, string>(),
+    clustersById: new Map<string, ClusterDefinition>(),
+    townsByTile: townsByTile as unknown as Map<TileKey, TownDefinition>
+  });
   wondersRuntime.generateNaturalWonders(seed);
 
   return [...naturalWondersByTile.values()].map((site) => {
@@ -359,7 +371,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const { significant: islandCount, largestShare, dockCount, dockSiteIndices } = countIslands(terrain);
   const resources = countResourceSites(terrain, biome, shade, region);
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
-  const wonders = estimateNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
+  const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
