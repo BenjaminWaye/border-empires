@@ -65,7 +65,7 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
-  it("hides disabled-only non-crystal action tabs while keeping overview fallback possible", () => {
+  it("shows disabled non-crystal actions with their blocker messages", () => {
     const disabledActions: TileActionDef[] = [
       {
         id: "launch_attack",
@@ -77,7 +77,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(disabledActions, state)).toEqual({
-      actions: [],
+      actions: disabledActions,
       buildings: [],
       crystal: []
     });
