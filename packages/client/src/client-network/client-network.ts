@@ -821,6 +821,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     state.capture = undefined;
     if (!handedOffToSettle) {
+      if (targetKey) state.autoBuildTargets.delete(targetKey);
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
@@ -1766,9 +1767,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
       clearLateFrontierAck(cancelledCurrentKey);
-      if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
-      if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
-      state.autoSettleTargets.clear();
+      if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
+      state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
       pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
       renderHud();
       return;
@@ -2445,7 +2445,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           clearSettlementProgressSafely(tileKey);
           state.queuedTargetKeys.delete(tileKey);
           dropQueuedTargetKeyIfAbsent(tileKey);
-          state.autoSettleTargets.delete(tileKey);
+          state.autoSettleTargets.delete(tileKey); state.autoBuildTargets.delete(tileKey);
         }
         if (backendUnavailableError) {
           state.capture = undefined;
@@ -2742,7 +2742,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
-        if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+        if (failedTargetKey) { state.autoSettleTargets.delete(failedTargetKey); state.autoBuildTargets.delete(failedTargetKey); }
       } else if (failedTargetKey) {
         clearOptimisticTileStateSafely(failedTargetKey, true);
       }

@@ -141,7 +141,7 @@ type StartClientRuntimeLoopDeps = {
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
   processAutoSettleTargets: () => void;
-  processAutoBuildLightOutpostTargets: () => void;
+  processAutoBuildTargets: () => void;
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
@@ -1660,7 +1660,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
     if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
-    if (state.autoBuildLightOutpostTargets.size > 0) deps.processAutoBuildLightOutpostTargets();
+    if (state.autoBuildTargets.size > 0) deps.processAutoBuildTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,
       dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,

@@ -99,6 +99,7 @@ const createState = () =>
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(),
+    autoBuildTargets: new Map<string, unknown>(),
     attackPreviewPendingKey: "",
     attackPreview: undefined,
     attackPreviewCacheByKey: new Map(),

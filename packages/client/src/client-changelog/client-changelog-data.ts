@@ -103,9 +103,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // seconds") and 2026.07.27.2 ("Fixed: ownership overlay and buildings
   // invisible on hills in 3D mode") pruned: aged out of the 6-day window
   // during this merge.
-  // 2026.07.23.1 through 2026.07.27.1 ("Fixed: unexplored-tile waypoints
-  // stopped working entirely") pruned: aged out of the 6-day window during
-  // this merge.
   {
     createdAt: 1785200000000, // 2026.07.27.3
     introducedIn: "2026.07.27.3",
@@ -293,6 +290,19 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "buildings-tab-always-show",
+    title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
+    why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
+    changes: [
+      "The Buildings tab now appears on every tile you own — whether it's still a frontier claim or already settled — so all eligible buildings are visible the moment you take the tile.",
+      "Clicking \"Build X\" on a tile you own but haven't settled automatically settles the tile first, then builds the structure the moment settlement completes (the old settle-then-build flow that only existed for Light Outposts now applies to every building type).",
+      "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
+      "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
+      "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
+    ]
+  }
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

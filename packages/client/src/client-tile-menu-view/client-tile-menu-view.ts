@@ -637,7 +637,6 @@ export const tileMenuViewForTile = (
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
     tile.ownerId === deps.state.me &&
-    tile.ownershipState === "SETTLED" &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
