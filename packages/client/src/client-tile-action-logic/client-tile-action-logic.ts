@@ -1299,7 +1299,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_radar_system",
           label: "Build Resonance Grid",
-          detail: deps.buildDetailTextForAction("build_radar_system", tile),
+          detail: deps.buildDetailTextForAction("build_radar_system", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "RADAR_SYSTEM",
