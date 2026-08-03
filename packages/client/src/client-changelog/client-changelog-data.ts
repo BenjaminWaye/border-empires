@@ -246,6 +246,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
     ]
   },
+  {
+    createdAt: 1785758070000, // 2026.08.03.3
+    introducedIn: "2026.08.03.3",
+    title: "Fixed: buildings tab showed nothing on an unsettled tile with no resource, town, or dock",
+    why: "The always-show-Buildings-tab update relaxed every building's settled requirement in the menu logic, but the shared placement-surface check it also runs through still only counted a tile as \"settled\" when it was actually SETTLED. Any building without a resource/town/dock alternative surface (Fort, Observatory, Airport, Aether Tower, Radar System, the four monuments, Governor's Office, Garrison Hall) still had nowhere to attach, so a bare claimed tile showed \"No buildings available on this tile right now\" instead of the settle-then-build list.",
+    changes: [
+      "An owned frontier tile now also counts as the \"settled\" placement surface for menu purposes, so every building type appears and queues its settle-then-build chain the same way resource/town/dock-gated buildings already did."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

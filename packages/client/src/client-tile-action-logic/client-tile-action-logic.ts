@@ -18,7 +18,6 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
-  structureShowsOnTile,
   bestFortTierForTech,
   FORT_VARIANT_LABELS,
   nextFortTierForUpgrade,
@@ -50,7 +49,7 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
@@ -395,28 +394,6 @@ export const tileActionAvailability = (
   if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
 };
-
-const buildShowsOnTile = (
-  structureType: BuildableStructureId,
-  tile: Tile,
-  supportedTownCount: number,
-  supportedDockCount: number
-): boolean =>
-  structureShowsOnTile(structureType, {
-    ownershipState: tile.ownershipState,
-    resource: tile.resource as
-      | "FARM"
-      | "WOOD"
-      | "IRON"
-      | "GEMS"
-      | "FISH"
-      | "FUR"
-      | undefined,
-    dockId: tile.dockId,
-    townPopulationTier: tile.town?.populationTier,
-    supportedTownCount,
-    supportedDockCount
-  });
 
 const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
   structurePlacementMetadata(structureType).requiresBorder === "border";
