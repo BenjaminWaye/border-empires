@@ -42,8 +42,8 @@
  * Unlike a request-driven cache this is NOT unbounded by load/time, though:
  * the key space is capped by (world tile count) × (distinct radius values
  * ever queried) — both hard, finite ceilings for a fixed world size — the
- * same bound VisionExpansionCache/VisibilityCoverageCache already rely on
- * for their own per-player O(territory) storage. In practice the number of
+ * same bound VisibilityCoverageCache already relies on for its own per-player
+ * O(territory) storage. In practice the number of
  * distinct radii is small (a handful of tech/observatory-derived integers),
  * so total entries stay well under (world tiles), not anywhere near the
  * theoretical (world tiles × distinct radii) ceiling.

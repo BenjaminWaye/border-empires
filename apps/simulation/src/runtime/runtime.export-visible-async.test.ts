@@ -101,9 +101,9 @@ describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
 
   // Regression: the sim's event_loop_blocked diagnostic showed
   // mainThreadTasks: [] during real >3s stalls on large-empire bootstraps
-  // because classifyVisibilityForPlayer's vision-expansion-cache-miss cost
-  // (and, on the same bootstrap path, cachedEconomySnapshot's rebuild) weren't
-  // wrapped in trackSyncMainThreadTask. Pins that both wrappers are actually
+  // because classifyVisibilityForPlayer's cost (and, on the same bootstrap
+  // path, cachedEconomySnapshot's rebuild) weren't wrapped in
+  // trackSyncMainThreadTask. Pins that both wrappers are actually
   // invoked (with the right phase names) whenever the tracker is supplied,
   // and that omitting it still works (backward compatible for callers/tests
   // that don't care about instrumentation).

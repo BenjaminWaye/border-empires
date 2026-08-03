@@ -125,8 +125,8 @@ export function exportBarbActivationVisibleUnion(input: {
       radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius);
     }
     // Owned SETTLED towns reveal one extra ring (radius+1), matching the
-    // full-export VisionExpansionCache so barb-activation eligibility stays
-    // consistent with what the player actually sees.
+    // town-ring bonus tracked in VisibilityCoverageCache so barb-activation
+    // eligibility stays consistent with what the player actually sees.
     for (const townKey of summary.ownedTownTierByTile.keys()) {
       const [rawX, rawY] = townKey.split(",");
       const x = Number(rawX);
@@ -179,11 +179,7 @@ export function emitVisibilityAudit(input: {
   const onVisibilityAudit = input.onVisibilityAudit;
   if (!onVisibilityAudit) return;
   if (!input.tile.ownerId || input.classification.allyAndSelfIds.has(input.tile.ownerId)) return;
-  const reasons: string[] = [];
-  if (input.classification.radiusSelfKeys.has(input.tileKey)) reasons.push("radius:self");
-  for (const [allyId, set] of input.classification.radiusAllyKeys) {
-    if (set.has(input.tileKey)) reasons.push(`radius:ally:${allyId}`);
-  }
+  const reasons: string[] = [...input.classification.coverageReasonsForTile(input.tileKey)];
   if (input.classification.lockOriginKeys.has(input.tileKey)) reasons.push("lock-origin");
   if (input.classification.dockRevealKeys.has(input.tileKey)) reasons.push("dock-reveal");
   if (input.classification.lockTargetOnlyKeys.has(input.tileKey)) reasons.push("lock-target");
