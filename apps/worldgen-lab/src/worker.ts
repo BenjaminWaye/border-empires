@@ -7,8 +7,10 @@ import {
   landBiomeAt,
   regionTypeAt,
   grassShadeAt,
-  type WorldStyle
+  type WorldStyle,
+  type NaturalWonderType
 } from "@border-empires/shared";
+import { createServerWorldgenNaturalWonders, key as tileKeyOf } from "@border-empires/game-domain";
 
 export type MapStyle = "continents" | "islands";
 
@@ -29,6 +31,7 @@ export type WorkerResponse = {
   resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH (highest-priority resource per tile)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
   dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
+  wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
   landCount: number;
   seaCount: number;
   mountainCount: number;
@@ -222,6 +225,56 @@ const estimateTownCount = (terrain: Uint8Array, seed: number): { count: number; 
   return { count: townSet.size, indices: Uint32Array.from(townSet) };
 };
 
+// Reuses the real production placement logic (server-worldgen-natural-wonders.ts)
+// rather than re-implementing the 9 spawn predicates here, so the lab stays
+// accurate as those predicates evolve. Cluster centers aren't tracked in the
+// lab (no resource-cluster model), so the §3.2 "≥12 from cluster center"
+// exclusion is skipped — a lab approximation, same as estimateTownCount's.
+const estimateNaturalWonders = (
+  terrain: Uint8Array,
+  townIndices: Uint32Array,
+  dockSiteIndices: Uint32Array,
+  seed: number
+): Array<{ index: number; type: NaturalWonderType }> => {
+  const localTerrainAt = (x: number, y: number): ReturnType<typeof terrainAt> => {
+    const code = terrain[y * WORLD_WIDTH + x];
+    return code === 1 ? "LAND" : code === 2 ? "MOUNTAIN" : code === 3 ? "COASTAL_SEA" : "SEA";
+  };
+  const regionTypeAtLocal = (x: number, y: number) => (localTerrainAt(x, y) === "LAND" ? regionTypeAt(x, y) : undefined);
+
+  const townsByTile = new Map<string, true>();
+  for (const flatIdx of townIndices) {
+    townsByTile.set(tileKeyOf(flatIdx % WORLD_WIDTH, Math.floor(flatIdx / WORLD_WIDTH)), true);
+  }
+  const docksByTile = new Map<string, true>();
+  for (const flatIdx of dockSiteIndices) {
+    docksByTile.set(tileKeyOf(flatIdx % WORLD_WIDTH, Math.floor(flatIdx / WORLD_WIDTH)), true);
+  }
+
+  const naturalWondersByTile = new Map<string, { tileKey: string; type: NaturalWonderType }>();
+  const wondersRuntime = createServerWorldgenNaturalWonders({
+    seeded01,
+    naturalWondersByTile,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainAt: localTerrainAt,
+    regionTypeAtLocal,
+    landBiomeAt,
+    grassShadeAt,
+    key: tileKeyOf,
+    docksByTile,
+    clusterByTile: new Map(),
+    clustersById: new Map(),
+    townsByTile
+  } as unknown as Parameters<typeof createServerWorldgenNaturalWonders>[0]);
+  wondersRuntime.generateNaturalWonders(seed);
+
+  return [...naturalWondersByTile.values()].map((site) => {
+    const [xStr, yStr] = site.tileKey.split(",");
+    return { index: Number(yStr) * WORLD_WIDTH + Number(xStr), type: site.type };
+  });
+};
+
 const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
   setWorldSeed(seed, style);
   let land = 0, sea = 0, mountain = 0;
@@ -306,6 +359,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const { significant: islandCount, largestShare, dockCount, dockSiteIndices } = countIslands(terrain);
   const resources = countResourceSites(terrain, biome, shade, region);
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
+  const wonders = estimateNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
@@ -333,6 +387,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     resourceLayer: resources.layer,
     townIndices,
     dockSiteIndices,
+    wonders,
     landCount: counts.land,
     seaCount: counts.sea,
     mountainCount: counts.mountain,
