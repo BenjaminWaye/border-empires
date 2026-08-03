@@ -38,8 +38,16 @@ const outpostPlacement: StructureSpec["placement"] = [
 
 // Per-minute upkeep for the siege ladder: 1 FOOD base on every tier, plus an
 // increasing SUPPLY rate per tier (SIEGE_OUTPOST 0.1, SIEGE_TOWER 0.2,
-// DREAD_TOWER 0.3). Mirrors the slot occupation (1/2/3 SUPPLY) and the sim's
-// structureUpkeepPerMinute.
+// DREAD_TOWER 0.3). This is a real, nonzero, live drain — mirrors
+// structureUpkeepPerMinute in apps/simulation/src/player-update-economy/
+// player-update-economy.ts (there is also a near-duplicate copy in
+// apps/simulation/src/snapshot-economy-helpers.ts; both agree on the siege
+// ladder). Distinct from, and in addition to, the siege ladder's slot
+// occupation (1/2/3 SUPPLY, structure-slots.ts), which gates whether the
+// outpost can be built/exist at all rather than draining anything per
+// minute. This field itself has zero runtime consumers in
+// apps/simulation/src — it is a mirror kept in sync by hand, not the thing
+// actually charged.
 const SIEGE_UPKEEP: Partial<Record<SiegeOutpostVariant, TileUpkeepEntry>> = {
   SIEGE_OUTPOST: { label: "Siege upkeep", perMinute: { SUPPLY: 0.1, FOOD: 0.1 } },
   SIEGE_TOWER: { label: "Siege upkeep", perMinute: { SUPPLY: 0.2, FOOD: 0.1 } },
