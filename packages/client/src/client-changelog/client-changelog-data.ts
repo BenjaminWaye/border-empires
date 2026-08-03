@@ -100,17 +100,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   // 2026.07.27.1 ("Fixed: large-empire logins could still stall for 15+
-  // seconds") pruned: aged out of the 6-day window during this merge.
-  {
-    createdAt: 1785147877000, // 2026.07.27.2
-    introducedIn: "2026.07.27.2",
-    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
-    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
-    changes: [
-      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
-      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
-    ]
-  },
+  // seconds") and 2026.07.27.2 ("Fixed: ownership overlay and buildings
+  // invisible on hills in 3D mode") pruned: aged out of the 6-day window
+  // during this merge.
   // 2026.07.23.1 through 2026.07.27.1 ("Fixed: unexplored-tile waypoints
   // stopped working entirely") pruned: aged out of the 6-day window during
   // this merge.
@@ -289,6 +281,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The button correctly let you build your first 5 Light Outposts for free, but the cost line next to it still said \"1 FOOD slot\" regardless — misleading copy that looked like a hard requirement even when nothing would actually be charged.",
     changes: [
       "The \"Build Light Outpost\" cost line now omits the FOOD slot entirely while you're within your free first 5; it only appears once it actually applies, starting with your 6th outpost."
+    ]
+  },
+  {
+    createdAt: 1785697200000, // 2026.08.03.1
+    introducedIn: "2026.08.03.1",
+    title: "Fixed: removing a structure crashed the game",
+    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
+    changes: [
+      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
+      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
     ]
   },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
