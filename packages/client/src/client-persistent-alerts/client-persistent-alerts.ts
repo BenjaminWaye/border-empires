@@ -203,9 +203,10 @@ export const drawPersistentAlertLocators = (
     halfW: number;
     halfH: number;
     nowMs: number;
+    precomputedAlerts?: PersistentAlert[];
   }
 ): void => {
-  const allAlerts = persistentAlertsForState(state);
+  const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
   const alerts = nearestPersistentAlerts(
     allAlerts,
     state,
