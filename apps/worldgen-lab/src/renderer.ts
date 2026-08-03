@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
+import { WORLD_WIDTH, WORLD_HEIGHT, type NaturalWonderType } from "@border-empires/shared";
 import type { WorkerResponse } from "./worker.js";
 
 export type Layers = {
@@ -46,7 +46,7 @@ const mix = (a: number, b: number, t: number): number => Math.round(a * (1 - t) 
 
 // One distinct color per NaturalWonderType, shared with main.ts's legend/list
 // so the swatch next to a wonder's name always matches its map marker.
-export const WONDER_COLORS: Record<string, [number, number, number]> = {
+export const WONDER_COLORS: Record<NaturalWonderType, [number, number, number]> = {
   FOUNDRY_HEART: [255, 80, 48],
   CONSCRIPTION_ENGINE: [138, 138, 138],
   WATCHTOWER_ENGINE: [64, 224, 208],
