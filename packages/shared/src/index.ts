@@ -1,5 +1,6 @@
 export * from "./config.js";
 export * from "./empire-storage-cap.js";
+export * from "./natural-wonder-labels.js";
 export * from "./types.js";
 export type { ActiveAetherWallView, RevealEmpireStatsView } from "./types.js";
 export * from "./messages/messages.js";
