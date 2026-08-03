@@ -985,7 +985,7 @@ export const reconcileActionQueue = (
     const hasOptimisticOrigin = tile.ownerId ? hasConfirmedOrigin : Boolean(deps.pickOriginForTarget(tile.x, tile.y, false, true));
     if (!hasConfirmedOrigin && !hasOptimisticOrigin) {
       deps.clearOptimisticTileState(targetKey, true);
-      state.autoSettleTargets.delete(targetKey);
+      state.autoSettleTargets.delete(targetKey); state.autoBuildTargets.delete(targetKey);
       continue;
     }
     nextQueue.push(entry);

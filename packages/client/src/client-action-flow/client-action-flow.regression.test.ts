@@ -20,4 +20,14 @@ describe("client action flow regressions", () => {
       'showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold.", "warn"); pushFeed('
     );
   });
+
+  it("keeps the generic build handler blocking a second build on a tile with a settle-then-build queued", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain(
+      'showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Build already queued", "A build is already queued for this tile.")'
+    );
+    expect(source).toContain("state.autoSettleTargets.add(targetKey);");
+    expect(source).toContain("state.autoBuildTargets.set(targetKey, structureType);");
+  });
 });

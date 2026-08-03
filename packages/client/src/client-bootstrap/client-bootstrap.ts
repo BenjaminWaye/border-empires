@@ -621,7 +621,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     cleanupExpiredSettlementProgress: actionFlow.cleanupExpiredSettlementProgress,
     processDevelopmentQueue: actionFlow.processDevelopmentQueue,
     processAutoSettleTargets: actionFlow.processAutoSettleTargets,
-    processAutoBuildLightOutpostTargets: actionFlow.processAutoBuildLightOutpostTargets,
+    processAutoBuildTargets: actionFlow.processAutoBuildTargets,
     clearOptimisticTileState,
     dropQueuedTargetKeyIfAbsent: actionFlow.dropQueuedTargetKeyIfAbsent,
     pushFeed,
