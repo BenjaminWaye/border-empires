@@ -16,7 +16,7 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
-import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
@@ -397,7 +397,7 @@ export const menuOverviewForTile = (
         ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
         : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
     );
-  }
+  } const naturalWonderLine = naturalWonderOverviewLine(tile, ownerKind); if (naturalWonderLine) pushLine(naturalWonderLine);
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);
