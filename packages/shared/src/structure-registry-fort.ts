@@ -27,8 +27,15 @@ const fortPlacement: StructureSpec["placement"] = [
 
 // Per-minute upkeep for the fort ladder: 1 FOOD base on every tier, plus an
 // increasing IRON rate per tier (FORT 0.1, IRON_BASTION 0.2, THUNDER_BASTION
-// 0.4). Mirrors the slot occupation (1/2/4 IRON) and the sim's
-// structureUpkeepPerMinute.
+// 0.4). This is a real, nonzero, live drain — mirrors
+// structureUpkeepPerMinute in apps/simulation/src/player-update-economy/
+// player-update-economy.ts (there is also a near-duplicate copy in
+// apps/simulation/src/snapshot-economy-helpers.ts; both agree on the fort
+// ladder). Distinct from, and in addition to, the fort ladder's slot
+// occupation (1/2/4 IRON, structure-slots.ts), which gates whether the fort
+// can be built/exist at all rather than draining anything per minute. This
+// field itself has zero runtime consumers in apps/simulation/src — it is a
+// mirror kept in sync by hand, not the thing actually charged.
 const FORT_UPKEEP: Partial<Record<FortVariant, TileUpkeepEntry>> = {
   WOODEN_FORT: { label: "Food upkeep", perMinute: { FOOD: 0.1 } },
   FORT: { label: "Fort upkeep", perMinute: { IRON: 0.1, FOOD: 0.1 } },

@@ -61,13 +61,23 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
   }
 }
 
-// ── Upkeep (per-minute rates from structureUpkeepPerMinute in ─────
-//    player-update-economy.ts) — §12.1/§5.1 (docs/manpower-economy-
-//    rewrite-plan.md): a structure's slot occupation is its upkeep now,
-//    so every non-synthesizer structure carries zero ongoing upkeep here.
-//    Synthesizers are the one family gold still gates on an ongoing basis
-//    (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
-//    tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────
+// ── Upkeep ──────────────────────────────────────────────────────────
+//
+// These entries mirror structureUpkeepPerMinute (apps/simulation/src/
+// player-update-economy/player-update-economy.ts — there is also a
+// near-duplicate copy in apps/simulation/src/snapshot-economy-helpers.ts
+// that has already drifted from this one on the AIRPORT case; neither is
+// actually read from THIS registry at runtime, spec.upkeep has zero
+// consumers in apps/simulation/src). Non-synthesizer structures are zero
+// here because their named upkeep constants (FARMSTEAD_GOLD_UPKEEP,
+// CAMP_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
+// server-game-constants.ts) are hardcoded to 0 — NOT because "slot
+// occupation replaced upkeep." Slot occupation (structure-slots.ts) is a
+// separate mechanism gating whether a structure can be built/exist at all;
+// it is not a per-minute drain and was never the reason these are zero.
+// Synthesizers are the one family with real, nonzero per-minute GOLD
+// upkeep (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
+// tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────────
 
 const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
   label: "Gold upkeep",
