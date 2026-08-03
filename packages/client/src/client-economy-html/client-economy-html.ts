@@ -300,7 +300,6 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
       ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
       ${visibleResources
         .map((resource) => {
-          const detail = economyDetailForResource(args, resource);
           const foodFootnote = resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : "";
           if (isSlotResource(resource)) {
             const supply = args.resourceSlots.supply[resource];
@@ -308,8 +307,10 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             const status = slotStatusLine(supply, demand);
             const occupants = slotOccupantsForResource(args, resource);
             // §12.1: a slot resource's upkeep IS the slot occupancy, so the card
-            // only lists who occupies the slots ("Occupied by"). Flow upkeep
-            // belongs to the GOLD card's Upkeep column.
+            // has no separate Upkeep column — it only lists who occupies the
+            // slots ("Occupied by"). Any cross-resource flow upkeep (e.g. a
+            // synthesizer's GOLD upkeep) is not repeated here; it's on the
+            // GOLD card's own Upkeep column instead.
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
@@ -325,6 +326,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             ${foodFootnote}
           </section>`;
           }
+          const detail = economyDetailForResource(args, resource);
           const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
           const cap = args.storageCap.GOLD;
           return `<section class="economy-detail-card card">
