@@ -1,4 +1,5 @@
 import { ECONOMIC_STRUCTURE_BUILD_MS, WOODEN_FORT_BUILD_MS } from "./config.js";
+import { structureCostDefinition } from "./structure-costs/structure-costs.js";
 import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
   noConflictingStructure,
@@ -60,13 +61,23 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
   }
 }
 
-// ── Upkeep (per-minute rates from structureUpkeepPerMinute in ─────
-//    player-update-economy.ts) — §12.1/§5.1 (docs/manpower-economy-
-//    rewrite-plan.md): a structure's slot occupation is its upkeep now,
-//    so every non-synthesizer structure carries zero ongoing upkeep here.
-//    Synthesizers are the one family gold still gates on an ongoing basis
-//    (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
-//    tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────
+// ── Upkeep ──────────────────────────────────────────────────────────
+//
+// These entries mirror structureUpkeepPerMinute (apps/simulation/src/
+// player-update-economy/player-update-economy.ts — there is also a
+// near-duplicate copy in apps/simulation/src/snapshot-economy-helpers.ts
+// that has already drifted from this one on the AIRPORT case; neither is
+// actually read from THIS registry at runtime, spec.upkeep has zero
+// consumers in apps/simulation/src). Non-synthesizer structures are zero
+// here because their named upkeep constants (FARMSTEAD_GOLD_UPKEEP,
+// CAMP_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
+// server-game-constants.ts) are hardcoded to 0 — NOT because "slot
+// occupation replaced upkeep." Slot occupation (structure-slots.ts) is a
+// separate mechanism gating whether a structure can be built/exist at all;
+// it is not a per-minute drain and was never the reason these are zero.
+// Synthesizers are the one family with real, nonzero per-minute GOLD
+// upkeep (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
+// tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────────
 
 const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
   label: "Gold upkeep",
@@ -74,34 +85,33 @@ const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
 });
 
 // ── Helper ─────────────────────────────────────────────────────────
+//
+// gold/manpower/strategic build cost is derived from structureCostDefinition
+// (structure-costs.ts) rather than hand-copied here, the same way
+// structure-registry-fort.ts/structure-registry-outpost.ts derive from
+// FORT_TIER_LADDER/SIEGE_TIER_LADDER — a second, literal copy is what let 10
+// of these types' strategic cost drift out of sync with structure-costs.ts
+// (caught by structure-registry.test.ts's cost-parity suite).
 
 function econSpec(
   type: EconomicStructureType,
-  gold: number,
   opts?: {
-    manpower?: number;
-    strategic?: StructureSpec["cost"]["strategic"];
-    techIds?: string[];
-    prerequisiteStructureTypes?: readonly string[];
     upkeep?: ReadonlyArray<TileUpkeepEntry>;
     buildMs?: number;
   },
 ): StructureSpec {
-  const prereqs = opts?.prerequisiteStructureTypes ?? upgradePrereq(type);
+  const def = structureCostDefinition(type);
+  const prereqs = upgradePrereq(type);
   return {
     type,
     kind: "ECONOMIC",
     cost: {
-      gold,
-      manpower: opts?.manpower ?? 0,
-      ...(opts?.strategic ? { strategic: opts.strategic } : {}),
+      gold: def.baseGoldCost,
+      manpower: def.manpowerCost ?? 0,
+      ...(def.resourceCost ? { strategic: { [def.resourceCost.resource]: def.resourceCost.amount } } : {}),
     },
     buildMs: opts?.buildMs ?? ECONOMIC_STRUCTURE_BUILD_MS,
-    techIds: opts?.techIds
-      ? opts.techIds
-      : TECH_REQUIREMENTS_BY_STRUCTURE[type]
-        ? [TECH_REQUIREMENTS_BY_STRUCTURE[type]!]
-        : [],
+    techIds: TECH_REQUIREMENTS_BY_STRUCTURE[type] ? [TECH_REQUIREMENTS_BY_STRUCTURE[type]!] : [],
     ...(prereqs ? { prerequisiteStructureTypes: prereqs } : {}),
     consumesDevelopmentSlot: true,
     placement: economicPlacement,
@@ -114,144 +124,70 @@ function econSpec(
 
 export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Resource-tile structures
-  FARMSTEAD: econSpec("FARMSTEAD", 0, {
-    manpower: 80,
-    strategic: { FOOD: 20 },
-  }),
-  WATERWORKS: econSpec("WATERWORKS", 0, { manpower: 80, strategic: { FOOD: 20 } }),
-  CAMP: econSpec("CAMP", 0, {
-    manpower: 80,
-    strategic: { SUPPLY: 30 },
-  }),
-  MINE: econSpec("MINE", 0, {
-    manpower: 80,
-    strategic: { IRON: 30 },
-  }),
+  FARMSTEAD: econSpec("FARMSTEAD"),
+  WATERWORKS: econSpec("WATERWORKS"),
+  CAMP: econSpec("CAMP"),
+  MINE: econSpec("MINE"),
 
   // Town-support structures
-  MARKET: econSpec("MARKET", 0, {
-    manpower: 150,
-  }),
-  GRANARY: econSpec("GRANARY", 0, {
-    manpower: 80,
-    strategic: { FOOD: 40 },
-  }),
-  SEED_GRANARY: econSpec("SEED_GRANARY", 0, { manpower: 100, strategic: { FOOD: 80 } }),
-  CENSUS_HALL: econSpec("CENSUS_HALL", 0, { manpower: 80, strategic: { FOOD: 30 } }),
-  BANK: econSpec("BANK", 0, {
-    manpower: 300,
-  }),
-  CLEARING_HOUSE: econSpec("CLEARING_HOUSE", 0, { manpower: 150, strategic: { CRYSTAL: 80 } }),
+  MARKET: econSpec("MARKET"),
+  GRANARY: econSpec("GRANARY"),
+  SEED_GRANARY: econSpec("SEED_GRANARY"),
+  CENSUS_HALL: econSpec("CENSUS_HALL"),
+  BANK: econSpec("BANK"),
+  CLEARING_HOUSE: econSpec("CLEARING_HOUSE"),
 
   // Special-scaling structures
-  AIRPORT: econSpec("AIRPORT", 0, {
-    manpower: 150,
-    strategic: { CRYSTAL: 80 },
-  }),
-  AETHER_TOWER: econSpec("AETHER_TOWER", 0, { manpower: 400, strategic: { CRYSTAL: 160 } }),
+  AIRPORT: econSpec("AIRPORT"),
+  AETHER_TOWER: econSpec("AETHER_TOWER"),
 
   // Converters — 30 gold/day (Fur/Iron) or 40 gold/day (Crystal), Advanced
   // tiers at 1.5x (45/45/60), §6.4.
-  FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", 0, {
-    manpower: 150,
+  FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
-  ADVANCED_FUR_SYNTHESIZER: econSpec("ADVANCED_FUR_SYNTHESIZER", 0, {
-    manpower: 300,
-    strategic: { SUPPLY: 40 },
+  ADVANCED_FUR_SYNTHESIZER: econSpec("ADVANCED_FUR_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
-  IRONWORKS: econSpec("IRONWORKS", 0, {
-    manpower: 150,
+  IRONWORKS: econSpec("IRONWORKS", {
     upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
-  ADVANCED_IRONWORKS: econSpec("ADVANCED_IRONWORKS", 0, {
-    manpower: 300,
-    strategic: { IRON: 40 },
+  ADVANCED_IRONWORKS: econSpec("ADVANCED_IRONWORKS", {
     upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
-  CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", 0, {
-    manpower: 150,
+  CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(40 / 1440)],
   }),
-  ADVANCED_CRYSTAL_SYNTHESIZER: econSpec("ADVANCED_CRYSTAL_SYNTHESIZER", 0, {
-    manpower: 300,
-    strategic: { CRYSTAL: 40 },
+  ADVANCED_CRYSTAL_SYNTHESIZER: econSpec("ADVANCED_CRYSTAL_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(60 / 1440)],
   }),
 
   // Military-support structures
-  CARAVANARY: econSpec("CARAVANARY", 0, {
-    manpower: 150,
-  }),
-  FOUNDRY: econSpec("FOUNDRY", 0, {
-    manpower: 300,
-  }),
-  EXCHANGE_HOUSE: econSpec("EXCHANGE_HOUSE", 0, {
-    manpower: 400,
-    strategic: { CRYSTAL: 120 },
-  }),
-  GARRISON_HALL: econSpec("GARRISON_HALL", 0, {
-    manpower: 150,
-    strategic: { CRYSTAL: 80 },
-  }),
-  CUSTOMS_HOUSE: econSpec("CUSTOMS_HOUSE", 0, {
-    manpower: 100,
-    strategic: { CRYSTAL: 60 },
-  }),
-  RAIL_DEPOT: econSpec("RAIL_DEPOT", 0, {
-    manpower: 300,
-    strategic: { CRYSTAL: 100 },
-  }),
-  GOVERNORS_OFFICE: econSpec("GOVERNORS_OFFICE", 0, {
-    manpower: 150,
-  }),
-  RADAR_SYSTEM: econSpec("RADAR_SYSTEM", 0, {
-    manpower: 300,
-    strategic: { CRYSTAL: 120 },
-  }),
+  CARAVANARY: econSpec("CARAVANARY"),
+  FOUNDRY: econSpec("FOUNDRY"),
+  EXCHANGE_HOUSE: econSpec("EXCHANGE_HOUSE"),
+  GARRISON_HALL: econSpec("GARRISON_HALL"),
+  CUSTOMS_HOUSE: econSpec("CUSTOMS_HOUSE"),
+  RAIL_DEPOT: econSpec("RAIL_DEPOT"),
+  GOVERNORS_OFFICE: econSpec("GOVERNORS_OFFICE"),
+  RADAR_SYSTEM: econSpec("RADAR_SYSTEM"),
 
   // Wonder parts
-  IMPERIAL_EXCHANGE_PART: econSpec("IMPERIAL_EXCHANGE_PART", 0, {
-    manpower: 1_000,
-    strategic: { CRYSTAL: 180 },
-  }),
-  WORLD_ENGINE_PART: econSpec("WORLD_ENGINE_PART", 0, {
-    manpower: 1_000,
-    strategic: { CRYSTAL: 180 },
-  }),
-  AEGIS_DOME_PART: econSpec("AEGIS_DOME_PART", 0, {
-    manpower: 1_000,
-    strategic: { CRYSTAL: 180 },
-  }),
-  ASTRAL_DOCK_PART: econSpec("ASTRAL_DOCK_PART", 0, {
-    manpower: 1_000,
-    strategic: { CRYSTAL: 180 },
-  }),
+  IMPERIAL_EXCHANGE_PART: econSpec("IMPERIAL_EXCHANGE_PART"),
+  WORLD_ENGINE_PART: econSpec("WORLD_ENGINE_PART"),
+  AEGIS_DOME_PART: econSpec("AEGIS_DOME_PART"),
+  ASTRAL_DOCK_PART: econSpec("ASTRAL_DOCK_PART"),
 
   // Completed wonders (require their part as prerequisite)
-  IMPERIAL_EXCHANGE: econSpec("IMPERIAL_EXCHANGE", 0, {
-    manpower: 1_600,
-    strategic: { SHARD: 2 },
-  }),
-  WORLD_ENGINE: econSpec("WORLD_ENGINE", 0, {
-    manpower: 1_600,
-    strategic: { SHARD: 2 },
-  }),
-  AEGIS_DOME: econSpec("AEGIS_DOME", 0, {
-    manpower: 1_600,
-    strategic: { SHARD: 2 },
-  }),
-  ASTRAL_DOCK: econSpec("ASTRAL_DOCK", 0, {
-    manpower: 1_600,
-    strategic: { SHARD: 2 },
-  }),
+  IMPERIAL_EXCHANGE: econSpec("IMPERIAL_EXCHANGE"),
+  WORLD_ENGINE: econSpec("WORLD_ENGINE"),
+  AEGIS_DOME: econSpec("AEGIS_DOME"),
+  ASTRAL_DOCK: econSpec("ASTRAL_DOCK"),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
   // §12.1: FOOD cost is already charged as a resource-slot occupation
   // (structure-slots.ts) — no separate per-minute drain, no gold drain.
-  WOODEN_FORT: econSpec("WOODEN_FORT", 0, {
-    manpower: 30,
+  WOODEN_FORT: econSpec("WOODEN_FORT", {
     buildMs: WOODEN_FORT_BUILD_MS,
   }),
 };
