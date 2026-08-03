@@ -125,11 +125,10 @@ const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
   resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
 ): string => {
+  // §5/§12.1: FOOD/IRON/CRYSTAL/SUPPLY stopped being stockpiled flows — their
+  // upkeep is the slot occupancy shown in the per-resource cards, so only the
+  // GOLD flow upkeep belongs in this summary line.
   const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
@@ -308,6 +307,9 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             const demand = args.resourceSlots.demand[resource];
             const status = slotStatusLine(supply, demand);
             const occupants = slotOccupantsForResource(args, resource);
+            // §12.1: a slot resource's upkeep IS the slot occupancy, so the card
+            // only lists who occupies the slots ("Occupied by"). Flow upkeep
+            // belongs to the GOLD card's Upkeep column.
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
@@ -316,15 +318,9 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
               </div>
               <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
             </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Occupied by</h4>
-                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
+            <div class="economy-detail-column">
+              <h4>Occupied by</h4>
+              ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
             </div>
             ${foodFootnote}
           </section>`;
