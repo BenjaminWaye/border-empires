@@ -33,9 +33,11 @@ const formatEventTimestamp = (occurredAt: number, nowMs: number): string => {
 };
 
 export const renderEventLogPanelHtml = (entries: readonly ClientEventLogEntry[], nowMs: number): string => {
-  // Server sends most-recent-last (its natural append order); the panel is
-  // most-recent-first, so reverse for display only.
-  const mostRecentFirst = [...entries].reverse();
+  // Sort explicitly by occurredAt DESC rather than assuming the server's
+  // array order (Array.prototype.sort is stable, so same-timestamp entries
+  // keep their relative order). A blind .reverse() would silently corrupt
+  // the display if the server's append order ever changed.
+  const mostRecentFirst = [...entries].sort((a, b) => b.occurredAt - a.occurredAt);
   const rows = mostRecentFirst
     .map(
       (entry) => `<li class="event-log-row" data-event-type="${escapeHtml(entry.type)}">

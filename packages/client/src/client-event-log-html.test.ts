@@ -37,6 +37,23 @@ describe("renderEventLogPanelHtml", () => {
     expect(hitIndex).toBeLessThan(lostIndex);
   });
 
+  it("sorts by occurredAt DESC even when input isn't simply reverse-ordered", () => {
+    const html = renderEventLogPanelHtml(
+      [
+        { id: "1", type: "TOWN_LOST", text: "Middle event.", occurredAt: 2_000 },
+        { id: "2", type: "IMPERIAL_EXCHANGE_LEVY_HIT", text: "Newest event.", occurredAt: 3_000 },
+        { id: "3", type: "MONUMENT_CLAIMED", text: "Oldest event.", occurredAt: 1_000 }
+      ],
+      3_000
+    );
+    const newestIndex = html.indexOf("Newest event.");
+    const middleIndex = html.indexOf("Middle event.");
+    const oldestIndex = html.indexOf("Oldest event.");
+    expect(newestIndex).toBeGreaterThan(-1);
+    expect(newestIndex).toBeLessThan(middleIndex);
+    expect(middleIndex).toBeLessThan(oldestIndex);
+  });
+
   it("escapes text content to avoid HTML injection from town/player names", () => {
     const html = renderEventLogPanelHtml(
       [{ id: "1", type: "TOWN_LOST", text: "<script>alert(1)</script> was captured by X.", occurredAt: 0 }],
