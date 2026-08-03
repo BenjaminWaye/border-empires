@@ -362,7 +362,7 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: true,
+      isMobile: false,
       prettyToken: (value) => value,
       resourceIconForKey: (resource) => resource,
       rateToneClass: () => "positive",
