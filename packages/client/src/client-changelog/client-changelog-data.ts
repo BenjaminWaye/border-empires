@@ -47,16 +47,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // authored with a live Date.now() call instead of a frozen timestamp,
   // which silently kept it looking brand-new; corrected to its real
   // authored time, it's outside the 6-day window like the others above.
-  {
-    createdAt: 1785307497000, // 2026-07-29
-    introducedIn: "road-hill-wrap",
-    title: "Roads follow hills, look more realistic",
-    why: "Roads previously sat flat on the terrain, cutting straight through hill domes instead of rising over them. The road surface also lacked detail, reading as a simple tan strip.",
-    changes: [
-      "Roads now rise and fall with hill terrain, wrapping over the dome surface instead of clipping through it.",
-      "Road surfaces are now cobblestone with individual stones, mortar gaps, wheel ruts, grass edges, puddles, and directional stone shading."
-    ]
-  },
+  // "Roads follow hills, look more realistic" (road-hill-wrap, 2026-07-29)
+  // pruned: aged out of the 6-day window during this merge.
   {
     createdAt: 1785575868160, // next
     introducedIn: "next",
@@ -291,7 +283,13 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "That scan now only re-runs a few times a second instead of every frame; the arrow itself still redraws and tracks the camera every frame, so it stays smooth with no flicker, it just detects new/cleared alerts within about a fifth of a second instead of instantly."
     ]
   },
-  // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
-  // window test only keeps entries within the latest 6 days of the newest
-  // entry's createdAt -- see git history for the full changelog.
+  {
+    createdAt: 1785828860656, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Natural wonders now look like their concept art in 3D mode",
+    why: "Every natural wonder's Storybook reference (packages/storybook/src/wonders/*) was built as a detailed model with custom shaders, particle effects, and multiple structural pieces, but the in-game 3D overlay for each one shipped as a rough placeholder — a couple of plain colored shapes with none of the pipes, gears, ground glow, or particles the design called for. A claimed Deepwater Engine, for example, rendered as a single dark cylinder with one teal ring instead of the gear-driven pump facility with copper piping and rising bubbles it's supposed to be.",
+    changes: [
+      "All 9 natural wonders (Deepwater Engine, Foundry Heart, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render in 3D mode with the full geometry, shader materials, ground-glow effects, and particle systems from their Storybook reference instead of a simplified placeholder."
+    ]
+  }
 ];
