@@ -7,7 +7,6 @@ import {
   Float32BufferAttribute,
   Group,
   Mesh,
-  PlaneGeometry,
   Points,
   Scene,
   ShaderMaterial,
@@ -15,6 +14,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Deepwater Engine natural wonder: a half-submerged industrial pump facility
@@ -26,17 +26,24 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const GEAR_SPEED = 0.8;
 const BUBBLE_COUNT = 40;
-// Transparent effect layers (water, bubbles) must render above the
-// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
-// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
-// would wash the effect out. The opaque gear/pipe/pump parts don't need
-// this.
-const TRANSPARENT_RENDER_ORDER = 10;
+// Transparent effect layers (water, bubbles) must render above both the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85) and the
+// real water surface (renderOrder 12, see client-map-3d-water-surface.ts)
+// or a claimed wonder tile's own color / neighboring sea would hide the
+// effect. The opaque gear/pipe/pump parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uTeal = { value: new Color(0x20c8b0) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const waterMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -216,13 +223,15 @@ function buildPumpsGeometry(): BufferGeometry {
   return merged;
 }
 
-export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "deepwater-engine-overlay";
   scene.add(group);
 
-  const waterGeometry = new PlaneGeometry(3, 3, 32, 32);
-  waterGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const waterGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const wMat = waterMaterial();
 
   const mainGearGeometry = new TorusGeometry(0.55, 0.08, 12, 24);
@@ -246,7 +255,14 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
       return mesh;
     });
 
-  const waterSlots = makeSlots(waterGeometry, wMat, TRANSPARENT_RENDER_ORDER);
+  const waterSlots = waterGeometries.map((geo) => {
+    const mesh = new Mesh(geo, wMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const mainGearSlots = makeSlots(mainGearGeometry, gMat);
   const innerGearSlots = makeSlots(innerGearGeometry, gMat);
   const teethSlots = makeSlots(teethGeometry, gMat);
@@ -266,9 +282,11 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(waterGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -288,7 +306,10 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
       if (!active) continue;
 
       const w = wonders[i]!;
-      waterSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      waterSlots[i]!.position.set(w.centerX, 0, w.centerZ);
 
       mainGearSlots[i]!.position.set(w.centerX, w.surfaceY + 0.2, w.centerZ);
       mainGearSlots[i]!.rotation.set(Math.PI / 2, 0, t * GEAR_SPEED + w.phase);
@@ -307,7 +328,8 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
 
   const dispose = (): void => {
     scene.remove(group);
-    waterGeometry.dispose(); mainGearGeometry.dispose(); innerGearGeometry.dispose();
+    for (const geo of waterGeometries) geo.dispose();
+    mainGearGeometry.dispose(); innerGearGeometry.dispose();
     teethGeometry.dispose(); pipesGeometry.dispose(); pumpsGeometry.dispose();
     bubbleGeometry.dispose();
     wMat.dispose(); gMat.dispose(); bMat.dispose();
