@@ -35,6 +35,7 @@ import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileT
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
@@ -260,8 +261,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const debugSelected = state.selected;
     const canvasOverlayDebug: Array<Record<string, unknown>> = [];
     const queueIndex = new Map<string, number>();
-    const queuedBuildIndex = new Map<string, number>();
-    const settleQueueIndex = new Map<string, number>();
+    const { settleQueueIndex, queuedBuildIndex, settleQueueEntryState, queuedBuildEntryState } = devQueueBadgeIndex(state.developmentQueue);
     const startingArrowTargets = new Map(
       deps.startingExpansionArrowTargets().map((target) => [deps.keyFor(target.x, target.y), target] as const)
     );
@@ -284,12 +284,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const q = state.actionQueue[i];
       if (!q) continue;
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1 + queueOffset);
-    }
-    for (let i = 0; i < state.developmentQueue.length; i += 1) {
-      const entry = state.developmentQueue[i];
-      if (!entry) continue;
-      if (entry.kind === "SETTLE") settleQueueIndex.set(entry.tileKey, i + 1);
-      if (entry.kind === "BUILD") queuedBuildIndex.set(entry.tileKey, i + 1);
     }
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
@@ -798,7 +792,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         py,
         size,
         isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress)
+        blocked: Boolean(settlementProgress),
+        entryState: settleQueueEntryState.get(wk) ?? "queued"
       });
       drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
       const queuedBuildBadge = queuedCornerBadgeLayout({
@@ -808,7 +803,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         py,
         size,
         isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress)
+        blocked: Boolean(settlementProgress),
+        entryState: queuedBuildEntryState.get(wk) ?? "queued"
       });
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
     };
@@ -1309,7 +1305,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           py,
           size,
           isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress)
+          blocked: Boolean(settlementProgress),
+          entryState: settleQueueEntryState.get(wk) ?? "queued"
         });
         drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
         const queuedBuildBadge = queuedCornerBadgeLayout({
@@ -1319,7 +1316,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           py,
           size,
           isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress)
+          blocked: Boolean(settlementProgress),
+          entryState: queuedBuildEntryState.get(wk) ?? "queued"
         });
         drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }

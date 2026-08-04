@@ -1,4 +1,5 @@
-import { FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { canAffordCost } from "./client-constants.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -864,9 +865,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const queuedDevelopmentEntryForTile = (tileKey: string): QueuedDevelopmentAction | undefined =>
     queuedDevelopmentEntryForTileFromModule(state, tileKey);
 
-  const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
+  const queuedSettlementIndexForTile = (tileKey: string): number =>
+    devQueueTierRelativeIndex(queuedSettlementIndexForTileFromModule(state, tileKey));
 
   const queuedEntryIndexForTile = (tileKey: string): number => queuedEntryIndexForTileFromModule(state, tileKey);
+
+  const devQueueStateForTile = (tileKey: string): "planned" | "queued" =>
+    devQueueTierForIndex(queuedEntryIndexForTileFromModule(state, tileKey));
 
   const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
@@ -885,33 +890,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const primarySettlementProgress = (): TileTimedProgress | undefined =>
     primarySettlementProgressFromModule(state, { settlementProgressForTile, activeSettlementProgressEntries });
 
-  const constructionCountdownLineForTile = (tile: Tile): string => {
-    if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
-      return `Fortifying... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
-    }
-    if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
-      return `Removing Fort... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
-    }
-    if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-      return `Building Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
-    }
-    if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
-      return `Removing Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
-    }
-    if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-      return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
-    }
-    if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-      return `Removing Siege Outpost... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
-    }
-    if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
-      return `Building ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
-    }
-    if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
-      return `Removing ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
-    }
-    return "";
-  };
+  const constructionCountdownLineForTile = (tile: Tile): string =>
+    constructionCountdownLineForTileFromModule(tile, formatCountdownClock, deps.economicStructureName);
 
   const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
     const completesAt =
@@ -940,14 +920,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       keyFor,
       queuedDevelopmentEntryForTile,
       queuedSettlementIndexForTile,
-      queuedEntryIndexForTile
+      queuedEntryIndexForTile,
+      devQueueStateForTile
     });
 
   const queuedBuildProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedBuildProgressForTileFromModule(tile, {
       keyFor,
       queuedDevelopmentEntryForTile,
-      queuedEntryIndexForTile
+      queuedEntryIndexForTile,
+      devQueueStateForTile
     });
 
   // Pure getter used during render; the seed/clear lifecycle below decides
