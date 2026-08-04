@@ -1,15 +1,18 @@
 // Pure algorithm for the two-tier development action queue:
 //
-// - "queued"  = server-confirmed, capped, durable (survives logout/restart).
-// - "planned" = client-local wishlist, uncapped, not yet confirmed by the
-//   server. Entries auto-promote from planned into queued as queued slots
-//   free up.
+// - "queued"  = server-confirmed, capped at DEV_QUEUE_SERVER_CAP, durable
+//   (survives logout/restart).
+// - "planned" = client-local wishlist, capped at DEV_QUEUE_CLIENT_CAP, not
+//   yet confirmed by the server. Entries auto-promote from planned into
+//   queued as queued slots free up.
 //
 // This module is deliberately server/client agnostic (pure data in, pure
 // data out) so both apps/simulation and packages/client can share the exact
 // same ordering/cap/promotion semantics instead of re-implementing them.
 
-export const DEV_QUEUE_SERVER_CAP = 10;
+export const DEV_QUEUE_SERVER_CAP = 20;
+export const DEV_QUEUE_CLIENT_CAP = 40;
+export const DEV_QUEUE_TOTAL_CAP = DEV_QUEUE_SERVER_CAP + DEV_QUEUE_CLIENT_CAP;
 
 export type DevQueueEntryKind = "SETTLE" | "BUILD" | "FRONTIER";
 
@@ -30,7 +33,9 @@ export const emptyDevQueueState = (): DevQueueState => ({ queued: [], planned: [
 
 /**
  * Add a new entry. If there is a free server slot it goes straight into
- * "queued"; otherwise it's appended to the uncapped "planned" list.
+ * "queued"; otherwise it's appended to "planned" (capped at
+ * DEV_QUEUE_CLIENT_CAP -- once both tiers are full at DEV_QUEUE_TOTAL_CAP,
+ * the entry is silently dropped and the state is returned unchanged).
  */
 export const enqueueOrPlanDevQueueEntry = (state: DevQueueState, entry: DevQueueEntry): DevQueueState => {
   if (state.queued.some((e) => e.tileKey === entry.tileKey) || state.planned.some((e) => e.tileKey === entry.tileKey)) {
@@ -39,6 +44,7 @@ export const enqueueOrPlanDevQueueEntry = (state: DevQueueState, entry: DevQueue
   if (state.queued.length < DEV_QUEUE_SERVER_CAP) {
     return { queued: [...state.queued, entry], planned: state.planned };
   }
+  if (state.planned.length >= DEV_QUEUE_CLIENT_CAP) return state;
   return { queued: state.queued, planned: [...state.planned, entry] };
 };
 
@@ -125,3 +131,20 @@ export const devQueuePositionForTile = (state: DevQueueState, tileKey: string): 
   if (plannedIndex >= 0) return { state: "planned", position: plannedIndex + 1 };
   return undefined;
 };
+
+// --- Flat-array tier helpers -----------------------------------------------
+//
+// packages/client keeps development actions in one flat, FIFO-dispatched
+// array (ClientState.developmentQueue) rather than the two-array
+// DevQueueState above -- dispatch is always "front of the array, if a slot
+// is free" regardless of tier. These helpers derive the same "queued" vs
+// "planned" tiering from a 0-indexed position in that flat array, so the UI
+// can label/style entries consistently with the cap this module defines.
+
+/** Which tier a 0-indexed flat-array position falls into. */
+export const devQueueTierForIndex = (index: number): "queued" | "planned" =>
+  index < DEV_QUEUE_SERVER_CAP ? "queued" : "planned";
+
+/** 0-indexed position within its own tier (unchanged if not found, i.e. negative). */
+export const devQueueTierRelativeIndex = (index: number): number =>
+  index < 0 || index < DEV_QUEUE_SERVER_CAP ? index : index - DEV_QUEUE_SERVER_CAP;
