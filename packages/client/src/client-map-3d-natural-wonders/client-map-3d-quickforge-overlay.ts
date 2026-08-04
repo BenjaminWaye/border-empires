@@ -24,6 +24,11 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const PISTON_SPEED = 1.0;
 const STEAM_COUNT = 35;
+// Transparent effect layers (ground glow, steam) must render above the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
+// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
+// would wash the effect out. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uRedHot = { value: new Color(0xff3010) };
@@ -189,20 +194,21 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
   const steamGeometry = makeSteamGeometry();
   const stMat = steamMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const frameSlots = makeSlots(() => new Mesh(frameGeometry, mMat));
   // 3 piston rods, out-of-phase for a busy mechanical feel.
   const rodSlotsByPiston = [0, 1, 2].map(() => makeSlots(() => new Mesh(rodGeometry, mMat)));
-  const steamSlots = makeSlots(() => new Points(steamGeometry, stMat));
+  const steamSlots = makeSlots(() => new Points(steamGeometry, stMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -227,7 +233,7 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       frameSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
 
       for (let p = 0; p < 3; p += 1) {

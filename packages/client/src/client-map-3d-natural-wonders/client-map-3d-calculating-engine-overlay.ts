@@ -28,6 +28,12 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
 const SCROLL_SPEED = 1.0;
 const RING_COUNT = 4;
 const SPARK_COUNT = 25;
+// Transparent effect layers (ground glow, glass panels/orb, sparks) must
+// render above the ownership overlay's tint (renderOrder 6/7, opacity up
+// to 0.85 — see client-map-3d-ownership-overlay.ts) or a claimed wonder
+// tile's own color would wash the effect out. Opaque structural parts
+// (base, rings) don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uBrass = { value: new Color(0xd4a540) };
@@ -216,21 +222,22 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
   const sparkGeometry = makeSparkGeometry();
   const spMat = sparkMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const baseSlots = makeSlots(() => new Mesh(baseGeometry, bMat));
   const ringSlotsByRing = ringGeometries.map((geo) => makeSlots(() => new Mesh(geo, bMat)));
-  const panelSlots = makeSlots(() => new Mesh(panelsGeometry, glMat));
-  const orbSlots = makeSlots(() => new Mesh(orbGeometry, glMat));
-  const sparkSlots = makeSlots(() => new Points(sparkGeometry, spMat));
+  const panelSlots = makeSlots(() => new Mesh(panelsGeometry, glMat), TRANSPARENT_RENDER_ORDER);
+  const orbSlots = makeSlots(() => new Mesh(orbGeometry, glMat), TRANSPARENT_RENDER_ORDER);
+  const sparkSlots = makeSlots(() => new Points(sparkGeometry, spMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -257,7 +264,7 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       baseSlots[i]!.position.set(w.centerX, w.surfaceY + 0.04, w.centerZ);
 
       for (let r = 0; r < RING_COUNT; r += 1) {

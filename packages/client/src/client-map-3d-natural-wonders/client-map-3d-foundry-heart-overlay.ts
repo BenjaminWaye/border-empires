@@ -23,6 +23,12 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const SHARD_COUNT = 24;
 const FISSURE_COUNT = 6;
+// Transparent effect layers (ground glow, shell, particles) must render
+// above the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 —
+// see client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own
+// color would wash the effect out. Opaque structural parts (the core) don't
+// need this: normal depth testing already sorts them correctly.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uCyan = { value: new Color(0x40d8ff) };
@@ -208,19 +214,20 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
   const shardGeometry = makeShardGeometry();
   const shMat = shardMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
-  const shellSlots = makeSlots(() => new Mesh(shellGeometry, sMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const shellSlots = makeSlots(() => new Mesh(shellGeometry, sMat), TRANSPARENT_RENDER_ORDER);
   const coreSlots = makeSlots(() => new Mesh(coreGeometry, cMat));
-  const shardSlots = makeSlots(() => new Points(shardGeometry, shMat));
+  const shardSlots = makeSlots(() => new Points(shardGeometry, shMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -245,7 +252,7 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
 
       shellSlots[i]!.position.set(w.centerX, w.surfaceY + 0.55, w.centerZ);
       shellSlots[i]!.rotation.y = -t * 0.08 + w.phase;

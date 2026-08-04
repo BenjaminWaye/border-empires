@@ -26,6 +26,11 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const TOWER_HEIGHT = 0.8;
 const SMOKE_COUNT = 60;
+// Transparent effect layers (ground glow, smoke) must render above the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
+// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
+// would wash the effect out. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uAmber = { value: new Color(0xe8a030) };
@@ -207,18 +212,19 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
   const smokeGeometry = makeSmokeGeometry();
   const sMat = smokeMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const buildingSlots = makeSlots(() => new Mesh(buildingGeometry, bMat));
-  const smokeSlots = makeSlots(() => new Points(smokeGeometry, sMat));
+  const smokeSlots = makeSlots(() => new Points(smokeGeometry, sMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -242,7 +248,7 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       buildingSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
       smokeSlots[i]!.position.set(w.centerX - 0.2, w.surfaceY + 0.5, w.centerZ - 0.6);
     }

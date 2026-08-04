@@ -25,6 +25,11 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const HAMMER_SPEED = 1.0;
 const SPARK_COUNT = 40;
+// Transparent effect layers (ground glow, sparks) must render above the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
+// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
+// would wash the effect out. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uOrange = { value: new Color(0xff6020) };
@@ -192,20 +197,21 @@ export const createWarpressOverlay = (scene: Scene, maxTiles: number): WonderOve
   const sparkGeometry = makeSparkGeometry();
   const spMat = sparkMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const rigSlots = makeSlots(() => new Mesh(rigGeometry, iMat));
   const handleSlots = makeSlots(() => new Mesh(handleGeometry, iMat));
   const headSlots = makeSlots(() => new Mesh(headGeometry, iMat));
-  const sparkSlots = makeSlots(() => new Points(sparkGeometry, spMat));
+  const sparkSlots = makeSlots(() => new Points(sparkGeometry, spMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -231,7 +237,7 @@ export const createWarpressOverlay = (scene: Scene, maxTiles: number): WonderOve
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       rigSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
 
       // Hammer bounces up and down, striking the anvil once per cycle.

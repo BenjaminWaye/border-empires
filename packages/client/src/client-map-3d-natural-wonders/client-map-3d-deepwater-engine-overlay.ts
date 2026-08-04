@@ -26,6 +26,12 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const GEAR_SPEED = 0.8;
 const BUBBLE_COUNT = 40;
+// Transparent effect layers (water, bubbles) must render above the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
+// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
+// would wash the effect out. The opaque gear/pipe/pump parts don't need
+// this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uTeal = { value: new Color(0x20c8b0) };
@@ -230,16 +236,17 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
   const bubbleGeometry = makeBubbleGeometry();
   const bMat = bubbleMaterial();
 
-  const makeSlots = (geometry: BufferGeometry, material: ShaderMaterial): Mesh[] =>
+  const makeSlots = (geometry: BufferGeometry, material: ShaderMaterial, renderOrder = 0): Mesh[] =>
     Array.from({ length: maxTiles }, () => {
       const mesh = new Mesh(geometry, material);
       mesh.visible = false;
       mesh.frustumCulled = false;
+      mesh.renderOrder = renderOrder;
       group.add(mesh);
       return mesh;
     });
 
-  const waterSlots = makeSlots(waterGeometry, wMat);
+  const waterSlots = makeSlots(waterGeometry, wMat, TRANSPARENT_RENDER_ORDER);
   const mainGearSlots = makeSlots(mainGearGeometry, gMat);
   const innerGearSlots = makeSlots(innerGearGeometry, gMat);
   const teethSlots = makeSlots(teethGeometry, gMat);
@@ -250,6 +257,7 @@ export const createDeepwaterEngineOverlay = (scene: Scene, maxTiles: number): Wo
     const pts = new Points(bubbleGeometry, bMat);
     pts.visible = false;
     pts.frustumCulled = false;
+    pts.renderOrder = TRANSPARENT_RENDER_ORDER;
     group.add(pts);
     return pts;
   });

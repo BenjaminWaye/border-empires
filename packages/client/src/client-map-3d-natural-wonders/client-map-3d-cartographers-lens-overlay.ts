@@ -28,6 +28,12 @@ const PRISM_INTENSITY = 1.0;
 const PARTICLE_COUNT = 40;
 const RING_RADII = [0.3, 0.42, 0.55] as const;
 const RING_TILTS = [0.1, -0.2, 0.15] as const;
+// Transparent effect layers (ground glow, lens, prism beams, particles)
+// must render above the ownership overlay's tint (renderOrder 6/7, opacity
+// up to 0.85 — see client-map-3d-ownership-overlay.ts) or a claimed wonder
+// tile's own color would wash the effect out. Opaque structural parts
+// (base, rings) don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 
@@ -232,22 +238,23 @@ export const createCartographersLensOverlay = (scene: Scene, maxTiles: number): 
   const particleGeometry = makeParticleGeometry();
   const ptMat = particleMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const baseSlots = makeSlots(() => new Mesh(baseGeometry, bMat));
   const ringSlotsByRing = ringGeometries.map((geo) => makeSlots(() => new Mesh(geo, bMat)));
-  const lensSlots = makeSlots(() => new Mesh(lensGeometry, lMat));
+  const lensSlots = makeSlots(() => new Mesh(lensGeometry, lMat), TRANSPARENT_RENDER_ORDER);
   // 4 prismatic beams radiating outward from the astrolabe.
-  const beamSlotsByBeam = [0, 1, 2, 3].map(() => makeSlots(() => new Mesh(beamGeometry, pMat)));
-  const particleSlots = makeSlots(() => new Points(particleGeometry, ptMat));
+  const beamSlotsByBeam = [0, 1, 2, 3].map(() => makeSlots(() => new Mesh(beamGeometry, pMat), TRANSPARENT_RENDER_ORDER));
+  const particleSlots = makeSlots(() => new Points(particleGeometry, ptMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -274,7 +281,7 @@ export const createCartographersLensOverlay = (scene: Scene, maxTiles: number): 
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       baseSlots[i]!.position.set(w.centerX, w.surfaceY + 0.03, w.centerZ);
 
       for (let r = 0; r < RING_RADII.length; r += 1) {

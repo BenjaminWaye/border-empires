@@ -26,6 +26,11 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
 const PULSE_SPEED = 0.8;
 const ENERGY_COUNT = 30;
 const PIPE_RADIUS = 0.025;
+// Transparent effect layers (ground glow, energy particles) must render
+// above the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 —
+// see client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own
+// color would wash the effect out. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uCopper = { value: new Color(0xb87333) };
@@ -194,21 +199,22 @@ export const createBastionFrameOverlay = (scene: Scene, maxTiles: number): Wonde
   const energyGeometry = makeEnergyGeometry();
   const eMat = energyMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const ringSlots = makeSlots(() => new Mesh(ringGeometry, cMat));
   const upperRingSlots = makeSlots(() => new Mesh(upperRingGeometry, cMat));
   const gearSlots = makeSlots(() => new Mesh(gearGeometry, cMat));
   const strutSlots = makeSlots(() => new Mesh(strutsGeometry, cMat));
-  const energySlots = makeSlots(() => new Points(energyGeometry, eMat));
+  const energySlots = makeSlots(() => new Points(energyGeometry, eMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -235,7 +241,7 @@ export const createBastionFrameOverlay = (scene: Scene, maxTiles: number): Wonde
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
 
       ringSlots[i]!.position.set(w.centerX, w.surfaceY + 0.05, w.centerZ);
       ringSlots[i]!.rotation.x = Math.PI / 2;

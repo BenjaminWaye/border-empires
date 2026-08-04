@@ -29,6 +29,11 @@ const TELESCOPE_HEIGHT = 0.8;
 const BEAM_WIDTH = 0.15;
 const STAR_COUNT = 50;
 const TUBE_TILT = 0.3;
+// Transparent effect layers (ground glow, beam, stars) must render above
+// the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
+// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
+// would wash the effect out. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 10;
 
 const uTime = { value: 0 };
 const uCyan = { value: new Color(0x40d8ff) };
@@ -185,22 +190,23 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
   const starGeometry = makeStarGeometry();
   const stMat = starMaterial();
 
-  const makeSlots = <T extends Mesh | Points>(factory: () => T): T[] =>
+  const makeSlots = <T extends Mesh | Points>(factory: () => T, renderOrder = 0): T[] =>
     Array.from({ length: maxTiles }, () => {
       const obj = factory();
       obj.visible = false;
       obj.frustumCulled = false;
+      obj.renderOrder = renderOrder;
       group.add(obj);
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat));
+  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
   const baseSlots = makeSlots(() => new Mesh(baseGeometry, bMat));
   const tubeSlots = makeSlots(() => new Mesh(tubeGeometry, bMat));
   const dishSlots = makeSlots(() => new Mesh(dishGeometry, bMat));
   const gearSlots = makeSlots(() => new Mesh(gearGeometry, bMat));
-  const beamSlots = makeSlots(() => new Mesh(beamGeometry, bmMat));
-  const starSlots = makeSlots(() => new Points(starGeometry, stMat));
+  const beamSlots = makeSlots(() => new Mesh(beamGeometry, bmMat), TRANSPARENT_RENDER_ORDER);
+  const starSlots = makeSlots(() => new Points(starGeometry, stMat), TRANSPARENT_RENDER_ORDER);
 
   const wonders: ActiveWonder[] = [];
 
@@ -229,7 +235,7 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY - 0.005, w.centerZ);
+      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
       baseSlots[i]!.position.set(w.centerX, w.surfaceY + 0.05, w.centerZ);
 
       // Whole telescope slowly sweeps left/right; dish and beam track it.
