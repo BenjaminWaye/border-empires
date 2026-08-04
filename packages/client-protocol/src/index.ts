@@ -11,6 +11,7 @@ export const DurableCommandTypeSchema = z.enum([
   "CANCEL_FORT_BUILD",
   "CANCEL_STRUCTURE_BUILD",
   "RUSH_BUY",
+  "CANCEL_SETTLE",
   "REMOVE_STRUCTURE",
   "CANCEL_SIEGE_OUTPOST_BUILD",
   "CANCEL_CAPTURE",
