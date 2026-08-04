@@ -14,6 +14,7 @@ import {
   TorusGeometry,
 } from "three";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Watchtower Engine natural wonder: a tall brass telescope tower with a
@@ -30,15 +31,23 @@ const BEAM_WIDTH = 0.15;
 const STAR_COUNT = 50;
 const TUBE_TILT = 0.3;
 // Transparent effect layers (ground glow, beam, stars) must render above
-// the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
-// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
-// would wash the effect out. Opaque structural parts don't need this.
-const TRANSPARENT_RENDER_ORDER = 10;
+// both the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85)
+// and the real water surface (renderOrder 12, see client-map-3d-water-
+// surface.ts) or a claimed wonder tile's own color / neighboring sea would
+// hide the effect. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uCyan = { value: new Color(0x40d8ff) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const groundMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -169,13 +178,15 @@ function makeStarGeometry(): BufferGeometry {
   return geo;
 }
 
-export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "watchtower-engine-overlay";
   scene.add(group);
 
-  const groundGeometry = new PlaneGeometry(3, 3, 32, 32);
-  groundGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const groundGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const gMat = groundMaterial();
 
   const bMat = brassMaterial();
@@ -200,7 +211,14 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const groundSlots = groundGeometries.map((geo) => {
+    const mesh = new Mesh(geo, gMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const baseSlots = makeSlots(() => new Mesh(baseGeometry, bMat));
   const tubeSlots = makeSlots(() => new Mesh(tubeGeometry, bMat));
   const dishSlots = makeSlots(() => new Mesh(dishGeometry, bMat));
@@ -212,9 +230,11 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(groundGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -235,7 +255,10 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      groundSlots[i]!.position.set(w.centerX, 0, w.centerZ);
       baseSlots[i]!.position.set(w.centerX, w.surfaceY + 0.05, w.centerZ);
 
       // Whole telescope slowly sweeps left/right; dish and beam track it.
@@ -264,7 +287,8 @@ export const createWatchtowerEngineOverlay = (scene: Scene, maxTiles: number): W
 
   const dispose = (): void => {
     scene.remove(group);
-    groundGeometry.dispose(); baseGeometry.dispose(); tubeGeometry.dispose();
+    for (const geo of groundGeometries) geo.dispose();
+    baseGeometry.dispose(); tubeGeometry.dispose();
     dishGeometry.dispose(); gearGeometry.dispose(); beamGeometry.dispose(); starGeometry.dispose();
     gMat.dispose(); bMat.dispose(); bmMat.dispose(); stMat.dispose();
   };
