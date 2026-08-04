@@ -42,19 +42,13 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // ("Discovery tips for docks and barbarians..."), 2026.07.28.4 ("New
   // season now requires 5 players to vote"), and 2026.07.28.5 ("Season-end
   // Misc tab with deadliest tile and longest road") pruned: aged out of the
-  // 6-day window during this merge.
+  // 6-day window during this merge. "Victory countdown now shows immediately
+  // when a threshold is met" (2026-07-28) also pruned: it was previously
+  // authored with a live Date.now() call instead of a frozen timestamp,
+  // which silently kept it looking brand-new; corrected to its real
+  // authored time, it's outside the 6-day window like the others above.
   {
-    createdAt: Date.now(),
-    introducedIn: "next",
-    title: "Victory countdown now shows immediately when a threshold is met",
-    why: "When a player met a victory condition threshold (e.g. controlling 50% of towns), the leaderboard showed \"Threshold met\" but never displayed the 24-hour hold countdown until the next day — because the timer enrichment was discarded on the first recompute.",
-    changes: [
-      "The leaderboard now shows \"Winning in 23h 59m unless stopped\" (and ticks down) from the moment a victory threshold is first met.",
-      "The victory hold alert overlay also fires immediately instead of being silent for up to 24 hours."
-    ]
-  },
-  {
-    createdAt: Date.now(),
+    createdAt: 1785307497000, // 2026-07-29
     introducedIn: "road-hill-wrap",
     title: "Roads follow hills, look more realistic",
     why: "Roads previously sat flat on the terrain, cutting straight through hill domes instead of rising over them. The road surface also lacked detail, reading as a simple tan strip.",
@@ -83,7 +77,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785443475000, // 2026-07-30
     introducedIn: "next",
     title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
     why: "Gold display as per-minute (/m) was hard to relate to actual gameplay pacing — a town earning 0.01 gold/min reads as \"nothing\" when it's actually 14.4 gold/day. Per-day rates make income, upkeep, and victory thresholds immediately meaningful without mental math.",
@@ -95,7 +89,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785399415000, // 2026-07-30
     introducedIn: "light-outpost-exploration",
     title: "Light Outposts reveal 5×5 area",
     why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
@@ -106,7 +100,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785444298000, // 2026-07-30
     introducedIn: "light-outpost-distant-expansion",
     title: "Build Light Outpost on distant unexplored-adjacent tiles",
     why: "Light Outpost was locked to tiles adjacent to your territory, but true frontier exploration means expanding into the unknown without claiming every tile in between. Distant unowned tiles adjacent to unexplored terrain are now a valid target for expansion.",
@@ -117,7 +111,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785564673000, // 2026-08-01
     introducedIn: "structure-upkeep-rebalance",
     title: "Fort and outpost upkeep now runs on food plus their resource",
     why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
@@ -129,7 +123,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785564621000, // 2026-08-01
     introducedIn: "town-food-slot-demand",
     title: "Towns now draw 4 food slots each",
     why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
@@ -139,7 +133,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785564622000, // 2026-08-01
     introducedIn: "town-vision-bonus",
     title: "Towns reveal one extra tile of vision",
     why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
@@ -189,7 +183,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785735055000, // 2026-08-03
     introducedIn: "buildings-tab-always-show",
     title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
     why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
@@ -211,7 +205,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785738838000, // 2026-08-03
     introducedIn: "wooden-fort-no-iron-build",
     title: "Wooden Fort no longer charges a lump-sum iron cost to build",
     why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
@@ -229,7 +223,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785738839000, // 2026-08-03
     introducedIn: "economy-slot-upkeep-no-daily-flow",
     title: "Economy panel no longer shows slot upkeep as a negative daily flow",
     why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
@@ -248,7 +242,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785776329000, // 2026-08-03
     introducedIn: "badge-render-order-above-roads",
     title: "Fixed: food/resource-shortage badges could render behind roads",
     why: "The floating badge shown over a dormant/unfed structure (and the observatory cooldown badge) drew earlier than the road overlay even though both are transparent, so wherever a road ran under one of these badges, the road painted over it and hid it — despite the badge floating well above the road visually.",
@@ -258,7 +252,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785788216000, // 2026-08-03
     introducedIn: "town-upgrade-ready-badge",
     title: "Towns that can upgrade to their next tier now show a floating badge",
     why: "A town that has grown enough population to reach its next tier (Town→City→Great City→Metropolis) had no at-a-glance signal on the map — you only found out by clicking the town and reading its \"Next size\" line or the upgrade action in the tile-menu. The map already floats a badge over towns missing food, so the same style of badge now flags towns with an upgrade waiting.",
