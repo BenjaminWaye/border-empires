@@ -6,12 +6,12 @@ import {
   Group,
   IcosahedronGeometry,
   Mesh,
-  PlaneGeometry,
   Points,
   Scene,
   ShaderMaterial,
 } from "three";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Foundry Heart natural wonder: a pulsing crystal geode with a glowing
@@ -24,16 +24,25 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
 const SHARD_COUNT = 24;
 const FISSURE_COUNT = 6;
 // Transparent effect layers (ground glow, shell, particles) must render
-// above the ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 —
-// see client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own
-// color would wash the effect out. Opaque structural parts (the core) don't
-// need this: normal depth testing already sorts them correctly.
-const TRANSPARENT_RENDER_ORDER = 10;
+// above both the ownership overlay's tint (renderOrder 6/7, opacity up to
+// 0.85) and the real water surface (renderOrder 12, see
+// client-map-3d-water-surface.ts) or a claimed wonder tile's own color /
+// neighboring sea would hide the effect. Opaque structural parts (the
+// core) don't need this: normal depth testing already sorts them
+// correctly.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uCyan = { value: new Color(0x40d8ff) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const groundMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -196,13 +205,15 @@ function makeShellGeometry(): IcosahedronGeometry {
   return geo;
 }
 
-export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "foundry-heart-overlay";
   scene.add(group);
 
-  const groundGeometry = new PlaneGeometry(3, 3, 48, 48);
-  groundGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const groundGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const gMat = groundMaterial();
 
   const shellGeometry = makeShellGeometry();
@@ -224,7 +235,14 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const groundSlots = groundGeometries.map((geo) => {
+    const mesh = new Mesh(geo, gMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const shellSlots = makeSlots(() => new Mesh(shellGeometry, sMat), TRANSPARENT_RENDER_ORDER);
   const coreSlots = makeSlots(() => new Mesh(coreGeometry, cMat));
   const shardSlots = makeSlots(() => new Points(shardGeometry, shMat), TRANSPARENT_RENDER_ORDER);
@@ -233,9 +251,11 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(groundGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -252,7 +272,10 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      groundSlots[i]!.position.set(w.centerX, 0, w.centerZ);
 
       shellSlots[i]!.position.set(w.centerX, w.surfaceY + 0.55, w.centerZ);
       shellSlots[i]!.rotation.y = -t * 0.08 + w.phase;
@@ -268,7 +291,8 @@ export const createFoundryHeartOverlay = (scene: Scene, maxTiles: number): Wonde
 
   const dispose = (): void => {
     scene.remove(group);
-    groundGeometry.dispose(); shellGeometry.dispose(); coreGeometry.dispose(); shardGeometry.dispose();
+    for (const geo of groundGeometries) geo.dispose();
+    shellGeometry.dispose(); coreGeometry.dispose(); shardGeometry.dispose();
     gMat.dispose(); sMat.dispose(); cMat.dispose(); shMat.dispose();
   };
 

@@ -7,13 +7,13 @@ import {
   Float32BufferAttribute,
   Group,
   Mesh,
-  PlaneGeometry,
   Points,
   Scene,
   ShaderMaterial,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Conscription Engine natural wonder: an industrial compound with barracks
@@ -26,16 +26,24 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const TOWER_HEIGHT = 0.8;
 const SMOKE_COUNT = 60;
-// Transparent effect layers (ground glow, smoke) must render above the
-// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
-// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
-// would wash the effect out. Opaque structural parts don't need this.
-const TRANSPARENT_RENDER_ORDER = 10;
+// Transparent effect layers (ground glow, smoke) must render above both the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85) and the
+// real water surface (renderOrder 12, see client-map-3d-water-surface.ts)
+// or a claimed wonder tile's own color / neighboring sea would hide the
+// effect. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uAmber = { value: new Color(0xe8a030) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const groundMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -197,13 +205,15 @@ function buildBuildingGeometry(): BufferGeometry {
   return merged;
 }
 
-export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "conscription-engine-overlay";
   scene.add(group);
 
-  const groundGeometry = new PlaneGeometry(3, 3, 32, 32);
-  groundGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const groundGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const gMat = groundMaterial();
 
   const buildingGeometry = buildBuildingGeometry();
@@ -222,7 +232,14 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const groundSlots = groundGeometries.map((geo) => {
+    const mesh = new Mesh(geo, gMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const buildingSlots = makeSlots(() => new Mesh(buildingGeometry, bMat));
   const smokeSlots = makeSlots(() => new Points(smokeGeometry, sMat), TRANSPARENT_RENDER_ORDER);
 
@@ -230,9 +247,11 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(groundGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -248,7 +267,10 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      groundSlots[i]!.position.set(w.centerX, 0, w.centerZ);
       buildingSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
       smokeSlots[i]!.position.set(w.centerX - 0.2, w.surfaceY + 0.5, w.centerZ - 0.6);
     }
@@ -258,7 +280,8 @@ export const createConscriptionEngineOverlay = (scene: Scene, maxTiles: number):
 
   const dispose = (): void => {
     scene.remove(group);
-    groundGeometry.dispose(); buildingGeometry.dispose(); smokeGeometry.dispose();
+    for (const geo of groundGeometries) geo.dispose();
+    buildingGeometry.dispose(); smokeGeometry.dispose();
     gMat.dispose(); bMat.dispose(); sMat.dispose();
   };
 

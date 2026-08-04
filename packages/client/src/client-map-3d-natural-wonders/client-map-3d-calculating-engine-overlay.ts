@@ -8,7 +8,6 @@ import {
   Group,
   IcosahedronGeometry,
   Mesh,
-  PlaneGeometry,
   Points,
   RingGeometry,
   Scene,
@@ -16,6 +15,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Calculating Engine natural wonder: a brass-and-glass computing machine
@@ -29,16 +29,24 @@ const SCROLL_SPEED = 1.0;
 const RING_COUNT = 4;
 const SPARK_COUNT = 25;
 // Transparent effect layers (ground glow, glass panels/orb, sparks) must
-// render above the ownership overlay's tint (renderOrder 6/7, opacity up
-// to 0.85 — see client-map-3d-ownership-overlay.ts) or a claimed wonder
-// tile's own color would wash the effect out. Opaque structural parts
-// (base, rings) don't need this.
-const TRANSPARENT_RENDER_ORDER = 10;
+// render above both the ownership overlay's tint (renderOrder 6/7, opacity
+// up to 0.85) and the real water surface (renderOrder 12, see
+// client-map-3d-water-surface.ts) or a claimed wonder tile's own color /
+// neighboring sea would hide the effect. Opaque structural parts (base,
+// rings) don't need this.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uBrass = { value: new Color(0xd4a540) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const groundMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -199,13 +207,15 @@ function buildGlassPanelsGeometry(): BufferGeometry {
   return merged;
 }
 
-export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "calculating-engine-overlay";
   scene.add(group);
 
-  const groundGeometry = new PlaneGeometry(3, 3, 32, 32);
-  groundGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const groundGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const gMat = groundMaterial();
 
   const bMat = brassMaterial();
@@ -232,7 +242,14 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const groundSlots = groundGeometries.map((geo) => {
+    const mesh = new Mesh(geo, gMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const baseSlots = makeSlots(() => new Mesh(baseGeometry, bMat));
   const ringSlotsByRing = ringGeometries.map((geo) => makeSlots(() => new Mesh(geo, bMat)));
   const panelSlots = makeSlots(() => new Mesh(panelsGeometry, glMat), TRANSPARENT_RENDER_ORDER);
@@ -243,9 +260,11 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(groundGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -264,7 +283,10 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      groundSlots[i]!.position.set(w.centerX, 0, w.centerZ);
       baseSlots[i]!.position.set(w.centerX, w.surfaceY + 0.04, w.centerZ);
 
       for (let r = 0; r < RING_COUNT; r += 1) {
@@ -287,7 +309,8 @@ export const createCalculatingEngineOverlay = (scene: Scene, maxTiles: number): 
 
   const dispose = (): void => {
     scene.remove(group);
-    groundGeometry.dispose(); baseGeometry.dispose();
+    for (const geo of groundGeometries) geo.dispose();
+    baseGeometry.dispose();
     for (const geo of ringGeometries) geo.dispose();
     panelsGeometry.dispose(); orbGeometry.dispose(); sparkGeometry.dispose();
     gMat.dispose(); bMat.dispose(); glMat.dispose(); spMat.dispose();
