@@ -291,5 +291,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "All 9 natural wonders (Deepwater Engine, Foundry Heart, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render in 3D mode with the full geometry, shader materials, ground-glow effects, and particle systems from their Storybook reference instead of a simplified placeholder."
     ]
+  },
+  {
+    createdAt: 1785832166768, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Fixed: natural wonder ground glow drifted as you panned the map",
+    why: "The new natural-wonder ground-glow shaders (fissures, scorched earth, water ripples, etc.) computed their radial pattern from each vertex's raw world position. That's centered on the wonder in Storybook, where the model always sits at the scene origin, but the live map recenters the whole 3D scene around the camera every frame, so a wonder's mesh is actually translated to a camera-relative offset that shifts as you pan. The glow pattern followed that drift instead of staying anchored to the wonder, visibly sliding out from under the model as the camera moved.",
+    changes: [
+      "Natural wonder ground-glow, water, and metal-rim shaders now compute their pattern from the vertex's position relative to the wonder's own mesh (rotation/scale only, no translation) instead of raw world position, so the effect stays locked to the wonder regardless of camera pan."
+    ]
   }
 ];

@@ -52,7 +52,7 @@ const waterMaterial = (): ShaderMaterial =>
       void main() {
         vUv = uv;
         vec4 wp = modelMatrix * vec4(position, 1.0);
-        vWorldPos = wp.xyz;
+        vWorldPos = mat3(modelMatrix) * position;
         gl_Position = projectionMatrix * viewMatrix * wp;
       }
     `,
@@ -98,7 +98,7 @@ const gearMaterial = (): ShaderMaterial =>
         vNormal = normalize(normalMatrix * normal);
         vec4 mv = modelViewMatrix * vec4(position,1.0);
         vViewPos = mv.xyz;
-        vWorldPos = (modelMatrix * vec4(position,1.0)).xyz;
+        vWorldPos = mat3(modelMatrix) * position;
         gl_Position = projectionMatrix * mv;
       }
     `,
