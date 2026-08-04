@@ -3,6 +3,7 @@ import { DirectionalLight } from "three";
 import { createHeightfield, type HeightfieldTerrainKind, HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createHillTerrain, domeFalloff } from "@client/client-map-3d-hills.js";
 import { createRoadOverlay } from "@client/client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import type { RoadOverlayStyle } from "@client/client-map-3d-road-overlay/client-map-3d-road-fragments.js";
 import type { RoadDirections } from "@client/client-road-network/client-road-network.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
@@ -12,6 +13,7 @@ type Args = {
   showHill: boolean;
   cameraDistance: number;
   cameraTilt: number;
+  style: RoadOverlayStyle;
 };
 
 const isHillsAt = (wx: number, wy: number): boolean => {
@@ -55,7 +57,7 @@ const render = (args: Args): HTMLElement => {
   hf.rebuild(shared);
   if (hillsActive) hillTerrain.rebuild(shared);
 
-  const roadOverlay = createRoadOverlay(stage.scene);
+  const roadOverlay = createRoadOverlay(stage.scene, args.style);
 
   const elevationAt = (ewx: number, ewz: number): number => {
     const ix = Math.floor(ewx);
@@ -106,9 +108,10 @@ const meta: Meta<Args> = {
   argTypes: {
     showHill: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 4, max: 40, step: 2 } },
-    cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
+    cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } },
+    style: { control: "inline-radio", options: ["dirt", "brick"] }
   },
-  args: { showHill: true, cameraDistance: 12, cameraTilt: 0.55 },
+  args: { showHill: true, cameraDistance: 12, cameraTilt: 0.55, style: "dirt" },
   render
 };
 

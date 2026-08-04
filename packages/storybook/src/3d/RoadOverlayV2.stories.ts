@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createRoadOverlay } from "@client/client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import type { RoadOverlayStyle } from "@client/client-map-3d-road-overlay/client-map-3d-road-fragments.js";
 import type { RoadDirections } from "@client/client-road-network/client-road-network.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
   pattern: "horizontal" | "vertical" | "crossroads" | "star" | "ring" | "tee";
   cameraDistance: number;
+  style: RoadOverlayStyle;
 };
 
 const FLAT_ELEVATION = (): number => 0;
@@ -64,7 +66,7 @@ const tilesForPattern = (pattern: Args["pattern"]): TileEntry[] => {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#161410" });
-  const overlay = createRoadOverlay(stage.scene);
+  const overlay = createRoadOverlay(stage.scene, args.style);
   for (const tile of tilesForPattern(args.pattern)) {
     overlay.addInstance(tile.tx, tile.ty, tile.tx, tile.ty, FLAT_ELEVATION, tile.dirs);
   }
@@ -76,9 +78,10 @@ const meta: Meta<Args> = {
   title: "3D Library/RoadOverlay (patterns)",
   argTypes: {
     pattern: { control: "inline-radio", options: ["horizontal", "vertical", "crossroads", "star", "ring", "tee"] },
-    cameraDistance: { control: { type: "range", min: 3, max: 20, step: 1 } }
+    cameraDistance: { control: { type: "range", min: 3, max: 20, step: 1 } },
+    style: { control: "inline-radio", options: ["dirt", "brick"] }
   },
-  args: { pattern: "crossroads", cameraDistance: 8 },
+  args: { pattern: "crossroads", cameraDistance: 8, style: "dirt" },
   render
 };
 
