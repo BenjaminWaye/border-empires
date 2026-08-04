@@ -10,12 +10,18 @@ describe("CANCEL_SETTLE", () => {
     try {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
-        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500 })]]),
         initialState: {
           tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
           activeLocks: []
         }
       });
+
+      // Manpower is clamped to the player's cap at construction (see
+      // refreshManpowerOnly), so read the actual starting value rather than
+      // assuming the buildPlayer override survives untouched.
+      const playerBeforeSettle = runtime.exportState().players.find((p) => p.id === "player-1");
+      const manpowerBeforeSettle = playerBeforeSettle?.manpower ?? 0;
 
       // Start a settlement
       runtime.submitCommand({
@@ -36,11 +42,10 @@ describe("CANCEL_SETTLE", () => {
       // Tile should still be FRONTIER (not SETTLED) and there should be a pending settlement
       expect(tileAfterSettle?.ownershipState).toBe("FRONTIER");
       expect(stateAfterSettle.pendingSettlements.length).toBe(1);
-      // Gold should have been deducted for the settle
-      expect((playerAfterSettle?.points ?? 0) < 500).toBe(true);
-
-      const goldAfterSettle = playerAfterSettle?.points ?? 0;
-      const manpowerAfterSettle = playerAfterSettle?.manpower ?? 0;
+      // Gold cost is nominal (SETTLE_COST is currently 0); manpower is the
+      // real cost and should have been deducted for the settle.
+      expect(playerAfterSettle?.points).toBe(500 - SETTLE_COST);
+      expect(playerAfterSettle?.manpower).toBe(manpowerBeforeSettle - SETTLE_MANPOWER_COST);
 
       // Cancel the settlement
       runtime.submitCommand({
@@ -64,7 +69,7 @@ describe("CANCEL_SETTLE", () => {
       expect(stateAfterCancel.pendingSettlements.length).toBe(0);
       // Gold and manpower should be fully refunded
       expect(playerAfterCancel?.points).toBe(500);
-      expect(playerAfterCancel?.manpower).toBe(10_000);
+      expect(playerAfterCancel?.manpower).toBe(manpowerBeforeSettle);
     } finally {
       vi.useRealTimers();
     }
