@@ -300,5 +300,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Natural wonder ground-glow, water, and metal-rim shaders now compute their pattern from the vertex's position relative to the wonder's own mesh (rotation/scale only, no translation) instead of raw world position, so the effect stays locked to the wonder regardless of camera pan."
     ]
+  },
+  {
+    createdAt: 1785836373986, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Fixed: natural wonder ground glow got cut off near coastlines and hills",
+    why: "The natural wonder ground-glow effect (fissures, scorched earth, water ripples) spans a wonder's own tile plus its 8 neighbors, but it was rendered as one flat plane at the wonder's own tile height. Real terrain elevation varies a lot across that span (grass, sand, coastal sea, deep sea, and hills are all different heights), so on any wonder near a coastline or a hill, the flat effect either floated above/sank under the real terrain, got hidden behind the actual water surface, or was clipped by rising land poking through it.",
+    changes: [
+      "The ground-glow effect now follows the real terrain's contour across its full 3x3 span, sampling the same corner heights the terrain mesh itself renders from (matching the technique the territory-ownership tint already uses to drape over hills) — it clips correctly against hills and anything built on a neighboring tile, and now renders visibly above the water surface on any neighboring sea tile instead of being hidden underneath it."
+    ]
   }
 ];

@@ -7,13 +7,13 @@ import {
   Float32BufferAttribute,
   Group,
   Mesh,
-  PlaneGeometry,
   Points,
   Scene,
   ShaderMaterial,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 /**
  * Quickforge natural wonder: a rapid-action forge with animated pneumatic
@@ -24,16 +24,24 @@ import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
  */
 const PISTON_SPEED = 1.0;
 const STEAM_COUNT = 35;
-// Transparent effect layers (ground glow, steam) must render above the
-// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85 — see
-// client-map-3d-ownership-overlay.ts) or a claimed wonder tile's own color
-// would wash the effect out. Opaque structural parts don't need this.
-const TRANSPARENT_RENDER_ORDER = 10;
+// Transparent effect layers (ground glow, steam) must render above both the
+// ownership overlay's tint (renderOrder 6/7, opacity up to 0.85) and the
+// real water surface (renderOrder 12, see client-map-3d-water-surface.ts)
+// or a claimed wonder tile's own color / neighboring sea would hide the
+// effect. Opaque structural parts don't need this.
+const TRANSPARENT_RENDER_ORDER = 13;
 
 const uTime = { value: 0 };
 const uRedHot = { value: new Color(0xff3010) };
 
-type ActiveWonder = { readonly centerX: number; readonly centerZ: number; readonly surfaceY: number; readonly phase: number };
+type ActiveWonder = {
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly surfaceY: number;
+  readonly wx: number;
+  readonly wy: number;
+  readonly phase: number;
+};
 
 const groundMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -178,13 +186,15 @@ function buildFrameGeometry(): BufferGeometry {
   return merged;
 }
 
-export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderOverlay => {
+export const createQuickforgeOverlay = (scene: Scene, maxTiles: number, cornerYAt: TerrainCornerSampler): WonderOverlay => {
   const group = new Group();
   group.name = "quickforge-overlay";
   scene.add(group);
 
-  const groundGeometry = new PlaneGeometry(3, 3, 32, 32);
-  groundGeometry.rotateX(-Math.PI / 2);
+  // One independent contoured geometry per slot (not shared) so each active
+  // instance can hug its own tile's real terrain — see
+  // client-map-3d-wonder-ground-contour.ts.
+  const groundGeometries = Array.from({ length: maxTiles }, () => createContouredGroundGeometry());
   const gMat = groundMaterial();
 
   const mMat = metalMaterial();
@@ -204,7 +214,14 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
       return obj;
     });
 
-  const groundSlots = makeSlots(() => new Mesh(groundGeometry, gMat), TRANSPARENT_RENDER_ORDER);
+  const groundSlots = groundGeometries.map((geo) => {
+    const mesh = new Mesh(geo, gMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = TRANSPARENT_RENDER_ORDER;
+    group.add(mesh);
+    return mesh;
+  });
   const frameSlots = makeSlots(() => new Mesh(frameGeometry, mMat));
   // 3 piston rods, out-of-phase for a busy mechanical feel.
   const rodSlotsByPiston = [0, 1, 2].map(() => makeSlots(() => new Mesh(rodGeometry, mMat)));
@@ -214,9 +231,11 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
 
   const clear = (): void => { wonders.length = 0; };
 
-  const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
+  const addInstance = (centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
     const hash = (((centerX * 92_821) ^ (centerZ * 68_917)) >>> 0);
-    wonders.push({ centerX, centerZ, surfaceY, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    const slotIndex = wonders.length;
+    wonders.push({ centerX, centerZ, surfaceY, wx, wy, phase: ((hash % 1000) / 1000) * Math.PI * 2 });
+    if (slotIndex < maxTiles) sampleContouredGroundHeights(groundGeometries[slotIndex]!, wx, wy, cornerYAt);
   };
 
   const update = (nowMs: number): void => {
@@ -233,7 +252,10 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
       if (!active) continue;
 
       const w = wonders[i]!;
-      groundSlots[i]!.position.set(w.centerX, w.surfaceY + 0.01, w.centerZ);
+      // Y is baked per-vertex into the contoured geometry already (real
+      // terrain height, or the water surface height over sea) -- only X/Z
+      // track the camera-relative recentering here.
+      groundSlots[i]!.position.set(w.centerX, 0, w.centerZ);
       frameSlots[i]!.position.set(w.centerX, w.surfaceY, w.centerZ);
 
       for (let p = 0; p < 3; p += 1) {
@@ -253,7 +275,8 @@ export const createQuickforgeOverlay = (scene: Scene, maxTiles: number): WonderO
 
   const dispose = (): void => {
     scene.remove(group);
-    groundGeometry.dispose(); frameGeometry.dispose(); rodGeometry.dispose(); steamGeometry.dispose();
+    for (const geo of groundGeometries) geo.dispose();
+    frameGeometry.dispose(); rodGeometry.dispose(); steamGeometry.dispose();
     gMat.dispose(); mMat.dispose(); stMat.dispose();
   };
 

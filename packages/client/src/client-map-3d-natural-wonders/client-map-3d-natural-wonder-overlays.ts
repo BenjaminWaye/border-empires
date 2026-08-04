@@ -10,10 +10,11 @@ import { createQuickforgeOverlay } from "./client-map-3d-quickforge-overlay.js";
 import { createWatchtowerEngineOverlay } from "./client-map-3d-watchtower-engine-overlay.js";
 import { createCartographersLensOverlay } from "./client-map-3d-cartographers-lens-overlay.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
+import type { TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
 
 export type NaturalWonderOverlays = {
   readonly clear: () => void;
-  readonly addInstance: (type: NaturalWonderType, centerX: number, centerZ: number, surfaceY: number) => void;
+  readonly addInstance: (type: NaturalWonderType, centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -27,23 +28,23 @@ export type NaturalWonderOverlays = {
  */
 const MAX_WONDER_INSTANCES = 4;
 
-export const createNaturalWonderOverlays = (scene: Scene): NaturalWonderOverlays => {
+export const createNaturalWonderOverlays = (scene: Scene, cornerYAt: TerrainCornerSampler): NaturalWonderOverlays => {
   const overlaysByType: Record<NaturalWonderType, WonderOverlay> = {
-    FOUNDRY_HEART: createFoundryHeartOverlay(scene, MAX_WONDER_INSTANCES),
-    DEEPWATER_ENGINE: createDeepwaterEngineOverlay(scene, MAX_WONDER_INSTANCES),
-    CONSCRIPTION_ENGINE: createConscriptionEngineOverlay(scene, MAX_WONDER_INSTANCES),
-    WARPRESS: createWarpressOverlay(scene, MAX_WONDER_INSTANCES),
-    BASTION_FRAME: createBastionFrameOverlay(scene, MAX_WONDER_INSTANCES),
-    CALCULATING_ENGINE: createCalculatingEngineOverlay(scene, MAX_WONDER_INSTANCES),
-    QUICKFORGE: createQuickforgeOverlay(scene, MAX_WONDER_INSTANCES),
-    WATCHTOWER_ENGINE: createWatchtowerEngineOverlay(scene, MAX_WONDER_INSTANCES),
-    CARTOGRAPHERS_LENS: createCartographersLensOverlay(scene, MAX_WONDER_INSTANCES)
+    FOUNDRY_HEART: createFoundryHeartOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    DEEPWATER_ENGINE: createDeepwaterEngineOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    CONSCRIPTION_ENGINE: createConscriptionEngineOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    WARPRESS: createWarpressOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    BASTION_FRAME: createBastionFrameOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    CALCULATING_ENGINE: createCalculatingEngineOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    QUICKFORGE: createQuickforgeOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    WATCHTOWER_ENGINE: createWatchtowerEngineOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt),
+    CARTOGRAPHERS_LENS: createCartographersLensOverlay(scene, MAX_WONDER_INSTANCES, cornerYAt)
   };
   const overlays = Object.values(overlaysByType);
 
   const clear = (): void => { for (const overlay of overlays) overlay.clear(); };
-  const addInstance = (type: NaturalWonderType, centerX: number, centerZ: number, surfaceY: number): void => {
-    overlaysByType[type].addInstance(centerX, centerZ, surfaceY);
+  const addInstance = (type: NaturalWonderType, centerX: number, centerZ: number, surfaceY: number, wx: number, wy: number): void => {
+    overlaysByType[type].addInstance(centerX, centerZ, surfaceY, wx, wy);
   };
   const commit = (): void => { for (const overlay of overlays) overlay.commit(); };
   const update = (nowMs: number): void => { for (const overlay of overlays) overlay.update(nowMs); };
