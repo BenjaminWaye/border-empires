@@ -3468,6 +3468,22 @@ export class SimulationRuntime {
     });
   }
 
+  private handleCancelSettleCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSettlePayload(command.payloadJson);
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
+    if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
+      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no settlement in progress on tile");
+      return;
+    }
+    this.removePendingSettlement(targetKey);
+    refundSettleCost(actor, pendingSettlement.goldCost, this.playerManpowerCap(actor));
+    this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  }
+
   /**
    * Server-side auto-settle for AI players. AI has no client, so unlike
    * humans (who get automatic SETTLE dispatch from the client-side
@@ -4565,6 +4581,7 @@ export class SimulationRuntime {
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
       handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
+      handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),

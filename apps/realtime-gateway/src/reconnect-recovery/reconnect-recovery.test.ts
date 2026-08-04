@@ -26,6 +26,7 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
+    case "CANCEL_SETTLE":
     case "CANCEL_SIEGE_OUTPOST_BUILD":
     case "REMOVE_STRUCTURE":
     case "CANCEL_CAPTURE":
