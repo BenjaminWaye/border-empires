@@ -31,6 +31,17 @@ export type ConnectedTownNetworkEntry = {
   // Same precomputation, for Rail Depot — used to enforce "only one Rail
   // Depot per connected-town network" at build time (§4.4).
   connectedRailDepotKeys?: string[];
+  // Census Hall (tech-tree redesign): every connected town with an active
+  // Granary (Incubation Engine) — feeds Census Hall's +20,000 population
+  // per connected Incubation Engine bonus.
+  connectedGranaryKeys?: string[];
+  // Assembly Works (tech-tree redesign): mirrors connectedRailDepotKeys'
+  // "only one per network" uniqueness signal, retargeted at Assembly Works.
+  connectedAssemblyWorksKeys?: string[];
+  // Logistics Guild (tech-tree redesign): feeds Rail Depot's narrowed job
+  // (+0.1/min manpower regen per connected Logistics Guild, on top of that
+  // Guild's own standalone +0.05/min).
+  connectedLogisticsGuildKeys?: string[];
   connectedTownNames?: string[];
 };
 
@@ -108,6 +119,9 @@ type TownConnectivityGroup = {
   clearingHouseKeys: string[];
   garrisonHallKeys: string[];
   railDepotKeys: string[];
+  granaryKeys: string[];
+  assemblyWorksKeys: string[];
+  logisticsGuildKeys: string[];
 };
 
 export type DockEconomyContext = {
@@ -232,6 +246,28 @@ export const buildConnectedTownNetworkForPlayer = (
     return tile ? hasSupportedStructure(player.id, tile, "RAIL_DEPOT", tiles, true) : false;
   };
 
+  // Granary (Incubation Engine) — used for Census Hall's connected-network
+  // population bonus. Active-only (a dormant Granary already granted its
+  // one-time burst, but shouldn't keep counting toward the live bonus).
+  const hasGranaryAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "GRANARY", tiles, false, dormantEconomicStructureKeys) : false;
+  };
+
+  // Assembly Works — mirrors hasRailDepotAt's uniqueness-signal shape
+  // (counts under_construction too, so two Assembly Works submitted before
+  // either completes can't both land in the same network).
+  const hasAssemblyWorksAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "ASSEMBLY_WORKS", tiles, true) : false;
+  };
+
+  // Logistics Guild — feeds Rail Depot's narrowed regen amplification job.
+  const hasLogisticsGuildAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "LOGISTICS_GUILD", tiles, false, dormantEconomicStructureKeys) : false;
+  };
+
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
   // These are connected regardless of the corridor graph. O(towns) — each
   // town has at most 8 neighbors, so this step alone can never be quadratic.
@@ -279,7 +315,10 @@ export const buildConnectedTownNetworkForPlayer = (
       members,
       clearingHouseKeys: members.filter(hasClearingHouseAt),
       garrisonHallKeys: members.filter(hasGarrisonHallAt),
-      railDepotKeys: members.filter(hasRailDepotAt)
+      railDepotKeys: members.filter(hasRailDepotAt),
+      granaryKeys: members.filter(hasGranaryAt),
+      assemblyWorksKeys: members.filter(hasAssemblyWorksAt),
+      logisticsGuildKeys: members.filter(hasLogisticsGuildAt)
     };
     for (const townKey of members) {
       let list = groupsByTown.get(townKey);
@@ -415,6 +454,9 @@ export const buildConnectedTownNetworkForPlayer = (
     let clearingHouseKeys: string[];
     let garrisonHallKeys: string[];
     let railDepotKeys: string[];
+    let granaryKeys: string[];
+    let assemblyWorksKeys: string[];
+    let logisticsGuildKeys: string[];
     let memberKeysForNames: string[] | undefined;
 
     if (direct.size === 0 && groups && groups.length === 1) {
@@ -429,6 +471,15 @@ export const buildConnectedTownNetworkForPlayer = (
       railDepotKeys = group.railDepotKeys.includes(townKey)
         ? group.railDepotKeys.filter((k) => k !== townKey)
         : group.railDepotKeys;
+      granaryKeys = group.granaryKeys.includes(townKey)
+        ? group.granaryKeys.filter((k) => k !== townKey)
+        : group.granaryKeys;
+      assemblyWorksKeys = group.assemblyWorksKeys.includes(townKey)
+        ? group.assemblyWorksKeys.filter((k) => k !== townKey)
+        : group.assemblyWorksKeys;
+      logisticsGuildKeys = group.logisticsGuildKeys.includes(townKey)
+        ? group.logisticsGuildKeys.filter((k) => k !== townKey)
+        : group.logisticsGuildKeys;
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? group.members.filter((k) => k !== townKey)
@@ -438,6 +489,9 @@ export const buildConnectedTownNetworkForPlayer = (
       clearingHouseKeys = [];
       garrisonHallKeys = [];
       railDepotKeys = [];
+      granaryKeys = [];
+      assemblyWorksKeys = [];
+      logisticsGuildKeys = [];
       memberKeysForNames = undefined;
     } else {
       const unionSet = new Set<string>(direct);
@@ -462,6 +516,21 @@ export const buildConnectedTownNetworkForPlayer = (
       for (const group of groups ?? []) {
         for (const key of group.railDepotKeys) if (key !== townKey) railDepotSet.add(key);
       }
+      const granarySet = new Set<string>();
+      for (const key of direct) if (hasGranaryAt(key)) granarySet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.granaryKeys) if (key !== townKey) granarySet.add(key);
+      }
+      const assemblyWorksSet = new Set<string>();
+      for (const key of direct) if (hasAssemblyWorksAt(key)) assemblyWorksSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.assemblyWorksKeys) if (key !== townKey) assemblyWorksSet.add(key);
+      }
+      const logisticsGuildSet = new Set<string>();
+      for (const key of direct) if (hasLogisticsGuildAt(key)) logisticsGuildSet.add(key);
+      for (const group of groups ?? []) {
+        for (const key of group.logisticsGuildKeys) if (key !== townKey) logisticsGuildSet.add(key);
+      }
       // Sorted for determinism: this set accumulates across `groups`, whose
       // discovery order differs between the BFS and incremental grouping
       // paths (and is Set-iteration-order dependent in general). The
@@ -472,6 +541,9 @@ export const buildConnectedTownNetworkForPlayer = (
       clearingHouseKeys = [...clearingHouseSet].sort((l, r) => l.localeCompare(r));
       garrisonHallKeys = [...garrisonHallSet].sort((l, r) => l.localeCompare(r));
       railDepotKeys = [...railDepotSet].sort((l, r) => l.localeCompare(r));
+      granaryKeys = [...granarySet].sort((l, r) => l.localeCompare(r));
+      assemblyWorksKeys = [...assemblyWorksSet].sort((l, r) => l.localeCompare(r));
+      logisticsGuildKeys = [...logisticsGuildSet].sort((l, r) => l.localeCompare(r));
       memberKeysForNames =
         connectedTownCount > 0 && connectedTownCount <= maxConnectedTownNames
           ? [...unionSet].sort((l, r) => l.localeCompare(r))
@@ -491,6 +563,9 @@ export const buildConnectedTownNetworkForPlayer = (
       ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
       ...(garrisonHallKeys.length ? { connectedGarrisonHallKeys: garrisonHallKeys } : {}),
       ...(railDepotKeys.length ? { connectedRailDepotKeys: railDepotKeys } : {}),
+      ...(granaryKeys.length ? { connectedGranaryKeys: granaryKeys } : {}),
+      ...(assemblyWorksKeys.length ? { connectedAssemblyWorksKeys: assemblyWorksKeys } : {}),
+      ...(logisticsGuildKeys.length ? { connectedLogisticsGuildKeys: logisticsGuildKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {})
     });
   }
@@ -549,6 +624,92 @@ export const railDepotAlreadyInNetwork = (
   if (tile && hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, true)) return true;
   const entry = townNetwork.get(townKey);
   return Boolean(entry?.connectedRailDepotKeys?.length);
+};
+
+/**
+ * Assembly Works (tech-tree redesign): mirrors railDepotNetworkGarrisonHallCountForPlayer's
+ * shape exactly, retargeted — Assembly Works is now the sole amplifier of
+ * Ancillary Factory (Garrison Hall) manpower cap (+300 per connected
+ * Ancillary Factory, RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL),
+ * Rail Depot no longer touches Garrison Hall at all.
+ */
+export const assemblyWorksNetworkGarrisonHallCountForPlayer = (
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  ownedTownTileKeys: Iterable<string>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  let total = 0;
+  for (const townKey of ownedTownTileKeys) {
+    const tile = tiles.get(townKey);
+    if (!tile || !hasSupportedStructure(playerId, tile, "ASSEMBLY_WORKS", tiles, false, dormantEconomicStructureKeys)) continue;
+    const entry = townNetwork.get(townKey);
+    total +=
+      (entry?.connectedGarrisonHallKeys?.length ?? 0) +
+      (hasSupportedStructure(playerId, tile, "GARRISON_HALL", tiles, false, dormantEconomicStructureKeys) ? 1 : 0);
+  }
+  return total;
+};
+
+/** Mirrors railDepotAlreadyInNetwork's shape exactly, retargeted at Assembly Works. */
+export const assemblyWorksAlreadyInNetwork = (
+  playerId: string,
+  townKey: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>
+): boolean => {
+  const tile = tiles.get(townKey);
+  if (tile && hasSupportedStructure(playerId, tile, "ASSEMBLY_WORKS", tiles, true)) return true;
+  const entry = townNetwork.get(townKey);
+  return Boolean(entry?.connectedAssemblyWorksKeys?.length);
+};
+
+/**
+ * Rail Depot's narrowed job (tech-tree redesign): +0.1/min manpower regen per
+ * connected Logistics Guild, on top of each Guild's own standalone
+ * +0.05/min. Ancillary Factory amplification moved to Assembly Works above.
+ */
+export const railDepotNetworkLogisticsGuildCountForPlayer = (
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  ownedTownTileKeys: Iterable<string>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  let total = 0;
+  for (const townKey of ownedTownTileKeys) {
+    const tile = tiles.get(townKey);
+    if (!tile || !hasSupportedStructure(playerId, tile, "RAIL_DEPOT", tiles, false, dormantEconomicStructureKeys)) continue;
+    const entry = townNetwork.get(townKey);
+    total +=
+      (entry?.connectedLogisticsGuildKeys?.length ?? 0) +
+      (hasSupportedStructure(playerId, tile, "LOGISTICS_GUILD", tiles, false, dormantEconomicStructureKeys) ? 1 : 0);
+  }
+  return total;
+};
+
+/**
+ * Census Hall (tech-tree redesign): count of connected towns (in the Census
+ * Hall's own town's connected-town network) with an active Granary
+ * (Incubation Engine) — the Census Hall's own town's Granary counts too, via
+ * the same "+1 for the anchor's own copy" shape as the Rail Depot functions
+ * above.
+ */
+export const censusHallConnectedGranaryCountForPlayer = (
+  playerId: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  censusHallTownKey: string,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  const tile = tiles.get(censusHallTownKey);
+  if (!tile) return 0;
+  const entry = townNetwork.get(censusHallTownKey);
+  return (
+    (entry?.connectedGranaryKeys?.length ?? 0) +
+    (hasSupportedStructure(playerId, tile, "GRANARY", tiles, false, dormantEconomicStructureKeys) ? 1 : 0)
+  );
 };
 
 export const enrichTownWithConnectedNetwork = (

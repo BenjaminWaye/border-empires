@@ -208,6 +208,11 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
   garrisonHallTilesByOwner: Map<string, Set<string>>;
+  assemblyWorksTilesByOwner: Map<string, Set<string>>;
+  logisticsGuildTilesByOwner: Map<string, Set<string>>;
+  quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
+  granaryTilesByOwner: Map<string, Set<string>>;
+  censusHallTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -227,6 +232,11 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
   refreshGarrisonHallIndexForTile(input);
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ASSEMBLY_WORKS", index: input.assemblyWorksTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "LOGISTICS_GUILD", index: input.logisticsGuildTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "QUARTERMASTERS_OFFICE", index: input.quartermastersOfficeTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "GRANARY", index: input.granaryTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });
 };
 
 /**
@@ -271,7 +281,16 @@ export const refreshEconomyCachesForTileChange = (input: {
   // mutation (a Siege Outpost's IRON/SUPPLY demand shifting which OTHER,
   // possibly-SETTLED structure is dormant) — the SETTLED-gated branch alone
   // would miss that ripple.
-  manpowerStructureBonusCacheByPlayer?: Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>;
+  manpowerStructureBonusCacheByPlayer?: Map<
+    string,
+    {
+      garrisonHallCount: number;
+      assemblyWorksNetworkGarrisonHallCount: number;
+      railDepotNetworkLogisticsGuildCount: number;
+      logisticsGuildCount: number;
+      populationBureauManpowerBuildingCount: number;
+    }
+  >;
   // §5 (resource slots). Supply only depends on SETTLED resource tiles, so it
   // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
   // Demand depends on fort/siegeOutpost/economicStructure on ANY owned tile
@@ -542,6 +561,38 @@ const refreshGarrisonHallIndexForTile = (input: {
   if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
   if (prevActive && prevOwnerId) input.garrisonHallTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.garrisonHallTilesByOwner, input.tileKey, nextOwnerId);
+};
+
+// Generic version of refreshRailDepotIndexForTile/refreshGarrisonHallIndexForTile
+// above, parameterized by economicStructure.type — used for the tech-tree
+// redesign's new Manpower-branch buildings (Assembly Works, Logistics Guild,
+// Quartermaster's Office, Granary/Incubation Engine, Census Hall) so each new
+// per-owner tile-set index doesn't need its own hand-copied pair of
+// functions. Same "same_tile OR any owner" semantics as Garrison Hall (not
+// Rail Depot's stricter "only if previous/next tile has the SAME owner"
+// short-circuit), which is correct for all of these — none of them are
+// tied to a specific town the way Rail Depot/Clearing House's "only one per
+// connected-town network" uniqueness check is.
+const isEconomicStructureTypeActive = (tile: DomainTileState, ownerId: string, structureType: string): boolean =>
+  tile.economicStructure?.type === structureType &&
+  tile.economicStructure.ownerId === ownerId &&
+  tile.economicStructure.status === "active";
+
+const refreshEconomicStructureTypeIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  structureType: string;
+  index: Map<string, Set<string>>;
+}): void => {
+  const prevOwnerId = input.previous?.ownerId;
+  const nextOwnerId = input.next.ownerId;
+  const prevActive = input.previous && prevOwnerId ? isEconomicStructureTypeActive(input.previous, prevOwnerId, input.structureType) : false;
+  const nextActive = nextOwnerId ? isEconomicStructureTypeActive(input.next, nextOwnerId, input.structureType) : false;
+  if (!prevActive && !nextActive) return;
+  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+  if (prevActive && prevOwnerId) input.index.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.index, input.tileKey, nextOwnerId);
 };
 
 const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, ownerId: string): void => {
