@@ -80,7 +80,7 @@ describe("imperial exchange levy", () => {
 
   const targetTileFor = (index: number): { toX: number; toY: number } => ({ toX: 10 + index, toY: 0 });
 
-  it("rejects without exchange-levy tech", async () => {
+  it("succeeds without any tech at all (levy is inherent to the built monument, Exchange Levy Writs was cut)", async () => {
     const runtime = buildLevyRuntime({ techIds: [], rivalGold: { "player-2": 100 } });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -94,11 +94,10 @@ describe("imperial exchange levy", () => {
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, ...targetTileFor(0) })
     });
     await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
+    expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "levy-1",
-      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-      message: "requires Exchange Levy Writs research"
+      code: "IMPERIAL_EXCHANGE_LEVY_INVALID"
     }));
   });
 

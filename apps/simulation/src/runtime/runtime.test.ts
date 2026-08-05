@@ -7883,7 +7883,7 @@ describe("worldbreaker shot", () => {
     });
   };
 
-  it("rejects without worldbreaker-fire tech", async () => {
+  it("succeeds without any tech at all (strike is inherent to the built monument, Worldbreaker Ignition was cut)", async () => {
     const runtime = buildStrikeRuntime({ techIds: [] });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -7897,11 +7897,10 @@ describe("worldbreaker shot", () => {
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
+    expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-1",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "requires Worldbreaker Fire research"
+      code: "WORLD_ENGINE_STRIKE_INVALID"
     }));
   });
 
