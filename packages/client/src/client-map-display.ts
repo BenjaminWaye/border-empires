@@ -77,13 +77,13 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "CAMP") return "Camp";
   if (kind === "MINE") return "Mine";
   if (kind === "BROKER_MARKET") return "Broker Market";
-  if (kind === "GRANARY") return "Granary";
+  if (kind === "GRANARY") return "Incubation Engine";
   if (kind === "SEED_GRANARY") return "Seed Granary";
   if (kind === "CENSUS_HALL") return "Census Hall";
   if (kind === "BANK") return "Bank";
   if (kind === "CLEARING_HOUSE") return "Clearing House";
-  if (kind === "AIRPORT") return "Sky Dock";
-  if (kind === "AETHER_TOWER") return "Aether Tower";
+  if (kind === "AIRPORT") return "Aetherport";
+  if (kind === "AETHER_TOWER") return "Ambaric Tower";
   if (kind === "WOODEN_FORT") return "Wooden Fort";
   if (kind === "LIGHT_OUTPOST") return "Light Outpost";
   if (kind === "CARAVANARY") return "Caravanary";
@@ -96,7 +96,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "FOUNDRY") return "Foundry";
   if (kind === "ADVANCED_FOUNDRY") return "Advanced Foundry";
   if (kind === "EXCHANGE_HOUSE") return "Exchange House";
-  if (kind === "GARRISON_HALL") return "Garrison Hall";
+  if (kind === "GARRISON_HALL") return "Ancillary Factory";
   if (kind === "CUSTOMS_HOUSE") return "Harbor Exchange";
   if (kind === "GOVERNORS_OFFICE") return "Ministry Hall";
   if (kind === "RADAR_SYSTEM") return "Resonance Grid";
@@ -142,7 +142,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
   if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for full-map vision for 24 hours.";
-  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Garrison Hall in its connected-town network (+300 manpower cap, +0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
+  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Ancillary Factory in its connected-town network (+300 manpower cap, +0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
   if (kind === "WEATHER_ENGINE") return "Blocks hostile bombardment and hostile observatory actions within 30 tiles.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
@@ -291,17 +291,17 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
-    if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Ambaric Tower power"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
+    if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Aether Tower power"];
-    if (key === "RAIL_DEPOT") return ["+300 manpower cap and +0.1 manpower/min for every Garrison Hall in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
+    if (key === "RAIL_DEPOT") return ["+300 manpower cap and +0.1 manpower/min for every Ancillary Factory in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Aether Tower power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Aether Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Aether Tower power"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Ambaric Tower power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Ambaric Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>
@@ -446,7 +446,7 @@ export const structureInfoForKey = (
   }
   if (type === "GRANARY") {
     return structure({
-      title: "Granary",
+      title: "Incubation Engine",
       detail: "Granaries are built on a town support tile. They strengthen nearby farmsteads within 10 tiles and reduce the supported town's food upkeep.",
       glyph: "🍞",
       placement: "Build on an open settled support tile for a town you own.",
@@ -627,7 +627,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
+      detail: "Rail Depots are mustering hubs that amplify every Ancillary Factory in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -666,7 +666,7 @@ export const structureInfoForKey = (
   }
   if (type === "GARRISON_HALL") {
     return structure({
-      title: "Garrison Hall",
+      title: "Ancillary Factory",
       detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
@@ -676,8 +676,8 @@ export const structureInfoForKey = (
   }
   if (type === "AIRPORT") {
     return structure({
-      title: "Sky Dock",
-      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Aether Tower power.",
+      title: "Aetherport",
+      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Tower power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -686,8 +686,8 @@ export const structureInfoForKey = (
   }
   if (type === "AETHER_TOWER") {
     return structure({
-      title: "Aether Tower",
-      detail: "Aether Towers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
+      title: "Ambaric Tower",
+      detail: "Ambaric Towers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
       glyph: "⚡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -697,7 +697,7 @@ export const structureInfoForKey = (
   if (type === "RADAR_SYSTEM") {
     return structure({
       title: "Resonance Grid",
-      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Aether Tower power.",
+      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Tower power.",
       glyph: "📡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
