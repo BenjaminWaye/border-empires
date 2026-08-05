@@ -37,6 +37,10 @@ export function handleIronLevyMusterCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "IRON_LEVY_MUSTER_INVALID", "select an active Iron Levy");
     return;
   }
+  if (!context.isStructurePowered(actor.id, anchorKey, "IRON_LEVY")) {
+    rejectCommand(context, command, "IRON_LEVY_MUSTER_INVALID", "Iron Levy requires a nearby Aether Tower");
+    return;
+  }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
     rejectCommand(context, command, "IRON_LEVY_MUSTER_INVALID", "Iron Levy has no free resource slot");
     return;
