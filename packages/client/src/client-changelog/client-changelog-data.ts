@@ -309,5 +309,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The ground-glow effect now follows the real terrain's contour across its full 3x3 span, sampling the same corner heights the terrain mesh itself renders from (matching the technique the territory-ownership tint already uses to drape over hills) — it clips correctly against hills and anything built on a neighboring tile, and now renders visibly above the water surface on any neighboring sea tile instead of being hidden underneath it."
     ]
-  }
+  },
+  {
+    createdAt: 1785875930619, // dirt road
+    introducedIn: "next",
+    title: "Roads are now worn dirt paths instead of cobblestone",
+    why: "3D roads switch from hard cobblestone to packed dirt, matching how a low-tech empire actually travels while reading cleanly on any terrain.",
+    changes: [
+      "Roads are now dirt paths: packed brown earth with mottled soil tones, two subtle wheel ruts, and a faint worn center.",
+      "Small pebbles are scattered sparsely along the surface, each with soft directional shading so they read as stones set in the dirt.",
+      "Road edges wear down to a ragged, slightly darker rim with no grass or green tint, so roads sit naturally on any terrain - including deserts and sand.",
+      "The same gentle lift over hills and junction hubs are unchanged."
+    ]
+  },
 ];
