@@ -12,7 +12,7 @@
  */
 
 import type { DomainTileState } from "@border-empires/game-domain";
-import { effectiveVisionRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { effectiveVisionRadiusForPlayer, townVisionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
@@ -20,8 +20,14 @@ import type { VisibilityTransitionCallbacks } from "./visibility-coverage-cache.
 export const isSettledTownTile = (tile: DomainTileState | undefined): boolean =>
   Boolean(tile?.ownerId && tile.ownershipState === "SETTLED" && tile.town);
 
-const townVisionBonusRadiusFor = (players: ReadonlyMap<string, RuntimePlayer>, playerId: string): number =>
-  (players.get(playerId) ? effectiveVisionRadiusForPlayer(players.get(playerId)!) : 1) + 1;
+// Unconditional +1 (every town, always) plus Cartography's townVisionRadiusBonus
+// tech effect (§ tech-domain-bridge.ts) on top.
+const townVisionBonusRadiusFor = (players: ReadonlyMap<string, RuntimePlayer>, playerId: string): number => {
+  const player = players.get(playerId);
+  const base = player ? effectiveVisionRadiusForPlayer(player) : 1;
+  const techBonus = player ? townVisionRadiusBonusForPlayer(player) : 0;
+  return base + 1 + techBonus;
+};
 
 export type TownVisionCoverageDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;

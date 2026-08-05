@@ -127,3 +127,37 @@ describe("VisibilityCoverageTracker town +1 reveal", () => {
     expect(tracker.isVisible("viewer-1", "13,10")).toBe(true); // ring moved outward
   });
 });
+
+describe("VisibilityCoverageTracker outpost vision bonus", () => {
+  const makeTracker = (radius: () => number) =>
+    new VisibilityCoverageTracker(200, 200, {
+      visionRadiusForPlayer: radius,
+      getPlayer: (id) => ({ id, allies: new Set<string>() }),
+      territoryTileKeysForPlayer: () => new Set<string>()
+    });
+
+  it("a Light Outpost's flat bonus is independent of the source's own base radius", () => {
+    const tracker = makeTracker(() => 1);
+    tracker.tileOwnershipChanged(undefined, "viewer-1", 10, 10);
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);
+    expect(tracker.isVisible("viewer-1", "15,10")).toBe(true); // dx=5, within the flat bonus
+    expect(tracker.isVisible("viewer-1", "16,10")).toBe(false); // dx=6, outside it
+
+    tracker.removeOutpostVisionBonus("viewer-1", 10, 10);
+    expect(tracker.isVisible("viewer-1", "15,10")).toBe(false);
+    expect(tracker.isVisible("viewer-1", "11,10")).toBe(true); // base radius footprint untouched
+  });
+
+  it("re-calling setOutpostVisionBonus with a different radius moves the ring (a tech unlock widening it)", () => {
+    const tracker = makeTracker(() => 1);
+    tracker.tileOwnershipChanged(undefined, "viewer-1", 10, 10);
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);
+    expect(tracker.isVisible("viewer-1", "15,10")).toBe(true);
+    expect(tracker.isVisible("viewer-1", "16,10")).toBe(false);
+
+    // Survey Corps adds +1 on top of the flat base.
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 6);
+    expect(tracker.isVisible("viewer-1", "16,10")).toBe(true);
+    expect(tracker.isVisible("viewer-1", "17,10")).toBe(false);
+  });
+});

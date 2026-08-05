@@ -19,8 +19,11 @@ import {
   chosenTrickleOptionsForDomain,
   chosenTrickleRateForPlayer,
   multiplicativeEffectForPlayer,
+  outpostVisionRadiusBonusForPlayer,
   recomputeMods,
-  resolveDataPath
+  resolveDataPath,
+  townVisionRadiusBonusForPlayer,
+  visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
 import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
@@ -79,6 +82,25 @@ describe("tech-domain bridge progression sources", () => {
       { label: "Base", mult: 1 },
       { label: "Warbands", mult: 1.05 }
     ]);
+  });
+
+  it("Cartography grants townVisionRadiusBonus, not a generic visionRadiusBonus", () => {
+    const player = { techIds: new Set<string>(["cartography"]), domainIds: new Set<string>() };
+    expect(townVisionRadiusBonusForPlayer(player)).toBe(1);
+    expect(visionRadiusBonusForPlayer(player)).toBe(0);
+    expect(outpostVisionRadiusBonusForPlayer(player)).toBe(0);
+  });
+
+  it("Survey Corps grants outpostVisionRadiusBonus, not a generic visionRadiusBonus", () => {
+    const player = { techIds: new Set<string>(["surveying"]), domainIds: new Set<string>() };
+    expect(outpostVisionRadiusBonusForPlayer(player)).toBe(1);
+    expect(visionRadiusBonusForPlayer(player)).toBe(0);
+    expect(townVisionRadiusBonusForPlayer(player)).toBe(0);
+  });
+
+  it("no catalog tech grants a generic visionRadiusBonus any more (retired in favor of town/outpost-specific bonuses)", () => {
+    const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: Array<{ id: string; effects?: Record<string, unknown> }> };
+    expect(techTree.techs.some((tech) => typeof tech.effects?.visionRadiusBonus === "number")).toBe(false);
   });
 
   it("uses authoritative income when building domain update payloads", () => {
