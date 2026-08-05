@@ -896,17 +896,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "world_engine_strike",
         label: "Worldbreaker Shot",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && state.gold >= 15_000,
+          economicStructure.status === "active" && isPowered && cooldown <= 0 && state.gold >= 1_000,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : state.gold < 15_000
-                  ? "Need 15,000 gold"
+                : state.gold < 1_000
+                  ? "Need 1,000 gold"
                   : "",
-          "15,000 gold • shatter one enemy land tile into mountain • 60m cooldown"
+          "1,000 gold • shatter one enemy land tile into mountain • 10m cooldown"
         )
       });
     }
@@ -944,7 +944,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
                 : "",
-          "Free • full-map vision for 24h • 90m cooldown"
+          "Free • full-map vision for 24h • wait for current satellite to come down before relaunching"
         )
       });
     }

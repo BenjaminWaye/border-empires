@@ -7927,7 +7927,7 @@ describe("worldbreaker shot", () => {
   });
 
   it("rejects without enough gold", async () => {
-    const runtime = buildStrikeRuntime({ points: 1_000 });
+    const runtime = buildStrikeRuntime({ points: 500 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({

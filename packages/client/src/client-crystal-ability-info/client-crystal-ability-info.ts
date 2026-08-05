@@ -47,7 +47,9 @@ const STORMFRONT_COOLDOWN_MS = 45 * 60_000;
 const STORMFRONT_DURATION_MS = 15 * 60_000;
 const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
-const ASTRAL_DOCK_COOLDOWN_MS = 90 * 60_000;
+// Cooldown matches the satellite's own uptime — you must wait for the
+// current satellite to come down before launching another.
+const ASTRAL_DOCK_COOLDOWN_MS = 24 * 60 * 60_000;
 const ASTRAL_DOCK_DURATION_MS = 24 * 60 * 60_000;
 
 export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => {
