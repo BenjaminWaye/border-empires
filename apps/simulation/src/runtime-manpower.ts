@@ -1,9 +1,11 @@
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import {
   GARRISON_HALL_MANPOWER_CAP_BONUS,
+  LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
   MANPOWER_REGEN_GLOBAL_FLOOR,
+  POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING,
   RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL,
-  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL,
+  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
   STARTING_CAPITAL_MANPOWER_CAP,
   STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE,
   TOWN_MANPOWER_BY_TIER,
@@ -33,20 +35,26 @@ type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
 export const playerManpowerCapFromSummary = (
   summary: PlayerRuntimeSummary,
   garrisonHallCount = 0,
-  railDepotNetworkGarrisonHallCount = 0
+  // Tech-tree redesign: this is now Assembly Works' network amplification of
+  // Ancillary Factory (Garrison Hall) — Rail Depot no longer touches it.
+  assemblyWorksNetworkGarrisonHallCount = 0
 ): number => {
   let cap = 0;
   for (const tier of summary.ownedTownTierByTile.values()) {
     cap += TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
   }
   cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
-  cap += railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
+  cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
 export const playerManpowerRegenPerMinuteFromSummary = (
   summary: PlayerRuntimeSummary,
-  railDepotNetworkGarrisonHallCount = 0
+  // Tech-tree redesign: Rail Depot's job narrows to Logistics Guild
+  // amplification only (see railDepotNetworkLogisticsGuildCountForPlayer).
+  railDepotNetworkLogisticsGuildCount = 0,
+  logisticsGuildCount = 0,
+  populationBureauManpowerBuildingCount = 0
 ): number => {
   let regen = 0;
   let index = 0;
@@ -55,8 +63,13 @@ export const playerManpowerRegenPerMinuteFromSummary = (
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
-  const railDepotNetworkBonus = railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL;
-  return Math.max(MANPOWER_REGEN_GLOBAL_FLOOR, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + regen + railDepotNetworkBonus);
+  const logisticsGuildStandaloneBonus = logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE;
+  const railDepotNetworkBonus = railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD;
+  const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
+  return Math.max(
+    MANPOWER_REGEN_GLOBAL_FLOOR,
+    STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + regen + logisticsGuildStandaloneBonus + railDepotNetworkBonus + populationBureauBonus
+  );
 };
 
 const townTierLabel = (tier: TownTier, count: number): string => {
@@ -80,7 +93,10 @@ const manpowerRegenWeightNote = (weight: number): string | undefined => {
 export const playerManpowerBreakdownFromSummary = (
   summary: PlayerRuntimeSummary,
   garrisonHallCount = 0,
-  railDepotNetworkGarrisonHallCount = 0
+  assemblyWorksNetworkGarrisonHallCount = 0,
+  railDepotNetworkLogisticsGuildCount = 0,
+  logisticsGuildCount = 0,
+  populationBureauManpowerBuildingCount = 0
 ): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
@@ -116,17 +132,26 @@ export const playerManpowerBreakdownFromSummary = (
     garrisonHallCount > 0
       ? [...capLines, { label: "Garrison Hall", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
-  if (railDepotNetworkGarrisonHallCount > 0) {
+  if (logisticsGuildCount > 0) {
+    regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
+  }
+  if (railDepotNetworkLogisticsGuildCount > 0) {
     regenLines.push({
       label: "Rail Depot Network",
-      amount: railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL
+      amount: railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD
+    });
+  }
+  if (populationBureauManpowerBuildingCount > 0) {
+    regenLines.push({
+      label: "Population Bureau",
+      amount: populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING
     });
   }
   const capLinesWithRailDepotNetwork =
-    railDepotNetworkGarrisonHallCount > 0
+    assemblyWorksNetworkGarrisonHallCount > 0
       ? [
           ...capLinesWithGarrisonHall,
-          { label: "Rail Depot Network", amount: railDepotNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
+          { label: "Assembly Works Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
         ]
       : capLinesWithGarrisonHall;
   // Starting Capital is always present (§4.3) — unlike the old floor-based

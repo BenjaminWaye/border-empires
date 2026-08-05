@@ -17,6 +17,7 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
+  governorsOfficeFoodSlotWaiver,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
@@ -25,7 +26,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { WATERWORKS_RADIUS, FOUNDRY_RADIUS } from "@border-empires/game-domain";
+import { WATERWORKS_RADIUS, FOUNDRY_RADIUS, GOVERNORS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -212,6 +213,24 @@ const buildDemandContributors = (
   const contributors: DormancyContributor[] = [];
   // Track which economicStructure keys are LIGHT_OUTPOST for waiver identification below.
   const lightOutpostKeys: Record<string, boolean> = {};
+  // Ministry Hall (GOVERNORS_OFFICE, tech-tree redesign): collect this
+  // player's own active Governors Office coordinates first so the town loop
+  // below can check radius membership in O(1) per town (small array — this
+  // is a rare, late-game structure).
+  const governorsOfficeCoords: Array<{ x: number; y: number }> = [];
+  for (const tile of ownedTiles) {
+    if (
+      tile.economicStructure?.ownerId === playerId &&
+      tile.economicStructure.type === "GOVERNORS_OFFICE" &&
+      tile.economicStructure.status === "active" &&
+      typeof tile.x === "number" &&
+      typeof tile.y === "number"
+    ) {
+      governorsOfficeCoords.push({ x: tile.x, y: tile.y });
+    }
+  }
+  const townNearGovernorsOffice = (x: number, y: number): boolean =>
+    governorsOfficeCoords.some((office) => Math.max(Math.abs(office.x - x), Math.abs(office.y - y)) <= GOVERNORS_OFFICE_RADIUS);
   const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
     for (const req of structureSlotRequirements(type)) {
       const key = `${tileKey}:${field}`;
@@ -236,10 +255,15 @@ const buildDemandContributors = (
       addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
+      const baseFoodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      const ministryHallWaiver =
+        typeof tile.x === "number" && typeof tile.y === "number" && townNearGovernorsOffice(tile.x, tile.y)
+          ? governorsOfficeFoodSlotWaiver(tile.town.populationTier)
+          : 0;
       contributors.push({
         key: `${tileKey}:town`,
         resource: "FOOD",
-        count: townFoodSlotDemandForTier(tile.town.populationTier),
+        count: Math.max(0, baseFoodDemand - ministryHallWaiver),
         activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT
       });
     }

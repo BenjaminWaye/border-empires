@@ -248,6 +248,36 @@ export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 // Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
 export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
 
+// --- Tech-tree redesign: new Manpower-branch buildings ---
+// Rail Depot's job narrows to Logistics Guild amplification only (Ancillary
+// Factory/Garrison Hall amplification moved to Assembly Works, below).
+export const LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD = 0.1;
+// Population Bureau monument: +0.1/min manpower regen per Manpower-branch
+// building owned, empire-wide, simple linear count.
+export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = 0.1;
+// Quartermaster's Office: reduces manpower cost of War-branch structures
+// built within this radius. Exact discount left unspecified by the design
+// plan ("first-pass, balancing pass task") — 20% chosen to match the
+// existing radius-effect magnitude used elsewhere (Waterworks, Governor's
+// Office).
+export const QUARTERMASTERS_OFFICE_RADIUS = 20;
+export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.8;
+// Incubation Engine (Granary): instant one-time population burst on build
+// completion.
+export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
+// Census Hall: population bonus per connected city with an active Granary
+// (Incubation Engine) — network-scoped, recomputed live (not a one-time
+// grant), so losing a connection or the neighbor's Granary shrinks it back.
+export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
+// Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
+export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
+// The Iron Levy monument: converts this fraction of currently-banked
+// manpower into an instant one-time army, then freezes empire-wide manpower
+// regen for IRON_LEVY_REGEN_FREEZE_MS.
+export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
+export const IRON_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
+
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 

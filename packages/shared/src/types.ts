@@ -47,19 +47,26 @@ export type EconomicStructureType =
   | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM"
+  | "QUARTERMASTERS_OFFICE"
+  | "LOGISTICS_GUILD"
+  | "ASSEMBLY_WORKS"
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
   | "ASTRAL_DOCK_PART"
+  | "POPULATION_BUREAU_PART"
+  | "IRON_LEVY_PART"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE"
   | "AEGIS_DOME"
-  | "ASTRAL_DOCK";
+  | "ASTRAL_DOCK"
+  | "POPULATION_BUREAU"
+  | "IRON_LEVY";
 // The late-game monument family: each is built in stages (a "*_PART"
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season
 // winner stats).
-export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"] as const;
+export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "IRON_LEVY"] as const;
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";

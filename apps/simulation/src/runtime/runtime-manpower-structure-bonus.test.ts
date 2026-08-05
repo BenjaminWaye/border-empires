@@ -32,7 +32,7 @@ const buildTwoTownNetworkRuntime = () => {
         buildPlayer("player-1", {
           points: 5_000,
           manpower: 10_000,
-          techIds: new Set<string>(["organized-supply"]),
+          techIds: new Set<string>(["organized-supply", "conveyor-networks"]),
           strategicResources: { CRYSTAL: 1_000 }
         })
       ]
@@ -134,7 +134,12 @@ describe("manpower structure bonuses (§4.4)", () => {
     }
   });
 
-  it("a Rail Depot amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
+  // Tech-tree redesign: Rail Depot's job narrowed to Logistics Guild
+  // amplification only — Ancillary Factory (Garrison Hall) network
+  // amplification is now Assembly Works' exclusive job (config.ts's
+  // RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL constant is reused,
+  // just retargeted at Assembly Works).
+  it("an Assembly Works amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -154,20 +159,20 @@ describe("manpower structure bonuses (§4.4)", () => {
       const withGarrisonHallOnly = capSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
-        commandId: "rd-2",
+        commandId: "aw-2",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 2,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "RAIL_DEPOT" })
+        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "ASSEMBLY_WORKS" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("RAIL_DEPOT"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("ASSEMBLY_WORKS"));
       await Promise.resolve();
-      const withRailDepotToo = capSnapshotFor(runtime, "player-1")!;
+      const withAssemblyWorksToo = capSnapshotFor(runtime, "player-1")!;
 
-      expect(withRailDepotToo - withGarrisonHallOnly).toBe(RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL);
+      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL);
     } finally {
       vi.useRealTimers();
     }

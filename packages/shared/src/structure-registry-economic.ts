@@ -45,6 +45,9 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   CUSTOMS_HOUSE: "trade",
   GOVERNORS_OFFICE: "civil-service",
   RADAR_SYSTEM: "radar",
+  QUARTERMASTERS_OFFICE: "field-logistics",
+  LOGISTICS_GUILD: "remade-concordat",
+  ASSEMBLY_WORKS: "conveyor-networks",
 };
 
 // ── Upgrade prerequisites ─────────────────────────────────────────
@@ -59,6 +62,8 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
     case "WORLD_ENGINE": return ["WORLD_ENGINE_PART"];
     case "AEGIS_DOME": return ["AEGIS_DOME_PART"];
     case "ASTRAL_DOCK": return ["ASTRAL_DOCK_PART"];
+    case "POPULATION_BUREAU": return ["POPULATION_BUREAU_PART"];
+    case "IRON_LEVY": return ["IRON_LEVY_PART"];
     default: return undefined;
   }
 }
@@ -174,17 +179,26 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   GOVERNORS_OFFICE: econSpec("GOVERNORS_OFFICE"),
   RADAR_SYSTEM: econSpec("RADAR_SYSTEM"),
 
+  // Manpower branch — new buildings
+  QUARTERMASTERS_OFFICE: econSpec("QUARTERMASTERS_OFFICE"),
+  LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
+  ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
+
   // Wonder parts
   IMPERIAL_EXCHANGE_PART: econSpec("IMPERIAL_EXCHANGE_PART"),
   WORLD_ENGINE_PART: econSpec("WORLD_ENGINE_PART"),
   AEGIS_DOME_PART: econSpec("AEGIS_DOME_PART"),
   ASTRAL_DOCK_PART: econSpec("ASTRAL_DOCK_PART"),
+  POPULATION_BUREAU_PART: econSpec("POPULATION_BUREAU_PART"),
+  IRON_LEVY_PART: econSpec("IRON_LEVY_PART"),
 
   // Completed wonders (require their part as prerequisite)
   IMPERIAL_EXCHANGE: econSpec("IMPERIAL_EXCHANGE"),
   WORLD_ENGINE: econSpec("WORLD_ENGINE"),
   AEGIS_DOME: econSpec("AEGIS_DOME"),
   ASTRAL_DOCK: econSpec("ASTRAL_DOCK"),
+  POPULATION_BUREAU: econSpec("POPULATION_BUREAU"),
+  IRON_LEVY: econSpec("IRON_LEVY"),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
   // §12.1: FOOD cost is already charged as a resource-slot occupation
