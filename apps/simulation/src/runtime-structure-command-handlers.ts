@@ -14,6 +14,7 @@ import {
   structureSlotRequirements,
   LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
   GRANARY_INSTANT_POPULATION_BURST,
+  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
   type SlotStructureType
@@ -63,6 +64,11 @@ export type RuntimeStructureCommandContext = {
   // Same shape, retargeted at Assembly Works (tech-tree redesign): "only one
   // Assembly Works may be built per connected-town network."
   assemblyWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Quartermaster's Office (tech-tree redesign): true when the player has an
+  // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
+  // of (x, y) -- reduces manpower cost for War-branch structures built
+  // there.
+  hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
@@ -407,6 +413,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     manpowerCost = structureBuildManpowerCost(structureType);
+  }
+  // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
+  // War-branch structures (Fort ladder, Siege ladder) built within its
+  // radius. Checked after the base cost is resolved above so it applies to
+  // fort/siege tier upgrades too, not just the first tier.
+  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
+  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
+    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
