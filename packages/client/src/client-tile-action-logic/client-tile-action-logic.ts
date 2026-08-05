@@ -1147,7 +1147,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !state.techIds.includes("masonry")
+      // Normally masonry supersedes the Wooden Fort with the full Fort
+      // upgrade below, but if a fresh Fort can't actually be built right now
+      // (no free IRON slot) keep Wooden Fort visible as the fallback rather
+      // than hiding both options.
+      (!state.techIds.includes("masonry") || !hasFreeResourceSlots(state, "FORT"))
     ) {
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
@@ -1524,7 +1528,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !state.techIds.includes("leatherworking")
+      // Normally leatherworking supersedes the Light Outpost with the full
+      // Siege Outpost upgrade below, but Siege Outpost needs a free SUPPLY
+      // slot (Fur/Wood) while Light Outpost only needs FOOD — if no SUPPLY
+      // is available, keep Light Outpost visible as the fallback rather than
+      // hiding both options.
+      (!state.techIds.includes("leatherworking") || !hasFreeResourceSlots(state, "SIEGE_OUTPOST"))
     ) {
       out.push({
         id: "build_light_outpost" as TileActionDef["id"],

@@ -211,3 +211,68 @@ describe("settle + build — settled-only building with no resource/town/dock su
     expect(action?.detail).toBe(" • settles this tile first");
   });
 });
+
+describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
+  const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
+
+  it("hides build_wooden_fort once Stoneworks is known and a free IRON slot exists (upgrade path is buildable)", () => {
+    const state = richState();
+    state.techIds = ["masonry"];
+    state.resourceSlots.supply.IRON = 1;
+    const tile = settledTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    expect(findAction(actions, "build_wooden_fort")).toBeUndefined();
+    const upgrade = findAction(actions, "build_fortification");
+    expect(upgrade?.label).toBe("Build Fort");
+    expect(upgrade?.disabled).not.toBe(true);
+  });
+
+  it("keeps build_wooden_fort visible when Stoneworks is known but no free IRON slot is available", () => {
+    const state = richState();
+    state.techIds = ["masonry"];
+    state.resourceSlots.supply.IRON = 0;
+    const tile = settledTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const woodenFort = findAction(actions, "build_wooden_fort");
+    expect(woodenFort).toBeDefined();
+    const upgrade = findAction(actions, "build_fortification");
+    expect(upgrade?.disabled).toBe(true);
+    expect(upgrade?.disabledReason).toBe("Need a free IRON slot");
+  });
+
+  it("hides build_light_outpost once Leatherworking is known and a free SUPPLY slot exists (upgrade path is buildable)", () => {
+    const state = richState();
+    state.techIds = ["leatherworking"];
+    state.resourceSlots.supply.SUPPLY = 1;
+    state.resourceSlots.supply.FOOD = 1;
+    const tile = settledTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    expect(findAction(actions, "build_light_outpost")).toBeUndefined();
+    const upgrade = findAction(actions, "build_siege_camp");
+    expect(upgrade?.label).toBe("Build Siege Outpost");
+    expect(upgrade?.disabled).not.toBe(true);
+  });
+
+  it("keeps build_light_outpost visible when Leatherworking is known but no free SUPPLY (Fur/Wood) slot is available", () => {
+    const state = richState();
+    state.techIds = ["leatherworking"];
+    state.resourceSlots.supply.SUPPLY = 0;
+    state.resourceSlots.supply.FOOD = 1;
+    const tile = settledTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const lightOutpost = findAction(actions, "build_light_outpost");
+    expect(lightOutpost).toBeDefined();
+    expect(lightOutpost?.disabled).not.toBe(true);
+    const upgrade = findAction(actions, "build_siege_camp");
+    expect(upgrade?.disabled).toBe(true);
+    expect(upgrade?.disabledReason).toBe("Need a free SUPPLY slot");
+  });
+});
