@@ -205,8 +205,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(ids).toContain("steelworking");
   });
 
-  test("OBSERVATORY requires cartography", () => {
-    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("cartography");
+  test("OBSERVATORY requires crystal-lattices (Aetheric Resonance)", () => {
+    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("crystal-lattices");
   });
 
   test("SIEGE_OUTPOST requires leatherworking", () => {

@@ -200,8 +200,10 @@ export const INITIAL_BARBARIAN_COUNT = 80;
 
 // --- Mustering system (Phase 0) ---
 // Master switch. When false, the game behaves exactly as before.
-export const MUSTER_SYSTEM_ENABLED =
-  process.env.MUSTER_SYSTEM_ENABLED === "true";
+// Muster system is always on — the env-gate has been removed, this is no
+// longer opt-in. Kept as an exported constant (rather than deleting it and
+// its call sites) since dozens of files still branch on it.
+export const MUSTER_SYSTEM_ENABLED = true;
 
 // How much mustered manpower one ordinary attack costs (placeholder).
 // Also used as the fill-ratio reference for the muster flag animation.
@@ -217,7 +219,10 @@ export const MUSTER_BASE_RATE_PER_MIN = 180;
 // Maximum manpower a single muster tile can hold.
 export const MUSTER_TILE_CAP = 150;
 // Max simultaneous muster tiles per player.
-export const MUSTER_MAX_TILES = 5;
+// Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
+// tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as
+// before, now gated behind real unlocks instead of a flat constant.
+export const MUSTER_MAX_TILES = 2;
 // Auto-clear stale musters after this many milliseconds since the flag was set.
 export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 // Multiplier to muster inflow when the tile is inside an outpost depot zone

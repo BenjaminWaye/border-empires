@@ -24,13 +24,15 @@ const economicPlacement: StructureSpec["placement"] = [
 
 export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
+  WATERWORKS: "irrigation",
   CAMP: "leatherworking",
   MINE: "mining",
   MARKET: "trade",
   GRANARY: "pottery",
-  SEED_GRANARY: "seed-granaries",
+  SEED_GRANARY: "pottery",
   BANK: "coinage",
   AIRPORT: "aeronautics",
+  AETHER_TOWER: "plastics",
   FUR_SYNTHESIZER: "workshops",
   ADVANCED_FUR_SYNTHESIZER: "advanced-synthetication",
   IRONWORKS: "alchemy",
