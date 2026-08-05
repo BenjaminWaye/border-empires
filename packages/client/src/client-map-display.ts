@@ -149,7 +149,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Free, once every 24 hours, it can levy 100% of a single chosen rival's gold.";
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a free 15-minute Aegis Lock every 60 minutes.";
-  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 60 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold.";
+  if (kind === "WORLD_ENGINE") return "Unique world monument. Every 10 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
@@ -295,13 +295,13 @@ export const structureInfoForKey = (
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes, free", "Requires nearby Aether Tower power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Aether Tower power"];
     if (key === "RAIL_DEPOT") return ["+300 manpower cap and +0.1 manpower/min for every Garrison Hall in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Aether Tower power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Aether Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 60 minutes, destroying an enemy structure and cutting that town's population by 30%, for 15,000 gold", "Requires nearby Aether Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Aether Tower power"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>
@@ -737,7 +737,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE") {
     return structure({
       title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and fire one Worldbreaker shot every 60 minutes that destroys an enemy structure and cuts that town's population by 30%, for 15,000 gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.",
       glyph: "✸",
       placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts.",
       costBits: ["Free after 3 parts"],
