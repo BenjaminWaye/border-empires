@@ -44,7 +44,7 @@ export type StructureSlotRequirement = {
 // requirements), not inferred.
 export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, StructureSlotRequirement[]>> = {
   // Starter military
-  WOODEN_FORT: [{ resource: "IRON", count: 1 }],
+  WOODEN_FORT: [{ resource: "FOOD", count: 1 }],
   LIGHT_OUTPOST: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1 — basic economic sinks

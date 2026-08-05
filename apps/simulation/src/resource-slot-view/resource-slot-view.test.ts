@@ -238,7 +238,11 @@ describe("resourceSlotDemandForPlayer", () => {
       ],
       "p1"
     );
-    expect(totals.IRON).toBe(2);
+    // The in-progress FORT upgrade draws its own 1 IRON slot; the still-active
+    // Wooden Fort it's replacing draws 1 FOOD slot (not IRON) — both fields
+    // count independently while they transiently coexist mid-upgrade.
+    expect(totals.IRON).toBe(1);
+    expect(totals.FOOD).toBe(1);
   });
 
   it("§6.4: a synthesizer contributes zero demand — it's a slot source, not a consumer", () => {
