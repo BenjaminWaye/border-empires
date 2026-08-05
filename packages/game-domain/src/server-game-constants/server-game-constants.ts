@@ -144,13 +144,16 @@ export const WATERWORKS_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
 export const RADAR_SYSTEM_RADIUS = 30;
 export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17: free activation, takes 100% of chosen target's gold.
-export const WORLD_ENGINE_STRIKE_GOLD_COST = 15_000;
-export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 60 * 60_000;
+export const WORLD_ENGINE_STRIKE_GOLD_COST = 1_000;
+export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 10 * 60_000;
 export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
 export const AEGIS_DOME_PROTECTION_RADIUS = 30;
 export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
-export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 90 * 60_000;
+// Cooldown matches the satellite's own uptime (below) — the launch handler
+// additionally hard-blocks relaunching while a satellite is still aloft
+// (see ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY), so this is belt-and-suspenders.
+export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 // Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
 // no cooldown between charges — a player can burn all 3 back-to-back.

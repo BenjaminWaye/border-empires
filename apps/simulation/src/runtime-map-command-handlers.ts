@@ -453,6 +453,10 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     return;
   }
   const now = context.now();
+  if (context.getAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > now) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "current satellite is still aloft");
+    return;
+  }
   if (context.getAbilityCooldownUntil(actor.id, "astral_dock_launch") > now) {
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
     return;
