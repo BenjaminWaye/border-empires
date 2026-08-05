@@ -32,7 +32,6 @@ import {
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  LIGHT_OUTPOST_VISION_BONUS,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -349,6 +348,7 @@ import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-mus
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
+import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus } from "../runtime-outpost-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -839,6 +839,8 @@ export class SimulationRuntime {
       this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
       // Seed town +1 vision for any player-owned town present at boot.
       seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
+      // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
+      seedOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -894,7 +896,8 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
-      // Populate activeLightOutpostsByOwner index and restore vision bonus at boot.
+      // Populate activeLightOutpostsByOwner index. Vision bonus restoration
+      // at boot is handled by seedOutpostVisionBonus in the first pass above.
       if (
         tile.economicStructure?.ownerId === ownerId &&
         tile.economicStructure.type === "LIGHT_OUTPOST" &&
@@ -903,9 +906,6 @@ export class SimulationRuntime {
         let set = this.activeLightOutpostsByOwner.get(ownerId);
         if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
-        if (LIGHT_OUTPOST_VISION_BONUS > 0) {
-          this.visibilityCoverage.addTileVisionBonus(ownerId, tile.x, tile.y, LIGHT_OUTPOST_VISION_BONUS, undefined, "light-outpost");
-        }
       }
       // Populate musterTilesByOwner index (mustering system).
       if (tile.muster?.ownerId) {
@@ -1578,6 +1578,23 @@ export class SimulationRuntime {
     return summary;
   }
 
+  // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
+  // effect on Light/Siege Outpost vision rings) — sourced from the
+  // active-only outpost indexes rather than a full tile scan; see
+  // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
+  private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
+    const tileKeys = new Set<string>([
+      ...(this.activeLightOutpostsByOwner.get(playerId) ?? []),
+      ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])
+    ]);
+    const tiles: DomainTileState[] = [];
+    for (const tileKey of tileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (tile) tiles.push(tile);
+    }
+    return tiles;
+  }
+
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
     const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
@@ -1959,6 +1976,7 @@ export class SimulationRuntime {
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+    reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3762,6 +3780,7 @@ export class SimulationRuntime {
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
         reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+        reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3788,6 +3807,8 @@ export class SimulationRuntime {
         this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
         // A base-radius change also moves every owned town's +1 reveal ring.
         resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
+        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's ring.
+        resyncPlayerOutpostVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.ownedOutpostTilesForPlayer(playerId));
       },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
@@ -4257,8 +4278,6 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      addStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.applyStructureVisionBonus(ownerId, targetKey, bonusRadius),
-      removeStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.removeStructureVisionBonus(ownerId, targetKey, bonusRadius),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
@@ -4308,24 +4327,6 @@ export class SimulationRuntime {
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
     completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
-  }
-
-  private applyStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
-    const separator = targetKey.indexOf(",");
-    if (separator < 0) return;
-    const x = Number(targetKey.slice(0, separator));
-    const y = Number(targetKey.slice(separator + 1));
-    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks, "light-outpost");
-  }
-
-  private removeStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
-    const separator = targetKey.indexOf(",");
-    if (separator < 0) return;
-    const x = Number(targetKey.slice(0, separator));
-    const y = Number(targetKey.slice(separator + 1));
-    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks, "light-outpost");
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {

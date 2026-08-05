@@ -288,6 +288,28 @@ export const multiplicativeEffectForPlayer = (
   return multiplier;
 };
 
+/**
+ * Extra vision radius for an owned SETTLED town's own +1 reveal ring
+ * (runtime-town-vision.ts), on top of the unconditional +1 every town
+ * already gets. Cartography's townVisionRadiusBonus is the only source
+ * today; unlike visionRadiusBonusForPlayer this doesn't touch the player's
+ * base radius, so it has no effect on plain (non-town) tiles.
+ */
+export const townVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "townVisionRadiusBonus");
+
+/**
+ * Extra vision radius for an owned active Light Outpost or Siege Outpost
+ * (runtime-outpost-vision.ts), stacked on top of Light Outpost's flat
+ * LIGHT_OUTPOST_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
+ * vision bonus of its own. Survey Corps's outpostVisionRadiusBonus is the
+ * only source today.
+ */
+export const outpostVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "outpostVisionRadiusBonus");
+
 export const effectiveVisionRadiusForPlayer = (
   player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus">
 ): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0));

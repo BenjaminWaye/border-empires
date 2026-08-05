@@ -137,6 +137,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   }
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
+  if (key === "townVisionRadiusBonus" && typeof value === "number") return `Town vision radius +${value}`;
+  if (key === "outpostVisionRadiusBonus" && typeof value === "number") return `Light/Siege Outpost vision radius +${value}`;
   if (key === "observatoryRangeBonus" && typeof value === "number") return `Observatory range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
