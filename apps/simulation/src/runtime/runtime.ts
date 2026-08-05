@@ -4329,7 +4329,6 @@ export class SimulationRuntime {
     completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
   }
 
-
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
     handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command);
   }
