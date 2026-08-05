@@ -97,15 +97,19 @@ describe("simulation runtime — incremental visibility coverage", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        // A town, so the pre-existing unconditional +1 town ring (base+1) is
+        // the baseline cartography's townVisionRadiusBonus then extends.
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "TOWN" } }],
         activeLocks: []
       }
     });
-    // Base vision radius is 1 — a delta 2 tiles out should start invisible.
-    const delta = { x: 12, y: 10, terrain: "LAND" as const };
+    // Base vision radius is 1, so the town's unconditional +1 ring reaches 2
+    // tiles out — a delta 3 tiles out should start invisible.
+    const delta = { x: 13, y: 10, terrain: "LAND" as const };
     expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([]);
 
-    // "cartography" grants visionRadiusBonus: 1, has no prereqs.
+    // "cartography" grants townVisionRadiusBonus: 1 (a further +1 on top of
+    // the town's own +1 ring), has no prereqs.
     runtime.submitCommand({
       commandId: "choose-tech-vision-1",
       sessionId: "session-1",

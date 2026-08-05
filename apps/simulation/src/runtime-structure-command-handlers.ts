@@ -12,7 +12,7 @@ import {
   structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
-  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, LIGHT_OUTPOST_VISION_BONUS, SYNTHESIZER_STRUCTURE_TYPES,
+  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
   type BuildableStructureType,
   type EconomicStructureType,
   type SlotStructureType
@@ -63,8 +63,6 @@ export type RuntimeStructureCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
-  addStructureVisionBonus: (ownerId: string, targetKey: string, bonusRadius: number) => void;
-  removeStructureVisionBonus: (ownerId: string, targetKey: string, bonusRadius: number) => void;
   // §20/§16: durable per-player log entry, used here for monument-claim/
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
@@ -495,6 +493,8 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
-  if (structureType === "LIGHT_OUTPOST" && LIGHT_OUTPOST_VISION_BONUS > 0) context.addStructureVisionBonus(ownerId, targetKey, LIGHT_OUTPOST_VISION_BONUS);
+  // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
+  // is applied by reconcileOutpostVisionBonus via the replaceTileState call
+  // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
 }

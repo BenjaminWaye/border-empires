@@ -56,7 +56,7 @@
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockObservatory": true,
-        "visionRadiusBonus": 1
+        "townVisionRadiusBonus": 1
       }
     },
     {
@@ -181,8 +181,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockAetherLance": true,
-        "visionRadiusBonus": 1
+        "unlockAetherLance": true
       }
     },
     {
@@ -289,7 +288,7 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSurveySweep": true,
-        "visionRadiusBonus": 1
+        "outpostVisionRadiusBonus": 1
       }
     },
     {
@@ -406,7 +405,6 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockRevealEmpire": true,
-        "visionRadiusBonus": 1,
         "observatoryRangeBonus": 5
       }
     },
@@ -586,7 +584,6 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "visionRadiusBonus": 1,
         "observatoryRangeBonus": 5
       }
     },
@@ -682,8 +679,7 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockRadarSystem": true,
-        "unlockStormfront": true,
-        "visionRadiusBonus": 1
+        "unlockStormfront": true
       }
     },
     {
