@@ -19,9 +19,12 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 43 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 35 economic (incl. WOODEN_FORT) = 43
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(43);
+test("STRUCTURE_REGISTRY covers exactly 50 structure types", () => {
+  // 3 forts + 1 observatory + 4 outposts + 42 economic (incl. WOODEN_FORT) = 50
+  // (tech-tree redesign added 7: QUARTERMASTERS_OFFICE, LOGISTICS_GUILD,
+  // ASSEMBLY_WORKS, POPULATION_BUREAU_PART, POPULATION_BUREAU,
+  // IRON_LEVY_PART, IRON_LEVY)
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(50);
 });
 
 test("all registered types are unique", () => {
@@ -335,6 +338,9 @@ describe("upkeep parity", () => {
     "AIRPORT", "OBSERVATORY",
     "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
+    "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
+    "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
+    "IRON_LEVY_PART", "IRON_LEVY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

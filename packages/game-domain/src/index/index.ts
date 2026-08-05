@@ -180,6 +180,7 @@ export type DomainTileState = {
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
+            | "censusHallAppliedBonus"
           >
         >)
     | undefined;

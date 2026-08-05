@@ -106,9 +106,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockExchangeHouse":
         out.add("EXCHANGE_HOUSE");
         break;
-      case "unlockSkyFoundryUpgrade":
-        out.add("ADVANCED_FOUNDRY");
-        break;
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");
         break;
@@ -143,8 +140,22 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockRailDepot":
         out.add("RAIL_DEPOT");
         break;
-      case "unlockWeatherEngine":
-        out.add("WEATHER_ENGINE");
+      case "unlockQuartermastersOffice":
+        out.add("QUARTERMASTERS_OFFICE");
+        break;
+      case "unlockLogisticsGuild":
+        out.add("LOGISTICS_GUILD");
+        break;
+      case "unlockAssemblyWorks":
+        out.add("ASSEMBLY_WORKS");
+        break;
+      case "unlockPopulationBureau":
+        out.add("POPULATION_BUREAU_PART");
+        out.add("POPULATION_BUREAU");
+        break;
+      case "unlockIronLevy":
+        out.add("IRON_LEVY_PART");
+        out.add("IRON_LEVY");
         break;
       case "unlockSiegeOutposts":
         out.add("SIEGE_OUTPOST");

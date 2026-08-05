@@ -7,6 +7,8 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
   appendPlayerEventLogEntry,
+  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
+  QUARTERMASTERS_OFFICE_RADIUS,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -285,6 +287,7 @@ import {
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
+import { handleIronLevyMusterCommand as handleIronLevyMusterCommandImpl, IRON_LEVY_REGEN_FREEZE_KEY } from "../runtime-iron-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -1214,7 +1217,53 @@ export class SimulationRuntime {
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
     }
+    this.applyCensusHallPopulationBonuses();
     return result;
+  }
+
+  // Census Hall (tech-tree redesign): +20,000 population (and cap) per
+  // connected city with an active Incubation Engine (Granary) --
+  // network-scoped, recomputed every tick rather than granted once, so
+  // losing a connection or a neighbor's Granary shrinks the bonus back down.
+  // Mirrors the Assembly Works/Rail Depot "network scan" pattern rather than
+  // a simple empire-wide tally.
+  private applyCensusHallPopulationBonuses(): void {
+    for (const [ownerId, censusHallKeys] of this.censusHallTilesByOwner) {
+      if (censusHallKeys.size === 0) continue;
+      for (const censusHallKey of censusHallKeys) {
+        const censusHallTile = this.tiles.get(censusHallKey);
+        if (!censusHallTile || censusHallTile.economicStructure?.status !== "active") continue;
+        const townKey = this.assignedTownKeyForSupportTile(ownerId, censusHallTile.x, censusHallTile.y);
+        if (!townKey) continue;
+        const townTile = this.tiles.get(townKey);
+        if (!townTile?.town || townTile.ownerId !== ownerId) continue;
+        const connectedGranaryCount = this.censusHallConnectedGranaryBonusCountForPlayer(ownerId, townKey);
+        const desiredBonus = connectedGranaryCount * CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
+        const appliedBonus = townTile.town.censusHallAppliedBonus ?? 0;
+        if (desiredBonus === appliedBonus) continue;
+        const delta = desiredBonus - appliedBonus;
+        const updatedTownTile: DomainTileState = {
+          ...townTile,
+          town: {
+            ...townTile.town,
+            maxPopulation: Math.max(0, (townTile.town.maxPopulation ?? 0) + delta),
+            // A growing bonus is an instant grant (matches Incubation
+            // Engine's "burst" flavor); a shrinking bonus only lowers the
+            // cap -- population naturally sitting above the new cap just
+            // stops growing further, it isn't forcibly clawed back.
+            population: delta > 0 ? (townTile.town.population ?? 0) + delta : (townTile.town.population ?? 0),
+            censusHallAppliedBonus: desiredBonus
+          }
+        };
+        this.replaceTileState(townKey, updatedTownTile);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `census-hall-bonus:${ownerId}:${this.now()}`,
+          playerId: ownerId,
+          tileDeltas: [this.tileDeltaFromState(updatedTownTile)]
+        });
+      }
+    }
   }
 
   private shardRainContext() {
@@ -1658,6 +1707,9 @@ export class SimulationRuntime {
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
+    // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
+    // regen freeze after triggering the muster ability.
+    if (this.getAbilityCooldownUntil(player.id, IRON_LEVY_REGEN_FREEZE_KEY) > this.now()) return 0;
     const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
       this.cachedManpowerStructureBonusForPlayer(player);
     return playerManpowerRegenPerMinuteFromSummary(
@@ -3054,6 +3106,23 @@ export class SimulationRuntime {
     return assemblyWorksAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
   }
 
+  // Quartermaster's Office (tech-tree redesign): true when the player owns
+  // an active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS
+  // (Chebyshev) tiles of (x, y). A plain radius scan over the player's own
+  // (rare, late-game) Quartermaster's Offices, same cost tradeoff as
+  // monumentClaimOwnerId's full scan -- this only runs on a War-branch
+  // structure build/upgrade command, not every tick.
+  private hasNearbyQuartermastersOfficeForPlayer(playerId: string, x: number, y: number): boolean {
+    const keys = this.quartermastersOfficeTilesByOwner.get(playerId);
+    if (!keys || keys.size === 0) return false;
+    for (const key of keys) {
+      const tile = this.tiles.get(key);
+      if (!tile || tile.economicStructure?.status !== "active") continue;
+      if (Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= QUARTERMASTERS_OFFICE_RADIUS) return true;
+    }
+    return false;
+  }
+
   // Census Hall (tech-tree redesign): connected-network Incubation Engine
   // (Granary) count, for the +20,000 population per connected city bonus.
   private censusHallConnectedGranaryBonusCountForPlayer(playerId: string, townKey: string): number {
@@ -4412,6 +4481,7 @@ export class SimulationRuntime {
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
       railDepotAlreadyInNetwork: (playerId, townKey) => this.railDepotAlreadyInNetworkForPlayer(playerId, townKey),
       assemblyWorksAlreadyInNetwork: (playerId, townKey) => this.assemblyWorksAlreadyInNetworkForPlayer(playerId, townKey),
+      hasNearbyQuartermastersOffice: (playerId, x, y) => this.hasNearbyQuartermastersOfficeForPlayer(playerId, x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
@@ -4744,6 +4814,7 @@ export class SimulationRuntime {
       handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
       handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
+      handleIronLevyMusterCommand: (command) => handleIronLevyMusterCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),

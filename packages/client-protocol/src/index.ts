@@ -36,6 +36,7 @@ export const DurableCommandTypeSchema = z.enum([
   "WORLD_ENGINE_STRIKE",
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
+  "IRON_LEVY_MUSTER",
   "ACTIVATE_IMPERIAL_WARD",
   "COLLECT_SHARD",
   "UPGRADE_TOWN_TIER",

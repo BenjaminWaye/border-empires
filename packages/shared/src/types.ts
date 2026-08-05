@@ -281,6 +281,12 @@ export interface Tile {
       goldCost: number;
       available: boolean;
     };
+    // Census Hall (tech-tree redesign): the population/cap bonus currently
+    // granted by this town's own Census Hall (+20,000 per connected city
+    // with an active Incubation Engine/Granary) -- tracked so a later drop
+    // in connected Granaries can claw the bonus back down rather than only
+    // ever growing it.
+    censusHallAppliedBonus?: number;
   };
   yield?: {
     gold?: number;
