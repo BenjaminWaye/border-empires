@@ -1,4 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   FORT_TIER_LADDER,
   MUSTER_MAX_TILES,
@@ -164,7 +165,10 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
-    const musterLimit = MUSTER_MAX_TILES + (actor.wonderMusterExtraFlag ?? 0);
+    const musterLimit =
+      MUSTER_MAX_TILES +
+      additiveEffectForPlayer(actor, "musterMaxTilesAdd") +
+      (actor.wonderMusterExtraFlag ?? 0);
     const activeMusters = context.musterTilesByOwner.get(command.playerId)?.size ?? 0;
     if (activeMusters >= musterLimit) {
       rejectCommand(context, command, "MUSTER_LIMIT", `max ${musterLimit} muster tiles per player`);
