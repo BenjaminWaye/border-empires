@@ -31,7 +31,10 @@ describe("simulation service fog subscribe regression", () => {
     expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility,');
     expect(file).toContain('...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})');
     // Snapshot is cached when not full-vis OR when explicitly requested (season-end warming).
-    expect(file.match(/if \(!useFullVisibility \|\| options\?\.cacheSnapshot === true\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(1);
+    // builtAtRevision stamps the cache entry with the world revision the export
+    // started from, so a tile batch landing mid-build leaves it stale rather
+    // than passing as current — see player-snapshot-cache.
+    expect(file.match(/if \(!useFullVisibility \|\| options\?\.cacheSnapshot === true\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot, builtAtRevision\);/g)).toHaveLength(1);
   });
 
   it("builds full-visibility snapshots inline and only routes fog-of-war logins through the worker pool", () => {
