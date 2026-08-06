@@ -134,6 +134,14 @@ describe("resourceSlotSupplyForPlayer", () => {
     ]);
     expect(totals.SUPPLY).toBe(1);
   });
+
+  it("domainGrantedSupply adds extra slots on top of tile-based supply", () => {
+    const totals = resourceSlotSupplyForPlayer([], new Set(), new Set(), { IRON: 1, CRYSTAL: 1 });
+    expect(totals.IRON).toBe(1);
+    expect(totals.CRYSTAL).toBe(1);
+    expect(totals.SUPPLY).toBe(0);
+    expect(totals.FOOD).toBe(0);
+  });
 });
 
 describe("resourceSlotDemandForPlayer", () => {

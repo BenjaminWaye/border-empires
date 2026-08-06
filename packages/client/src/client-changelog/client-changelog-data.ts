@@ -327,4 +327,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Caravanary now enables the connected-town road network itself (towns need at least one built to share the gold bonus) instead of just adding +25% on top of an already-existing bonus."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "clockwork-stipend-slot-grant",
+    title: "Clockwork Stipend now grants a free logistics slot instead of a steady resource trickle",
+    why: "The empire no longer earns passive per-minute resource income — iron, supply, and crystal are now slot-based. So Clockwork Stipend's old 0.2/min (or 0.1/min crystal) trickle no longer had a place in the economy. It now grants one free logistics slot for the resource you choose, effectively making that resource exempt from land-use pressure.",
+    changes: [
+      "Choosing Clockwork Stipend now locks in one free logistics slot for iron, supply, or crystal instead of a per-minute trickle.",
+      "The free slot is purely additive — it counts on top of your tile-based supply and applies everywhere slots are read (live economy, tile detail, and reconnect snapshots).",
+      "Your choice is still locked forever the moment you confirm the domain, same as before."
+    ]
+  },
+  // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
+  // window test only keeps entries within the latest 6 days of the newest
+  // entry's createdAt -- see git history for the full changelog.
 ];

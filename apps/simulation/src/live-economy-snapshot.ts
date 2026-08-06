@@ -1,7 +1,7 @@
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
-import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import {
   type RuntimeState,
@@ -156,20 +156,6 @@ export const buildLivePlayerEconomySnapshot = (
     }
   }
 
-  const trickle = player
-    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
-    : undefined;
-  if (trickle && trickle.ratePerMinute > 0) {
-    const target =
-      trickle.resource === "IRON" ? ironSources :
-      trickle.resource === "SUPPLY" ? supplySources :
-      crystalSources;
-    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
-    if (trickle.resource === "IRON") strategicProductionPerMinute.IRON += trickle.ratePerMinute;
-    else if (trickle.resource === "SUPPLY") strategicProductionPerMinute.SUPPLY += trickle.ratePerMinute;
-    else if (trickle.resource === "CRYSTAL") strategicProductionPerMinute.CRYSTAL += trickle.ratePerMinute;
-  }
-
   return buildEconomyResult({
     player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,
@@ -231,8 +217,9 @@ const resourceSlotsForPlayer = (
   const waivers = player
     ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
     : undefined;
+  const domainGranted = player ? domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
   return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys),
+    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys, domainGranted),
     demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
   };
 };

@@ -91,7 +91,8 @@ import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-stor
 import {
   additiveEffectForPlayer,
   effectiveVisionRadiusForPlayer,
-  multiplicativeEffectForPlayer
+  multiplicativeEffectForPlayer,
+  domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import {
@@ -2871,8 +2872,8 @@ export class SimulationRuntime {
 
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
-      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
+      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.players.get(playerId);
+      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
