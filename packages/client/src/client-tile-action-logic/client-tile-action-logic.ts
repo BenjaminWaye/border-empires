@@ -38,6 +38,7 @@ import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "../client-map-display.js";
+import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
 import { settleDurationMsForState, type DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -181,29 +182,7 @@ export type TileActionLogicDeps = {
   structureCostText: (structureType: BuildableStructureId, resourceOverride?: string) => string;
   supportedOwnedTownsForTile: (tile: Tile) => Tile[];
   supportedOwnedDocksForTile: (tile: Tile) => Tile[];
-  townHasSupportStructure: (
-    townTile: Tile | undefined,
-    structureType:
-      | "MARKET"
-      | "GRANARY"
-      | "CENSUS_HALL"
-      | "BANK"
-      | "CLEARING_HOUSE"
-      | "CARAVANARY"
-      | "FUR_SYNTHESIZER"
-      | "IRONWORKS"
-      | "CRYSTAL_SYNTHESIZER"
-      | "EXCHANGE_HOUSE"
-      | "RAIL_DEPOT"
-      | "IMPERIAL_EXCHANGE_PART"
-      | "WORLD_ENGINE_PART"
-      | "AEGIS_DOME_PART"
-      | "ASTRAL_DOCK_PART"
-      | "POPULATION_BUREAU_PART"
-      | "IRON_LEVY_PART"
-      | "ASSEMBLY_WORKS"
-      | "LOGISTICS_GUILD"
-  ) => boolean;
+  townHasSupportStructure: (townTile: Tile | undefined, structureType: SupportTownStructureKey) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
   pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
   ownerSpawnShieldActive: (ownerId: string) => boolean;
@@ -530,7 +509,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             removeCooldown <= 0 &&
             state.gold >= 8000,
           !hasTerrainShapingCapability(state)
-            ? "Requires Aether Moorings"
+            ? "Requires Terrain Shaping"
             : observatoryProtection
               ? "Blocked by observatory field"
               : !inObsRange
@@ -562,7 +541,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           createCooldown <= 0 &&
           state.gold >= 8000,
         !hasTerrainShapingCapability(state)
-          ? "Requires Aether Moorings"
+          ? "Requires Harbor Engineering"
           : observatoryProtection
             ? "Blocked by observatory field"
             : !inObsRange
@@ -595,7 +574,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       state.gold >= 6000 &&
       (state.strategicResources.CRYSTAL ?? 0) >= 120;
     const reason = !hasRetortRecastingCapability(state)
-      ? "Requires Grand Synthesis"
+      ? "Requires Aether-Infused Synthesis"
       : !inObservatoryRange
         ? "Must be within observatory range"
       : observatoryProtection
@@ -647,7 +626,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       economicStructureType === "ASTRAL_DOCK_PART";
 
     // Aether Purge (wire command remains AETHER_LANCE for compatibility).
-    if (state.techIds.includes("signal-fires")) {
+    if (state.techIds.includes("crystal-lattices")) {
       const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
       const lanceCost = 3000;
       const reason =
@@ -819,7 +798,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         !reachable
           ? "Must touch your territory"
           : !state.techIds.includes("industrial-extraction")
-            ? "Requires Industrial Extraction"
+            ? "Requires Steam-Driven Extraction"
             : tile.resource || tile.town || tile.dockId
               ? "Needs empty land"
               : state.gold < deps.structureGoldCost("FOUNDRY")
@@ -864,7 +843,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(
           state.techIds.includes("surveying") && cooldown <= 0,
           !state.techIds.includes("surveying")
-            ? "Requires Surveying"
+            ? "Requires Survey Sweep"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "",
@@ -1193,7 +1172,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               "FORT",
               hasTech && hasFreeSlots && canUseTile,
               !hasTech
-                ? "Requires Stoneworks"
+                ? "Requires Ironclad Masonry"
                 : !canUseTile
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant) ?? "Unavailable",
@@ -1207,7 +1186,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }
     }
     if (buildShowsOnTile("OBSERVATORY", tile, supportedTowns.length, supportedDocks.length) && !tile.observatory) {
-      const hasTech = state.techIds.includes("cartography");
+      const hasTech = state.techIds.includes("crystal-lattices");
       const hasFreeSlots = hasFreeResourceSlots(state, "OBSERVATORY");
       out.push({
         id: "build_observatory",
@@ -1218,7 +1197,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             "OBSERVATORY",
             hasTech && hasFreeSlots && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
             !hasTech
-              ? "Requires Cartography"
+              ? "Requires Aetheric Resonance"
               : tile.fort || tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
@@ -1447,7 +1426,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               "GOVERNORS_OFFICE",
               state.techIds.includes("civil-service") && hasFreeResourceSlots(state, "GOVERNORS_OFFICE") && !tile.siegeOutpost && !tile.observatory,
               !state.techIds.includes("civil-service")
-                ? "Requires Civil Service"
+                ? "Requires Bureaucratic Reform"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "GOVERNORS_OFFICE") ?? "Unavailable",
@@ -1507,14 +1486,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       if (buildShowsOnTile("GARRISON_HALL", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_garrison_hall",
-          label: "Build Garrison Hall",
+          label: "Build Ancillary Factory",
           detail: deps.buildDetailTextForAction("build_garrison_hall", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "GARRISON_HALL",
               state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "GARRISON_HALL") && !tile.siegeOutpost && !tile.observatory,
               !state.techIds.includes("organized-supply")
-                ? "Requires Organized Supply"
+                ? "Requires Supply Directorate"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
@@ -1596,7 +1575,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               "SIEGE_OUTPOST",
               hasTech && hasFreeSlots && canUseTile,
               !hasTech
-                ? "Requires Leatherworking"
+                ? "Requires Tanner's Craft"
                 : !canUseTile
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
@@ -1621,7 +1600,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("agriculture")
-                ? "Requires Agriculture"
+                ? "Requires Agrarian Works"
                 : missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable",
             tile.resource === "FARM"
               ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +18 food cap`
@@ -1644,7 +1623,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
-                ? "Requires Leatherworking"
+                ? "Requires Tanner's Craft"
                 : missingResourceSlotReason(state, "CAMP") ?? "Unavailable",
             `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap`
           ),
@@ -1666,7 +1645,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("mining")
-                ? "Requires Mining"
+                ? "Requires Deep Shaft Mining"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
             `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap`
           ),
@@ -1716,7 +1695,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
-                  ? "Requires Trade"
+                  ? "Requires Merchant Charters"
                   : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
             `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
           ),
@@ -1737,7 +1716,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasGranary
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
-                  ? "Requires Pottery"
+                  ? "Requires Kiln Craft"
                   : missingResourceSlotReason(state, "GRANARY") ?? "Unavailable",
             `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`
           ),
@@ -1758,7 +1737,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasCensusHall
                 ? "Nearby town already has Census Hall"
                 : !state.techIds.includes("census-records")
-                  ? "Requires Census Records"
+                  ? "Requires Census Bureau"
                   : missingResourceSlotReason(state, "CENSUS_HALL") ?? "Unavailable",
             `${deps.structureCostText("CENSUS_HALL")} • ${Math.round(economicStructureBuildMs("CENSUS_HALL") / 60000)}m • +25% town growth`
           ),
@@ -1779,7 +1758,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
-                  ? "Requires Coinage"
+                  ? "Requires Minting Works"
                   : missingResourceSlotReason(state, "BANK") ?? "Unavailable",
             `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`
           ),
@@ -1794,14 +1773,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "CLEARING_HOUSE",
-            !supportPlacementBlocked && !townHasClearingHouse && state.techIds.includes("banking") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
+            !supportPlacementBlocked && !townHasClearingHouse && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
-                : !state.techIds.includes("banking")
-                  ? "Requires Banking"
-                  : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
+                : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
             `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets and Banks`
           ),
           slots,
@@ -1821,7 +1798,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasCaravanary
                 ? "Nearby town already has Caravanary"
                 : !state.techIds.includes("ledger-keeping")
-                  ? "Requires Ledger Keeping"
+                  ? "Requires Double-Entry Ledgers"
                   : missingResourceSlotReason(state, "CARAVANARY") ?? "Unavailable",
             `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus`
           ),
@@ -1842,7 +1819,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasFurSynth
                 ? "Nearby town already has Fur Synthesizer"
                 : !state.techIds.includes("workshops")
-                  ? "Requires Workshops"
+                  ? "Requires Artisan Workshops"
                   : "Unavailable",
             `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 30 gold/day`
           ),
@@ -1863,7 +1840,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasIronworks
                 ? "Nearby town already has Ironworks"
                 : !state.techIds.includes("alchemy")
-                  ? "Requires Alchemy"
+                  ? "Requires Alchemical Forges"
                   : "Unavailable",
             `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 30 gold/day`
           ),
@@ -1884,7 +1861,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasCrystalSynth
                 ? "Nearby town already has Aether Condenser"
                 : !state.techIds.includes("crystal-lattices")
-                  ? "Requires Crystal Lattices"
+                  ? "Requires Aetheric Resonance"
                   : "Unavailable",
             `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`
           ),
@@ -1932,7 +1909,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasRailDepot
                 ? "Nearby town already has Rail Depot"
                 : !state.techIds.includes("global-trade-networks")
-                  ? "Requires Rail Networks"
+                  ? "Requires Rail & Wire Networks"
                   : (missingResourceSlotReason(state, "RAIL_DEPOT") ?? "Unavailable"),
             `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`
           ),
@@ -2177,7 +2154,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("harborcraft")
-                ? "Requires Aether Moorings"
+                ? "Requires Harbor Engineering"
                 : (missingResourceSlotReason(state, "CUSTOMS_HOUSE") ?? "Unavailable"),
             `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 gold/day per connected dock`
           ),
@@ -2304,7 +2281,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: revealActive ? "Cancel Reveal Empire" : "Reveal Empire",
       ...tileActionAvailability(
         revealActive || (hasCapability && hasCapacity),
-        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Beacon Towers" : !hasCapacity ? "Reveal capacity full" : "",
+        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Beacon Network" : !hasCapacity ? "Reveal capacity full" : "",
         revealActive ? "Cancel current reveal" : "Free • toggle, no cooldown"
       )
     });
@@ -2318,7 +2295,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           !revealActive &&
           revealStatsCooldown <= 0,
         !hasRevealCapability(state)
-          ? "Requires Logistics"
+          ? "Requires Beacon Network"
           : revealActive
             ? "Cancel reveal first"
             : revealStatsCooldown > 0
@@ -2338,7 +2315,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSiphonCapability(state)
-          ? "Requires Logistics"
+          ? "Requires Covert Logistics"
           : observatoryProtection
             ? "Blocked by observatory field"
             : tile.sabotage

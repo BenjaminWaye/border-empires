@@ -61,15 +61,15 @@ describe("menuOverviewForTile — §14.2 dormant structure indicator", () => {
   });
 
   it("names both resources for a structure dormant on more than one", () => {
-    const garrisonHallTile: Tile = {
+    const bankTile: Tile = {
       x: 6,
       y: 6,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "GARRISON_HALL", status: "active" }
+      economicStructure: { ownerId: "me", type: "BANK", status: "active" }
     };
-    const lines = menuOverviewForTile(garrisonHallTile, {
+    const lines = menuOverviewForTile(bankTile, {
       ...baseDeps,
       dormantResourcesForTile: () => ["FOOD", "CRYSTAL"]
     });

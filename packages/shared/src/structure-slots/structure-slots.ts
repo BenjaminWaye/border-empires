@@ -37,11 +37,13 @@ export type StructureSlotRequirement = {
 // One known documentation quirk, preserved intentionally rather than
 // "corrected" by guessing: CUSTOMS_HOUSE lists a 60-CRYSTAL build cost in
 // structure-costs.ts but §12's own slot-requirement column for it says only
-// "1 FOOD slot" (no CRYSTAL slot), unlike GARRISON_HALL/BANK/FOUNDRY/
-// RAIL_DEPOT/RADAR_SYSTEM/EXCHANGE_HOUSE/AETHER_TOWER, which the plan's
-// "Tier 3 crystal fix" explicitly gives a CRYSTAL slot on top of FOOD. Taken
-// at face value (the plan's table is the source of truth for slot
-// requirements), not inferred.
+// "1 FOOD slot" (no CRYSTAL slot), unlike BANK/FOUNDRY/RAIL_DEPOT/
+// RADAR_SYSTEM/EXCHANGE_HOUSE/AETHER_TOWER, which the plan's "Tier 3 crystal
+// fix" explicitly gives a CRYSTAL slot on top of FOOD. Taken at face value
+// (the plan's table is the source of truth for slot requirements), not
+// inferred. GARRISON_HALL (Ancillary Factory) originally had this same
+// CRYSTAL slot too, but it was removed per a later tech-tree redesign
+// decision — CRYSTAL doesn't fit a Manpower-branch building's theme.
 export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, StructureSlotRequirement[]>> = {
   // Starter military
   WOODEN_FORT: [{ resource: "FOOD", count: 1 }],
@@ -68,7 +70,9 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   FUR_SYNTHESIZER: [{ resource: "SUPPLY", count: 1 }],
   IRONWORKS: [{ resource: "IRON", count: 1 }],
   CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
-  GARRISON_HALL: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  // CRYSTAL slot removed per user decision (tech-tree redesign) — Ancillary
+  // Factory is a Manpower-branch building, CRYSTAL doesn't fit its theme.
+  GARRISON_HALL: [{ resource: "FOOD", count: 1 }],
   GOVERNORS_OFFICE: [{ resource: "FOOD", count: 1 }],
   CARAVANARY: [{ resource: "FOOD", count: 1 }],
   AIRPORT: [{ resource: "CRYSTAL", count: 1 }],

@@ -14,13 +14,13 @@ export type ManpowerStructureKind =
   | "ASSEMBLY_WORKS"
   | "POPULATION_BUREAU"
   | "IRON_LEVY"
-  | "ANCILLARY_FACTORY"
-  | "INCUBATION_ENGINE"
-  | "AMBARIC_TOWER";
+  | "GARRISON_HALL"
+  | "GRANARY"
+  | "AETHER_TOWER";
 
 export const MANPOWER_STRUCTURE_KINDS: ReadonlySet<ManpowerStructureKind> = new Set([
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU",
-  "IRON_LEVY", "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER"
+  "IRON_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"
 ]);
 
 export type ManpowerStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -441,9 +441,9 @@ export const registerManpowerStructures = (
       ASSEMBLY_WORKS: addAssemblyWorks,
       POPULATION_BUREAU: addPopulationBureau,
       IRON_LEVY: addIronLevy,
-      ANCILLARY_FACTORY: addAncillaryFactory,
-      INCUBATION_ENGINE: addIncubationEngine,
-      AMBARIC_TOWER: addAmbaricTower
+      GARRISON_HALL: addAncillaryFactory,
+      GRANARY: addIncubationEngine,
+      AETHER_TOWER: addAmbaricTower
     }
   };
 };

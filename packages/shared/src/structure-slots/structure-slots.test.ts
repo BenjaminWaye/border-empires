@@ -37,10 +37,9 @@ describe("structureSlotRequirements", () => {
     }
   });
 
-  it("gives Garrison Hall FOOD + CRYSTAL (advanced-tier gate, §4.4/§12)", () => {
+  it("gives Garrison Hall (Ancillary Factory) just FOOD — CRYSTAL slot removed per tech-tree redesign", () => {
     expect(structureSlotRequirements("GARRISON_HALL")).toEqual([
-      { resource: "FOOD", count: 1 },
-      { resource: "CRYSTAL", count: 1 }
+      { resource: "FOOD", count: 1 }
     ]);
   });
 

@@ -3,7 +3,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 
 import { collectLinkedDockRevealKeysForOwners, type DockRouteDefinition } from "./dock-network/dock-network.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { hasRevealedResourceForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export type VisibilityAuditSample = {
   playerId: string;
@@ -96,7 +96,13 @@ export interface TileDeltaVisibilityFilterOptions {
 }
 
 export const filterTileDeltasForPlayer = <
-  TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }
+  TDelta extends {
+    x: number;
+    y: number;
+    terrain?: Terrain | undefined;
+    ownerId?: string | undefined;
+    resource?: string | undefined;
+  }
 >(
   deps: TileDeltaVisibilityFilterDeps,
   tileDeltas: readonly TDelta[],
@@ -279,6 +285,10 @@ export const filterTileDeltasForPlayer = <
         reasons,
         redacted: false
       });
+    }
+    if (delta.resource && !hasRevealedResourceForPlayer(primaryPlayer, delta.resource)) {
+      filtered.push({ ...delta, resource: undefined });
+      continue;
     }
     filtered.push(delta);
   }

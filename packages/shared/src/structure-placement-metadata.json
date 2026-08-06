@@ -153,9 +153,9 @@
     "sortGroup": "support"
   },
   "GARRISON_HALL": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
   },
   "CUSTOMS_HOUSE": {
     "showOn": ["dock"],
@@ -178,9 +178,9 @@
     "sortGroup": "general"
   },
   "QUARTERMASTERS_OFFICE": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
   },
   "LOGISTICS_GUILD": {
     "showOn": ["town", "support"],
