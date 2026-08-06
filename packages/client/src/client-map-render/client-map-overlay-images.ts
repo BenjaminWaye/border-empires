@@ -54,7 +54,7 @@ export const structureOverlayImages = {
   CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
   FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
   EXCHANGE_HOUSE: loadOverlayImage("exchange-house-overlay.svg"),
-  GARRISON_HALL: loadOverlayImage("garrison-hall-overlay.svg"),
+  GARRISON_HALL: loadOverlayImage("ancillary-factory-overlay.svg"),
   CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
   RAIL_DEPOT: loadOverlayImage("rail-depot-overlay.svg"),
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),

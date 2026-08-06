@@ -376,7 +376,7 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
+    if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/radar-system-overlay.svg";
@@ -718,7 +718,7 @@ export const structureInfoForKey = (
   if (type === "GARRISON_HALL") {
     return structure({
       title: "Ancillary Factory",
-      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network.",
+      detail: "Ancillary Factories increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

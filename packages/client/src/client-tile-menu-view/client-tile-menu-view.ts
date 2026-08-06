@@ -120,7 +120,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_airport") return "Build a Sky Dock on empty settled land. Bombard enemy tiles within 30 tiles for crystal.";
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
-    return `Build on this support tile for ${supportedTownLabel}. Boosts its connected-town income bonus by 25%.`;
+    return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
   }
   if (actionId === "build_fur_synthesizer") return "Provides 1 Supply slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Supply tile.";
   if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Supply slot.";
@@ -134,7 +134,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1440 gold / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts manpower regen and speeds up outpost muster within 50 tiles. Also settles the nearest owned frontier tile within 20 tiles every 10 minutes and adds +10 connected-town income points across the linked town network.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Logistics Guild.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Monumental City.";
   if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";

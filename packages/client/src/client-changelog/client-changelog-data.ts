@@ -327,4 +327,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Caravanary now enables the connected-town road network itself (towns need at least one built to share the gold bonus) instead of just adding +25% on top of an already-existing bonus."
     ]
   },
+  {
+    createdAt: 1786036800000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed a build-menu crash and several dead/mismatched tech gates left over from the tech-tree redesign",
+    why: "The Manpower branch's 4 newest buildings (Assembly Works, Logistics Guild, Population Bureau part, Iron Levy part) were added to one type definition but never to the lookup table behind it, crashing the tile menu on click. Separately, several buildings (Observatory, Aether Purge, Clearing House) were still gated on tech ids that no longer exist after the redesign's renaming pass, permanently blocking them in the UI even though the server never required them, or in Clearing House's case required no tech at all.",
+    changes: [
+      "Fixed a crash opening the tile menu for towns with an Assembly Works, Logistics Guild, or an in-progress Population Bureau/Iron Levy part.",
+      "Observatory and Aether Purge now correctly require Aetheric Resonance (they previously required two retired tech ids and could never be built or used).",
+      "Clearing House no longer requires a nonexistent tech — it now matches the server's real requirement (none, just a free resource slot).",
+      "Ancillary Factory's 2D and 3D map art now actually renders its own dedicated model instead of the old Garrison Hall art (it was built but never wired up).",
+      "Incubation Engine and Ambaric Tower's dedicated 3D models are now wired up the same way.",
+      "Fixed a pile of build-menu labels and requirement text still showing old pre-redesign tech names (e.g. \"Requires Organized Supply\", \"Requires Banking\", \"Requires Cartography\")."
+    ]
+  },
 ];
