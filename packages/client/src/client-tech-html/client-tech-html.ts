@@ -73,6 +73,13 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+100% farmstead food within 10 tiles; raises food cap)";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
+  if (key === "unlockQuartermastersOffice" && value === true) return "Unlocks Quartermaster's Office";
+  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
+  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
+  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
+  if (key === "unlockIronLevy" && value === true) return "Unlocks The Iron Levy";
+  if (key === "musterMaxTilesAdd" && typeof value === "number") return `Muster tile cap +${value}`;
+  if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
   if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Connected dock income +${Math.round(value * 100)}% per link`;

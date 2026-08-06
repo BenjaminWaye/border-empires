@@ -49,7 +49,7 @@ const findAction = (actions: TileActionDef[], id: TileActionDef["id"]): TileActi
 const stateWithSignalFires = (): ReturnType<typeof createInitialState> => {
   const state = createInitialState();
   state.me = "me";
-  state.techIds = ["signal-fires"];
+  state.techIds = ["crystal-lattices"];
   state.strategicResources.CRYSTAL = 500;
   state.gold = 10000;
   return state;

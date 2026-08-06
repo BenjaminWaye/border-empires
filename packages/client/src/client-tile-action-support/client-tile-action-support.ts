@@ -116,7 +116,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_fortification":
       return "masonry";
     case "build_observatory":
-      return "cartography";
+      return "crystal-lattices";
     case "build_airport":
       return "aeronautics";
     case "build_aether_tower":
@@ -181,7 +181,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "survey_sweep":
       return "surveying";
     case "aether_lance":
-      return "signal-fires";
+      return "crystal-lattices";
     case "aether_emp":
       return "cryptography";
     case "city_overclock":

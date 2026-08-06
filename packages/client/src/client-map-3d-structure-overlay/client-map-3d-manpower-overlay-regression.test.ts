@@ -2,15 +2,23 @@ import { describe, expect, it } from "vitest";
 import { InstancedMesh, Scene } from "three";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-map-3d-structure-overlay.js";
 
+// These must be the real backend economicStructure.type strings (what
+// client-map-3d.ts actually passes to addInstance), not display names —
+// GARRISON_HALL/GRANARY/AETHER_TOWER are the wire-protocol identifiers for
+// Ancillary Factory/Incubation Engine/Ambaric Tower. Using the display
+// names here previously let this test pass while the real dedicated 3D
+// models were unreachable dead code (shadowed by stale registrations in
+// client-map-3d-structure-civic/economic/late-game.ts under the same
+// real backend type).
 const MANPOWER_KINDS = [
   "QUARTERMASTERS_OFFICE",
   "LOGISTICS_GUILD",
   "ASSEMBLY_WORKS",
   "POPULATION_BUREAU",
   "IRON_LEVY",
-  "ANCILLARY_FACTORY",
-  "INCUBATION_ENGINE",
-  "AMBARIC_TOWER"
+  "GARRISON_HALL",
+  "GRANARY",
+  "AETHER_TOWER"
 ] as const;
 
 describe("manpower structure overlay", () => {

@@ -117,7 +117,7 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     const action = findAction(actions, "build_farmstead");
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
-    expect(action?.disabledReason).toBe("Requires Agriculture");
+    expect(action?.disabledReason).toBe("Requires Agrarian Works");
   });
 });
 
@@ -200,7 +200,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
   });
 
   it("shows build_observatory on the same bare FRONTIER owned LAND tile", () => {
-    const state = bareFrontierState(["cartography"]);
+    const state = bareFrontierState(["crystal-lattices"]);
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 

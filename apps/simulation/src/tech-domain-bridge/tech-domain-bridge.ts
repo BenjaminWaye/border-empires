@@ -276,6 +276,26 @@ export const additiveEffectForPlayer = (
   return total;
 };
 
+/**
+ * Resource-reveal gating: FOOD (Farm/Fish) is always visible, but Iron,
+ * Supply, and Crystal each stay hidden on the map until the player has
+ * researched the tech that reveals them (tech-tree.json's `revealResource`
+ * effect key). Checked per-viewing-player at tile-delta filter time, not
+ * baked into the tile itself, since the same tile's resource type is
+ * revealed/hidden independently for every player based on their own tech.
+ */
+export const hasRevealedResourceForPlayer = (
+  player: Pick<DomainPlayer, "techIds">,
+  resource: string
+): boolean => {
+  const normalized = resource.toLowerCase();
+  if (normalized === "food") return true;
+  for (const techId of player.techIds) {
+    if (techEntryById.get(techId)?.effects?.revealResource === normalized) return true;
+  }
+  return false;
+};
+
 export const multiplicativeEffectForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   effectKey: string
