@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
-import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js"; import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
+import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
+import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
