@@ -55,6 +55,7 @@ import { createPlayerSubscriptionRegistry } from "../subscription-registry/subsc
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
+import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
@@ -1091,7 +1092,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
-  const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  const snapshotCache = createPlayerSnapshotCache();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
@@ -1116,23 +1117,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return inFlightFullVisExportPromise;
   };
   const refreshSnapshotCacheMetrics = () => {
-    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
+    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCache.entries());
     simulationMetrics.setSimSnapshotCache({
       entries: cacheSummary.entryCount,
       bytes: cacheSummary.totalSnapshotJsonBytes
     });
     return cacheSummary;
   };
-  const setCachedSnapshot = (playerId: string, snapshot: PlayerSubscriptionSnapshot) => {
-    snapshotCacheByPlayerId.set(playerId, snapshot);
+  const setCachedSnapshot = (playerId: string, snapshot: PlayerSubscriptionSnapshot, atRevision?: number) => {
+    snapshotCache.set(playerId, snapshot, atRevision);
     return refreshSnapshotCacheMetrics();
   };
   const deleteCachedSnapshot = (playerId: string) => {
-    snapshotCacheByPlayerId.delete(playerId);
+    snapshotCache.delete(playerId);
     return refreshSnapshotCacheMetrics();
   };
   const clearCachedSnapshots = () => {
-    snapshotCacheByPlayerId.clear();
+    snapshotCache.clear();
     postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
   };
@@ -1261,6 +1262,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // System-lane jobs are NOT paused — they settle commands the export depends on.
     loginExportsInFlight += 1;
     try {
+    const builtAtRevision = snapshotCache.worldRevision(); // stamp from before the export; a batch landing mid-build must not count as included
     const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
@@ -1325,7 +1327,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     if (!useFullVisibility || options?.cacheSnapshot === true) {
       const cacheStartedAt = Date.now();
-      setCachedSnapshot(playerId, snapshot);
+      setCachedSnapshot(playerId, snapshot, builtAtRevision);
       recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
         playerId,
         trigger: options?.trigger ?? "",
@@ -1528,9 +1530,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
-      const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+      const cachedSnapshot = snapshotCache.peek(subscribedPlayerId);
       if (cachedSnapshot)
-        snapshotCacheByPlayerId.set(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
+        snapshotCache.update(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
       const globalStatusEvent = toProtoEvent({
         eventType: "PLAYER_MESSAGE",
         commandId: commandId ?? `global-status:${Date.now()}`,
@@ -1978,23 +1980,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED");
       persistenceQueue.enqueueEvent(event);
       if (shouldBroadcastGlobalStatus) scheduleGlobalStatusBroadcast(event.commandId);
-      if (event.eventType === "PLAYER_MESSAGE") {
-        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
-        if (payload) {
-          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
-          if (cachedSnapshot) {
-            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
-          }
-        }
-      }
-      if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
-        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
-        if (payload) {
-          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
-          if (cachedSnapshot) {
-            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, { type: event.eventType, ...payload }));
-          }
-        }
+      if (event.eventType === "PLAYER_MESSAGE" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
+        // Updates the cached snapshot in place without advancing its revision
+        // stamp — these events carry no tile state and reach offline players.
+        if (applyNonTileEventToCache(snapshotCache, event.eventType, event.playerId, event.payloadJson)) refreshSnapshotCacheMetrics();
       }
       // TILE_DELTA_BATCH events describe authoritative tile changes. Each
       // subscribed player only sees the subset of tiles they have vision of,
@@ -2025,6 +2014,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // with identical visible tiles share one serialization pass.
           const protoCache = new Map<string, ProtoSimulationEvent>();
           const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
+          const priorRevision = snapshotCache.worldRevision(); // see applyIfCurrent/advanceIfCurrent in player-snapshot-cache.ts
+          snapshotCache.bumpWorldRevision();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
             const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
@@ -2039,10 +2030,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 slowestFilterPlayerId = subscribedPlayerId;
               }
             }
-            const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-            if (cachedSnapshot && filteredDeltas.length > 0) {
-              setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
-            }
+            // Only advances an entry that was already current as of priorRevision
+            // (a reconnecting player can be in subscribedPlayerIds() with a stale
+            // pre-rebuild entry still in cache) — see player-snapshot-cache.ts.
+            const applied =
+              filteredDeltas.length > 0
+                ? snapshotCache.applyIfCurrent(subscribedPlayerId, priorRevision, (snapshot) => applyTileDeltasToSnapshot(snapshot, filteredDeltas))
+                : snapshotCache.advanceIfCurrent(subscribedPlayerId, priorRevision);
+            if (applied) refreshSnapshotCacheMetrics();
             if (filteredDeltas.length === 0) continue;
             // Group subscribers whose filtered delta set serializes identically
             // so the proto pass runs once per unique set. The key must separate
@@ -2408,7 +2403,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   // On gateway retry, serve from cache + cheap worldStatus rather than
                   // re-running the full 9-23s export (see shouldServeCachedSubscribeSnapshot).
                   const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
-                  const cached = cacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
+                  const cached = cacheOk ? snapshotCache.getCurrent(call.request.player_id) : undefined;
                   if (cached) {
                     const summary = await readCurrentSummary();
                     return {
@@ -2430,7 +2425,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   // Phase B3: reuse the cached snapshot when available (see
                   // shouldServeCachedSubscribeSnapshot for the full-vis/season rule).
                   const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
-                  const cached = cacheOk ? snapshotCacheByPlayerId.get(call.request.player_id) : undefined;
+                  const cached = cacheOk ? snapshotCache.getCurrent(call.request.player_id) : undefined;
                   if (cached) return cached;
                   return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
                     fullVisibility: subscribeOptions.fullVisibility,
@@ -2583,9 +2578,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean }) => void
     ) {
       subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
-      // Keep the snapshot in cache on unsubscribe so reconnects can skip the
-      // cold 16s rebuild. The delta replay (lastAppliedEventId) brings the client
-      // current after bootstrap. Spawn path has its own deleteCachedSnapshot call.
+      // Keep the snapshot in cache on unsubscribe so a quick reconnect can skip
+      // the rebuild — it is not maintained while unsubscribed and is served
+      // later only while its revision stamp is still current (there is no
+      // server-side tile replay). See player-snapshot-cache.ts. Spawn path has
+      // its own deleteCachedSnapshot call.
       callback(null, { ok: true });
     },
     FetchTileDetail(
@@ -2636,7 +2633,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         1,
         { fullVisibility }
       );
-      const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+      const cached = snapshotCache.peek(call.request.player_id);
       const upkeep = cached?.player?.upkeepLastTick;
       callback(null, {
         ok: true,

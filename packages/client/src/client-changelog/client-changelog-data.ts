@@ -68,40 +68,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Claiming a wonder adds a Recent Events entry with its flavor text and the exact boon it grants."
     ]
   },
-  {
-    createdAt: 1785443475000, // 2026-07-30
-    introducedIn: "next",
-    title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
-    why: "Gold display as per-minute (/m) was hard to relate to actual gameplay pacing — a town earning 0.01 gold/min reads as \"nothing\" when it's actually 14.4 gold/day. Per-day rates make income, upkeep, and victory thresholds immediately meaningful without mental math.",
-    changes: [
-      "All gold (and most resource) rates now display as /day instead of /m — the HUD gold chip, economy panel, tile production/upkeep, build menu entries, empire intel, side panel, and season-end overlay all use per-day formatting.",
-      "Economic victory now requires 1000 gold/day (up from the old ~0.4/min / ~576/day effective threshold), with all labels and tooltips updated.",
-      "Gold storage cap now holds 24 hours of production (up from 12h), with a floor of 10 gold instead of 500.",
-      "Build menu upkeep strings corrected: non-synthesizer structures no longer show stale per-minute gold/food values (their slot occupation is their upkeep), and synthesizers now show correct per-day gold costs (30/45/40/60 gold/day)."
-    ]
-  },
-  {
-    createdAt: 1785399415000, // 2026-07-30
-    introducedIn: "light-outpost-exploration",
-    title: "Light Outposts reveal 5×5 area",
-    why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
-    changes: [
-      "Light Outposts now grant +5 vision, revealing a 5-tile radius (13×13 area) around them when built.",
-      "A \"Build Light Outpost\" action appears on owned tiles adjacent to unexplored terrain, making them the default exploration tool.",
-      "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
-    ]
-  },
-  {
-    createdAt: 1785444298000, // 2026-07-30
-    introducedIn: "light-outpost-distant-expansion",
-    title: "Build Light Outpost on distant unexplored-adjacent tiles",
-    why: "Light Outpost was locked to tiles adjacent to your territory, but true frontier exploration means expanding into the unknown without claiming every tile in between. Distant unowned tiles adjacent to unexplored terrain are now a valid target for expansion.",
-    changes: [
-      "Light Outpost can now be built on any unowned tile adjacent to unexplored terrain, even if it's not adjacent to your current territory — the action handles frontier expansion end-to-end without intermediate claims.",
-      "\"Build Light Outpost\" now appears in the main actions tab (not buildings) so it's discoverable as a frontier-exploration tool, not a structure you place on your own land.",
-      "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
-    ]
-  },
+  // 2026.07.30 ("Economy: per-day rates, 1000 gold/day victory threshold,
+  // 24h gold cap"), 2026.07.30 ("Light Outposts reveal 5x5 area"), and
+  // 2026.07.30 ("Build Light Outpost on distant unexplored-adjacent tiles")
+  // pruned: aged out of the 6-day window.
   {
     createdAt: 1785564673000, // 2026-08-01
     introducedIn: "structure-upkeep-rebalance",
@@ -320,6 +290,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Small pebbles are scattered sparsely along the surface, each with soft directional shading so they read as stones set in the dirt.",
       "Road edges wear down to a ragged, slightly darker rim with no grass or green tint, so roads sit naturally on any terrain - including deserts and sand.",
       "The same gentle lift over hills and junction hubs are unchanged."
+    ]
+  },
+  {
+    createdAt: 1786003565156, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed: changes made to the world while you were offline could stay missing after you logged back in",
+    why: "The server keeps a cached copy of each player's world snapshot to make logging back in fast, but it only kept that copy up to date while you were connected. Anything that changed while you were offline never reached it, and logging in served the cached copy as-is with no catch-up — so those tiles stayed wrong on your map indefinitely, because nothing later would necessarily touch them again. The most visible case was an outpost built while you were disconnected: the tiles its vision should have revealed stayed dark forever.",
+    changes: [
+      "Logging in now rebuilds your world snapshot whenever the world changed while you were away, instead of serving a stale cached copy.",
+      "Fixes outpost vision discs that never revealed their tiles after a reconnect, and the same staleness for territory ownership, towns and structures that changed while you were offline.",
+      "Fast reconnects where nothing has changed still use the cached snapshot, so logging back in is no slower than before."
     ]
   },
 ];
