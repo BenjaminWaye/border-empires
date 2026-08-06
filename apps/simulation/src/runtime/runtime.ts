@@ -348,7 +348,7 @@ import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-mus
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
-import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus } from "../runtime-outpost-vision.js";
+import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -840,7 +840,7 @@ export class SimulationRuntime {
       // Seed town +1 vision for any player-owned town present at boot.
       seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
-      seedOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
+      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1595,6 +1595,34 @@ export class SimulationRuntime {
     return tiles;
   }
 
+  // Shared OutpostVisionCoverageDeps builder — every call site
+  // (seed/reconcile/resync) needs the same players/coverage/isStructureDormant/
+  // callbacks bundle; centralized so isStructureDormant's wiring can't drift
+  // between them.
+  private outpostVisionDeps(): OutpostVisionCoverageDeps {
+    return {
+      players: this.players,
+      coverage: this.visibilityCoverage,
+      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
+      callbacks: this.visionTransitions.callbacks
+    };
+  }
+
+  // §5.4: a resource tile gained or lost anywhere in `playerId`'s territory
+  // can push one of their outposts into or out of dormancy without that
+  // outpost's own tile changing at all, so reconcileOutpostVisionBonus (which
+  // only ever looks at the one tile that just mutated) can't catch it. Cheap
+  // bail via the active-outpost indexes when the player has none; bounded by
+  // their outpost count (not their tile count) when they do.
+  private resyncOutpostVisionBonusesIfAnyOutposts(playerId: string | undefined): void {
+    if (!playerId) return;
+    const hasOutposts =
+      (this.activeLightOutpostsByOwner.get(playerId)?.size ?? 0) > 0 ||
+      (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
+    if (!hasOutposts) return;
+    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+  }
+
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
     const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
@@ -1976,7 +2004,12 @@ export class SimulationRuntime {
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-    reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+    reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
+    // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
+    // slot totals (a resource tile gained/lost, a new demand consumer built)
+    // without touching any of their outposts directly — resync those too.
+    this.resyncOutpostVisionBonusesIfAnyOutposts(previous?.ownerId);
+    if (tile.ownerId !== previous?.ownerId) this.resyncOutpostVisionBonusesIfAnyOutposts(tile.ownerId);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3780,7 +3813,7 @@ export class SimulationRuntime {
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
         reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-        reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+        reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3807,8 +3840,11 @@ export class SimulationRuntime {
         this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
         // A base-radius change also moves every owned town's +1 reveal ring.
         resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
-        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's ring.
-        resyncPlayerOutpostVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.ownedOutpostTilesForPlayer(playerId));
+        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
+        // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
+        // this also doubles as the dormancy resync for a slot-waiver change
+        // (§23.2) or a townFoodSlotDemandForTier bump (UPGRADE_TOWN_TIER).
+        resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
       },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
