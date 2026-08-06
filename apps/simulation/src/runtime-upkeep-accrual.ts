@@ -1,5 +1,5 @@
 import { buildPlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
-import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+
 import { buildTileYieldView } from "./tile-yield-view/tile-yield-view.js";
 import { UPKEEP_STRATEGIC_KEYS, hasOutstandingUpkeepNeed, type RuntimePlayer, type RuntimeTileYieldEconomyContext, type UpkeepNeed } from "./runtime-types.js";
 import type { UpkeepAccrualSnapshot } from "./player-upkeep-incremental/player-upkeep-incremental.js";
@@ -150,10 +150,10 @@ export const consumeUpkeepFromTileYield = (
 };
 
 /**
- * Rate-limited (15s) per-player economy tick: credits Clockwork Stipend
- * trickle, drains upkeep from tile yield, then falls back to the treasury
- * and strategic stockpiles for any remainder. Sharing the 15s cadence with
- * the passive-income tick keeps drain/credit in sync.
+ * Rate-limited (15s) per-player economy tick: drains upkeep from tile yield,
+ * then falls back to the treasury and strategic stockpiles for any remainder.
+ * Sharing the 15s cadence with the passive-income tick keeps drain/credit in
+ * sync.
  */
 export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: RuntimePlayer, nowMs: number): void => {
   const last = ctx.lastEconomyAccrualAtByPlayer.get(player.id);
@@ -199,20 +199,6 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
     }
     const summary = ctx.summaryForPlayer(player.id);
     const elapsedMinutes = elapsedMs / 60_000;
-    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
-    // upkeep drain, so the trickle helps cover upkeep on a starved empire
-    // instead of being instantly clawed back.
-    const trickle = chosenTrickleRateForPlayer(player);
-    if (trickle && trickle.ratePerMinute > 0) {
-      const credit = trickle.ratePerMinute * elapsedMinutes;
-      if (credit > 0) {
-        const current = player.strategicResources ?? {};
-        player.strategicResources = {
-          ...current,
-          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
-        };
-      }
-    }
     const need: UpkeepNeed = {
       gold: Math.max(0, upkeep.gold) * elapsedMinutes,
       FOOD: Math.max(0, upkeep.food) * elapsedMinutes,

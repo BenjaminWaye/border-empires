@@ -204,6 +204,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   hillTintGeom.setIndex(new BufferAttribute(new Uint32Array(maxHillTiles * HILL_INDICES_PER_TILE), 1));
   const hillTintMesh = new Mesh(hillTintGeom, tintMaterial);
   hillTintMesh.renderOrder = 5;
+  hillTintMesh.frustumCulled = false;
   scene.add(hillTintMesh);
   let hillTintCount = 0;
 
@@ -365,6 +366,13 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       if (colAttr) colAttr.needsUpdate = true;
       if (idxAttr) idxAttr.needsUpdate = true;
     }
+    // Bound the draw range to only the tiles actually written this frame.
+    // Without this, stale data from previous settlements remains in the
+    // preallocated buffer and renders as a ghost overlay that follows the
+    // camera (because the coordinates are frozen relative to the old camera
+    // position). When hillTintCount drops to 0, setDrawRange(0, 0) correctly
+    // zeros the range and prevents rendering anything.
+    hillTintGeom.setDrawRange(0, hillTintCount * HILL_INDICES_PER_TILE);
   };
 
   const tick = (nowMs: number): void => {

@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@border-empires/game-domain": "workspace:*",
     "@border-empires/shared": "workspace:*",
     "tweakpane": "^4.0.5"
   },

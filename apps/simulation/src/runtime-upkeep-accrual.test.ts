@@ -1,13 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { applyEconomyAccrual, consumeUpkeepFromTileYield, type RuntimeUpkeepAccrualContext } from "./runtime-upkeep-accrual.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext, UpkeepNeed } from "./runtime-types.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-
-vi.mock("./tech-domain-bridge/tech-domain-bridge.js", () => ({
-  chosenTrickleRateForPlayer: vi.fn()
-}));
 
 const tileKey = (x: number, y: number): string => `${x},${y}`;
 
@@ -104,10 +99,6 @@ const createHarness = (options: HarnessOptions = {}) => {
 
   return { ctx, tiles, events, forgotten, tileYieldCollectedAtByTile, sortedYieldBearingKeysByOwner, lastEconomyAccrualAtByPlayer, playerSummaries };
 };
-
-afterEach(() => {
-  vi.mocked(chosenTrickleRateForPlayer).mockReset();
-});
 
 describe("consumeUpkeepFromTileYield", () => {
   it("does nothing when there is no outstanding upkeep need", () => {
@@ -398,19 +389,6 @@ describe("applyEconomyAccrual", () => {
 
     // need.gold = 0.1 * 0.25min = 0.025, fully covered by the ~0.208 buffered gold on the tile.
     expect(player.points).toBe(100);
-  });
-
-  it("credits the player's chosen trickle resource before draining upkeep", () => {
-    vi.mocked(chosenTrickleRateForPlayer).mockReturnValue({ resource: "IRON", ratePerMinute: 4 });
-    const player = testPlayer("player-1", { strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } });
-    const { ctx, playerSummaries } = createHarness({ upkeep: { iron: 1 } });
-    playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
-    applyEconomyAccrual(ctx, player, 1_000);
-
-    applyEconomyAccrual(ctx, player, 1_000 + 15_000);
-
-    // Trickle credits 4/min * 0.25min = 1 IRON, then upkeep drains 1/min * 0.25min = 0.25 IRON.
-    expect(player.strategicResources?.IRON).toBeCloseTo(1 - 0.25, 6);
   });
 
   it("runs the accrual work through trackSyncMainThreadTask when provided", () => {
