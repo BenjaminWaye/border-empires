@@ -8,7 +8,6 @@ import {
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   HILLS_FRONTIER_CLAIM_PENALTY_MS,
-  MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
   grassShadeAt,
   isHillsTileAt,
@@ -113,14 +112,14 @@ export const handleFrontierCommandImpl = (
       ? (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
         (isHillsTileAt(to.x, to.y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
       : undefined;
-  const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
+  const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
     : undefined;
   const advancePreferredKey =
     payload.musterSourceX != null && payload.musterSourceY != null
       ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
       : undefined;
-  const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
+  const musterSource = actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
     ? ctx.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
     : undefined;
   const validation = validateFrontierCommand({
@@ -144,13 +143,12 @@ export const handleFrontierCommandImpl = (
       ctx.isTileWardedByImperialWard(to.ownerId),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
-    musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
     requiredMuster
   });
 
   if (!validation.ok) {
-    if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
+    if (validation.code === "INSUFFICIENT_MUSTER" && actionType === "ATTACK") {
       ctx.onMusterRemoteBlocked?.();
       if (actor.id.startsWith("barbarian-") && !to.ownerId?.startsWith("barbarian-")) {
         ctx.onMusterRemoteBlockedBarbarian?.();
@@ -188,7 +186,7 @@ export const handleFrontierCommandImpl = (
     targetKey: simulationTileKey(validation.target.x, validation.target.y),
     resolvesAt: validation.resolvesAt,
     source: lockSourceFromSessionId(command.sessionId),
-    ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
+    ...(actionType === "ATTACK" && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
   };
   if (baseLock.musterSourceKey && actionType === "ATTACK") {
     const prev = ctx.musterReservedByKey.get(baseLock.musterSourceKey) ?? 0;

@@ -1,8 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST,
-  MUSTER_SYSTEM_ENABLED
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -106,7 +105,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   });
 
   if (attacker && typeof combatResult?.manpowerDelta === "number") {
-    if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
+    if (lock.actionType === "ATTACK") {
       const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
       if (lock.playerId === "barbarian-1") {
         // Barbarian-origin attacks are rate-limited by tile cooldown, not manpower.

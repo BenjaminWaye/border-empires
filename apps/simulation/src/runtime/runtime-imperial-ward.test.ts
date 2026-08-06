@@ -118,7 +118,14 @@ describe("Imperial Ward (galaxy meta-layer Phase 1 endorsement bonus)", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
@@ -166,7 +173,14 @@ describe("Imperial Ward (galaxy meta-layer Phase 1 endorsement bonus)", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
           ],
           activeLocks: []

@@ -3,7 +3,6 @@ import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge
 import {
   FORT_TIER_LADDER,
   MUSTER_MAX_TILES,
-  MUSTER_SYSTEM_ENABLED,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
   structureBuildDurationMs,
@@ -151,10 +150,6 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   const payload = parseSetMusterPayload(command.payloadJson);
   if (!actor || !payload) {
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  if (!MUSTER_SYSTEM_ENABLED) {
-    rejectCommand(context, command, "MUSTER_DISABLED", "muster system is not enabled");
     return;
   }
   const targetKey = simulationTileKey(payload.x, payload.y);

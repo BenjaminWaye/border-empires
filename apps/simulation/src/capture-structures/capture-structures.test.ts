@@ -37,7 +37,14 @@ describe("capture structure survival", () => {
               ownershipState: "SETTLED",
               town: { type: "MARKET", name: "Attacker Town", populationTier: "TOWN" }
             },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -81,7 +88,7 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           ownerId: "player-1",
           ownershipState: "FRONTIER",
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", garrison: 0, activatedAt: 1_000 }),
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 }),
           economicStructureJson: JSON.stringify({
             ownerId: "player-1",
@@ -102,7 +109,7 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           x: 10,
           y: 11,
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", garrison: 0, activatedAt: 1_000 }),
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 })
         })
       );
@@ -126,7 +133,14 @@ describe("capture structure survival", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -177,7 +191,14 @@ describe("capture structure survival", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -225,7 +246,14 @@ describe("capture structure survival", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -276,7 +304,14 @@ describe("capture structure survival", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,

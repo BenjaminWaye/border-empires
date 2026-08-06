@@ -119,8 +119,9 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
     const runtime = new SimulationRuntime({
       now: () => 1_000,
-      // toolmaking is Survey Corps's other prereq alongside cartography.
-      initialPlayers: new Map([["player-1", makePlayer("player-1", ["cartography", "toolmaking"], [])]]),
+      // Survey Sweep's only prereq is now crystal-lattices (Aetheric
+      // Resonance) — toolmaking and cartography were both retired.
+      initialPlayers: new Map([["player-1", makePlayer("player-1", ["crystal-lattices"], [])]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [

@@ -315,10 +315,9 @@ describe("automation command planner strategic parity", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 1, toY: 1 })
-    });
+    // Attack path wins on this front; under the muster system with no muster
+    // staged yet, that's SET_MUSTER (staging manpower) rather than ATTACK.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 
   it("retains a remembered economic path while still choosing frontier growth", () => {
@@ -475,9 +474,8 @@ describe("automation command planner strategic parity", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
-    });
+    // Attack path wins over the barbarian-dock alternative; under the muster
+    // system with no muster staged yet, that's SET_MUSTER rather than ATTACK.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 });
