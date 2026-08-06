@@ -18,14 +18,14 @@ describe("converter toggle regression guard", () => {
   });
 
   it("preloads and renders the base crystal synthesizer overlay", () => {
-    const render = clientSource("../client-map-render/client-map-render.ts");
+    const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
-    expect(render).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
+    expect(overlayImages).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
     expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });
 
   it("keeps live-map overlays in sync with dedicated structure art", () => {
-    const render = clientSource("../client-map-render/client-map-render.ts");
+    const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
     const dedicatedStructureOverlays = [
       ["BANK", "bank-overlay.svg"],
@@ -42,11 +42,19 @@ describe("converter toggle regression guard", () => {
       ["AEGIS_DOME", "aegis-dome-overlay.svg"],
       ["ASTRAL_DOCK", "astral-dock-overlay.svg"],
       ["IMPERIAL_EXCHANGE", "imperial-exchange-overlay.svg"],
-      ["WORLD_ENGINE", "world-engine-overlay.svg"]
+      ["WORLD_ENGINE", "world-engine-overlay.svg"],
+      ["QUARTERMASTERS_OFFICE", "quartermasters-office-overlay.svg"],
+      ["LOGISTICS_GUILD", "logistics-guild-overlay.svg"],
+      ["ASSEMBLY_WORKS", "assembly-works-overlay.svg"],
+      ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
+      ["IRON_LEVY", "iron-levy-overlay.svg"],
+      ["ANCILLARY_FACTORY", "ancillary-factory-overlay.svg"],
+      ["INCUBATION_ENGINE", "incubation-engine-overlay.svg"],
+      ["AMBARIC_TOWER", "ambaric-tower-overlay.svg"]
     ] as const;
 
     for (const [structureType, asset] of dedicatedStructureOverlays) {
-      expect(render).toContain(`${structureType}: loadOverlayImage("${asset}")`);
+      expect(overlayImages).toContain(`${structureType}: loadOverlayImage("${asset}")`);
     }
     expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });

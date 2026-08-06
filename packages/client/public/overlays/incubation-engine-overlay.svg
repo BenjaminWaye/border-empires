@@ -1,0 +1,37 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- The Incubation Engine: the Steam Ward, a low, long, glass-fronted nursery hall -->
+  <path d="M12 102L28 92H100L84 102H12Z" fill="#7D7468"/>
+  <path d="M28 92V80H100V92H28Z" fill="#8A8078"/>
+
+  <!-- Barrel-vaulted roof -->
+  <path d="M28 80C28 66 44 58 64 58C84 58 100 66 100 80H28Z" fill="#2A241E"/>
+
+  <!-- Steam-heating pipe feeding a row of small steam vents along the ridge -->
+  <path d="M50 58V52" stroke="#E8E6DF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M64 57V51" stroke="#E8E6DF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M78 58V52" stroke="#E8E6DF" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Two low chimneys at the back -->
+  <path d="M40 58V48H48V58H40Z" fill="#6E6459"/>
+  <path d="M82 58V48H90V58H82Z" fill="#6E6459"/>
+
+  <!-- Round port-windows at bed height, each holding a swaddled bundle with a dim amber glow -->
+  <circle cx="42" cy="86" r="4" fill="#2A241E"/>
+  <circle cx="42" cy="86" r="4" fill="none" stroke="#D68A18" stroke-width="1.2"/>
+  <rect x="40.5" y="85" width="3" height="2.4" fill="#E8E6DF" rx="0.8"/>
+
+  <circle cx="56" cy="86" r="4" fill="#2A241E"/>
+  <circle cx="56" cy="86" r="4" fill="none" stroke="#D68A18" stroke-width="1.2"/>
+  <rect x="54.5" y="85" width="3" height="2.4" fill="#E8E6DF" rx="0.8"/>
+
+  <circle cx="70" cy="86" r="4" fill="#2A241E"/>
+  <circle cx="70" cy="86" r="4" fill="none" stroke="#D68A18" stroke-width="1.2"/>
+  <rect x="68.5" y="85" width="3" height="2.4" fill="#E8E6DF" rx="0.8"/>
+
+  <!-- Larger tending-port at the gable end: the warm heart of the ward -->
+  <circle cx="92" cy="86" r="7" fill="#2A241E"/>
+  <circle cx="92" cy="86" r="7" fill="none" stroke="#FFB347" stroke-width="1.6"/>
+  <circle cx="92" cy="86" r="4.5" fill="#D68A18" opacity="0.8"/>
+
+</svg>
