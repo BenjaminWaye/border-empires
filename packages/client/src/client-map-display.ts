@@ -177,7 +177,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
-  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius and adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
+  if (kind === "GARRISON_HALL") return "Adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
@@ -334,7 +334,7 @@ export const structureInfoForKey = (
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
-    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
+    if (key === "GARRISON_HALL") return ["+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
@@ -718,7 +718,7 @@ export const structureInfoForKey = (
   if (type === "GARRISON_HALL") {
     return structure({
       title: "Ancillary Factory",
-      detail: "Ancillary Factories increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
+      detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

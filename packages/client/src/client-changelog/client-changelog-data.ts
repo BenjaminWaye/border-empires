@@ -352,4 +352,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added the 5 missing Manpower-branch unlock chip labels (Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy) that previously rendered blank."
     ]
   },
+  {
+    createdAt: 1786038000000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed Ancillary Factory's fabricated defense bonus and wrong-anywhere placement",
+    why: "Ancillary Factory (formerly Garrison Hall, before the Manpower-branch redesign) still had two leftover behaviors from its old identity as a defensive structure: its tooltip claimed a +20% settled-tile defense bonus that no combat code anywhere actually applies, and its placement rules let it be built on almost any tile instead of the town-support tile every other Manpower building requires. Quartermaster's Office had the same wrong-anywhere placement bug. Also fixed a stale, exactly-288x-off gold/day figure on Customs House and Bank/Clearing House tooltips left over from an old economy rescope, and Governor's Office's tooltip, which still described a \"settled-tile upkeep\" reduction that doesn't exist in the game (upkeep and FOOD slot demand are different things).",
+    changes: [
+      "Ancillary Factory's tooltip no longer claims a settled-tile defense bonus it never actually applies — it only ever affected manpower cap.",
+      "Ancillary Factory and Quartermaster's Office must now be built on a town support tile, matching every other Manpower building, instead of almost anywhere.",
+      "Customs House now correctly shows +5 gold/day per connected dock instead of +1440 (a leftover pre-rescope number, off by 288x).",
+      "Bank and Clearing House tooltips now show the correct +5 / +7.5 gold/day flat income instead of the same stale +1440/+720 figures.",
+      "Governor's Office's tooltip now accurately describes its real effect (reduces a nearby town's FOOD slot demand) instead of a settled-tile upkeep reduction that was never implemented."
+    ]
+  },
 ];

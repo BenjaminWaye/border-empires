@@ -25,7 +25,7 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1440 gold/day.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +720 Bank gold/day.` : undefined; };
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +5 gold/day.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, boosts Bank's flat income from +5 to +7.5 gold/day.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -131,8 +131,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "enable_converter_structure") return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
   if (actionId === "disable_converter_structure") return "Disable this structure. It stops occupying resource slots, stops paying upkeep, and stops providing bonuses until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
-  if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1440 gold / day per connected owned dock.";
+  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
   if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Logistics Guild.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
@@ -155,7 +155,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
   if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision. You must wait for the current satellite to come down before launching another.";
   if (actionId === "aegis_lock") return "Seal the Aegis Dome region so hostile attacks cannot change ownership and hostile abilities fail for a short time.";
-  if (actionId === "build_governors_office") return "Administrative center. Builds a Ministry Hall that reduces local food upkeep and settled-tile upkeep within 10 tiles.";
+  if (actionId === "build_governors_office") return "Administrative center. Reduces the FOOD slot demand of any town within 10 tiles by its tier's step (Town/City/Great City/Metropolis each need progressively more FOOD slots — a nearby Ministry Hall waives that extra demand).";
   if (actionId === "build_radar_system") return "Resonance grid. Blocks enemy sky bombardment within 30 tiles and reveals the attack origin.";
   if (actionId === "remove_structure") {
     const structureName = structureNameForTile(tile);
