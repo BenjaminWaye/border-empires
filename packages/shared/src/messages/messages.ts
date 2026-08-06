@@ -208,7 +208,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // Without this field on the schema, Zod's default `.object` strip mode
     // silently drops the resource key from the parsed message, so the
     // gateway forwards an empty payload and the sim rejects with
-    // `trickle resource choice required` even when the client picked one.
+    // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
   })
 ]);

@@ -7063,9 +7063,9 @@ describe("simulation runtime", () => {
     expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBe(0);
   });
 
-  it("chosenTrickleResource round-trips through snapshot and trickle is credited after recovery", () => {
+  it("chosenTrickleResource round-trips through the compaction snapshot", () => {
     // Regression: chosenTrickleResource was never persisted to the compaction
-    // snapshot, so Clockwork Stipend trickle was lost after sim restart.
+    // snapshot, so Clockwork Stipend's slot grant was lost after sim restart.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -7076,7 +7076,7 @@ describe("simulation runtime", () => {
         tiles: [
           {
             x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Slot Town" }
           }
         ],
         activeLocks: []
@@ -7092,31 +7092,6 @@ describe("simulation runtime", () => {
     const recovered = createPlayersFromRecoveredState(sections.initialState);
     const recoveredPlayer = recovered?.get("player-1");
     expect(recoveredPlayer?.chosenTrickleResource).toBe("IRON");
-
-    // Build a new runtime from the recovered state, use fake timers, and
-    // advance time — the trickle should actually credit IRON.
-    vi.useFakeTimers();
-    const recoveredRuntime = new SimulationRuntime({
-      now: () => Date.now(),
-      initialPlayers: recovered,
-      initialState: {
-        tiles: [
-          {
-            x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    // Advance time by 10 minutes. Clockwork Stipend IRON rate is 0.2/min.
-    vi.advanceTimersByTime(10 * 60_000);
-    const stateAfter = recoveredRuntime.exportState();
-    const playerAfter = stateAfter.players.find((p) => p.id === "player-1");
-    // 10 min × 0.2/min = 2.0 IRON (before upkeep drain on a single settlement).
-    expect(playerAfter?.strategicResources?.IRON ?? 0).toBeGreaterThan(0);
-    vi.useRealTimers();
   });
 });
 
