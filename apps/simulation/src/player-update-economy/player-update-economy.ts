@@ -220,7 +220,6 @@ export const townGoldPerMinuteForPlayer = (
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles, false, dormantEconomicStructureKeys);
   const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles, false, dormantEconomicStructureKeys);
-  const hasCaravanary = hasSupportedStructure(player.id, tile, "CARAVANARY", tiles, false, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -240,7 +239,7 @@ export const townGoldPerMinuteForPlayer = (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
-    (1 + (town.connectedTownBonus ?? 0) + (hasCaravanary ? 0.25 : 0)) *
+    (1 + (town.connectedTownBonus ?? 0)) *
     (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
     (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
     firstThreeTownMult *

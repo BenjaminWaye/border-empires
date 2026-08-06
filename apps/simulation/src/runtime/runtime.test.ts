@@ -8467,10 +8467,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             x: 6, y: 6, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
             town: { name: "Velramanor", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
           },
-          // Five plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
+          // Four plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
           ...[
             [4, 4], [5, 4], [6, 4],
-            [4, 5],
             [4, 6]
           ].map(([x, y]) => ({
             x,
@@ -8479,10 +8478,19 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
           })),
-          // §5.4: 4 towns need 4 FOOD slots each (16 total) to not go dormant
-          // (which would otherwise zero their gold income) — 8 FISH tiles
-          // (2 slots each) cover it, placed well outside the BFS neighborhood.
-          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100]].map(([x, y]) => ({
+          // Fifth neighbor carries a Caravanary support structure — the
+          // connected-town road network (and its gold bonus) only exists
+          // where at least one town has one built.
+          {
+            x: 4, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+          },
+          // §5.4: 4 towns need 4 FOOD slots each (16 total), plus 1 more for
+          // the Caravanary's own FOOD slot demand (17 total), to not go
+          // dormant (which would otherwise zero their gold income / disable
+          // the Caravanary's road-network gate) — 9 FISH tiles (2 slots
+          // each = 18) cover it, placed well outside the BFS neighborhood.
+          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100], [108, 100]].map(([x, y]) => ({
             x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
           }))
         ],
