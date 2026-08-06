@@ -18,6 +18,10 @@ type TechCatalogEntry = {
   description: string;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to -- surfaced to the client for the
+  // branch-tag UI requirement.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   effects?: Record<string, unknown>;
@@ -573,6 +577,7 @@ export const buildTechUpdatePayload = (
       description: tech.description,
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
       ...(tech.rootId ? { rootId: tech.rootId } : {}),
+      ...(tech.branch ? { branch: tech.branch } : {}),
       ...(tech.requires ? { requires: tech.requires } : {}),
       ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
       ...(tech.effects ? { effects: tech.effects } : {}),
