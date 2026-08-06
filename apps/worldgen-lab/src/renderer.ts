@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
+import { WORLD_WIDTH, WORLD_HEIGHT, type NaturalWonderType } from "@border-empires/shared";
 import type { WorkerResponse } from "./worker.js";
 
 export type Layers = {
@@ -8,6 +8,7 @@ export type Layers = {
   resources: boolean;
   towns: boolean;
   docks: boolean;
+  wonders: boolean;
 };
 
 export type ViewConfig = {
@@ -42,6 +43,20 @@ const RESOURCE_TINT: Array<[number, number, number]> = [
 ];
 
 const mix = (a: number, b: number, t: number): number => Math.round(a * (1 - t) + b * t);
+
+// One distinct color per NaturalWonderType, shared with main.ts's legend/list
+// so the swatch next to a wonder's name always matches its map marker.
+export const WONDER_COLORS: Record<NaturalWonderType, [number, number, number]> = {
+  FOUNDRY_HEART: [255, 80, 48],
+  CONSCRIPTION_ENGINE: [138, 138, 138],
+  WATCHTOWER_ENGINE: [64, 224, 208],
+  BASTION_FRAME: [64, 96, 192],
+  CARTOGRAPHERS_LENS: [255, 215, 0],
+  DEEPWATER_ENGINE: [0, 191, 255],
+  WARPRESS: [208, 32, 32],
+  QUICKFORGE: [255, 140, 0],
+  CALCULATING_ENGINE: [160, 255, 64]
+};
 
 // Draw a square marker into ImageData around world tile (wx, wy).
 // halfw = half-width in pixels (marker is 2*halfw+1 square).
@@ -168,6 +183,17 @@ export const renderWorld = (
       const wx = flatIdx % WORLD_WIDTH;
       const wy = Math.floor(flatIdx / WORLD_WIDTH);
       drawMarker(px, wx, wy, 255, 240, 80, 80, 60, 0, 3, scale, drawW, drawH, yOff);
+    }
+  }
+
+  // Natural Wonder markers — larger than town/dock markers and black-bordered
+  // so all 9 distinct colors stay legible against any terrain underneath.
+  if (layers.wonders) {
+    for (const wonder of data.wonders) {
+      const wx = wonder.index % WORLD_WIDTH;
+      const wy = Math.floor(wonder.index / WORLD_WIDTH);
+      const [r, g, b] = WONDER_COLORS[wonder.type] ?? [255, 255, 255];
+      drawMarker(px, wx, wy, r, g, b, 0, 0, 0, 6, scale, drawW, drawH, yOff);
     }
   }
 
