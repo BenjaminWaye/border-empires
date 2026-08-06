@@ -62,11 +62,33 @@ export type PlayerSnapshotCache = {
    */
   update: (playerId: string, snapshot: PlayerSubscriptionSnapshot) => void;
   /**
-   * Re-stamp an entry at the current revision, for a subscribed player whose
-   * filtered delta set for this batch was empty — nothing they can see changed,
-   * so their snapshot is still current.
+   * Apply a tile-delta update and advance the entry to the current revision,
+   * but ONLY if the entry was already current as of `priorRevision` (the
+   * revision immediately before this batch's bump). A player who just
+   * reconnected is added to subscribedPlayerIds() before their rebuild
+   * finishes, so during that window the fanout can see their OLD, several-batches-stale
+   * entry via peek() — patching one delta onto that ancient base and
+   * stamping it "current" would silently reintroduce the stale-snapshot bug
+   * (base still missing everything that changed while they were offline).
+   * Requiring an exact match on the immediately-prior revision means an
+   * entry can only ever advance one batch at a time; an entry that's
+   * further behind is left untouched for the in-flight (or a future)
+   * rebuild to properly catch up via `set`. No-ops (returns false) if there
+   * is no entry or it doesn't match.
    */
-  markCurrent: (playerId: string) => void;
+  applyIfCurrent: (
+    playerId: string,
+    priorRevision: number,
+    updater: (snapshot: PlayerSubscriptionSnapshot) => PlayerSubscriptionSnapshot
+  ) => boolean;
+  /**
+   * Advance an entry to the current revision with no snapshot change — for a
+   * subscribed player whose filtered delta set for this batch was empty.
+   * Same one-step-only guard as `applyIfCurrent`, and for the same reason:
+   * "nothing changed for them this batch" does not imply "this entry,
+   * whatever its age, is now fully caught up."
+   */
+  advanceIfCurrent: (playerId: string, priorRevision: number) => boolean;
   delete: (playerId: string) => void;
   clear: () => void;
   /** How many times a stale entry was rejected by getCurrent (metrics/logging). */
@@ -102,10 +124,17 @@ export const createPlayerSnapshotCache = (): PlayerSnapshotCache => {
       if (!entry) return;
       entriesByPlayerId.set(playerId, { snapshot, revision: entry.revision });
     },
-    markCurrent: (playerId) => {
+    applyIfCurrent: (playerId, priorRevision, updater) => {
       const entry = entriesByPlayerId.get(playerId);
-      if (!entry) return;
+      if (!entry || entry.revision !== priorRevision) return false;
+      entriesByPlayerId.set(playerId, { snapshot: updater(entry.snapshot), revision });
+      return true;
+    },
+    advanceIfCurrent: (playerId, priorRevision) => {
+      const entry = entriesByPlayerId.get(playerId);
+      if (!entry || entry.revision !== priorRevision) return false;
       entry.revision = revision;
+      return true;
     },
     delete: (playerId) => {
       entriesByPlayerId.delete(playerId);

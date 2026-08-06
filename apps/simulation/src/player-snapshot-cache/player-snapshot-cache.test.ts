@@ -59,17 +59,81 @@ describe("createPlayerSnapshotCache", () => {
     const cache = createPlayerSnapshotCache();
     const snapshot = snapshotWith([{ x: 1, y: 1 }]);
     cache.set("player-1", snapshot);
+    const priorRevision = cache.worldRevision();
 
     cache.bumpWorldRevision();
-    cache.markCurrent("player-1");
+    expect(cache.advanceIfCurrent("player-1", priorRevision)).toBe(true);
 
     expect(cache.getCurrent("player-1")).toBe(snapshot);
   });
 
-  it("markCurrent does not create an entry for a player with no cached snapshot", () => {
+  it("advanceIfCurrent does not create an entry for a player with no cached snapshot", () => {
     const cache = createPlayerSnapshotCache();
-    cache.markCurrent("nobody");
 
+    expect(cache.advanceIfCurrent("nobody", 0)).toBe(false);
+    expect(cache.peek("nobody")).toBeUndefined();
+  });
+
+  // The race this guards against: a reconnecting player is added to
+  // subscribedPlayerIds() before their rebuild finishes, so the fanout can
+  // observe their OLD, several-batches-stale entry via peek() during that
+  // window. Advancing it straight to "current" — because this one batch
+  // happened not to touch them — would be wrong: the entry is still missing
+  // everything that changed while they were offline, before this batch.
+  it("advanceIfCurrent refuses to advance an entry that is more than one revision behind", () => {
+    const cache = createPlayerSnapshotCache();
+    cache.set("offline-player", snapshotWith([{ x: 1, y: 1 }])); // stamped at revision 0
+    cache.bumpWorldRevision(); // one batch landed while offline -> entry is now 1 revision behind
+    const priorRevision = cache.worldRevision(); // 1 — what the fanout captures before its own bump
+    cache.bumpWorldRevision(); // the batch the fanout below is processing
+
+    // Entry is stamped 0, but priorRevision is 1 — it fell behind by an
+    // earlier batch too, so this fanout pass must not fast-forward it.
+    expect(cache.advanceIfCurrent("offline-player", priorRevision)).toBe(false);
+    expect(cache.getCurrent("offline-player")).toBeUndefined();
+  });
+
+  it("applyIfCurrent applies the update and advances an entry that was current beforehand", () => {
+    const cache = createPlayerSnapshotCache();
+    cache.set("player-1", snapshotWith([{ x: 1, y: 1 }]));
+    const priorRevision = cache.worldRevision();
+    cache.bumpWorldRevision();
+
+    const applied = cache.applyIfCurrent("player-1", priorRevision, (snapshot) => ({
+      ...snapshot,
+      tiles: [...snapshot.tiles, { x: 2, y: 2 }]
+    }));
+
+    expect(applied).toBe(true);
+    expect(cache.getCurrent("player-1")?.tiles).toEqual([{ x: 1, y: 1 }, { x: 2, y: 2 }]);
+  });
+
+  // Same race as advanceIfCurrent: patching one delta onto an entry that is
+  // already several batches stale, and stamping the result "current", would
+  // silently reintroduce the stale-snapshot bug through the fanout path.
+  it("applyIfCurrent refuses to patch an entry that is more than one revision behind", () => {
+    const cache = createPlayerSnapshotCache();
+    const original = snapshotWith([{ x: 1, y: 1 }]);
+    cache.set("offline-player", original); // stamped at revision 0
+    cache.bumpWorldRevision(); // one batch landed while offline -> entry is now 1 revision behind
+    const priorRevision = cache.worldRevision(); // 1 — what the fanout captures before its own bump
+    cache.bumpWorldRevision(); // the batch the fanout below is processing
+
+    const applied = cache.applyIfCurrent("offline-player", priorRevision, (snapshot) => ({
+      ...snapshot,
+      tiles: [...snapshot.tiles, { x: 2, y: 2 }]
+    }));
+
+    expect(applied).toBe(false);
+    // Untouched — left for a real rebuild rather than silently patched.
+    expect(cache.peek("offline-player")).toBe(original);
+    expect(cache.getCurrent("offline-player")).toBeUndefined();
+  });
+
+  it("applyIfCurrent does not create an entry for a player with no cached snapshot", () => {
+    const cache = createPlayerSnapshotCache();
+
+    expect(cache.applyIfCurrent("nobody", 0, (snapshot) => snapshot)).toBe(false);
     expect(cache.peek("nobody")).toBeUndefined();
   });
 
