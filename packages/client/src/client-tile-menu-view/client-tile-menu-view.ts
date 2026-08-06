@@ -105,7 +105,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       ? `Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
-  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
+  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. First 5 Light Outposts are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
   if (actionId === "build_camp") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} production on this tile by 50% and adds +${tile.resource === "IRON" ? "15 iron" : "9 crystal"} cap.`;

@@ -77,6 +77,10 @@ describe("structureSlotRequirements", () => {
       for (const req of requirements) expect(req.count).toBeGreaterThan(0);
     }
   });
+
+  it("Wooden Fort requires FOOD slot (same as Light Outpost), not IRON like the upgraded Fort", () => {
+    expect(structureSlotRequirements("WOODEN_FORT")).toEqual([{ resource: "FOOD", count: 1 }]);
+  });
 });
 
 describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
