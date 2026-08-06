@@ -1,3 +1,4 @@
+import { techGoldCostForResearchedCount } from "@border-empires/shared";
 import type { DomainPlayer } from "@border-empires/game-domain";
 
 /**
@@ -6,10 +7,10 @@ import type { DomainPlayer } from "@border-empires/game-domain";
  * existing size — this is the only caller.
  */
 export const goldCostForTechResearch = (
-  player: Pick<DomainPlayer, "wonderTechGoldDiscount">,
-  tech: { cost?: { gold?: number } }
+  player: Pick<DomainPlayer, "techIds" | "wonderTechGoldDiscount">,
+  _tech: { cost?: { gold?: number } }
 ): number => {
-  const base = tech.cost?.gold ?? 0;
+  const base = techGoldCostForResearchedCount(player.techIds.size);
   const discount = player.wonderTechGoldDiscount ?? 0;
   return Math.max(0, Math.ceil(base * (1 - discount)));
 };

@@ -47,7 +47,7 @@ describe("client structure effects", () => {
 
     expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
       { reason: "Foundry", effect: "+100% iron production", tone: "positive" },
-      { reason: "Garrison Hall", effect: "+20% defense", tone: "positive" }
+      { reason: "Ancillary Factory", effect: "+20% defense", tone: "positive" }
     ]);
   });
 

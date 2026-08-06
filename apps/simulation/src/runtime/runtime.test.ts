@@ -1221,6 +1221,23 @@ describe("simulation runtime", () => {
 
   it("accepts a human frontier command before queued AI work drains", async () => {
     const runtime = new SimulationRuntime({ now: () => 1_000 });
+    // Default-seeded player-1 owns (10,10) with no muster staged — the muster
+    // system now requires FRONTIER_ATTACK_MUSTER_COST (15) mustered on the
+    // origin before an ATTACK is accepted. Stage it directly via SET_MUSTER +
+    // a manual tick (rather than real/fake wall-clock time) since this test's
+    // whole point is queue-priority ordering, not muster accumulation timing.
+    runtime.submitCommand({
+      commandId: "stage-muster",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    runtime.tickMuster(7_000);
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(event.eventType);
@@ -1236,7 +1253,7 @@ describe("simulation runtime", () => {
       commandId: "cmd-1",
       sessionId: "session-1",
       playerId: "player-1",
-      clientSeq: 1,
+      clientSeq: 2,
       issuedAt: 1_000,
       type: "ATTACK",
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
@@ -1256,7 +1273,14 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 24, y: 245, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 24,
+            y: 245,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
           { x: 23, y: 246, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
@@ -1298,7 +1322,14 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -1891,6 +1922,18 @@ describe("simulation runtime", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const seen: string[] = [];
       runtime.onEvent((event) => {
         seen.push(`${event.eventType}:${event.commandId}`);
@@ -2222,7 +2265,14 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 21, y: 20, terrain: "LAND" }
           ],
@@ -2372,7 +2422,14 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -2441,6 +2498,7 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 },
               town: {
                 name: "Kettlecorner",
                 type: "FARMING",
@@ -2510,6 +2568,7 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "captor",
               ownershipState: "FRONTIER",
+              muster: { ownerId: "captor", amount: 999, mode: "HOLD", updatedAt: 0 },
               town: {
                 name: "Kettlecorner",
                 type: "FARMING",
@@ -2574,7 +2633,8 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-1", status: "active" }
+              fort: { ownerId: "player-1", status: "active" },
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
             // §5.4: FORT needs 1 IRON slot to not go dormant.
@@ -2634,7 +2694,14 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -3109,7 +3176,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["cartography"]), strategicResources: { CRYSTAL: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: 100 } })
           ]
         ]),
         initialState: {
@@ -3927,6 +3994,18 @@ describe("simulation runtime", () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const seen: string[] = [];
       runtime.onEvent((event) => {
         seen.push(`${event.eventType}:${event.commandId}`);
@@ -3995,6 +4074,18 @@ describe("simulation runtime", () => {
         eventsByCommandId: new Map()
       }
     });
+    runtime.submitCommand({
+      commandId: "stage-muster",
+      sessionId: "session-2",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    runtime.tickMuster(7_000);
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(`${event.eventType}:${event.commandId}`);
@@ -4018,6 +4109,18 @@ describe("simulation runtime", () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000, backgroundBatchSize: 1 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const order: string[] = [];
       runtime.onEvent((event) => {
         order.push(event.eventType);
@@ -4060,8 +4163,35 @@ describe("simulation runtime", () => {
       scheduleSoon: (task) => {
         scheduled.push(task);
       },
-      now: () => 1_000
+      now: () => 1_000,
+      // Merge-patch muster onto the two origin tiles (5,0)/(4,4) from the
+      // stress-10ai seed, rather than staging it via SET_MUSTER commands
+      // (which would themselves get queued into these same lanes and skew
+      // the queueDepths assertion this test is actually about).
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 0,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
+          {
+            x: 4,
+            y: 4,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          }
+        ],
+        activeLocks: []
+      }
     });
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(`${event.eventType}:${event.commandId}`);
@@ -4106,7 +4236,20 @@ describe("simulation runtime", () => {
       scheduleSoon: (task) => {
         scheduled.push(task);
       },
-      now: () => 1_000
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          {
+            x: 4,
+            y: 4,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          }
+        ],
+        activeLocks: []
+      }
     });
     const seen: string[] = [];
     runtime.onEvent((event) => {
@@ -4472,6 +4615,19 @@ describe("simulation runtime", () => {
             }
           ],
           eventsByCommandId: new Map()
+        },
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            }
+          ],
+          activeLocks: []
         }
       });
       const seen: string[] = [];
@@ -4494,7 +4650,14 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
             { x: 9, y: 11, terrain: "LAND" }
           ],
@@ -4726,7 +4889,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
+          buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
         ]
       ]),
       initialState: {
@@ -4780,7 +4943,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
+            buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
           ]
         ]),
         initialState: {
@@ -4802,7 +4965,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
 
       expect(scheduledTasks).toHaveLength(1);
-      // Forest doubles the base (MAX_SETTLE_DURATION_MS); toolmaking applies a 1.05x speed mult.
+      // Forest doubles the base (MAX_SETTLE_DURATION_MS); logistics applies a 1.05x speed mult.
       expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
     } finally {
       setWorldSeed(previousSeed);
@@ -4824,9 +4987,23 @@ describe("simulation runtime", () => {
           tiles: [
             // Settled anchor so recaptured tiles are connected and won't encirclement-expire.
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "ai-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -4909,9 +5086,23 @@ describe("simulation runtime", () => {
           tiles: [
             // Settled anchor so frontier tiles are connected and won't encirclement-expire.
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "ai-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -5489,7 +5680,7 @@ describe("simulation runtime", () => {
         ],
         [
           "player-2",
-          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["cartography"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -6476,7 +6667,8 @@ describe("simulation runtime", () => {
               y: 10,
               terrain: "LAND",
               ownerId: "player-1",
-              ownershipState: "FRONTIER"
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
             {
               x: 10,
@@ -7343,7 +7535,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7416,7 +7615,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7495,7 +7701,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7883,7 +8096,7 @@ describe("worldbreaker shot", () => {
     });
   };
 
-  it("rejects without worldbreaker-fire tech", async () => {
+  it("succeeds without any tech at all (strike is inherent to the built monument, Worldbreaker Ignition was cut)", async () => {
     const runtime = buildStrikeRuntime({ techIds: [] });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -7897,11 +8110,10 @@ describe("worldbreaker shot", () => {
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
+    expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-1",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "requires Worldbreaker Fire research"
+      code: "WORLD_ENGINE_STRIKE_INVALID"
     }));
   });
 
@@ -8255,10 +8467,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             x: 6, y: 6, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
             town: { name: "Velramanor", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
           },
-          // Five plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
+          // Four plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
           ...[
             [4, 4], [5, 4], [6, 4],
-            [4, 5],
             [4, 6]
           ].map(([x, y]) => ({
             x,
@@ -8267,10 +8478,19 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
           })),
-          // §5.4: 4 towns need 4 FOOD slots each (16 total) to not go dormant
-          // (which would otherwise zero their gold income) — 8 FISH tiles
-          // (2 slots each) cover it, placed well outside the BFS neighborhood.
-          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100]].map(([x, y]) => ({
+          // Fifth neighbor carries a Caravanary support structure — the
+          // connected-town road network (and its gold bonus) only exists
+          // where at least one town has one built.
+          {
+            x: 4, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+          },
+          // §5.4: 4 towns need 4 FOOD slots each (16 total), plus 1 more for
+          // the Caravanary's own FOOD slot demand (17 total), to not go
+          // dormant (which would otherwise zero their gold income / disable
+          // the Caravanary's road-network gate) — 9 FISH tiles (2 slots
+          // each = 18) cover it, placed well outside the BFS neighborhood.
+          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100], [108, 100]].map(([x, y]) => ({
             x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
           }))
         ],

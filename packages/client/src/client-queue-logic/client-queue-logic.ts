@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -1343,7 +1343,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      if (MUSTER_SYSTEM_ENABLED && to.ownerId !== "barbarian-1") {
+      if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {
           // No flag close enough — park the attack and auto-create a flag on

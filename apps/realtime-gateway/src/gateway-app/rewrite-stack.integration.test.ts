@@ -66,6 +66,27 @@ describe("rewrite stack integration", () => {
     expect((await nextNonBootstrapMessage(firstSocket, "first init")).type).toBe("INIT");
     firstSocket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
 
+    // Muster is unconditionally required to attack — stage it through the
+    // real command path (like production), then advance muster accumulation
+    // with a direct tick (not real/fake wall-clock time), matching the
+    // pattern used in runtime.test.ts.
+    firstSocket.socket.send(
+      JSON.stringify({
+        type: "SET_MUSTER",
+        x: 10,
+        y: 10,
+        mode: "HOLD",
+        clientSeq: 1
+      })
+    );
+    const musterQueued = await nextTypedMessage(firstSocket, "muster queued", "COMMAND_QUEUED");
+    expect(musterQueued).toEqual(
+      expect.objectContaining({ type: "COMMAND_QUEUED", clientSeq: 1 })
+    );
+    const musterCommandId = (musterQueued as { commandId: string }).commandId;
+    await waitUntil(async () => (await gatewayCommandStore.get(musterCommandId))?.status !== "QUEUED");
+    simulation.runtime.tickMuster(7_000);
+
     firstSocket.socket.send(
       JSON.stringify({
         type: "ATTACK",
@@ -74,23 +95,24 @@ describe("rewrite stack integration", () => {
         toX: 10,
         toY: 11,
         commandId: "cmd-1",
-        clientSeq: 1
+        clientSeq: 2
       })
     );
 
-    expect(await nextNonBootstrapMessage(firstSocket, "queued")).toEqual({
+    expect(await nextTypedMessage(firstSocket, "queued", "COMMAND_QUEUED")).toEqual({
       type: "COMMAND_QUEUED",
       commandId: "cmd-1",
-      clientSeq: 1
+      clientSeq: 2
     });
-    expect(await nextNonBootstrapMessage(firstSocket, "accepted")).toEqual(
+
+    expect(await nextTypedMessage(firstSocket, "accepted", "ACTION_ACCEPTED")).toEqual(
       expect.objectContaining({
         type: "ACTION_ACCEPTED",
         commandId: "cmd-1",
         actionType: "ATTACK"
       })
     );
-    expect(await nextNonBootstrapMessage(firstSocket, "combat start")).toEqual(
+    expect(await nextTypedMessage(firstSocket, "combat start", "COMBAT_START")).toEqual(
       expect.objectContaining({
         type: "COMBAT_START",
         commandId: "cmd-1",
@@ -125,7 +147,7 @@ describe("rewrite stack integration", () => {
           ])
         }),
         recovery: {
-          nextClientSeq: 2,
+          nextClientSeq: 3,
           pendingCommands: []
         }
       })
@@ -148,7 +170,7 @@ describe("rewrite stack integration", () => {
         ])
       })
     );
-  });
+  }, 15_000);
 
   it("keeps tech modifiers in the cached init for another socket on the same player", async () => {
     const snapshotStore = await createStartupSnapshotStore({
@@ -189,12 +211,20 @@ describe("rewrite stack integration", () => {
     firstSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect((await nextTypedMessage(firstSocket, "first init", "INIT")).type).toBe("INIT");
 
-    firstSocket.socket.send(JSON.stringify({ type: "CHOOSE_TECH", techId: "tribal-warfare" }));
-    const techUpdate = await nextTypedMessage(firstSocket, "warbands tech update", "TECH_UPDATE");
+    // "tribal-warfare" was cut in the tech-tree redesign (never confirmed to
+    // gate anything real), and the redesign's "no flat bonus techs" rule
+    // means NO tech carries a `mods` (attack/defense/income/vision)
+    // multiplier anymore — grepping tech-tree.json confirms zero techs have
+    // a non-empty `mods` field. "agriculture" (real, T1, still exists) is
+    // used here instead; mods stay at their unmodified defaults since no
+    // tech can change them, and this test's actual point — the tech-cache
+    // survives across sockets for the same player — is unaffected either way.
+    firstSocket.socket.send(JSON.stringify({ type: "CHOOSE_TECH", techId: "agriculture" }));
+    const techUpdate = await nextTypedMessage(firstSocket, "agriculture tech update", "TECH_UPDATE");
     expect(techUpdate).toEqual(
       expect.objectContaining({
-        techIds: expect.arrayContaining(["tribal-warfare"]),
-        mods: expect.objectContaining({ attack: 1.05, defense: 1.05 })
+        techIds: expect.arrayContaining(["agriculture"]),
+        mods: expect.objectContaining({ attack: 1, defense: 1 })
       })
     );
 
@@ -205,11 +235,8 @@ describe("rewrite stack integration", () => {
     expect(cachedInit).toEqual(
       expect.objectContaining({
         player: expect.objectContaining({
-          techIds: expect.arrayContaining(["tribal-warfare"]),
-          mods: expect.objectContaining({ attack: 1.05, defense: 1.05 }),
-          modBreakdown: expect.objectContaining({
-            attack: expect.arrayContaining([expect.objectContaining({ label: "Warbands", mult: 1.05 })])
-          })
+          techIds: expect.arrayContaining(["agriculture"]),
+          mods: expect.objectContaining({ attack: 1, defense: 1 })
         })
       })
     );
@@ -1002,6 +1029,15 @@ describe("rewrite stack integration", () => {
     expect(await nextTypedMessage(fogAdminSocket, "fog update", "FOG_UPDATE")).toEqual({ type: "FOG_UPDATE", fogDisabled: true });
     expect((await nextNonBootstrapMessage(fogAdminSocket, "fog snapshot replace")).type).toBe("TILE_SNAPSHOT_REPLACE");
 
+    // Muster is unconditionally required to attack — stage it through the
+    // real command path, then advance muster accumulation with a direct tick.
+    fogAdminSocket.socket.send(
+      JSON.stringify({ type: "SET_MUSTER", x: 10, y: 10, mode: "HOLD", clientSeq: 1 })
+    );
+    await nextNonBootstrapMessage(fogAdminSocket, "muster queued");
+    await nextNonBootstrapMessage(fogAdminSocket, "muster resolved");
+    simulation.runtime.tickMuster(7_000);
+
     fogAdminSocket.socket.send(
       JSON.stringify({
         type: "ATTACK",
@@ -1010,7 +1046,7 @@ describe("rewrite stack integration", () => {
         toX: 10,
         toY: 11,
         commandId: "fog-resnapshot-cmd-1",
-        clientSeq: 1
+        clientSeq: 2
       })
     );
 
@@ -1563,7 +1599,7 @@ describe("rewrite stack integration", () => {
           id: "player-1",
           points: 10_000,
           manpower: 10_000,
-          techIds: ["cartography"],
+          techIds: ["crystal-lattices"],
           strategicResources: { CRYSTAL: 100 }
         }
       ]

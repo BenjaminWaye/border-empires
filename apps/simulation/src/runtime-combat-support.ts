@@ -4,7 +4,6 @@ import {
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
   BREAKTHROUGH_DURATION_MS,
-  MUSTER_SYSTEM_ENABLED,
   rollFrontierCombat,
   targetOutpostMult,
   WORLD_HEIGHT,
@@ -273,9 +272,8 @@ const resolveAttackCombat = (
     attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
     defenderOwnerId: defenderOwnerId,
     fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
-    musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
-    fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-    fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
+    fortGarrison: targetHasActiveFort ? (previousTarget?.fort?.garrison ?? 0) : undefined,
+    fortGarrisonCap: targetHasActiveFort ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
     nowMs: ctx.now()
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget

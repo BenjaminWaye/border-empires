@@ -174,7 +174,10 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           townType: "FARMING",
           townName: "BrightFang",
           townPopulationTier: "CITY"
-        }
+        },
+        landTile(11, 11, "player-2", "CARAVANARY"),
+        // Feeds the Caravanary's own FOOD slot demand so it isn't dormant.
+        { x: 12, y: 12, terrain: "LAND" as const, resource: "FARM" as const, ownerId: "player-2", ownershipState: "SETTLED" as const }
       ],
       players: [
         {

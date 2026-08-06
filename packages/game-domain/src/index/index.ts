@@ -180,6 +180,7 @@ export type DomainTileState = {
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
+            | "censusHallAppliedBonus"
           >
         >)
     | undefined;
@@ -275,9 +276,7 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   expandClaimDurationMs?: number | undefined;
-  /** Mustering system: when true, attacks consume the origin tile's muster. */
-  musterSystemEnabled?: boolean | undefined;
-  /** Manpower currently mustered on the origin tile (used when the flag is on). */
+  /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
@@ -320,7 +319,7 @@ export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
   const legacy = manpowerRequirements(input.actionType, input.to);
-  const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
+  const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";

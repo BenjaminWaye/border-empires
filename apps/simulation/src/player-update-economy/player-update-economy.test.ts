@@ -108,6 +108,17 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
           ownershipState: "SETTLED",
           town: { type: "MARKET", populationTier: "TOWN", name: "Two" }
         }
+      ],
+      [
+        "10,9",
+        {
+          x: 10,
+          y: 9,
+          terrain: "LAND",
+          ownerId: player.id,
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: player.id, type: "CARAVANARY", status: "active" }
+        }
       ]
     ]);
 
@@ -250,18 +261,14 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     expect(economy.goldCapIncomePerMinute).toBeCloseTo(economy.incomePerMinute, 4);
   });
 
-  it("goldCapIncomePerMinute is higher than incomePerMinute when dockGoldCapMult is active", () => {
-    const base = makePlayer();
-    const boosted = makePlayer();
-    boosted.techIds.add("port-infrastructure"); // dockGoldCapMult: 1.25
-    const tiles = new Map<string, DomainTileState>([
-      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" }]
-    ]);
-    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
-    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
-    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
-    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.25, 4);
-  });
+  // Removed: this test boosted "port-infrastructure" for its dockGoldCapMult:
+  // 1.25 effect. The 2026 tech-tree redesign cut port-infrastructure (it was
+  // a bonus-only tech with no building/ability attached, contrary to the
+  // redesign's "no flat bonus techs" rule) and did not carry dockGoldCapMult
+  // forward onto any surviving tech — grepping tech-tree.json confirms the
+  // effect key no longer exists anywhere. Flagging for product awareness: if
+  // a dock-gold-cap-multiplier tech is still meant to exist, it needs a new
+  // home, not a test workaround.
 
   it("goldCapIncomePerMinute is higher than incomePerMinute when townGoldCapMult is active", () => {
     const base = makePlayer();

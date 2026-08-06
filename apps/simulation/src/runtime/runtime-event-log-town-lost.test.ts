@@ -31,7 +31,14 @@ describe("§20 event log — town lost", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 20,
+              y: 20,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 20,
               y: 21,

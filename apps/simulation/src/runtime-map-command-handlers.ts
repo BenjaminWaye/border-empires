@@ -319,10 +319,9 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "select an active World Engine");
     return;
   }
-  if (!actor.techIds || !actor.techIds.has("worldbreaker-fire")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "requires Worldbreaker Fire research");
-    return;
-  }
+  // Worldbreaker Ignition (tech "worldbreaker-fire") was cut — the strike
+  // ability now fires immediately once World Engine is built, gated only by
+  // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Aether Tower");
     return;

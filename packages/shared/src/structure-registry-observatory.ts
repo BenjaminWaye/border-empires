@@ -18,7 +18,7 @@ export const OBSERVATORY_SPEC: StructureSpec = {
     strategic: { CRYSTAL: 45 },
   },
   buildMs: OBSERVATORY_BUILD_MS,
-  techIds: ["cartography"],
+  techIds: ["crystal-lattices"],
   consumesDevelopmentSlot: true,
   placement: [
     ownerOwnsTile,

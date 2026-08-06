@@ -1,6 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  MUSTER_SYSTEM_ENABLED,
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
@@ -13,6 +12,8 @@ import {
   structureShowsOnTile,
   structureSlotRequirements,
   LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
+  GRANARY_INSTANT_POPULATION_BURST,
+  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
   type SlotStructureType
@@ -59,6 +60,14 @@ export type RuntimeStructureCommandContext = {
   // built per connected-town network" — true when townKey's own network
   // already has an active Rail Depot, at that town or any town it's connected to.
   railDepotAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Same shape, retargeted at Assembly Works (tech-tree redesign): "only one
+  // Assembly Works may be built per connected-town network."
+  assemblyWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Quartermaster's Office (tech-tree redesign): true when the player has an
+  // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
+  // of (x, y) -- reduces manpower cost for War-branch structures built
+  // there.
+  hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
@@ -120,6 +129,10 @@ function resolveTownSupportTarget(
       rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
       return undefined;
     }
+    if (economicType === "ASSEMBLY_WORKS" && context.assemblyWorksAlreadyInNetwork(command.playerId, townKey)) {
+      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
+      return undefined;
+    }
     const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, economicType);
     if (!supportTarget) {
       rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
@@ -135,6 +148,10 @@ function resolveTownSupportTarget(
   }
   if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
     rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
+    return undefined;
+  }
+  if (economicType === "ASSEMBLY_WORKS" && supportedTownKey && context.assemblyWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
+    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
     return undefined;
   }
   return target;
@@ -396,6 +413,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     manpowerCost = structureBuildManpowerCost(structureType);
   }
+  // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
+  // War-branch structures (Fort ladder, Siege ladder) built within its
+  // radius. Checked after the base cost is resolved above so it applies to
+  // fort/siege tier upgrades too, not just the first tier.
+  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
+  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
+    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
+  }
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
     return;
@@ -471,7 +496,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   const { completesAt: _, ...activeStructure } = structure;
   const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const garrisonInit = spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED
+  const garrisonInit = spec.tileField === "fort"
     ? {
         garrison: initialGarrisonForVariant(activeVariant),
         garrisonCap: garrisonCapForVariant(activeVariant),
@@ -497,4 +522,39 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // is applied by reconcileOutpostVisionBonus via the replaceTileState call
   // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
+  // Incubation Engine (Granary, tech-tree redesign): instant one-time
+  // +10,000 population burst on build completion, applied to both the
+  // town's current population AND its cap (a burst that gets silently
+  // absorbed into existing headroom wouldn't read as a "burst" at all).
+  if (structureType === "GRANARY") {
+    grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
+  }
+}
+
+function grantGranaryPopulationBurst(
+  context: RuntimeStructureCommandContext,
+  ownerId: string,
+  x: number,
+  y: number,
+  commandId: string
+): void {
+  const townKey = context.assignedTownKeyForSupportTile(ownerId, x, y);
+  if (!townKey) return;
+  const townTile = context.tiles.get(townKey);
+  if (!townTile?.town || townTile.ownerId !== ownerId) return;
+  const updatedTownTile: DomainTileState = {
+    ...townTile,
+    town: {
+      ...townTile.town,
+      population: (townTile.town.population ?? 0) + GRANARY_INSTANT_POPULATION_BURST,
+      maxPopulation: (townTile.town.maxPopulation ?? 0) + GRANARY_INSTANT_POPULATION_BURST
+    }
+  };
+  context.replaceTileState(townKey, updatedTownTile, commandId);
+  context.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId,
+    playerId: ownerId,
+    tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
+  });
 }

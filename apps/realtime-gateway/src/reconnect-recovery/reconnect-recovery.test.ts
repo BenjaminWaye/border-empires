@@ -100,7 +100,7 @@ describe("buildInitMessage", () => {
         season: expect.objectContaining({ seasonId: "rewrite-default", worldSeed: expect.any(Number) })
       })
     );
-    expect(init.techCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "agriculture", name: "Agriculture" })]));
+    expect(init.techCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "agriculture", name: "Agrarian Works" })]));
     expect(init.domainCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "frontier-doctrine", name: "Frontier Doctrine" })]));
     expect(init.leaderboard.overall).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
     expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));

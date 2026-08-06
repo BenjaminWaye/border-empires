@@ -1,4 +1,4 @@
-import { formatTechBenefitSummary, formatTechPassiveSummary } from "../client-tech-html/client-tech-html.js";
+import { techBranchTagHtml } from "../client-tech-html/client-tech-html.js";
 import { renderTechHighlightTagsHtml, techHighlightTags } from "../client-tech-payoffs.js";
 import { techBlockedReasonSummary, techMissingResourceSummary, techMissingResourceSummaryHtml } from "../client-tech-requirements/client-tech-requirements.js";
 import type { TechInfo } from "../client-types.js";
@@ -117,12 +117,10 @@ const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPr
   const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
   const highlightCount = techHighlightTags(tech).length;
   const payoffRows = highlightCount > 0 ? Math.max(1, Math.ceil(Math.min(highlightCount, 3) / 2)) : 0;
-  const summaryText = formatTechPassiveSummary(tech) || formatTechBenefitSummary(tech);
-  const summaryLines = Math.max(1, Math.ceil(summaryText.length / 30));
   const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
   const costText = techCardStatusLine(tech, prereqText, args.formatTechCost).text;
   const costLines = Math.max(1, Math.ceil(costText.length / 30));
-  const estimate = 28 + titleLines * 24 + payoffRows * 26 + 12 + summaryLines * 20 + costLines * 20 + 26;
+  const estimate = 28 + titleLines * 24 + payoffRows * 26 + 12 + costLines * 20 + 26;
   return Math.max(TECH_TREE_NODE_MIN_H, estimate);
 };
 
@@ -211,16 +209,14 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
               : blockedStatus.tone === "missing"
                 ? " tech-card-cost-missing"
                 : blockedStatus.tone === "blocked"
-                  ? " tech-card-cost-blocked"
-                  : "";
-          const passiveSummary = formatTechPassiveSummary(tech);
+                ? " tech-card-cost-blocked"
+                : "";
           return `<button class="tech-card${selected}${owned}${available}${blocked}${pulsing}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
             <div class="tech-card-top">
-              <strong>${tech.name}</strong>
+              <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
             ${renderTechHighlightTagsHtml(tech, 2)}
-            ${passiveSummary ? `<p>${passiveSummary}</p>` : ""}
             <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
           </button>`;
         })
@@ -498,20 +494,18 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           : blockedStatus.tone === "missing"
             ? " tech-card-cost-missing"
             : blockedStatus.tone === "blocked"
-              ? " tech-card-cost-blocked"
-              : "";
-      const passiveSummary = formatTechPassiveSummary(tech);
+                ? " tech-card-cost-blocked"
+                : "";
       return `<button
         class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}${missingResources ? " resource-blocked" : ""}"
         data-tech-card="${tech.id}"
         style="left:${layout.x}px;top:${layout.y}px;width:${TECH_TREE_NODE_W}px;min-height:${layout.height}px;"
       >
         <div class="tech-card-top">
-          <strong>${tech.name}</strong>
+          <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
           <span class="tech-tree-card-badge">${stateLabel}</span>
         </div>
         ${renderTechHighlightTagsHtml(tech, 2)}
-        ${passiveSummary ? `<p class="tech-tree-card-meta">${passiveSummary}</p>` : ""}
         <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
       </button>`;
     })
