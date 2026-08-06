@@ -215,4 +215,115 @@ describe("SimulationRuntime outpost vision bonus", () => {
 
     expect(inAreaKeys().has("35,30")).toBe(false);
   });
+
+  it("manually disabling an active Light Outpost drops its vision ring; re-enabling restores it", async () => {
+    const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
+    for (let x = 0; x <= 20; x += 1) {
+      for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          ...tiles,
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
+
+    runtime.submitCommand({
+      commandId: "disable-outpost",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "SET_CONVERTER_STRUCTURE_ENABLED" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 10, enabled: false })
+    });
+    await Promise.resolve();
+
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+
+    runtime.submitCommand({
+      commandId: "enable-outpost",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_CONVERTER_STRUCTURE_ENABLED" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 10, enabled: true })
+    });
+    await Promise.resolve();
+
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
+  });
+
+  it("losing the FOOD tile that was covering a beyond-the-free-5 Light Outpost drops its vision ring, without the outpost's own tile changing", async () => {
+    const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
+    for (let x = 0; x <= 20; x += 1) {
+      for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    // Five free (waived) Light Outposts, well out of the way, plus a sixth —
+    // the first one that actually draws a FOOD slot — at (10, 10). A single
+    // FARM tile supplies exactly the 1 FOOD slot it needs.
+    const freeOutposts = [0, 1, 2, 3, 4].map((i) => ({
+      x: i,
+      y: 20 + i,
+      terrain: "LAND" as const,
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const, activatedAt: 100 + i }
+    }));
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          ...tiles,
+          ...freeOutposts,
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const, activatedAt: 200 }
+          },
+          // The one FOOD slot that keeps the sixth outpost powered.
+          { x: 19, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FARM" as const }
+        ],
+        activeLocks: []
+      }
+    });
+
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
+
+    runtime.submitCommand({
+      commandId: "abandon-farm",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "UNCAPTURE_TILE" as any,
+      payloadJson: JSON.stringify({ x: 19, y: 5 })
+    });
+    await Promise.resolve();
+
+    // The sixth outpost's own tile never changed — only the FARM tile did —
+    // but it's now dormant for lack of a FOOD slot, so its ring is gone.
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+  });
 });
