@@ -3715,7 +3715,10 @@ describe("simulation runtime", () => {
             { x: 11, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+            // Ancillary Factory is a town-support building — must sit on a
+            // support tile adjacent to the town, not on the town tile itself.
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -3733,7 +3736,7 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "GARRISON_HALL" })
+        payloadJson: JSON.stringify({ x: 9, y: 10, structureType: "GARRISON_HALL" })
       });
 
       await Promise.resolve();
@@ -3741,7 +3744,7 @@ describe("simulation runtime", () => {
 
       vi.advanceTimersByTime(structureBuildDurationMs("GARRISON_HALL"));
 
-      const exported = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      const exported = runtime.exportState().tiles.find((tile) => tile.x === 9 && tile.y === 10);
       expect(exported?.economicStructureJson).toContain("\"type\":\"GARRISON_HALL\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
     } finally {
