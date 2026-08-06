@@ -69,7 +69,14 @@ describe("simulation runtime — truce sync", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []

@@ -157,9 +157,10 @@ describe("automation planner economy gate", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 5, fromY: 5, toX: 6, toY: 5 })
-    });
+    // Attack path wins over the economy slot; under the muster system with no
+    // muster staged yet, that means SET_MUSTER (staging manpower) rather than
+    // a direct ATTACK — see automation-command-planner-utility-integration.test.ts
+    // for the identical reasoning.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 });

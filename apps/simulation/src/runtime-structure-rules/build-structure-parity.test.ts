@@ -302,7 +302,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
-        techIds: new Set<string>(["cartography"]), domainIds: new Set<string>(),
+        techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
         strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },

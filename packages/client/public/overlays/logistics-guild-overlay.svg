@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Logistics Guild: taller civic hall under a pyramidal roof -->
+  <path d="M24 102L44 88H84L64 102H24Z" fill="#7D7468"/>
+  <path d="M44 88V64H84V88H44Z" fill="#8A8078"/>
+  <path d="M84 88L102 76V52L84 64V88Z" fill="#6E6459"/>
+  <path d="M44 64L64 50H102L84 64H44Z" fill="#2A241E"/>
+
+  <!-- Brass schedule-tower: square turret with an hour-drums dial face -->
+  <path d="M54 38H74V24H54V38Z" fill="#8A8078"/>
+  <circle cx="64" cy="31" r="6" fill="#B3833A"/>
+  <circle cx="64" cy="31" r="6" fill="none" stroke="#7A5A26" stroke-width="1.2"/>
+  <circle cx="64" cy="31" r="1.4" fill="#FFB347"/>
+
+  <!-- Steam whistle stack on top -->
+  <path d="M64 24V15" stroke="#5A5E62" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M61 15H67L64 10L61 15Z" fill="#E8E6DF"/>
+
+  <!-- Rail pylon at one corner with a small signal lantern: "linked by rail" -->
+  <path d="M94 90V60" stroke="#3E4248" stroke-width="3" stroke-linecap="round"/>
+  <path d="M91 62L106 68L91 74V62Z" fill="#B3833A"/>
+
+  <!-- Low train-hall annex wing -->
+  <path d="M14 106L28 98H52L38 106H14Z" fill="#3E4248"/>
+  <path d="M28 98V88H52V98H28Z" fill="#5A5E62"/>
+  <path d="M28 88L42 80H52L38 88H28Z" fill="#2A241E"/>
+
+</svg>

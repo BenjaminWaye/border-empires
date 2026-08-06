@@ -33,8 +33,7 @@ export type FrontierCombatModifiers = {
   attackVsBarbariansMult?: number;
   defenderOwnerId?: string | undefined;
   fortDefenseMult?: number;
-  // Muster system garrison scaling: when set, fort defense is proportional to fill ratio.
-  musterSystemEnabled?: boolean;
+  // Garrison scaling: when set, fort defense is proportional to fill ratio.
   fortGarrison?: number | undefined;
   fortGarrisonCap?: number | undefined;
   // Breakthrough momentum: current timestamp for breach-window check.
@@ -65,7 +64,7 @@ const defenseMultiplierForTile = (
     const baseFortMult = baseFortDefenseMult(target.fortVariant);
     const techMult = modifiers.fortDefenseMult ?? 1;
     const combinedMult = baseFortMult * techMult;
-    if (modifiers.musterSystemEnabled && modifiers.fortGarrisonCap != null && modifiers.fortGarrisonCap > 0) {
+    if (modifiers.fortGarrisonCap != null && modifiers.fortGarrisonCap > 0) {
       const fillRatio = Math.min(1, (modifiers.fortGarrison ?? 0) / modifiers.fortGarrisonCap);
       defMult *= 1 + (combinedMult - 1) * fillRatio;
     } else {

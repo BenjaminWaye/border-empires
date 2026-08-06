@@ -181,61 +181,19 @@ const formatEffectSummaryLines = (effects: TechInfo["effects"] | DomainInfo["eff
   return lines;
 };
 
-const combatStrengthSummary = (attack: number | undefined, defense: number | undefined): string | null => {
-  if (typeof attack === "number" && typeof defense === "number" && attack === defense && attack !== 1) {
-    return `Combat strength ${attack > 1 ? "+" : ""}${((attack - 1) * 100).toFixed(0)}%`;
-  }
-  return null;
-};
-
-const formatTechModifiers = (mods: TechInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
-  if (combatStrength) {
-    lines.push(combatStrength);
-  } else {
-    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  }
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
-export const formatTechPassiveSummary = (tech: TechInfo): string => {
-  const lines = formatTechModifiers(tech.mods);
-  for (const label of formatEffectSummaryLines(tech.effects)) {
-    if (tech.effects && Object.entries(tech.effects).some(([key, value]) => isTechHighlightEffectKey(key) && effectSummaryLabel(key, value) === label)) continue;
-    lines.push(label);
-  }
-  if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
-  return lines.join(" | ");
-};
-
-const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
-  if (combatStrength) {
-    lines.push(combatStrength);
-  } else {
-    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  }
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
+// Tech-tree redesign: every tech unlocks a real building/ability, never a
+// flat stat multiplier — mods (attack/defense/income/vision) are legacy
+// pre-redesign data still present on some tech-tree.json rows and must not
+// be surfaced to players as if they were the tech's payoff. Only effect
+// (unlock) summary lines and powerup grants are shown.
 export const formatTechBenefitSummary = (tech: TechInfo): string => {
-  const lines = formatTechModifiers(tech.mods);
-  lines.push(...formatEffectSummaryLines(tech.effects));
+  const lines = formatEffectSummaryLines(tech.effects);
   if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
-  const lines = formatDomainModifiers(domain.mods);
-  lines.push(...formatEffectSummaryLines(domain.effects));
+  const lines = formatEffectSummaryLines(domain.effects);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
@@ -438,6 +396,21 @@ export const techCurrentModsHtml = (
   `;
 };
 
+// Tech-tree redesign: a small colored label showing which of the 4
+// player-facing branches (war, economy, manpower, aether) a tech belongs
+// to. Deliberately a plain text/color tag, not a redesign of the tech card.
+const TECH_BRANCH_LABELS: Record<string, string> = {
+  war: "War",
+  economy: "Economy",
+  manpower: "Manpower",
+  aether: "Aether"
+};
+export const techBranchTagHtml = (branch: string | undefined): string => {
+  if (!branch) return "";
+  const label = TECH_BRANCH_LABELS[branch] ?? branch;
+  return ` <span class="tech-branch-tag tech-branch-tag-${branch}">${label}</span>`;
+};
+
 const checklistHtml = (items: Array<{ label: string; met: boolean }>, className = "tech-req-list"): string =>
   items.length > 0
     ? `<ul class="${className}">${items
@@ -573,7 +546,7 @@ export const renderTechDetailCardHtml = (args: {
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
-        <div class="tech-detail-title">${tech.name}</div>
+        <div class="tech-detail-title">${tech.name}${techBranchTagHtml(tech.branch)}</div>
         <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}
@@ -766,33 +739,3 @@ export const renderDomainDetailCardHtml = (args: {
   </article>`;
 };
 
-export const renderTechChoiceDetailsHtml = (args: {
-  tech: TechInfo | undefined;
-  statusText: string | undefined;
-  currentMods: Record<ModKey, number>;
-  prereqs: string[];
-}): string => {
-  const { tech, statusText, currentMods, prereqs } = args;
-  if (!tech) return `<p class="muted">No tech selected.</p>`;
-  const mods = Object.entries(tech.mods ?? {})
-    .map(([key, value]) => `${key} x${Number(value).toFixed(3)}`)
-    .join(" | ");
-  const projected = {
-    attack: currentMods.attack * (tech.mods.attack ?? 1),
-    defense: currentMods.defense * (tech.mods.defense ?? 1),
-    income: currentMods.income * (tech.mods.income ?? 1),
-    vision: currentMods.vision * (tech.mods.vision ?? 1)
-  };
-  return `<article class="card">
-    <strong>${tech.name}</strong>
-    ${statusText ? `<p class="muted">${statusText}</p>` : ""}
-    <p>${tech.description}</p>
-    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
-    <p><strong>Requirements:</strong></p>
-    ${compactChecklistHtml(effectiveRequirementChecklist(tech.requirements))}
-    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
-    <p><strong>Current:</strong> atk x${currentMods.attack.toFixed(3)} | def x${currentMods.defense.toFixed(3)} | inc x${currentMods.income.toFixed(3)} | vis x${currentMods.vision.toFixed(3)}</p>
-    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
-    ${tech.grantsPowerup ? `<p><strong>Powerup:</strong> ${tech.grantsPowerup.id} (+${tech.grantsPowerup.charges})</p>` : ""}
-  </article>`;
-};

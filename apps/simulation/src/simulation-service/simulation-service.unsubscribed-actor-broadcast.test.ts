@@ -285,6 +285,20 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
     // while the AI attacker remains unsubscribed.
     await subscribePlayer(client, defenderId);
 
+    // Muster is unconditionally required to attack — stage it on the
+    // attacker's origin tile directly (rather than waiting real wall-clock
+    // seconds for it to accumulate via the muster tick).
+    await submitCommand(client, {
+      command_id: "stage-muster-for-attack-alert",
+      session_id: "session-unsub-attack-alert",
+      player_id: attackerId,
+      client_seq: 0,
+      issued_at: Date.now(),
+      type: "SET_MUSTER",
+      payload_json: JSON.stringify({ x: attackOrigin.x, y: attackOrigin.y, mode: "HOLD" })
+    });
+    service.runtime.tickMuster(service.runtime.now() + 7_000);
+
     const commandId = "unsubscribed-attacker-attack-alert";
     const attackAlert = waitForStreamEvent(
       client,

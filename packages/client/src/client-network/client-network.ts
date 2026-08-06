@@ -1,4 +1,5 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
+import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
@@ -2107,6 +2108,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         nextChoices: (msg.nextChoices as string[])?.length ?? 0,
         techCatalogCount: (msg.techCatalog as any[] | undefined)?.length ?? 0
       });
+      // Tech-tree redesign: fire the unlock confetti/flash once per newly-
+      // researched tech (never on a pure catalog refresh with no new ids).
+      const previouslyOwnedTechIds = new Set(state.techIds ?? []);
+      const incomingTechIds = (msg.techIds as string[] | undefined) ?? [];
+      const hasNewlyResearchedTech = incomingTechIds.some((id) => !previouslyOwnedTechIds.has(id));
       applyTechUpdateToState(state, {
         status: msg.status as "started" | "completed" | undefined,
         techRootId: msg.techRootId as string | undefined,
@@ -2131,6 +2137,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         strategicResources: (msg.strategicResources as typeof state.strategicResources | undefined) ?? undefined
       }, pushFeed);
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
+      if (hasNewlyResearchedTech) triggerTechUnlockFx();
       renderHud();
       return;
     }

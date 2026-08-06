@@ -293,6 +293,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1785910000000, // manpower overlays
+    introducedIn: "next",
+    title: "Manpower-branch buildings render on the map",
+    why: "The steampunk Manpower economy branch (quartermaster supply, logistics guilds, conscription, and the workforce-producing Ancillary Factory, Incubation Engine, and Ambaric Tower) had no map art yet. Each building now renders as a distinct 3D model in 3D mode and as a hand-drawn 2D sprite on the classic map.",
+    changes: [
+      "8 new manpower buildings render on the map: Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy, Ancillary Factory, Incubation Engine, and Ambaric Tower.",
+      "3D mode: each building has its own silhouette in a shared bronze/gunmetal/amber steampunk palette - brass supply counters, schedule-tower dials, drive-shaft gears, census columns, an orders-horn ember, boiler ward ports, and spiral ambaric coils.",
+      "2D mode: new map sprites for all 8 buildings."
+    ]
+  },
+  {
     createdAt: 1786003565156, // 2026-08-06
     introducedIn: "next",
     title: "Fixed: changes made to the world while you were offline could stay missing after you logged back in",
@@ -301,6 +312,19 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Logging in now rebuilds your world snapshot whenever the world changed while you were away, instead of serving a stale cached copy.",
       "Fixes outpost vision discs that never revealed their tiles after a reconnect, and the same staleness for territory ownership, towns and structures that changed while you were offline.",
       "Fast reconnects where nothing has changed still use the cached snapshot, so logging back in is no slower than before."
+    ]
+  },
+  {
+    createdAt: 1786035996000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed leftover bugs from the tech-tree redesign: stale bonus text, wrong gold pricing, missing branch tags",
+    why: "The tech-tree redesign (branch structure, no-flat-bonus techs, steampunk renaming) shipped with three regressions: some tech cards still printed old attack/defense/vision bonus text even though the redesign removed all flat-bonus techs, every tech's gold cost was a different leftover per-tier price instead of the intended flat +50-per-researched-tech curve, and the tree UI had no visible tag showing which of the four branches (War/Economy/Manpower/Aether) a tech belonged to.",
+    changes: [
+      "Tech cards and detail views no longer print stale attack/defense/vision multiplier text — only real building/ability unlocks are shown.",
+      "Every tech now costs 10 gold plus 50 gold per tech you've already researched, applied uniformly instead of the old scattered per-tier prices.",
+      "Tech cards now show a colored branch tag (War/Economy/Manpower/Aether) so it's clear which branch a tech belongs to.",
+      "The Iron Levy monument's ability can now actually be triggered — it was fully implemented on the server but was never wired into the game's network layer.",
+      "Caravanary now enables the connected-town road network itself (towns need at least one built to share the gold bonus) instead of just adding +25% on top of an already-existing bonus."
     ]
   },
 ];

@@ -102,6 +102,51 @@ describe("muster-gated attacks", () => {
     expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11)?.ownerId).toBe("player-2");
   });
 
+  it("EXPAND never requires muster, even with zero staged on the origin tile", async () => {
+    // Muster only gates ATTACK (musterAttack = actionType === "ATTACK" in
+    // validateFrontierCommand) — EXPAND must succeed regardless of the
+    // origin's muster reservoir.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 0, mode: "HOLD", updatedAt: 1_000 }
+          },
+          // Neutral LAND tile to expand onto (EXPAND requires an unowned LAND target).
+          { x: 9, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "expand-no-muster-needed",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 9, toY: 10 })
+    });
+    await Promise.resolve();
+    const accepted = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+        event.eventType === "COMMAND_ACCEPTED" && event.commandId === "expand-no-muster-needed"
+    );
+    expect(accepted).toBeDefined();
+  });
+
   it("ADVANCE flag auto-fires at an adjacent enemy when affordable", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);

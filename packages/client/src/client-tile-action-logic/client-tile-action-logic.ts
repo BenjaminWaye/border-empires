@@ -199,6 +199,10 @@ export type TileActionLogicDeps = {
       | "WORLD_ENGINE_PART"
       | "AEGIS_DOME_PART"
       | "ASTRAL_DOCK_PART"
+      | "POPULATION_BUREAU_PART"
+      | "IRON_LEVY_PART"
+      | "ASSEMBLY_WORKS"
+      | "LOGISTICS_GUILD"
   ) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
   pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
@@ -1514,7 +1518,28 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
-              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network`
+              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +300 manpower cap if an Assembly Works is in this town's connected network`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("QUARTERMASTERS_OFFICE", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_quartermasters_office",
+          label: "Build Quartermaster's Office",
+          detail: deps.buildDetailTextForAction("build_quartermasters_office", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "QUARTERMASTERS_OFFICE",
+              state.techIds.includes("field-logistics") && hasFreeResourceSlots(state, "QUARTERMASTERS_OFFICE") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("field-logistics")
+                ? "Requires Field Logistics"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "QUARTERMASTERS_OFFICE") ?? "Unavailable",
+              `${deps.structureCostText("QUARTERMASTERS_OFFICE")} • ${Math.round(economicStructureBuildMs("QUARTERMASTERS_OFFICE") / 60000)}m • reduces manpower cost for War-branch structures within 20 tiles`
             ),
             slots,
             deps
@@ -1666,6 +1691,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasWorldEnginePart = deps.townHasSupportStructure(townBuildSource, "WORLD_ENGINE_PART");
       const townHasAegisDomePart = deps.townHasSupportStructure(townBuildSource, "AEGIS_DOME_PART");
       const townHasAstralDockPart = deps.townHasSupportStructure(townBuildSource, "ASTRAL_DOCK_PART");
+      const townHasPopulationBureauPart = deps.townHasSupportStructure(townBuildSource, "POPULATION_BUREAU_PART");
+      const townHasIronLevyPart = deps.townHasSupportStructure(townBuildSource, "IRON_LEVY_PART");
+      const townHasAnyMonumentPart =
+        townHasImperialExchangePart ||
+        townHasWorldEnginePart ||
+        townHasAegisDomePart ||
+        townHasAstralDockPart ||
+        townHasPopulationBureauPart ||
+        townHasIronLevyPart;
+      const townHasAssemblyWorks = deps.townHasSupportStructure(townBuildSource, "ASSEMBLY_WORKS");
+      const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
       out.push({
         id: "build_market",
@@ -2019,6 +2055,108 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                     ? "Requires Astral Dock"
                     : (missingResourceSlotReason(state, "ASTRAL_DOCK_PART") ?? "Unavailable"),
             `${deps.structureCostText("ASTRAL_DOCK_PART")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_population_bureau_part",
+        label: "Build Population Bureau Part",
+        detail: deps.buildDetailTextForAction("build_population_bureau_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "POPULATION_BUREAU_PART",
+            !supportPlacementBlocked &&
+              !townHasAnyMonumentPart &&
+              isGreatCity &&
+              state.techIds.includes("demographic-registry") &&
+              hasFreeResourceSlots(state, "POPULATION_BUREAU_PART"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAnyMonumentPart
+                ? "Nearby great city already hosts a monument part"
+                : !isGreatCity
+                  ? "Requires Great City or Monumental City"
+                  : !state.techIds.includes("demographic-registry")
+                    ? "Requires Demographic Registry"
+                    : (missingResourceSlotReason(state, "POPULATION_BUREAU_PART") ?? "Unavailable"),
+            `${deps.structureCostText("POPULATION_BUREAU_PART")} • ${Math.round(economicStructureBuildMs("POPULATION_BUREAU_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_iron_levy_part",
+        label: "Build The Iron Levy Part",
+        detail: deps.buildDetailTextForAction("build_iron_levy_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "IRON_LEVY_PART",
+            !supportPlacementBlocked &&
+              !townHasAnyMonumentPart &&
+              isGreatCity &&
+              state.techIds.includes("grand-levy-doctrine") &&
+              hasFreeResourceSlots(state, "IRON_LEVY_PART"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAnyMonumentPart
+                ? "Nearby great city already hosts a monument part"
+                : !isGreatCity
+                  ? "Requires Great City or Monumental City"
+                  : !state.techIds.includes("grand-levy-doctrine")
+                    ? "Requires Grand Levy Doctrine"
+                    : (missingResourceSlotReason(state, "IRON_LEVY_PART") ?? "Unavailable"),
+            `${deps.structureCostText("IRON_LEVY_PART")} • ${Math.round(economicStructureBuildMs("IRON_LEVY_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_assembly_works",
+        label: "Build Assembly Works",
+        detail: deps.buildDetailTextForAction("build_assembly_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "ASSEMBLY_WORKS",
+            !supportPlacementBlocked &&
+              !townHasAssemblyWorks &&
+              state.techIds.includes("conveyor-networks") &&
+              hasFreeResourceSlots(state, "ASSEMBLY_WORKS"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAssemblyWorks
+                ? "Nearby town already has Assembly Works"
+                : !state.techIds.includes("conveyor-networks")
+                  ? "Requires Conveyor Networks"
+                  : (missingResourceSlotReason(state, "ASSEMBLY_WORKS") ?? "Unavailable"),
+            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • +300 manpower cap for every Ancillary Factory in this connected-town network • one per connected-town network`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_logistics_guild",
+        label: "Build Logistics Guild",
+        detail: deps.buildDetailTextForAction("build_logistics_guild", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "LOGISTICS_GUILD",
+            !supportPlacementBlocked &&
+              !townHasLogisticsGuild &&
+              state.techIds.includes("remade-concordat") &&
+              hasFreeResourceSlots(state, "LOGISTICS_GUILD"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasLogisticsGuild
+                ? "Town already has Logistics Guild"
+                : !state.techIds.includes("remade-concordat")
+                  ? "Requires The Remade Concordat"
+                  : (missingResourceSlotReason(state, "LOGISTICS_GUILD") ?? "Unavailable"),
+            `${deps.structureCostText("LOGISTICS_GUILD")} • ${Math.round(economicStructureBuildMs("LOGISTICS_GUILD") / 60000)}m • +0.05 manpower/min empire-wide, +0.1/min if a Rail Depot is in this town's connected network`
           ),
           slots,
           deps

@@ -94,14 +94,21 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   RAIL_DEPOT: { baseGoldCost: 0, manpowerCost: 300 },
   GOVERNORS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   RADAR_SYSTEM: { baseGoldCost: 0, manpowerCost: 300 },
+  QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
+  LOGISTICS_GUILD: { baseGoldCost: 0, manpowerCost: 150 },
+  ASSEMBLY_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
   IMPERIAL_EXCHANGE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   WORLD_ENGINE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   AEGIS_DOME_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   ASTRAL_DOCK_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
+  POPULATION_BUREAU_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IRON_LEVY_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   WORLD_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
+  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  POPULATION_BUREAU: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  IRON_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
 };
 
 // ── Fort tier ladder ───────────────────────────────────────────────

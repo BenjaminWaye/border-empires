@@ -71,27 +71,20 @@ describe("tech-domain bridge progression sources", () => {
     expect(resolved).toBe(EXPECTED_TECH_TREE_PATH);
   });
 
-  it("recomputes active stat mods and source labels from unlocked techs", () => {
+  it("recomputes active stat mods and source labels from unlocked domains (tribal-warfare tech was cut in the tech-tree redesign)", () => {
     const player = {
-      techIds: new Set<string>(["tribal-warfare"]),
-      domainIds: new Set<string>()
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(["war-foundries"])
     };
 
-    expect(recomputeMods(player)).toEqual({ attack: 1.05, defense: 1.05, income: 1, vision: 1 });
+    expect(recomputeMods(player)).toEqual({ attack: 1.1, defense: 1.1, income: 1, vision: 1 });
     expect(buildModBreakdownForPlayer(player).attack).toEqual([
       { label: "Base", mult: 1 },
-      { label: "Warbands", mult: 1.05 }
+      { label: "War Foundries", mult: 1.1 }
     ]);
   });
 
-  it("Cartography grants townVisionRadiusBonus, not a generic visionRadiusBonus", () => {
-    const player = { techIds: new Set<string>(["cartography"]), domainIds: new Set<string>() };
-    expect(townVisionRadiusBonusForPlayer(player)).toBe(1);
-    expect(visionRadiusBonusForPlayer(player)).toBe(0);
-    expect(outpostVisionRadiusBonusForPlayer(player)).toBe(0);
-  });
-
-  it("Survey Corps grants outpostVisionRadiusBonus, not a generic visionRadiusBonus", () => {
+  it("Survey Corps grants outpostVisionRadiusBonus, not a generic visionRadiusBonus (Cartography's townVisionRadiusBonus was retired with the tech-tree redesign)", () => {
     const player = { techIds: new Set<string>(["surveying"]), domainIds: new Set<string>() };
     expect(outpostVisionRadiusBonusForPlayer(player)).toBe(1);
     expect(visionRadiusBonusForPlayer(player)).toBe(0);
@@ -350,18 +343,21 @@ describe("AI progression choice prefers affordable options over higher-scored un
     terrain: "LAND" as const,
     town: { name: "Core", populationTier: "TOWN" as const }
   };
-  // toolmaking/trade already researched so the scoring/reachability surfaces
-  // harborcraft (requires trade, tier 2, active_dock bonus) as the
-  // highest-scored reachable candidate, ahead of the remaining tier-1
-  // options (verified directly against chooseAiTechChoiceForPlayer's actual
-  // output, not hand-derived from the scoring heuristics).
-  const alreadyResearched = ["toolmaking", "trade"];
+  // trade already researched. tribal-warfare/toolmaking were cut in the
+  // tech-tree redesign, and costs are now a uniform researched-count curve
+  // (10 gold for the first research, then +50 per tech already researched —
+  // tech-economy.ts) rather than per-tech/per-tier numbers, so the
+  // affordable/highest-scored candidates shifted (verified directly against
+  // chooseAiTechChoiceForPlayer's actual output, not hand-derived from the
+  // scoring heuristics). With trade researched, every reachable tech costs
+  // 60 gold, so the affordability split is purely points >= 60.
+  const alreadyResearched = ["trade"];
 
-  it("prefers an affordable tier-1 tech over a higher-scored tier-2 tech blocked by its gold cost", () => {
+  it("uses the flat researched-count gold cost and prefers an affordable tech", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
         id: "ai-4",
-        points: 10, // affords tier 1 (10 gold) but not tier 2 (50 gold)
+        points: 60, // exactly the flat cost with 1 tech already researched
         techIds: alreadyResearched,
         domainIds: [],
         strategicResources: {}
@@ -370,15 +366,17 @@ describe("AI progression choice prefers affordable options over higher-scored un
     );
 
     expect(choice).toBeDefined();
+    expect(choice!.goldCost).toBe(60);
     expect(choice!.affordable).toBe(true);
-    expect(choice!.id).toBe("tribal-warfare");
+    // All reachable techs cost the same; the highest-scored one wins.
+    expect(choice!.id).toBe("masonry");
   });
 
   it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
         id: "ai-4", // must match ownedSettledDock's ownerId for active_dock to apply
-        points: 0, // below every tier's gold cost
+        points: 0, // below every tech's gold cost
         techIds: alreadyResearched,
         domainIds: [],
         strategicResources: {}
@@ -388,10 +386,9 @@ describe("AI progression choice prefers affordable options over higher-scored un
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(false);
-    // Diagnostic still gets the most-wanted tech (harborcraft, tier 2, the
-    // top-scored reachable candidate) so preplan can report
+    // Diagnostic still gets the most-wanted tech so preplan can report
     // tech_unaffordable accurately.
-    expect(choice!.id).toBe("harborcraft");
+    expect(choice!.id).toBe("masonry");
     expect(choice!.score).toBeGreaterThan(0);
   });
 

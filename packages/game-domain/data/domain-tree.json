@@ -6,7 +6,7 @@
       "tier": 1,
       "name": "Frontier Doctrine",
       "description": "Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
-      "requiresTechId": "toolmaking",
+      "requiresTechId": "pottery",
       "cost": { "gold": 40 },
       "effects": {
         "settlementSpeedMult": 1.5,
@@ -86,7 +86,7 @@
       "tier": 2,
       "name": "Iron Vanguard",
       "description": "Aggression is sharpened specifically against real territory.",
-      "requiresTechId": "bronze-working",
+      "requiresTechId": "fortified-walls",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
         "attackVsSettledMult": 1.20,
@@ -109,7 +109,7 @@
       "tier": 2,
       "name": "Crystal Network",
       "description": "Observatories project safe control deep into exposed territory.",
-      "requiresTechId": "signal-fires",
+      "requiresTechId": "crystal-lattices",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
         "observatoryRangeBonus": 10
@@ -140,7 +140,8 @@
       },
       "effects": {
         "outpostAttackMult": 1.15,
-        "attackVsSettledMult": 1.1
+        "attackVsSettledMult": 1.1,
+        "musterMaxTilesAdd": 1
       }
     },
     {
@@ -225,7 +226,7 @@
       "tier": 4,
       "name": "Treasury State",
       "description": "Wealth is disciplined into larger reserves and stronger city infrastructure.",
-      "requiresTechId": "banking",
+      "requiresTechId": "coinage",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
         "townGoldCapMult": 1.2,
@@ -291,7 +292,7 @@
       "tier": 5,
       "name": "Golden Hegemony",
       "description": "A rich, compact network of cities and ports bankrolls the empire.",
-      "requiresTechId": "trade-empire",
+      "requiresTechId": "urban-markets",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
         "marketBonusMult": 1.15,
@@ -304,7 +305,7 @@
       "tier": 5,
       "name": "Oracle State",
       "description": "Information superiority becomes empire superiority.",
-      "requiresTechId": "grand-cartography",
+      "requiresTechId": "beacon-towers",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
         "observatoryVisionBonus": 1,

@@ -31,9 +31,11 @@ const fortPlacement: StructureSpec["placement"] = [
 
 function fortSpec(variant: FortVariant): StructureSpec {
   const tier = FORT_TIER_LADDER[variant];
-  const techIds: string[] = ["masonry"];
-  if (variant === "IRON_BASTION") techIds.push("fortified-walls");
-  if (variant === "THUNDER_BASTION") techIds.push("steelworking", "fortified-walls");
+  // Wooden Fort has no tech requirement — always available from the start.
+  const techIds: string[] = [];
+  if (variant === "FORT") techIds.push("masonry");
+  if (variant === "IRON_BASTION") techIds.push("masonry", "fortified-walls");
+  if (variant === "THUNDER_BASTION") techIds.push("masonry", "steelworking", "fortified-walls");
 
   return {
     type: variant,

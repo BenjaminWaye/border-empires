@@ -120,8 +120,11 @@ describe("automation command planner — utility AI path", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    // ATTACK should win over BUILD_ECONOMY despite weak income
-    expect(result.command?.type).toBe("ATTACK");
+    // The attack path should win over BUILD_ECONOMY despite weak income. Under
+    // the muster system, with no muster staged yet the AI issues SET_MUSTER
+    // first (it stages manpower via SET_MUSTER rather than attacking blind) —
+    // that's still "the attack path," not the economic build.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 
   it("economic build fires when there is no frontier opportunity", () => {

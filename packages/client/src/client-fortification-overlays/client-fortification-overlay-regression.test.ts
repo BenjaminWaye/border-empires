@@ -10,14 +10,14 @@ const clientSource = (filename: string): string => {
 
 describe("fortification overlay asset wiring", () => {
   it("loads directional fortification ring overlays and uses them in the runtime loop", () => {
-    const render = clientSource("../client-map-render/client-map-render.ts");
+    const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
 
-    expect(render).toContain('const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay")');
-    expect(render).toContain("FORT: fortRingOverlaySet, IRON_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet");
-    expect(render).toContain('WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay")');
-    expect(render).toContain('SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static")');
-    expect(render).toContain('LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")');
+    expect(overlayImages).toContain('const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay")');
+    expect(overlayImages).toContain("FORT: fortRingOverlaySet, IRON_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet");
+    expect(overlayImages).toContain('WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay")');
+    expect(overlayImages).toContain('SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static")');
+    expect(overlayImages).toContain('LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")');
     expect(loop).toContain("const fortificationKind = fortificationOverlayKindForTile(t);");
     expect(loop).toContain("const opening = fortificationOpeningForTile(t, {");
     expect(loop).toContain("deps.fortificationOverlayImageFor(fortificationKind, opening)");

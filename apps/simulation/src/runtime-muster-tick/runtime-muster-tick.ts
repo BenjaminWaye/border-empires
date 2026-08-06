@@ -1,7 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
-  MUSTER_SYSTEM_ENABLED,
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
@@ -57,11 +56,8 @@ export type MusterTickInput = {
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
  *
- * No-op when the muster system is disabled.
  */
 export const tickMuster = (input: MusterTickInput): void => {
-  if (!MUSTER_SYSTEM_ENABLED) return;
-
   for (const [playerId, musterKeys] of input.musterTilesByOwner) {
     if (musterKeys.size === 0) continue;
     const player = input.players.get(playerId);

@@ -1,0 +1,33 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Quartermaster's Office: low wide ledger-hall, stone block body with a shallow hipped roof -->
+  <path d="M14 100L34 88H94L74 100H14Z" fill="#7D7468"/>
+  <path d="M34 88V74H94V88H34Z" fill="#8A8078"/>
+  <path d="M94 88L116 75V61L94 74V88Z" fill="#6E6459"/>
+  <path d="M34 74L58 61H116L94 74H34Z" fill="#2A241E"/>
+  <path d="M34 74L46 68H58L46 74H34Z" fill="#3E4248"/>
+
+  <!-- Two gable chimneys -->
+  <path d="M44 66V52H54V66H44Z" fill="#6E6459"/>
+  <path d="M74 66V52H84V66H74Z" fill="#6E6459"/>
+  <path d="M42 52H56" stroke="#B3833A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M72 52H86" stroke="#B3833A" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Door and small pipe-ledger desk alcove at the front -->
+  <path d="M54 88V80H66V88H54Z" fill="#3E4248"/>
+  <path d="M72 88V81H82V88H72Z" fill="#2A241E"/>
+
+  <!-- Supply-board counter: slanted brass plank beside the door, stacked with supply crates -->
+  <path d="M36 93L52 85L56 92L40 100L36 93Z" fill="#B3833A"/>
+  <path d="M44 85L46 81H51L49 85H44Z" fill="#2A241E"/>
+  <path d="M45 80L47 76H52L50 80H45Z" fill="#2A241E"/>
+  <path d="M48 75L50 71H54L52 75H48Z" fill="#2A241E"/>
+
+  <!-- Small amber lamp over the counter only -->
+  <circle cx="50" cy="69" r="3" fill="#FFB347"/>
+
+  <!-- Thin supply-pipe from the roofline down into the rail-siding stub at the tile edge -->
+  <path d="M86 70V88" stroke="#5A5E62" stroke-width="3" stroke-linecap="round"/>
+  <path d="M88 96L106 90L108 96L90 102L88 96Z" fill="#3E4248"/>
+
+</svg>

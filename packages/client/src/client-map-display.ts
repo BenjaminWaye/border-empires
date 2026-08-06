@@ -19,14 +19,12 @@ export type StructureInfoKey =
   | "CAMP"
   | "MINE"
   | "MARKET"
-  | "BROKER_MARKET"
   | "GRANARY"
   | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "BANK"
   | "CLEARING_HOUSE"
   | "CARAVANARY"
-  | "TREASURY_HOUSE"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
   | "FUR_SYNTHESIZER"
@@ -36,7 +34,6 @@ export type StructureInfoKey =
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "FOUNDRY"
-  | "ADVANCED_FOUNDRY"
   | "EXCHANGE_HOUSE"
   | "CUSTOMS_HOUSE"
   | "GOVERNORS_OFFICE"
@@ -44,16 +41,22 @@ export type StructureInfoKey =
   | "AIRPORT"
   | "AETHER_TOWER"
   | "RADAR_SYSTEM"
+  | "QUARTERMASTERS_OFFICE"
+  | "LOGISTICS_GUILD"
+  | "ASSEMBLY_WORKS"
   | "ASTRAL_DOCK_PART"
   | "ASTRAL_DOCK"
   | "RAIL_DEPOT"
-  | "WEATHER_ENGINE"
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE"
   | "AEGIS_DOME_PART"
   | "AEGIS_DOME"
+  | "POPULATION_BUREAU_PART"
+  | "POPULATION_BUREAU"
+  | "IRON_LEVY_PART"
+  | "IRON_LEVY"
   | "SIEGE_OUTPOST"
   | "SIEGE_TOWER"
   | "DREAD_TOWER";
@@ -68,6 +71,42 @@ export type StructureInfoView = {
   costBits: string[];
   buildTimeLabel: string;
   upkeepBits?: string[];
+  // Tech-tree redesign: which of the 4 player-facing branches (War/Economy/
+  // Manpower/Aether) this structure belongs to, for the branch-tag UI
+  // requirement. Undefined for structures with no tech gate (Wooden
+  // Fort/Light Outpost) or that predate the branch system (monuments span
+  // branches by design, left untagged here).
+  branch?: "War" | "Economy" | "Manpower" | "Aether";
+};
+
+// Tech-tree redesign: branch tag for the structure build UI. Derived from
+// which branch each structure's own tech gate lives in (see
+// TECH_REQUIREMENTS_BY_STRUCTURE in structure-registry-economic.ts) --
+// listed explicitly here rather than computed from the tech catalog since
+// this module has no tech-tree.json access.
+const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy" | "Manpower" | "Aether">> = {
+  FORT: "War", IRON_BASTION: "War", THUNDER_BASTION: "War",
+  SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
+  FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
+  MARKET: "Economy", BANK: "Economy", CLEARING_HOUSE: "Economy",
+  FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
+  IRONWORKS: "Economy", ADVANCED_IRONWORKS: "Economy",
+  FOUNDRY: "Economy", EXCHANGE_HOUSE: "Economy", CUSTOMS_HOUSE: "Economy",
+  CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
+  IMPERIAL_EXCHANGE_PART: "Economy", IMPERIAL_EXCHANGE: "Economy",
+  CAMP: "War",
+  GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
+  GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
+  QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
+  ASSEMBLY_WORKS: "Manpower",
+  POPULATION_BUREAU_PART: "Manpower", POPULATION_BUREAU: "Manpower",
+  IRON_LEVY_PART: "Manpower", IRON_LEVY: "Manpower",
+  OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
+  ADVANCED_CRYSTAL_SYNTHESIZER: "Aether", AIRPORT: "Aether",
+  AETHER_TOWER: "Aether", RADAR_SYSTEM: "Aether",
+  ASTRAL_DOCK_PART: "Aether", ASTRAL_DOCK: "Aether",
+  AEGIS_DOME_PART: "War", AEGIS_DOME: "War",
+  WORLD_ENGINE_PART: "War", WORLD_ENGINE: "War"
 };
 
 export const economicStructureName = (type: EconomicStructureType | StructureInfoKey): string => {
@@ -76,14 +115,13 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "WATERWORKS") return "Waterworks";
   if (kind === "CAMP") return "Camp";
   if (kind === "MINE") return "Mine";
-  if (kind === "BROKER_MARKET") return "Broker Market";
-  if (kind === "GRANARY") return "Granary";
+  if (kind === "GRANARY") return "Incubation Engine";
   if (kind === "SEED_GRANARY") return "Seed Granary";
   if (kind === "CENSUS_HALL") return "Census Hall";
   if (kind === "BANK") return "Bank";
   if (kind === "CLEARING_HOUSE") return "Clearing House";
-  if (kind === "AIRPORT") return "Sky Dock";
-  if (kind === "AETHER_TOWER") return "Aether Tower";
+  if (kind === "AIRPORT") return "Aetherport";
+  if (kind === "AETHER_TOWER") return "Ambaric Tower";
   if (kind === "WOODEN_FORT") return "Wooden Fort";
   if (kind === "LIGHT_OUTPOST") return "Light Outpost";
   if (kind === "CARAVANARY") return "Caravanary";
@@ -94,39 +132,43 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
   if (kind === "FOUNDRY") return "Foundry";
-  if (kind === "ADVANCED_FOUNDRY") return "Advanced Foundry";
   if (kind === "EXCHANGE_HOUSE") return "Exchange House";
-  if (kind === "GARRISON_HALL") return "Garrison Hall";
+  if (kind === "GARRISON_HALL") return "Ancillary Factory";
   if (kind === "CUSTOMS_HOUSE") return "Harbor Exchange";
   if (kind === "GOVERNORS_OFFICE") return "Ministry Hall";
   if (kind === "RADAR_SYSTEM") return "Resonance Grid";
+  if (kind === "QUARTERMASTERS_OFFICE") return "Quartermaster's Office";
+  if (kind === "LOGISTICS_GUILD") return "Logistics Guild";
+  if (kind === "ASSEMBLY_WORKS") return "Assembly Works";
   if (kind === "ASTRAL_DOCK_PART") return "Astral Dock Part";
   if (kind === "ASTRAL_DOCK") return "Astral Dock";
   if (kind === "RAIL_DEPOT") return "Rail Depot";
-  if (kind === "WEATHER_ENGINE") return "Weather Engine";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "Imperial Exchange Part";
   if (kind === "WORLD_ENGINE_PART") return "Worldbreaker Cannon Part";
   if (kind === "IMPERIAL_EXCHANGE") return "Imperial Exchange";
   if (kind === "AEGIS_DOME_PART") return "Aegis Dome Part";
   if (kind === "AEGIS_DOME") return "Aegis Dome";
   if (kind === "WORLD_ENGINE") return "Worldbreaker Cannon";
+  if (kind === "POPULATION_BUREAU_PART") return "Population Bureau Part";
+  if (kind === "POPULATION_BUREAU") return "Population Bureau";
+  if (kind === "IRON_LEVY_PART") return "The Iron Levy Part";
+  if (kind === "IRON_LEVY") return "The Iron Levy";
   return "Market";
 };
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
   if (kind === "MARKET") return "Nearby town: +50% gold production; higher production raises gold cap.";
-  if (kind === "BROKER_MARKET") return "Upgrades a market into a broker market with +87.5% town gold production and +0.5 flat town income.";
-  if (kind === "GRANARY") return "Boosts nearby town population growth by 15%.";
+  if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
-  if (kind === "CENSUS_HALL") return "Drives local population growth through census administration.";
+  if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
   if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
   if (kind === "CLEARING_HOUSE") return "Strengthens banks and markets for this town and its directly connected towns.";
   if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). 5,000 gold per shot, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
-  if (kind === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
+  if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Caravanary.";
   if (kind === "FUR_SYNTHESIZER") return "Converts gold into 18 supply per day.";
   if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Converts gold into 21.6 supply per day.";
   if (kind === "IRONWORKS") return "Converts gold into 18 iron per day.";
@@ -134,22 +176,27 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
-  if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine production.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
-  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius and adds +150 manpower cap to this town (+300 more, plus +0.1 manpower/min empire-wide, if a Rail Depot is in this town's connected network).";
+  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius and adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
-  if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and cuts settled-tile upkeep by 20% in a 10-tile radius.";
+  if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
+  if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost for War-branch structures (Fort/Siege ladders) built within 20 tiles.";
+  if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
+  if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
   if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for full-map vision for 24 hours.";
-  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Garrison Hall in its connected-town network (+300 manpower cap, +0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
-  if (kind === "WEATHER_ENGINE") return "Blocks hostile bombardment and hostile observatory actions within 30 tiles.";
+  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Logistics Guild in its connected-town network (+0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
   if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Free, once every 24 hours, it can levy 100% of a single chosen rival's gold.";
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a free 15-minute Aegis Lock every 60 minutes.";
   if (kind === "WORLD_ENGINE") return "Unique world monument. Every 10 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.";
+  if (kind === "POPULATION_BUREAU_PART") return "One of three monument parts needed to assemble the Population Bureau.";
+  if (kind === "POPULATION_BUREAU") return "Unique world monument. Adds +0.1 manpower/min empire-wide for every Manpower-branch building you own.";
+  if (kind === "IRON_LEVY_PART") return "One of three monument parts needed to assemble The Iron Levy.";
+  if (kind === "IRON_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
@@ -197,6 +244,9 @@ export const structureInfoForKey = (
     | "RAIL_DEPOT"
     | "GOVERNORS_OFFICE"
     | "RADAR_SYSTEM"
+    | "QUARTERMASTERS_OFFICE"
+    | "LOGISTICS_GUILD"
+    | "ASSEMBLY_WORKS"
     | "ASTRAL_DOCK_PART"
     | "ASTRAL_DOCK"
     | "IMPERIAL_EXCHANGE_PART"
@@ -204,18 +254,18 @@ export const structureInfoForKey = (
     | "AEGIS_DOME_PART"
     | "AEGIS_DOME"
     | "IMPERIAL_EXCHANGE"
-    | "WORLD_ENGINE" => {
+    | "WORLD_ENGINE"
+    | "POPULATION_BUREAU_PART"
+    | "POPULATION_BUREAU"
+    | "IRON_LEVY_PART"
+    | "IRON_LEVY" => {
     if (key === "IRON_BASTION") return "FORT";
     if (key === "THUNDER_BASTION") return "FORT";
     if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
     if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
     if (key === "WATERWORKS") return "FARMSTEAD";
-    if (key === "BROKER_MARKET") return "MARKET";
     if (key === "SEED_GRANARY") return "GRANARY";
-    if (key === "TREASURY_HOUSE") return "BANK";
-    if (key === "ADVANCED_FOUNDRY") return "FOUNDRY";
     if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
-    if (key === "WEATHER_ENGINE") return "RADAR_SYSTEM";
     return key;
   };
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
@@ -229,18 +279,16 @@ export const structureInfoForKey = (
     if (key === "FORT") return ["0.03 gold / m", "0.03 iron / m"];
     if (key === "SIEGE_OUTPOST" || key === "SIEGE_TOWER") return ["0.10 gold / m", "0.03 supply / m"];
     if (key === "DREAD_TOWER") return ["0.14 gold / m", "0.05 supply / m"];
-    if (key === "MARKET" || key === "BROKER_MARKET" || key === "BANK") return [key === "BANK" ? "0.10 food / m" : "0.05 food / m"];
+    if (key === "MARKET" || key === "BANK") return [key === "BANK" ? "0.10 food / m" : "0.05 food / m"];
     if (key === "GRANARY" || key === "SEED_GRANARY" || key === "FARMSTEAD") return ["0.10 gold / m"];
     if (key === "CENSUS_HALL") return ["0.60 gold / m"];
     if (key === "CLEARING_HOUSE") return ["3.00 gold / m"];
     if (key === "WATERWORKS" || key === "CAMP" || key === "MINE") return ["0.12 gold / m"];
     if (key === "CARAVANARY") return ["1.50 gold / m"];
-    if (key === "TREASURY_HOUSE") return ["2.00 gold / m"];
     if (key === "FUR_SYNTHESIZER" || key === "ADVANCED_FUR_SYNTHESIZER") return ["12 gold / m"];
     if (key === "IRONWORKS" || key === "ADVANCED_IRONWORKS") return ["12 gold / m"];
     if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["16 gold / m"];
     if (key === "FOUNDRY") return ["5 gold / m"];
-    if (key === "ADVANCED_FOUNDRY") return ["7 gold / m"];
     if (key === "EXCHANGE_HOUSE") return ["6 gold / m", "0.10 crystal / m"];
     if (key === "CUSTOMS_HOUSE") return ["0.50 gold / m"];
     if (key === "GARRISON_HALL") return ["2.50 gold / m"];
@@ -253,7 +301,6 @@ export const structureInfoForKey = (
     if (key === "AEGIS_DOME_PART") return ["2.50 gold / m"];
     if (key === "AEGIS_DOME") return ["8 gold / m", "0.10 crystal / m"];
     if (key === "RAIL_DEPOT") return [];
-    if (key === "WEATHER_ENGINE") return ["4 gold / m", "0.10 crystal / m"];
     return [];
   };
   const effectsFor = (key: StructureInfoKey): string[] => {
@@ -271,14 +318,12 @@ export const structureInfoForKey = (
     if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
     if (key === "MARKET") return ["+50% town gold production", "Higher production raises gold cap"];
-    if (key === "BROKER_MARKET") return ["+87.5% town gold production", "+0.5 flat town gold income"];
-    if (key === "GRANARY") return ["+15% nearby town population growth"];
+    if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
-    if (key === "CENSUS_HALL") return ["+25% local town population growth"];
+    if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
     if (key === "BANK") return ["+50% city income", "+1 flat city income"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
-    if (key === "CARAVANARY") return ["+25 percentage points to connected-town income bonus"];
-    if (key === "TREASURY_HOUSE") return ["+25 percentage points to connected-city income bonus", "Higher production raises gold cap"];
+    if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
     if (key === "FUR_SYNTHESIZER") return ["Produces 18 supply per day"];
     if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Produces 21.6 supply per day"];
     if (key === "IRONWORKS") return ["Produces 18 iron per day"];
@@ -286,26 +331,33 @@ export const structureInfoForKey = (
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
     if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
-    if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine production within 12 tiles", "+7 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
-    if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
-    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids and Weather Engines", "Requires nearby Aether Tower power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
-    if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
+    if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
+    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
+    if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
+    if (key === "QUARTERMASTERS_OFFICE") return ["Reduces manpower cost for War-branch structures built within 20 tiles"];
+    if (key === "LOGISTICS_GUILD") return ["+0.05 manpower/min empire-wide, standalone", "+0.1/min instead if a Rail Depot is in this town's connected network"];
+    if (key === "ASSEMBLY_WORKS") return ["+300 manpower cap for every Ancillary Factory in this connected-town network", "One per connected-town network"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Aether Tower power"];
-    if (key === "RAIL_DEPOT") return ["+300 manpower cap and +0.1 manpower/min for every Garrison Hall in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
-    if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
-    if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Aether Tower power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Aether Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Aether Tower power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
+    if (key === "RAIL_DEPOT") return ["+0.1 manpower/min for every Logistics Guild in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
+    if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART" || key === "POPULATION_BUREAU_PART" || key === "IRON_LEVY_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Ambaric Tower power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Ambaric Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
+    if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
+    if (key === "IRON_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
     return [];
   };
-  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>
-    image ? { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), image } : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type) };
+  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
+    const branch = STRUCTURE_BRANCH_BY_KEY[type];
+    return image
+      ? { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), image, ...(branch ? { branch } : {}) }
+      : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
+  };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
     if (key === "GRANARY") return "/overlays/granary-overlay.svg";
@@ -320,7 +372,6 @@ export const structureInfoForKey = (
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
-    if (key === "ADVANCED_FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
@@ -446,7 +497,7 @@ export const structureInfoForKey = (
   }
   if (type === "GRANARY") {
     return structure({
-      title: "Granary",
+      title: "Incubation Engine",
       detail: "Granaries are built on a town support tile. They strengthen nearby farmsteads within 10 tiles and reduce the supported town's food upkeep.",
       glyph: "🍞",
       placement: "Build on an open settled support tile for a town you own.",
@@ -487,7 +538,7 @@ export const structureInfoForKey = (
   if (type === "CARAVANARY") {
     return structure({
       title: "Caravanary",
-      detail: "Caravanaries are built on a town support tile. They increase that town's connected-town income bonus by 25%.",
+      detail: "Caravanaries are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Caravanary.",
       glyph: "🐪",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -627,7 +678,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
+      detail: "Rail Depots are mustering hubs that amplify every Ancillary Factory in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -666,7 +717,7 @@ export const structureInfoForKey = (
   }
   if (type === "GARRISON_HALL") {
     return structure({
-      title: "Garrison Hall",
+      title: "Ancillary Factory",
       detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
@@ -676,8 +727,8 @@ export const structureInfoForKey = (
   }
   if (type === "AIRPORT") {
     return structure({
-      title: "Sky Dock",
-      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Aether Tower power.",
+      title: "Aetherport",
+      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Tower power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -686,8 +737,8 @@ export const structureInfoForKey = (
   }
   if (type === "AETHER_TOWER") {
     return structure({
-      title: "Aether Tower",
-      detail: "Aether Towers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
+      title: "Ambaric Tower",
+      detail: "Ambaric Towers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
       glyph: "⚡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -697,7 +748,7 @@ export const structureInfoForKey = (
   if (type === "RADAR_SYSTEM") {
     return structure({
       title: "Resonance Grid",
-      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Aether Tower power.",
+      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Tower power.",
       glyph: "📡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
