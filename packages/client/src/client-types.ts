@@ -468,6 +468,9 @@ export type TechInfo = {
   tier: number;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   description: string;

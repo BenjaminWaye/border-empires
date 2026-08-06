@@ -71,6 +71,42 @@ export type StructureInfoView = {
   costBits: string[];
   buildTimeLabel: string;
   upkeepBits?: string[];
+  // Tech-tree redesign: which of the 4 player-facing branches (War/Economy/
+  // Manpower/Aether) this structure belongs to, for the branch-tag UI
+  // requirement. Undefined for structures with no tech gate (Wooden
+  // Fort/Light Outpost) or that predate the branch system (monuments span
+  // branches by design, left untagged here).
+  branch?: "War" | "Economy" | "Manpower" | "Aether";
+};
+
+// Tech-tree redesign: branch tag for the structure build UI. Derived from
+// which branch each structure's own tech gate lives in (see
+// TECH_REQUIREMENTS_BY_STRUCTURE in structure-registry-economic.ts) --
+// listed explicitly here rather than computed from the tech catalog since
+// this module has no tech-tree.json access.
+const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy" | "Manpower" | "Aether">> = {
+  FORT: "War", IRON_BASTION: "War", THUNDER_BASTION: "War",
+  SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
+  FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
+  MARKET: "Economy", BANK: "Economy", CLEARING_HOUSE: "Economy",
+  FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
+  IRONWORKS: "Economy", ADVANCED_IRONWORKS: "Economy",
+  FOUNDRY: "Economy", EXCHANGE_HOUSE: "Economy", CUSTOMS_HOUSE: "Economy",
+  CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
+  IMPERIAL_EXCHANGE_PART: "Economy", IMPERIAL_EXCHANGE: "Economy",
+  CAMP: "War",
+  GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
+  GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
+  QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
+  ASSEMBLY_WORKS: "Manpower",
+  POPULATION_BUREAU_PART: "Manpower", POPULATION_BUREAU: "Manpower",
+  IRON_LEVY_PART: "Manpower", IRON_LEVY: "Manpower",
+  OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
+  ADVANCED_CRYSTAL_SYNTHESIZER: "Aether", AIRPORT: "Aether",
+  AETHER_TOWER: "Aether", RADAR_SYSTEM: "Aether",
+  ASTRAL_DOCK_PART: "Aether", ASTRAL_DOCK: "Aether",
+  AEGIS_DOME_PART: "War", AEGIS_DOME: "War",
+  WORLD_ENGINE_PART: "War", WORLD_ENGINE: "War"
 };
 
 export const economicStructureName = (type: EconomicStructureType | StructureInfoKey): string => {
@@ -316,8 +352,12 @@ export const structureInfoForKey = (
     if (key === "IRON_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
     return [];
   };
-  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits">, image?: string): StructureInfoView =>
-    image ? { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), image } : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type) };
+  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
+    const branch = STRUCTURE_BRANCH_BY_KEY[type];
+    return image
+      ? { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), image, ...(branch ? { branch } : {}) }
+      : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
+  };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
     if (key === "GRANARY") return "/overlays/granary-overlay.svg";

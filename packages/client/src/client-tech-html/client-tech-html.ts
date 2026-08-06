@@ -438,6 +438,21 @@ export const techCurrentModsHtml = (
   `;
 };
 
+// Tech-tree redesign: a small colored label showing which of the 4
+// player-facing branches (war, economy, manpower, aether) a tech belongs
+// to. Deliberately a plain text/color tag, not a redesign of the tech card.
+const TECH_BRANCH_LABELS: Record<string, string> = {
+  war: "War",
+  economy: "Economy",
+  manpower: "Manpower",
+  aether: "Aether"
+};
+export const techBranchTagHtml = (branch: string | undefined): string => {
+  if (!branch) return "";
+  const label = TECH_BRANCH_LABELS[branch] ?? branch;
+  return ` <span class="tech-branch-tag tech-branch-tag-${branch}">${label}</span>`;
+};
+
 const checklistHtml = (items: Array<{ label: string; met: boolean }>, className = "tech-req-list"): string =>
   items.length > 0
     ? `<ul class="${className}">${items
@@ -573,7 +588,7 @@ export const renderTechDetailCardHtml = (args: {
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
-        <div class="tech-detail-title">${tech.name}</div>
+        <div class="tech-detail-title">${tech.name}${techBranchTagHtml(tech.branch)}</div>
         <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}

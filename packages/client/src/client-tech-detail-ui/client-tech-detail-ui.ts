@@ -340,6 +340,7 @@ export const renderStructureInfoOverlay = (
     costBits: string[];
     buildTimeLabel: string;
     upkeepBits?: string[];
+    branch?: "War" | "Economy" | "Manpower" | "Aether";
   }
 ): string => {
   const type = structureInfoKey as StructureInfoKey | "";
@@ -369,7 +370,7 @@ export const renderStructureInfoOverlay = (
         <div class="structure-info-hero">
           ${artHtml}
           <div class="structure-info-head">
-            <div class="structure-info-kicker">Structure</div>
+            <div class="structure-info-kicker">Structure${info.branch ? ` <span class="tech-branch-tag tech-branch-tag-${info.branch.toLowerCase()}">${info.branch}</span>` : ""}</div>
             <h3 id="structure-info-title">${info.title}</h3>
             <p>${info.detail}</p>
           </div>
