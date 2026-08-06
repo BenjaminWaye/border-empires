@@ -41,6 +41,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "ASTRAL_DOCK_LAUNCH":
     case "ACTIVATE_IMPERIAL_WARD":
     case "WORLD_ENGINE_STRIKE":
+    case "IRON_LEVY_MUSTER":
       return "human_interactive";
     case "COLLECT_TILE":
     case "COLLECT_VISIBLE":
