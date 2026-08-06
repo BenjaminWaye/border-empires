@@ -35,7 +35,12 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockRailDepot: "Rail Depot",
   unlockImperialExchange: "Imperial Exchange",
   unlockWorldEngine: "Worldbreaker Cannon",
-  unlockAegisDome: "Aegis Dome"
+  unlockAegisDome: "Aegis Dome",
+  unlockQuartermastersOffice: "Quartermaster's Office",
+  unlockLogisticsGuild: "Logistics Guild",
+  unlockAssemblyWorks: "Assembly Works",
+  unlockPopulationBureau: "Population Bureau",
+  unlockIronLevy: "The Iron Levy"
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {

@@ -19,7 +19,7 @@ const formatSignedPercent = (mult: number): string => {
   return `${pct >= 0 ? "+" : ""}${pct}%`;
 };
 
-const effectSummaryLabel = (key: string, value: unknown): string | null => {
+export const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
