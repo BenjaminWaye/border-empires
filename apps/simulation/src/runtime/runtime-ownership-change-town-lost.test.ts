@@ -75,7 +75,14 @@ describe("onOwnershipChange townLost signal", () => {
         onOwnershipChange: (sample) => samples.push(sample),
         initialState: {
           tiles: [
-            { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 20,
+              y: 20,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             // Player-owned SETTLEMENT-tier town: capturedTownAftermath razes
             // SETTLEMENT-tier towns on capture, so townLost is still true here
             // (the tile genuinely lost its town structure). simulation-service.ts

@@ -1,5 +1,5 @@
 import { GOLD_RESCALE_DIVISOR, type DomainStrategicResourceKey, type DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
 
@@ -448,7 +448,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     pressureAttackScore,
     pressureThreatensCore,
     attackReady,
-    musterReady: MUSTER_SYSTEM_ENABLED && attackReady && (input.activeMusterCount ?? 0) < MUSTER_MAX_TILES,
+    musterReady: attackReady && (input.activeMusterCount ?? 0) < MUSTER_MAX_TILES,
     manpowerSufficient,
     hasActiveTown,
     hasActiveDock,

@@ -1,6 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  MUSTER_SYSTEM_ENABLED,
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
@@ -497,7 +496,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   const { completesAt: _, ...activeStructure } = structure;
   const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const garrisonInit = spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED
+  const garrisonInit = spec.tileField === "fort"
     ? {
         garrison: initialGarrisonForVariant(activeVariant),
         garrisonCap: garrisonCapForVariant(activeVariant),

@@ -1,6 +1,5 @@
 declare const process: {
   env: {
-    MUSTER_SYSTEM_ENABLED?: string;
     BREAKTHROUGH_ENABLED?: string;
     EMPIRE_INTEGRITY_ENABLED?: string;
     AI_UTILITY_POLICY_ENABLED?: string;
@@ -198,12 +197,8 @@ export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
 export const INITIAL_BARBARIAN_COUNT = 80;
 
-// --- Mustering system (Phase 0) ---
-// Master switch. When false, the game behaves exactly as before.
-// Muster system is always on — the env-gate has been removed, this is no
-// longer opt-in. Kept as an exported constant (rather than deleting it and
-// its call sites) since dozens of files still branch on it.
-export const MUSTER_SYSTEM_ENABLED = true;
+// --- Mustering system ---
+// Attacks always consume pre-staged muster; there is no flag or opt-out.
 
 // How much mustered manpower one ordinary attack costs (placeholder).
 // Also used as the fill-ratio reference for the muster flag animation.

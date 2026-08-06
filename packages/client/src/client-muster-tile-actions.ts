@@ -8,9 +8,7 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership
- * and the current muster state. The server will reject these commands if
- * MUSTER_SYSTEM_ENABLED is false (MUSTER_DISABLED), so no client-side flag
- * check is needed.
+ * and the current muster state.
  */
 export const buildMusterActions = (
   tile: Tile,
