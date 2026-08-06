@@ -1,9 +1,11 @@
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { Pane } from "tweakpane";
-import { renderWorld, type Layers, type ViewConfig } from "./renderer.js";
+import { renderWorld, WONDER_COLORS, type Layers, type ViewConfig } from "./renderer.js";
 import type { MapStyle, WorkerRequest, WorkerResponse } from "./worker.js";
 
 const canvas = document.getElementById("world-canvas") as HTMLCanvasElement;
 const statusText = document.getElementById("status-text")!;
+const wonderList = document.getElementById("wonder-list")!;
 
 canvas.width = 900;
 canvas.height = 900;
@@ -25,7 +27,8 @@ const layers: Layers = {
   shade: true,
   resources: false,
   towns: false,
-  docks: false
+  docks: false,
+  wonders: true
 };
 
 const view: ViewConfig = {
@@ -40,6 +43,7 @@ const stats = {
   time: "—",
   towns: "—",
   docks: "—",
+  wonders: "—",
   farm: "—",
   fish: "—",
   gems: "—",
@@ -59,6 +63,29 @@ const generate = (): void => {
 
 const redraw = (): void => {
   if (lastData) renderWorld(canvas, lastData, layers, view);
+};
+
+const renderWonderList = (wonders: WorkerResponse["wonders"]): void => {
+  wonderList.replaceChildren();
+  for (const wonder of [...wonders].sort((a, b) => a.type.localeCompare(b.type))) {
+    const x = wonder.index % WORLD_WIDTH;
+    const y = Math.floor(wonder.index / WORLD_WIDTH);
+    const [r, g, b] = WONDER_COLORS[wonder.type] ?? [255, 255, 255];
+
+    const row = document.createElement("p");
+    const swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.background = `rgb(${r}, ${g}, ${b})`;
+    row.appendChild(swatch);
+    row.appendChild(document.createTextNode(`${wonder.type} — (${x}, ${y})`));
+    wonderList.appendChild(row);
+  }
+  if (wonders.length < 9) {
+    const missing = document.createElement("p");
+    missing.style.color = "#a55";
+    missing.textContent = `${9 - wonders.length} type(s) failed to place (no valid tile found in 5000 attempts)`;
+    wonderList.appendChild(missing);
+  }
 };
 
 worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
@@ -81,6 +108,8 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
   stats.gems = `${d.gemsSites.toLocaleString()} tiles`;
   stats.iron = `${d.ironSites.toLocaleString()} tiles`;
   stats.fur = `${d.furSites.toLocaleString()} tiles`;
+  stats.wonders = `${d.wonders.length} / 9 placed`;
+  renderWonderList(d.wonders);
 
   const seedLabel = d.actualSeed !== d.requestedSeed
     ? `Seed ${d.actualSeed} (requested ${d.requestedSeed})`
@@ -147,6 +176,7 @@ layerFolder.addBinding(layers, "shade", { label: "Grass shade" }).on("change", r
 layerFolder.addBinding(layers, "resources", { label: "Resources" }).on("change", redraw);
 layerFolder.addBinding(layers, "towns", { label: "Towns" }).on("change", redraw);
 layerFolder.addBinding(layers, "docks", { label: "Docks" }).on("change", redraw);
+layerFolder.addBinding(layers, "wonders", { label: "Natural Wonders" }).on("change", redraw);
 
 // Stats
 const statsFolder = pane.addFolder({ title: "Stats", expanded: true });
@@ -160,6 +190,7 @@ statsFolder.addBinding(stats, "time", { label: "Gen time", readonly: true });
 const settlementFolder = pane.addFolder({ title: "Settlements", expanded: true });
 settlementFolder.addBinding(stats, "towns", { label: "Towns", readonly: true });
 settlementFolder.addBinding(stats, "docks", { label: "Docks", readonly: true });
+settlementFolder.addBinding(stats, "wonders", { label: "Wonders", readonly: true });
 
 // Resources (eligible tile counts)
 const resourceFolder = pane.addFolder({ title: "Resources", expanded: true });
