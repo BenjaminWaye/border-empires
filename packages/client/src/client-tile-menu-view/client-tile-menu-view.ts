@@ -475,7 +475,11 @@ export const menuOverviewForTile = (
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
-    const DOCK_BASE_INCOME_PER_MIN = 0.5;
+    // Mirrors DOCK_INCOME_PER_MIN (game-domain/server-game-constants.ts):
+    // 0.5 / GOLD_RESCALE_DIVISOR(288). Only used as a fallback when the
+    // server hasn't sent tile.dock.goldPerMinute yet — the raw pre-rescope
+    // 0.5 value here previously showed 288x the real dock income.
+    const DOCK_BASE_INCOME_PER_MIN = 0.5 / 288;
     const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
     pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
     pushLine(connectedDockCount === 0

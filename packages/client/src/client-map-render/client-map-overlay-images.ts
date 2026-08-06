@@ -41,7 +41,7 @@ export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg"
 export const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MARKET: loadOverlayImage("market-overlay.svg"),
-  GRANARY: loadOverlayImage("granary-overlay.svg"),
+  GRANARY: loadOverlayImage("incubation-engine-overlay.svg"),
   BANK: loadOverlayImage("bank-overlay.svg"),
   CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
   AIRPORT: loadOverlayImage("airport-overlay.svg"),
@@ -59,6 +59,7 @@ export const structureOverlayImages = {
   RAIL_DEPOT: loadOverlayImage("rail-depot-overlay.svg"),
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
   RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg"),
+  AETHER_TOWER: loadOverlayImage("ambaric-tower-overlay.svg"),
   AEGIS_DOME: loadOverlayImage("aegis-dome-overlay.svg"),
   ASTRAL_DOCK: loadOverlayImage("astral-dock-overlay.svg"),
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
@@ -67,10 +68,7 @@ export const structureOverlayImages = {
   LOGISTICS_GUILD: loadOverlayImage("logistics-guild-overlay.svg"),
   ASSEMBLY_WORKS: loadOverlayImage("assembly-works-overlay.svg"),
   POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
-  IRON_LEVY: loadOverlayImage("iron-levy-overlay.svg"),
-  ANCILLARY_FACTORY: loadOverlayImage("ancillary-factory-overlay.svg"),
-  INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
-  AMBARIC_TOWER: loadOverlayImage("ambaric-tower-overlay.svg")
+  IRON_LEVY: loadOverlayImage("iron-levy-overlay.svg")
 } as const;
 const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for IRON_BASTION/THUNDER_BASTION (3D-only art)
 export const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {

@@ -48,9 +48,12 @@ describe("converter toggle regression guard", () => {
       ["ASSEMBLY_WORKS", "assembly-works-overlay.svg"],
       ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
       ["IRON_LEVY", "iron-levy-overlay.svg"],
-      ["ANCILLARY_FACTORY", "ancillary-factory-overlay.svg"],
-      ["INCUBATION_ENGINE", "incubation-engine-overlay.svg"],
-      ["AMBARIC_TOWER", "ambaric-tower-overlay.svg"]
+      // GRANARY/AETHER_TOWER are the real wire-protocol structure types for
+      // Incubation Engine/Ambaric Tower (display names only) — using the
+      // display names here previously let this test pass while the real
+      // structureOverlayImages entries pointed at the wrong/missing art.
+      ["GRANARY", "incubation-engine-overlay.svg"],
+      ["AETHER_TOWER", "ambaric-tower-overlay.svg"]
     ] as const;
 
     for (const [structureType, asset] of dedicatedStructureOverlays) {
