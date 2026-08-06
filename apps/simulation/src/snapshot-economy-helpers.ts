@@ -33,6 +33,7 @@ import {
 } from "./resource-slot-view/resource-slot-view.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
+import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export { townFoodUpkeepPerMinute };
 
@@ -300,7 +301,8 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
       continue;
     }
     const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
+    const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource });
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys, domainGranted);
     // §23.2: apply the same slot waivers the live runtime does, or a
     // reconnect could show a structure dormant that the live path considers
     // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/
@@ -387,7 +389,8 @@ export const buildResourceSlotDormancyByPlayerAsync = async (
       continue;
     }
     const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys);
+    const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource });
+    const supply = resourceSlotSupplyForPlayer(settledTiles, waterworksKeys, foundryKeys, domainGranted);
     const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
     result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
   }

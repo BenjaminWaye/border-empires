@@ -9,7 +9,7 @@
 
 export type TrickleOption = {
   resource: string;
-  ratePerMinute: number;
+  slotCount: number;
 };
 
 const escapeHtml = (input: string): string =>
@@ -110,7 +110,7 @@ export const promptForTrickleResource = (
                   data-resource="${escapeHtml(option.resource)}"
                   style="display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:10px 12px;margin:6px 0;background:${isDefault ? "#23304a" : "#1c2335"};border:1px solid ${isDefault ? "#3a5286" : "#2a3247"};border-radius:8px;color:#e6e9f2;cursor:pointer;text-align:left;">
             <span style="font-weight:600;font-size:14px;letter-spacing:0.02em;">
-              ${escapeHtml(option.resource)} <span style="color:#7a8aa8;font-weight:400;">+${option.ratePerMinute.toFixed(2)}/min</span>
+              ${escapeHtml(option.resource)} <span style="color:#7a8aa8;font-weight:400;">+${option.slotCount} slot${option.slotCount === 1 ? "" : "s"}</span>
             </span>
             ${flavor ? `<span style="font-size:12px;color:#9aa6c2;margin-top:2px;">${escapeHtml(flavor)}</span>` : ""}
           </button>
@@ -123,7 +123,7 @@ export const promptForTrickleResource = (
         ${escapeHtml(options.domainName)}
       </h2>
       <p style="margin:0 0 10px;color:#9aa6c2;font-size:13px;line-height:1.4;">
-        Pick one resource. The chosen resource will trickle into your stockpile every tick, forever — this choice is <strong>locked</strong> the moment you confirm a domain.
+        Pick one resource. The chosen resource will grant a free logistics slot — this choice is <strong>locked</strong> the moment you confirm a domain.
       </p>
       <div class="trickle-pick-options" style="margin:8px 0 12px;">
         ${offeredHtml}

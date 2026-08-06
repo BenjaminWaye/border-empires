@@ -246,15 +246,15 @@ describe("domain card previews", () => {
   });
 });
 
-describe("domainOwnedHtml — trickle suffix", () => {
+describe("domainOwnedHtml — resource slot suffix", () => {
   const clockworkStipend: DomainInfo = {
     id: "clockwork-stipend",
     tier: 1,
     name: "Clockwork Stipend",
-    description: "Imperial machinery ticks forward a steady supply.",
+    description: "Imperial machinery allocates dedicated logistics slots for one chosen resource (iron, supply, or crystal).",
     requiresTechId: "agriculture",
     mods: {},
-    effects: { chosenResourceTrickleOptions: { IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 } },
+    effects: { chosenResourceSlotGrant: 1 },
     requirements: { gold: 6000, resources: { FOOD: 120 }, canResearch: false }
   };
 
@@ -269,14 +269,14 @@ describe("domainOwnedHtml — trickle suffix", () => {
     requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
   };
 
-  it("appends the locked trickle suffix only to the domain that offered the pick", () => {
+  it("appends the locked slot suffix only to the domain that offered the pick", () => {
     const html = domainOwnedHtml(
       [clockworkStipend, ironBastions],
       ["clockwork-stipend", "iron-bastions"],
       "IRON"
     );
-    expect(html).toContain("Clockwork Stipend <em>(IRON trickle)</em>");
-    // Dwarf Kingdom never offered a trickle table — must not get the suffix.
+    expect(html).toContain("Clockwork Stipend <em>(IRON slot)</em>");
+    // Dwarf Kingdom never offered a slot grant — must not get the suffix.
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("Dwarf Kingdom <em>(");
   });
@@ -284,76 +284,61 @@ describe("domainOwnedHtml — trickle suffix", () => {
   it("does not append a suffix when the player has not locked a resource", () => {
     const html = domainOwnedHtml([clockworkStipend], ["clockwork-stipend"], undefined);
     expect(html).toContain("<strong>Clockwork Stipend</strong>");
-    expect(html).not.toContain("trickle)</em>");
+    expect(html).not.toContain("slot)</em>");
   });
 
-  it("ignores a present-but-empty chosenResourceTrickleOptions object", () => {
-    const stipendWithEmptyOptions: DomainInfo = {
+  it("ignores a missing chosenResourceSlotGrant effect", () => {
+    const stipendWithoutGrant: DomainInfo = {
       ...clockworkStipend,
-      effects: { chosenResourceTrickleOptions: {} }
+      effects: {}
     };
-    const html = domainOwnedHtml([stipendWithEmptyOptions], ["clockwork-stipend"], "IRON");
-    // Empty options table means the domain doesn't actually offer a pick; the
-    // locked-resource suffix must not appear.
-    expect(html).not.toContain("trickle)</em>");
-  });
-
-  it("ignores a non-numeric rate in chosenResourceTrickleOptions", () => {
-    const stipendWithBogusRates: DomainInfo = {
-      ...clockworkStipend,
-      effects: { chosenResourceTrickleOptions: { IRON: "0.2" } }
-    };
-    const html = domainOwnedHtml([stipendWithBogusRates], ["clockwork-stipend"], "IRON");
-    expect(html).not.toContain("trickle)</em>");
+    const html = domainOwnedHtml([stipendWithoutGrant], ["clockwork-stipend"], "IRON");
+    expect(html).not.toContain("slot)</em>");
   });
 
   it("renders the locked CRYSTAL suffix", () => {
     const html = domainOwnedHtml([clockworkStipend], ["clockwork-stipend"], "CRYSTAL");
-    expect(html).toContain("Clockwork Stipend <em>(CRYSTAL trickle)</em>");
+    expect(html).toContain("Clockwork Stipend <em>(CRYSTAL slot)</em>");
   });
 
-  it("ignores non-IRON/SUPPLY/CRYSTAL keys in the options table", () => {
-    // Server-side chosenTrickleOptionsForDomain only honors IRON/SUPPLY/CRYSTAL;
-    // the client gate must agree so a future data-edit bug shipping
-    // { SHARD: 0.5 } doesn't render a misleading suffix client-side while the
-    // sim silently ignores the entry.
+  it("does not render the suffix when the locked resource is not a valid slot resource", () => {
+    // SHARD is not in TRICKLE_RESOURCE_KEYS so the client gate rejects it.
     const stipendWithBogusKey: DomainInfo = {
       ...clockworkStipend,
-      effects: { chosenResourceTrickleOptions: { SHARD: 0.5 } }
+      effects: { chosenResourceSlotGrant: 1 }
     };
-    const html = domainOwnedHtml([stipendWithBogusKey], ["clockwork-stipend"], "IRON");
-    expect(html).not.toContain("trickle)</em>");
+    const html = domainOwnedHtml([stipendWithBogusKey], ["clockwork-stipend"], "SHARD" as never);
+    expect(html).not.toContain("slot)</em>");
   });
 
-  it("does not render the suffix when the locked resource is not in this domain's offered options", () => {
-    // Hypothetical second trickle domain that offers IRON only; player has
-    // locked SUPPLY on a different domain. The narrower domain's card must
-    // NOT claim SUPPLY is trickling — it only ever offered IRON.
-    const narrowTrickleDomain: DomainInfo = {
-      id: "future-narrow-trickle",
-      tier: 2,
-      name: "Iron Tributaries",
-      description: "Hypothetical iron-only trickle.",
+  it("does not render the suffix when the locked resource is not in this domain's offered options (fictional narrow domain)", () => {
+    // The client always offers all TRICKLE_RESOURCE_KEYS for any domain with
+    // chosenResourceSlotGrant > 0, so this test verifies the per-domain gate:
+    // if the domain doesn't carry the effect at all, no suffix appears.
+    const noGrantDomain: DomainInfo = {
+      id: "iron-bastions",
+      tier: 1,
+      name: "Dwarf Kingdom",
+      description: "Forts pop up overnight.",
       requiresTechId: "masonry",
       mods: {},
-      effects: { chosenResourceTrickleOptions: { IRON: 0.1 } },
-      requirements: { gold: 0, resources: {}, canResearch: false }
+      requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
     };
-    const html = domainOwnedHtml([narrowTrickleDomain], ["future-narrow-trickle"], "SUPPLY");
-    expect(html).toContain("<strong>Iron Tributaries</strong>");
-    expect(html).not.toContain("trickle)</em>");
+    const html = domainOwnedHtml([noGrantDomain], ["iron-bastions"], "SUPPLY");
+    expect(html).toContain("<strong>Dwarf Kingdom</strong>");
+    expect(html).not.toContain("slot)</em>");
   });
 });
 
-describe("renderDomainDetailCardHtml — locked trickle pick", () => {
+describe("renderDomainDetailCardHtml — locked resource slot", () => {
   const clockworkStipend: DomainInfo = {
     id: "clockwork-stipend",
     tier: 1,
     name: "Clockwork Stipend",
-    description: "Imperial machinery ticks forward a steady supply.",
+    description: "Imperial machinery allocates dedicated logistics slots for one chosen resource (iron, supply, or crystal).",
     requiresTechId: "agriculture",
     mods: {},
-    effects: { chosenResourceTrickleOptions: { IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 } },
+    effects: { chosenResourceSlotGrant: 1 },
     requirements: {
       gold: 6000,
       resources: { FOOD: 120 },
@@ -362,10 +347,7 @@ describe("renderDomainDetailCardHtml — locked trickle pick", () => {
     }
   };
 
-  it("surfaces the locked resource and its per-minute rate on the owned detail card", () => {
-    // Regression: previously the detail card only showed "Chosen" with no hint
-    // of which resource the player had locked in, forcing them to dig into the
-    // owned-summary card for that information.
+  it("surfaces the locked resource and slot count on the owned detail card", () => {
     const html = renderDomainDetailCardHtml({
       domain: clockworkStipend,
       domainIds: ["clockwork-stipend"],
@@ -376,7 +358,7 @@ describe("renderDomainDetailCardHtml — locked trickle pick", () => {
     });
 
     expect(html).toContain("Your pick");
-    expect(html).toContain("SUPPLY (+0.20/min, locked)");
+    expect(html).toContain("SUPPLY (+1 slot, locked)");
   });
 
   it("omits the locked-pick section when the player has not picked yet", () => {
@@ -392,9 +374,6 @@ describe("renderDomainDetailCardHtml — locked trickle pick", () => {
   });
 
   it("omits the locked-pick section for a domain the player does not own", () => {
-    // Player has locked SUPPLY on some other domain, but they are inspecting
-    // a non-owned domain — the detail card must not pretend SUPPLY belongs to
-    // the inspected domain.
     const html = renderDomainDetailCardHtml({
       domain: clockworkStipend,
       domainIds: [],
