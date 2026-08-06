@@ -125,6 +125,14 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   context.summaryForPlayer(actor.id).ownedTownTierByTile.set(tileKey, nextTier);
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
+  // §5.4: the extra permanent FOOD slot demand this upgrade just added
+  // (townFoodSlotDemandForTier) can push one of the actor's outposts into
+  // dormancy without touching that outpost's own tile — resyncVisionRadius
+  // already re-derives every owned outpost's bonus from current dormancy
+  // state (see resyncPlayerOutpostVisionBonuses), so it doubles as the
+  // dormancy resync here even though nothing about the actor's base vision
+  // radius itself changed.
+  context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,
