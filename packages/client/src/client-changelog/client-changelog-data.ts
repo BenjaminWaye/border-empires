@@ -47,63 +47,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // authored with a live Date.now() call instead of a frozen timestamp,
   // which silently kept it looking brand-new; corrected to its real
   // authored time, it's outside the 6-day window like the others above.
-  // "Roads follow hills, look more realistic" (road-hill-wrap, 2026-07-29)
-  // pruned: aged out of the 6-day window during this merge.
-  {
-    createdAt: 1785575868160, // next
-    introducedIn: "next",
-    title: "Natural Wonders dot the landscape",
-    why: "9 ancient wonders are now scattered across the world. Claim them to gain permanent bonuses — more manpower, stronger forts, faster mustering, and more.",
-    changes: [
-      "Foundry Heart: +1 slot for FOOD/IRON/CRYSTAL/SUPPLY",
-      "Deepwater Engine: dock gold income doubled, dock attacks +15% ATK",
-      "Conscription Engine: +2000 manpower cap, instant +2000 on first claim",
-      "Warpress: 2× muster rate, +1 extra flag (max 6)",
-      "Bastion Frame: fort defense multipliers +0.5×",
-      "Calculating Engine: tech gold costs -10%",
-      "Quickforge: once per day, rush-buy costs 0 gold",
-      "Watchtower Engine: acts as a free Observatory, no CRYSTAL upkeep",
-      "Cartographer's Lens: +1 vision range on all owned tiles",
-      "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more.",
-      "Claiming a wonder adds a Recent Events entry with its flavor text and the exact boon it grants."
-    ]
-  },
-  // 2026.07.30 ("Economy: per-day rates, 1000 gold/day victory threshold,
-  // 24h gold cap"), 2026.07.30 ("Light Outposts reveal 5x5 area"), and
-  // 2026.07.30 ("Build Light Outpost on distant unexplored-adjacent tiles")
-  // pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785564673000, // 2026-08-01
-    introducedIn: "structure-upkeep-rebalance",
-    title: "Fort and outpost upkeep now runs on food plus their resource",
-    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
-    changes: [
-      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
-      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
-      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
-      "These show up in each structure's tile-detail upkeep listing."
-    ]
-  },
-  {
-    createdAt: 1785564621000, // 2026-08-01
-    introducedIn: "town-food-slot-demand",
-    title: "Towns now draw 4 food slots each",
-    why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
-    changes: [
-      "Each TOWN now consumes 4 FOOD resource slots (up from 2) to stay fed, so a growing empire needs proportionally more farms and fishing.",
-      "SETTLEMENTs still draw 0 food slots; CITY, GREAT_CITY, and METROPOLIS each add +1 on top of the town base, matching how their income scales."
-    ]
-  },
-  {
-    createdAt: 1785564622000, // 2026-08-01
-    introducedIn: "town-vision-bonus",
-    title: "Towns reveal one extra tile of vision",
-    why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
-    changes: [
-      "Every SETTLED town tile — including a freshly-founded SETTLEMENT — now reveals its surroundings one tile further than a plain owned tile; its own reveal is radius+1.",
-      "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
-    ]
-  },
+  // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
+  // and town vision-bonus entries pruned: aged out of the 6-day window.
   {
     createdAt: 1785649123000, // 2026.08.02.1
     introducedIn: "2026.08.02.1",
@@ -328,7 +273,59 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786036800000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed a build-menu crash and several dead/mismatched tech gates left over from the tech-tree redesign",
+    why: "The Manpower branch's 4 newest buildings (Assembly Works, Logistics Guild, Population Bureau part, Iron Levy part) were added to one type definition but never to the lookup table behind it, crashing the tile menu on click. Separately, several buildings (Observatory, Aether Purge, Clearing House) were still gated on tech ids that no longer exist after the redesign's renaming pass, permanently blocking them in the UI even though the server never required them, or in Clearing House's case required no tech at all.",
+    changes: [
+      "Fixed a crash opening the tile menu for towns with an Assembly Works, Logistics Guild, or an in-progress Population Bureau/Iron Levy part.",
+      "Observatory and Aether Purge now correctly require Aetheric Resonance (they previously required two retired tech ids and could never be built or used).",
+      "Clearing House no longer requires a nonexistent tech — it now matches the server's real requirement (none, just a free resource slot).",
+      "Ancillary Factory's 2D and 3D map art now actually renders its own dedicated model instead of the old Garrison Hall art (it was built but never wired up).",
+      "Incubation Engine and Ambaric Tower's dedicated 3D models are now wired up the same way.",
+      "Fixed a pile of build-menu labels and requirement text still showing old pre-redesign tech names (e.g. \"Requires Organized Supply\", \"Requires Banking\", \"Requires Cartography\")."
+    ]
+  },
+  {
+    createdAt: 1786037400000, // 2026-08-06
+    introducedIn: "next",
+    title: "Tech unlock chips now have visible spacing and icons showing structure vs ability vs upgrade",
+    why: "A tech that unlocks more than one thing (e.g. Tanner's Craft unlocking both Camp and Siege Outpost) rendered its chips with zero styling or spacing, so multiple unlock names ran together into one unreadable string like \"CampSiege Outpost.\" There was also no visual way to tell whether a chip was a new building, a new ability, or an upgrade to something you already have.",
+    changes: [
+      "Unlock chips are now spaced out and each gets its own background/border pill instead of running together as one string.",
+      "Chips now carry an icon by category: a building glyph for structures, a lightning bolt for abilities, and an up arrow for upgrades.",
+      "Added the 5 missing Manpower-branch unlock chip labels (Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy) that previously rendered blank."
+    ]
+  },
+  {
+    createdAt: 1786038000000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed Ancillary Factory's fabricated defense bonus and wrong-anywhere placement",
+    why: "Ancillary Factory (formerly Garrison Hall, before the Manpower-branch redesign) still had two leftover behaviors from its old identity as a defensive structure: its tooltip claimed a +20% settled-tile defense bonus that no combat code anywhere actually applies, and its placement rules let it be built on almost any tile instead of the town-support tile every other Manpower building requires. Quartermaster's Office had the same wrong-anywhere placement bug. Also fixed a stale, exactly-288x-off gold/day figure on Customs House and Bank/Clearing House tooltips left over from an old economy rescope, and Governor's Office's tooltip, which still described a \"settled-tile upkeep\" reduction that doesn't exist in the game (upkeep and FOOD slot demand are different things).",
+    changes: [
+      "Ancillary Factory's tooltip no longer claims a settled-tile defense bonus it never actually applies — it only ever affected manpower cap.",
+      "Ancillary Factory and Quartermaster's Office must now be built on a town support tile, matching every other Manpower building, instead of almost anywhere.",
+      "Customs House now correctly shows +5 gold/day per connected dock instead of +1440 (a leftover pre-rescope number, off by 288x).",
+      "Bank and Clearing House tooltips now show the correct +5 / +7.5 gold/day flat income instead of the same stale +1440/+720 figures.",
+      "Governor's Office's tooltip now accurately describes its real effect (reduces a nearby town's FOOD slot demand) instead of a settled-tile upkeep reduction that was never implemented."
+    ]
+  },
+  {
+    createdAt: 1786100000000, // 2026-08-07
+    introducedIn: "next",
+    title: "Incubation Engine no longer double-dips on population growth; fixed wrong/missing building icons and a 288x gold display bug",
+    why: "Incubation Engine (Granary) was granting both its intended instant +10,000 population burst on completion AND an old ongoing +15% population growth multiplier at the same time — the redesign was meant to replace the old mechanic, not stack on top of it. Separately, Ambaric Tower's detail page and map icon were showing the Radar System's art, Incubation Engine's icon still used the old Granary art instead of its own dedicated art, and 5 Manpower buildings (Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy) had no icon at all on their detail pages. Dock income also displayed 288x too high in one fallback path (a leftover pre-rescope number, same bug class as several other tooltips fixed recently).",
+    changes: [
+      "Incubation Engine's ongoing +15% population growth bonus has been removed — it now only grants its instant one-time population burst, as intended.",
+      "Ambaric Tower and Incubation Engine now show their own dedicated artwork on both the map and their detail pages, instead of Radar System's/the old Granary's.",
+      "Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, and The Iron Levy now show their artwork on their detail pages.",
+      "Ancillary Factory no longer requires a CRYSTAL slot to build — it now only needs FOOD, matching its Manpower-branch role.",
+      "Ancillary Factory and Quartermaster's Office now correctly show 0-gold costs as blank instead of \"0 gold\".",
+      "Fixed a dock-income display bug that could show 288x the real value when the server hadn't yet sent live dock data."
+    ]
+  },
+  {
+    createdAt: 1786100500000, // 2026-08-07
     introducedIn: "clockwork-stipend-slot-grant",
     title: "Clockwork Stipend now grants a free logistics slot instead of a steady resource trickle",
     why: "The empire no longer earns passive per-minute resource income — iron, supply, and crystal are now slot-based. So Clockwork Stipend's old 0.2/min (or 0.1/min crystal) trickle no longer had a place in the economy. It now grants one free logistics slot for the resource you choose, effectively making that resource exempt from land-use pressure.",

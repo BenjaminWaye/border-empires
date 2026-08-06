@@ -16,7 +16,11 @@ export type SupportTownStructureKey =
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
-  | "ASTRAL_DOCK_PART";
+  | "ASTRAL_DOCK_PART"
+  | "POPULATION_BUREAU_PART"
+  | "IRON_LEVY_PART"
+  | "ASSEMBLY_WORKS"
+  | "LOGISTICS_GUILD";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
   MARKET: ["MARKET"],
@@ -33,7 +37,11 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
   IMPERIAL_EXCHANGE_PART: ["IMPERIAL_EXCHANGE_PART"],
   WORLD_ENGINE_PART: ["WORLD_ENGINE_PART"],
   AEGIS_DOME_PART: ["AEGIS_DOME_PART"],
-  ASTRAL_DOCK_PART: ["ASTRAL_DOCK_PART"]
+  ASTRAL_DOCK_PART: ["ASTRAL_DOCK_PART"],
+  POPULATION_BUREAU_PART: ["POPULATION_BUREAU_PART"],
+  IRON_LEVY_PART: ["IRON_LEVY_PART"],
+  ASSEMBLY_WORKS: ["ASSEMBLY_WORKS"],
+  LOGISTICS_GUILD: ["LOGISTICS_GUILD"]
 };
 
 const isTownSupportNeighbor = (town: Tile, tile: Tile): boolean => {

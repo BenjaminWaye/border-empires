@@ -8,7 +8,7 @@ import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-
 import type { Tile, TileActionDef } from "../client-types.js";
 
 const state = {
-  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"],
+  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "crystal-lattices", "leatherworking"],
   localhostDevAetherWall: false
 };
 

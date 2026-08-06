@@ -177,7 +177,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
-  if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius and adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
+  if (kind === "GARRISON_HALL") return "Adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
@@ -334,7 +334,7 @@ export const structureInfoForKey = (
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
-    if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles", "+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
+    if (key === "GARRISON_HALL") return ["+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
@@ -360,7 +360,7 @@ export const structureInfoForKey = (
   };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
-    if (key === "GRANARY") return "/overlays/granary-overlay.svg";
+    if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
     if (key === "BANK") return "/overlays/bank-overlay.svg";
@@ -376,10 +376,10 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
+    if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
-    if (key === "AETHER_TOWER") return "/overlays/radar-system-overlay.svg";
+    if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
     if (key === "ASTRAL_DOCK_PART") return "/overlays/astral-dock-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
     if (key === "AEGIS_DOME_PART") return "/overlays/aegis-dome-overlay.svg";
@@ -389,6 +389,11 @@ export const structureInfoForKey = (
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
     if (key === "WORLD_ENGINE_PART") return "/overlays/world-engine-overlay.svg";
     if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
+    if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
+    if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
+    if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
+    if (key === "POPULATION_BUREAU" || key === "POPULATION_BUREAU_PART") return "/overlays/population-bureau-overlay.svg";
+    if (key === "IRON_LEVY" || key === "IRON_LEVY_PART") return "/overlays/iron-levy-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
@@ -397,7 +402,8 @@ export const structureInfoForKey = (
     if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"];
     if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"];
     const baseKey = structureBaseKey(key);
-    const bits = [`${structureCostDefinition(baseKey).baseGoldCost.toLocaleString()} gold`];
+    const goldCost = structureCostDefinition(baseKey).baseGoldCost;
+    const bits = goldCost > 0 ? [`${goldCost.toLocaleString()} gold`] : [];
     const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
     if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
@@ -718,7 +724,7 @@ export const structureInfoForKey = (
   if (type === "GARRISON_HALL") {
     return structure({
       title: "Ancillary Factory",
-      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles and add +150 manpower cap to this town, plus +300 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network.",
+      detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
