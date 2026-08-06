@@ -21,7 +21,7 @@
       "branch": "economy",
       "name": "Merchant Charters",
       "description": "Someone must be licensed to overcharge for nails.",
-      "cost": { "gold": 60 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 3600,
       "effects": { "unlockMarket": true }
     },
@@ -31,7 +31,7 @@
       "branch": "war",
       "name": "Ironclad Masonry",
       "description": "Stone is the first polite way of saying no. Reveals Iron.",
-      "cost": { "gold": 110 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockForts": true,
@@ -45,7 +45,7 @@
       "branch": "war",
       "name": "Tanner's Craft",
       "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Supply.",
-      "cost": { "gold": 160 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockCamp": true,
@@ -59,7 +59,7 @@
       "branch": "manpower",
       "name": "Supply Directorate",
       "description": "Armies march on paperwork, then complain about the rations.",
-      "cost": { "gold": 210 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockGarrisonHall": true,
@@ -72,7 +72,7 @@
       "branch": "aether",
       "name": "Aetheric Resonance",
       "description": "A good lattice turns raw crystal from a rock into an argument. Reveals Crystal, and stands up an Observatory and Aether Condenser.",
-      "cost": { "gold": 260 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockObservatory": true,
@@ -88,7 +88,7 @@
       "name": "Deep Shaft Mining",
       "description": "If the ground objects, dig deeper until it apologizes.",
       "requires": "agriculture",
-      "cost": { "gold": 310 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockMine": true,
@@ -102,7 +102,7 @@
       "name": "Hydraulic Works",
       "description": "Canals are what happen when paranoia meets agriculture.",
       "requires": "agriculture",
-      "cost": { "gold": 360 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockWaterworksUpgrade": true,
@@ -116,7 +116,7 @@
       "name": "Kiln Craft",
       "description": "Clay keeps better secrets than wood, especially from rats. The kiln now hums with a burst of new hands.",
       "requires": "agriculture",
-      "cost": { "gold": 410 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": { "unlockGranary": true }
     },
@@ -127,7 +127,7 @@
       "name": "Artisan Workshops",
       "description": "Once every craft has a foreman, even pelts become industry.",
       "requires": "trade",
-      "cost": { "gold": 460 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": { "unlockFurSynthesizer": true }
     },
@@ -138,7 +138,7 @@
       "name": "Double-Entry Ledgers",
       "description": "Accountants are how empires weaponize boredom.",
       "requires": "trade",
-      "cost": { "gold": 510 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockCaravanary": true,
@@ -153,7 +153,7 @@
       "name": "Minting Works",
       "description": "Once the crown stamps metal, every market starts behaving like law.",
       "requires": "ledger-keeping",
-      "cost": { "gold": 560 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockBank": true,
@@ -167,7 +167,7 @@
       "name": "Reinforced Plating",
       "description": "Unlocks Iron Bastion upgrades for existing Forts and keeps +10% settled defense.",
       "requires": "masonry",
-      "cost": { "gold": 610 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockIronBastion": true,
@@ -181,7 +181,7 @@
       "name": "Siege Engineering",
       "description": "Unlocks Siege Tower upgrades for existing Siege Outposts.",
       "requires": "leatherworking",
-      "cost": { "gold": 660 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": { "unlockSiegeTower": true }
     },
@@ -192,7 +192,7 @@
       "name": "Muster Discipline",
       "description": "A staging tile stops being a rumor once it has a rota.",
       "requires": "leatherworking",
-      "cost": { "gold": 710 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": { "musterMaxTilesAdd": 1 }
     },
@@ -203,7 +203,7 @@
       "name": "Alchemical Forges",
       "description": "The kettle hisses, the glass clouds, and ore starts behaving like a respectable science.",
       "requires": "mining",
-      "cost": { "gold": 760 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": { "unlockIronworks": true }
     },
@@ -214,7 +214,7 @@
       "name": "Steam-Driven Extraction",
       "description": "The earth gives more when leaned on with proper machinery.",
       "requires": "mining",
-      "cost": { "gold": 810 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockFoundry": true,
@@ -228,7 +228,7 @@
       "name": "Bureaucratic Reform",
       "description": "Eventually every empire invents offices and regrets it immediately.",
       "requires": "coinage",
-      "cost": { "gold": 860 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockGovernorsOffice": true,
@@ -242,7 +242,7 @@
       "name": "Standing Legion",
       "description": "Unlocks Dread Tower upgrades for existing Siege Towers.",
       "prereqIds": ["siegecraft", "civil-service"],
-      "cost": { "gold": 910 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockDreadTower": true,
@@ -256,7 +256,7 @@
       "name": "Steel Foundries",
       "description": "Unlocks Thunder Bastion upgrades for existing Iron Bastions.",
       "requires": "fortified-walls",
-      "cost": { "gold": 960 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockThunderBastion": true,
@@ -270,7 +270,7 @@
       "name": "Muster Command",
       "description": "A second staging tile means an army can gather while another marches.",
       "requires": "muster-discipline",
-      "cost": { "gold": 1010 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": { "musterMaxTilesAdd": 1 }
     },
@@ -281,7 +281,7 @@
       "name": "Census Bureau",
       "description": "Once the state can count everyone, it begins developing opinions.",
       "requires": "pottery",
-      "cost": { "gold": 1060 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockCensusHall": true,
@@ -295,7 +295,7 @@
       "name": "Rail & Wire Networks",
       "description": "Once the rails arrive, distance becomes an accounting problem.",
       "requires": "organized-supply",
-      "cost": { "gold": 1110 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": { "unlockRailDepot": true }
     },
@@ -306,7 +306,7 @@
       "name": "Conveyor Networks",
       "description": "One line of belts, and a hundred hands stop tripping over each other.",
       "requires": "organized-supply",
-      "cost": { "gold": 1160 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": { "unlockAssemblyWorks": true }
     },
@@ -317,7 +317,7 @@
       "name": "Field Logistics",
       "description": "Every war chest breathes easier with a quartermaster nearby.",
       "requires": "organized-supply",
-      "cost": { "gold": 1210 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": { "unlockQuartermastersOffice": true }
     },
@@ -328,7 +328,7 @@
       "name": "The Remade Concordat",
       "description": "A guild that keeps the manpower ledgers even when nobody's marching.",
       "requires": "field-logistics",
-      "cost": { "gold": 1260 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": { "unlockLogisticsGuild": true }
     },
@@ -339,7 +339,7 @@
       "name": "Demographic Registry",
       "description": "Once the ledgers know exactly who you have, the empire learns to make more of them.",
       "requires": "global-trade-networks",
-      "cost": { "gold": 1310 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": { "unlockPopulationBureau": true }
     },
@@ -350,7 +350,7 @@
       "name": "Grand Levy Doctrine",
       "description": "The whole reserve, called up at once, whether the reserve likes it or not.",
       "requires": "global-trade-networks",
-      "cost": { "gold": 1360 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": { "unlockIronLevy": true }
     },
@@ -361,7 +361,7 @@
       "name": "Survey Sweep",
       "description": "Men with chains and notebooks are often more dangerous than cavalry.",
       "requires": "crystal-lattices",
-      "cost": { "gold": 1410 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSurveySweep": true,
@@ -375,7 +375,7 @@
       "name": "Cipher Craft",
       "description": "Spies improve dramatically once given clerks and a budget.",
       "requires": "crystal-lattices",
-      "cost": { "gold": 1460 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockAetherEmp": true,
@@ -389,7 +389,7 @@
       "name": "Covert Logistics",
       "description": "Wheels, manifests, and shouting make an empire move faster than dignity should allow.",
       "requires": "crystal-lattices",
-      "cost": { "gold": 1510 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSabotage": true,
@@ -403,7 +403,7 @@
       "name": "Harbor Engineering",
       "description": "Brass winches and humming pylons make a port look properly expensive.",
       "requires": "cryptography",
-      "cost": { "gold": 1560 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockCustomsHouse": true,
@@ -418,7 +418,7 @@
       "name": "Terrain Shaping",
       "description": "Once enough crystal is involved, even geography becomes negotiable.",
       "requires": "surveying",
-      "cost": { "gold": 1610 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": { "unlockTerrainShaping": true }
     },
@@ -429,7 +429,7 @@
       "name": "Beacon Network",
       "description": "Taller beacons mean fewer surprises and better excuses.",
       "requires": "surveying",
-      "cost": { "gold": 1660 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockRevealEmpire": true,
@@ -443,7 +443,7 @@
       "name": "Celestial Navigation",
       "description": "The sea becomes considerably less final once the bridge crews stop fearing electricity.",
       "requires": "harborcraft",
-      "cost": { "gold": 1710 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 28800,
       "effects": { "unlockNavalInfiltration": true }
     },
@@ -454,7 +454,7 @@
       "name": "Sky Vessel Engineering",
       "prereqIds": ["beacon-towers", "cryptography", "steelworking"],
       "description": "Once the harbor learns to levitate, the neighbors stop sleeping soundly.",
-      "cost": { "gold": 1760 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": { "unlockAirport": true }
     },
@@ -465,7 +465,7 @@
       "name": "Resonance Detection",
       "prereqIds": ["aeronautics", "cryptography"],
       "description": "The air itself starts reporting suspicious activity.",
-      "cost": { "gold": 1810 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockRadarSystem": true,
@@ -479,7 +479,7 @@
       "name": "Aether-Infused Synthesis",
       "prereqIds": ["alchemy", "workshops"],
       "description": "At full pressure the retort stops accepting the world's categories and starts drafting better ones.",
-      "cost": { "gold": 1860 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockAdvancedSynthesizers": true,
@@ -493,7 +493,7 @@
       "name": "Provincial Concessions",
       "description": "Some cities stop being settlements and start becoming arguments with skylines.",
       "requires": "civil-service",
-      "cost": { "gold": 1910 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockExchangeHouse": true,
@@ -508,7 +508,7 @@
       "name": "Grand Bazaars",
       "prereqIds": ["imperial-roads", "global-trade-networks"],
       "description": "If every market in the world hates you, the project is functioning correctly.",
-      "cost": { "gold": 1960 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": { "unlockImperialExchange": true }
     },
@@ -519,7 +519,7 @@
       "name": "Ambaric Engineering",
       "prereqIds": ["industrial-extraction", "aeronautics"],
       "description": "Build enough of them and the empire starts sounding dangerous at night.",
-      "cost": { "gold": 2010 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": { "unlockAetherTower": true }
     },
@@ -530,7 +530,7 @@
       "name": "Worldbreaker Doctrine",
       "prereqIds": ["steelworking", "plastics"],
       "description": "Why capture a district gracefully when you can simply remove it from geology? Fires the moment the cannon is built.",
-      "cost": { "gold": 2060 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockWorldEngine": true,
@@ -544,7 +544,7 @@
       "name": "Aegis Doctrine",
       "prereqIds": ["radar", "plastics"],
       "description": "Nothing says enlightened government like a city under glass.",
-      "cost": { "gold": 2110 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockAegisDome": true,
@@ -558,7 +558,7 @@
       "name": "Astral Doctrine",
       "prereqIds": ["radar", "plastics"],
       "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.",
-      "cost": { "gold": 2160 },
+      "cost": { "gold": 10 },
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockAstralDock": true,

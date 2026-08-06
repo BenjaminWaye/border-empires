@@ -42,7 +42,7 @@ describe("tech benefit summaries", () => {
     );
 
     expect(html).toContain("<span>Vision</span>");
-    expect(html).toContain("<strong>5 tiles</strong>");
+    expect(html).toContain("<strong>2 tiles</strong>");
     expect(html).toContain("<span>Cartography</span>");
     expect(html).toContain("+1 radius");
     expect(html).not.toContain("<span>Income</span>");
