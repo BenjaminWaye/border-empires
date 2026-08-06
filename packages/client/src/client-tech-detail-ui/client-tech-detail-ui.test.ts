@@ -243,7 +243,7 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("24 hours");
     expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("60 minutes");
+    expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     expect(structureInfoForKey("IRON_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
     expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js"; import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
@@ -362,12 +362,13 @@ export const chooseAiTechChoiceForPlayer = (
       if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       const resourceCost = toResources(tech.cost);
+      const goldCost = techGoldCostForResearchedCount(player.techIds.length);
       return {
         id: tech.id,
         score,
-        goldCost: tech.cost?.gold ?? 0,
+        goldCost,
         resourceCost,
-        affordable: player.points >= (tech.cost?.gold ?? 0) && hasResources(resourceCost, available)
+        affordable: player.points >= goldCost && hasResources(resourceCost, available)
       };
     })
     // Affordable techs win over unaffordable ones regardless of score, so a
@@ -550,6 +551,7 @@ export const buildTechUpdatePayload = (
   const domainChoices = openDomainChoices(domainIds);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const available = player.strategicResources ?? {};
+  const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
     IRON: available.IRON ?? 0,
@@ -583,9 +585,9 @@ export const buildTechUpdatePayload = (
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {
-        gold: tech.cost?.gold ?? 0,
+        gold: goldCost,
         resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id) && player.points >= (tech.cost?.gold ?? 0) && hasResources(toResources(tech.cost), available)
+        canResearch: techChoices.includes(tech.id) && player.points >= goldCost && hasResources(toResources(tech.cost), available)
       },
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),

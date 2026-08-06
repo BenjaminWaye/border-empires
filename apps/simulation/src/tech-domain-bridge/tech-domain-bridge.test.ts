@@ -344,18 +344,20 @@ describe("AI progression choice prefers affordable options over higher-scored un
     town: { name: "Core", populationTier: "TOWN" as const }
   };
   // trade already researched. tribal-warfare/toolmaking were cut in the
-  // tech-tree redesign, and costs are now a flat +50-gold-per-tech-researched
-  // curve rather than tier-based, so the affordable/highest-scored
-  // candidates shifted (verified directly against
+  // tech-tree redesign, and costs are now a uniform researched-count curve
+  // (10 gold for the first research, then +50 per tech already researched —
+  // tech-economy.ts) rather than per-tech/per-tier numbers, so the
+  // affordable/highest-scored candidates shifted (verified directly against
   // chooseAiTechChoiceForPlayer's actual output, not hand-derived from the
-  // scoring heuristics).
+  // scoring heuristics). With trade researched, every reachable tech costs
+  // 60 gold, so the affordability split is purely points >= 60.
   const alreadyResearched = ["trade"];
 
-  it("prefers an affordable tech over a higher-scored one blocked by its gold cost", () => {
+  it("uses the flat researched-count gold cost and prefers an affordable tech", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
         id: "ai-4",
-        points: 10, // affords only the cheapest root (Agrarian Works, 10 gold)
+        points: 60, // exactly the flat cost with 1 tech already researched
         techIds: alreadyResearched,
         domainIds: [],
         strategicResources: {}
@@ -364,8 +366,10 @@ describe("AI progression choice prefers affordable options over higher-scored un
     );
 
     expect(choice).toBeDefined();
+    expect(choice!.goldCost).toBe(60);
     expect(choice!.affordable).toBe(true);
-    expect(choice!.id).toBe("agriculture");
+    // All reachable techs cost the same; the highest-scored one wins.
+    expect(choice!.id).toBe("masonry");
   });
 
   it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
