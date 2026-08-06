@@ -360,7 +360,7 @@ export const structureInfoForKey = (
   };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
-    if (key === "GRANARY") return "/overlays/granary-overlay.svg";
+    if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
     if (key === "BANK") return "/overlays/bank-overlay.svg";
@@ -379,7 +379,7 @@ export const structureInfoForKey = (
     if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
-    if (key === "AETHER_TOWER") return "/overlays/radar-system-overlay.svg";
+    if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
     if (key === "ASTRAL_DOCK_PART") return "/overlays/astral-dock-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
     if (key === "AEGIS_DOME_PART") return "/overlays/aegis-dome-overlay.svg";
@@ -389,6 +389,11 @@ export const structureInfoForKey = (
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
     if (key === "WORLD_ENGINE_PART") return "/overlays/world-engine-overlay.svg";
     if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
+    if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
+    if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
+    if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
+    if (key === "POPULATION_BUREAU" || key === "POPULATION_BUREAU_PART") return "/overlays/population-bureau-overlay.svg";
+    if (key === "IRON_LEVY" || key === "IRON_LEVY_PART") return "/overlays/iron-levy-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
@@ -397,7 +402,8 @@ export const structureInfoForKey = (
     if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"];
     if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"];
     const baseKey = structureBaseKey(key);
-    const bits = [`${structureCostDefinition(baseKey).baseGoldCost.toLocaleString()} gold`];
+    const goldCost = structureCostDefinition(baseKey).baseGoldCost;
+    const bits = goldCost > 0 ? [`${goldCost.toLocaleString()} gold`] : [];
     const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
     if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
