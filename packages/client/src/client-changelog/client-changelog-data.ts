@@ -341,4 +341,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fixed a pile of build-menu labels and requirement text still showing old pre-redesign tech names (e.g. \"Requires Organized Supply\", \"Requires Banking\", \"Requires Cartography\")."
     ]
   },
+  {
+    createdAt: 1786037400000, // 2026-08-06
+    introducedIn: "next",
+    title: "Tech unlock chips now have visible spacing and icons showing structure vs ability vs upgrade",
+    why: "A tech that unlocks more than one thing (e.g. Tanner's Craft unlocking both Camp and Siege Outpost) rendered its chips with zero styling or spacing, so multiple unlock names ran together into one unreadable string like \"CampSiege Outpost.\" There was also no visual way to tell whether a chip was a new building, a new ability, or an upgrade to something you already have.",
+    changes: [
+      "Unlock chips are now spaced out and each gets its own background/border pill instead of running together as one string.",
+      "Chips now carry an icon by category: a building glyph for structures, a lightning bolt for abilities, and an up arrow for upgrades.",
+      "Added the 5 missing Manpower-branch unlock chip labels (Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy) that previously rendered blank."
+    ]
+  },
 ];

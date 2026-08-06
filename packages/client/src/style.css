@@ -4427,6 +4427,62 @@ body {
   color: #9fb8ff;
 }
 
+/* Tech-tree redesign: payoff chips summarize what a tech actually unlocks
+   (a building, an ability, or an upgrade to an existing building) so a
+   player can tell those apart at a glance instead of an unlabeled wall of
+   names. Each chip is its own visual block (background + border + gap)
+   so multiple chips never visually run together. */
+.tech-payoff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tech-payoff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72em;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.tech-payoff-chip::before {
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.tech-payoff-chip-structure {
+  color: #9fb8ff;
+  background: rgba(159, 184, 255, 0.1);
+}
+
+.tech-payoff-chip-structure::before {
+  content: "\1F3DB"; /* classical building glyph — structure */
+}
+
+.tech-payoff-chip-action {
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.tech-payoff-chip-action::before {
+  content: "\26A1"; /* lightning bolt — ability */
+}
+
+.tech-payoff-chip-upgrade {
+  color: #84f2b8;
+  background: rgba(132, 242, 184, 0.1);
+}
+
+.tech-payoff-chip-upgrade::before {
+  content: "\2191"; /* up arrow — upgrade */
+}
+
 .muted {
   color: rgba(233, 242, 255, 0.6);
 }
