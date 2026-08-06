@@ -2014,10 +2014,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // with identical visible tiles share one serialization pass.
           const protoCache = new Map<string, ProtoSimulationEvent>();
           const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
-          // Advance the world revision before fanout: every cached snapshot is
-          // now stale until this batch is applied to it below. Only subscribed
-          // players get re-stamped, so an unsubscribed player's entry falls
-          // behind and SubscribePlayer rebuilds instead of serving stale tiles.
+          const priorRevision = snapshotCache.worldRevision(); // see applyIfCurrent/advanceIfCurrent in player-snapshot-cache.ts
           snapshotCache.bumpWorldRevision();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
@@ -2033,12 +2030,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 slowestFilterPlayerId = subscribedPlayerId;
               }
             }
-            const cachedSnapshot = snapshotCache.peek(subscribedPlayerId);
-            if (cachedSnapshot && filteredDeltas.length > 0) {
-              setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
-            } else {
-              snapshotCache.markCurrent(subscribedPlayerId); // nothing visible changed; still current
-            }
+            // Only advances an entry that was already current as of priorRevision
+            // (a reconnecting player can be in subscribedPlayerIds() with a stale
+            // pre-rebuild entry still in cache) — see player-snapshot-cache.ts.
+            const applied =
+              filteredDeltas.length > 0
+                ? snapshotCache.applyIfCurrent(subscribedPlayerId, priorRevision, (snapshot) => applyTileDeltasToSnapshot(snapshot, filteredDeltas))
+                : snapshotCache.advanceIfCurrent(subscribedPlayerId, priorRevision);
+            if (applied) refreshSnapshotCacheMetrics();
             if (filteredDeltas.length === 0) continue;
             // Group subscribers whose filtered delta set serializes identically
             // so the proto pass runs once per unique set. The key must separate
@@ -2580,11 +2579,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
       // Keep the snapshot in cache on unsubscribe so a quick reconnect can skip
-      // the rebuild. It is NOT maintained while unsubscribed, and there is no
-      // server-side tile replay to catch it up (buildInitMessage only returns
-      // nextClientSeq + pendingCommands), so it is served on a later subscribe
-      // only while its revision stamp is still current — see player-snapshot-cache.
-      // Spawn path has its own deleteCachedSnapshot call.
+      // the rebuild — it is not maintained while unsubscribed and is served
+      // later only while its revision stamp is still current (there is no
+      // server-side tile replay). See player-snapshot-cache.ts. Spawn path has
+      // its own deleteCachedSnapshot call.
       callback(null, { ok: true });
     },
     FetchTileDetail(
