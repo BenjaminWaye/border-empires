@@ -1,5 +1,14 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 import type { FortificationOpening, FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import {
+  aetherBridgeAnchorImage,
+  aetherWallPylonImage,
+  createOverlayVariantSet,
+  dockOverlayVariants,
+  fortificationOverlayImages,
+  overlaySrc,
+  structureOverlayImages
+} from "./client-map-overlay-images.js";
 import { isForestTile } from "../client-constants.js";
 import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
@@ -7,38 +16,13 @@ import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-gr
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "../client-types.js";
 
+export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
+
 type TileMap = Map<string, Tile>;
 type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
 export const useTerrainReliefRenderer = isCanvasReliefRendererMode;
-const overlayAssetVersion = "20260406a";
-const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
-const loadOverlayImage = (filename: string): HTMLImageElement => {
-  const image = new Image();
-  image.decoding = "async";
-  image.src = overlaySrc(filename);
-  return image;
-};
-const createOverlayVariantSet = (filenames: readonly string[]): HTMLImageElement[] => filenames.map(loadOverlayImage);
-const createDirectionalOverlaySet = (
-  prefix: string,
-  variant: "open" | "direction" | "static" = "open"
-): Record<FortificationOpening, HTMLImageElement> => {
-  if (variant === "static") {
-    const image = loadOverlayImage(`${prefix}.svg`);
-    return { CLOSED: image, NORTH: image, EAST: image, SOUTH: image, WEST: image };
-  }
-  const suffixFor = (direction: Exclude<FortificationOpening, "CLOSED">): string =>
-    variant === "direction" ? direction.toLowerCase() : `open-${direction.toLowerCase()}`;
-  return {
-    CLOSED: loadOverlayImage(`${prefix}-closed.svg`),
-    NORTH: loadOverlayImage(`${prefix}-${suffixFor("NORTH")}.svg`),
-    EAST: loadOverlayImage(`${prefix}-${suffixFor("EAST")}.svg`),
-    SOUTH: loadOverlayImage(`${prefix}-${suffixFor("SOUTH")}.svg`),
-    WEST: loadOverlayImage(`${prefix}-${suffixFor("WEST")}.svg`)
-  };
-};
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -57,9 +41,6 @@ const createTownOverlaySet = (
   return set;
 };
 
-const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.svg");
-const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
-
 const defaultTownOverlayByTier = createTownOverlaySet({
   SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
   TOWN: overlaySrc("town-overlay-sand.svg"),
@@ -74,40 +55,6 @@ const grassTownOverlayByTier = createTownOverlaySet({
   GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
   METROPOLIS: overlaySrc("metropolis-overlay-grass.svg")
 });
-
-export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
-export const structureOverlayImages = {
-  OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
-  MARKET: loadOverlayImage("market-overlay.svg"),
-  GRANARY: loadOverlayImage("granary-overlay.svg"),
-  BANK: loadOverlayImage("bank-overlay.svg"),
-  CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
-  AIRPORT: loadOverlayImage("airport-overlay.svg"),
-  FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
-  ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
-  IRONWORKS: loadOverlayImage("ironworks-overlay.svg"),
-  ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
-  CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
-  ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
-  CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
-  FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
-  EXCHANGE_HOUSE: loadOverlayImage("exchange-house-overlay.svg"),
-  GARRISON_HALL: loadOverlayImage("garrison-hall-overlay.svg"),
-  CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
-  RAIL_DEPOT: loadOverlayImage("rail-depot-overlay.svg"),
-  GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
-  RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg"),
-  AEGIS_DOME: loadOverlayImage("aegis-dome-overlay.svg"),
-  ASTRAL_DOCK: loadOverlayImage("astral-dock-overlay.svg"),
-  IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
-  WORLD_ENGINE: loadOverlayImage("world-engine-overlay.svg")
-} as const;
-const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
-  FORT: createDirectionalOverlaySet("fort-ring-overlay"),
-  SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
-  WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
-  LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")
-};
 
 const builtResourceOverlayVariants = {
   FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),

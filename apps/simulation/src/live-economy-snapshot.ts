@@ -126,10 +126,11 @@ export const buildLivePlayerEconomySnapshot = (
         : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute, { count: 1 });
     }
-    // §12.1/§5.1: Fort/Siege Outpost/Observatory no longer carry a
-    // separate per-minute flow drain — the slot occupation itself is the
-    // upkeep, so their fortJson/siegeOutpostJson/observatoryJson fields
-    // aren't parsed here at all.
+    // Observatory still carries no separate per-minute flow drain — the
+    // CRYSTAL slot occupation itself is its upkeep, so observatoryJson
+    // isn't parsed here. Fort and Siege Outpost now DO carry a FOOD +
+    // resource per-minute drain (structure-upkeep-rebalance) on top of
+    // their slot occupation — see structureUpkeepPerMinute above.
     const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
     if (structure?.status === "active" && structure.type) {
       const upkeep = structureUpkeepPerMinute(structure.type);
@@ -140,6 +141,18 @@ export const buildLivePlayerEconomySnapshot = (
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+    }
+    const fort = parseStructure<{ variant?: string; status?: string }>(tile.fortJson);
+    if (fort?.status === "active" && fort.variant) {
+      const upkeep = structureUpkeepPerMinute(fort.variant);
+      if (upkeep.FOOD) addBucket(foodSinks, fort.variant, upkeep.FOOD, { count: 1 });
+      if (upkeep.IRON) addBucket(ironSinks, fort.variant, upkeep.IRON, { count: 1 });
+    }
+    const siegeOutpost = parseStructure<{ variant?: string; status?: string }>(tile.siegeOutpostJson);
+    if (siegeOutpost?.status === "active" && siegeOutpost.variant) {
+      const upkeep = structureUpkeepPerMinute(siegeOutpost.variant);
+      if (upkeep.FOOD) addBucket(foodSinks, siegeOutpost.variant, upkeep.FOOD, { count: 1 });
+      if (upkeep.SUPPLY) addBucket(supplySinks, siegeOutpost.variant, upkeep.SUPPLY, { count: 1 });
     }
   }
 

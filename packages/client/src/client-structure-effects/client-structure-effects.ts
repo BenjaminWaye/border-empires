@@ -326,7 +326,7 @@ export const tileAreaEffectModifiersForTile = (
     isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
   ) {
     modifiers.push({
-      reason: "Garrison Hall",
+      reason: "Ancillary Factory",
       effect: "+20% defense",
       tone: "positive"
     });

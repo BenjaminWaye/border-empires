@@ -19,9 +19,12 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 43 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 35 economic (incl. WOODEN_FORT) = 43
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(43);
+test("STRUCTURE_REGISTRY covers exactly 50 structure types", () => {
+  // 3 forts + 1 observatory + 4 outposts + 42 economic (incl. WOODEN_FORT) = 50
+  // (tech-tree redesign added 7: QUARTERMASTERS_OFFICE, LOGISTICS_GUILD,
+  // ASSEMBLY_WORKS, POPULATION_BUREAU_PART, POPULATION_BUREAU,
+  // IRON_LEVY_PART, IRON_LEVY)
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(50);
 });
 
 test("all registered types are unique", () => {
@@ -205,8 +208,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(ids).toContain("steelworking");
   });
 
-  test("OBSERVATORY requires cartography", () => {
-    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("cartography");
+  test("OBSERVATORY requires crystal-lattices (Aetheric Resonance)", () => {
+    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("crystal-lattices");
   });
 
   test("SIEGE_OUTPOST requires leatherworking", () => {
@@ -306,6 +309,13 @@ describe("upkeep parity", () => {
   // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
   // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
   // per-minute (÷1440).
+  //
+  // Fort ladder (FORT, IRON_BASTION, THUNDER_BASTION), Siege ladder
+  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and LIGHT_OUTPOST
+  // used to carry a fake FOOD/IRON/SUPPLY per-minute upkeep that double-billed
+  // the same cost already charged via their resource-slot occupation
+  // (structure-slots.ts) — removed, same as AIRPORT's CRYSTAL upkeep before
+  // it (§12.1). Their slot occupation is the upkeep now.
 
   const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
     FUR_SYNTHESIZER: { GOLD: 30 / 1440 },
@@ -323,10 +333,14 @@ describe("upkeep parity", () => {
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
     "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
-    "WOODEN_FORT", "LIGHT_OUTPOST", "CARAVANARY", "FOUNDRY",
+    "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
-    "AIRPORT", "FORT", "IRON_BASTION", "THUNDER_BASTION",
-    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "OBSERVATORY",
+    "AIRPORT", "OBSERVATORY",
+    "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION",
+    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
+    "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
+    "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
+    "IRON_LEVY_PART", "IRON_LEVY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

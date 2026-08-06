@@ -26,7 +26,6 @@ const config: StorybookConfig = {
       // that transitively imports packages/shared/src/config.ts throws
       // "process is not defined" in the browser.
       "process.env": JSON.stringify({
-        MUSTER_SYSTEM_ENABLED: process.env.MUSTER_SYSTEM_ENABLED ?? "true",
         EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
       })
     };

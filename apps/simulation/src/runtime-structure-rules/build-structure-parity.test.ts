@@ -302,7 +302,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
-        techIds: new Set<string>(["cartography"]), domainIds: new Set<string>(),
+        techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
         strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },
@@ -344,10 +344,10 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more.
+          // §5.3: town draws 4 FOOD, MARKET 1 more — 2 FISH (2 each) + 1 FARM = 5.
           { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-          { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+          { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
         ],
         activeLocks: [],
       },

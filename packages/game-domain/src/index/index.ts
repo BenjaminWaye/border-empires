@@ -5,6 +5,7 @@ export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-island-connectivity.js";
+export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
@@ -45,6 +46,14 @@ export type DomainPlayer = {
   manpower: number;
   manpowerUpdatedAt?: number;
   manpowerCapSnapshot?: number;
+  wonderVisionRadiusBonus?: number;
+  wonderDockGoldMultiplier?: number;
+  wonderDockAttackMultiplier?: number;
+  wonderMusterRateMultiplier?: number;
+  wonderMusterExtraFlag?: number;
+  wonderFortDefenseBonus?: number;
+  wonderTechGoldDiscount?: number;
+  wonderLastFreeRushBuyAt?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
   mods?: {
@@ -92,7 +101,8 @@ export type PlayerEventLogEntryType =
   | "IMPERIAL_EXCHANGE_LEVY_HIT"
   | "IMPERIAL_EXCHANGE_LEVY_CAST"
   | "MONUMENT_CLAIMED"
-  | "MONUMENT_LOST_TO_RIVAL";
+  | "MONUMENT_LOST_TO_RIVAL"
+  | "NATURAL_WONDER_CLAIMED";
 
 export type PlayerEventLogEntry = {
   id: string;
@@ -170,6 +180,7 @@ export type DomainTileState = {
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
+            | "censusHallAppliedBonus"
           >
         >)
     | undefined;
@@ -239,6 +250,13 @@ export type DomainTileState = {
         updatedAt: number;
       }
     | undefined;
+  naturalWonder?:
+    | {
+        type: import("@border-empires/shared").NaturalWonderType;
+        claimedAt?: number;
+        lastFreeRushBuyAt?: number;
+      }
+    | undefined;
 };
 
 export type ValidateFrontierCommandInput = {
@@ -258,9 +276,7 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   expandClaimDurationMs?: number | undefined;
-  /** Mustering system: when true, attacks consume the origin tile's muster. */
-  musterSystemEnabled?: boolean | undefined;
-  /** Manpower currently mustered on the origin tile (used when the flag is on). */
+  /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
@@ -303,7 +319,7 @@ export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
   const legacy = manpowerRequirements(input.actionType, input.to);
-  const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
+  const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";

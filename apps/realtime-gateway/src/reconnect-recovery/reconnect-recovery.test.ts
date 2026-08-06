@@ -26,6 +26,7 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
+    case "CANCEL_SETTLE":
     case "CANCEL_SIEGE_OUTPOST_BUILD":
     case "REMOVE_STRUCTURE":
     case "CANCEL_CAPTURE":
@@ -99,7 +100,7 @@ describe("buildInitMessage", () => {
         season: expect.objectContaining({ seasonId: "rewrite-default", worldSeed: expect.any(Number) })
       })
     );
-    expect(init.techCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "agriculture", name: "Agriculture" })]));
+    expect(init.techCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "agriculture", name: "Agrarian Works" })]));
     expect(init.domainCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "frontier-doctrine", name: "Frontier Doctrine" })]));
     expect(init.leaderboard.overall).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
     expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));

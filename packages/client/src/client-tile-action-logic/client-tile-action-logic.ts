@@ -18,7 +18,6 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
-  structureShowsOnTile,
   bestFortTierForTech,
   FORT_VARIANT_LABELS,
   nextFortTierForUpgrade,
@@ -50,11 +49,12 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
+import { hasFreeResourceSlotsForLightOutpost, missingLightOutpostSlotReason } from "../client-light-outpost-food-slot/client-light-outpost-food-slot.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -199,6 +199,10 @@ export type TileActionLogicDeps = {
       | "WORLD_ENGINE_PART"
       | "AEGIS_DOME_PART"
       | "ASTRAL_DOCK_PART"
+      | "POPULATION_BUREAU_PART"
+      | "IRON_LEVY_PART"
+      | "ASSEMBLY_WORKS"
+      | "LOGISTICS_GUILD"
   ) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
   pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
@@ -386,8 +390,6 @@ export const lineStepsBetween = (
   return out;
 };
 
-
-
 export const tileActionAvailability = (
   enabled: boolean,
   reason: string,
@@ -396,28 +398,6 @@ export const tileActionAvailability = (
   if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
 };
-
-const buildShowsOnTile = (
-  structureType: BuildableStructureId,
-  tile: Tile,
-  supportedTownCount: number,
-  supportedDockCount: number
-): boolean =>
-  structureShowsOnTile(structureType, {
-    ownershipState: tile.ownershipState,
-    resource: tile.resource as
-      | "FARM"
-      | "WOOD"
-      | "IRON"
-      | "GEMS"
-      | "FISH"
-      | "FUR"
-      | undefined,
-    dockId: tile.dockId,
-    townPopulationTier: tile.town?.populationTier,
-    supportedTownCount,
-    supportedDockCount
-  });
 
 const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
   structurePlacementMetadata(structureType).requiresBorder === "border";
@@ -471,6 +451,49 @@ export const tileActionAvailabilityWithDevelopmentSlot = (
   if (slotSummary.available <= 0) return tileActionAvailability(false, baseReason, cost);
   return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 };
+
+const chainedBuildAvailabilityFromModule = (
+  deps: TileActionLogicDeps,
+  state: ClientState,
+  tile: Tile,
+  structureType: BuildableStructureId,
+  eligibleIgnoringAffordability: boolean,
+  ineligibleReason: string,
+  settledCostText: string,
+  goldCostOverride?: number
+): [boolean, string, string] => {
+  const goldCost = goldCostOverride ?? deps.structureGoldCost(structureType);
+  const manpowerCost = structureBuildManpowerCost(structureType);
+  if (tile.ownershipState === "FRONTIER") {
+    const totalGold = SETTLE_COST + goldCost;
+    const totalManpower = SETTLE_MANPOWER_COST + manpowerCost;
+    return [
+      eligibleIgnoringAffordability && state.gold >= totalGold && state.manpower >= totalManpower,
+      !eligibleIgnoringAffordability
+        ? ineligibleReason
+        : state.gold < totalGold
+          ? `Need ${totalGold} gold`
+          : state.manpower < totalManpower
+            ? `Need ${totalManpower} manpower`
+            : "",
+      `${totalGold} gold, ${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
+    ];
+  }
+  return [
+    eligibleIgnoringAffordability && (goldCost <= 0 || state.gold >= goldCost) && state.manpower >= manpowerCost,
+    !eligibleIgnoringAffordability
+      ? ineligibleReason
+      : goldCost > 0 && state.gold < goldCost
+        ? `Need ${goldCost} gold`
+        : state.manpower < manpowerCost
+          ? `Need ${manpowerCost} manpower`
+          : "",
+    settledCostText
+  ];
+};
+
+const frontierBuildDetailSuffix = (tile: Tile): string =>
+  tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
 
 const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   type === "FUR_SYNTHESIZER" ||
@@ -759,14 +782,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
 
     const out: TileActionDef[] = [];
     if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
-      const exploreEnabled = exploreHasGold && exploreHasManpower;
+      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForLightOutpost(state);
       out.push({
         id: "build_light_outpost_frontier" as TileActionDef["id"],
         label: "Build Light Outpost",
         detail: `Push into the unknown • expand + settle + build • +${LIGHT_OUTPOST_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : `Need ${totalExploreGold} gold`,
+          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingLightOutpostSlotReason(state) ?? "Unavailable"),
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
@@ -814,15 +837,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (tile.ownerId === state.me) {
     const slots = deps.developmentSlotSummary();
+    const chainedBuildAvailability = (
+      structureType: BuildableStructureId,
+      eligible: boolean,
+      ineligible: string,
+      cost: string,
+      goldCostOverride?: number
+    ): [boolean, string, string] => chainedBuildAvailabilityFromModule(deps, state, tile, structureType, eligible, ineligible, cost, goldCostOverride);
     const out: TileActionDef[] = [];
     const isSettlementTile = tile.town?.populationTier === "SETTLEMENT";
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.siegeOutpost || tile.observatory || tile.economicStructure);
-    const supportedTowns = tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
+    const supportedTowns = deps.supportedOwnedTownsForTile(tile);
     const supportedTown = supportedTowns[0];
-    const supportedDocks = tile.ownershipState === "SETTLED" ? deps.supportedOwnedDocksForTile(tile) : [];
+    const supportedDocks = deps.supportedOwnedDocksForTile(tile);
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
@@ -870,17 +900,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "world_engine_strike",
         label: "Worldbreaker Shot",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0 && state.gold >= 15_000,
+          economicStructure.status === "active" && isPowered && cooldown <= 0 && state.gold >= 1_000,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : state.gold < 15_000
-                  ? "Need 15,000 gold"
+                : state.gold < 1_000
+                  ? "Need 1,000 gold"
                   : "",
-          "15,000 gold • shatter one enemy land tile into mountain • 60m cooldown"
+          "1,000 gold • shatter one enemy land tile into mountain • 10m cooldown"
         )
       });
     }
@@ -918,7 +948,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
                 : "",
-          "Free • full-map vision for 24h • 90m cooldown"
+          "Free • full-map vision for 24h • wait for current satellite to come down before relaunching"
         )
       });
     }
@@ -964,27 +994,26 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    if (tile.economicStructure && isConverterStructureType(tile.economicStructure.type)) {
+    if (tile.economicStructure) {
       const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
+      const isConverter = isConverterStructureType(tile.economicStructure.type);
       if (tile.economicStructure.status === "active") {
         out.push({
           id: "disable_converter_structure" as TileActionDef["id"],
           label: `Disable ${economicStructureName(tile.economicStructure.type)}`,
           detail: deps.buildDetailTextForAction("disable_converter_structure", tile)
         });
-      } else {
+      } else if (tile.economicStructure.status === "inactive") {
         out.push({
           id: "enable_converter_structure" as TileActionDef["id"],
           label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
           detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
           ...tileActionAvailability(
-            tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
-            tile.economicStructure.status === "under_construction"
-              ? `${economicStructureName(tile.economicStructure.type)} still building`
-              : downtimeRemainingMs > 0
-                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Needs enough gold for one upkeep tick",
-            "Pays one upkeep tick immediately"
+            downtimeRemainingMs <= 0,
+            downtimeRemainingMs > 0
+              ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+              : "Needs enough gold for one upkeep tick",
+            isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
           )
         });
       }
@@ -1117,28 +1146,28 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
     const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
     if (
-      tile.ownershipState === "SETTLED" &&
       buildShowsOnTile("WOODEN_FORT", tile, supportedTowns.length, supportedDocks.length) &&
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !state.techIds.includes("masonry")
+      // Normally masonry supersedes the Wooden Fort with the full Fort
+      // upgrade below, but if a fresh Fort can't actually be built right now
+      // (no free IRON slot) keep Wooden Fort visible as the fallback rather
+      // than hiding both options.
+      (!state.techIds.includes("masonry") || !hasFreeResourceSlots(state, "FORT"))
     ) {
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
         label: "Build Wooden Fort",
-        detail: deps.buildDetailTextForAction("build_wooden_fort", tile),
+        detail: deps.buildDetailTextForAction("build_wooden_fort", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.gold >= deps.structureGoldCost("WOODEN_FORT") &&
-            state.manpower >= structureBuildManpowerCost("WOODEN_FORT") &&
+          ...chainedBuildAvailability(
+            "WOODEN_FORT",
             hasFreeResourceSlots(state, "WOODEN_FORT"),
-          state.gold < deps.structureGoldCost("WOODEN_FORT")
-            ? `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`
-            : state.manpower < structureBuildManpowerCost("WOODEN_FORT")
-              ? `Need ${structureBuildManpowerCost("WOODEN_FORT")} manpower`
-              : (missingResourceSlotReason(state, "WOODEN_FORT") ?? "Unavailable"),
-          `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
+            missingResourceSlotReason(state, "WOODEN_FORT") ?? "Unavailable",
+            `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`
+          ),
           slots,
           deps
         )
@@ -1146,7 +1175,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     }
     if (
       tile.ownerId === state.me &&
-      tile.ownershipState === "SETTLED" &&
       !tile.siegeOutpost &&
       !tile.observatory &&
       (tile.fort || !tile.economicStructure || hasWoodenFort)
@@ -1155,65 +1183,53 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       if (fortVariant) {
         const hasTech = tile.fort ? true : state.techIds.includes("masonry");
         const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort;
-        const hasGold = state.gold >= fortVariant.gold;
-        const hasManpower = state.manpower >= structureBuildManpowerCost("FORT");
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
         out.push({
           id: "build_fortification",
           label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
-          detail: deps.buildDetailTextForAction("build_fortification", tile),
+          detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            hasTech && hasGold && hasManpower && hasFreeSlots && canUseTile,
-            !hasTech
-              ? "Requires Stoneworks"
-              : !canUseTile
+            ...chainedBuildAvailability(
+              "FORT",
+              hasTech && hasFreeSlots && canUseTile,
+              !hasTech
+                ? "Requires Stoneworks"
+                : !canUseTile
                   ? "Tile already has structure"
-                  : !hasGold
-                    ? `Need ${fortVariant.gold} gold`
-                    : !hasManpower
-                      ? `Need ${structureBuildManpowerCost("FORT")} manpower`
-                    : !hasFreeSlots
-                      ? (missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant) ?? "Unavailable")
-                      : "Unavailable",
-            `${fortVariant.summary} • ${Math.round(FORT_BUILD_MS / 60000)}m • def x${fortVariant.defenseMult.toFixed(2)}`,
+                  : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant) ?? "Unavailable",
+              `${fortVariant.summary} • ${Math.round(FORT_BUILD_MS / 60000)}m • def x${fortVariant.defenseMult.toFixed(2)}`,
+              fortVariant.gold
+            ),
             slots,
             deps
           )
         });
       }
     }
-    if (tile.ownershipState === "SETTLED" && buildShowsOnTile("OBSERVATORY", tile, supportedTowns.length, supportedDocks.length) && !tile.observatory) {
+    if (buildShowsOnTile("OBSERVATORY", tile, supportedTowns.length, supportedDocks.length) && !tile.observatory) {
       const hasTech = state.techIds.includes("cartography");
-      const observatoryGoldCost = deps.structureGoldCost("OBSERVATORY");
-      const hasGold = state.gold >= observatoryGoldCost;
-      const hasManpower = state.manpower >= structureBuildManpowerCost("OBSERVATORY");
       const hasFreeSlots = hasFreeResourceSlots(state, "OBSERVATORY");
       out.push({
         id: "build_observatory",
         label: "Build Observatory",
-        detail: deps.buildDetailTextForAction("build_observatory", tile),
+        detail: deps.buildDetailTextForAction("build_observatory", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasManpower && hasFreeSlots && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
-          !hasTech
-            ? "Requires Cartography"
-            : tile.fort || tile.siegeOutpost || tile.economicStructure
-              ? "Tile already has structure"
-              : !hasGold
-                ? `Need ${observatoryGoldCost} gold`
-                : !hasManpower
-                  ? `Need ${structureBuildManpowerCost("OBSERVATORY")} manpower`
-                  : !hasFreeSlots
-                    ? (missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable")
-                    : "Unavailable",
-          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 36 crystal/day`,
+          ...chainedBuildAvailability(
+            "OBSERVATORY",
+            hasTech && hasFreeSlots && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+            !hasTech
+              ? "Requires Cartography"
+              : tile.fort || tile.siegeOutpost || tile.economicStructure
+                ? "Tile already has structure"
+                : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
+            `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 36 crystal/day`
+          ),
           slots,
           deps
         )
       });
     }
-    if (tile.ownershipState === "SETTLED" && !tile.economicStructure) {
-      const airportGoldCost = deps.structureGoldCost("AIRPORT");
-      const aetherTowerGoldCost = deps.structureGoldCost("AETHER_TOWER");
+    if (!tile.economicStructure) {
       const imperialExchangeBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "IMPERIAL_EXCHANGE");
       const worldEngineBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "WORLD_ENGINE");
       const aegisDomeBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "AEGIS_DOME");
@@ -1226,24 +1242,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_airport",
           label: "Build Sky Dock",
-          detail: deps.buildDetailTextForAction("build_airport", tile),
+          detail: deps.buildDetailTextForAction("build_airport", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("aeronautics") &&
-              state.gold >= airportGoldCost &&
-              state.manpower >= structureBuildManpowerCost("AIRPORT") &&
-              hasFreeResourceSlots(state, "AIRPORT") &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("aeronautics")
-              ? "Requires Sky Docks"
-              : tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < airportGoldCost
-                  ? `Need ${airportGoldCost} gold`
-                  : state.manpower < structureBuildManpowerCost("AIRPORT")
-                    ? `Need ${structureBuildManpowerCost("AIRPORT")} manpower`
-                    : (missingResourceSlotReason(state, "AIRPORT") ?? "Unavailable"),
-            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 36 crystal/day upkeep`,
+            ...chainedBuildAvailability(
+              "AIRPORT",
+              state.techIds.includes("aeronautics") && hasFreeResourceSlots(state, "AIRPORT") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("aeronautics")
+                ? "Requires Sky Docks"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "AIRPORT") ?? "Unavailable",
+              `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 36 crystal/day upkeep`
+            ),
             slots,
             deps
           )
@@ -1253,24 +1263,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_aether_tower",
           label: "Build Aether Tower",
-          detail: deps.buildDetailTextForAction("build_aether_tower", tile),
+          detail: deps.buildDetailTextForAction("build_aether_tower", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("plastics") &&
-              state.gold >= aetherTowerGoldCost &&
-              state.manpower >= structureBuildManpowerCost("AETHER_TOWER") &&
-              hasFreeResourceSlots(state, "AETHER_TOWER") &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("plastics")
-              ? "Requires Aether Towers"
-              : tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < aetherTowerGoldCost
-                  ? `Need ${aetherTowerGoldCost} gold`
-                  : state.manpower < structureBuildManpowerCost("AETHER_TOWER")
-                    ? `Need ${structureBuildManpowerCost("AETHER_TOWER")} manpower`
-                    : (missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable"),
-            `${deps.structureCostText("AETHER_TOWER")} • ${Math.round(economicStructureBuildMs("AETHER_TOWER") / 60000)}m • powers nearby late structures`,
+            ...chainedBuildAvailability(
+              "AETHER_TOWER",
+              state.techIds.includes("plastics") && hasFreeResourceSlots(state, "AETHER_TOWER") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("plastics")
+                ? "Requires Aether Towers"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable",
+              `${deps.structureCostText("AETHER_TOWER")} • ${Math.round(economicStructureBuildMs("AETHER_TOWER") / 60000)}m • powers nearby late structures`
+            ),
             slots,
             deps
           )
@@ -1280,24 +1284,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_radar_system",
           label: "Build Resonance Grid",
-          detail: deps.buildDetailTextForAction("build_radar_system", tile),
+          detail: deps.buildDetailTextForAction("build_radar_system", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("radar") &&
-              state.gold >= deps.structureGoldCost("RADAR_SYSTEM") &&
-              state.manpower >= structureBuildManpowerCost("RADAR_SYSTEM") &&
-              hasFreeResourceSlots(state, "RADAR_SYSTEM") &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("radar")
-              ? "Requires Resonance Grid"
-              : tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < deps.structureGoldCost("RADAR_SYSTEM")
-                  ? `Need ${deps.structureGoldCost("RADAR_SYSTEM")} gold`
-                  : state.manpower < structureBuildManpowerCost("RADAR_SYSTEM")
-                    ? `Need ${structureBuildManpowerCost("RADAR_SYSTEM")} manpower`
-                    : (missingResourceSlotReason(state, "RADAR_SYSTEM") ?? "Unavailable"),
-            `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles`,
+            ...chainedBuildAvailability(
+              "RADAR_SYSTEM",
+              state.techIds.includes("radar") && hasFreeResourceSlots(state, "RADAR_SYSTEM") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("radar")
+                ? "Requires Resonance Grid"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "RADAR_SYSTEM") ?? "Unavailable",
+              `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles`
+            ),
             slots,
             deps
           )
@@ -1307,30 +1305,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_imperial_exchange",
           label: "Build Imperial Exchange",
-          detail: deps.buildDetailTextForAction("build_imperial_exchange", tile),
+          detail: deps.buildDetailTextForAction("build_imperial_exchange", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("urban-markets") &&
-              imperialExchangePartCount >= 3 &&
-              !imperialExchangeBuilt &&
-              !tile.siegeOutpost &&
-              !tile.observatory &&
-              state.manpower >= structureBuildManpowerCost("IMPERIAL_EXCHANGE") &&
-              (state.strategicResources.SHARD ?? 0) >= 2 &&
-              hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE"),
-            !state.techIds.includes("urban-markets")
-              ? "Requires Imperial Exchange"
-              : imperialExchangeBuilt
-                ? "Imperial Exchange already built"
-                : imperialExchangePartCount < 3
-                  ? "Build 3 Imperial Exchange parts first"
-                  : tile.siegeOutpost || tile.observatory
-                    ? "Tile already has structure"
-                    : state.manpower < structureBuildManpowerCost("IMPERIAL_EXCHANGE")
-                      ? `Need ${structureBuildManpowerCost("IMPERIAL_EXCHANGE")} manpower`
+            ...chainedBuildAvailability(
+              "IMPERIAL_EXCHANGE",
+              state.techIds.includes("urban-markets") &&
+                imperialExchangePartCount >= 3 &&
+                !imperialExchangeBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE"),
+              !state.techIds.includes("urban-markets")
+                ? "Requires Imperial Exchange"
+                : imperialExchangeBuilt
+                  ? "Imperial Exchange already built"
+                  : imperialExchangePartCount < 3
+                    ? "Build 3 Imperial Exchange parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2
                         ? "Need 2 SHARD"
-                        : (missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable"),
-            `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE") / 60000)}m • build 3 parts first`,
+                        : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
+              `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE") / 60000)}m • build 3 parts first`,
+              0
+            ),
             slots,
             deps
           )
@@ -1340,30 +1339,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_world_engine",
           label: "Build Worldbreaker Cannon",
-          detail: deps.buildDetailTextForAction("build_world_engine", tile),
+          detail: deps.buildDetailTextForAction("build_world_engine", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("world-engine") &&
-              worldEnginePartCount >= 3 &&
-              !worldEngineBuilt &&
-              !tile.siegeOutpost &&
-              !tile.observatory &&
-              state.manpower >= structureBuildManpowerCost("WORLD_ENGINE") &&
-              (state.strategicResources.SHARD ?? 0) >= 2 &&
-              hasFreeResourceSlots(state, "WORLD_ENGINE"),
-            !state.techIds.includes("world-engine")
-              ? "Requires Worldbreaker Cannon"
+            ...chainedBuildAvailability(
+              "WORLD_ENGINE",
+              state.techIds.includes("world-engine") &&
+                worldEnginePartCount >= 3 &&
+                !worldEngineBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "WORLD_ENGINE"),
+              !state.techIds.includes("world-engine")
+                ? "Requires Worldbreaker Cannon"
                 : worldEngineBuilt
-                ? "Worldbreaker Cannon already built"
-                : worldEnginePartCount < 3
-                  ? "Build 3 Worldbreaker Cannon parts first"
-                  : tile.siegeOutpost || tile.observatory
-                    ? "Tile already has structure"
-                    : state.manpower < structureBuildManpowerCost("WORLD_ENGINE")
-                      ? `Need ${structureBuildManpowerCost("WORLD_ENGINE")} manpower`
+                  ? "Worldbreaker Cannon already built"
+                  : worldEnginePartCount < 3
+                    ? "Build 3 Worldbreaker Cannon parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2
                         ? "Need 2 SHARD"
-                        : (missingResourceSlotReason(state, "WORLD_ENGINE") ?? "Unavailable"),
-            `${deps.structureCostText("WORLD_ENGINE")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE") / 60000)}m • build 3 parts first`,
+                        : missingResourceSlotReason(state, "WORLD_ENGINE") ?? "Unavailable",
+              `${deps.structureCostText("WORLD_ENGINE")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE") / 60000)}m • build 3 parts first`,
+              0
+            ),
             slots,
             deps
           )
@@ -1373,30 +1373,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_aegis_dome",
           label: "Build Aegis Dome",
-          detail: deps.buildDetailTextForAction("build_aegis_dome", tile),
+          detail: deps.buildDetailTextForAction("build_aegis_dome", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("aegis-dome") &&
-              aegisDomePartCount >= 3 &&
-              !aegisDomeBuilt &&
-              !tile.siegeOutpost &&
-              !tile.observatory &&
-              state.manpower >= structureBuildManpowerCost("AEGIS_DOME") &&
-              (state.strategicResources.SHARD ?? 0) >= 2 &&
-              hasFreeResourceSlots(state, "AEGIS_DOME"),
-            !state.techIds.includes("aegis-dome")
-              ? "Requires Aegis Dome"
-              : aegisDomeBuilt
-                ? "Aegis Dome already built"
-                : aegisDomePartCount < 3
-                  ? "Build 3 Aegis Dome parts first"
-                  : tile.siegeOutpost || tile.observatory
-                    ? "Tile already has structure"
-                    : state.manpower < structureBuildManpowerCost("AEGIS_DOME")
-                      ? `Need ${structureBuildManpowerCost("AEGIS_DOME")} manpower`
+            ...chainedBuildAvailability(
+              "AEGIS_DOME",
+              state.techIds.includes("aegis-dome") &&
+                aegisDomePartCount >= 3 &&
+                !aegisDomeBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "AEGIS_DOME"),
+              !state.techIds.includes("aegis-dome")
+                ? "Requires Aegis Dome"
+                : aegisDomeBuilt
+                  ? "Aegis Dome already built"
+                  : aegisDomePartCount < 3
+                    ? "Build 3 Aegis Dome parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2
                         ? "Need 2 SHARD"
-                        : (missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable"),
-            `${deps.structureCostText("AEGIS_DOME")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME") / 60000)}m • build 3 parts first`,
+                        : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
+              `${deps.structureCostText("AEGIS_DOME")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME") / 60000)}m • build 3 parts first`,
+              0
+            ),
             slots,
             deps
           )
@@ -1406,30 +1407,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_astral_dock",
           label: "Build Astral Dock",
-          detail: deps.buildDetailTextForAction("build_astral_dock", tile),
+          detail: deps.buildDetailTextForAction("build_astral_dock", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("astral-dock") &&
-              astralDockPartCount >= 3 &&
-              !astralDockBuilt &&
-              !tile.siegeOutpost &&
-              !tile.observatory &&
-              state.manpower >= structureBuildManpowerCost("ASTRAL_DOCK") &&
-              (state.strategicResources.SHARD ?? 0) >= 2 &&
-              hasFreeResourceSlots(state, "ASTRAL_DOCK"),
-            !state.techIds.includes("astral-dock")
-              ? "Requires Astral Dock"
-              : astralDockBuilt
-                ? "Astral Dock already built"
-                : astralDockPartCount < 3
-                  ? "Build 3 Astral Dock parts first"
-                  : tile.siegeOutpost || tile.observatory
-                    ? "Tile already has structure"
-                    : state.manpower < structureBuildManpowerCost("ASTRAL_DOCK")
-                      ? `Need ${structureBuildManpowerCost("ASTRAL_DOCK")} manpower`
+            ...chainedBuildAvailability(
+              "ASTRAL_DOCK",
+              state.techIds.includes("astral-dock") &&
+                astralDockPartCount >= 3 &&
+                !astralDockBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "ASTRAL_DOCK"),
+              !state.techIds.includes("astral-dock")
+                ? "Requires Astral Dock"
+                : astralDockBuilt
+                  ? "Astral Dock already built"
+                  : astralDockPartCount < 3
+                    ? "Build 3 Astral Dock parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2
                         ? "Need 2 SHARD"
-                        : (missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable"),
-            `${deps.structureCostText("ASTRAL_DOCK")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m • build 3 parts first`,
+                        : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
+              `${deps.structureCostText("ASTRAL_DOCK")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m • build 3 parts first`,
+              0
+            ),
             slots,
             deps
           )
@@ -1439,24 +1441,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_governors_office",
           label: "Build Ministry Hall",
-          detail: deps.buildDetailTextForAction("build_governors_office", tile),
+          detail: deps.buildDetailTextForAction("build_governors_office", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("civil-service") &&
-              state.gold >= deps.structureGoldCost("GOVERNORS_OFFICE") &&
-              state.manpower >= structureBuildManpowerCost("GOVERNORS_OFFICE") &&
-              hasFreeResourceSlots(state, "GOVERNORS_OFFICE") &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("civil-service")
-              ? "Requires Civil Service"
-              : tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < deps.structureGoldCost("GOVERNORS_OFFICE")
-                  ? `Need ${deps.structureGoldCost("GOVERNORS_OFFICE")} gold`
-                  : state.manpower < structureBuildManpowerCost("GOVERNORS_OFFICE")
-                    ? `Need ${structureBuildManpowerCost("GOVERNORS_OFFICE")} manpower`
-                    : (missingResourceSlotReason(state, "GOVERNORS_OFFICE") ?? "Unavailable"),
-            `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep`,
+            ...chainedBuildAvailability(
+              "GOVERNORS_OFFICE",
+              state.techIds.includes("civil-service") && hasFreeResourceSlots(state, "GOVERNORS_OFFICE") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("civil-service")
+                ? "Requires Civil Service"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "GOVERNORS_OFFICE") ?? "Unavailable",
+              `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep`
+            ),
             slots,
             deps
           )
@@ -1468,11 +1464,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_foundry",
           label: "Build Foundry",
-          detail: deps.buildDetailTextForAction("build_foundry", tile),
+          detail: deps.buildDetailTextForAction("build_foundry", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            foundryAvail.available && foundryHasManpower,
-            !foundryAvail.available ? foundryAvail.reason : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`,
+            ...chainedBuildAvailability(
+              "FOUNDRY",
+              foundryAvail.available && foundryHasManpower,
+              !foundryAvail.available
+                ? foundryAvail.reason
+                : !foundryHasManpower
+                  ? `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`
+                  : missingResourceSlotReason(state, "FOUNDRY") ?? "Unavailable",
+              `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`
+            ),
             slots,
             deps
           )
@@ -1484,11 +1487,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_waterworks",
           label: "Build Waterworks",
-          detail: deps.buildDetailTextForAction("build_waterworks", tile),
+          detail: deps.buildDetailTextForAction("build_waterworks", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            waterworksAvail.available && waterworksHasManpower,
-            !waterworksAvail.available ? waterworksAvail.reason : `Need ${structureBuildManpowerCost("WATERWORKS")} manpower`,
-            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +100% farmstead food within 10 tiles; boosted production raises food cap`,
+            ...chainedBuildAvailability(
+              "WATERWORKS",
+              waterworksAvail.available && waterworksHasManpower,
+              !waterworksAvail.available
+                ? waterworksAvail.reason
+                : !waterworksHasManpower
+                  ? `Need ${structureBuildManpowerCost("WATERWORKS")} manpower`
+                  : missingResourceSlotReason(state, "WATERWORKS") ?? "Unavailable",
+              `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +100% farmstead food within 10 tiles; boosted production raises food cap`
+            ),
             slots,
             deps
           )
@@ -1498,24 +1508,39 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({
           id: "build_garrison_hall",
           label: "Build Garrison Hall",
-          detail: deps.buildDetailTextForAction("build_garrison_hall", tile),
+          detail: deps.buildDetailTextForAction("build_garrison_hall", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            state.techIds.includes("organized-supply") &&
-              state.gold >= deps.structureGoldCost("GARRISON_HALL") &&
-              state.manpower >= structureBuildManpowerCost("GARRISON_HALL") &&
-              hasFreeResourceSlots(state, "GARRISON_HALL") &&
-              !tile.siegeOutpost &&
-              !tile.observatory,
-            !state.techIds.includes("organized-supply")
-              ? "Requires Organized Supply"
-              : tile.siegeOutpost || tile.observatory
-                ? "Tile already has structure"
-                : state.gold < deps.structureGoldCost("GARRISON_HALL")
-                  ? `Need ${deps.structureGoldCost("GARRISON_HALL")} gold`
-                  : state.manpower < structureBuildManpowerCost("GARRISON_HALL")
-                    ? `Need ${structureBuildManpowerCost("GARRISON_HALL")} manpower`
-                    : (missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable"),
-            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +75 manpower cap and +0.1 manpower/min empire-wide if a Rail Depot is in this town's connected network`,
+            ...chainedBuildAvailability(
+              "GARRISON_HALL",
+              state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "GARRISON_HALL") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("organized-supply")
+                ? "Requires Organized Supply"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
+              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +300 manpower cap if an Assembly Works is in this town's connected network`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("QUARTERMASTERS_OFFICE", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_quartermasters_office",
+          label: "Build Quartermaster's Office",
+          detail: deps.buildDetailTextForAction("build_quartermasters_office", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "QUARTERMASTERS_OFFICE",
+              state.techIds.includes("field-logistics") && hasFreeResourceSlots(state, "QUARTERMASTERS_OFFICE") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("field-logistics")
+                ? "Requires Field Logistics"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "QUARTERMASTERS_OFFICE") ?? "Unavailable",
+              `${deps.structureCostText("QUARTERMASTERS_OFFICE")} • ${Math.round(economicStructureBuildMs("QUARTERMASTERS_OFFICE") / 60000)}m • reduces manpower cost for War-branch structures within 20 tiles`
+            ),
             slots,
             deps
           )
@@ -1523,28 +1548,29 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }
     }
     if (
-      tile.ownershipState === "SETTLED" &&
       buildShowsOnTile("LIGHT_OUTPOST", tile, supportedTowns.length, supportedDocks.length) &&
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !state.techIds.includes("leatherworking")
+      // Normally leatherworking supersedes the Light Outpost with the full
+      // Siege Outpost upgrade below, but Siege Outpost needs a free SUPPLY
+      // slot (Fur/Wood) while Light Outpost only needs FOOD — if no SUPPLY
+      // is available, keep Light Outpost visible as the fallback rather than
+      // hiding both options.
+      (!state.techIds.includes("leatherworking") || !hasFreeResourceSlots(state, "SIEGE_OUTPOST"))
     ) {
       out.push({
         id: "build_light_outpost" as TileActionDef["id"],
         label: "Build Light Outpost",
-        detail: deps.buildDetailTextForAction("build_light_outpost", tile),
+        detail: deps.buildDetailTextForAction("build_light_outpost", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.gold >= deps.structureGoldCost("LIGHT_OUTPOST") &&
-            state.manpower >= structureBuildManpowerCost("LIGHT_OUTPOST") &&
-            hasFreeResourceSlots(state, "LIGHT_OUTPOST"),
-          state.gold < deps.structureGoldCost("LIGHT_OUTPOST")
-            ? `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`
-            : state.manpower < structureBuildManpowerCost("LIGHT_OUTPOST")
-              ? `Need ${structureBuildManpowerCost("LIGHT_OUTPOST")} manpower`
-              : (missingResourceSlotReason(state, "LIGHT_OUTPOST") ?? "Unavailable"),
-          `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
+          ...chainedBuildAvailability(
+            "LIGHT_OUTPOST",
+            hasFreeResourceSlotsForLightOutpost(state),
+            missingLightOutpostSlotReason(state) ?? "Unavailable",
+            `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`
+          ),
           slots,
           deps
         )
@@ -1552,7 +1578,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     }
     if (
       tile.ownerId === state.me &&
-      tile.ownershipState === "SETTLED" &&
       !tile.fort &&
       !tile.observatory &&
       (tile.siegeOutpost || !tile.economicStructure || hasLightOutpost)
@@ -1561,377 +1586,322 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       if (siegeVariant) {
         const hasTech = tile.siegeOutpost ? true : state.techIds.includes("leatherworking");
         const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasLightOutpost;
-        const hasGold = state.gold >= siegeVariant.gold;
-        const hasManpower = state.manpower >= structureBuildManpowerCost("SIEGE_OUTPOST");
         const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeOutpost?.variant);
         out.push({
           id: "build_siege_camp",
           label: tile.siegeOutpost || hasLightOutpost ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
-          detail: deps.buildDetailTextForAction("build_siege_camp", tile),
+          detail: deps.buildDetailTextForAction("build_siege_camp", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            hasTech && hasGold && hasManpower && hasFreeSlots && canUseTile,
-            !hasTech
-              ? "Requires Leatherworking"
-              : !canUseTile
+            ...chainedBuildAvailability(
+              "SIEGE_OUTPOST",
+              hasTech && hasFreeSlots && canUseTile,
+              !hasTech
+                ? "Requires Leatherworking"
+                : !canUseTile
                   ? "Tile already has structure"
-                  : !hasGold
-                    ? `Need ${siegeVariant.gold} gold`
-                    : !hasManpower
-                      ? `Need ${structureBuildManpowerCost("SIEGE_OUTPOST")} manpower`
-                    : !hasFreeSlots
-                      ? (missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable")
-                      : "Unavailable",
-            `${siegeVariant.summary} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m • atk x${siegeVariant.attackMult.toFixed(2)}`,
+                  : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
+              `${siegeVariant.summary} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m • atk x${siegeVariant.attackMult.toFixed(2)}`,
+              siegeVariant.gold
+            ),
             slots,
             deps
           )
         });
       }
     }
-    if (tile.ownershipState === "SETTLED") {
-      if (tile.resource === "FARM" || tile.resource === "FISH") {
-        out.push({
-          id: "build_farmstead",
-          label: "Build Farmstead",
-          detail: deps.buildDetailTextForAction("build_farmstead", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure &&
-              state.techIds.includes("agriculture") &&
-              state.gold >= deps.structureGoldCost("FARMSTEAD") &&
-              state.manpower >= structureBuildManpowerCost("FARMSTEAD") &&
-              hasFreeResourceSlots(state, "FARMSTEAD"),
+    if (tile.resource === "FARM" || tile.resource === "FISH") {
+      out.push({
+        id: "build_farmstead",
+        label: "Build Farmstead",
+        detail: deps.buildDetailTextForAction("build_farmstead", tile) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "FARMSTEAD",
+            !hasBlockingStructure && state.techIds.includes("agriculture") && hasFreeResourceSlots(state, "FARMSTEAD"),
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("agriculture")
                 ? "Requires Agriculture"
-                : state.gold < deps.structureGoldCost("FARMSTEAD")
-                  ? `Need ${deps.structureGoldCost("FARMSTEAD")} gold`
-                  : state.manpower < structureBuildManpowerCost("FARMSTEAD")
-                    ? `Need ${structureBuildManpowerCost("FARMSTEAD")} manpower`
-                    : (missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable"),
+                : missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable",
             tile.resource === "FARM"
               ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +18 food cap`
-              : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`,
-            slots,
-            deps
-          )
-        });
-
-      }
-      if (tile.resource === "WOOD" || tile.resource === "FUR") {
-        out.push({
-          id: "build_camp",
-          label: "Build Camp",
-          detail: deps.buildDetailTextForAction("build_camp", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure &&
-              state.techIds.includes("leatherworking") &&
-              state.gold >= deps.structureGoldCost("CAMP") &&
-              state.manpower >= structureBuildManpowerCost("CAMP") &&
-              hasFreeResourceSlots(state, "CAMP"),
+              : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`
+          ),
+          slots,
+          deps
+        )
+      });
+    }
+    if (tile.resource === "WOOD" || tile.resource === "FUR") {
+      out.push({
+        id: "build_camp",
+        label: "Build Camp",
+        detail: deps.buildDetailTextForAction("build_camp", tile) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CAMP",
+            !hasBlockingStructure && state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "CAMP"),
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
                 ? "Requires Leatherworking"
-                : state.gold < deps.structureGoldCost("CAMP")
-                  ? `Need ${deps.structureGoldCost("CAMP")} gold`
-                  : state.manpower < structureBuildManpowerCost("CAMP")
-                    ? `Need ${structureBuildManpowerCost("CAMP")} manpower`
-                    : (missingResourceSlotReason(state, "CAMP") ?? "Unavailable"),
-            `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap`,
-            slots,
-            deps
-          )
-        });
-      }
-      if (tile.resource === "IRON" || tile.resource === "GEMS") {
-        const matchingNeed = tile.resource === "IRON" ? "IRON" : "CRYSTAL";
-        out.push({
-          id: "build_mine",
-          label: "Build Mine",
-          detail: deps.buildDetailTextForAction("build_mine", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure &&
-              state.techIds.includes("mining") &&
-              state.gold >= deps.structureGoldCost("MINE") &&
-              state.manpower >= structureBuildManpowerCost("MINE") &&
-              hasFreeResourceSlots(state, "MINE"),
+                : missingResourceSlotReason(state, "CAMP") ?? "Unavailable",
+            `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap`
+          ),
+          slots,
+          deps
+        )
+      });
+    }
+    if (tile.resource === "IRON" || tile.resource === "GEMS") {
+      const matchingNeed = tile.resource === "IRON" ? "IRON" : "CRYSTAL";
+      out.push({
+        id: "build_mine",
+        label: "Build Mine",
+        detail: deps.buildDetailTextForAction("build_mine", tile) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "MINE",
+            !hasBlockingStructure && state.techIds.includes("mining") && hasFreeResourceSlots(state, "MINE"),
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("mining")
                 ? "Requires Mining"
-                : state.gold < deps.structureGoldCost("MINE")
-                  ? `Need ${deps.structureGoldCost("MINE")} gold`
-                  : state.manpower < structureBuildManpowerCost("MINE")
-                    ? `Need ${structureBuildManpowerCost("MINE")} manpower`
-                    : (missingResourceSlotReason(state, "MINE") ?? "Unavailable"),
-            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap`,
-            slots,
-            deps
-          )
-        });
-      }
-      if (townBuildSource) {
-        const townHasMarket = Boolean(townBuildSource.town?.hasMarket) || deps.townHasSupportStructure(townBuildSource, "MARKET");
-        const townHasGranary = Boolean(townBuildSource.town?.hasGranary) || deps.townHasSupportStructure(townBuildSource, "GRANARY");
-        const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
-        const townHasBank = Boolean(townBuildSource.town?.hasBank) || deps.townHasSupportStructure(townBuildSource, "BANK");
-        const townHasClearingHouse = deps.townHasSupportStructure(townBuildSource, "CLEARING_HOUSE");
-        const townHasCaravanary = deps.townHasSupportStructure(townBuildSource, "CARAVANARY");
-        const townHasFurSynth = deps.townHasSupportStructure(townBuildSource, "FUR_SYNTHESIZER");
-        const townHasIronworks = deps.townHasSupportStructure(townBuildSource, "IRONWORKS");
-        const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
-        const townHasExchangeHouse = deps.townHasSupportStructure(townBuildSource, "EXCHANGE_HOUSE");
-        const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
-        const townHasImperialExchangePart = deps.townHasSupportStructure(townBuildSource, "IMPERIAL_EXCHANGE_PART");
-        const townHasWorldEnginePart = deps.townHasSupportStructure(townBuildSource, "WORLD_ENGINE_PART");
-        const townHasAegisDomePart = deps.townHasSupportStructure(townBuildSource, "AEGIS_DOME_PART");
-        const townHasAstralDockPart = deps.townHasSupportStructure(townBuildSource, "ASTRAL_DOCK_PART");
-        const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
-        out.push({
-          id: "build_market",
-          label: "Build Market",
-          detail: deps.buildDetailTextForAction("build_market", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasMarket &&
-              state.techIds.includes("trade") &&
-              state.gold >= deps.structureGoldCost("MARKET") &&
-              state.manpower >= structureBuildManpowerCost("MARKET") &&
-              hasFreeResourceSlots(state, "MARKET"),
+                : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
+            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap`
+          ),
+          slots,
+          deps
+        )
+      });
+    }
+    if (townBuildSource) {
+      const townHasMarket = Boolean(townBuildSource.town?.hasMarket) || deps.townHasSupportStructure(townBuildSource, "MARKET");
+      const townHasGranary = Boolean(townBuildSource.town?.hasGranary) || deps.townHasSupportStructure(townBuildSource, "GRANARY");
+      const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
+      const townHasBank = Boolean(townBuildSource.town?.hasBank) || deps.townHasSupportStructure(townBuildSource, "BANK");
+      const townHasClearingHouse = deps.townHasSupportStructure(townBuildSource, "CLEARING_HOUSE");
+      const townHasCaravanary = deps.townHasSupportStructure(townBuildSource, "CARAVANARY");
+      const townHasFurSynth = deps.townHasSupportStructure(townBuildSource, "FUR_SYNTHESIZER");
+      const townHasIronworks = deps.townHasSupportStructure(townBuildSource, "IRONWORKS");
+      const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
+      const townHasExchangeHouse = deps.townHasSupportStructure(townBuildSource, "EXCHANGE_HOUSE");
+      const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
+      const townHasImperialExchangePart = deps.townHasSupportStructure(townBuildSource, "IMPERIAL_EXCHANGE_PART");
+      const townHasWorldEnginePart = deps.townHasSupportStructure(townBuildSource, "WORLD_ENGINE_PART");
+      const townHasAegisDomePart = deps.townHasSupportStructure(townBuildSource, "AEGIS_DOME_PART");
+      const townHasAstralDockPart = deps.townHasSupportStructure(townBuildSource, "ASTRAL_DOCK_PART");
+      const townHasPopulationBureauPart = deps.townHasSupportStructure(townBuildSource, "POPULATION_BUREAU_PART");
+      const townHasIronLevyPart = deps.townHasSupportStructure(townBuildSource, "IRON_LEVY_PART");
+      const townHasAnyMonumentPart =
+        townHasImperialExchangePart ||
+        townHasWorldEnginePart ||
+        townHasAegisDomePart ||
+        townHasAstralDockPart ||
+        townHasPopulationBureauPart ||
+        townHasIronLevyPart;
+      const townHasAssemblyWorks = deps.townHasSupportStructure(townBuildSource, "ASSEMBLY_WORKS");
+      const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
+      const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
+      out.push({
+        id: "build_market",
+        label: "Build Market",
+        detail: deps.buildDetailTextForAction("build_market", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "MARKET",
+            !supportPlacementBlocked && !townHasMarket && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MARKET"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
-                  : state.gold < deps.structureGoldCost("MARKET")
-                    ? `Need ${deps.structureGoldCost("MARKET")} gold`
-                    : state.manpower < structureBuildManpowerCost("MARKET")
-                      ? `Need ${structureBuildManpowerCost("MARKET")} manpower`
-                      : (missingResourceSlotReason(state, "MARKET") ?? "Unavailable"),
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_granary",
-          label: "Build Granary",
-          detail: deps.buildDetailTextForAction("build_granary", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasGranary &&
-              state.techIds.includes("pottery") &&
-              state.gold >= deps.structureGoldCost("GRANARY") &&
-              state.manpower >= structureBuildManpowerCost("GRANARY") &&
-              hasFreeResourceSlots(state, "GRANARY"),
+                  : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_granary",
+        label: "Build Granary",
+        detail: deps.buildDetailTextForAction("build_granary", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "GRANARY",
+            !supportPlacementBlocked && !townHasGranary && state.techIds.includes("pottery") && hasFreeResourceSlots(state, "GRANARY"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasGranary
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
                   ? "Requires Pottery"
-                  : state.gold < deps.structureGoldCost("GRANARY")
-                    ? `Need ${deps.structureGoldCost("GRANARY")} gold`
-                    : state.manpower < structureBuildManpowerCost("GRANARY")
-                      ? `Need ${structureBuildManpowerCost("GRANARY")} manpower`
-                      : (missingResourceSlotReason(state, "GRANARY") ?? "Unavailable"),
-            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_census_hall",
-          label: "Build Census Hall",
-          detail: deps.buildDetailTextForAction("build_census_hall", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasCensusHall &&
-              state.techIds.includes("census-records") &&
-              state.gold >= deps.structureGoldCost("CENSUS_HALL") &&
-              state.manpower >= structureBuildManpowerCost("CENSUS_HALL") &&
-              hasFreeResourceSlots(state, "CENSUS_HALL"),
+                  : missingResourceSlotReason(state, "GRANARY") ?? "Unavailable",
+            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_census_hall",
+        label: "Build Census Hall",
+        detail: deps.buildDetailTextForAction("build_census_hall", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CENSUS_HALL",
+            !supportPlacementBlocked && !townHasCensusHall && state.techIds.includes("census-records") && hasFreeResourceSlots(state, "CENSUS_HALL"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasCensusHall
                 ? "Nearby town already has Census Hall"
                 : !state.techIds.includes("census-records")
                   ? "Requires Census Records"
-                  : state.gold < deps.structureGoldCost("CENSUS_HALL")
-                    ? `Need ${deps.structureGoldCost("CENSUS_HALL")} gold`
-                    : state.manpower < structureBuildManpowerCost("CENSUS_HALL")
-                      ? `Need ${structureBuildManpowerCost("CENSUS_HALL")} manpower`
-                      : (missingResourceSlotReason(state, "CENSUS_HALL") ?? "Unavailable"),
-            `${deps.structureCostText("CENSUS_HALL")} • ${Math.round(economicStructureBuildMs("CENSUS_HALL") / 60000)}m • +25% town growth`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_bank",
-          label: "Build Bank",
-          detail: deps.buildDetailTextForAction("build_bank", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasBank &&
-              state.techIds.includes("coinage") &&
-              state.gold >= deps.structureGoldCost("BANK") &&
-              state.manpower >= structureBuildManpowerCost("BANK") &&
-              hasFreeResourceSlots(state, "BANK"),
+                  : missingResourceSlotReason(state, "CENSUS_HALL") ?? "Unavailable",
+            `${deps.structureCostText("CENSUS_HALL")} • ${Math.round(economicStructureBuildMs("CENSUS_HALL") / 60000)}m • +25% town growth`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_bank",
+        label: "Build Bank",
+        detail: deps.buildDetailTextForAction("build_bank", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "BANK",
+            !supportPlacementBlocked && !townHasBank && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "BANK"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
-                  : state.gold < deps.structureGoldCost("BANK")
-                    ? `Need ${deps.structureGoldCost("BANK")} gold`
-                    : state.manpower < structureBuildManpowerCost("BANK")
-                      ? `Need ${structureBuildManpowerCost("BANK")} manpower`
-                      : (missingResourceSlotReason(state, "BANK") ?? "Unavailable"),
-            `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_clearing_house",
-          label: "Build Clearing House",
-          detail: deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasClearingHouse &&
-              state.techIds.includes("banking") &&
-              state.gold >= deps.structureGoldCost("CLEARING_HOUSE") &&
-              state.manpower >= structureBuildManpowerCost("CLEARING_HOUSE") &&
-              hasFreeResourceSlots(state, "CLEARING_HOUSE"),
+                  : missingResourceSlotReason(state, "BANK") ?? "Unavailable",
+            `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_clearing_house",
+        label: "Build Clearing House",
+        detail: deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CLEARING_HOUSE",
+            !supportPlacementBlocked && !townHasClearingHouse && state.techIds.includes("banking") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
                 : !state.techIds.includes("banking")
                   ? "Requires Banking"
-                  : state.gold < deps.structureGoldCost("CLEARING_HOUSE")
-                    ? `Need ${deps.structureGoldCost("CLEARING_HOUSE")} gold`
-                    : state.manpower < structureBuildManpowerCost("CLEARING_HOUSE")
-                      ? `Need ${structureBuildManpowerCost("CLEARING_HOUSE")} manpower`
-                      : (missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets and Banks`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_caravanary",
-          label: "Build Caravanary",
-          detail: deps.buildDetailTextForAction("build_caravanary", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasCaravanary &&
-              state.techIds.includes("ledger-keeping") &&
-              state.gold >= deps.structureGoldCost("CARAVANARY") &&
-              state.manpower >= structureBuildManpowerCost("CARAVANARY") &&
-              hasFreeResourceSlots(state, "CARAVANARY"),
+                  : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets and Banks`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_caravanary",
+        label: "Build Caravanary",
+        detail: deps.buildDetailTextForAction("build_caravanary", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CARAVANARY",
+            !supportPlacementBlocked && !townHasCaravanary && state.techIds.includes("ledger-keeping") && hasFreeResourceSlots(state, "CARAVANARY"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasCaravanary
                 ? "Nearby town already has Caravanary"
                 : !state.techIds.includes("ledger-keeping")
                   ? "Requires Ledger Keeping"
-                  : state.gold < deps.structureGoldCost("CARAVANARY")
-                    ? `Need ${deps.structureGoldCost("CARAVANARY")} gold`
-                    : state.manpower < structureBuildManpowerCost("CARAVANARY")
-                      ? `Need ${structureBuildManpowerCost("CARAVANARY")} manpower`
-                      : (missingResourceSlotReason(state, "CARAVANARY") ?? "Unavailable"),
-            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_fur_synthesizer",
-          label: "Build Fur Synthesizer",
-          detail: deps.buildDetailTextForAction("build_fur_synthesizer", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasFurSynth &&
-              state.techIds.includes("workshops") &&
-              state.gold >= deps.structureGoldCost("FUR_SYNTHESIZER") &&
-              state.manpower >= structureBuildManpowerCost("FUR_SYNTHESIZER"),
+                  : missingResourceSlotReason(state, "CARAVANARY") ?? "Unavailable",
+            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_fur_synthesizer",
+        label: "Build Fur Synthesizer",
+        detail: deps.buildDetailTextForAction("build_fur_synthesizer", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "FUR_SYNTHESIZER",
+            !supportPlacementBlocked && !townHasFurSynth && state.techIds.includes("workshops"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasFurSynth
                 ? "Nearby town already has Fur Synthesizer"
                 : !state.techIds.includes("workshops")
                   ? "Requires Workshops"
-                  : state.gold < deps.structureGoldCost("FUR_SYNTHESIZER")
-                    ? `Need ${deps.structureGoldCost("FUR_SYNTHESIZER")} gold`
-                    : `Need ${structureBuildManpowerCost("FUR_SYNTHESIZER")} manpower`,
-            `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 30 gold/day`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_ironworks",
-          label: "Build Ironworks",
-          detail: deps.buildDetailTextForAction("build_ironworks", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasIronworks &&
-              state.techIds.includes("alchemy") &&
-              state.gold >= deps.structureGoldCost("IRONWORKS") &&
-              state.manpower >= structureBuildManpowerCost("IRONWORKS"),
+                  : "Unavailable",
+            `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 30 gold/day`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_ironworks",
+        label: "Build Ironworks",
+        detail: deps.buildDetailTextForAction("build_ironworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "IRONWORKS",
+            !supportPlacementBlocked && !townHasIronworks && state.techIds.includes("alchemy"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasIronworks
                 ? "Nearby town already has Ironworks"
                 : !state.techIds.includes("alchemy")
                   ? "Requires Alchemy"
-                  : state.gold < deps.structureGoldCost("IRONWORKS")
-                    ? `Need ${deps.structureGoldCost("IRONWORKS")} gold`
-                    : `Need ${structureBuildManpowerCost("IRONWORKS")} manpower`,
-            `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 30 gold/day`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_crystal_synthesizer",
-          label: "Build Aether Condenser",
-          detail: deps.buildDetailTextForAction("build_crystal_synthesizer", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked &&
-              !townHasCrystalSynth &&
-              state.techIds.includes("crystal-lattices") &&
-              state.gold >= deps.structureGoldCost("CRYSTAL_SYNTHESIZER") &&
-              state.manpower >= structureBuildManpowerCost("CRYSTAL_SYNTHESIZER"),
+                  : "Unavailable",
+            `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 30 gold/day`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_crystal_synthesizer",
+        label: "Build Aether Condenser",
+        detail: deps.buildDetailTextForAction("build_crystal_synthesizer", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CRYSTAL_SYNTHESIZER",
+            !supportPlacementBlocked && !townHasCrystalSynth && state.techIds.includes("crystal-lattices"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasCrystalSynth
                 ? "Nearby town already has Aether Condenser"
                 : !state.techIds.includes("crystal-lattices")
                   ? "Requires Crystal Lattices"
-                  : state.gold < deps.structureGoldCost("CRYSTAL_SYNTHESIZER")
-                    ? `Need ${deps.structureGoldCost("CRYSTAL_SYNTHESIZER")} gold`
-                    : `Need ${structureBuildManpowerCost("CRYSTAL_SYNTHESIZER")} manpower`,
-            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_exchange_house",
-          label: "Build Exchange House",
-          detail: deps.buildDetailTextForAction("build_exchange_house", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                  : "Unavailable",
+            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_exchange_house",
+        label: "Build Exchange House",
+        detail: deps.buildDetailTextForAction("build_exchange_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "EXCHANGE_HOUSE",
             !supportPlacementBlocked &&
               !townHasExchangeHouse &&
               state.techIds.includes("imperial-roads") &&
-              state.gold >= deps.structureGoldCost("EXCHANGE_HOUSE") &&
-              state.manpower >= structureBuildManpowerCost("EXCHANGE_HOUSE") &&
               hasFreeResourceSlots(state, "EXCHANGE_HOUSE"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1939,26 +1909,23 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Exchange House"
                 : !state.techIds.includes("imperial-roads")
                   ? "Requires Monument Cities"
-                  : state.gold < deps.structureGoldCost("EXCHANGE_HOUSE")
-                    ? `Need ${deps.structureGoldCost("EXCHANGE_HOUSE")} gold`
-                    : state.manpower < structureBuildManpowerCost("EXCHANGE_HOUSE")
-                      ? `Need ${structureBuildManpowerCost("EXCHANGE_HOUSE")} manpower`
-                      : (missingResourceSlotReason(state, "EXCHANGE_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("EXCHANGE_HOUSE")} • ${Math.round(economicStructureBuildMs("EXCHANGE_HOUSE") / 60000)}m • scales with nearby support buildings`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_rail_depot",
-          label: "Build Rail Depot",
-          detail: deps.buildDetailTextForAction("build_rail_depot", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                  : (missingResourceSlotReason(state, "EXCHANGE_HOUSE") ?? "Unavailable"),
+            `${deps.structureCostText("EXCHANGE_HOUSE")} • ${Math.round(economicStructureBuildMs("EXCHANGE_HOUSE") / 60000)}m • scales with nearby support buildings`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_rail_depot",
+        label: "Build Rail Depot",
+        detail: deps.buildDetailTextForAction("build_rail_depot", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "RAIL_DEPOT",
             !supportPlacementBlocked &&
               !townHasRailDepot &&
               state.techIds.includes("global-trade-networks") &&
-              state.gold >= deps.structureGoldCost("RAIL_DEPOT") &&
-              state.manpower >= structureBuildManpowerCost("RAIL_DEPOT") &&
               hasFreeResourceSlots(state, "RAIL_DEPOT"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1966,21 +1933,20 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Nearby town already has Rail Depot"
                 : !state.techIds.includes("global-trade-networks")
                   ? "Requires Rail Networks"
-                  : state.gold < deps.structureGoldCost("RAIL_DEPOT")
-                    ? `Need ${deps.structureGoldCost("RAIL_DEPOT")} gold`
-                    : state.manpower < structureBuildManpowerCost("RAIL_DEPOT")
-                      ? `Need ${structureBuildManpowerCost("RAIL_DEPOT")} manpower`
-                      : (missingResourceSlotReason(state, "RAIL_DEPOT") ?? "Unavailable"),
-            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+75 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_imperial_exchange_part",
-          label: "Build Imperial Exchange Part",
-          detail: deps.buildDetailTextForAction("build_imperial_exchange_part", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                  : (missingResourceSlotReason(state, "RAIL_DEPOT") ?? "Unavailable"),
+            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_imperial_exchange_part",
+        label: "Build Imperial Exchange Part",
+        detail: deps.buildDetailTextForAction("build_imperial_exchange_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "IMPERIAL_EXCHANGE_PART",
             !supportPlacementBlocked &&
               !townHasImperialExchangePart &&
               !townHasWorldEnginePart &&
@@ -1988,8 +1954,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("urban-markets") &&
-              state.gold >= deps.structureGoldCost("IMPERIAL_EXCHANGE_PART") &&
-              state.manpower >= structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART") &&
               hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE_PART"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -1999,21 +1963,20 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("urban-markets")
                     ? "Requires Imperial Exchange"
-                    : state.gold < deps.structureGoldCost("IMPERIAL_EXCHANGE_PART")
-                      ? `Need ${deps.structureGoldCost("IMPERIAL_EXCHANGE_PART")} gold`
-                      : state.manpower < structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART")
-                        ? `Need ${structureBuildManpowerCost("IMPERIAL_EXCHANGE_PART")} manpower`
-                        : (missingResourceSlotReason(state, "IMPERIAL_EXCHANGE_PART") ?? "Unavailable"),
-            `${deps.structureCostText("IMPERIAL_EXCHANGE_PART")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE_PART") / 60000)}m • build 3 to unlock the monument`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_world_engine_part",
-          label: "Build Worldbreaker Cannon Part",
-          detail: deps.buildDetailTextForAction("build_world_engine_part", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                    : (missingResourceSlotReason(state, "IMPERIAL_EXCHANGE_PART") ?? "Unavailable"),
+            `${deps.structureCostText("IMPERIAL_EXCHANGE_PART")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_world_engine_part",
+        label: "Build Worldbreaker Cannon Part",
+        detail: deps.buildDetailTextForAction("build_world_engine_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "WORLD_ENGINE_PART",
             !supportPlacementBlocked &&
               !townHasImperialExchangePart &&
               !townHasWorldEnginePart &&
@@ -2021,8 +1984,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("world-engine") &&
-              state.gold >= deps.structureGoldCost("WORLD_ENGINE_PART") &&
-              state.manpower >= structureBuildManpowerCost("WORLD_ENGINE_PART") &&
               hasFreeResourceSlots(state, "WORLD_ENGINE_PART"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -2032,21 +1993,20 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("world-engine")
                     ? "Requires Worldbreaker Cannon"
-                    : state.gold < deps.structureGoldCost("WORLD_ENGINE_PART")
-                      ? `Need ${deps.structureGoldCost("WORLD_ENGINE_PART")} gold`
-                      : state.manpower < structureBuildManpowerCost("WORLD_ENGINE_PART")
-                        ? `Need ${structureBuildManpowerCost("WORLD_ENGINE_PART")} manpower`
-                        : (missingResourceSlotReason(state, "WORLD_ENGINE_PART") ?? "Unavailable"),
-            `${deps.structureCostText("WORLD_ENGINE_PART")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE_PART") / 60000)}m • build 3 to unlock the monument`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_aegis_dome_part",
-          label: "Build Aegis Dome Part",
-          detail: deps.buildDetailTextForAction("build_aegis_dome_part", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                    : (missingResourceSlotReason(state, "WORLD_ENGINE_PART") ?? "Unavailable"),
+            `${deps.structureCostText("WORLD_ENGINE_PART")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_aegis_dome_part",
+        label: "Build Aegis Dome Part",
+        detail: deps.buildDetailTextForAction("build_aegis_dome_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "AEGIS_DOME_PART",
             !supportPlacementBlocked &&
               !townHasImperialExchangePart &&
               !townHasWorldEnginePart &&
@@ -2054,8 +2014,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("aegis-dome") &&
-              state.gold >= deps.structureGoldCost("AEGIS_DOME_PART") &&
-              state.manpower >= structureBuildManpowerCost("AEGIS_DOME_PART") &&
               hasFreeResourceSlots(state, "AEGIS_DOME_PART"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -2065,21 +2023,20 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("aegis-dome")
                     ? "Requires Aegis Dome"
-                    : state.gold < deps.structureGoldCost("AEGIS_DOME_PART")
-                      ? `Need ${deps.structureGoldCost("AEGIS_DOME_PART")} gold`
-                      : state.manpower < structureBuildManpowerCost("AEGIS_DOME_PART")
-                        ? `Need ${structureBuildManpowerCost("AEGIS_DOME_PART")} manpower`
-                        : (missingResourceSlotReason(state, "AEGIS_DOME_PART") ?? "Unavailable"),
-            `${deps.structureCostText("AEGIS_DOME_PART")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME_PART") / 60000)}m • build 3 to unlock the monument`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_astral_dock_part",
-          label: "Build Astral Dock Part",
-          detail: deps.buildDetailTextForAction("build_astral_dock_part", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                    : (missingResourceSlotReason(state, "AEGIS_DOME_PART") ?? "Unavailable"),
+            `${deps.structureCostText("AEGIS_DOME_PART")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_astral_dock_part",
+        label: "Build Astral Dock Part",
+        detail: deps.buildDetailTextForAction("build_astral_dock_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "ASTRAL_DOCK_PART",
             !supportPlacementBlocked &&
               !townHasImperialExchangePart &&
               !townHasWorldEnginePart &&
@@ -2087,8 +2044,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               !townHasAstralDockPart &&
               isGreatCity &&
               state.techIds.includes("astral-dock") &&
-              state.gold >= deps.structureGoldCost("ASTRAL_DOCK_PART") &&
-              state.manpower >= structureBuildManpowerCost("ASTRAL_DOCK_PART") &&
               hasFreeResourceSlots(state, "ASTRAL_DOCK_PART"),
             supportPlacementBlocked
               ? "Tile already has structure"
@@ -2098,43 +2053,138 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("astral-dock")
                     ? "Requires Astral Dock"
-                    : state.gold < deps.structureGoldCost("ASTRAL_DOCK_PART")
-                      ? `Need ${deps.structureGoldCost("ASTRAL_DOCK_PART")} gold`
-                      : state.manpower < structureBuildManpowerCost("ASTRAL_DOCK_PART")
-                        ? `Need ${structureBuildManpowerCost("ASTRAL_DOCK_PART")} manpower`
-                        : (missingResourceSlotReason(state, "ASTRAL_DOCK_PART") ?? "Unavailable"),
-            `${deps.structureCostText("ASTRAL_DOCK_PART")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK_PART") / 60000)}m • build 3 to unlock the monument`,
-            slots,
-            deps
-          )
-        });
-      }
-      if (tile.dockId) {
-        out.push({
-          id: "build_customs_house",
-          label: "Build Harbor Exchange",
-          detail: deps.buildDetailTextForAction("build_customs_house", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+                    : (missingResourceSlotReason(state, "ASTRAL_DOCK_PART") ?? "Unavailable"),
+            `${deps.structureCostText("ASTRAL_DOCK_PART")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_population_bureau_part",
+        label: "Build Population Bureau Part",
+        detail: deps.buildDetailTextForAction("build_population_bureau_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "POPULATION_BUREAU_PART",
+            !supportPlacementBlocked &&
+              !townHasAnyMonumentPart &&
+              isGreatCity &&
+              state.techIds.includes("demographic-registry") &&
+              hasFreeResourceSlots(state, "POPULATION_BUREAU_PART"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAnyMonumentPart
+                ? "Nearby great city already hosts a monument part"
+                : !isGreatCity
+                  ? "Requires Great City or Monumental City"
+                  : !state.techIds.includes("demographic-registry")
+                    ? "Requires Demographic Registry"
+                    : (missingResourceSlotReason(state, "POPULATION_BUREAU_PART") ?? "Unavailable"),
+            `${deps.structureCostText("POPULATION_BUREAU_PART")} • ${Math.round(economicStructureBuildMs("POPULATION_BUREAU_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_iron_levy_part",
+        label: "Build The Iron Levy Part",
+        detail: deps.buildDetailTextForAction("build_iron_levy_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "IRON_LEVY_PART",
+            !supportPlacementBlocked &&
+              !townHasAnyMonumentPart &&
+              isGreatCity &&
+              state.techIds.includes("grand-levy-doctrine") &&
+              hasFreeResourceSlots(state, "IRON_LEVY_PART"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAnyMonumentPart
+                ? "Nearby great city already hosts a monument part"
+                : !isGreatCity
+                  ? "Requires Great City or Monumental City"
+                  : !state.techIds.includes("grand-levy-doctrine")
+                    ? "Requires Grand Levy Doctrine"
+                    : (missingResourceSlotReason(state, "IRON_LEVY_PART") ?? "Unavailable"),
+            `${deps.structureCostText("IRON_LEVY_PART")} • ${Math.round(economicStructureBuildMs("IRON_LEVY_PART") / 60000)}m • build 3 to unlock the monument`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_assembly_works",
+        label: "Build Assembly Works",
+        detail: deps.buildDetailTextForAction("build_assembly_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "ASSEMBLY_WORKS",
+            !supportPlacementBlocked &&
+              !townHasAssemblyWorks &&
+              state.techIds.includes("conveyor-networks") &&
+              hasFreeResourceSlots(state, "ASSEMBLY_WORKS"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasAssemblyWorks
+                ? "Nearby town already has Assembly Works"
+                : !state.techIds.includes("conveyor-networks")
+                  ? "Requires Conveyor Networks"
+                  : (missingResourceSlotReason(state, "ASSEMBLY_WORKS") ?? "Unavailable"),
+            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • +300 manpower cap for every Ancillary Factory in this connected-town network • one per connected-town network`
+          ),
+          slots,
+          deps
+        )
+      });
+      out.push({
+        id: "build_logistics_guild",
+        label: "Build Logistics Guild",
+        detail: deps.buildDetailTextForAction("build_logistics_guild", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "LOGISTICS_GUILD",
+            !supportPlacementBlocked &&
+              !townHasLogisticsGuild &&
+              state.techIds.includes("remade-concordat") &&
+              hasFreeResourceSlots(state, "LOGISTICS_GUILD"),
+            supportPlacementBlocked
+              ? "Tile already has structure"
+              : townHasLogisticsGuild
+                ? "Town already has Logistics Guild"
+                : !state.techIds.includes("remade-concordat")
+                  ? "Requires The Remade Concordat"
+                  : (missingResourceSlotReason(state, "LOGISTICS_GUILD") ?? "Unavailable"),
+            `${deps.structureCostText("LOGISTICS_GUILD")} • ${Math.round(economicStructureBuildMs("LOGISTICS_GUILD") / 60000)}m • +0.05 manpower/min empire-wide, +0.1/min if a Rail Depot is in this town's connected network`
+          ),
+          slots,
+          deps
+        )
+      });
+    }
+    if (tile.dockId) {
+      out.push({
+        id: "build_customs_house",
+        label: "Build Harbor Exchange",
+        detail: deps.buildDetailTextForAction("build_customs_house", tile) + frontierBuildDetailSuffix(tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          ...chainedBuildAvailability(
+            "CUSTOMS_HOUSE",
             !hasBlockingStructure &&
               state.techIds.includes("harborcraft") &&
-              state.gold >= deps.structureGoldCost("CUSTOMS_HOUSE") &&
-              state.manpower >= structureBuildManpowerCost("CUSTOMS_HOUSE") &&
               hasFreeResourceSlots(state, "CUSTOMS_HOUSE"),
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("harborcraft")
                 ? "Requires Aether Moorings"
-                : state.gold < deps.structureGoldCost("CUSTOMS_HOUSE")
-                  ? `Need ${deps.structureGoldCost("CUSTOMS_HOUSE")} gold`
-                  : state.manpower < structureBuildManpowerCost("CUSTOMS_HOUSE")
-                    ? `Need ${structureBuildManpowerCost("CUSTOMS_HOUSE")} manpower`
-                    : (missingResourceSlotReason(state, "CUSTOMS_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 gold/day per connected dock`,
-            slots,
-            deps
-          )
-        });
-      }
+                : (missingResourceSlotReason(state, "CUSTOMS_HOUSE") ?? "Unavailable"),
+            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 gold/day per connected dock`
+          ),
+          slots,
+          deps
+        )
+      });
     }
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());

@@ -1,6 +1,8 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
+import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
+import { clearCameraLocation } from "../client-view-refresh.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -820,6 +822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     state.capture = undefined;
     if (!handedOffToSettle) {
+      if (targetKey) state.autoBuildTargets.delete(targetKey);
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
@@ -1380,6 +1383,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
         authProfileColorEl.value = myTileColor;
+        if (state.pendingColorChange && state.pendingColorChange === myTileColor) {
+          state.pendingColorChange = "";
+          pushFeed("Empire colour updated.", "info", "success");
+        }
       }
       if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
       const myVisualStyle = msg.visualStyle as any;
@@ -1761,9 +1768,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
       clearLateFrontierAck(cancelledCurrentKey);
-      if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
-      if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
-      state.autoSettleTargets.clear();
+      if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
+      state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
       pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
       renderHud();
       return;
@@ -1902,7 +1908,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update || "watchtowerJson" in update ||
+            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
@@ -2102,6 +2108,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         nextChoices: (msg.nextChoices as string[])?.length ?? 0,
         techCatalogCount: (msg.techCatalog as any[] | undefined)?.length ?? 0
       });
+      // Tech-tree redesign: fire the unlock confetti/flash once per newly-
+      // researched tech (never on a pure catalog refresh with no new ids).
+      const previouslyOwnedTechIds = new Set(state.techIds ?? []);
+      const incomingTechIds = (msg.techIds as string[] | undefined) ?? [];
+      const hasNewlyResearchedTech = incomingTechIds.some((id) => !previouslyOwnedTechIds.has(id));
       applyTechUpdateToState(state, {
         status: msg.status as "started" | "completed" | undefined,
         techRootId: msg.techRootId as string | undefined,
@@ -2126,6 +2137,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         strategicResources: (msg.strategicResources as typeof state.strategicResources | undefined) ?? undefined
       }, pushFeed);
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
+      if (hasNewlyResearchedTech) triggerTechUnlockFx();
       renderHud();
       return;
     }
@@ -2366,10 +2378,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
         setAuthStatus(fullMessage, "error");
         syncAuthOverlay();
-        // A pending display-name change rides on the same SET_PROFILE message as
-        // the (unchanged) color, so a color-collision rejection here also means
-        // the name update was never persisted — surface that on the Settings feed
-        // too, since the auth overlay above isn't visible from there.
+        // A pending display-name or color change rides on the same SET_PROFILE
+        // message as the (unchanged) color, so a color-collision rejection here
+        // also means both updates were never persisted — surface that on the
+        // Settings feed too, since the auth overlay above isn't visible from there.
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
+        }
         if (state.pendingDisplayNameChange) {
           state.pendingDisplayNameChange = "";
           pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
@@ -2381,12 +2397,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         pushFeed(errorMessage, "error", "warn");
         return;
       }
-      // A generic gateway internal error can also orphan a pending name change.
-      // Clear it here so the next PLAYER_UPDATE doesn't silently skip its feed
+      if (errorCode === "COLOR_LIMIT") {
+        state.pendingColorChange = "";
+        pushFeed(errorMessage, "error", "warn");
+        return;
+      }
+      // A generic gateway internal error can also orphan pending profile changes.
+      // Clear them here so the next PLAYER_UPDATE doesn't silently skip its feed
       // message, even though the error is also surfaced via the generic handler.
-      if (errorCode === "GATEWAY_INTERNAL_ERROR" && state.pendingDisplayNameChange) {
-        state.pendingDisplayNameChange = "";
-        pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
+      if (errorCode === "GATEWAY_INTERNAL_ERROR") {
+        if (state.pendingDisplayNameChange) {
+          state.pendingDisplayNameChange = "";
+          pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
+        }
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${errorMessage}`, "error", "error");
+        }
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
@@ -2425,7 +2452,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           clearSettlementProgressSafely(tileKey);
           state.queuedTargetKeys.delete(tileKey);
           dropQueuedTargetKeyIfAbsent(tileKey);
-          state.autoSettleTargets.delete(tileKey);
+          state.autoSettleTargets.delete(tileKey); state.autoBuildTargets.delete(tileKey);
         }
         if (backendUnavailableError) {
           state.capture = undefined;
@@ -2722,7 +2749,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
-        if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+        if (failedTargetKey) { state.autoSettleTargets.delete(failedTargetKey); state.autoBuildTargets.delete(failedTargetKey); }
       } else if (failedTargetKey) {
         clearOptimisticTileStateSafely(failedTargetKey, true);
       }
@@ -2842,7 +2869,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
-        try { window.localStorage.removeItem("border-empires-camera-location-v1"); } catch { /* restricted context */ }
+        clearCameraLocation();
+        state.camX = 0;
+        state.camY = 0;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();

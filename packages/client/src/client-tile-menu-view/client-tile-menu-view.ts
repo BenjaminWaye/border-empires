@@ -2,7 +2,6 @@ import {
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
-  MUSTER_SYSTEM_ENABLED,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   rushBuyPriceGold,
@@ -16,7 +15,7 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
-import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
@@ -105,7 +104,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       ? `Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
-  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
+  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. First 5 Light Outposts are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
   if (actionId === "build_camp") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} production on this tile by 50% and adds +${tile.resource === "IRON" ? "15 iron" : "9 crystal"} cap.`;
@@ -129,8 +128,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Iron slot.";
   if (actionId === "build_crystal_synthesizer") return "Provides 1 Crystal slot on this support tile — hard-capped at 1, never upgradeable — for 40 gold/day upkeep. Gives a landlocked empire access without a real Crystal tile.";
   if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
-  if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
-  if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
+  if (actionId === "enable_converter_structure") return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
+  if (actionId === "disable_converter_structure") return "Disable this structure. It stops occupying resource slots, stops paying upkeep, and stops providing bonuses until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1440 gold / day per connected owned dock.";
@@ -154,7 +153,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
   if (actionId === "aether_emp") return "Fire an Aether EMP to disable one hostile powered structure for 20 minutes.";
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
-  if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision.";
+  if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision. You must wait for the current satellite to come down before launching another.";
   if (actionId === "aegis_lock") return "Seal the Aegis Dome region so hostile attacks cannot change ownership and hostile abilities fail for a short time.";
   if (actionId === "build_governors_office") return "Administrative center. Builds a Ministry Hall that reduces local food upkeep and settled-tile upkeep within 10 tiles.";
   if (actionId === "build_radar_system") return "Resonance grid. Blocks enemy sky bombardment within 30 tiles and reveals the attack origin.";
@@ -397,7 +396,7 @@ export const menuOverviewForTile = (
         ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
         : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
     );
-  }
+  } const naturalWonderLine = naturalWonderOverviewLine(tile, ownerKind); if (naturalWonderLine) pushLine(naturalWonderLine);
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);
@@ -537,7 +536,7 @@ export const menuOverviewForTile = (
   if (tile.fort?.status === "active" && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (MUSTER_SYSTEM_ENABLED && tile.fort?.status === "active" && !structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
     const garrison = tile.fort.garrison ?? 0;
     const garrisonCap = tile.fort.garrisonCap ?? 0;
     if (garrisonCap > 0) {
@@ -637,7 +636,6 @@ export const tileMenuViewForTile = (
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
     tile.ownerId === deps.state.me &&
-    tile.ownershipState === "SETTLED" &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");

@@ -1,5 +1,6 @@
 import { type Terrain } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
 export type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
 
@@ -47,6 +48,7 @@ export type ProtoSimulationEvent = {
     economic_structure_json?: string | undefined;
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
+    natural_wonder_json?: string | undefined;
     watchtower_json?: string | undefined;
     muster_json?: string | undefined;
     breach_shock_until?: number | undefined;
@@ -73,6 +75,7 @@ export type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    naturalWonderJson?: string | undefined;
     watchtowerJson?: string | undefined;
     musterJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
@@ -112,6 +115,7 @@ export type SimulationTileDelta = {
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   shardSiteJson?: string | undefined;
+  naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
 };
 
@@ -184,14 +188,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
           ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fort_json: tile.fortJson ?? "" } : {}),
-          ...("observatoryJson" in tile ? { observatory_json: tile.observatoryJson ?? "" } : {}),
-          ...("siegeOutpostJson" in tile ? { siege_outpost_json: tile.siegeOutpostJson ?? "" } : {}),
-          ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
-          ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
-          ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
-          ...("watchtowerJson" in tile ? { watchtower_json: tile.watchtowerJson ?? "" } : {}),
-          ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
+          ...overlaySnakeClearFields(tile as unknown as Record<string, unknown>),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
@@ -217,14 +214,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townType ? { townType: tile.townType } : {}),
           ...(tile.townName ? { townName: tile.townName } : {}),
           ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
-          ...("fortJson" in tile ? { fortJson: tile.fortJson } : {}),
-          ...("observatoryJson" in tile ? { observatoryJson: tile.observatoryJson } : {}),
-          ...("siegeOutpostJson" in tile ? { siegeOutpostJson: tile.siegeOutpostJson } : {}),
-          ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
-          ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
-          ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
-          ...("watchtowerJson" in tile ? { watchtowerJson: tile.watchtowerJson } : {}),
-          ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
+          ...overlayCamelClearFields(tile as unknown as Record<string, unknown>),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
@@ -249,6 +239,7 @@ export const toFullSnapshotProtoTile = (tile: {
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
   economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
+  naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
   musterJson?: string | undefined;
   breachShockUntil?: number | undefined;
@@ -267,14 +258,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.townType ? { town_type: tile.townType } : {}),
   ...(tile.townName ? { town_name: tile.townName } : {}),
   ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-  ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
-  ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
-  ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
-  ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
-  ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-  ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
-  ...(tile.watchtowerJson ? { watchtower_json: tile.watchtowerJson } : {}),
-  ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
+  ...overlaySnakeTruthyFields(tile as unknown as Record<string, unknown>),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
   ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),

@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { BANK_FOOD_UPKEEP } from "@border-empires/game-domain";
 
 import {
   tileUpkeepContribution,
@@ -91,33 +90,40 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.supply).toBe(0);
   });
 
-  it("charges no WOODEN_FORT upkeep (§12.1: IRON slot occupation is the upkeep)", () => {
+  it("charges no WOODEN_FORT upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       economicStructure: { ownerId: PLAYER_ID, status: "active", type: "WOODEN_FORT" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
+    expect(contrib.food).toBe(0);
   });
 
-  it("charges no fort upkeep (§12.1: IRON slot occupation is the upkeep)", () => {
+  it("charges no fort-ladder upkeep (§12.1: IRON slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    const tile = settledTile(0, 0, {
-      fort: { ownerId: PLAYER_ID, status: "active" }
-    });
-    const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
-    expect(contrib.gold).toBe(0);
-    expect(contrib.iron).toBe(0);
+    for (const variant of ["FORT", "IRON_BASTION", "THUNDER_BASTION"]) {
+      const tile = settledTile(0, 0, {
+        fort: { ownerId: PLAYER_ID, status: "active", variant }
+      });
+      const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
+      expect(contrib.gold).toBe(0);
+      expect(contrib.iron).toBe(0);
+      expect(contrib.food).toBe(0);
+    }
   });
 
-  it("charges no siege outpost upkeep (§12.1: SUPPLY slot occupation is the upkeep)", () => {
+  it("charges no siege-ladder upkeep (§12.1: SUPPLY slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    const tile = settledTile(0, 0, {
-      siegeOutpost: { ownerId: PLAYER_ID, status: "active" }
-    });
-    const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
-    expect(contrib.gold).toBe(0);
-    expect(contrib.supply).toBe(0);
+    for (const variant of ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]) {
+      const tile = settledTile(0, 0, {
+        siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant }
+      });
+      const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
+      expect(contrib.gold).toBe(0);
+      expect(contrib.supply).toBe(0);
+      expect(contrib.food).toBe(0);
+    }
   });
 
   it("charges no observatory upkeep (§12.1: CRYSTAL slot occupation is the upkeep)", () => {
@@ -138,13 +144,13 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.crystal).toBe(0);
   });
 
-  it("charges BANK food upkeep", () => {
+  it("charges no BANK upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       economicStructure: { ownerId: PLAYER_ID, status: "active", type: "BANK" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
-    expect(contrib.food).toBeCloseTo(BANK_FOOD_UPKEEP / 10, 8);
+    expect(contrib.food).toBe(0);
   });
 
   it("charges no CAMP gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
@@ -210,7 +216,7 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
   it("matches full snapshot upkeepPerMinute for a single tile", () => {
     const player = makePlayer();
     const tiles = new Map<string, DomainTileState>([
-      ["0,0", settledTile(0, 0, { fort: { ownerId: PLAYER_ID, status: "active" } })]
+      ["0,0", settledTile(0, 0, { fort: { ownerId: PLAYER_ID, status: "active", variant: "FORT" } })]
     ]);
     const incremental = buildUpkeepAccrualSnapshot(PLAYER_ID, player, tiles);
     const full = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles).upkeepPerMinute;
@@ -237,8 +243,8 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
         ownerId: isOwned ? PLAYER_ID : "other",
         ownershipState: "SETTLED",
         ...(hasBank ? { economicStructure: { ownerId: PLAYER_ID, status: "active", type: "BANK" } } : {}),
-        ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active" } } : {}),
-        ...(hasSiege && isOwned ? { siegeOutpost: { ownerId: PLAYER_ID, status: "active" } } : {})
+        ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active", variant: "IRON_BASTION" } } : {}),
+        ...(hasSiege && isOwned ? { siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant: "SIEGE_TOWER" } } : {})
       });
     }
     const incremental = buildUpkeepAccrualSnapshot(PLAYER_ID, player, tiles);
@@ -279,6 +285,8 @@ const STRUCTURE_TYPES = [
 ] as const;
 
 const POPULATION_TIERS = ["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"] as const;
+const FORT_VARIANTS = ["FORT", "IRON_BASTION", "THUNDER_BASTION"] as const;
+const SIEGE_VARIANTS = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"] as const;
 
 const randomTile = (rng: () => number, x: number, y: number): SimpleTile => {
   const isOwned = rng() < 0.8;
@@ -290,13 +298,15 @@ const randomTile = (rng: () => number, x: number, y: number): SimpleTile => {
   const hasStructure = isOwned && ownershipState === "SETTLED" && !hasFort && !hasSiege && rng() < 0.3;
   const hasTown = isOwned && ownershipState === "SETTLED" && rng() < 0.2;
   const structureType = STRUCTURE_TYPES[Math.floor(rng() * STRUCTURE_TYPES.length)];
+  const fortVariant = FORT_VARIANTS[Math.floor(rng() * FORT_VARIANTS.length)];
+  const siegeVariant = SIEGE_VARIANTS[Math.floor(rng() * SIEGE_VARIANTS.length)];
   const populationTier = POPULATION_TIERS[Math.floor(rng() * POPULATION_TIERS.length)];
   return {
     x, y, terrain: "LAND",
     ownerId,
     ownershipState,
-    ...(hasFort ? { fort: { ownerId, status: "active" as const } } : {}),
-    ...(hasSiege ? { siegeOutpost: { ownerId, status: "active" as const } } : {}),
+    ...(hasFort ? { fort: { ownerId, status: "active" as const, variant: fortVariant } } : {}),
+    ...(hasSiege ? { siegeOutpost: { ownerId, status: "active" as const, variant: siegeVariant } } : {}),
     ...(hasObservatory ? { observatory: { ownerId, status: "active" as const } } : {}),
     ...(hasStructure ? { economicStructure: { ownerId, status: "active" as const, type: structureType } } : {}),
     ...(hasTown ? { town: { populationTier, connectedTownBonus: 0, goldPerMinute: 0 } } : {})

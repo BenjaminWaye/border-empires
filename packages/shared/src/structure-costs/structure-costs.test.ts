@@ -35,12 +35,24 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
     expect(structureCostDefinition("BANK").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
-    expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toEqual({ resource: "CRYSTAL", amount: 60 });
-    expect(structureCostDefinition("GARRISON_HALL").resourceCost).toEqual({ resource: "CRYSTAL", amount: 80 });
+    // #1134 removed these as stale build-time crystal costs — the slot
+    // system (structure-slots.ts) is the real FOOD/IRON/CRYSTAL/SUPPLY gate
+    // now, not a spent build cost (RETIRED_STOCKPILE_RESOURCE_KEYS strips
+    // these before spend regardless of what's declared here).
+    expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("GARRISON_HALL").resourceCost).toBeUndefined();
   });
 });
 
 describe("FORT_TIER_LADDER", () => {
+  test("WOODEN_FORT costs 0 gold, 0 iron, 150 manpower, 1.35x defense", () => {
+    const tier = FORT_TIER_LADDER.WOODEN_FORT;
+    expect(tier.gold).toBe(0);
+    expect(tier.iron).toBe(0);
+    expect(tier.manpower).toBe(150);
+    expect(tier.defenseMult).toBe(1.35);
+  });
+
   test("FORT is the base tier with 0 gold, 45 iron, 300 manpower, 2.5x defense", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(tier.gold).toBe(0);

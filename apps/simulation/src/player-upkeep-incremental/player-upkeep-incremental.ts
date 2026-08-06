@@ -40,24 +40,10 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  BANK_FOOD_UPKEEP,
-  CARAVANARY_FOOD_UPKEEP,
-  CAMP_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  CUSTOMS_HOUSE_GOLD_UPKEEP,
-  FARMSTEAD_GOLD_UPKEEP,
-  FOUNDRY_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  GARRISON_HALL_GOLD_UPKEEP,
-  GOVERNORS_OFFICE_GOLD_UPKEEP,
-  GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
-  MARKET_FOOD_UPKEEP,
-  MINE_GOLD_UPKEEP,
-  RADAR_SYSTEM_GOLD_UPKEEP,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-economy.js";
 
@@ -114,19 +100,15 @@ export const tileUpkeepContribution = (
   // gold's only remaining jobs post-rewrite are tech/rush-buys/synthesizer
   // upkeep, and none of those are "own a settled tile."
 
-  // Economic structure upkeep.
+  // Economic structure upkeep. Every structure except the synthesizer
+  // family (Fur/Iron/Crystal + Advanced tiers, §6.4) has zero ongoing
+  // upkeep: FOOD/IRON/CRYSTAL/SUPPLY are slot-based (structure-slots.ts),
+  // not a per-minute drain, and only the synthesizers still have a real
+  // GOLD cost for their conversion. Fort and Siege Outpost families (below)
+  // are the same — no per-minute drain, only their slot occupation.
   const structure = tile.economicStructure;
   if (structure?.ownerId === ownerId && structure.status === "active") {
     switch (structure.type) {
-      case "FARMSTEAD":         gold    += FARMSTEAD_GOLD_UPKEEP / 10; break;
-      case "CAMP":              gold    += CAMP_GOLD_UPKEEP / 10; break;
-      case "MINE":              gold    += MINE_GOLD_UPKEEP / 10; break;
-      case "MARKET":            food    += MARKET_FOOD_UPKEEP / 10; break;
-      case "GRANARY":           gold    += GRANARY_GOLD_UPKEEP / 10; break;
-      case "BANK":              food    += BANK_FOOD_UPKEEP / 10; break;
-      case "WOODEN_FORT":       gold    += WOODEN_FORT_GOLD_UPKEEP / 10; break;
-      case "LIGHT_OUTPOST":     gold    += LIGHT_OUTPOST_GOLD_UPKEEP / 10; break;
-      case "CARAVANARY":        food    += CARAVANARY_FOOD_UPKEEP / 10; break;
       case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_FUR_SYNTHESIZER":
                                 gold    += ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
@@ -136,13 +118,6 @@ export const tileUpkeepContribution = (
       case "CRYSTAL_SYNTHESIZER": gold  += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
                                 gold    += ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "FOUNDRY":           gold    += FOUNDRY_GOLD_UPKEEP / 10; break;
-      case "CUSTOMS_HOUSE":     gold    += CUSTOMS_HOUSE_GOLD_UPKEEP / 10; break;
-      case "GARRISON_HALL":     gold    += GARRISON_HALL_GOLD_UPKEEP / 10; break;
-      case "GOVERNORS_OFFICE":  gold    += GOVERNORS_OFFICE_GOLD_UPKEEP / 10; break;
-      case "RADAR_SYSTEM":      gold    += RADAR_SYSTEM_GOLD_UPKEEP / 10; break;
-      // AIRPORT: was crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed
-      // per §12.1, the CRYSTAL slot occupation is the upkeep now.
     }
   }
 

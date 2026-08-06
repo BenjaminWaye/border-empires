@@ -19,6 +19,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
     case "RUSH_BUY":
+    case "CANCEL_SETTLE":
     case "REMOVE_STRUCTURE":
     case "CANCEL_SIEGE_OUTPOST_BUILD":
     case "CANCEL_CAPTURE":
@@ -40,6 +41,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "ASTRAL_DOCK_LAUNCH":
     case "ACTIVATE_IMPERIAL_WARD":
     case "WORLD_ENGINE_STRIKE":
+    case "IRON_LEVY_MUSTER":
       return "human_interactive";
     case "COLLECT_TILE":
     case "COLLECT_VISIBLE":

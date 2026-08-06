@@ -1,5 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -269,6 +269,47 @@ export const clearSkippedAutoSettlementTileKeyForPlayer = (playerId: string, til
   nextSkipped.delete(tileKey);
   persistSkippedAutoSettlementTileKeysForPlayer(playerId, nextSkipped);
   return nextSkipped;
+};
+
+export const queuedDevelopmentActionExists = (
+  state: ClientState,
+  tileKey: string,
+  kind?: PersistedDevelopmentAction["kind"]
+): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
+
+/**
+ * Push a SETTLE/BUILD action onto the flat, FIFO-dispatched developmentQueue.
+ * Position within that array implicitly determines its dev-queue tier (see
+ * devQueueTierForIndex in packages/shared/src/dev-queue/dev-queue.ts): the
+ * first DEV_QUEUE_SERVER_CAP entries are "queued", the rest "planned" --
+ * capped in total at DEV_QUEUE_TOTAL_CAP so the wishlist can't grow forever.
+ */
+export const queueDevelopmentAction = (
+  state: ClientState,
+  entry: PersistedDevelopmentAction,
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+  }
+): boolean => {
+  if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
+    deps.pushFeed(`${entry.label} is already queued.`, "combat", "warn");
+    deps.renderHud();
+    return false;
+  }
+  if (state.developmentQueue.length >= DEV_QUEUE_TOTAL_CAP) {
+    deps.pushFeed(`Development queue is full (${DEV_QUEUE_TOTAL_CAP}/${DEV_QUEUE_TOTAL_CAP}). Cancel something before queuing more.`, "combat", "warn");
+    deps.renderHud();
+    return false;
+  }
+  if (entry.kind === "SETTLE") {
+    state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
+  }
+  state.developmentQueue.push(entry);
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
+  deps.renderHud();
+  return true;
 };
 
 type QueueRestoreTileLike = {

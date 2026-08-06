@@ -8,6 +8,7 @@ type Row = {
   tile_color: string | null;
   profile_complete: number | null;
   name_changed_season_id: string | null;
+  color_changed_season_id: string | null;
   updated_at: number;
 };
 
@@ -17,6 +18,7 @@ const toProfile = (row: Row): StoredPlayerProfile => ({
   ...(row.tile_color ? { tileColor: row.tile_color } : {}),
   ...(row.profile_complete !== null ? { profileComplete: row.profile_complete === 1 } : {}),
   ...(row.name_changed_season_id ? { nameChangedSeasonId: row.name_changed_season_id } : {}),
+  ...(row.color_changed_season_id ? { colorChangedSeasonId: row.color_changed_season_id } : {}),
   updatedAt: row.updated_at
 });
 
@@ -39,11 +41,16 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     } catch {
       // Column already exists from a previous applySchema() call.
     }
+    try {
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN color_changed_season_id TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
   }
 
   async get(playerId: string): Promise<StoredPlayerProfile | undefined> {
     const row = this.db
-      .prepare(`SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at FROM player_profiles WHERE player_id = ?`)
+      .prepare(`SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at FROM player_profiles WHERE player_id = ?`)
       .get(playerId) as Row | undefined;
     return row ? toProfile(row) : undefined;
   }
@@ -54,7 +61,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const placeholders = ids.map(() => "?").join(",");
     const rows = this.db
       .prepare(
-        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at
+        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at
          FROM player_profiles
          WHERE player_id IN (${placeholders})`
       )
@@ -65,7 +72,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
   async listAllNamed(): Promise<StoredPlayerProfile[]> {
     const rows = this.db
       .prepare(
-        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at
+        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at
          FROM player_profiles
          WHERE display_name IS NOT NULL AND length(display_name) > 0`
       )
@@ -73,36 +80,38 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     return rows.map(toProfile);
   }
 
-  async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {
+  async setTileColor(playerId: string, tileColor: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile> {
     const now = this.now();
     const row = this.db
       .prepare(
-        `INSERT INTO player_profiles (player_id, tile_color, updated_at)
-         VALUES (?, ?, ?)
+        `INSERT INTO player_profiles (player_id, tile_color, color_changed_season_id, updated_at)
+         VALUES (?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            tile_color = excluded.tile_color,
+           color_changed_season_id = COALESCE(excluded.color_changed_season_id, player_profiles.color_changed_season_id),
            updated_at = excluded.updated_at
-         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at`
+         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at`
       )
-      .get(playerId, tileColor, now) as Row;
+      .get(playerId, tileColor, colorChangedSeasonId ?? null, now) as Row;
     return toProfile(row);
   }
 
-  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string): Promise<StoredPlayerProfile> {
+  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile> {
     const now = this.now();
     const row = this.db
       .prepare(
-        `INSERT INTO player_profiles (player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at)
-         VALUES (?, ?, ?, 1, ?, ?)
+        `INSERT INTO player_profiles (player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at)
+         VALUES (?, ?, ?, 1, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            display_name = excluded.display_name,
            tile_color = excluded.tile_color,
            profile_complete = excluded.profile_complete,
            name_changed_season_id = COALESCE(excluded.name_changed_season_id, player_profiles.name_changed_season_id),
+           color_changed_season_id = COALESCE(excluded.color_changed_season_id, player_profiles.color_changed_season_id),
            updated_at = excluded.updated_at
-         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, updated_at`
+         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at`
       )
-      .get(playerId, name, tileColor, nameChangedSeasonId ?? null, now) as Row;
+      .get(playerId, name, tileColor, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row;
     return toProfile(row);
   }
 }

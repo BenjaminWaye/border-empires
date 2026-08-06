@@ -48,6 +48,27 @@ const untrackedFiles = listFiles(optionalGit(["ls-files", "--others", "--exclude
 
 const changedFiles = new Set([...branchDiffFiles, ...workingTreeFiles, ...untrackedFiles]);
 
+// createdAt must be a frozen literal, not a live expression like Date.now().
+// tsc can't catch this (Date.now() satisfies `createdAt: number` fine), and
+// it silently re-stamps the entry to "now" on every module load, so it
+// permanently sorts above every real, correctly-dated entry. Runs
+// unconditionally (before the "any relevant change at all?" gate below) so
+// it can't be skipped just because no other product code changed.
+if (changedFiles.has(changelogDataPath)) {
+  const source = readFileSync(resolve(repoRoot, changelogDataPath), "utf8");
+  // Only checks entry object properties ("createdAt: <value>,"), not the
+  // interface field declaration ("createdAt: number;").
+  const liveCreatedAtCalls = [...source.matchAll(/createdAt:\s*([^,\n]+),/g)]
+    .map((match) => match[1].trim())
+    .filter((value) => !/^\d+$/.test(value));
+  if (liveCreatedAtCalls.length > 0) {
+    console.error("Client changelog check failed.");
+    console.error(`${changelogDataPath} has non-literal createdAt value(s) — use a frozen Unix-ms number, not Date.now() or any other expression:`);
+    for (const call of liveCreatedAtCalls) console.error(`- ${call}`);
+    process.exit(1);
+  }
+}
+
 const isRelevantChange = (path) =>
   relevantRoots.some((root) => path.startsWith(root)) &&
   !path.endsWith(".test.ts") &&

@@ -2,26 +2,12 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  BANK_FOOD_UPKEEP,
-  CAMP_GOLD_UPKEEP,
-  CARAVANARY_FOOD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  CUSTOMS_HOUSE_GOLD_UPKEEP,
-  FARMSTEAD_GOLD_UPKEEP,
-  FOUNDRY_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  GARRISON_HALL_GOLD_UPKEEP,
-  GOVERNORS_OFFICE_GOLD_UPKEEP,
-  GRANARY_GOLD_UPKEEP,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
-  MARKET_FOOD_UPKEEP,
-  MINE_GOLD_UPKEEP,
   POPULATION_MAX,
-  RADAR_SYSTEM_GOLD_UPKEEP,
   townFoodUpkeepPerMinute,
-  UPKEEP_MINUTES_PER_DAY,
-  WOODEN_FORT_GOLD_UPKEEP
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import type { Tile } from "@border-empires/shared";
 import {
@@ -163,28 +149,16 @@ export const strategicResourceForTile = (resource: string | undefined): Strategi
 
 export const structureUpkeepPerMinute = (structureType: string): Partial<Record<EconomyResourceKey, number>> => {
   switch (structureType) {
-    case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
-    case "CAMP": return { GOLD: CAMP_GOLD_UPKEEP / 10 };
-    case "MINE": return { GOLD: MINE_GOLD_UPKEEP / 10 };
-    case "GRANARY": return { GOLD: GRANARY_GOLD_UPKEEP / 10 };
-    case "MARKET": return { FOOD: MARKET_FOOD_UPKEEP / 10 };
-    case "BANK": return { FOOD: BANK_FOOD_UPKEEP / 10 };
-    case "CARAVANARY": return { FOOD: CARAVANARY_FOOD_UPKEEP / 10 };
-    case "WOODEN_FORT": return { GOLD: WOODEN_FORT_GOLD_UPKEEP / 10 };
-    case "LIGHT_OUTPOST": return { GOLD: LIGHT_OUTPOST_GOLD_UPKEEP / 10 };
+    // Every structure except the synthesizer family (Fur/Iron/Crystal +
+    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/IRON/CRYSTAL/SUPPLY
+    // are slot-based (structure-slots.ts), not a per-minute drain, and only
+    // the synthesizers still have a real GOLD cost for their conversion.
     case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
-    case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
-    case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
-    case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
-    case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    // AIRPORT: was CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN — removed per
-    // §12.1, the CRYSTAL slot occupation is the upkeep now.
     default: return {};
   }
 };
@@ -277,7 +251,7 @@ export const buildStrategicProductionByPlayerAsync = async (
 // player's fed set at once).
 type SlotTileEconomicStructure = DomainTileState["economicStructure"];
 type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
-type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder">;
 
 const parsedSlotTiles = (
   runtimeState: RuntimeState
@@ -299,6 +273,7 @@ const parsedSlotTiles = (
       fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
       siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      naturalWonder: parseStructure<DomainTileState["naturalWonder"]>(tile.naturalWonderJson),
       economicStructure,
       town: parseTown(tile) as DomainTileState["town"],
       ownerId: tile.ownerId,

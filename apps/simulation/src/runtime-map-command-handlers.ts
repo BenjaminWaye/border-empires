@@ -127,6 +127,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     sabotage: undefined,
     fort: undefined,
     observatory: undefined,
+    naturalWonder: undefined,
     siegeOutpost: undefined,
     economicStructure: undefined
   };
@@ -318,10 +319,9 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "select an active World Engine");
     return;
   }
-  if (!actor.techIds || !actor.techIds.has("worldbreaker-fire")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "requires Worldbreaker Fire research");
-    return;
-  }
+  // Worldbreaker Ignition (tech "worldbreaker-fire") was cut — the strike
+  // ability now fires immediately once World Engine is built, gated only by
+  // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
     rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Aether Tower");
     return;
@@ -452,6 +452,10 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     return;
   }
   const now = context.now();
+  if (context.getAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > now) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "current satellite is still aloft");
+    return;
+  }
   if (context.getAbilityCooldownUntil(actor.id, "astral_dock_launch") > now) {
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
     return;

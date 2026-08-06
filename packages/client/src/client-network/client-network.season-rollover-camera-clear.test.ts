@@ -99,6 +99,7 @@ const createState = () =>
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(),
+    autoBuildTargets: new Map<string, unknown>(),
     attackPreviewPendingKey: "",
     attackPreview: undefined,
     attackPreviewCacheByKey: new Map(),
@@ -210,5 +211,24 @@ describe("SEASON_ROLLOVER clears persisted camera location", () => {
     });
 
     expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(true);
+  });
+
+  it("resets camera position in state on SEASON_ROLLOVER", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+
+    const state = createState();
+    state.camX = 500;
+    state.camY = 300;
+    state.zoom = 40;
+    const ws = new FakeWebSocket();
+    bindDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "SEASON_ROLLOVER", season: { worldSeed: 12345, mapStyle: "continents" } })
+    });
+
+    expect(state.camX).toBe(0);
+    expect(state.camY).toBe(0);
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(false);
   });
 });

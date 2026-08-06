@@ -1,0 +1,30 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Assembly Works: industrial shed, wide steel roof on riveted columns (open front) -->
+  <path d="M10 100L30 88H98L78 100H10Z" fill="#3E4248"/>
+  <path d="M30 88V74H98V88H30Z" fill="#5A5E62"/>
+  <path d="M98 88L118 76V62L98 74V88Z" fill="#2A241E"/>
+  <path d="M30 74L54 60H118L98 74H30Z" fill="#2A241E"/>
+  <path d="M34 88V74" stroke="#5A5E62" stroke-width="3" stroke-linecap="round"/>
+  <path d="M94 88V74" stroke="#5A5E62" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Overhead gantry running front-to-back carrying a chain of small drive-wheels -->
+  <path d="M36 81H60" stroke="#C8CCD2" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="44" cy="84" r="2.2" fill="#B3833A"/>
+  <circle cx="54" cy="84" r="2.2" fill="#B3833A"/>
+
+  <!-- Three identical gunmetal piston-chambers marching down the tile -->
+  <path d="M40 74V60H48V74H40Z" fill="#3E4248"/>
+  <path d="M40 58H48L44 52L40 58Z" fill="#5A5E62"/>
+  <path d="M52 74V56H60V74H52Z" fill="#3E4248"/>
+  <path d="M52 54H60L56 48L52 54Z" fill="#5A5E62"/>
+
+  <!-- Main drive-shaft gear mounted on the gantry at centre -->
+  <circle cx="70" cy="81" r="5" fill="#B3833A"/>
+  <circle cx="70" cy="81" r="5" fill="none" stroke="#7A5A26" stroke-width="1.2"/>
+
+  <!-- One amber exhaust valve at the back -->
+  <path d="M88 70V62" stroke="#FFB347" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M87 62H89L88 57L87 62Z" fill="#FFB347"/>
+
+</svg>

@@ -184,8 +184,8 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Worldbreaker Shot needs 500 CRYSTAL.", "combat", "warn");
       return;
     }
-    if (state.gold < 15_000) {
-      deps.pushFeed("Worldbreaker Shot needs 15,000 gold.", "combat", "warn");
+    if (state.gold < 1_000) {
+      deps.pushFeed("Worldbreaker Shot needs 1,000 gold.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {

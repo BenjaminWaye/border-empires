@@ -1,6 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  MUSTER_SYSTEM_ENABLED,
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
@@ -12,7 +11,9 @@ import {
   structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
-  LIGHT_OUTPOST_VISION_BONUS, SYNTHESIZER_STRUCTURE_TYPES,
+  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
+  GRANARY_INSTANT_POPULATION_BURST,
+  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
   type SlotStructureType
@@ -59,12 +60,18 @@ export type RuntimeStructureCommandContext = {
   // built per connected-town network" — true when townKey's own network
   // already has an active Rail Depot, at that town or any town it's connected to.
   railDepotAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Same shape, retargeted at Assembly Works (tech-tree redesign): "only one
+  // Assembly Works may be built per connected-town network."
+  assemblyWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Quartermaster's Office (tech-tree redesign): true when the player has an
+  // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
+  // of (x, y) -- reduces manpower cost for War-branch structures built
+  // there.
+  hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
-  addStructureVisionBonus: (ownerId: string, targetKey: string, bonusRadius: number) => void;
-  removeStructureVisionBonus: (ownerId: string, targetKey: string, bonusRadius: number) => void;
   // §20/§16: durable per-player log entry, used here for monument-claim/
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
@@ -122,6 +129,10 @@ function resolveTownSupportTarget(
       rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
       return undefined;
     }
+    if (economicType === "ASSEMBLY_WORKS" && context.assemblyWorksAlreadyInNetwork(command.playerId, townKey)) {
+      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
+      return undefined;
+    }
     const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, economicType);
     if (!supportTarget) {
       rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
@@ -137,6 +148,10 @@ function resolveTownSupportTarget(
   }
   if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
     rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
+    return undefined;
+  }
+  if (economicType === "ASSEMBLY_WORKS" && supportedTownKey && context.assemblyWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
+    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
     return undefined;
   }
   return target;
@@ -233,17 +248,16 @@ function spendStrategicCost(
 }
 
 // §5.1/§5.6: a structure permanently occupies a slot of its required
-// resource(s) for as long as it exists — construction just needs a free
-// slot at build time, no stockpile spend. `tileField`/`target` let an
-// in-place upgrade (Fort/Siege tier ladders, granary Advanced pair) net out
-// the requirement it's about to overwrite on its own tile, so it only needs
+// resource(s) for as long as it exists — construction just needs a free slot
+// at build time, no stockpile spend. `tileField`/`target` let an in-place
+// upgrade (Fort/Siege tier ladders, granary Advanced pair) net out the
+// requirement it's about to overwrite on its own tile, so it only needs
 // *additional* capacity for the delta, not the new tier's full requirement
 // stacked on top of the old one it's replacing.
-//
-// Synthesizers (SYNTHESIZER_STRUCTURE_TYPES) skip this gate entirely: per
-// §6.4 they're a slot *source*, not a consumer (resource-slot-view.ts) — a
-// landlocked player with zero free slots of that resource must still be
-// able to build the one synthesizer that grants them their first one.
+// Synthesizers skip this gate entirely (§6.4: a slot *source*, not a
+// consumer — must be buildable even with zero free slots). LIGHT_OUTPOST
+// skips it too below LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT owned, waived to 0
+// FOOD demand once built (slot-waivers.ts).
 function hasFreeResourceSlots(
   context: RuntimeStructureCommandContext,
   command: CommandEnvelope,
@@ -253,6 +267,7 @@ function hasFreeResourceSlots(
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
 ): boolean {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
+  if (structureType === "LIGHT_OUTPOST" && context.ownedStructureCountForPlayer(command.playerId, "LIGHT_OUTPOST") < LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) return true;
   const requirements = structureSlotRequirements(slotStructureType);
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
@@ -398,6 +413,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     manpowerCost = structureBuildManpowerCost(structureType);
   }
+  // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
+  // War-branch structures (Fort ladder, Siege ladder) built within its
+  // radius. Checked after the base cost is resolved above so it applies to
+  // fort/siege tier upgrades too, not just the first tier.
+  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
+  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
+    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
+  }
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
     return;
@@ -473,7 +496,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   const { completesAt: _, ...activeStructure } = structure;
   const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const garrisonInit = spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED
+  const garrisonInit = spec.tileField === "fort"
     ? {
         garrison: initialGarrisonForVariant(activeVariant),
         garrisonCap: garrisonCapForVariant(activeVariant),
@@ -495,6 +518,43 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
-  if (structureType === "LIGHT_OUTPOST" && LIGHT_OUTPOST_VISION_BONUS > 0) context.addStructureVisionBonus(ownerId, targetKey, LIGHT_OUTPOST_VISION_BONUS);
+  // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
+  // is applied by reconcileOutpostVisionBonus via the replaceTileState call
+  // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
+  // Incubation Engine (Granary, tech-tree redesign): instant one-time
+  // +10,000 population burst on build completion, applied to both the
+  // town's current population AND its cap (a burst that gets silently
+  // absorbed into existing headroom wouldn't read as a "burst" at all).
+  if (structureType === "GRANARY") {
+    grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
+  }
+}
+
+function grantGranaryPopulationBurst(
+  context: RuntimeStructureCommandContext,
+  ownerId: string,
+  x: number,
+  y: number,
+  commandId: string
+): void {
+  const townKey = context.assignedTownKeyForSupportTile(ownerId, x, y);
+  if (!townKey) return;
+  const townTile = context.tiles.get(townKey);
+  if (!townTile?.town || townTile.ownerId !== ownerId) return;
+  const updatedTownTile: DomainTileState = {
+    ...townTile,
+    town: {
+      ...townTile.town,
+      population: (townTile.town.population ?? 0) + GRANARY_INSTANT_POPULATION_BURST,
+      maxPopulation: (townTile.town.maxPopulation ?? 0) + GRANARY_INSTANT_POPULATION_BURST
+    }
+  };
+  context.replaceTileState(townKey, updatedTownTile, commandId);
+  context.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId,
+    playerId: ownerId,
+    tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
+  });
 }

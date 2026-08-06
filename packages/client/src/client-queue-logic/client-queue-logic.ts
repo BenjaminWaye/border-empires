@@ -1,8 +1,7 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
-  clearSkippedAutoSettlementTileKeyForPlayer,
   persistDevelopmentQueueForPlayer,
   persistSkippedAutoSettlementTileKeysForPlayer,
   pruneExpiredAutoSettlementQueueVisibleHolds,
@@ -226,11 +225,12 @@ export const clearSettlementProgressForTile = (
   deps.clearSettlementProgressByKey(deps.keyFor(x, y));
 };
 
-export const queuedDevelopmentActionExists = (
-  state: ClientState,
-  tileKey: string,
-  kind?: QueuedDevelopmentAction["kind"]
-): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
+// queuedDevelopmentActionExists / queueDevelopmentAction (incl. the total
+// queue-cap check) live in client-development-queue.ts alongside the other
+// developmentQueue persistence/cap logic -- re-exported here since callers
+// throughout this module (and its own callers) reach them via this module's
+// path.
+export { queuedDevelopmentActionExists, queueDevelopmentAction } from "../client-development-queue/client-development-queue.js";
 
 const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolean => {
   if (!tileKey) return false;
@@ -239,29 +239,6 @@ const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolea
   if (state.capture && `${state.capture.target.x},${state.capture.target.y}` === tileKey) return true;
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(tileKey) ?? 0;
   return frontierSyncWaitUntil > Date.now();
-};
-
-export const queueDevelopmentAction = (
-  state: ClientState,
-  entry: QueuedDevelopmentAction,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-  }
-): boolean => {
-  if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
-    deps.pushFeed(`${entry.label} is already queued.`, "combat", "warn");
-    deps.renderHud();
-    return false;
-  }
-  if (entry.kind === "SETTLE") {
-    state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
-  }
-  state.developmentQueue.push(entry);
-  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
-  deps.renderHud();
-  return true;
 };
 
 export const syncOptimisticSettlementTile = (
@@ -985,7 +962,7 @@ export const reconcileActionQueue = (
     const hasOptimisticOrigin = tile.ownerId ? hasConfirmedOrigin : Boolean(deps.pickOriginForTarget(tile.x, tile.y, false, true));
     if (!hasConfirmedOrigin && !hasOptimisticOrigin) {
       deps.clearOptimisticTileState(targetKey, true);
-      state.autoSettleTargets.delete(targetKey);
+      state.autoSettleTargets.delete(targetKey); state.autoBuildTargets.delete(targetKey);
       continue;
     }
     nextQueue.push(entry);
@@ -1366,7 +1343,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      if (MUSTER_SYSTEM_ENABLED && to.ownerId !== "barbarian-1") {
+      if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {
           // No flag close enough — park the attack and auto-create a flag on

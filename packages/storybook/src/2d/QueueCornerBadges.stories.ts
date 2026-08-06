@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout, type QueuedCornerBadgeEntryState, type QueuedCornerBadgeKind } from "@client/client-queue-badges/client-queue-badges.js";
-import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { DEV_QUEUE_CLIENT_CAP, DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 
 type Args = {
   tileSize: number;
@@ -33,7 +33,7 @@ const render = (args: Args): HTMLElement => {
   header.style.maxWidth = "680px";
   header.style.lineHeight = "1.5";
   header.textContent =
-    "Real map-level overlay (client-queue-badges.ts), drawn directly on a tile via the 2D canvas render loop -- distinct from the tile-action-menu progress card. entryState='queued' (server-confirmed, capped, durable) renders a solid border and full-opacity badge; entryState='planned' (client-local wishlist, uncapped) renders a dashed border and a muted badge to signal it's not yet real.";
+    `Real map-level overlay (client-queue-badges.ts), drawn directly on a tile via the 2D canvas render loop -- distinct from the tile-action-menu progress card. entryState='queued' (server-confirmed, capped at ${DEV_QUEUE_SERVER_CAP}, durable) renders a solid border and full-opacity badge; entryState='planned' (client-local wishlist, capped at ${DEV_QUEUE_CLIENT_CAP}) renders a dashed border and a muted badge to signal it's not yet real.`;
   root.appendChild(header);
 
   const row = document.createElement("div");

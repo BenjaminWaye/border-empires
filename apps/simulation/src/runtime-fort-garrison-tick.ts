@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { FORT_GARRISON_CAP_BY_VARIANT, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
+import { FORT_GARRISON_CAP_BY_VARIANT } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -27,11 +27,8 @@ export type FortGarrisonTickInput = {
  * split evenly across all of the player's active forts whose garrison is below cap
  * and used to fill them.
  *
- * No-op when the muster system is disabled.
  */
 export const tickFortGarrison = (input: FortGarrisonTickInput): void => {
-  if (!MUSTER_SYSTEM_ENABLED) return;
-
   for (const [playerId, fortKeys] of input.fortTilesByOwner) {
     if (fortKeys.size === 0) continue;
     const player = input.players.get(playerId);

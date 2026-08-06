@@ -44,7 +44,7 @@ export type StructureSlotRequirement = {
 // requirements), not inferred.
 export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, StructureSlotRequirement[]>> = {
   // Starter military
-  WOODEN_FORT: [{ resource: "IRON", count: 1 }],
+  WOODEN_FORT: [{ resource: "FOOD", count: 1 }],
   LIGHT_OUTPOST: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1 — basic economic sinks
@@ -87,6 +87,11 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   EXCHANGE_HOUSE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
+  // Manpower branch — new buildings
+  QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
+  LOGISTICS_GUILD: [{ resource: "FOOD", count: 1 }],
+  ASSEMBLY_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+
   // Fort ladder
   FORT: [{ resource: "IRON", count: 1 }],
   IRON_BASTION: [{ resource: "IRON", count: 2 }],
@@ -103,10 +108,14 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   WORLD_ENGINE_PART: [{ resource: "CRYSTAL", count: 1 }],
   AEGIS_DOME_PART: [{ resource: "CRYSTAL", count: 1 }],
   ASTRAL_DOCK_PART: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART: [{ resource: "CRYSTAL", count: 1 }],
+  IRON_LEVY_PART: [{ resource: "CRYSTAL", count: 1 }],
   IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 1 }],
   WORLD_ENGINE: [{ resource: "CRYSTAL", count: 1 }],
   AEGIS_DOME: [{ resource: "CRYSTAL", count: 1 }],
-  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 1 }]
+  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 1 }],
+  IRON_LEVY: [{ resource: "CRYSTAL", count: 1 }]
 };
 
 export const structureSlotRequirements = (type: SlotStructureType): StructureSlotRequirement[] =>
@@ -155,22 +164,25 @@ export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
 // "doubles active Mine production" billing (§12).
 export const FOUNDRY_MINE_SLOT_BONUS = 2;
 
-// §5.3: "a town requires ~2 food slots to be powered (produce gold +
+// §5.3: "a town requires ~4 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its
 // tile, which already draws its own 1 FOOD slot via STRUCTURE_SLOT_REQUIREMENTS
 // above if it has an economicStructure. Domain effects (supportEconomicFoodUpkeepMult,
 // settledFoodUpkeepMult — plan §23.2) reduce this per-town for specific
 // players; this constant is the base, pre-domain-effect count.
-export const TOWN_FOOD_SLOT_DEMAND = 2;
+export const TOWN_FOOD_SLOT_DEMAND = 4;
 
 // Town tier upgrades (UPGRADE_TOWN_TIER) each permanently add +1 FOOD slot
 // demand on top of the base above, reflecting a bigger, better-fed
-// population. SETTLEMENT starts at 0 (the base 2 is stepped down by -2);
-// upgrading to TOWN brings it up to the base 2. The "one more FOOD slot per
-// upgrade step" applies to the manual growth steps beyond that: TOWN->CITY 3;
-// CITY->GREAT_CITY 4; GREAT_CITY->METROPOLIS 5.
-const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
-  SETTLEMENT: -2,
+// population. SETTLEMENT starts at 0 (the base 4 is stepped down by -4);
+// upgrading to TOWN brings it up to the base 4. The "one more FOOD slot per
+// upgrade step" applies to the manual growth steps beyond that: TOWN->CITY 5;
+// CITY->GREAT_CITY 6; GREAT_CITY->METROPOLIS 7.
+// Exported (not just module-private) so Ministry Hall (GOVERNORS_OFFICE) can
+// reduce a town's FOOD slot demand by exactly its tier step, per the
+// tech-tree redesign — see governorsOfficeFoodSlotWaiver below.
+export const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
+  SETTLEMENT: -4,
   TOWN: 0,
   CITY: 1,
   GREAT_CITY: 2,
@@ -179,6 +191,13 @@ const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
 
 export const townFoodSlotDemandForTier = (tier: PopulationTier | undefined): number =>
   TOWN_FOOD_SLOT_DEMAND + (tier ? TOWN_TIER_FOOD_SLOT_STEP[tier] : 0);
+
+// Ministry Hall (GOVERNORS_OFFICE): reduces the town's FOOD slot demand by an
+// amount equal to the town's own tier step (Town=0, City=1, Great City=2,
+// Metropolis=3) — replaces the old fabricated "-20% settled-tile upkeep"
+// claim, which corresponded to nothing real in the code.
+export const governorsOfficeFoodSlotWaiver = (tier: PopulationTier | undefined): number =>
+  tier ? Math.max(0, TOWN_TIER_FOOD_SLOT_STEP[tier]) : 0;
 
 // Gold cost for each UPGRADE_TOWN_TIER step, decided directly by the user:
 // doubling per step, replacing the old FOOD-stockpile lump sum (TIER_UPGRADE_FOOD_COST,

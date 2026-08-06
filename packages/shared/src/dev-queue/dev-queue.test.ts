@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEV_QUEUE_CLIENT_CAP,
   DEV_QUEUE_SERVER_CAP,
+  DEV_QUEUE_TOTAL_CAP,
   cancelDevQueueEntry,
   devQueuePositionForTile,
+  devQueueTierForIndex,
+  devQueueTierRelativeIndex,
   emptyDevQueueState,
   enqueueOrPlanDevQueueEntry,
   moveDevQueueEntryToFront,
@@ -30,6 +34,32 @@ describe("dev queue: enqueue vs plan", () => {
     let state = enqueueOrPlanDevQueueEntry(emptyDevQueueState(), { tileKey: "1,1", kind: "SETTLE", queuedAt: 0 });
     state = enqueueOrPlanDevQueueEntry(state, { tileKey: "1,1", kind: "SETTLE", queuedAt: 1 });
     expect(state.queued).toHaveLength(1);
+  });
+
+  it("fills planned up to the client cap and then silently drops further entries", () => {
+    const state = fill(DEV_QUEUE_TOTAL_CAP);
+    expect(state.queued).toHaveLength(DEV_QUEUE_SERVER_CAP);
+    expect(state.planned).toHaveLength(DEV_QUEUE_CLIENT_CAP);
+    const overflowed = enqueueOrPlanDevQueueEntry(state, { tileKey: "overflow", kind: "SETTLE", queuedAt: 999 });
+    expect(overflowed).toEqual(state);
+    expect(overflowed.planned).toHaveLength(DEV_QUEUE_CLIENT_CAP);
+  });
+});
+
+describe("dev queue: flat-array tier helpers", () => {
+  it("classifies indices below the server cap as queued, at/above as planned", () => {
+    expect(devQueueTierForIndex(0)).toBe("queued");
+    expect(devQueueTierForIndex(DEV_QUEUE_SERVER_CAP - 1)).toBe("queued");
+    expect(devQueueTierForIndex(DEV_QUEUE_SERVER_CAP)).toBe("planned");
+    expect(devQueueTierForIndex(DEV_QUEUE_SERVER_CAP + 5)).toBe("planned");
+  });
+
+  it("computes a tier-relative index, passing through negative (not-found) indices unchanged", () => {
+    expect(devQueueTierRelativeIndex(0)).toBe(0);
+    expect(devQueueTierRelativeIndex(DEV_QUEUE_SERVER_CAP - 1)).toBe(DEV_QUEUE_SERVER_CAP - 1);
+    expect(devQueueTierRelativeIndex(DEV_QUEUE_SERVER_CAP)).toBe(0);
+    expect(devQueueTierRelativeIndex(DEV_QUEUE_SERVER_CAP + 5)).toBe(5);
+    expect(devQueueTierRelativeIndex(-1)).toBe(-1);
   });
 });
 

@@ -171,6 +171,21 @@ describe("camera location save", () => {
     expect(readSaved()).toEqual({ x: 7, y: 8, zoom: 15 });
   });
 
+  // seasonId is tagged onto the saved payload (when known) so a later fresh
+  // page load can tell whether the restored position is still current — see
+  // the INIT handler in client-network-init-message.ts.
+  it("saveCameraLocation tags the payload with bridgeDebugSeasonId when provided", () => {
+    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "season-9" });
+    const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15, seasonId: "season-9" });
+  });
+
+  it("saveCameraLocation omits seasonId when bridgeDebugSeasonId is not provided or empty", () => {
+    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "" });
+    const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15 });
+  });
+
   it("clearCameraLocation removes the persisted camera location from localStorage", () => {
     saveCameraLocation({ camX: 100, camY: 200, zoom: 40 });
     expect(readSaved()).toEqual({ x: 100, y: 200, zoom: 40 });
@@ -182,6 +197,24 @@ describe("camera location save", () => {
   it("clearCameraLocation is safe to call when nothing is stored", () => {
     expect(readSaved()).toBeUndefined();
     expect(() => clearCameraLocation()).not.toThrow();
+    expect(readSaved()).toBeUndefined();
+  });
+
+  // Regression for issue #8: a season rollover calls clearCameraLocation(),
+  // but maybeSaveCameraLocation() had already deferred a write (via
+  // requestIdleCallback/setTimeout) from camera movement a moment earlier.
+  // That deferred write used to fire AFTER the clear and silently
+  // re-persisted the stale pre-rollover coordinates, so the next page load
+  // restored a camera position from the old season's map (fog/darkness on
+  // the freshly regenerated world). clearCameraLocation() must cancel any
+  // in-flight deferred save, not just wipe the current storage value.
+  it("clearCameraLocation cancels an in-flight deferred save so it cannot resurrect the old location", async () => {
+    const state = { camX: 500, camY: 300, zoom: 40 };
+    maybeSaveCameraLocation(state); // schedules a deferred write, not yet flushed
+
+    clearCameraLocation();
+
+    await flushDeferredSave();
     expect(readSaved()).toBeUndefined();
   });
 });

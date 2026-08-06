@@ -145,7 +145,7 @@ describe("resourceSlotSupplyForPlayer", () => {
 });
 
 describe("resourceSlotDemandForPlayer", () => {
-  it("a settled, owned town draws 2 FOOD slots (§5.3)", () => {
+  it("a settled, owned town draws 4 FOOD slots (§5.3)", () => {
     const totals = resourceSlotDemandForPlayer(
       [
         {
@@ -155,7 +155,7 @@ describe("resourceSlotDemandForPlayer", () => {
       ],
       "p1"
     );
-    expect(totals.FOOD).toBe(2);
+    expect(totals.FOOD).toBe(4);
   });
 
   it("town FOOD demand is additive with a structure sitting on the same tile", () => {
@@ -169,7 +169,7 @@ describe("resourceSlotDemandForPlayer", () => {
       ],
       "p1"
     );
-    expect(totals.FOOD).toBe(2 + 1);
+    expect(totals.FOOD).toBe(4 + 1);
   });
 
   it("ignores a town on a FRONTIER (not yet SETTLED) tile", () => {
@@ -246,7 +246,11 @@ describe("resourceSlotDemandForPlayer", () => {
       ],
       "p1"
     );
-    expect(totals.IRON).toBe(2);
+    // The in-progress FORT upgrade draws its own 1 IRON slot; the still-active
+    // Wooden Fort it's replacing draws 1 FOOD slot (not IRON) — both fields
+    // count independently while they transiently coexist mid-upgrade.
+    expect(totals.IRON).toBe(1);
+    expect(totals.FOOD).toBe(1);
   });
 
   it("§6.4: a synthesizer contributes zero demand — it's a slot source, not a consumer", () => {
@@ -324,8 +328,8 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
       tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
       tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MARKET", status: "active", activatedAt: 500 } })
     ];
-    // Town demands 2 FOOD (always ranked oldest), Market demands 1 FOOD. Total demand 3, supply 2 -> short by 1.
-    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 2, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    // Town demands 4 FOOD (always ranked oldest), Market demands 1 FOOD. Total demand 5, supply 4 -> short by 1.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
     expect([...dormancy.FOOD]).toEqual(["1,0:economicStructure"]);
   });
 

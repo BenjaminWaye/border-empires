@@ -17,6 +17,7 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
+  governorsOfficeFoodSlotWaiver,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
@@ -25,7 +26,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { WATERWORKS_RADIUS, FOUNDRY_RADIUS } from "@border-empires/game-domain";
+import { WATERWORKS_RADIUS, FOUNDRY_RADIUS, GOVERNORS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -59,6 +60,9 @@ export type SlotWaivers = {
   // build-order first) need zero SUPPLY slots. A Siege Tower/Dread Tower's
   // separate IRON requirement is untouched by this waiver.
   outpostSupplySlotWaiverCount: number;
+  // Light Outpost FOOD slot waiver — the player's first N Light Outposts
+  // (earliest build-order first) need zero FOOD slots. Always 5 (built-in).
+  lightOutpostFoodSlotWaiverCount: number;
   // Treasury State — the player's first N settled towns (deterministic
   // tie-break by tile key — towns carry no founding timestamp, same
   // simplification already flagged below for dormancy ordering) each need 1
@@ -75,6 +79,7 @@ export type SlotWaivers = {
 export const emptySlotWaivers = (): SlotWaivers => ({
   fortIronSlotWaiverCount: 0,
   outpostSupplySlotWaiverCount: 0,
+  lightOutpostFoodSlotWaiverCount: 0,
   firstTownsFoodSlotWaiverCount: 0,
   allTownsFoodSlotWaiverPerTown: 0
 });
@@ -82,6 +87,7 @@ export const emptySlotWaivers = (): SlotWaivers => ({
 const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
   waivers.fortIronSlotWaiverCount <= 0 &&
   waivers.outpostSupplySlotWaiverCount <= 0 &&
+  waivers.lightOutpostFoodSlotWaiverCount <= 0 &&
   waivers.firstTownsFoodSlotWaiverCount <= 0 &&
   waivers.allTownsFoodSlotWaiverPerTown <= 0;
 
@@ -130,7 +136,7 @@ export const resourceSlotSupplyForPlayer = (
   //    a future pass, not attempted here.
   const totals = emptyResourceSlotTotals();
   for (const tile of settledTiles) {
-    const isActiveStructure = tile.economicStructure?.status === "active";
+    const isActiveStructure = tile.economicStructure?.status === "active" && tile.economicStructure?.inactiveReason !== "manual";
     const structureType = isActiveStructure ? (tile.economicStructure!.type as BuildableStructureType) : undefined;
 
     if (structureType && SYNTHESIZER_TYPE_SET.has(structureType)) {
@@ -197,7 +203,7 @@ export const resourceSlotSupplyForPlayer = (
  */
 type WaivableTile = Pick<
   DomainTileState,
-  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState"
+  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder"
 > &
   Partial<Pick<DomainTileState, "x" | "y">>;
 
@@ -212,9 +218,31 @@ const buildDemandContributors = (
   waivers: SlotWaivers
 ): DormancyContributor[] => {
   const contributors: DormancyContributor[] = [];
+  // Track which economicStructure keys are LIGHT_OUTPOST for waiver identification below.
+  const lightOutpostKeys: Record<string, boolean> = {};
+  // Ministry Hall (GOVERNORS_OFFICE, tech-tree redesign): collect this
+  // player's own active Governors Office coordinates first so the town loop
+  // below can check radius membership in O(1) per town (small array — this
+  // is a rare, late-game structure).
+  const governorsOfficeCoords: Array<{ x: number; y: number }> = [];
+  for (const tile of ownedTiles) {
+    if (
+      tile.economicStructure?.ownerId === playerId &&
+      tile.economicStructure.type === "GOVERNORS_OFFICE" &&
+      tile.economicStructure.status === "active" &&
+      typeof tile.x === "number" &&
+      typeof tile.y === "number"
+    ) {
+      governorsOfficeCoords.push({ x: tile.x, y: tile.y });
+    }
+  }
+  const townNearGovernorsOffice = (x: number, y: number): boolean =>
+    governorsOfficeCoords.some((office) => Math.max(Math.abs(office.x - x), Math.abs(office.y - y)) <= GOVERNORS_OFFICE_RADIUS);
   const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
     for (const req of structureSlotRequirements(type)) {
-      contributors.push({ key: `${tileKey}:${field}`, resource: req.resource, count: req.count, activatedAt });
+      const key = `${tileKey}:${field}`;
+      contributors.push({ key, resource: req.resource, count: req.count, activatedAt });
+      if (field === "economicStructure" && type === "LIGHT_OUTPOST") lightOutpostKeys[key] = true;
     }
   };
   for (const tile of ownedTiles) {
@@ -222,28 +250,35 @@ const buildDemandContributors = (
     if (tile.fort?.ownerId === playerId) {
       addContributor(tileKey, "fort", (tile.fort.variant ?? "FORT") as SlotStructureType, tile.fort.activatedAt ?? 0);
     }
-    if (tile.observatory?.ownerId === playerId) {
+    // Watchtower Engine's own observatory is exempt — no upkeep is the
+    // wonder's whole point (see syncWatchtowerObservatory).
+    if (tile.observatory?.ownerId === playerId && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
     }
     if (tile.siegeOutpost?.ownerId === playerId) {
       addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
     }
-    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type)) {
+    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type) && tile.economicStructure.inactiveReason !== "manual") {
       addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
+      const baseFoodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      const ministryHallWaiver =
+        typeof tile.x === "number" && typeof tile.y === "number" && townNearGovernorsOffice(tile.x, tile.y)
+          ? governorsOfficeFoodSlotWaiver(tile.town.populationTier)
+          : 0;
       contributors.push({
         key: `${tileKey}:town`,
         resource: "FOOD",
-        count: townFoodSlotDemandForTier(tile.town.populationTier),
+        count: Math.max(0, baseFoodDemand - ministryHallWaiver),
         activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT
       });
     }
   }
-  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers);
+  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, lightOutpostKeys);
 };
 
-const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers): DormancyContributor[] => {
+const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, lightOutpostKeys: Record<string, boolean> = {}): DormancyContributor[] => {
   const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeOutpost", waiveCount: number): ReadonlySet<string> => {
     if (waiveCount <= 0) return new Set();
     const activatedAtByKey = new Map<string, number>();
@@ -258,6 +293,26 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   const waivedForts = waiveEarliestStructures(":fort", waivers.fortIronSlotWaiverCount);
   const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostSupplySlotWaiverCount);
 
+  // LIGHT_OUTPOST waiver: find economicStructure keys that contain LIGHT_OUTPOST
+  // and waive the earliest ones. Track by tile key (deduplicate per-tile) with
+  // activation order matching Forts/Outposts above.
+  const waivedLightOutposts = new Set<string>();
+  if (waivers.lightOutpostFoodSlotWaiverCount > 0) {
+    const activatedAtByTileKey = new Map<string, number>();
+    for (const c of contributors) {
+      if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD") {
+        const tileKey = c.key.slice(0, c.key.length - ":economicStructure".length);
+        if (!activatedAtByTileKey.has(tileKey)) activatedAtByTileKey.set(tileKey, c.activatedAt);
+      }
+    }
+    const keys = [...activatedAtByTileKey.keys()].sort(
+      (a, b) => (activatedAtByTileKey.get(a) ?? 0) - (activatedAtByTileKey.get(b) ?? 0) || a.localeCompare(b)
+    );
+    for (const tileKey of keys.slice(0, waivers.lightOutpostFoodSlotWaiverCount)) {
+      waivedLightOutposts.add(`${tileKey}:economicStructure`);
+    }
+  }
+
   const townKeys = [...new Set(contributors.filter((c) => c.key.endsWith(":town")).map((c) => c.key))].sort((a, b) => a.localeCompare(b));
   const firstWaivedTownKeys = new Set(
     waivers.firstTownsFoodSlotWaiverCount > 0 ? townKeys.slice(0, waivers.firstTownsFoodSlotWaiverCount) : []
@@ -266,6 +321,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   return contributors.map((c) => {
     if (c.key.endsWith(":fort") && c.resource === "IRON" && waivedForts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":siegeOutpost") && c.resource === "SUPPLY" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD" && waivedLightOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
       if (waiver > 0) return { ...c, count: Math.max(0, c.count - waiver) };
