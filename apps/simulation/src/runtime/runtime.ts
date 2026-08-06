@@ -1270,6 +1270,13 @@ export class SimulationRuntime {
     }
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
+    // tickMuster/tickFortGarrison mutate many players' tiles via
+    // replaceTileState in tight per-tile loops without ever calling
+    // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
+    // this is the one place their share of markOutpostVisionDormancyDirty's
+    // pending entries actually gets resolved. One resync per dirty player,
+    // not per tile mutation.
+    this.flushAllOutpostVisionDormancyResyncs();
   }
 
   tickFortGarrison(nowMs: number = this.now()): void {
@@ -1611,16 +1618,51 @@ export class SimulationRuntime {
   // §5.4: a resource tile gained or lost anywhere in `playerId`'s territory
   // can push one of their outposts into or out of dormancy without that
   // outpost's own tile changing at all, so reconcileOutpostVisionBonus (which
-  // only ever looks at the one tile that just mutated) can't catch it. Cheap
-  // bail via the active-outpost indexes when the player has none; bounded by
-  // their outpost count (not their tile count) when they do.
-  private resyncOutpostVisionBonusesIfAnyOutposts(playerId: string | undefined): void {
+  // only ever looks at the one tile that just mutated) can't catch it.
+  //
+  // Deliberately NOT resolved eagerly inside replaceTileState: dormancy comes
+  // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
+  // already deletes (for human players) on *every* settled-tile mutation of an
+  // owner, regardless of whether that mutation could plausibly touch a
+  // FOOD/IRON/CRYSTAL/SUPPLY total — including tickFortGarrison/tickMuster,
+  // which call replaceTileState in tight per-tile loops with no
+  // emitPlayerStateUpdate in between (the one place that would otherwise
+  // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
+  // call would turn one 30s garrison/muster tick into an O(mutated tiles ×
+  // settled tiles) dormancy-rebuild storm for any player who owns an outpost —
+  // exactly the class of O(territory)-per-tick cost tickTerritoryAutomation's
+  // own indexes were built to avoid. So replaceTileState only marks the owner
+  // dirty here (an O(1) Set add); the actual resync is flushed lazily, once
+  // per player, from emitPlayerStateUpdate (the command-driven path) and from
+  // the end of tickTerritoryAutomation (the tick-driven path) — see
+  // flushOutpostVisionDormancyResync.
+  private readonly outpostVisionDormancyDirtyPlayerIds = new Set<string>();
+
+  private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
     if (!playerId) return;
     const hasOutposts =
       (this.activeLightOutpostsByOwner.get(playerId)?.size ?? 0) > 0 ||
       (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
     if (!hasOutposts) return;
+    this.outpostVisionDormancyDirtyPlayerIds.add(playerId);
+  }
+
+  // Resolves a pending dormancy-driven outpost-vision resync for one player,
+  // if one is pending. Cheap no-op when nothing was marked dirty for them.
+  private flushOutpostVisionDormancyResync(playerId: string | undefined): void {
+    if (!playerId || !this.outpostVisionDormancyDirtyPlayerIds.delete(playerId)) return;
     resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+  }
+
+  // Flushes every player left dirty at the end of a tick sweep (muster/fort
+  // garrison ticks mutate many players' tiles without ever calling
+  // emitPlayerStateUpdate themselves) — one resync per dirty player, not per
+  // tile mutation.
+  private flushAllOutpostVisionDormancyResyncs(): void {
+    if (this.outpostVisionDormancyDirtyPlayerIds.size === 0) return;
+    for (const playerId of [...this.outpostVisionDormancyDirtyPlayerIds]) {
+      this.flushOutpostVisionDormancyResync(playerId);
+    }
   }
 
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
@@ -2007,9 +2049,11 @@ export class SimulationRuntime {
     reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
     // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
     // slot totals (a resource tile gained/lost, a new demand consumer built)
-    // without touching any of their outposts directly — resync those too.
-    this.resyncOutpostVisionBonusesIfAnyOutposts(previous?.ownerId);
-    if (tile.ownerId !== previous?.ownerId) this.resyncOutpostVisionBonusesIfAnyOutposts(tile.ownerId);
+    // without touching any of their outposts directly — mark them dirty for
+    // a lazy resync (flushOutpostVisionDormancyResync's doc comment above
+    // explains why this can't just resync eagerly here).
+    this.markOutpostVisionDormancyDirty(previous?.ownerId);
+    if (tile.ownerId !== previous?.ownerId) this.markOutpostVisionDormancyDirty(tile.ownerId);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3172,6 +3216,12 @@ export class SimulationRuntime {
     } else {
       run();
     }
+    // Piggybacks on the dormancy rebuild emitPlayerStateUpdateImpl's own
+    // cachedEconomySnapshot call already just did (or will do, on whichever
+    // side reads it first) — see flushOutpostVisionDormancyResync's doc
+    // comment on markOutpostVisionDormancyDirty for why this is deferred
+    // here instead of resolved inside replaceTileState.
+    this.flushOutpostVisionDormancyResync(playerId);
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
