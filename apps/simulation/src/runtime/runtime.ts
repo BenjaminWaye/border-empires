@@ -7,6 +7,8 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import {
   appendPlayerEventLogEntry,
+  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
+  QUARTERMASTERS_OFFICE_RADIUS,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -81,7 +83,8 @@ import {
   buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksAlreadyInNetwork, assemblyWorksNetworkGarrisonHallCountForPlayer, censusHallConnectedGranaryCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { monumentClaimOwnerId } from "../monument-uniqueness.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
@@ -107,7 +110,6 @@ import {
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
-import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
@@ -177,6 +179,7 @@ import {
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
+import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-delta-from-state.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import { applySettleCost, refundSettleCost, settleRejectionForActor, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
 import {
@@ -217,7 +220,7 @@ import {
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
-import {
+import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   buildRuntimeSnapshotSections,
   buildRuntimeSnapshotSectionsAsync,
   mapTile,
@@ -285,6 +288,7 @@ import {
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
+import { handleIronLevyMusterCommand as handleIronLevyMusterCommandImpl, IRON_LEVY_REGEN_FREEZE_KEY } from "../runtime-iron-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -348,6 +352,8 @@ import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runti
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
+import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
+import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -469,8 +475,9 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Increments ONLY on tile ownership change (not muster/population/income ticks) — VisionExpansionCache's
-  // key, so unrelated per-tick mutations don't bust the O(territory×r²) expansion.
+  // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
+  // signature key for getBarbActivationVisionSignature/exportBarbActivationVisibleUnion's
+  // own territory-dilation cache, so unrelated per-tick mutations don't bust it.
   private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
@@ -529,6 +536,15 @@ export class SimulationRuntime {
   // bonus) — a plain per-structure count, not town-adjacency-scoped, since
   // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
   private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
+  // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
+  // buildings, maintained the same way as railDepotTilesByOwner/
+  // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
+  // in runtime-tile-index-maintenance.ts).
+  private readonly assemblyWorksTilesByOwner = new Map<string, Set<string>>();
+  private readonly logisticsGuildTilesByOwner = new Map<string, Set<string>>();
+  private readonly quartermastersOfficeTilesByOwner = new Map<string, Set<string>>();
+  private readonly granaryTilesByOwner = new Map<string, Set<string>>();
+  private readonly censusHallTilesByOwner = new Map<string, Set<string>>();
   // Tracks muster manpower reserved by in-flight attacks (remote muster).
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
@@ -606,8 +622,6 @@ export class SimulationRuntime {
   // Running counter of growth ticks skipped due to insufficient food.
   // Exposed for diagnostics / metrics.
   growthStalledNoFoodCounter = 0;
-  // Per-player vision expansion cache; miss cost is O(territory×r²), wrapped in trackSyncMainThreadTask below.
-  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT, this.visionFootprintTable);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState on any
   // income/upkeep-relevant tile mutation; keyed by player ID, missing = dirty.
@@ -637,7 +651,16 @@ export class SimulationRuntime {
   // §4.4 manpower structure bonuses (Garrison Hall flat cap + Rail Depot
   // network cap/regen) — invalidated alongside townNetworkCacheByPlayer since
   // it's derived from that same network plus a Garrison Hall/Rail Depot scan.
-  private readonly manpowerStructureBonusCacheByPlayer = new Map<string, { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number }>();
+  private readonly manpowerStructureBonusCacheByPlayer = new Map<
+    string,
+    {
+      garrisonHallCount: number;
+      assemblyWorksNetworkGarrisonHallCount: number;
+      railDepotNetworkLogisticsGuildCount: number;
+      logisticsGuildCount: number;
+      populationBureauManpowerBuildingCount: number;
+    }
+  >();
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
   private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
@@ -656,7 +679,7 @@ export class SimulationRuntime {
   // §5.4 dormancy: derived from both supply and demand, so it must be
   // invalidated on the union of their triggers — piggybacks on the demand
   // cache's unconditional (not SETTLED-gated) invalidation below.
-  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>();
+  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>(); private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
   // AI-only rebuild coalescing (2026-07-29 login-stall investigation): AI
   // players settle/expand continuously with no live subscriber, so a
   // continuous-settling AI empire was paying a fresh O(settled-tiles)
@@ -837,6 +860,10 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
+      // Seed town +1 vision for any player-owned town present at boot.
+      seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
+      // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
+      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -892,7 +919,8 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
-      // Populate activeLightOutpostsByOwner index
+      // Populate activeLightOutpostsByOwner index. Vision bonus restoration
+      // at boot is handled by seedOutpostVisionBonus in the first pass above.
       if (
         tile.economicStructure?.ownerId === ownerId &&
         tile.economicStructure.type === "LIGHT_OUTPOST" &&
@@ -926,7 +954,21 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
-    }
+      // Seed the tech-tree redesign's new per-owner structure indexes.
+      for (const [structureType, index] of [
+        ["ASSEMBLY_WORKS", this.assemblyWorksTilesByOwner],
+        ["LOGISTICS_GUILD", this.logisticsGuildTilesByOwner],
+        ["QUARTERMASTERS_OFFICE", this.quartermastersOfficeTilesByOwner],
+        ["GRANARY", this.granaryTilesByOwner],
+        ["CENSUS_HALL", this.censusHallTilesByOwner]
+      ] as const) {
+        if (tile.economicStructure?.type === structureType && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+          let set = index.get(tile.economicStructure.ownerId);
+          if (!set) { set = new Set<string>(); index.set(tile.economicStructure.ownerId, set); }
+          set.add(tileKey);
+        }
+      }
+    } for (const tile of this.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
@@ -1176,7 +1218,53 @@ export class SimulationRuntime {
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
     }
+    this.applyCensusHallPopulationBonuses();
     return result;
+  }
+
+  // Census Hall (tech-tree redesign): +20,000 population (and cap) per
+  // connected city with an active Incubation Engine (Granary) --
+  // network-scoped, recomputed every tick rather than granted once, so
+  // losing a connection or a neighbor's Granary shrinks the bonus back down.
+  // Mirrors the Assembly Works/Rail Depot "network scan" pattern rather than
+  // a simple empire-wide tally.
+  private applyCensusHallPopulationBonuses(): void {
+    for (const [ownerId, censusHallKeys] of this.censusHallTilesByOwner) {
+      if (censusHallKeys.size === 0) continue;
+      for (const censusHallKey of censusHallKeys) {
+        const censusHallTile = this.tiles.get(censusHallKey);
+        if (!censusHallTile || censusHallTile.economicStructure?.status !== "active") continue;
+        const townKey = this.assignedTownKeyForSupportTile(ownerId, censusHallTile.x, censusHallTile.y);
+        if (!townKey) continue;
+        const townTile = this.tiles.get(townKey);
+        if (!townTile?.town || townTile.ownerId !== ownerId) continue;
+        const connectedGranaryCount = this.censusHallConnectedGranaryBonusCountForPlayer(ownerId, townKey);
+        const desiredBonus = connectedGranaryCount * CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
+        const appliedBonus = townTile.town.censusHallAppliedBonus ?? 0;
+        if (desiredBonus === appliedBonus) continue;
+        const delta = desiredBonus - appliedBonus;
+        const updatedTownTile: DomainTileState = {
+          ...townTile,
+          town: {
+            ...townTile.town,
+            maxPopulation: Math.max(0, (townTile.town.maxPopulation ?? 0) + delta),
+            // A growing bonus is an instant grant (matches Incubation
+            // Engine's "burst" flavor); a shrinking bonus only lowers the
+            // cap -- population naturally sitting above the new cap just
+            // stops growing further, it isn't forcibly clawed back.
+            population: delta > 0 ? (townTile.town.population ?? 0) + delta : (townTile.town.population ?? 0),
+            censusHallAppliedBonus: desiredBonus
+          }
+        };
+        this.replaceTileState(townKey, updatedTownTile);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `census-hall-bonus:${ownerId}:${this.now()}`,
+          playerId: ownerId,
+          tileDeltas: [this.tileDeltaFromState(updatedTownTile)]
+        });
+      }
+    }
   }
 
   private shardRainContext() {
@@ -1265,6 +1353,13 @@ export class SimulationRuntime {
     }
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
+    // tickMuster/tickFortGarrison mutate many players' tiles via
+    // replaceTileState in tight per-tile loops without ever calling
+    // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
+    // this is the one place their share of markOutpostVisionDormancyDirty's
+    // pending entries actually gets resolved. One resync per dirty player,
+    // not per tile mutation.
+    this.flushAllOutpostVisionDormancyResyncs();
   }
 
   tickFortGarrison(nowMs: number = this.now()): void {
@@ -1530,7 +1625,7 @@ export class SimulationRuntime {
   }
 
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     if (spawned && this.pendingImperialWard?.playerId === playerId) {
       const player = this.players.get(playerId);
       if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
@@ -1573,6 +1668,86 @@ export class SimulationRuntime {
     return summary;
   }
 
+  // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
+  // effect on Light/Siege Outpost vision rings) — sourced from the
+  // active-only outpost indexes rather than a full tile scan; see
+  // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
+  private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
+    const tileKeys = new Set<string>([
+      ...(this.activeLightOutpostsByOwner.get(playerId) ?? []),
+      ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])
+    ]);
+    const tiles: DomainTileState[] = [];
+    for (const tileKey of tileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (tile) tiles.push(tile);
+    }
+    return tiles;
+  }
+
+  // Shared OutpostVisionCoverageDeps builder — every call site
+  // (seed/reconcile/resync) needs the same players/coverage/isStructureDormant/
+  // callbacks bundle; centralized so isStructureDormant's wiring can't drift
+  // between them.
+  private outpostVisionDeps(): OutpostVisionCoverageDeps {
+    return {
+      players: this.players,
+      coverage: this.visibilityCoverage,
+      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
+      callbacks: this.visionTransitions.callbacks
+    };
+  }
+
+  // §5.4: a resource tile gained or lost anywhere in `playerId`'s territory
+  // can push one of their outposts into or out of dormancy without that
+  // outpost's own tile changing at all, so reconcileOutpostVisionBonus (which
+  // only ever looks at the one tile that just mutated) can't catch it.
+  //
+  // Deliberately NOT resolved eagerly inside replaceTileState: dormancy comes
+  // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
+  // already deletes (for human players) on *every* settled-tile mutation of an
+  // owner, regardless of whether that mutation could plausibly touch a
+  // FOOD/IRON/CRYSTAL/SUPPLY total — including tickFortGarrison/tickMuster,
+  // which call replaceTileState in tight per-tile loops with no
+  // emitPlayerStateUpdate in between (the one place that would otherwise
+  // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
+  // call would turn one 30s garrison/muster tick into an O(mutated tiles ×
+  // settled tiles) dormancy-rebuild storm for any player who owns an outpost —
+  // exactly the class of O(territory)-per-tick cost tickTerritoryAutomation's
+  // own indexes were built to avoid. So replaceTileState only marks the owner
+  // dirty here (an O(1) Set add); the actual resync is flushed lazily, once
+  // per player, from emitPlayerStateUpdate (the command-driven path) and from
+  // the end of tickTerritoryAutomation (the tick-driven path) — see
+  // flushOutpostVisionDormancyResync.
+  private readonly outpostVisionDormancyDirtyPlayerIds = new Set<string>();
+
+  private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
+    if (!playerId) return;
+    const hasOutposts =
+      (this.activeLightOutpostsByOwner.get(playerId)?.size ?? 0) > 0 ||
+      (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
+    if (!hasOutposts) return;
+    this.outpostVisionDormancyDirtyPlayerIds.add(playerId);
+  }
+
+  // Resolves a pending dormancy-driven outpost-vision resync for one player,
+  // if one is pending. Cheap no-op when nothing was marked dirty for them.
+  private flushOutpostVisionDormancyResync(playerId: string | undefined): void {
+    if (!playerId || !this.outpostVisionDormancyDirtyPlayerIds.delete(playerId)) return;
+    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+  }
+
+  // Flushes every player left dirty at the end of a tick sweep (muster/fort
+  // garrison ticks mutate many players' tiles without ever calling
+  // emitPlayerStateUpdate themselves) — one resync per dirty player, not per
+  // tile mutation.
+  private flushAllOutpostVisionDormancyResyncs(): void {
+    if (this.outpostVisionDormancyDirtyPlayerIds.size === 0) return;
+    for (const playerId of [...this.outpostVisionDormancyDirtyPlayerIds]) {
+      this.flushOutpostVisionDormancyResync(playerId);
+    }
+  }
+
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
     const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
@@ -1598,13 +1773,22 @@ export class SimulationRuntime {
 
   private playerManpowerCap(player: RuntimePlayer): number {
     if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
+    const { garrisonHallCount, assemblyWorksNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, assemblyWorksNetworkGarrisonHallCount) + (wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    const { railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id), railDepotNetworkGarrisonHallCount);
+    // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
+    // regen freeze after triggering the muster ability.
+    if (this.getAbilityCooldownUntil(player.id, IRON_LEVY_REGEN_FREEZE_KEY) > this.now()) return 0;
+    const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
+      this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerRegenPerMinuteFromSummary(
+      this.summaryForPlayer(player.id),
+      railDepotNetworkLogisticsGuildCount,
+      logisticsGuildCount,
+      populationBureauManpowerBuildingCount
+    );
   }
 
   playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
@@ -1613,8 +1797,21 @@ export class SimulationRuntime {
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    const { garrisonHallCount, railDepotNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, railDepotNetworkGarrisonHallCount);
+    const {
+      garrisonHallCount,
+      assemblyWorksNetworkGarrisonHallCount,
+      railDepotNetworkLogisticsGuildCount,
+      logisticsGuildCount,
+      populationBureauManpowerBuildingCount
+    } = this.cachedManpowerStructureBonusForPlayer(player);
+    return playerManpowerBreakdownFromSummary(
+      this.summaryForPlayer(player.id),
+      garrisonHallCount,
+      assemblyWorksNetworkGarrisonHallCount,
+      railDepotNetworkLogisticsGuildCount,
+      logisticsGuildCount,
+      populationBureauManpowerBuildingCount
+    );
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -1897,9 +2094,9 @@ export class SimulationRuntime {
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
-      // Ownership changed → bump the territory version so VisionExpansionCache
-      // knows to recompute. Same-owner mutations (muster, pop growth, income)
-      // leave this counter unchanged so the O(territory×r²) expansion stays warm.
+      // Ownership changed → bump the territory version so the barb-activation
+      // signature (getBarbActivationVisionSignature) knows to recompute. Same-owner
+      // mutations (muster, pop growth, income) leave this counter unchanged.
       if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
       if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
       this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks);
@@ -1941,7 +2138,12 @@ export class SimulationRuntime {
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner,
       railDepotTilesByOwner: this.railDepotTilesByOwner,
-      garrisonHallTilesByOwner: this.garrisonHallTilesByOwner
+      garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
+      assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
+      logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
+      quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
+      granaryTilesByOwner: this.granaryTilesByOwner,
+      censusHallTilesByOwner: this.censusHallTilesByOwner
     });
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
@@ -1952,7 +2154,16 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
-    flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+    reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+    reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
+    // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
+    // slot totals (a resource tile gained/lost, a new demand consumer built)
+    // without touching any of their outposts directly — mark them dirty for
+    // a lazy resync (flushOutpostVisionDormancyResync's doc comment above
+    // explains why this can't just resync eagerly here).
+    this.markOutpostVisionDormancyDirty(previous?.ownerId);
+    if (tile.ownerId !== previous?.ownerId) this.markOutpostVisionDormancyDirty(tile.ownerId);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -2188,7 +2399,6 @@ export class SimulationRuntime {
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.aiSpatialFocusProductiveByPlayer.delete(playerId);
       this.aiHotFrontierStreakByPlayer.delete(playerId);
-      this.visionExpansionCache.invalidate(playerId);
       if (player.isAi) {
         const nowMs = this.now();
         const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
@@ -2487,15 +2697,14 @@ export class SimulationRuntime {
       locksByTile: this.locksByTile,
       docks: this.docks,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
-      summaryForPlayer: (visiblePlayerId) => this.summaryForPlayer(visiblePlayerId),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visionExpansionCache: this.visionExpansionCache,
-      tileCollectionVersionForPlayer: (visiblePlayerId) =>
-        this.territoryVersionByPlayer.get(visiblePlayerId) ?? 0
+      visibilityCoverage: this.visibilityCoverage
     });
     // Named so an event_loop_blocked incident can see this instead of an
-    // empty mainThreadTasks — this is the O(territory×r²) vision-expansion
-    // cache-miss cost documented on VisionExpansionCache.
+    // empty mainThreadTasks — classification itself is now an O(territory)
+    // read of the incrementally-maintained coverage cache (see
+    // visibility-coverage-cache.ts), but dock-reveal collection can still
+    // scan every dock link, so this stays wrapped.
     return this.trackSyncMainThreadTask
       ? this.trackSyncMainThreadTask("classify_visibility_for_player", { playerId }, run)
       : run();
@@ -2663,7 +2872,8 @@ export class SimulationRuntime {
 
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
-      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.players.get(playerId); return resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined);
+      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.players.get(playerId);
+      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
@@ -2805,11 +3015,19 @@ export class SimulationRuntime {
   // an actual cache-miss.
   private cachedManpowerStructureBonusForPlayer(
     player: RuntimePlayer
-  ): { garrisonHallCount: number; railDepotNetworkGarrisonHallCount: number } {
+  ): {
+    garrisonHallCount: number;
+    assemblyWorksNetworkGarrisonHallCount: number;
+    railDepotNetworkLogisticsGuildCount: number;
+    logisticsGuildCount: number;
+    populationBureauManpowerBuildingCount: number;
+  } {
     const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
     if (cached) return cached;
     const garrisonHallKeys = this.garrisonHallTilesByOwner.get(player.id);
     const railDepotKeys = this.railDepotTilesByOwner.get(player.id);
+    const assemblyWorksKeys = this.assemblyWorksTilesByOwner.get(player.id);
+    const logisticsGuildKeys = this.logisticsGuildTilesByOwner.get(player.id);
     // §5.4: a dormant Garrison Hall/Rail Depot doesn't grant its bonus —
     // filter the raw existence indices against this player's current
     // dormant-economicStructure set before counting/checking presence. Only
@@ -2824,7 +3042,10 @@ export class SimulationRuntime {
     // gets invalidated (initial tile hydration doesn't go through
     // replaceTileState/refreshEconomyCachesForTileChange).
     const dormantEconomicStructureKeys =
-      (garrisonHallKeys?.size ?? 0) > 0 || (railDepotKeys?.size ?? 0) > 0
+      (garrisonHallKeys?.size ?? 0) > 0 ||
+      (railDepotKeys?.size ?? 0) > 0 ||
+      (assemblyWorksKeys?.size ?? 0) > 0 ||
+      (logisticsGuildKeys?.size ?? 0) > 0
         ? this.dormantEconomicStructureKeysForPlayer(player.id)
         : undefined;
     const garrisonHallCount = garrisonHallKeys
@@ -2832,20 +3053,31 @@ export class SimulationRuntime {
         ? [...garrisonHallKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
         : garrisonHallKeys.size
       : 0;
+    const logisticsGuildCount = logisticsGuildKeys
+      ? dormantEconomicStructureKeys
+        ? [...logisticsGuildKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
+        : logisticsGuildKeys.size
+      : 0;
     const hasAnyRailDepot = railDepotKeys
       ? dormantEconomicStructureKeys
         ? [...railDepotKeys].some((key) => !dormantEconomicStructureKeys.has(key))
         : railDepotKeys.size > 0
       : false;
+    const hasAnyAssemblyWorks = assemblyWorksKeys
+      ? dormantEconomicStructureKeys
+        ? [...assemblyWorksKeys].some((key) => !dormantEconomicStructureKeys.has(key))
+        : assemblyWorksKeys.size > 0
+      : false;
     // Only touch the connected-town network when the player actually has a
-    // Rail Depot — the common case (none yet) skips it entirely, which
-    // matters for two reasons: it keeps this O(1) instead of O(settled
-    // tiles + towns²) for most players, and it avoids pre-warming
+    // Rail Depot or Assembly Works — the common case (none yet) skips it
+    // entirely, which matters for two reasons: it keeps this O(1) instead of
+    // O(settled tiles + towns²) for most players, and it avoids pre-warming
     // townNetworkCacheByPlayer as a side effect of a manpower read (this
     // fires during SimulationRuntime construction too, before
     // trackSyncMainThreadTask is safe to route through — see below).
-    let railDepotNetworkGarrisonHallCount = 0;
-    if (hasAnyRailDepot) {
+    let railDepotNetworkLogisticsGuildCount = 0;
+    let assemblyWorksNetworkGarrisonHallCount = 0;
+    if (hasAnyRailDepot || hasAnyAssemblyWorks) {
       const summary = this.summaryForPlayer(player.id);
       const settledTiles = this.settledTilesForPlayer(player.id);
       // Reuse the shared town-network cache if it's already warm, but do NOT
@@ -2859,15 +3091,52 @@ export class SimulationRuntime {
       // townNetworkCacheByPlayer, so later, instrumented callers still get a
       // cache hit.
       const townNetwork = this.townNetworkCacheByPlayer.get(player.id) ?? this.rebuildTownNetworkUninstrumented(player, settledTiles);
-      railDepotNetworkGarrisonHallCount = railDepotNetworkGarrisonHallCountForPlayer(
-        player.id,
-        this.tiles,
-        townNetwork,
-        summary.ownedTownTierByTile.keys(),
-        dormantEconomicStructureKeys
-      );
+      if (hasAnyRailDepot) {
+        railDepotNetworkLogisticsGuildCount = railDepotNetworkLogisticsGuildCountForPlayer(
+          player.id,
+          this.tiles,
+          townNetwork,
+          summary.ownedTownTierByTile.keys(),
+          dormantEconomicStructureKeys
+        );
+      }
+      if (hasAnyAssemblyWorks) {
+        assemblyWorksNetworkGarrisonHallCount = assemblyWorksNetworkGarrisonHallCountForPlayer(
+          player.id,
+          this.tiles,
+          townNetwork,
+          summary.ownedTownTierByTile.keys(),
+          dormantEconomicStructureKeys
+        );
+      }
     }
-    const result = { garrisonHallCount, railDepotNetworkGarrisonHallCount };
+    // Population Bureau (monument, single-per-map): only its owner gets the
+    // empire-wide regen bonus, scaling with the count of Manpower-branch
+    // buildings they own. A full-tile scan for monument ownership mirrors
+    // monumentClaimOwnerId's own accepted cost tradeoff (monuments are rare;
+    // this only runs on a manpower-structure-bonus cache miss, not every tick).
+    let populationBureauManpowerBuildingCount = 0;
+    // this.tiles isn't populated yet during SimulationRuntime construction
+    // (applyManpowerRegen fires for initial players before tile hydration) —
+    // skip the scan entirely rather than throw; it re-runs correctly on the
+    // next real manpower read once tiles are seeded.
+    if (this.tiles && this.tiles.size > 0 && monumentClaimOwnerId(this.tiles, "POPULATION_BUREAU") === player.id) {
+      populationBureauManpowerBuildingCount =
+        garrisonHallCount +
+        logisticsGuildCount +
+        (railDepotKeys?.size ?? 0) +
+        (assemblyWorksKeys?.size ?? 0) +
+        (this.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
+        (this.granaryTilesByOwner.get(player.id)?.size ?? 0) +
+        (this.censusHallTilesByOwner.get(player.id)?.size ?? 0);
+    }
+    const result = {
+      garrisonHallCount,
+      assemblyWorksNetworkGarrisonHallCount,
+      railDepotNetworkLogisticsGuildCount,
+      logisticsGuildCount,
+      populationBureauManpowerBuildingCount
+    };
     this.manpowerStructureBonusCacheByPlayer.set(player.id, result);
     return result;
   }
@@ -2902,6 +3171,44 @@ export class SimulationRuntime {
     const settledTiles = this.settledTilesForPlayer(playerId);
     const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
     return railDepotAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
+  }
+
+  // Assembly Works (tech-tree redesign): "only one Assembly Works may be
+  // built per connected-town network" — mirrors railDepotAlreadyInNetworkForPlayer
+  // exactly, retargeted.
+  private assemblyWorksAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
+    return assemblyWorksAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
+  }
+
+  // Quartermaster's Office (tech-tree redesign): true when the player owns
+  // an active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS
+  // (Chebyshev) tiles of (x, y). A plain radius scan over the player's own
+  // (rare, late-game) Quartermaster's Offices, same cost tradeoff as
+  // monumentClaimOwnerId's full scan -- this only runs on a War-branch
+  // structure build/upgrade command, not every tick.
+  private hasNearbyQuartermastersOfficeForPlayer(playerId: string, x: number, y: number): boolean {
+    const keys = this.quartermastersOfficeTilesByOwner.get(playerId);
+    if (!keys || keys.size === 0) return false;
+    for (const key of keys) {
+      const tile = this.tiles.get(key);
+      if (!tile || tile.economicStructure?.status !== "active") continue;
+      if (Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= QUARTERMASTERS_OFFICE_RADIUS) return true;
+    }
+    return false;
+  }
+
+  // Census Hall (tech-tree redesign): connected-network Incubation Engine
+  // (Granary) count, for the +20,000 population per connected city bonus.
+  private censusHallConnectedGranaryBonusCountForPlayer(playerId: string, townKey: string): number {
+    const player = this.players.get(playerId);
+    if (!player) return 0;
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
+    return censusHallConnectedGranaryCountForPlayer(playerId, this.tiles, townNetwork, townKey, this.dormantEconomicStructureKeysForPlayer(playerId));
   }
 
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
@@ -3116,6 +3423,12 @@ export class SimulationRuntime {
     } else {
       run();
     }
+    // Piggybacks on the dormancy rebuild emitPlayerStateUpdateImpl's own
+    // cachedEconomySnapshot call already just did (or will do, on whichever
+    // side reads it first) — see flushOutpostVisionDormancyResync's doc
+    // comment on markOutpostVisionDormancyDirty for why this is deferred
+    // here instead of resolved inside replaceTileState.
+    this.flushOutpostVisionDormancyResync(playerId);
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
@@ -3381,12 +3694,12 @@ export class SimulationRuntime {
       // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
       // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
       // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
-      const price = rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST);
+      const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), this.now());
       if (actor.points < price) {
         this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
         return;
       }
-      actor.points -= price;
+      actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
       this.resolvePendingSettlement({
         ownerId: pendingSettlement.ownerId,
         tileKey: pendingSettlement.tileKey,
@@ -3424,12 +3737,12 @@ export class SimulationRuntime {
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
       : spec.buildMs;
     const remainingMs = completesAt - this.now();
-    const price = rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType));
+    const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), this.now());
     if (actor.points < price) {
       this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
       return;
     }
-    actor.points -= price;
+    actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
     this.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
     this.emitPlayerStateUpdate(command);
   }
@@ -3461,6 +3774,22 @@ export class SimulationRuntime {
       target,
       startedAt: this.now()
     });
+  }
+
+  private handleCancelSettleCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSettlePayload(command.payloadJson);
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
+    if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
+      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no settlement in progress on tile");
+      return;
+    }
+    this.removePendingSettlement(targetKey);
+    refundSettleCost(actor, pendingSettlement.goldCost, this.playerManpowerCap(actor));
+    this.emitPlayerStateUpdate(command);
+    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   /**
@@ -3740,6 +4069,8 @@ export class SimulationRuntime {
         // inflates connectedTownCount for towns on either side.
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
+        reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+        reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3762,7 +4093,16 @@ export class SimulationRuntime {
         this.manpowerStructureBonusCacheByPlayer.delete(playerId);
       },
       invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks),
+      resyncVisionRadius: (playerId) => {
+        this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
+        // A base-radius change also moves every owned town's +1 reveal ring.
+        resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
+        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
+        // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
+        // this also doubles as the dormancy resync for a slot-waiver change
+        // (§23.2) or a townFoodSlotDemandForTier bump (UPGRADE_TOWN_TIER).
+        resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+      },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
@@ -4010,40 +4350,19 @@ export class SimulationRuntime {
   }
 
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
-    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
-    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), this.yieldViewEconomyContext(player, resolvedContext));
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-    const fullDelta: SimulationTileWireDelta = {
-      x: tile.x,
-      y: tile.y,
-      ...(tile.terrain ? { terrain: tile.terrain } : {}),
-      ...(tile.resource ? { resource: tile.resource } : {}),
-      ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-      // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-      ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-      ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
-      ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
-      ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
-      ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
-      ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
-      fortJson: cached.fortJson,
-      observatoryJson: cached.observatoryJson,
-      siegeOutpostJson: cached.siegeOutpostJson,
-      economicStructureJson: cached.economicStructureJson,
-      sabotageJson: cached.sabotageJson,
-      musterJson: cached.musterJson,
-      ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
-      // yieldRate/yieldCap scoped emission: see tileYieldNeedsServerAuthority.
-      ...(yieldView && tileYieldNeedsServerAuthority(tile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
-    };
-    return this.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
+    return tileDeltaFromStateImpl(
+      {
+        players: this.players,
+        tileDeltaStringifyCache: this.tileDeltaStringifyCache,
+        now: () => this.now(),
+        tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
+        tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
+        enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
+        yieldViewEconomyContext: (player, ctx) => this.yieldViewEconomyContext(player, ctx)
+      },
+      tile,
+      context
+    );
   }
 
   private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
@@ -4248,12 +4567,12 @@ export class SimulationRuntime {
       firstAvailableTownSupportTile: (playerId, townKey, structureType) => this.firstAvailableTownSupportTile(playerId, townKey, structureType),
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
       railDepotAlreadyInNetwork: (playerId, townKey) => this.railDepotAlreadyInNetworkForPlayer(playerId, townKey),
+      assemblyWorksAlreadyInNetwork: (playerId, townKey) => this.assemblyWorksAlreadyInNetworkForPlayer(playerId, townKey),
+      hasNearbyQuartermastersOffice: (playerId, x, y) => this.hasNearbyQuartermastersOfficeForPlayer(playerId, x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      addStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.applyStructureVisionBonus(ownerId, targetKey, bonusRadius),
-      removeStructureVisionBonus: (ownerId, targetKey, bonusRadius) => this.removeStructureVisionBonus(ownerId, targetKey, bonusRadius),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     };
   }
@@ -4303,24 +4622,6 @@ export class SimulationRuntime {
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
     completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
-  }
-
-  private applyStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
-    const separator = targetKey.indexOf(",");
-    if (separator < 0) return;
-    const x = Number(targetKey.slice(0, separator));
-    const y = Number(targetKey.slice(separator + 1));
-    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.addTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
-  }
-
-  private removeStructureVisionBonus(ownerId: string, targetKey: string, bonusRadius: number): void {
-    const separator = targetKey.indexOf(",");
-    if (separator < 0) return;
-    const x = Number(targetKey.slice(0, separator));
-    const y = Number(targetKey.slice(separator + 1));
-    if (!Number.isInteger(x) || !Number.isInteger(y)) return;
-    this.visibilityCoverage.removeTileVisionBonus(ownerId, x, y, bonusRadius, this.visionTransitions.callbacks);
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
@@ -4576,6 +4877,7 @@ export class SimulationRuntime {
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
       handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
+      handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
@@ -4599,6 +4901,7 @@ export class SimulationRuntime {
       handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
       handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
+      handleIronLevyMusterCommand: (command) => handleIronLevyMusterCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),

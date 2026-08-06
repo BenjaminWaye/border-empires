@@ -1,5 +1,4 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
 
 type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
 
@@ -11,13 +10,11 @@ const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, no
   if (!tile?.fort || tile.fort.status === "under_construction") return undefined;
   if (tile.fort.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
-    // Under muster system: garrison was spent taking the fort; new owner starts empty.
-    const garrisonReset = MUSTER_SYSTEM_ENABLED ? { garrison: 0 } : {};
-    return { ...fort, ...garrisonReset, ownerId: nextOwnerId, status: "active", activatedAt: now };
+    // Garrison was spent taking the fort; new owner starts empty.
+    return { ...fort, garrison: 0, ownerId: nextOwnerId, status: "active", activatedAt: now };
   }
-  // Under muster system: garrison resets on capture — defenders fled, attacker must refill.
-  const garrisonReset = MUSTER_SYSTEM_ENABLED ? { garrison: 0 } : {};
-  return { ...tile.fort, ...garrisonReset, ownerId: nextOwnerId, activatedAt: now };
+  // Garrison resets on capture — defenders fled, attacker must refill.
+  return { ...tile.fort, garrison: 0, ownerId: nextOwnerId, activatedAt: now };
 };
 
 const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["observatory"] => {

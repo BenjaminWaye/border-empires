@@ -200,8 +200,8 @@ export type SimulationRuntimeOptions = {
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
   // Wraps the exact synchronous blocks worth attributing on an event_loop_blocked
-  // stall (currently: classifyVisibilityForPlayer's vision-expansion-cache-miss
-  // path). Optional so tests/other callers can omit it; falls back to a plain call.
+  // stall (currently: classifyVisibilityForPlayer). Optional so tests/other
+  // callers can omit it; falls back to a plain call.
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   onCaptureRevealBuilt?: (sample: {
     commandId: string;
@@ -257,7 +257,8 @@ export type SimulationTileWireDelta = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  shardSiteJson?: string;
+  naturalWonderJson?: string | undefined;
+  shardSiteJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

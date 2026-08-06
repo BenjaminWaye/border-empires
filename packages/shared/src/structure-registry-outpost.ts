@@ -36,6 +36,10 @@ const outpostPlacement: StructureSpec["placement"] = [
   // LIGHT_OUTPOST uses structureShowsOnTile("LIGHT_OUTPOST", ...) via the economic handler.
 ];
 
+// §12.1: the siege ladder's SUPPLY cost is already charged as a
+// resource-slot occupation (structure-slots.ts) — no separate per-minute
+// drain on top of that, same as Observatory/Airport.
+
 function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
   const tier = SIEGE_TIER_LADDER[variant];
   const techIds: string[] = ["leatherworking"];
@@ -55,9 +59,6 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: outpostPlacement,
-    // §12.1 (docs/manpower-economy-rewrite-plan.md): the SUPPLY (and IRON,
-    // higher tiers) slot occupation above is Siege Outpost's upkeep now —
-    // no separate per-minute drain.
     upkeep: [],
     tileField: "siegeOutpost",
   };
@@ -84,6 +85,8 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
   // §12.1 (docs/manpower-economy-rewrite-plan.md): retired to 0 like the
   // rest of the non-synthesizer structure roster — LIGHT_OUTPOST_GOLD_UPKEEP
   // is 0 now, gold's only remaining jobs are tech/rush-buys/synthesizer upkeep.
+  // Food cost is already represented as a FOOD resource slot (see
+  // structure-slots.ts), so no separate continuous per-minute drain here.
   upkeep: [],
   // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.
   // Phase 4 collapses to tile.structure.

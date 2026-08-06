@@ -363,6 +363,7 @@ export type PlayerSubscriptionSnapshot = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    naturalWonderJson?: string | undefined;
     watchtowerJson?: string | undefined;
     musterJson?: string | undefined;
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */

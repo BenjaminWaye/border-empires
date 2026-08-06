@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { hostileObservatoryProtectingTileAt } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -228,7 +228,7 @@ export const splitTileActionsIntoTabs = (
     });
   const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
   return {
-    actions: actionRows.some(visibleIfShown) ? actionRows : [],
+    actions: actionRows,
     buildings: buildingRows.length ? buildingRows : [],
     crystal: crystalRows.length > 0 ? crystalRows : []
   };
@@ -236,6 +236,29 @@ export const splitTileActionsIntoTabs = (
 
 export const isTileOwnedByAlly = (tile: Tile, state: Pick<ClientState, "allies">): boolean =>
   Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
+
+// A tile counts as the "settled" placement surface once a build queued on it
+// is guaranteed to settle first — currently that's any owned FRONTIER tile
+// (chainedBuildAvailability/handleBuildAction auto-settle-then-build). Once
+// the same chain is extended to unowned/expand targets, add that case here
+// rather than special-casing ownershipState at each call site.
+const buildSurfaceOwnershipState = (tile: Tile): Tile["ownershipState"] =>
+  tile.ownerId && tile.ownershipState === "FRONTIER" ? "SETTLED" : tile.ownershipState;
+
+export const buildShowsOnTile = (
+  structureType: BuildableStructureType,
+  tile: Tile,
+  supportedTownCount: number,
+  supportedDockCount: number
+): boolean =>
+  structureShowsOnTile(structureType, {
+    ownershipState: buildSurfaceOwnershipState(tile),
+    resource: tile.resource as "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | undefined,
+    dockId: tile.dockId,
+    townPopulationTier: tile.town?.populationTier,
+    supportedTownCount,
+    supportedDockCount
+  });
 
 export const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));

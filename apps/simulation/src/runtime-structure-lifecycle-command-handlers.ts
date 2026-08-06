@@ -1,15 +1,14 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   FORT_TIER_LADDER,
   MUSTER_MAX_TILES,
-  MUSTER_SYSTEM_ENABLED,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
   structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCost,
   structureCostDefinition,
-  LIGHT_OUTPOST_VISION_BONUS,
   type BuildableStructureType,
   type FortVariant,
   type SiegeOutpostVariant
@@ -153,10 +152,6 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!MUSTER_SYSTEM_ENABLED) {
-    rejectCommand(context, command, "MUSTER_DISABLED", "muster system is not enabled");
-    return;
-  }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!target || target.ownerId !== command.playerId || target.terrain !== "LAND") {
@@ -165,9 +160,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
+    const musterLimit =
+      MUSTER_MAX_TILES +
+      additiveEffectForPlayer(actor, "musterMaxTilesAdd") +
+      (actor.wonderMusterExtraFlag ?? 0);
     const activeMusters = context.musterTilesByOwner.get(command.playerId)?.size ?? 0;
-    if (activeMusters >= MUSTER_MAX_TILES) {
-      rejectCommand(context, command, "MUSTER_LIMIT", `max ${MUSTER_MAX_TILES} muster tiles per player`);
+    if (activeMusters >= musterLimit) {
+      rejectCommand(context, command, "MUSTER_LIMIT", `max ${musterLimit} muster tiles per player`);
       return;
     }
   }
@@ -344,7 +343,12 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     return;
   }
   const fort = target.fort?.ownerId === command.playerId ? target.fort : undefined;
-  const observatory = target.observatory?.ownerId === command.playerId ? target.observatory : undefined;
+  // Watchtower Engine's observatory isn't a built structure — nothing to
+  // demolish, it comes and goes with the wonder tile's ownership.
+  const observatory =
+    target.observatory?.ownerId === command.playerId && target.naturalWonder?.type !== "WATCHTOWER_ENGINE"
+      ? target.observatory
+      : undefined;
   const siegeOutpost = target.siegeOutpost?.ownerId === command.playerId ? target.siegeOutpost : undefined;
   const economicStructure = target.economicStructure?.ownerId === command.playerId ? target.economicStructure : undefined;
   const ownedStructure = fort ?? observatory ?? siegeOutpost ?? economicStructure;
@@ -403,10 +407,8 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
-
-  if (latest.economicStructure?.type === "LIGHT_OUTPOST" && LIGHT_OUTPOST_VISION_BONUS > 0) {
-    context.removeStructureVisionBonus(ownerId, targetKey, LIGHT_OUTPOST_VISION_BONUS);
-  }
+  // A removed Light Outpost's vision bonus is dropped by reconcileOutpostVisionBonus
+  // via the replaceTileState call above — runtime-outpost-vision.ts.
 }
 
 export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {

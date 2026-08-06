@@ -2,7 +2,7 @@
  * Regression tests for §4.4 of docs/manpower-economy-rewrite-plan.md: the
  * manpower-boosting structure tree. Garrison Hall grants a flat +150
  * manpower cap to its own town; a single Rail Depot per connected-town
- * network amplifies every Garrison Hall in that network (+75 cap, +0.1
+ * network amplifies every Garrison Hall in that network (+300 cap, +0.1
  * regen/min each); and a second Rail Depot in an already-covered network
  * is rejected outright — even mid-construction, before the first one goes
  * active.
@@ -32,7 +32,7 @@ const buildTwoTownNetworkRuntime = () => {
         buildPlayer("player-1", {
           points: 5_000,
           manpower: 10_000,
-          techIds: new Set<string>(["organized-supply"]),
+          techIds: new Set<string>(["organized-supply", "conveyor-networks"]),
           strategicResources: { CRYSTAL: 1_000 }
         })
       ]
@@ -46,7 +46,7 @@ const buildTwoTownNetworkRuntime = () => {
         { x: 20, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Town B", type: "FARMING", populationTier: "TOWN" } },
         // §5 resource slots: Garrison Hall and Rail Depot both draw 1 FOOD +
         // 1 CRYSTAL slot (§12's "crystal fix"), and each of the two towns
-        // above also draws its own 2 FOOD slots (§5.3) — plenty of FARM
+        // above also draws its own 4 FOOD slots (§5.3) — plenty of FARM
         // supply here, or every build in this file gets rejected with
         // INSUFFICIENT_SLOT before ever reaching the manpower-bonus
         // behavior under test.
@@ -58,6 +58,8 @@ const buildTwoTownNetworkRuntime = () => {
         { x: 22, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 21, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 22, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 22, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 23, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 24, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
       ],
@@ -132,7 +134,12 @@ describe("manpower structure bonuses (§4.4)", () => {
     }
   });
 
-  it("a Rail Depot amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
+  // Tech-tree redesign: Rail Depot's job narrowed to Logistics Guild
+  // amplification only — Ancillary Factory (Garrison Hall) network
+  // amplification is now Assembly Works' exclusive job (config.ts's
+  // RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL constant is reused,
+  // just retargeted at Assembly Works).
+  it("an Assembly Works amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -152,20 +159,20 @@ describe("manpower structure bonuses (§4.4)", () => {
       const withGarrisonHallOnly = capSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
-        commandId: "rd-2",
+        commandId: "aw-2",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 2,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "RAIL_DEPOT" })
+        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "ASSEMBLY_WORKS" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("RAIL_DEPOT"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("ASSEMBLY_WORKS"));
       await Promise.resolve();
-      const withRailDepotToo = capSnapshotFor(runtime, "player-1")!;
+      const withAssemblyWorksToo = capSnapshotFor(runtime, "player-1")!;
 
-      expect(withRailDepotToo - withGarrisonHallOnly).toBe(RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL);
+      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL);
     } finally {
       vi.useRealTimers();
     }

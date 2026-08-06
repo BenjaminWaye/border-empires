@@ -258,14 +258,20 @@ describe("simulation runtime — shared town network cache", () => {
           { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } },
-          // FOOD slot supply: Alpha/Mid/Beta already demand 2 FOOD each just
-          // by existing as towns (§5.3), and upgrading Alpha to CITY adds
-          // +1 more — UPGRADE_TOWN_TIER's free-FOOD-slot gate needs real
-          // supply here, well away from the connectivity graph under test.
+          // FOOD slot supply: Alpha/Beta demand 4 FOOD each by existing as
+          // TOWNs (§5.3), Mid (a SETTLEMENT) demands 0, and upgrading Alpha
+          // to CITY adds +1 more. Once Mid also upgrades to a TOWN the
+          // pre-upgrade demand is 12 (4+4+4) — UPGRADE_TOWN_TIER's
+          // free-FOOD-slot gate needs real supply here, well away from the
+          // connectivity graph under test (7 FISH tiles = 14 supply; the
+          // +1 CITY bump leaves a free slot).
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
-          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 15, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 16, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
         ],
         activeLocks: []
       }

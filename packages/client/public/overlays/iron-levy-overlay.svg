@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- The Iron Levy: squat hexagonal stone drum with riveted iron bands (bastion-of-doctrine) -->
+  <path d="M20 96L38 86H90L108 96H20Z" fill="#7D7468"/>
+  <path d="M38 86V74H90V86H38Z" fill="#8A8078"/>
+  <path d="M90 86L108 78V66L90 74V86Z" fill="#6E6459"/>
+  <path d="M38 74L60 66H108L90 74H38Z" fill="#5A4A3A"/>
+  <path d="M38 78H90" stroke="#2A241E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M41 84H87" stroke="#2A241E" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Tilted conscription ledger-ring circling the drum, holding tiny iron-rod prongs -->
+  <ellipse cx="64" cy="74" rx="38" ry="6" fill="none" stroke="#2A241E" stroke-width="2.5"/>
+  <path d="M32 72V70" stroke="#2A241E" stroke-width="2" stroke-linecap="round"/>
+  <path d="M96 76V74" stroke="#2A241E" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Standing-army silhouette: vertical iron column topped by a wide conical orders-horn -->
+  <path d="M62 74V44H66V74H62Z" fill="#2A241E"/>
+  <path d="M58 44L64 28L70 44H58Z" fill="#2A241E"/>
+
+  <!-- Dull red ember in the horn's mouth, kept subdued (held in reserve) -->
+  <circle cx="64" cy="28" r="3.5" fill="#C85A3A"/>
+
+</svg>

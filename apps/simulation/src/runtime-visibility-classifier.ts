@@ -2,21 +2,27 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { collectLinkedDockRevealKeysForOwners } from "./dock-network/dock-network.js";
-import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { VisionExpansionCache } from "./vision-expansion-cache.js";
+
+export interface VisibilityCoverageReader {
+  forEachVisibleKey(viewerId: string, cb: (key: string) => void): void;
+  reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string>;
+}
 
 export type RuntimeVisibilityClassification = {
-  radiusSelfKeys: ReadonlySet<string>;
-  radiusAllyKeys: Map<string, ReadonlySet<string>>;
   lockOriginKeys: Set<string>;
   dockRevealKeys: Set<string>;
   lockTargetOnlyKeys: Set<string>;
   fullVisionKeys: Set<string>;
   visibleKeys: Set<string>;
   allyAndSelfIds: Set<string>;
+  // Explains why `tileKey` is visible to this classification's player (e.g.
+  // "radius:self", "radius:ally:<id>", "light-outpost", "temporary-reveal")
+  // — reads straight from the incrementally-maintained coverage cache, no
+  // recomputation. Used by the security/anti-cheat visibility audit
+  // (runtime-visible-state.ts) to flag unattributed visibility.
+  coverageReasonsForTile: (tileKey: string) => ReadonlySet<string>;
 };
 
 export const classifyVisibilityForPlayer = (input: {
@@ -26,68 +32,43 @@ export const classifyVisibilityForPlayer = (input: {
   locksByTile: ReadonlyMap<string, LockRecord>;
   docks: readonly DockRouteDefinition[];
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   applyManpowerRegen: (player: RuntimePlayer) => void;
-  // Per-player territorial vision expansion cache. radiusSelfKeys and the values
-  // of radiusAllyKeys come from here — each expansion is recomputed only when the
-  // player's (tileCollectionVersion, vision, visionRadiusBonus) signature changes,
-  // so large empires pay O(territory×r²) at most once between tile mutations.
-  visionExpansionCache: VisionExpansionCache;
-  tileCollectionVersionForPlayer: (playerId: string) => number;
+  // Single source of truth for territory, ally, town-ring, and structure-bonus
+  // (e.g. light outpost) vision — incrementally maintained by the runtime on
+  // every ownership/alliance/radius/structure change (see
+  // visibility-coverage-cache.ts), so reading it here is O(territory) at
+  // worst (one entry per already-covered tile) instead of the O(territory×r²)
+  // recompute the old per-player vision-expansion cache paid on every
+  // territory/vision-mod change. This also guarantees the full-export
+  // snapshot (login/reconnect/refresh) always matches what streaming
+  // tile-deltas already show a connected client — the two code paths used to
+  // read from two independently-maintained caches, which is how a
+  // structure-only vision source (light outposts) could show up live but
+  // vanish on refresh.
+  visibilityCoverage: VisibilityCoverageReader;
 }): RuntimeVisibilityClassification => {
-  const radiusAllyKeys = new Map<string, ReadonlySet<string>>();
   const lockOriginKeys = new Set<string>();
   const dockRevealKeys = new Set<string>();
   const fullVisionKeys = new Set<string>();
 
-  let radiusSelfKeys: ReadonlySet<string> = new Set<string>();
-
   const primaryPlayer = input.players.get(input.playerId);
   if (primaryPlayer) {
     input.applyManpowerRegen(primaryPlayer);
-    const primarySummary = input.summaryForPlayer(input.playerId);
-    radiusSelfKeys = input.visionExpansionCache.getOrCompute(
-      input.playerId,
-      primarySummary.territoryTileKeys,
-      primaryPlayer.mods?.vision ?? 1,
-      visionRadiusBonusForPlayer(primaryPlayer),
-      input.tileCollectionVersionForPlayer(input.playerId)
-    );
-    for (const key of radiusSelfKeys) fullVisionKeys.add(key);
     for (const allyId of primaryPlayer.allies) {
       const ally = input.players.get(allyId);
-      if (!ally) continue;
-      input.applyManpowerRegen(ally);
-      const allyKeys = input.visionExpansionCache.getOrCompute(
-        allyId,
-        input.summaryForPlayer(allyId).territoryTileKeys,
-        ally.mods?.vision ?? 1,
-        visionRadiusBonusForPlayer(ally),
-        input.tileCollectionVersionForPlayer(allyId)
-      );
-      radiusAllyKeys.set(allyId, allyKeys);
-      for (const key of allyKeys) fullVisionKeys.add(key);
-    }
-  } else {
-    // Fallback for sessions whose Firebase UID has no live player row in
-    // input.players (the fog admin auth lands here when the admin hasn't joined
-    // as a normal player). Use default vision=1 and visionRadiusBonus=0 since we
-    // have no live mods. This path is cold and correctness > speed.
-    const territoryTileKeys: string[] = [];
-    for (const [tileKey, tile] of input.tiles) {
-      if (tile.ownerId === input.playerId) territoryTileKeys.push(tileKey);
-    }
-    if (territoryTileKeys.length > 0) {
-      radiusSelfKeys = input.visionExpansionCache.getOrCompute(
-        input.playerId,
-        territoryTileKeys,
-        1,
-        0,
-        input.tileCollectionVersionForPlayer(input.playerId)
-      );
-      for (const key of radiusSelfKeys) fullVisionKeys.add(key);
+      if (ally) input.applyManpowerRegen(ally);
     }
   }
+  // Covers self territory, each ally's territory, town +1 rings (self and
+  // ally), and structure-based bonuses (light outposts) in one pass — the
+  // coverage cache already tracks all of these per viewer. Also covers the
+  // "fog admin" case (a session whose UID has no live row in input.players
+  // but owns tiles via seed data): tileOwnershipChanged is invoked for every
+  // tile at boot/mutation regardless of whether the owner has a player row,
+  // defaulting to vision=1/no-allies for such ids, so it needs no special
+  // fallback here.
+  input.visibilityCoverage.forEachVisibleKey(input.playerId, (key) => fullVisionKeys.add(key));
+
   for (const lock of input.locksByTile.values()) {
     if (lock.playerId !== input.playerId) continue;
     lockOriginKeys.add(lock.originKey);
@@ -122,13 +103,12 @@ export const classifyVisibilityForPlayer = (input: {
   const visibleKeys = new Set<string>([...fullVisionKeys, ...lockTargetOnlyKeys]);
 
   return {
-    radiusSelfKeys,
-    radiusAllyKeys,
     lockOriginKeys,
     dockRevealKeys,
     lockTargetOnlyKeys,
     fullVisionKeys,
     visibleKeys,
-    allyAndSelfIds
+    allyAndSelfIds,
+    coverageReasonsForTile: (tileKey: string) => input.visibilityCoverage.reasonsForTile(input.playerId, tileKey)
   };
 };

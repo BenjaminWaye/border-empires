@@ -4397,6 +4397,36 @@ body {
   color: #ff9f9f;
 }
 
+/* Tech-tree redesign: branch tag (War/Economy/Manpower/Aether). Plain
+   colored label, not a redesign of the tech card. */
+.tech-branch-tag {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  border: 1px solid currentColor;
+}
+
+.tech-branch-tag-war {
+  color: #ff9f9f;
+}
+
+.tech-branch-tag-economy {
+  color: #ffd166;
+}
+
+.tech-branch-tag-manpower {
+  color: #84f2b8;
+}
+
+.tech-branch-tag-aether {
+  color: #9fb8ff;
+}
+
 .muted {
   color: rgba(233, 242, 255, 0.6);
 }

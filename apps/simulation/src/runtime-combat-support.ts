@@ -4,16 +4,16 @@ import {
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
   BREAKTHROUGH_DURATION_MS,
-  MUSTER_SYSTEM_ENABLED,
   rollFrontierCombat,
   targetOutpostMult,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   wrapX,
   wrapY,
+  type FrontierCombatPreview,
   type OutpostPosition
 } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state/seed-state.js";
+import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
@@ -234,12 +234,29 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   return targetOutpostMult(outposts, targetX, targetY);
 };
 
-export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lock: LockedCombatInput): LockedCombatResolution | undefined => {
-  const previousTarget = ctx.tiles.get(lock.targetKey);
+// EXPAND always targets unowned land (validated before the lock is created)
+// and always succeeds, so there's nothing to roll for. The trivial preview
+// below stands in for the full attacker/defender combat math (outpost scan,
+// tech multipliers, fort/dock defense) that ATTACK needs but EXPAND can't
+// change the outcome with.
+const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
+  atkEff: 0,
+  defEff: 0,
+  atkMult: 1,
+  defMult: 0,
+  winChance: 1,
+  attackerWon: true
+};
+
+const resolveAttackCombat = (
+  ctx: RuntimeCombatSupportContext,
+  lock: LockedCombatInput,
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined,
+  defender: RuntimePlayer | undefined
+): FrontierCombatPreview & { attackerWon: boolean } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
-  const attacker = ctx.players.get(lock.playerId);
-  const defenderOwnerId = previousTarget?.ownerId;
-  const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
+  const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = Boolean(
     previousTarget?.fort &&
       previousTarget.fort.status === "active" &&
@@ -247,18 +264,17 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       defenderOwnerId &&
       !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
   );
-  const nowMs = ctx.now();
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
+    dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
     attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
     attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
     defenderOwnerId: defenderOwnerId,
-    fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
-    musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
-    fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-    fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
-    nowMs
+    fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
+    fortGarrison: targetHasActiveFort ? (previousTarget?.fort?.garrison ?? 0) : undefined,
+    fortGarrisonCap: targetHasActiveFort ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
+    nowMs: ctx.now()
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {
@@ -270,10 +286,15 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
-  const combat =
-    lock.actionType === "EXPAND"
-      ? { ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers), attackerWon: true }
-      : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
+  return rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers);
+};
+
+export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lock: LockedCombatInput): LockedCombatResolution | undefined => {
+  const previousTarget = ctx.tiles.get(lock.targetKey);
+  const defenderOwnerId = previousTarget?.ownerId;
+  const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
+  const combat: FrontierCombatPreview & { attackerWon: boolean } =
+    lock.actionType === "EXPAND" ? EXPAND_COMBAT_PREVIEW : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
@@ -287,8 +308,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
   }
   // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss
-  // formula like ATTACK's — it always succeeds against neutral land (see the
-  // `attackerWon: true` override above), so the full lock.manpowerCost is paid.
+  // formula like ATTACK's — it always succeeds against neutral land (see
+  // EXPAND_COMBAT_PREVIEW above), so the full lock.manpowerCost is paid.
   const manpowerDelta = lock.actionType === "EXPAND" ? -lock.manpowerCost : -manpowerLoss;
   const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey, ctx.isStructureDormant);
   const result: LockedFrontierCombatResult = {
@@ -374,6 +395,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
     ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
     ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
     ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+    ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
     ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
     ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
   };

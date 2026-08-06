@@ -283,4 +283,61 @@ describe("RUSH_BUY", () => {
       vi.useRealTimers();
     }
   });
+
+  it("Quickforge waives the gold cost of one rush-buy per UTC day, then charges full price", async () => {
+    vi.useFakeTimers();
+    try {
+      // A UTC-day-aligned clock (midnight anchor) with a QUICKFORGE wonder tile
+      // already settled so the constructor's wonder-cache seed marks the player.
+      const nowMs = 1_752_566_400_000;
+      const runtime = new SimulationRuntime({
+        now: () => nowMs,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
+        initialState: {
+          tiles: [
+            // The two frontier tiles are kept far apart (not adjacent) so that
+            // settling the first one doesn't auto-fill/auto-settle the second
+            // via emitAutoFillForSettlement's adjacent-tile island painting.
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 50, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 99, y: 99, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", naturalWonder: { type: "QUICKFORGE", claimedAt: nowMs } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      let clientSeq = 0;
+      const startASettle = async (commandId: string, x: number) => {
+        clientSeq += 1;
+        runtime.submitCommand({
+          commandId, sessionId: "session-1", playerId: "player-1", clientSeq, issuedAt: nowMs,
+          type: "SETTLE", payloadJson: JSON.stringify({ x, y: 10 })
+        });
+        await Promise.resolve();
+      };
+      const rush = async (commandId: string, x: number) => {
+        clientSeq += 1;
+        runtime.submitCommand({
+          commandId, sessionId: "session-1", playerId: "player-1", clientSeq, issuedAt: nowMs,
+          type: "RUSH_BUY", payloadJson: JSON.stringify({ x, y: 10 })
+        });
+        await Promise.resolve();
+        return runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
+      };
+
+      await startASettle("settle-1", 10);
+      const goldBeforeFree = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
+      const goldAfterFree = await rush("rush-1", 10);
+      expect(goldBeforeFree - goldAfterFree).toBe(0);
+
+      // Second rush in the same UTC day must cost full price again.
+      await startASettle("settle-2", 50);
+      const goldBeforePaid = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
+      const goldAfterPaid = await rush("rush-2", 50);
+      const fullPrice = Math.ceil(SETTLE_MANPOWER_COST * 0.5);
+      expect(goldBeforePaid - goldAfterPaid).toBe(fullPrice);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -33,11 +33,18 @@ export type OptimisticStructureKind =
   | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM"
+  | "QUARTERMASTERS_OFFICE"
+  | "LOGISTICS_GUILD"
+  | "ASSEMBLY_WORKS"
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
+  | "POPULATION_BUREAU_PART"
+  | "IRON_LEVY_PART"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE" | "AEGIS_DOME";
+  | "WORLD_ENGINE" | "AEGIS_DOME"
+  | "POPULATION_BUREAU"
+  | "IRON_LEVY";
 
 export type TileUpkeepEntry = {
   label: string;
@@ -82,8 +89,8 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
-  // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  naturalWonder?: { type: NaturalWonderType; claimedAt?: number; lastFreeRushBuyAt?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";
@@ -168,14 +175,21 @@ export type Tile = {
       | "RAIL_DEPOT"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM"
+      | "QUARTERMASTERS_OFFICE"
+      | "LOGISTICS_GUILD"
+      | "ASSEMBLY_WORKS"
       | "ASTRAL_DOCK_PART"
       | "ASTRAL_DOCK"
       | "IMPERIAL_EXCHANGE_PART"
       | "WORLD_ENGINE_PART"
       | "AEGIS_DOME_PART"
+      | "POPULATION_BUREAU_PART"
+      | "IRON_LEVY_PART"
       | "IMPERIAL_EXCHANGE"
       | "WORLD_ENGINE"
-      | "AEGIS_DOME";
+      | "AEGIS_DOME"
+      | "POPULATION_BUREAU"
+      | "IRON_LEVY";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
     disabledUntil?: number;
@@ -454,6 +468,9 @@ export type TechInfo = {
   tier: number;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   description: string;
@@ -602,12 +619,19 @@ export type TileActionDef = {
     | "build_world_engine_part"
     | "build_aegis_dome_part"
     | "build_astral_dock_part"
+    | "build_population_bureau_part"
+    | "build_iron_levy_part"
     | "build_imperial_exchange"
     | "build_world_engine"
     | "build_aegis_dome"
     | "build_astral_dock"
+    | "build_population_bureau"
+    | "build_iron_levy"
     | "build_governors_office"
     | "build_radar_system"
+    | "build_quartermasters_office"
+    | "build_logistics_guild"
+    | "build_assembly_works"
     | "grow_settlement_to_town"
     | "grow_town_to_city"
     | "grow_city_to_great_city"
@@ -665,7 +689,7 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
-  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build";
+  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build" | "cancel_settle";
   secondaryLabel?: string;
   secondaryActionId?: "move_queued_entry_to_front";
   // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right

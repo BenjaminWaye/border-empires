@@ -9,6 +9,11 @@ import {
   ShaderMaterial
 } from "three";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
+import {
+  ROAD_WIDTH,
+  buildRoadFragmentShader,
+  type RoadOverlayStyle
+} from "./client-map-3d-road-fragments.js";
 
 type RoadDir = keyof Omit<RoadDirections, "terminal">;
 
@@ -27,7 +32,6 @@ export type RoadOverlay = {
   readonly dispose: () => void;
 };
 
-const ROAD_WIDTH = 0.12;
 const HALF_WIDTH = ROAD_WIDTH * 0.5;
 const HUB_RADIUS = 0.085;
 const ARM_START_RADIUS = HUB_RADIUS * 0.72;
@@ -199,104 +203,7 @@ const addRibbonGeometry = (
   }
 };
 
-const FRAGMENT_SHADER = `
-precision highp float;
-varying vec2 vUv;
-
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float vnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f*f*(3.0 - 2.0*f);
-  return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
-}
-float fbm(vec2 p) { return 0.5*vnoise(p) + 0.25*vnoise(p*2.1) + 0.125*vnoise(p*4.3); }
-
-vec3 stoneColor(float idx) {
-  if (idx < 1.0) return vec3(0.77, 0.62, 0.46);
-  if (idx < 2.0) return vec3(0.70, 0.55, 0.41);
-  if (idx < 3.0) return vec3(0.84, 0.68, 0.50);
-  if (idx < 4.0) return vec3(0.62, 0.48, 0.36);
-  return vec3(0.74, 0.58, 0.43);
-}
-
-void main() {
-  float u = vUv.x * 3.0;
-  float v = vUv.y;
-
-  // === Edge grass transition ===
-  float grassFade = smoothstep(0.0, 0.06, v) * smoothstep(1.0, 0.94, v);
-  float edgeAmount = 1.0 - grassFade;
-  vec3 edgeGrass = vec3(0.30, 0.38, 0.20);
-
-  // === Wheel ruts ===
-  float rut1 = exp(-pow((v - 0.30) * 14.0, 2.0));
-  float rut2 = exp(-pow((v - 0.70) * 14.0, 2.0));
-  float rut = clamp(rut1 + rut2, 0.0, 1.0);
-
-  // === Cobblestone grid ===
-  vec2 cellSize = vec2(0.10, 0.07);
-  vec2 cellIdx = floor(vec2(u, v) / cellSize);
-  vec2 cellUV = fract(vec2(u, v) / cellSize) - 0.5;
-
-  float ch = hash(cellIdx);
-  float ch2 = hash(cellIdx + vec2(0.7, 0.3));
-  vec2 jitter = (vec2(ch, ch2) - 0.5) * 0.3;
-  vec2 sp = cellUV - jitter;
-
-  float stoneW = 0.38 + ch * 0.10;
-  float stoneH = 0.32 + hash(cellIdx + vec2(0.1, 0.2)) * 0.12;
-  float sd = max(abs(sp.x) / stoneW, abs(sp.y) / stoneH);
-
-  vec3 mortar = vec3(0.32, 0.24, 0.16);
-  vec3 cobble = stoneColor(floor(ch * 4.99));
-  float stoneWear = vnoise(sp * 5.0 + cellIdx * 3.0) * 0.08;
-  cobble += stoneWear;
-
-  float isStone = 1.0 - smoothstep(0.42, 0.58, sd);
-  float isMortar = 1.0 - isStone;
-  vec3 col = mix(mortar, cobble, isStone);
-
-  // === Stone edge shadow (3D bump) ===
-  float stoneEdge = smoothstep(0.5, 0.58, sd) * isStone * 0.15;
-  col *= (1.0 - stoneEdge);
-
-  // === Light/shadow across stone (top-left light) ===
-  float stoneBump = (0.5 - sd) * isStone * 0.5;
-  vec2 lightDir = normalize(vec2(0.7, 0.7));
-  float stoneLight = stoneBump * (lightDir.x * sp.x + lightDir.y * sp.y) * 2.0;
-  col *= (1.0 + stoneLight * 0.1);
-
-  // === Wheel rut darkening ===
-  col = mix(col, vec3(0.20, 0.15, 0.10), rut * 0.55);
-  float rutGrain = vnoise(vec2(u * 30.0, v * 15.0)) * 0.08 * rut;
-  col *= (1.0 - rutGrain);
-
-  // === Crown (center lighter strip) ===
-  float crown = exp(-pow((v - 0.5) * 6.0, 2.0));
-  col *= (1.0 + crown * 0.07);
-
-  // === Surface gravel and grain ===
-  float gravel = vnoise(vec2(u * 40.0, v * 25.0));
-  col += (gravel - 0.5) * 0.04;
-  float grain = vnoise(vec2(u * 70.0, v * 70.0));
-  col += (grain - 0.5) * 0.03;
-
-  // === Puddles (random dark patches) ===
-  float puddleNoise = fbm(vec2(u * 0.8, v * 1.2));
-  float puddle = smoothstep(0.55, 0.70, puddleNoise) * (1.0 - rut) * (1.0 - crown);
-  vec3 puddleColor = mix(vec3(0.15, 0.12, 0.08), vec3(0.25, 0.18, 0.10), puddleNoise * 2.0);
-  col = mix(col, puddleColor, puddle * 0.4);
-
-  // === Edge grass overlay ===
-  float grassNoise = fbm(vec2(u * 1.5, v * 0.5));
-  float edgeGrassAmount = edgeAmount * (0.3 + grassNoise * 0.3);
-  col = mix(col, edgeGrass, edgeGrassAmount);
-
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
-
-export const createRoadOverlay = (scene: Scene): RoadOverlay => {
+export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "dirt"): RoadOverlay => {
   const group = new Group();
   group.name = "road-overlay";
 
@@ -323,7 +230,7 @@ export const createRoadOverlay = (scene: Scene): RoadOverlay => {
 
   const material = new ShaderMaterial({
     vertexShader,
-    fragmentShader: FRAGMENT_SHADER,
+    fragmentShader: buildRoadFragmentShader(style),
     transparent: true,
     depthWrite: true,
     side: DoubleSide,

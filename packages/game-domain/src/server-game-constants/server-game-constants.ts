@@ -8,15 +8,24 @@ import {
   GARRISON_HALL_MANPOWER_CAP_BONUS as SHARED_GARRISON_HALL_MANPOWER_CAP_BONUS,
   RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL as SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL,
   RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL as SHARED_RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL,
+  LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE as SHARED_LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
+  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD as SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
+  POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING as SHARED_POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING,
+  QUARTERMASTERS_OFFICE_RADIUS as SHARED_QUARTERMASTERS_OFFICE_RADIUS,
+  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT as SHARED_QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
+  GRANARY_INSTANT_POPULATION_BURST as SHARED_GRANARY_INSTANT_POPULATION_BURST,
+  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY as SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
+  CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT as SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
+  IRON_LEVY_MANPOWER_CONVERSION_RATIO as SHARED_IRON_LEVY_MANPOWER_CONVERSION_RATIO,
+  IRON_LEVY_REGEN_FREEZE_MS as SHARED_IRON_LEVY_REGEN_FREEZE_MS,
   TOWN_MANPOWER_BY_TIER as SHARED_TOWN_MANPOWER_BY_TIER,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   manpowerRegenWeightForSettlementIndex as sharedManpowerRegenWeightForSettlementIndex,
-  structureBaseGoldCost,
   type PopulationTier,
   type TileKey
 } from "@border-empires/shared";
-import type { AbilityDefinition, MissionDef, StrategicResource, VictoryPressureDefinition } from "../server-shared-types.js";
+import type { AbilityDefinition, VictoryPressureDefinition } from "../server-shared-types.js";
 
 export const key = (x: number, y: number): TileKey => `${x},${y}`;
 export const parseKey = (k: TileKey): [number, number] => {
@@ -24,49 +33,33 @@ export const parseKey = (k: TileKey): [number, number] => {
   return [Number(xs), Number(ys)];
 };
 export const BARBARIAN_OWNER_ID = "barbarian";
-export const BARBARIAN_TICK_MS = 5_000;
-export const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 export const now = (): number => Date.now();
 export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_BREAK_LOCKOUT_MS = 24 * 60 * 60_000;
-export const TRUCE_BREAK_ATTACK_MULT = 0.75;
-export const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 export const PASSIVE_INCOME_MULT = 1.0;
-export const FRONTIER_ACTION_GOLD_COST = 0;
 export const GOLD_COST_EPSILON = 1e-6;
-export const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
-export const HARVEST_GOLD_RATE_MULT = 1;
-export const HARVEST_RESOURCE_RATE_MULT = 1 / 1440;
 export const TILE_YIELD_CAP_GOLD = 24;
 export const TILE_YIELD_CAP_RESOURCE = 6;
 export const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-export const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
 export const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 export const SHARD_RAIN_SITE_MIN = 3;
 export const SHARD_RAIN_SITE_MAX = 6;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
-export const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
 // Gold rescope (docs/manpower-economy-rewrite-plan.md §6.1): every passive gold-income
 // source below divides by this to preserve their relative balance while cutting the
 // absolute magnitude — TOWN_BASE_GOLD_PER_MIN's old 2/min (~2,880/day/town) -> ~10/day.
 export const GOLD_RESCALE_DIVISOR = 288;
 export const STARTING_GOLD = 10;
 export const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
-export const BARBARIAN_MAINTENANCE_INTERVAL_MS = 10_000;
 export const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
-export const PVP_REWARD_MULT = 0.55;
 export const TOWN_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR;
 export const DOCK_INCOME_PER_MIN = 0.5 / GOLD_RESCALE_DIVISOR;
-export const FORT_BUILD_IRON_COST = 45;
-export const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
-export const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
-export const FARMSTEAD_BUILD_FOOD_COST = 20;
 // §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
 // occupation IS its upkeep now — there is nothing left to meter per-minute
 // on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
@@ -75,36 +68,11 @@ export const FARMSTEAD_BUILD_FOOD_COST = 20;
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const FARMSTEAD_GOLD_UPKEEP = 0;
-export const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
-export const CAMP_BUILD_SUPPLY_COST = 30;
 export const CAMP_GOLD_UPKEEP = 0;
-export const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
-export const MINE_BUILD_RESOURCE_COST = 30;
 export const MINE_GOLD_UPKEEP = 0;
-export const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
-export const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
-export const GRANARY_BUILD_FOOD_COST = 40;
 export const GRANARY_GOLD_UPKEEP = 0;
-export const SEED_GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("SEED_GRANARY");
-export const SEED_GRANARY_BUILD_FOOD_COST = 80;
-export const SEED_GRANARY_GOLD_UPKEEP = 2;
 export const SEED_GRANARY_SLOTS = 5;
 export const SEED_GRANARY_GROWTH_MULT = 1.30;
-export const BANK_BUILD_GOLD_COST = structureBaseGoldCost("BANK");
-export const AIRPORT_BUILD_GOLD_COST = structureBaseGoldCost("AIRPORT");
-export const AIRPORT_BUILD_CRYSTAL_COST = 80;
-export const FUR_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("FUR_SYNTHESIZER");
-export const IRONWORKS_BUILD_GOLD_COST = structureBaseGoldCost("IRONWORKS");
-export const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("CRYSTAL_SYNTHESIZER");
-export const CARAVANARY_BUILD_GOLD_COST = structureBaseGoldCost("CARAVANARY");
-export const CUSTOMS_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("CUSTOMS_HOUSE");
-export const CUSTOMS_HOUSE_BUILD_CRYSTAL_COST = 60;
-export const GARRISON_HALL_BUILD_GOLD_COST = structureBaseGoldCost("GARRISON_HALL");
-export const GARRISON_HALL_BUILD_CRYSTAL_COST = 80;
-export const GOVERNORS_OFFICE_BUILD_GOLD_COST = structureBaseGoldCost("GOVERNORS_OFFICE");
-export const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM");
-export const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
-export const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
@@ -113,6 +81,16 @@ export const STARTING_CAPITAL_MANPOWER_CAP = SHARED_STARTING_CAPITAL_MANPOWER_CA
 export const GARRISON_HALL_MANPOWER_CAP_BONUS = SHARED_GARRISON_HALL_MANPOWER_CAP_BONUS;
 export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL;
 export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
+export const LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = SHARED_LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD = SHARED_RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD;
+export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = SHARED_POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
+export const QUARTERMASTERS_OFFICE_RADIUS = SHARED_QUARTERMASTERS_OFFICE_RADIUS;
+export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = SHARED_QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT;
+export const GRANARY_INSTANT_POPULATION_BURST = SHARED_GRANARY_INSTANT_POPULATION_BURST;
+export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
+export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT;
+export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = SHARED_IRON_LEVY_MANPOWER_CONVERSION_RATIO;
+export const IRON_LEVY_REGEN_FREEZE_MS = SHARED_IRON_LEVY_REGEN_FREEZE_MS;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
@@ -147,7 +125,6 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 // stay in place and naturally go inert, same "leave plumbing, starve input"
 // treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
-export const WOODEN_FORT_GOLD_UPKEEP = 0;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
 export const BANK_FOOD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
@@ -169,7 +146,6 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 // player-update-economy.ts/player-upkeep-incremental.ts/snapshot-economy-
 // helpers.ts/tile-detail-snapshot.ts naturally go inert).
 export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0;
-export const AIRPORT_BOMBARD_CRYSTAL_COST = 0; // §17: free (retired to 0, matching the convention above; ABILITY_DEFS still reads it for display)
 export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
 export const AIRPORT_BOMBARD_RANGE = 30;
 export const AIRPORT_BOMBARD_COOLDOWN_MS = 20 * 60_000;
@@ -178,7 +154,6 @@ export const AIRPORT_BOMBARD_FORT_MISS_BONUS = 0.25;
 export const AIRPORT_BOMBARD_MAX_MISS_CHANCE = 0.80;
 export const RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS = 30;
 export const AETHER_TOWER_RADIUS = 30;
-export const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
 export const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
 export const AIRPORT_BOMBARD_MAX_FIELD_TILES = 4;
 export const STRUCTURE_OUTPUT_MULT = 1.5;
@@ -187,19 +162,18 @@ export const FOUNDRY_OUTPUT_MULT = 2;
 export const WATERWORKS_RADIUS = 10;
 export const WATERWORKS_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
-export const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
 export const RADAR_SYSTEM_RADIUS = 30;
 export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17: free activation, takes 100% of chosen target's gold.
-export const WORLD_ENGINE_STRIKE_CRYSTAL_COST = 0; // §17: free
-export const WORLD_ENGINE_STRIKE_GOLD_COST = 15_000;
-export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 60 * 60_000;
+export const WORLD_ENGINE_STRIKE_GOLD_COST = 1_000;
+export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 10 * 60_000;
 export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
 export const AEGIS_DOME_PROTECTION_RADIUS = 30;
-export const AEGIS_LOCK_CRYSTAL_COST = 0; // §17: free
 export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
-export const ASTRAL_DOCK_LAUNCH_CRYSTAL_COST = 0; // §17: free
-export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 90 * 60_000;
+// Cooldown matches the satellite's own uptime (below) — the launch handler
+// additionally hard-blocks relaunching while a satellite is still aloft
+// (see ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY), so this is belt-and-suspenders.
+export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 // Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
 // no cooldown between charges — a player can burn all 3 back-to-back.
@@ -215,18 +189,6 @@ export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const AETHER_LANCE_GOLD_COST = 3_000;
 export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
-export const DEEP_STRIKE_CRYSTAL_COST = 0; // §17: free (unused — Deep Strike isn't wired as its own command yet)
-export const DEEP_STRIKE_COOLDOWN_MS = 20 * 60_000;
-export const DEEP_STRIKE_ATTACK_MULT = 0.9;
-export const DEEP_STRIKE_MAX_DISTANCE = 2;
-export const NAVAL_INFILTRATION_CRYSTAL_COST = 0; // §17: free (unused — Naval Infiltration isn't wired as its own command yet)
-export const NAVAL_INFILTRATION_COOLDOWN_MS = 30 * 60_000;
-export const NAVAL_INFILTRATION_ATTACK_MULT = 0.85;
-export const NAVAL_INFILTRATION_MAX_RANGE = 5;
-export const SABOTAGE_CRYSTAL_COST = 0; // §17: free (unused — Sabotage isn't wired as its own command yet)
-export const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
-export const SABOTAGE_DURATION_MS = 45 * 60_000;
-export const SABOTAGE_OUTPUT_MULT = 0.5;
 export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 export const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
@@ -241,10 +203,8 @@ export const SIPHON_SHARE = 1;
 export const TERRAIN_SHAPING_GOLD_COST = 8000;
 export const TERRAIN_SHAPING_CRYSTAL_COST = 0; // §17: free (gold cost is separate and unchanged)
 export const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
-export const TERRAIN_SHAPING_RANGE = 2;
 export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
-export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
  * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
@@ -257,27 +217,16 @@ export const SETTLEMENT_GROWTH_RATE_MULT = 4;
 // read it for a "food upkeep per minute" figure that's now always 0, same
 // "leave plumbing, starve input" treatment as MARKET_FOOD_UPKEEP above.
 export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
-export const POPULATION_MIN = 3_000;
 export const POPULATION_MAX = 10_000_000;
-export const POPULATION_START_SPREAD = 2_000;
 export const POPULATION_TOWN_MIN = 10_000;
 export const WORLD_TOWN_POPULATION_MIN = 15_000;
 export const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;
-export const POPULATION_GROWTH_TICK_MS = 60_000;
-export const GROWTH_PAUSE_MS = 60 * 60_000;
-export const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
 export const NEARBY_WAR_RADIUS = 10;
 export const NEARBY_WAR_PAUSE_MS = 60 * 60_000;
 export const LONG_PEACE_MS = 24 * 60 * 60_000;
 export const LONG_PEACE_GROWTH_MULT = 1.20;
 export const LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD = 250;
 export const BREACH_SHOCK_MS = 180_000;
-export const BREACH_SHOCK_DEF_MULT = 0.72;
-export const DYNAMIC_MISSION_MS = 7 * 24 * 60 * 60 * 1000;
-export const VENDETTA_ATTACK_BUFF_MULT = 1.15;
-export const VENDETTA_ATTACK_BUFF_MS = 24 * 60 * 60 * 1000;
-export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
-export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
 // 1000 gold per day converted to per-minute for internal comparison.
@@ -287,7 +236,6 @@ export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
 export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;
 export const SEASON_VICTORY_MARITIME_MIN_DOCKS = 3;
 export const SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE = 0.66;
-export const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",
@@ -388,141 +336,4 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
     cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
   }
-};
-export const MISSION_DEFS: MissionDef[] = [
-  {
-    id: "frontier-scout",
-    kind: "NEUTRAL_CAPTURES",
-    name: "Frontier Scout",
-    description: "Capture 6 neutral tiles.",
-    unlockPoints: 0,
-    target: 6,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 FOOD +1 SUPPLY"
-  },
-  {
-    id: "frontier-commander",
-    kind: "NEUTRAL_CAPTURES",
-    name: "Frontier Commander",
-    description: "Capture 16 neutral tiles.",
-    unlockPoints: 50,
-    prerequisiteId: "frontier-scout",
-    target: 16,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 IRON +1 CRYSTAL"
-  },
-  {
-    id: "regional-footprint",
-    kind: "SETTLED_TILES_HELD",
-    name: "Regional Footprint",
-    description: "Hold 20 settled tiles at once.",
-    unlockPoints: 80,
-    target: 20,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 SHARD"
-  },
-  {
-    id: "breadbasket-protocol",
-    kind: "FARMS_HELD",
-    name: "Breadbasket Protocol",
-    description: "Control 4 farms at once.",
-    unlockPoints: 140,
-    target: 4,
-    rewardPoints: 150
-  },
-  {
-    id: "first-bloodline",
-    kind: "ENEMY_CAPTURES",
-    name: "First Bloodline",
-    description: "Capture 3 enemy-owned tiles.",
-    unlockPoints: 200,
-    target: 3,
-    rewardPoints: 220
-  },
-  {
-    id: "victory-rhythm",
-    kind: "COMBAT_WINS",
-    name: "Victory Rhythm",
-    description: "Win 10 combats.",
-    unlockPoints: 320,
-    target: 10,
-    rewardPoints: 300
-  },
-  {
-    id: "tech-apprentice",
-    kind: "TECH_PICKS",
-    name: "Tech Apprentice",
-    description: "Select 3 techs.",
-    unlockPoints: 250,
-    target: 3,
-    rewardPoints: 260
-  },
-  {
-    id: "tech-master",
-    kind: "TECH_PICKS",
-    name: "Tech Master",
-    description: "Select 8 techs.",
-    unlockPoints: 600,
-    prerequisiteId: "tech-apprentice",
-    target: 8,
-    rewardPoints: 700
-  },
-  {
-    id: "continental-triad",
-    kind: "CONTINENTS_HELD",
-    name: "Continental Triad",
-    description: "Hold land on 3 continents at once.",
-    unlockPoints: 450,
-    target: 3,
-    rewardPoints: 700
-  },
-  {
-    id: "continental-grip",
-    kind: "TILES_HELD",
-    name: "Continental Grip",
-    description: "Hold 50 tiles at once.",
-    unlockPoints: 700,
-    target: 50,
-    rewardPoints: 600
-  },
-  {
-    id: "agri-hegemon",
-    kind: "FARMS_HELD",
-    name: "Agri Hegemon",
-    description: "Control 10 farms at once.",
-    unlockPoints: 1100,
-    target: 10,
-    rewardPoints: 900
-  },
-  {
-    id: "war-ledger",
-    kind: "ENEMY_CAPTURES",
-    name: "War Ledger",
-    description: "Capture 20 enemy-owned tiles.",
-    unlockPoints: 1500,
-    target: 20,
-    rewardPoints: 1200
-  }
-];
-export const colorFromId = (id: string): string => {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i += 1) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const hue = (h >>> 0) % 360;
-  const c = (1 - Math.abs((2 * 0.48) - 1)) * 0.7;
-  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = 0.48 - c / 2;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (hue < 60) [r, g, b] = [c, x, 0];
-  else if (hue < 120) [r, g, b] = [x, c, 0];
-  else if (hue < 180) [r, g, b] = [0, c, x];
-  else if (hue < 240) [r, g, b] = [0, x, c];
-  else if (hue < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const toHex = (n: number): string => Math.round((n + m) * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };

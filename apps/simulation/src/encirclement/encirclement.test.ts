@@ -338,7 +338,14 @@ describe("encirclement attack guard", () => {
         initialState: {
           tiles: [
             // player-1 source — normal settled tile
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             // player-2 target — cut off / blinking
             {
               x: 11, y: 10, terrain: "LAND",

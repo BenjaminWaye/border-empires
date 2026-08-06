@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
+import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -18,6 +19,10 @@ type TechCatalogEntry = {
   description: string;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to -- surfaced to the client for the
+  // branch-tag UI requirement.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   effects?: Record<string, unknown>;
@@ -288,9 +293,31 @@ export const multiplicativeEffectForPlayer = (
   return multiplier;
 };
 
+/**
+ * Extra vision radius for an owned SETTLED town's own +1 reveal ring
+ * (runtime-town-vision.ts), on top of the unconditional +1 every town
+ * already gets. Cartography's townVisionRadiusBonus is the only source
+ * today; unlike visionRadiusBonusForPlayer this doesn't touch the player's
+ * base radius, so it has no effect on plain (non-town) tiles.
+ */
+export const townVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "townVisionRadiusBonus");
+
+/**
+ * Extra vision radius for an owned active Light Outpost or Siege Outpost
+ * (runtime-outpost-vision.ts), stacked on top of Light Outpost's flat
+ * LIGHT_OUTPOST_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
+ * vision bonus of its own. Survey Corps's outpostVisionRadiusBonus is the
+ * only source today.
+ */
+export const outpostVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "outpostVisionRadiusBonus");
+
 export const effectiveVisionRadiusForPlayer = (
-  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
-): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));
+  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus">
+): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0));
 
 /**
  * Effective crystal-observatory cast radius for a player, mirroring the client's
@@ -303,8 +330,7 @@ export const observatoryCastRadiusForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   baseRadius: number
 ): number =>
-  baseRadius +
-  additiveEffectForPlayer(player, "observatoryRangeBonus");
+  baseRadius + additiveEffectForPlayer(player, "observatoryRangeBonus");
 
 export const chooseAiTechChoiceForPlayer = (
   player: AiProgressionPlayer,
@@ -337,12 +363,13 @@ export const chooseAiTechChoiceForPlayer = (
       if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       const resourceCost = toResources(tech.cost);
+      const goldCost = techGoldCostForResearchedCount(player.techIds.length);
       return {
         id: tech.id,
         score,
-        goldCost: tech.cost?.gold ?? 0,
+        goldCost,
         resourceCost,
-        affordable: player.points >= (tech.cost?.gold ?? 0) && hasResources(resourceCost, available)
+        affordable: player.points >= goldCost && hasResources(resourceCost, available)
       };
     })
     // Affordable techs win over unaffordable ones regardless of score, so a
@@ -430,10 +457,9 @@ export const chooseTechForPlayer = (
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available)) {
-    return { ok: false, reason: "requirements not met" };
-  }
-  player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
+  const goldCost = goldCostForTechResearch(player, tech);
+  if (player.points < goldCost || !hasResources(required, available)) { return { ok: false, reason: "requirements not met" }; }
+  player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
   player.techIds.add(techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
@@ -519,6 +545,7 @@ export const buildTechUpdatePayload = (
   const domainChoices = openDomainChoices(domainIds);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const available = player.strategicResources ?? {};
+  const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
     IRON: available.IRON ?? 0,
@@ -546,14 +573,15 @@ export const buildTechUpdatePayload = (
       description: tech.description,
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
       ...(tech.rootId ? { rootId: tech.rootId } : {}),
+      ...(tech.branch ? { branch: tech.branch } : {}),
       ...(tech.requires ? { requires: tech.requires } : {}),
       ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {
-        gold: tech.cost?.gold ?? 0,
+        gold: goldCost,
         resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id) && player.points >= (tech.cost?.gold ?? 0) && hasResources(toResources(tech.cost), available)
+        canResearch: techChoices.includes(tech.id) && player.points >= goldCost && hasResources(toResources(tech.cost), available)
       },
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),

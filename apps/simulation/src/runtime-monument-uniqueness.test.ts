@@ -207,4 +207,73 @@ describe("§16 monument global uniqueness", () => {
     expect(loser.manpower).toBe(2_100);
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
   });
+
+  // Tech-tree redesign: Population Bureau and Iron Levy hook into the exact
+  // same PART_TYPE_FOR_BASE/MONUMENTAL_STRUCTURE_TYPES generic mechanism as
+  // the 4 pre-existing monuments -- no new uniqueness-enforcement code was
+  // written for them, so this confirms the hookup actually works rather
+  // than just compiling.
+  it("rejects a further POPULATION_BUREAU_PART build once another player's Population Bureau is already active", () => {
+    const rival = makePlayer("player-1");
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
+    const { context, events } = createContext(
+      [rival, actor],
+      [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "POPULATION_BUREAU", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"]
+        }
+      ]
+    );
+
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART" }) }));
+
+    const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
+    expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
+  });
+
+  it("rejects a further IRON_LEVY_PART build once another player's Iron Levy is already active", () => {
+    const rival = makePlayer("player-1");
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
+    const { context, events } = createContext(
+      [rival, actor],
+      [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"]
+        }
+      ]
+    );
+
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IRON_LEVY_PART" }) }));
+
+    const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
+    expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
+  });
+
+  it("does not block Population Bureau once Iron Levy is claimed (different monument types)", () => {
+    const rival = makePlayer("player-1");
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
+    const { context, events } = createContext(
+      [rival, actor],
+      [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] }
+      ]
+    );
+
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART" }) }));
+
+    expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
+  });
 });

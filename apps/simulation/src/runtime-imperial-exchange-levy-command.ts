@@ -36,10 +36,9 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
     rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "select an active Imperial Exchange");
     return;
   }
-  if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "requires Exchange Levy Writs research");
-    return;
-  }
+  // Exchange Levy Writs (tech "exchange-levy") was cut — the levy ability is
+  // now inherent to the Imperial Exchange monument itself, gated only by
+  // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
     rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Aether Tower");
     return;

@@ -1,0 +1,38 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Population Bureau: grand vertical demographic institute. Wide stepped base, twin brass census-columns -->
+  <path d="M6 106L30 94H98L74 106H6Z" fill="#7D7468"/>
+  <path d="M30 94V88H98V94H30Z" fill="#8A8078"/>
+  <path d="M14 92V56H20V92H14Z" fill="#B3833A"/>
+  <path d="M108 92V56H114V92H108Z" fill="#B3833A"/>
+  <path d="M11 84H23" stroke="#7A5A26" stroke-width="2" stroke-linecap="round"/>
+  <path d="M11 74H23" stroke="#7A5A26" stroke-width="2" stroke-linecap="round"/>
+  <path d="M105 84H117" stroke="#7A5A26" stroke-width="2" stroke-linecap="round"/>
+  <path d="M105 74H117" stroke="#7A5A26" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Tiered colonnaded hall: three stacked, shrinking tiers -->
+  <path d="M22 90L40 78H88L70 90H22Z" fill="#7D7468"/>
+  <path d="M40 78V66H88V78H40Z" fill="#8A8078"/>
+  <path d="M40 66L54 58H88L74 66H40Z" fill="#6E6459"/>
+
+  <path d="M32 68L46 58H82L68 68H32Z" fill="#7D7468"/>
+  <path d="M46 58V48H82V58H46Z" fill="#8A8078"/>
+  <path d="M46 48L58 41H82L70 48H46Z" fill="#6E6459"/>
+
+  <path d="M42 50L54 42H74L62 50H42Z" fill="#7D7468"/>
+  <path d="M54 42V34H74V42H54Z" fill="#8A8078"/>
+  <path d="M54 34L64 29H74L64 34H54Z" fill="#6E6459"/>
+
+  <!-- Crown: large brass tabulating-drum with warm glow in its face -->
+  <path d="M52 30H76V24H76L52 24V30Z" fill="#B3833A"/>
+  <circle cx="64" cy="27" r="5" fill="#FFB347"/>
+
+  <!-- Signature: three concentric register-rings, each topped by a tiny amber tick-lamp -->
+  <path d="M52 20H76" stroke="#7A5A26" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="58" cy="18" r="1.4" fill="#FFB347"/>
+  <path d="M56 13H72" stroke="#7A5A26" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="61" cy="11" r="1.4" fill="#FFB347"/>
+  <path d="M60 6H68" stroke="#7A5A26" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="63" cy="4" r="1.4" fill="#FFB347"/>
+
+</svg>

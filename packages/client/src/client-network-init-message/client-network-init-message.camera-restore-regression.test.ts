@@ -217,4 +217,81 @@ describe("INIT clears stale camera on season change", () => {
     expect(state.camX).toBe(500);
     expect(state.camY).toBe(300);
   });
+
+  // Regression for issue #8 (reload-after-rollover scenario): when a player
+  // reloads their browser AFTER a season has already rolled over on the
+  // server, bridgeDebugSeasonId is "" (in-memory-only, reset every reload) —
+  // it can't detect the change by itself. The stored camera payload is
+  // tagged with the season it was saved under (cameraRestoredSeasonId, read
+  // via cameraLocationInitialState() at state-creation time), which is what
+  // actually lets the INIT handler notice the old season is stale.
+  it("clears persisted camera on first load in a new season (reload-after-rollover scenario)", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1" }));
+
+    const state = createState(); // reads storage above: cameraRestoredSeasonId = "season-1"
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+    // bridgeDebugSeasonId is "" on a genuine fresh page load — never force it here.
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    // Player receives INIT with new seasonId (season has rolled over on server)
+    sendInitWithSeason(ws, "season-2");
+
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(false);
+    expect(state.cameraRestoredFromStorage).toBe(false);
+    // Camera should center on home tile, not the stale season-1 coordinates.
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+  });
+
+  // The critical counterpart to the test above: a ordinary page reload
+  // within the SAME season must NOT wipe the restored camera. A prior
+  // version of the season-change guard only checked bridgeDebugSeasonId,
+  // which is "" on every fresh load regardless of whether the season
+  // actually changed — that treated every single reload as a season change
+  // and silently broke the "restore last-viewed position" feature entirely.
+  it("preserves camera on first load when the season has NOT changed (fresh reload, same season)", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1" }));
+
+    const state = createState(); // reads storage above: cameraRestoredSeasonId = "season-1"
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+    // bridgeDebugSeasonId is "" on a genuine fresh page load — never force it here.
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInitWithSeason(ws, "season-1"); // same season as the stored payload
+
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(true);
+    expect(state.cameraRestoredFromStorage).toBe(true);
+    expect(state.camX).toBe(500);
+    expect(state.camY).toBe(300);
+  });
+
+  // A save made before this seasonId-tagging existed (or camera storage
+  // otherwise missing a season tag) has nothing safe to compare against.
+  // Defaulting to "preserve" here matches pre-existing behavior for that
+  // narrow migration window rather than risking false-positive clears.
+  it("preserves camera on first load when the stored payload has no season tag", () => {
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+
+    const state = createState();
+    state.camX = 500;
+    state.camY = 300;
+    state.cameraRestoredFromStorage = true;
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInitWithSeason(ws, "season-2");
+
+    expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(true);
+    expect(state.camX).toBe(500);
+    expect(state.camY).toBe(300);
+  });
 });

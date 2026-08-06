@@ -26,6 +26,11 @@ import {
   registerIndustrialStructures,
   type IndustrialStructureKind
 } from "../client-map-3d-structure-industrial.js";
+import {
+  MANPOWER_STRUCTURE_KINDS,
+  registerManpowerStructures,
+  type ManpowerStructureKind
+} from "../client-map-3d-structure-manpower.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
 // late-game, civic, infrastructure, industrial) each own their
@@ -47,7 +52,8 @@ export type StructureKind =
   | LateGameStructureKind
   | CivicStructureKind
   | InfrastructureStructureKind
-  | IndustrialStructureKind;
+  | IndustrialStructureKind
+  | ManpowerStructureKind;
 
 export type { StructureResourceHint } from "../client-map-3d-structure-economic.js";
 
@@ -56,7 +62,8 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   ...LATE_GAME_STRUCTURE_KINDS,
   ...CIVIC_STRUCTURE_KINDS,
   ...INFRASTRUCTURE_STRUCTURE_KINDS,
-  ...INDUSTRIAL_STRUCTURE_KINDS
+  ...INDUSTRIAL_STRUCTURE_KINDS,
+  ...MANPOWER_STRUCTURE_KINDS
 ]);
 
 export type StructureOverlay = {
@@ -91,6 +98,7 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const civic = registerCivicStructures(builder);
   const infrastructure = registerInfrastructureStructures(builder);
   const industrial = registerIndustrialStructures(builder, economic.shared);
+  const manpower = registerManpowerStructures(builder);
 
   // Build a uniform dispatch table. Only the economic family uses
   // `resource`; we ignore it for the others by wrapping their layouts.
@@ -112,6 +120,9 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   }
   for (const [k, fn] of Object.entries(industrial.layouts)) {
     layouts[k as IndustrialStructureKind] = ignoreResource(fn);
+  }
+  for (const [k, fn] of Object.entries(manpower.layouts)) {
+    layouts[k as ManpowerStructureKind] = ignoreResource(fn);
   }
 
   const addInstance = (

@@ -1,4 +1,4 @@
-import { townFoodSlotDemandForTier, structureSlotRequirements, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
+import { townFoodSlotDemandForTier, structureSlotRequirements, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, type EmpireStorageCap, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -91,6 +91,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     }
     buckets.set(label, { label, amountPerMinute: count, count: 1, ...(dormant ? { dormantCount: 1 } : {}) });
   };
+  // §23.2: the player's first LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts are
+  // waived server-side (slot-waivers.ts) and never bill a FOOD slot — mirror
+  // that here so this breakdown doesn't overcount vs. the demand total above it.
+  let waivedLightOutpostsRemaining = resource === "FOOD" ? LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT : 0;
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
@@ -105,9 +109,13 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
       add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
     }
-    if (tile.economicStructure && tile.economicStructure.status !== "removing") {
+    if (tile.economicStructure && tile.economicStructure.status !== "removing" && tile.economicStructure.status !== "inactive") {
       const type = tile.economicStructure.type;
-      const count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
+      let count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
+      if (type === "LIGHT_OUTPOST" && resource === "FOOD" && waivedLightOutpostsRemaining > 0) {
+        waivedLightOutpostsRemaining -= 1;
+        count = 0;
+      }
       add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));
     }
   }
@@ -125,11 +133,10 @@ const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
   resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
 ): string => {
+  // §5/§12.1: FOOD/IRON/CRYSTAL/SUPPLY stopped being stockpiled flows — their
+  // upkeep is the slot occupancy shown in the per-resource cards, so only the
+  // GOLD flow upkeep belongs in this summary line.
   const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
@@ -301,13 +308,17 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
       ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
       ${visibleResources
         .map((resource) => {
-          const detail = economyDetailForResource(args, resource);
           const foodFootnote = resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : "";
           if (isSlotResource(resource)) {
             const supply = args.resourceSlots.supply[resource];
             const demand = args.resourceSlots.demand[resource];
             const status = slotStatusLine(supply, demand);
             const occupants = slotOccupantsForResource(args, resource);
+            // §12.1: a slot resource's upkeep IS the slot occupancy, so the card
+            // has no separate Upkeep column — it only lists who occupies the
+            // slots ("Occupied by"). Any cross-resource flow upkeep (e.g. a
+            // synthesizer's GOLD upkeep) is not repeated here; it's on the
+            // GOLD card's own Upkeep column instead.
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
@@ -316,19 +327,14 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
               </div>
               <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
             </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Occupied by</h4>
-                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
+            <div class="economy-detail-column">
+              <h4>Occupied by</h4>
+              ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
             </div>
             ${foodFootnote}
           </section>`;
           }
+          const detail = economyDetailForResource(args, resource);
           const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
           const cap = args.storageCap.GOLD;
           return `<section class="economy-detail-card card">

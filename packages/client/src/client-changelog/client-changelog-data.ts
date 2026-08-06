@@ -21,331 +21,310 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release. Order doesn't
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  // 2026.07.26.1 ("Expand and Settle now cost manpower"), 2026.07.27.1
+  // ("Manpower now gates every structure build"), 2026.07.27.2 ("Structures
+  // no longer cost gold to build"), 2026.07.27.3 ("Garrison Hall and
+  // Rail Depot now grant real manpower bonuses"), 2026.07.28.1 ("Rush-buy:
+  // finish an in-progress settle or build for gold"), 2026.07.28.2 ("Economy
+  // panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock
+  // numbers"), 2026.07.28.3 ("Food is now purely a slot resource; town
+  // growth costs gold + a Food slot"), 2026.07.28.2 ("Fixed: Empire
+  // Integrity warning nagged you on every login; added discovery tips"), and
+  // 2026.07.28.3 ("Fixed: farms, towns, and other overlays floated above
+  // hills in 3D mode") pruned: aged out of the 6-day window during this
+  // merge.
+  // 2026.07.27.1 ("Fixed: large-empire logins could still stall for 15+
+  // seconds"), 2026.07.27.2 ("Fixed: ownership overlay and buildings
+  // invisible on hills in 3D mode"), 2026.07.27.3 ("Fixed: login stalls on
+  // mobile reduced by ~50%"), 2026.07.27.4 ("Fixed: territory ownership
+  // overlay didn't follow the hill's shape"), 2026.07.28.1 ("Fixed: hill
+  // tiles had no grid square around them in 3D mode"), 2026.07.28.3
+  // ("Discovery tips for docks and barbarians..."), 2026.07.28.4 ("New
+  // season now requires 5 players to vote"), and 2026.07.28.5 ("Season-end
+  // Misc tab with deadliest tile and longest road") pruned: aged out of the
+  // 6-day window during this merge. "Victory countdown now shows immediately
+  // when a threshold is met" (2026-07-28) also pruned: it was previously
+  // authored with a live Date.now() call instead of a frozen timestamp,
+  // which silently kept it looking brand-new; corrected to its real
+  // authored time, it's outside the 6-day window like the others above.
+  // "Roads follow hills, look more realistic" (road-hill-wrap, 2026-07-29)
+  // pruned: aged out of the 6-day window during this merge.
   {
-    createdAt: 1785030000000, // 2026.07.26.1
-    introducedIn: "2026.07.26.1",
-    title: "Expand and Settle now cost manpower",
-    why: "Gold's income scaled up with empire size while EXPAND and SETTLE stayed flat-priced, so both actions decayed into a non-decision by mid-game — the one currency that funded expansion could never stay scarce. Manpower, by contrast, is already structurally throttled (deep cap, slow regen), so moving expansion onto it keeps every claim and settlement a real, ongoing cost.",
-    changes: [
-      "Claiming a frontier tile now costs 10 manpower; settling a claimed tile now costs 20 manpower, in addition to their existing (now much smaller) gold costs.",
-      "A new player starts with a larger manpower pool (576, regenerating at 0.4/min) so early expansion still feels generous — sized to cover roughly 40 claims and 8 settles before waiting on regen.",
-      "Capturing or founding a new town immediately adds that town's own manpower cap and regen on top of your starting pool, instead of being masked by it.",
-      "The map, waypoint planner, and bulk auto-settle queue all now show and respect the real manpower cost, so they no longer offer an expand/settle you can't actually afford."
-    ]
-  },
-  {
-    createdAt: 1785115000000, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Manpower now gates every structure build",
-    why: "Structure build costs already draw manpower (Market, Bank, Farmstead, synthesizers, and everything else), but the build menu only checked gold, so it offered builds you couldn't actually afford until the server rejected them. This closes that gap for the roughly 30 remaining economic structures, matching the fix already shipped for Expand/Settle.",
-    changes: [
-      "Every economic structure's build/upgrade option (Market, Bank, Farmstead, Camp, Mine, Granary, Census Hall, Clearing House, Caravanary, all three Synthesizers and their Advanced upgrades, Exchange House, Rail Depot, Garrison Hall, Governor's Office, Foundry, Waterworks, Radar System, Airport, Aether Tower, Customs House, and all four monument parts) now checks and displays its manpower cost, not just gold and strategic resources.",
-      "The build menu now tells you specifically when you're short on manpower instead of only ever citing gold or a resource."
-    ]
-  },
-  {
-    createdAt: 1785118000000, // 2026.07.27.2
-    introducedIn: "2026.07.27.2",
-    title: "Structures no longer cost gold to build",
-    why: "Gold income was cut about 288x in an earlier update so a strong empire could no longer coast on it forever, but every structure's build-gold price stayed at its old, pre-cut value — Bank was still 3,200 gold against an economy earning roughly 10 gold/day/town. That made every structure both far too expensive in gold and, on top of that, also required its full manpower price, a double-tax nobody could realistically pay. Gold now only matters for tech, rush-buys, and a few structures' ongoing upkeep, never for the act of building.",
-    changes: [
-      "Every structure's build gold cost is now 0 — manpower (and, for some structures, a strategic resource) is the entire build price.",
-      "This includes Forts, Siege Outposts, Light/Wooden Outposts, and all four monument parts and their final assemblies, not just the everyday economic buildings.",
-      "The four monument assemblies (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) are no longer mislabeled \"Free after 3 parts\" — they show and require their real manpower + SHARD cost.",
-      "Cost displays across the build menu no longer show a stray \"0 gold +\" — the gold clause disappears entirely when it's zero."
-    ]
-  },
-  {
-    createdAt: 1785121000000, // 2026.07.27.3
-    introducedIn: "2026.07.27.3",
-    title: "Garrison Hall and Rail Depot now grant real manpower bonuses",
-    why: "Garrison Hall previously did nothing but cost resources and gold upkeep — its old \"+20% defense\" description was never actually implemented. Rail Depot's manpower regen was a flat bonus per depot with no cap on how many you could spam. This wires up the manpower structure tree the economy rewrite was missing: acquiring towns still grows your manpower on its own, but investing in Garrison Halls and a connected Rail Depot network now gives a real, earned way to grow further.",
-    changes: [
-      "Garrison Hall now grants +150 manpower cap to the town it's built in, unconditionally.",
-      "Rail Depot no longer gives a flat manpower regen bonus per depot. Instead, only one Rail Depot may be built per connected-town network, and it amplifies every Garrison Hall already in that network: +75 manpower cap and +0.1 manpower/min, per Garrison Hall, with no cap on how many Garrison Halls can contribute.",
-      "Trying to build a second Rail Depot in a network that already has one is now rejected — build menus and the manpower breakdown panel reflect the new bonuses."
-    ]
-  },
-  {
-    createdAt: 1785199000000, // 2026.07.28.1
-    introducedIn: "2026.07.28.1",
-    title: "Rush-buy: finish an in-progress settle or build for gold",
-    why: "Manpower is scarce and slow to regenerate by design, but that also means an in-progress Settle or structure build has no way to speed up once started — gold, meanwhile, had nothing to spend on outside of tech and upkeep. Rush-buy gives gold a second job: pay to finish something you're already building right now, priced by how much time is actually left, not the action's full cost.",
-    changes: [
-      "A tile that's actively settling or has a structure under construction now shows a rush-buy button (⏩🪙) next to its remaining-time countdown in the tile detail panel.",
-      "The price scales down as the timer progresses — rushing something nearly done costs almost nothing, rushing something you just started costs close to the full price (anchored at 0.5 gold per manpower point the action costs).",
-      "Applies to Settle and every structure build (Fort/Siege tier upgrades included) — not to removals, which can't be rushed."
-    ]
-  },
-  {
-    createdAt: 1785202000000, // 2026.07.28.2
-    introducedIn: "2026.07.28.2",
-    title: "Economy panel: Food/Iron/Crystal/Supply now show slot capacity, not stale stock numbers",
-    why: "Food, Iron, Crystal, and Supply stopped being stockpiled quantities and became discrete building/town slots several updates ago, but the economy breakdown panel kept showing them with the old stock/cap/income/upkeep flow layout — numbers that no longer meant anything once those resources became slots. Gold is the only resource left that actually works that way now.",
-    changes: [
-      "The Food/Iron/Crystal/Supply cards and detail views now show \"used / available\" slots instead of a stockpile amount, with a clear status (free, fully committed, or no access to this resource yet) instead of a gross/upkeep/net rate.",
-      "The detail view's old \"Income Sources\" column is replaced with \"Occupied by\" for these four resources, listing which structures and towns are using up a slot right now. The Upkeep column (e.g. a synthesizer's gold upkeep) is unchanged.",
-      "Gold keeps its existing stock/cap/income/upkeep display — it's still a real stockpile, not a slot."
-    ]
-  },
-  {
-    createdAt: 1785205000000, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Food is now purely a slot resource; town growth costs gold + a Food slot",
-    why: "Food previously had two overlapping mechanics: the slot system (this update's earlier entry) alongside a leftover production/upkeep flow that towns and Market/Bank/Caravanary still drained every minute, plus a Food-stockpile lump sum to grow a town's tier. That second mechanic is retired entirely — Food now works exactly like Iron/Crystal/Supply, and towns keep growing on gold, the resource the game already asks you to manage everywhere else.",
-    changes: [
-      "Farmstead's Food bonus, town Food upkeep, and every structure's Food upkeep are gone — Food is consumed only by occupying a slot (towns and FOOD-tagged structures), never by a per-minute drain.",
-      "Upgrading a town's tier (Settlement→Town→City→Great City→Metropolis) now costs gold (20/40/80/160 for each step) plus a free Food slot, instead of a Food lump sum — each upgrade past Town also permanently adds +1 to that town's Food slot demand.",
-      "If Food supply ever falls short of demand, the newest thing drawing on it (a freshly built structure, or the town itself) goes unfed first — an established town keeps its own Food-gated income and growth ahead of whatever was just built or captured."
-    ]
-  },
-  {
-    createdAt: 1785230720833, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Fixed: farms, towns, and other overlays floated above hills in 3D mode",
-    why: "The 3D renderer's shared surfaceY calculation (used to place buildings, towns, resource icons, and every other tile overlay) already picked up a hill tile's elevation bonus from heightfield.elevationAt(), then added that same bonus a second time for any tile flagged as hills. That doubled the hill's height bump under every overlay on a hill tile, so farms, towns, and resource icons rendered a full bonus-height above the visible hill dome instead of resting on its peak.",
-    changes: [
-      "Removed the duplicate hills-elevation bonus from the 3D overlay placement formula — buildings, farms, towns, and resource icons now sit directly on the hill's surface instead of floating above it."
-    ]
-  },
-  {
-    createdAt: 1785225359405, // 2026.07.28.2
-    introducedIn: "2026.07.28.2",
-    title: "Fixed: Empire Integrity warning nagged you on every login; added discovery tips",
-    why: "The Empire Integrity dismissal was stored under a single global localStorage key with no per-account scoping, so on a shared browser/device a dismissal from one account could leak onto (or get overwritten by) another account, making the warning reappear even after you'd dismissed it. Separately, new players had no in-game explanation of what towns and resource tiles do or why they're worth capturing.",
-    changes: [
-      "Empire Integrity warning dismissal is now scoped per account, so dismissing it actually keeps it hidden for that login going forward (it still resurfaces after 30 days or once integrity recovers above 90%).",
-      "Added a tip the first time you discover a town, and separate tips for the first Food, Iron, Crystal, and Supply resource tile you discover, each explaining why it's worth capturing.",
-      "Each discovery tip reappears after 30 days/a season if dismissed (same window as Empire Integrity). A \"Don't show tooltips\" checkbox on the tip lets you mute all discovery tips for that same window in one action."
-    ]
-  },
-  {
-    createdAt: 1785215980277, // 2026.07.28.1
-    introducedIn: "2026.07.28.1",
-    title: "Fixed: hill tiles had no grid square around them in 3D mode",
-    why: "Tile gridlines shared the exact same vertex buffer as the main terrain mesh. A hill tile's boundary sits at exactly the same height as the hill dome's own flat outer rim (by design, the dome tapers to zero before reaching the tile edge), so the gridline and the dome's opaque rim geometry occupied the identical 3D position — a coplanar tie the thin grid line consistently lost, leaving every hill tile with no visible grid square around it.",
-    changes: [
-      "Tile gridlines now use their own slightly-raised position buffer, so they render reliably on top of hill tiles instead of losing a depth tie against the dome mesh.",
-      "Verified against isolated hills, scattered hills, and dense adjacent hill clusters — gridlines are now intact around every hill tile in all cases."
-    ]
-  },
-  {
-    createdAt: 1785200500000, // 2026.07.27.4
-    introducedIn: "2026.07.27.4",
-    title: "Fixed: territory ownership overlay didn't follow the hill's shape",
-    why: "The 3D hills dome mesh rises above the flat terrain grid, but the ownership overlay (and its fogged-tile variants) drew one flat plane between a tile's 4 corners regardless. On a hill, that plane either sank into the dome or floated as a flat plate poking above/through it, instead of tracing the hill's actual curve.",
-    changes: [
-      "Owned hill tiles now render their ownership tint draped over the hill's real curved surface, matching the terrain exactly instead of a flat plane cutting through it.",
-      "Applies to the normal ownership overlay and both fogged-tile ownership overlays (last-witnessed owner tint on tiles you no longer have vision of)."
-    ]
-  },
-  {
-    createdAt: 1785130609961, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Fixed: large-empire logins could still stall for 15+ seconds",
-    why: "The 2026.07.25.1 duplicate-sign-in fix defined guards on both the client and the gateway, but neither was actually wired into the real login path — the client kept sending sign-in through its original unguarded code, and the gateway never checked its guard flag. A duplicate sign-in message (e.g. a flaky mobile connection triggering a reconnect while the first attempt was still finishing) could still run two full, concurrent login pipelines against the same connection, doubling snapshot-build work and sometimes leaving the connection stuck on the loading screen indefinitely.",
-    changes: [
-      "The client's duplicate-sign-in guard is now actually used on every sign-in attempt, including the very first one after opening Google sign-in.",
-      "The gateway now also drops a duplicate sign-in message on the same connection instead of processing it a second time in parallel.",
-      "Fixed a related gateway bug where a player's connection was permanently treated as \"already has data cached\" after their first login, even after a disconnect cleared that cache — a flaky connection with repeated drops could end up requesting an empty world snapshot with nothing to fill it back in."
-    ]
-  },
-  {
-    createdAt: 1785147877000, // 2026.07.27.2
-    introducedIn: "2026.07.27.2",
-    title: "Fixed: ownership overlay and buildings invisible on hills in 3D mode",
-    why: "The 3D hills dome mesh (added 2026.07.25.1) rose 0.45 world-units above the base terrain, but the ownership overlay and all building/structure markers used Y positions from the heightfield grid — which excludes hills. The ownership overlay failed the depth test against the closer dome geometry and was never drawn, and buildings on hill tiles appeared to sink underground instead of sitting on the surface.",
-    changes: [
-      "Ownership overlays (settled and frontier territory colors) now always render on top of the hill mesh, matching the 2D canvas behavior where ownership is a flat fill on top of terrain.",
-      "Towns, forts, resources, economic structures, and all other tile markers now correctly rise with the hill dome on hills tiles instead of being hidden underneath."
-    ]
-  },
-  {
-    createdAt: 1785129932105, // 2026.07.27.1
-    introducedIn: "2026.07.27.1",
-    title: "Fixed: unexplored-tile waypoints stopped working entirely",
-    why: "An unrelated merge on client-action-flow.ts accidentally reverted the unexplored-tile waypoint feature back to its pre-feature state — clicking an unexplored tile went back to silently doing nothing (no menu, no selection) instead of opening the \"Unexplored\" menu with an Expand Here option.",
-    changes: [
-      "Restored the unexplored-tile menu and waypoint action handling that were silently dropped by an earlier merge."
-    ]
-  },
-  {
-    createdAt: 1785096000000, // 2026.07.26.1
-    introducedIn: "2026.07.26.1",
-    title: "Fixed seeing darkness after a new season starts",
-    why: "When a new season rolled over the saved map camera location from the old season was never cleared. On the next page load the stale coordinates were restored and the player saw darkness instead of their new base.",
-    changes: [
-      "The persisted camera location is now cleared on season rollover so the next load centers on your new home tile instead of stale old-season coordinates."
-    ]
-  },
-  {
-    createdAt: 1784937780000, // 2026.07.25.3
-    introducedIn: "2026.07.25.3",
-    title: "Hills are now a real strategic prize",
-    why: "Hills granted only a modest, easily-ignored vision bump, were scattered uniformly across the whole map instead of forming meaningful highland regions, and cost the same to claim as flat ground — nothing made fighting for high ground feel worthwhile.",
-    changes: [
-      "Base vision range lowered to 1 tile, so the hills vision bonus is now a real difference-maker: standing on a hill sees 2 tiles out instead of 1.",
-      "Hills now cluster into highland regions (much like forests cluster into deep-forest regions), with only a rare scattering of standalone hills elsewhere.",
-      "Expanding onto a hills tile now takes 1.5 seconds longer than claiming flat ground, reflecting the rougher terrain."
-    ]
-  },
-  {
-    createdAt: 1784937720000, // 2026.07.25.2
-    introducedIn: "2026.07.25.2",
-    title: "Fixed: waypoints to distant unexplored tiles could report no path even though one existed",
-    why: "The 2026.07.24.5 unexplored-waypoint fix only treated the destination tile itself as reachable land — it still assumed every other unexplored tile in between was a wall. That made \"Expand Here\" work when the target was directly adjacent to your territory, but fail for anything farther away, since almost any real route to unscouted land crosses other unscouted tiles too.",
-    changes: [
-      "Waypoints toward any unexplored tile now treat every undiscovered tile along the route the same optimistic way as the destination — reachable, until real data proves otherwise."
-    ]
-  },
-  {
-    createdAt: 1784937660000, // 2026.07.25.1
-    introducedIn: "2026.07.25.1",
-    title: "Faster login for large empires",
-    why: "Players with large territories could wait 10+ seconds on the loading screen. The login pipeline was doing the same heavy work multiple times: the client could send a duplicate sign-in request, the server marshalled the full visible tile set twice, and the snapshot builder re-computed vision coverage that the export step had already resolved.",
-    changes: [
-      "Duplicate sign-in requests during a single connection are now deduplicated on both the client and the server, so one login no longer triggers two full snapshot builds.",
-      "The live subscription no longer re-marshals your entire visible tile set when the bootstrap snapshot already delivered it.",
-      "The snapshot builder skips a redundant vision-coverage recompute on fog-of-war logins, cutting seconds off large-empire snapshot builds."
-    ]
-  },
-  {
-    createdAt: 1784927317000, // 2026.07.24.3 (restored)
-    introducedIn: "2026.07.24.3",
-    title: "Watchtowers are now rarer",
-    why: "At roughly half the town count, watchtowers were common enough that finding one was rarely a meaningful discovery. Cutting the count makes each one a more notable find.",
-    changes: [
-      "The number of watchtower sites spread across the map has been lowered from ~150 to ~50."
-    ]
-  },
-  {
-    createdAt: 1784923957000, // 2026.07.24.1 (restored)
-    introducedIn: "2026.07.24.1",
-    title: "New structure: Watchtowers",
-    why: "Scouting a new area meant either committing to a slow, tile-by-tile expansion or attacking blind. Watchtowers give players a way to peek at what's around a distant, unclaimed area before deciding whether it's worth pushing into.",
-    changes: [
-      "Roughly 150 dormant watchtower sites are now spread across the map, about half as many as there are towns.",
-      "Expanding your territory onto a watchtower's tile activates it once: for about 10 seconds, it reveals the resources, towns, and terrain in the surrounding area (without permanently clearing fog of war), then the area fades back to normal fog.",
-      "Watchtowers appear on the minimap and on the main map in both 2D and 3D play modes as a small brass, steampunk-styled tower with a lantern beacon that lights up once activated."
-    ]
-  },
-  {
-    createdAt: 1784851260000, // 2026.07.24.1
-    introducedIn: "2026.07.24.1",
-    title: "Hills terrain: +1 vision, visible in 2D and 3D",
-    why: "The map previously had no way to reward holding high ground — every land tile granted the same vision range regardless of terrain relief.",
-    changes: [
-      "Hills tiles now grant +1 extra vision range to whoever is standing on them.",
-      "In the 3D map, hills raise the ground itself into a distinct flat-topped rise — even a single, isolated hills tile pops fully out of completely flat surrounding ground.",
-      "In the 2D map, hills tiles are marked with a rolling-mound icon."
-    ]
-  },
-  // 2026.07.23.1 ("Terrain now blocks and limits vision") pruned: aged out
-  // of the 6-day window during this merge.
-  {
-    createdAt: 1785200000000, // 2026.07.27.3
-    introducedIn: "2026.07.27.3",
-    title: "Fixed: login stalls on mobile reduced by ~50%",
-    why: "Every login opened two WebSocket connections (control and bulk) and ran the full heavyweight login pipeline on both — doubling prepare-player, bootstrap-subscribe, and snapshot-build work on the CPU-constrained staging box. The bulk channel only needs identity resolution and socket attachment; everything else was redundant.",
-    changes: [
-      "The bulk WebSocket channel now skips the prepare-player, bootstrap-subscribe, live-subscribe, and snapshot-build steps during login, cutting per-login CPU work roughly in half.",
-      "Login stalls for large empires should be significantly shorter on mobile and slow connections."
-    ]
-  },
-  {
-    createdAt: 1785097225841, // 2026.07.26.2
-    introducedIn: "2026.07.26.2",
-    title: "Snappier actions during heavy fights",
-    why: "Closing a tile menu or clicking a non-muster tile sent a pointless \"stop watching muster\" request to the server every single time — even when you were never watching one. During rapid attacking this fired several times a second, and each one cost the server a full command round-trip that always failed, adding to server-side delays that could make combat results arrive late.",
-    changes: [
-      "The client now only tells the server to stop watching a muster flag when it actually started watching one.",
-      "Server-side: muster watch toggles are no longer written to the command database at all — they are view state, not game actions — eliminating a steady stream of database errors."
-    ]
-  },
-  {
-    createdAt: 1785215000000, // 2026.07.28.3
-    introducedIn: "2026.07.28.3",
-    title: "Discovery tips for docks and barbarians; Storybook catalog for reviewing all tip copy",
-    why: "Docks and barbarian territories are important strategic features but had no in-game explanation when first encountered. A Storybook story now renders every discovery tip from the source data so copy can be reviewed in one place.",
-    changes: [
-      "Added a one-time discovery tip for the first dock you discover, explaining that docks connect across the sea for launching attacks and expanding onto distant shores.",
-      "Added a one-time discovery tip for the first barbarian tile you discover, explaining that barbarian camps spawn patrols and that clearing them yields gold and expands your border.",
-      "Added a Storybook story (UI/Discovery Tips) that renders every discovery tip from the source data — copy changes to client-discovery-tips.ts automatically update the story."
-    ]
-  },
-  {
-    createdAt: 1785215100000, // 2026.07.28.4
-    introducedIn: "2026.07.28.4",
-    title: "New season now requires 5 players to vote",
-    why: "Anyone could unilaterally trigger a new season for every player with a single click. That made accidental early rollovers too easy, and gave the last player standing less incentive to keep playing — the season could end at any moment on someone else's whim.",
-    changes: [
-      '"Start New Season" is replaced by "Vote for New Season". Each player can vote once; the season starts when 5 unique players have voted.',
-      "Once you vote, the button shows the current vote count (e.g. 'Vote cast (3/5)') and is disabled.",
-      "Votes are cleared when a new season actually begins, so every post-rollover season requires a fresh vote."
-    ]
-  },
-  {
-    createdAt: 1785215200000, // 2026.07.28.5
-    introducedIn: "2026.07.28.5",
-    title: "Season-end Misc tab with deadliest tile and longest road",
-    why: "The season end screen now tracks which tile saw the most manpower lost in battle and the longest continuous road, giving players a glimpse into the season's unique history.",
-    changes: [
-      "Added a Misc tab to the season end overlay showing the deadliest tile (most manpower lost in a single battle) and the longest road (most tiles connected by road network).",
-      "Tracks manpower losses per tile across the entire season."
-    ]
-  },
-  {
-    createdAt: Date.now(),
+    createdAt: 1785575868160, // next
     introducedIn: "next",
-    title: "Victory countdown now shows immediately when a threshold is met",
-    why: "When a player met a victory condition threshold (e.g. controlling 50% of towns), the leaderboard showed \"Threshold met\" but never displayed the 24-hour hold countdown until the next day — because the timer enrichment was discarded on the first recompute.",
+    title: "Natural Wonders dot the landscape",
+    why: "9 ancient wonders are now scattered across the world. Claim them to gain permanent bonuses — more manpower, stronger forts, faster mustering, and more.",
     changes: [
-      "The leaderboard now shows \"Winning in 23h 59m unless stopped\" (and ticks down) from the moment a victory threshold is first met.",
-      "The victory hold alert overlay also fires immediately instead of being silent for up to 24 hours."
+      "Foundry Heart: +1 slot for FOOD/IRON/CRYSTAL/SUPPLY",
+      "Deepwater Engine: dock gold income doubled, dock attacks +15% ATK",
+      "Conscription Engine: +2000 manpower cap, instant +2000 on first claim",
+      "Warpress: 2× muster rate, +1 extra flag (max 6)",
+      "Bastion Frame: fort defense multipliers +0.5×",
+      "Calculating Engine: tech gold costs -10%",
+      "Quickforge: once per day, rush-buy costs 0 gold",
+      "Watchtower Engine: acts as a free Observatory, no CRYSTAL upkeep",
+      "Cartographer's Lens: +1 vision range on all owned tiles",
+      "Each wonder renders as a unique, animated 3D landmark on the map — pulsing crystal, spinning gears, a striking forge hammer, and more.",
+      "Claiming a wonder adds a Recent Events entry with its flavor text and the exact boon it grants."
+    ]
+  },
+  // 2026.07.30 ("Economy: per-day rates, 1000 gold/day victory threshold,
+  // 24h gold cap"), 2026.07.30 ("Light Outposts reveal 5x5 area"), and
+  // 2026.07.30 ("Build Light Outpost on distant unexplored-adjacent tiles")
+  // pruned: aged out of the 6-day window.
+  {
+    createdAt: 1785564673000, // 2026-08-01
+    introducedIn: "structure-upkeep-rebalance",
+    title: "Fort and outpost upkeep now runs on food plus their resource",
+    why: "Military structures were free to keep after building (their slot occupation was the only upkeep), so there was no ongoing pressure to hold the farms, iron, and supply that an empire's defenses depend on. Giving each defensive tier a steady drain makes maintaining your military a real land-use decision.",
+    changes: [
+      "Light Outpost and Wooden Fort now cost only 1 FOOD upkeep (no gold).",
+      "Fort and its tiers (Fort, Iron Bastion, Thunder Bastion) cost 1 FOOD plus increasing IRON upkeep per tier.",
+      "Siege Outpost and its tiers (Siege Outpost, Siege Tower, Dread Tower) cost 1 FOOD plus increasing SUPPLY upkeep per tier.",
+      "These show up in each structure's tile-detail upkeep listing."
     ]
   },
   {
-    createdAt: Date.now(),
-    introducedIn: "road-hill-wrap",
-    title: "Roads follow hills, look more realistic",
-    why: "Roads previously sat flat on the terrain, cutting straight through hill domes instead of rising over them. The road surface also lacked detail, reading as a simple tan strip.",
+    createdAt: 1785564621000, // 2026-08-01
+    introducedIn: "town-food-slot-demand",
+    title: "Towns now draw 4 food slots each",
+    why: "Towns were only drawing 2 food slots while they scaled gold/income with tier, so growth never stressed your farming network the way it should. Raising base town demand to 4 makes feeding a growing empire an ongoing land-use decision rather than a one-time setup.",
     changes: [
-      "Roads now rise and fall with hill terrain, wrapping over the dome surface instead of clipping through it.",
-      "Road surfaces are now cobblestone with individual stones, mortar gaps, wheel ruts, grass edges, puddles, and directional stone shading."
+      "Each TOWN now consumes 4 FOOD resource slots (up from 2) to stay fed, so a growing empire needs proportionally more farms and fishing.",
+      "SETTLEMENTs still draw 0 food slots; CITY, GREAT_CITY, and METROPOLIS each add +1 on top of the town base, matching how their income scales."
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1785564622000, // 2026-08-01
+    introducedIn: "town-vision-bonus",
+    title: "Towns reveal one extra tile of vision",
+    why: "Towns are the most valuable, permanent things you build, but they revealed no more of the map than an ordinary claimed tile — so defending your core gave you no strategic awareness around it. Letting each settled town's own reveal reach one tile further rewards building up your home territory.",
+    changes: [
+      "Every SETTLED town tile — including a freshly-founded SETTLEMENT — now reveals its surroundings one tile further than a plain owned tile; its own reveal is radius+1.",
+      "Applies consistently to the map you see on login, the tile updates streamed as you play, and barbarian visibility."
+    ]
+  },
+  {
+    createdAt: 1785649123000, // 2026.08.02.1
+    introducedIn: "2026.08.02.1",
+    title: "First 5 Light Outposts no longer cost a FOOD slot",
+    why: "A FOOD slot requirement made early exploration compete with a player's actual economy for the same scarce resource, discouraging the frontier-pushing Light Outposts already exist to encourage.",
+    changes: [
+      "Your first 5 Light Outposts (earliest-built first) now cost 0 FOOD slots; only the 6th onward draws from your FOOD slot pool like other structures.",
+      "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
+    ]
+  },
+  {
+    createdAt: 1785618075910, // 2026.08.01.1
+    introducedIn: "2026.08.01.1",
+    title: "Rail Depot's Garrison Hall bonus quadrupled; stale crystal costs removed",
+    why: "Rail Depot's per-Garrison-Hall cap amplifier was only +75, a small fraction of a single Metropolis's 2,400 cap, undercutting the network investment it was meant to reward. Separately, several structures (Garrison Hall included) still displayed a CRYSTAL build cost left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — that CRYSTAL amount was never actually charged, just confusing, stale copy.",
+    changes: [
+      "Rail Depot's network amplifier now grants +300 manpower cap per Garrison Hall (up from +75), on top of its existing +0.1 manpower/min per Garrison Hall.",
+      "Removed the leftover CRYSTAL build-cost line for Garrison Hall, Rail Depot, Customs House, Radar System, Exchange House, Airport, and the four monument parts — none of them have actually charged CRYSTAL since resource costs moved to permanent slot occupation; their real, current cost (manpower + slots) is unchanged and now displays correctly everywhere.",
+      "The structure-info popup's cost card now shows manpower cost for every structure (it previously omitted manpower entirely), and Garrison Hall/Rail Depot's effect descriptions now mention their manpower bonuses instead of only their secondary effects."
+    ]
+  },
+  {
+    createdAt: 1785670919000, // 2026.08.02.2
+    introducedIn: "2026.08.02.2",
+    title: "Build Light Outpost menu no longer shows a FOOD slot cost for your free first 5",
+    why: "The button correctly let you build your first 5 Light Outposts for free, but the cost line next to it still said \"1 FOOD slot\" regardless — misleading copy that looked like a hard requirement even when nothing would actually be charged.",
+    changes: [
+      "The \"Build Light Outpost\" cost line now omits the FOOD slot entirely while you're within your free first 5; it only appears once it actually applies, starting with your 6th outpost."
+    ]
+  },
+  {
+    createdAt: 1785697200000, // 2026.08.03.1
+    introducedIn: "2026.08.03.1",
+    title: "Fixed: removing a structure crashed the game",
+    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
+    changes: [
+      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
+      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
+    ]
+  },
+  {
+    createdAt: 1785735055000, // 2026-08-03
+    introducedIn: "buildings-tab-always-show",
+    title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
+    why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
+    changes: [
+      "The Buildings tab now appears on every tile you own — whether it's still a frontier claim or already settled — so all eligible buildings are visible the moment you take the tile.",
+      "Clicking \"Build X\" on a tile you own but haven't settled automatically settles the tile first, then builds the structure the moment settlement completes (the old settle-then-build flow that only existed for Light Outposts now applies to every building type).",
+      "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
+      "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
+      "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
+    ]
+  },
+  {
+    createdAt: 1785739605000, // 2026.08.03.2
+    introducedIn: "2026.08.03.2",
+    title: "Fixed: Build Light Outpost button disappeared when out of FOOD slots",
+    why: "The Actions tab hid itself entirely whenever every action on it was disabled, so a player with 5+ Light Outposts and no free FOOD slot lost the button instead of seeing why it was unavailable.",
+    changes: [
+      "Disabled actions are now always shown with their blocker message instead of hiding the whole Actions tab, matching how the Buildings tab already behaves."
+    ]
+  },
+  {
+    createdAt: 1785738838000, // 2026-08-03
+    introducedIn: "wooden-fort-no-iron-build",
+    title: "Wooden Fort no longer charges a lump-sum iron cost to build",
+    why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
+    changes: [
+      "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies."
+    ]
+  },
+  {
+    createdAt: 1785758343576, // event-log-explicit-sort
+    introducedIn: "event-log-explicit-sort",
+    title: "Recent Events feed now sorts explicitly instead of assuming server order",
+    why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
+    changes: [
+      "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
+    ]
+  },
+  {
+    createdAt: 1785738839000, // 2026-08-03
+    introducedIn: "economy-slot-upkeep-no-daily-flow",
+    title: "Economy panel no longer shows slot upkeep as a negative daily flow",
+    why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
+    changes: [
+      "The Food/Iron/Crystal/Supply cards no longer have a separate Upkeep column — slot upkeep for these resources is fully represented by the slot count already shown in \"Occupied by\". Cross-resource flow costs (e.g. a synthesizer's gold upkeep) still appear, but only once, on the GOLD card.",
+      "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
+    ]
+  },
+  {
+    createdAt: 1785758070000, // 2026.08.03.3
+    introducedIn: "2026.08.03.3",
+    title: "Fixed: buildings tab showed nothing on an unsettled tile with no resource, town, or dock",
+    why: "The always-show-Buildings-tab update relaxed every building's settled requirement in the menu logic, but the shared placement-surface check it also runs through still only counted a tile as \"settled\" when it was actually SETTLED. Any building without a resource/town/dock alternative surface (Fort, Observatory, Airport, Aether Tower, Radar System, the four monuments, Governor's Office, Garrison Hall) still had nowhere to attach, so a bare claimed tile showed \"No buildings available on this tile right now\" instead of the settle-then-build list.",
+    changes: [
+      "An owned frontier tile now also counts as the \"settled\" placement surface for menu purposes, so every building type appears and queues its settle-then-build chain the same way resource/town/dock-gated buildings already did."
+    ]
+  },
+  {
+    createdAt: 1785776329000, // 2026-08-03
+    introducedIn: "badge-render-order-above-roads",
+    title: "Fixed: food/resource-shortage badges could render behind roads",
+    why: "The floating badge shown over a dormant/unfed structure (and the observatory cooldown badge) drew earlier than the road overlay even though both are transparent, so wherever a road ran under one of these badges, the road painted over it and hid it — despite the badge floating well above the road visually.",
+    changes: [
+      "The dormant-structure/unfed-town badge and the observatory cooldown badge now always render above roads, so they stay visible on tiles a road passes through.",
+      "This applies to every structure type that can go dormant from a resource-slot shortfall (Light Outpost included), not just towns."
+    ]
+  },
+  {
+    createdAt: 1785788216000, // 2026-08-03
+    introducedIn: "town-upgrade-ready-badge",
+    title: "Towns that can upgrade to their next tier now show a floating badge",
+    why: "A town that has grown enough population to reach its next tier (Town→City→Great City→Metropolis) had no at-a-glance signal on the map — you only found out by clicking the town and reading its \"Next size\" line or the upgrade action in the tile-menu. The map already floats a badge over towns missing food, so the same style of badge now flags towns with an upgrade waiting.",
+    changes: [
+      "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
+      "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
+    ]
+  },
+  {
+    createdAt: 1785786820000, // 2026.08.03.4
+    introducedIn: "2026.08.03.4",
+    title: "Natural wonder tiles now show what they do in the tile detail panel",
+    why: "Worldgen has placed natural wonders (Deepwater Engine, Foundry Heart, Bastion Frame, etc.) on the map for a while, but the tile detail Overview tab never mentioned them at all — a wonder tile you'd claimed just looked like an ordinary frontier or settled tile, with no way to tell it was special or what claiming/settling it would grant.",
+    changes: [
+      "The Overview tab now shows a natural wonder's name and boon on any tile that has one, and notes whether the boon is already active (settled and owned by you), still needs the tile settled first (owned but frontier), or is just informational (not yours yet)."
+    ]
+  },
+  {
+    createdAt: 1785790524109, // 2026.08.03.6
+    introducedIn: "2026.08.03.6",
+    title: "Removed Fort/Siege/Light Outpost's per-minute FOOD/IRON/SUPPLY drain, a stray attack-range overlay, and an Economy tab overcount",
+    why: "Forts, Siege Outposts, and Light Outposts each drained a separate per-minute FOOD/IRON/SUPPLY cost from your stockpile on top of already occupying a resource slot for the same structure — the tile detail panel showed a Light Outpost costing '144.0/day' food in addition to its 1 FOOD slot, meaning a single outpost billed you twice for the same resource. Separately, selecting an outpost drew a red attack-range ring left over from a shelved mechanic, and the Economy tab's 'Occupied by' breakdown ignored the waiver that makes a player's first 5 Light Outposts free, so a 4-outpost empire was shown as using 4 FOOD slots instead of 0.",
+    changes: [
+      "Fort, Iron Bastion, Thunder Bastion, Wooden Fort, Siege Outpost, Siege Tower, Dread Tower, and Light Outpost no longer drain FOOD/IRON/SUPPLY per minute — their only ongoing cost is the resource slot they occupy.",
+      "The tile detail Upkeep section now shows the resource-slot cost (e.g. 'Fort: 1 IRON slot') for any active fort/siege/economic structure instead of the removed per-day drain.",
+      "Disabled the red attack-sweep-range overlay that appeared when selecting a Light Outpost or Siege Outpost — it wasn't tied to any real attack mechanic.",
+      "The Economy tab's FOOD slot breakdown now correctly applies the free-slot waiver, so Light Outposts under the waiver count no longer inflate the 'Occupied by' total."
+    ]
+  },
+  {
+    createdAt: 1785790524108, // 2026.08.03.5
+    introducedIn: "2026.08.03.5",
+    title: "Fixed: the off-screen alert arrows (unfed town / active muster) were the biggest source of frame lag",
+    why: "The pulsing arrow that points toward an off-screen unfed town or active muster flag re-scanned every tile you had ever discovered this session, every single frame, to find its target — on a long-lived session with a lot of explored map, that scan alone was averaging ~5.8ms/frame and spiking past 20ms, chewing through most of the mobile frame budget.",
+    changes: [
+      "That scan now only re-runs a few times a second instead of every frame; the arrow itself still redraws and tracks the camera every frame, so it stays smooth with no flicker, it just detects new/cleared alerts within about a fifth of a second instead of instantly."
+    ]
+  },
+  {
+    createdAt: 1785828860656, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Natural wonders now look like their concept art in 3D mode",
+    why: "Every natural wonder's Storybook reference (packages/storybook/src/wonders/*) was built as a detailed model with custom shaders, particle effects, and multiple structural pieces, but the in-game 3D overlay for each one shipped as a rough placeholder — a couple of plain colored shapes with none of the pipes, gears, ground glow, or particles the design called for. A claimed Deepwater Engine, for example, rendered as a single dark cylinder with one teal ring instead of the gear-driven pump facility with copper piping and rising bubbles it's supposed to be.",
+    changes: [
+      "All 9 natural wonders (Deepwater Engine, Foundry Heart, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render in 3D mode with the full geometry, shader materials, ground-glow effects, and particle systems from their Storybook reference instead of a simplified placeholder."
+    ]
+  },
+  {
+    createdAt: 1785832166768, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Fixed: natural wonder ground glow drifted as you panned the map",
+    why: "The new natural-wonder ground-glow shaders (fissures, scorched earth, water ripples, etc.) computed their radial pattern from each vertex's raw world position. That's centered on the wonder in Storybook, where the model always sits at the scene origin, but the live map recenters the whole 3D scene around the camera every frame, so a wonder's mesh is actually translated to a camera-relative offset that shifts as you pan. The glow pattern followed that drift instead of staying anchored to the wonder, visibly sliding out from under the model as the camera moved.",
+    changes: [
+      "Natural wonder ground-glow, water, and metal-rim shaders now compute their pattern from the vertex's position relative to the wonder's own mesh (rotation/scale only, no translation) instead of raw world position, so the effect stays locked to the wonder regardless of camera pan."
+    ]
+  },
+  {
+    createdAt: 1785836373986, // 2026-08-04
+    introducedIn: "natural-wonder-3d-fidelity",
+    title: "Fixed: natural wonder ground glow got cut off near coastlines and hills",
+    why: "The natural wonder ground-glow effect (fissures, scorched earth, water ripples) spans a wonder's own tile plus its 8 neighbors, but it was rendered as one flat plane at the wonder's own tile height. Real terrain elevation varies a lot across that span (grass, sand, coastal sea, deep sea, and hills are all different heights), so on any wonder near a coastline or a hill, the flat effect either floated above/sank under the real terrain, got hidden behind the actual water surface, or was clipped by rising land poking through it.",
+    changes: [
+      "The ground-glow effect now follows the real terrain's contour across its full 3x3 span, sampling the same corner heights the terrain mesh itself renders from (matching the technique the territory-ownership tint already uses to drape over hills) — it clips correctly against hills and anything built on a neighboring tile, and now renders visibly above the water surface on any neighboring sea tile instead of being hidden underneath it."
+    ]
+  },
+  {
+    createdAt: 1785875930619, // dirt road
     introducedIn: "next",
-    title: "Economy: per-day rates, 1000 gold/day victory threshold, 24h gold cap",
-    why: "Gold display as per-minute (/m) was hard to relate to actual gameplay pacing — a town earning 0.01 gold/min reads as \"nothing\" when it's actually 14.4 gold/day. Per-day rates make income, upkeep, and victory thresholds immediately meaningful without mental math.",
+    title: "Roads are now worn dirt paths instead of cobblestone",
+    why: "3D roads switch from hard cobblestone to packed dirt, matching how a low-tech empire actually travels while reading cleanly on any terrain.",
     changes: [
-      "All gold (and most resource) rates now display as /day instead of /m — the HUD gold chip, economy panel, tile production/upkeep, build menu entries, empire intel, side panel, and season-end overlay all use per-day formatting.",
-      "Economic victory now requires 1000 gold/day (up from the old ~0.4/min / ~576/day effective threshold), with all labels and tooltips updated.",
-      "Gold storage cap now holds 24 hours of production (up from 12h), with a floor of 10 gold instead of 500.",
-      "Build menu upkeep strings corrected: non-synthesizer structures no longer show stale per-minute gold/food values (their slot occupation is their upkeep), and synthesizers now show correct per-day gold costs (30/45/40/60 gold/day)."
+      "Roads are now dirt paths: packed brown earth with mottled soil tones, two subtle wheel ruts, and a faint worn center.",
+      "Small pebbles are scattered sparsely along the surface, each with soft directional shading so they read as stones set in the dirt.",
+      "Road edges wear down to a ragged, slightly darker rim with no grass or green tint, so roads sit naturally on any terrain - including deserts and sand.",
+      "The same gentle lift over hills and junction hubs are unchanged."
     ]
   },
   {
-    createdAt: Date.now(),
-    introducedIn: "light-outpost-exploration",
-    title: "Light Outposts reveal 5×5 area",
-    why: "Light Outposts previously had no exploration use — building them at the edge of known territory revealed nothing beyond.",
+    createdAt: 1785910000000, // manpower overlays
+    introducedIn: "next",
+    title: "Manpower-branch buildings render on the map",
+    why: "The steampunk Manpower economy branch (quartermaster supply, logistics guilds, conscription, and the workforce-producing Ancillary Factory, Incubation Engine, and Ambaric Tower) had no map art yet. Each building now renders as a distinct 3D model in 3D mode and as a hand-drawn 2D sprite on the classic map.",
     changes: [
-      "Light Outposts now grant +5 vision, revealing a 5-tile radius (13×13 area) around them when built.",
-      "A \"Build Light Outpost\" action appears on owned tiles adjacent to unexplored terrain, making them the default exploration tool.",
-      "The action includes cost, build time, attack multiplier, and vision bonus in a single button."
+      "8 new manpower buildings render on the map: Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy, Ancillary Factory, Incubation Engine, and Ambaric Tower.",
+      "3D mode: each building has its own silhouette in a shared bronze/gunmetal/amber steampunk palette - brass supply counters, schedule-tower dials, drive-shaft gears, census columns, an orders-horn ember, boiler ward ports, and spiral ambaric coils.",
+      "2D mode: new map sprites for all 8 buildings."
     ]
   },
   {
-    createdAt: Date.now(),
-    introducedIn: "light-outpost-distant-expansion",
-    title: "Build Light Outpost on distant unexplored-adjacent tiles",
-    why: "Light Outpost was locked to tiles adjacent to your territory, but true frontier exploration means expanding into the unknown without claiming every tile in between. Distant unowned tiles adjacent to unexplored terrain are now a valid target for expansion.",
+    createdAt: 1786003565156, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed: changes made to the world while you were offline could stay missing after you logged back in",
+    why: "The server keeps a cached copy of each player's world snapshot to make logging back in fast, but it only kept that copy up to date while you were connected. Anything that changed while you were offline never reached it, and logging in served the cached copy as-is with no catch-up — so those tiles stayed wrong on your map indefinitely, because nothing later would necessarily touch them again. The most visible case was an outpost built while you were disconnected: the tiles its vision should have revealed stayed dark forever.",
     changes: [
-      "Light Outpost can now be built on any unowned tile adjacent to unexplored terrain, even if it's not adjacent to your current territory — the action handles frontier expansion end-to-end without intermediate claims.",
-      "\"Build Light Outpost\" now appears in the main actions tab (not buildings) so it's discoverable as a frontier-exploration tool, not a structure you place on your own land.",
-      "The action's cost, build time, attack bonus, and vision grants remain the same — only the placement rules expanded to make distant exploration viable."
+      "Logging in now rebuilds your world snapshot whenever the world changed while you were away, instead of serving a stale cached copy.",
+      "Fixes outpost vision discs that never revealed their tiles after a reconnect, and the same staleness for territory ownership, towns and structures that changed while you were offline.",
+      "Fast reconnects where nothing has changed still use the cached snapshot, so logging back in is no slower than before."
+    ]
+  },
+  {
+    createdAt: 1786035996000, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed leftover bugs from the tech-tree redesign: stale bonus text, wrong gold pricing, missing branch tags",
+    why: "The tech-tree redesign (branch structure, no-flat-bonus techs, steampunk renaming) shipped with three regressions: some tech cards still printed old attack/defense/vision bonus text even though the redesign removed all flat-bonus techs, every tech's gold cost was a different leftover per-tier price instead of the intended flat +50-per-researched-tech curve, and the tree UI had no visible tag showing which of the four branches (War/Economy/Manpower/Aether) a tech belonged to.",
+    changes: [
+      "Tech cards and detail views no longer print stale attack/defense/vision multiplier text — only real building/ability unlocks are shown.",
+      "Every tech now costs 10 gold plus 50 gold per tech you've already researched, applied uniformly instead of the old scattered per-tier prices.",
+      "Tech cards now show a colored branch tag (War/Economy/Manpower/Aether) so it's clear which branch a tech belongs to.",
+      "The Iron Levy monument's ability can now actually be triggered — it was fully implemented on the server but was never wired into the game's network layer.",
+      "Caravanary now enables the connected-town road network itself (towns need at least one built to share the gold bonus) instead of just adding +25% on top of an already-existing bonus."
     ]
   },
   {

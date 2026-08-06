@@ -177,6 +177,21 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
+  "QUARTERMASTERS_OFFICE": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "LOGISTICS_GUILD": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "ASSEMBLY_WORKS": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "IMPERIAL_EXCHANGE_PART": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
@@ -213,6 +228,26 @@
     "sortGroup": "general"
   },
   "ASTRAL_DOCK": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "POPULATION_BUREAU_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "IRON_LEVY_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "POPULATION_BUREAU": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "IRON_LEVY": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
