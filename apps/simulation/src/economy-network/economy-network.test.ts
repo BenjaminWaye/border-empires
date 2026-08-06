@@ -76,7 +76,11 @@ describe("connected town network", () => {
       [
         townTile(0, 0, "Alpha"),
         townTile(1, 0, "Beta"),
-        townTile(2, 0, "Gamma")
+        townTile(2, 0, "Gamma"),
+        {
+          x: 0, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+        }
       ].map((tile) => [`${tile.x},${tile.y}`, tile])
     );
 
@@ -226,13 +230,19 @@ describe("connected town network", () => {
       economicStructure: { ownerId: "player-1", type: "CLEARING_HOUSE" as const, status: "active" as const }
     };
 
+    const caravanarySupportTile: DomainTileState = {
+      x: 0, y: 3, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+    };
+
     const tiles = new Map<string, DomainTileState>([
       [chTownKey, townTile(0, 0, "CH-Town")],
       ["0,2", townTile(0, 2, "North")],
       ["2,2", townTile(2, 2, "East")],
       ["2,0", townTile(2, 0, "South")],
       ["1,1", landTile(1, 1)],
-      ["0,-1", supportTile]
+      ["0,-1", supportTile],
+      ["0,3", caravanarySupportTile]
     ]);
 
     const network = buildConnectedTownNetworkForPlayer(
@@ -327,6 +337,13 @@ describe("connected town network", () => {
         tiles.set(key, { x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" } as DomainTileState);
       }
     }
+
+    // Give town0's support tile a Caravanary so the shared network's road
+    // (and thus its gold bonus) actually exists.
+    tiles.set("1,1", {
+      ...tiles.get("1,1")!,
+      economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+    });
 
     const start = performance.now();
     const network = buildConnectedTownNetworkForPlayer(

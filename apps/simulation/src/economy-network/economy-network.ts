@@ -122,6 +122,13 @@ type TownConnectivityGroup = {
   granaryKeys: string[];
   assemblyWorksKeys: string[];
   logisticsGuildKeys: string[];
+  // Caravanary (tech-tree redesign, Economy branch): the connected-town road
+  // network itself only exists where at least one member town has a built
+  // Caravanary — see the connectedTownCount gate below. Only affects
+  // connectedTownCount/connectedTownBonus, not the other per-structure
+  // network key lists above (Rail Depot/Garrison Hall/Granary/etc. are
+  // separate systems the plan didn't ask to re-gate).
+  caravanaryKeys: string[];
 };
 
 export type DockEconomyContext = {
@@ -268,6 +275,13 @@ export const buildConnectedTownNetworkForPlayer = (
     return tile ? hasSupportedStructure(player.id, tile, "LOGISTICS_GUILD", tiles, false, dormantEconomicStructureKeys) : false;
   };
 
+  // Caravanary — gates the connected-town road network itself (see
+  // connectedTownCount below), not just an amplifier on top of it.
+  const hasCaravanaryAt = (townKey: string): boolean => {
+    const tile = tiles.get(townKey);
+    return tile ? hasSupportedStructure(player.id, tile, "CARAVANARY", tiles, false, dormantEconomicStructureKeys) : false;
+  };
+
   // Step 1: direct town-to-town adjacency (8-neighbors that are both towns).
   // These are connected regardless of the corridor graph. O(towns) — each
   // town has at most 8 neighbors, so this step alone can never be quadratic.
@@ -318,7 +332,8 @@ export const buildConnectedTownNetworkForPlayer = (
       railDepotKeys: members.filter(hasRailDepotAt),
       granaryKeys: members.filter(hasGranaryAt),
       assemblyWorksKeys: members.filter(hasAssemblyWorksAt),
-      logisticsGuildKeys: members.filter(hasLogisticsGuildAt)
+      logisticsGuildKeys: members.filter(hasLogisticsGuildAt),
+      caravanaryKeys: members.filter(hasCaravanaryAt)
     };
     for (const townKey of members) {
       let list = groupsByTown.get(townKey);
@@ -459,9 +474,12 @@ export const buildConnectedTownNetworkForPlayer = (
     let logisticsGuildKeys: string[];
     let memberKeysForNames: string[] | undefined;
 
+    let networkHasCaravanary: boolean;
+
     if (direct.size === 0 && groups && groups.length === 1) {
       const group = groups[0]!;
       connectedTownCount = group.members.length - 1;
+      networkHasCaravanary = group.caravanaryKeys.length > 0;
       clearingHouseKeys = group.clearingHouseKeys.includes(townKey)
         ? group.clearingHouseKeys.filter((k) => k !== townKey)
         : group.clearingHouseKeys;
@@ -486,6 +504,7 @@ export const buildConnectedTownNetworkForPlayer = (
           : undefined;
     } else if (direct.size === 0 && (!groups || groups.length === 0)) {
       connectedTownCount = 0;
+      networkHasCaravanary = false;
       clearingHouseKeys = [];
       garrisonHallKeys = [];
       railDepotKeys = [];
@@ -501,6 +520,10 @@ export const buildConnectedTownNetworkForPlayer = (
         }
       }
       connectedTownCount = unionSet.size;
+      networkHasCaravanary =
+        hasCaravanaryAt(townKey) ||
+        [...direct].some(hasCaravanaryAt) ||
+        (groups ?? []).some((group) => group.caravanaryKeys.length > 0);
       const clearingHouseSet = new Set<string>();
       for (const key of direct) if (hasClearingHouseAt(key)) clearingHouseSet.add(key);
       for (const group of groups ?? []) {
@@ -559,7 +582,11 @@ export const buildConnectedTownNetworkForPlayer = (
 
     out.set(townKey, {
       connectedTownCount,
-      connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
+      // Caravanary redesign: connectedTownCount/connectedTownNames stay a
+      // pure geometric fact (used by tile-detail UI, visibility exports,
+      // etc.), but the actual gold bonus only flows if the road network has
+      // a Caravanary built somewhere in it.
+      connectedTownBonus: networkHasCaravanary ? connectedTownBonusForPlayer(connectedTownCount, player) : 0,
       ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
       ...(garrisonHallKeys.length ? { connectedGarrisonHallKeys: garrisonHallKeys } : {}),
       ...(railDepotKeys.length ? { connectedRailDepotKeys: railDepotKeys } : {}),

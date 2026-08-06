@@ -168,7 +168,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
-  if (kind === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
+  if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Caravanary.";
   if (kind === "FUR_SYNTHESIZER") return "Converts gold into 18 supply per day.";
   if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Converts gold into 21.6 supply per day.";
   if (kind === "IRONWORKS") return "Converts gold into 18 iron per day.";
@@ -323,7 +323,7 @@ export const structureInfoForKey = (
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
     if (key === "BANK") return ["+50% city income", "+1 flat city income"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
-    if (key === "CARAVANARY") return ["+25 percentage points to connected-town income bonus"];
+    if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
     if (key === "FUR_SYNTHESIZER") return ["Produces 18 supply per day"];
     if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Produces 21.6 supply per day"];
     if (key === "IRONWORKS") return ["Produces 18 iron per day"];
@@ -538,7 +538,7 @@ export const structureInfoForKey = (
   if (type === "CARAVANARY") {
     return structure({
       title: "Caravanary",
-      detail: "Caravanaries are built on a town support tile. They increase that town's connected-town income bonus by 25%.",
+      detail: "Caravanaries are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Caravanary.",
       glyph: "🐪",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

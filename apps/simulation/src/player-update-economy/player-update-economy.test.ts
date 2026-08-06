@@ -108,6 +108,17 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
           ownershipState: "SETTLED",
           town: { type: "MARKET", populationTier: "TOWN", name: "Two" }
         }
+      ],
+      [
+        "10,9",
+        {
+          x: 10,
+          y: 9,
+          terrain: "LAND",
+          ownerId: player.id,
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: player.id, type: "CARAVANARY", status: "active" }
+        }
       ]
     ]);
 
