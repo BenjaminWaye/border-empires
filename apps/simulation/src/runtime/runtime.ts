@@ -348,7 +348,7 @@ import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-mus
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
-import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus } from "../runtime-outpost-vision.js";
+import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -840,7 +840,7 @@ export class SimulationRuntime {
       // Seed town +1 vision for any player-owned town present at boot.
       seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
-      seedOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
+      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1270,6 +1270,13 @@ export class SimulationRuntime {
     }
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
+    // tickMuster/tickFortGarrison mutate many players' tiles via
+    // replaceTileState in tight per-tile loops without ever calling
+    // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
+    // this is the one place their share of markOutpostVisionDormancyDirty's
+    // pending entries actually gets resolved. One resync per dirty player,
+    // not per tile mutation.
+    this.flushAllOutpostVisionDormancyResyncs();
   }
 
   tickFortGarrison(nowMs: number = this.now()): void {
@@ -1593,6 +1600,69 @@ export class SimulationRuntime {
       if (tile) tiles.push(tile);
     }
     return tiles;
+  }
+
+  // Shared OutpostVisionCoverageDeps builder — every call site
+  // (seed/reconcile/resync) needs the same players/coverage/isStructureDormant/
+  // callbacks bundle; centralized so isStructureDormant's wiring can't drift
+  // between them.
+  private outpostVisionDeps(): OutpostVisionCoverageDeps {
+    return {
+      players: this.players,
+      coverage: this.visibilityCoverage,
+      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
+      callbacks: this.visionTransitions.callbacks
+    };
+  }
+
+  // §5.4: a resource tile gained or lost anywhere in `playerId`'s territory
+  // can push one of their outposts into or out of dormancy without that
+  // outpost's own tile changing at all, so reconcileOutpostVisionBonus (which
+  // only ever looks at the one tile that just mutated) can't catch it.
+  //
+  // Deliberately NOT resolved eagerly inside replaceTileState: dormancy comes
+  // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
+  // already deletes (for human players) on *every* settled-tile mutation of an
+  // owner, regardless of whether that mutation could plausibly touch a
+  // FOOD/IRON/CRYSTAL/SUPPLY total — including tickFortGarrison/tickMuster,
+  // which call replaceTileState in tight per-tile loops with no
+  // emitPlayerStateUpdate in between (the one place that would otherwise
+  // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
+  // call would turn one 30s garrison/muster tick into an O(mutated tiles ×
+  // settled tiles) dormancy-rebuild storm for any player who owns an outpost —
+  // exactly the class of O(territory)-per-tick cost tickTerritoryAutomation's
+  // own indexes were built to avoid. So replaceTileState only marks the owner
+  // dirty here (an O(1) Set add); the actual resync is flushed lazily, once
+  // per player, from emitPlayerStateUpdate (the command-driven path) and from
+  // the end of tickTerritoryAutomation (the tick-driven path) — see
+  // flushOutpostVisionDormancyResync.
+  private readonly outpostVisionDormancyDirtyPlayerIds = new Set<string>();
+
+  private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
+    if (!playerId) return;
+    const hasOutposts =
+      (this.activeLightOutpostsByOwner.get(playerId)?.size ?? 0) > 0 ||
+      (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
+    if (!hasOutposts) return;
+    this.outpostVisionDormancyDirtyPlayerIds.add(playerId);
+  }
+
+  // Resolves a pending dormancy-driven outpost-vision resync for one player,
+  // if one is pending. Cheap no-op when nothing was marked dirty for them.
+  private flushOutpostVisionDormancyResync(playerId: string | undefined): void {
+    if (!playerId || !this.outpostVisionDormancyDirtyPlayerIds.delete(playerId)) return;
+    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+  }
+
+  // Flushes every player left dirty at the end of a tick sweep (muster/fort
+  // garrison ticks mutate many players' tiles without ever calling
+  // emitPlayerStateUpdate themselves) — one resync per dirty player, not per
+  // tile mutation.
+  private flushAllOutpostVisionDormancyResyncs(): void {
+    if (this.outpostVisionDormancyDirtyPlayerIds.size === 0) return;
+    for (const playerId of [...this.outpostVisionDormancyDirtyPlayerIds]) {
+      this.flushOutpostVisionDormancyResync(playerId);
+    }
   }
 
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
@@ -1976,7 +2046,14 @@ export class SimulationRuntime {
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-    reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+    reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
+    // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
+    // slot totals (a resource tile gained/lost, a new demand consumer built)
+    // without touching any of their outposts directly — mark them dirty for
+    // a lazy resync (flushOutpostVisionDormancyResync's doc comment above
+    // explains why this can't just resync eagerly here).
+    this.markOutpostVisionDormancyDirty(previous?.ownerId);
+    if (tile.ownerId !== previous?.ownerId) this.markOutpostVisionDormancyDirty(tile.ownerId);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3139,6 +3216,12 @@ export class SimulationRuntime {
     } else {
       run();
     }
+    // Piggybacks on the dormancy rebuild emitPlayerStateUpdateImpl's own
+    // cachedEconomySnapshot call already just did (or will do, on whichever
+    // side reads it first) — see flushOutpostVisionDormancyResync's doc
+    // comment on markOutpostVisionDormancyDirty for why this is deferred
+    // here instead of resolved inside replaceTileState.
+    this.flushOutpostVisionDormancyResync(playerId);
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
@@ -3780,7 +3863,7 @@ export class SimulationRuntime {
         maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
         flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
         reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-        reconcileOutpostVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+        reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
       },
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3807,8 +3890,11 @@ export class SimulationRuntime {
         this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
         // A base-radius change also moves every owned town's +1 reveal ring.
         resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
-        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's ring.
-        resyncPlayerOutpostVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.ownedOutpostTilesForPlayer(playerId));
+        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
+        // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
+        // this also doubles as the dormancy resync for a slot-waiver change
+        // (§23.2) or a townFoodSlotDemandForTier bump (UPGRADE_TOWN_TIER).
+        resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
       },
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
