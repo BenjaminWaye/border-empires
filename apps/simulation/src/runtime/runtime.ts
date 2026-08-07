@@ -1094,9 +1094,9 @@ export class SimulationRuntime {
     return this.visionTransitions.take();
   }
 
-  wireDeltaForTileKey(tileKey: string): SimulationTileWireDelta | undefined {
+  wireDeltaForTileKey(tileKey: string, playerId?: string): SimulationTileWireDelta | undefined {
     const tile = this.tiles.get(tileKey);
-    return tile ? this.tileDeltaRevealOnly(tile) : undefined;
+    return tile ? this.tileDeltaRevealOnly(tile, playerId) : undefined;
   }
 
   async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
@@ -1471,7 +1471,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      tileDeltaRevealOnly: (tile) => this.tileDeltaRevealOnly(tile),
+      tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId),
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
@@ -4365,8 +4365,8 @@ export class SimulationRuntime {
     );
   }
 
-  private tileDeltaRevealOnly(tile: DomainTileState): SimulationTileWireDelta {
-    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache);
+  private tileDeltaRevealOnly(tile: DomainTileState, playerId?: string): SimulationTileWireDelta {
+    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.players.get(playerId) : undefined);
   }
 
   private collectTileYield(

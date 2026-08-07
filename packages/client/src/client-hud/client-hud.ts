@@ -64,8 +64,14 @@ type HudDeps = {
     upkeepPerMinute: ClientState["upkeepPerMinute"],
     strategicAnim: ClientState["strategicAnim"],
     rateToneClass: (value: number) => string,
-    resourceSlots?: ClientState["resourceSlots"]
+    resourceSlots?: ClientState["resourceSlots"],
+    isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean
   ) => string;
+  hasRevealedResourceCategory: (
+    category: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+    techIds: readonly string[],
+    techCatalog: readonly ClientState["techCatalog"][number][]
+  ) => boolean;
   formatCooldownShort: (ms: number) => string;
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
@@ -156,6 +162,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     formatGoldAmount,
     formatManpowerAmount,
     strategicRibbonHtml,
+    hasRevealedResourceCategory,
     formatCooldownShort,
     openEconomyPanel,
     setActivePanel,
@@ -315,7 +322,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       state.upkeepPerMinute,
       state.strategicAnim,
       rateToneClass,
-      state.resourceSlots
+      state.resourceSlots,
+      (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
     )}
   `;
   dom.collectVisibleDesktopBtn.disabled = !collectVisibleReady;

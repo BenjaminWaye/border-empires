@@ -19,6 +19,21 @@ const formatSignedPercent = (mult: number): string => {
   return `${pct >= 0 ? "+" : ""}${pct}%`;
 };
 
+// Mirrors the server's hasRevealedResourceForPlayer (apps/simulation/src/
+// tech-domain-bridge/tech-domain-bridge.ts) so the ribbon/economy detail
+// screen don't show a resource category the player hasn't earned yet. FOOD
+// is always visible, no tech required; the rest are revealed by whichever
+// tech in techCatalog has effects.revealResource matching the category.
+export const hasRevealedResourceCategory = (
+  category: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+  techIds: readonly string[],
+  techCatalog: readonly TechInfo[]
+): boolean => {
+  if (category === "FOOD") return true;
+  const target = category.toLowerCase();
+  return techCatalog.some((tech) => tech.effects?.revealResource === target && techIds.includes(tech.id));
+};
+
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";

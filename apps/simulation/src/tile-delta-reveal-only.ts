@@ -1,21 +1,25 @@
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { type TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import { overlayJsonFieldsFrom } from "./tile-delta-overlay-fields.js";
+import { hasRevealedResourceForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export const tileDeltaRevealOnly = (
   tile: DomainTileState,
-  cache: TileDeltaStringifyCache
+  cache: TileDeltaStringifyCache,
+  viewer?: Pick<DomainPlayer, "techIds">
 ): SimulationTileWireDelta => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = cache.getOrComputeAll(tileKey, tile);
+  const resourceValue = tile.resource;
+  const revealResource = Boolean(resourceValue && viewer && hasRevealedResourceForPlayer(viewer, resourceValue));
   const fullDelta: SimulationTileWireDelta = {
     x: tile.x,
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
-    ...(tile.resource ? { resource: tile.resource } : {}),
+    ...(revealResource && resourceValue ? { resource: resourceValue } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
