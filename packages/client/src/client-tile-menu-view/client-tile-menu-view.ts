@@ -14,6 +14,7 @@ import {
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
+import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
@@ -22,8 +23,6 @@ import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMen
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
-const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
-  ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
 const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +5 gold/day.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, boosts Bank's flat income from +5 to +7.5 gold/day.` : undefined; };
 
@@ -122,14 +121,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
   }
-  if (actionId === "build_fur_synthesizer") return "Provides 1 Supply slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Supply tile.";
-  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Supply slot.";
-  if (actionId === "build_ironworks") return "Provides 1 Iron slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Iron tile.";
-  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Iron slot.";
-  if (actionId === "build_crystal_synthesizer") return "Provides 1 Crystal slot on this support tile — hard-capped at 1, never upgradeable — for 40 gold/day upkeep. Gives a landlocked empire access without a real Crystal tile.";
-  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
-  if (actionId === "enable_converter_structure") return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
-  if (actionId === "disable_converter_structure") return "Disable this structure. It stops occupying resource slots, stops paying upkeep, and stops providing bonuses until you enable it again.";
+  // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
+  if (actionId === "build_fur_synthesizer") return "Occupies 1 Supply slot on this support tile. Refine (default): 30 gold/day upkeep for 18 supply/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
+  if (actionId === "build_ironworks") return "Occupies 1 Iron slot on this support tile. Refine (default): 30 gold/day upkeep for 18 iron/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
+  if (actionId === "build_crystal_synthesizer") return "Occupies 1 Crystal slot on this support tile. Refine (default): 40 gold/day upkeep for 12 crystal/day. Can be flipped to Sell off later: 10 gold/day from the slot instead.";
+  if (actionId === "upgrade_fur_synthesizer" || actionId === "upgrade_ironworks" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode")
+    return converterStructureDetailText(actionId, tile);
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
   if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";
@@ -561,9 +558,11 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "removing") {
       pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
     }
-    if (isSynthLikeStructureType(tile.economicStructure.type)) {
+    if (isConverterStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
-        pushLine("Structure is active and currently contributing output and upkeep.");
+        pushLine(converterModeStatusLine(tile));
+        const lockLine = converterModeLockLine(tile);
+        if (lockLine) pushLine(lockLine);
       } else if (structureRecentlyCaptured) {
         pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
       } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {

@@ -116,6 +116,21 @@ export const IRONWORKS_GOLD_UPKEEP_PER_DAY = 30;
 export const ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY = 45;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 40;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
+
+// Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
+export const CONVERTER_MODE_FLIP_COOLDOWN_MS = 60 * 60_000;
+// converter-mode-flip plan §Phase 4 (locked rates): flat gold/day per slot
+// consumed by an EXCHANGE-mode converter. Advanced tiers pay 1.5x, mirroring
+// "an upgraded building never costs less to run than the thing it upgrades."
+// Basic: IRON/SUPPLY 8, CRYSTAL 10. Advanced: IRON/SUPPLY 12, CRYSTAL 15.
+export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
+  FUR_SYNTHESIZER: 8,
+  ADVANCED_FUR_SYNTHESIZER: 12,
+  IRONWORKS: 8,
+  ADVANCED_IRONWORKS: 12,
+  CRYSTAL_SYNTHESIZER: 10,
+  ADVANCED_CRYSTAL_SYNTHESIZER: 15
+} as const;
 // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
 // building-level cost is now the permanent slot it occupies
 // (structure-slots.ts) — the separate per-minute flow drain these three

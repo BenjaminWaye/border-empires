@@ -24,6 +24,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
+  handleSetConverterStructureModeCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
   handleSurveySweepCommand: (command: CommandEnvelope) => void;
@@ -80,6 +81,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
+  if (command.type === "SET_CONVERTER_STRUCTURE_MODE") return handlers.handleSetConverterStructureModeCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
@@ -135,6 +137,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
+  command.type === "SET_CONVERTER_STRUCTURE_MODE" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||
   command.type === "SURVEY_SWEEP" ||

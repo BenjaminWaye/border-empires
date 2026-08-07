@@ -142,6 +142,21 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.SUPPLY).toBe(0);
     expect(totals.FOOD).toBe(0);
   });
+
+  it("an EXCHANGE-mode synthesizer grants no supply slot (it sells its slot off instead)", () => {
+    const totals = resourceSlotSupplyForPlayer([
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FUR_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } }),
+      tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE" } })
+    ]);
+    expect(totals).toEqual({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+  });
+
+  it("an EXCHANGE-mode Advanced synthesizer also grants no supply slot", () => {
+    const totals = resourceSlotSupplyForPlayer([
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ADVANCED_FUR_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } })
+    ]);
+    expect(totals.SUPPLY).toBe(0);
+  });
 });
 
 describe("resourceSlotDemandForPlayer", () => {
@@ -264,6 +279,28 @@ describe("resourceSlotDemandForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
   });
 
+  it("an EXCHANGE-mode synthesizer consumes 1 slot of its family resource", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        { economicStructure: { ownerId: "p1", type: "FUR_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState,
+        { economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState,
+        { economicStructure: { ownerId: "p1", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals).toEqual({ FOOD: 0, IRON: 1, CRYSTAL: 1, SUPPLY: 1 });
+  });
+
+  it("a SYNTHESIZE-mode synthesizer contributes zero demand even with the mode field set", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        { economicStructure: { ownerId: "p1", type: "FUR_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" } } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    expect(totals.SUPPLY).toBe(0);
+  });
+
   it("sums observatory and siege outpost demand alongside fort/economic demand", () => {
     const totals = resourceSlotDemandForPlayer(
       [
@@ -336,6 +373,23 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
   it("skips synthesizers entirely (they provide supply, never consume it, so never go dormant)", () => {
     const tiles = [
       tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", activatedAt: 100 } })
+    ];
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect(dormancy.IRON.size).toBe(0);
+  });
+
+  it("an EXCHANGE-mode synthesizer consumes a slot, so it goes dormant when that slot's supply is short", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", activatedAt: 100, converterMode: "EXCHANGE" } })
+    ];
+    // EXCHANGE IRONWORKS demands 1 IRON but supply is 0 -> dormant on IRON.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+    expect([...dormancy.IRON]).toEqual(["0,0:economicStructure"]);
+  });
+
+  it("a SYNTHESIZE-mode synthesizer never goes dormant even when its resource supply is short", () => {
+    const tiles = [
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "IRONWORKS", status: "active", activatedAt: 100, converterMode: "SYNTHESIZE" } })
     ];
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
     expect(dormancy.IRON.size).toBe(0);

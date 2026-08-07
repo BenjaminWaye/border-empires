@@ -196,7 +196,7 @@ export type Tile = {
     completesAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
-    powered?: boolean; bombardCooldownUntil?: number;
+    converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
@@ -645,7 +645,7 @@ export type TileActionDef = {
     | "build_light_outpost"
     | "build_light_outpost_frontier"
     | "enable_converter_structure"
-    | "disable_converter_structure"
+    | "disable_converter_structure" | "set_converter_structure_mode"
     | "muster_hold"
     | "muster_advance"
     | "muster_clear"
