@@ -43,6 +43,16 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
     const hillField = macro * 0.65 + micro * 0.35;
     const hillThreshold = regionTypeAt(wx, wy) === "BROKEN_HIGHLANDS" ? 0.42 : 0.86;
     isHills = hillField > hillThreshold;
+
+    // Broken Highlands' low threshold otherwise reads as a solid, unbroken
+    // slab of hills for dozens of tiles at a stretch. A finer, independent
+    // noise layer punches a handful of small flat clearings into any hilly
+    // stretch so it isn't monolithic — same idea as hillField but on a much
+    // shorter wavelength and only ever removing hills, never adding them.
+    if (isHills) {
+      const clearing = valueNoise(wx - 173, wy + 269, 10, seed + 831);
+      if (clearing > 0.9) isHills = false;
+    }
   }
   hillsCache[idx] = isHills ? 1 : 0;
   hillsCacheReady[idx] = 1;
