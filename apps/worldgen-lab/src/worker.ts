@@ -7,14 +7,20 @@ import {
   landBiomeAt,
   regionTypeAt,
   grassShadeAt,
+  isHillsTileAt,
+  wrapX,
+  wrapY,
   type WorldStyle,
   type NaturalWonderType,
   type Dock,
   type TileKey
 } from "@border-empires/shared";
 import {
+  createServerWorldgenClusters,
   createServerWorldgenNaturalWonders,
+  createServerWorldgenTerrain,
   key as tileKeyOf,
+  parseKey,
   type ClusterDefinition,
   type NaturalWonderSiteState,
   type TownDefinition
@@ -36,7 +42,8 @@ export type WorkerResponse = {
   biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 255=N/A
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
-  resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH (highest-priority resource per tile)
+  hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)
+  resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
   dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
   wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
@@ -49,11 +56,12 @@ export type WorkerResponse = {
   maxLandY: number;         // bottommost row containing any LAND tile
   townCount: number;        // estimated town placements
   dockCount: number;        // 1 per significant island + 1 extra per island ≥250 tiles
-  farmSites: number;        // eligible FARM resource tiles
-  fishSites: number;        // eligible FISH resource tiles
-  gemsSites: number;        // eligible GEMS resource tiles
-  ironSites: number;        // eligible IRON resource tiles
-  furSites: number;         // eligible FUR resource tiles
+  hillsCount: number;       // land tiles flagged as hills
+  farmSites: number;        // placed FARM resource tiles
+  fishSites: number;        // placed FISH resource tiles
+  gemsSites: number;        // placed GEMS resource tiles
+  ironSites: number;        // placed IRON resource tiles
+  furSites: number;         // placed FUR resource tiles
   durationMs: number;
 };
 
@@ -133,53 +141,88 @@ const isIslandsWorldValid = (significant: number, largestShare: number): boolean
   significant <= ISLANDS_MAX &&
   largestShare <= ISLANDS_MAX_LARGEST_SHARE;
 
-// Manhattan-distance mountain scan matching game-domain isNearMountain
-const isNearMountainLocal = (x: number, y: number, r: number, terrain: Uint8Array): boolean => {
-  for (let dy = -r; dy <= r; dy++) {
-    for (let dx = -r; dx <= r; dx++) {
-      if (Math.abs(dx) + Math.abs(dy) > r) continue;
-      const nx = (x + dx + WORLD_WIDTH) % WORLD_WIDTH;
-      const ny = (y + dy + WORLD_HEIGHT) % WORLD_HEIGHT;
-      if (terrain[ny * WORLD_WIDTH + nx] === 2) return true;
-    }
-  }
-  return false;
-};
-
-// 4-directional coastal check (SEA=0 or COASTAL_SEA=3)
-const isCoastalLandLocal = (x: number, y: number, terrain: Uint8Array): boolean => {
-  const u = terrain[((y - 1 + WORLD_HEIGHT) % WORLD_HEIGHT) * WORLD_WIDTH + x]!;
-  const r = terrain[y * WORLD_WIDTH + ((x + 1) % WORLD_WIDTH)]!;
-  const d = terrain[((y + 1) % WORLD_HEIGHT) * WORLD_WIDTH + x]!;
-  const l = terrain[y * WORLD_WIDTH + ((x - 1 + WORLD_WIDTH) % WORLD_WIDTH)]!;
-  return u === 0 || u === 3 || r === 0 || r === 3 || d === 0 || d === 3 || l === 0 || l === 3;
-};
-
 type ResourceCounts = { fish: number; iron: number; gems: number; farm: number; fur: number; layer: Uint8Array };
 
-const countResourceSites = (terrain: Uint8Array, biome: Uint8Array, shade: Uint8Array, region: Uint8Array): ResourceCounts => {
+// Runs the real production cluster placement (server-worldgen-clusters.ts /
+// server-worldgen-terrain.ts) against the world state setWorldSeed() just
+// established, rather than re-deriving a biome-eligibility heatmap here —
+// so cluster sizes, counts, and the hills-sparse FUR/GEMS pass all show up
+// exactly as they would in a real game. Most of ServerWorldgenTerrainDeps
+// is unrelated to cluster placement (frontier claims, dock/fort/observatory
+// economy) and is stubbed out the same way apps/simulation's
+// season-seed-world.ts stubs it for its own test/lab worlds.
+const placeResourceClusters = (seed: number): ResourceCounts => {
+  const clusterByTile = new Map<TileKey, string>();
+  const clustersById = new Map<string, ClusterDefinition>();
+  const terrainRuntime = createServerWorldgenTerrain({
+    wrapX,
+    wrapY,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainShapesByTile: new Map(),
+    key: tileKeyOf,
+    terrainAt,
+    PLAYER_MOUNTAIN_DENSITY_RADIUS: 1,
+    PLAYER_MOUNTAIN_DENSITY_LIMIT: 1,
+    players: new Map(),
+    parseKey,
+    chebyshevDistance: () => 0,
+    regionTypeAt,
+    clusterByTile,
+    landBiomeAt,
+    grassShadeAt,
+    FRONTIER_CLAIM_MS: 0,
+    // Unused by cluster placement — stubbed only to satisfy the shared deps type.
+    townsByTile: new Map(),
+    docksByTile: new Map(),
+    fortsByTile: new Map(),
+    siegeOutpostsByTile: new Map(),
+    observatoriesByTile: new Map(),
+    economicStructuresByTile: new Map(),
+    playerTile: () => ({ x: 0, y: 0, terrain: "SEA", lastChangedAt: 0 }),
+    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
+    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
+    activeSeason: { worldSeed: seed },
+    clustersById,
+    ownership: new Map(),
+    getOrInitResourceCounts: () => ({} as never),
+    rebuildEconomyIndexForPlayer: () => {},
+    sendPlayerUpdate: () => {},
+    sendVisibleTileDeltaAt: () => {}
+  });
+
+  const clustersRuntime = createServerWorldgenClusters({
+    clusterByTile,
+    clustersById,
+    clusterTypeDefs: terrainRuntime.clusterTypeDefs,
+    seeded01: terrainRuntime.seeded01,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    clusterRuleMatch: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, false),
+    clusterRuleMatchRelaxed: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, true),
+    clusterTileCountForResource: terrainRuntime.clusterTileCountForResource,
+    collectClusterTiles: terrainRuntime.collectClusterTiles,
+    collectClusterTilesRelaxed: terrainRuntime.collectClusterTilesRelaxed,
+    clusterRadiusForResource: terrainRuntime.clusterRadiusForResource,
+    key: tileKeyOf,
+    clusterResourceType: terrainRuntime.clusterResourceType
+  });
+  clustersRuntime.generateClusters(seed);
+
   let fish = 0, iron = 0, gems = 0, farm = 0, fur = 0;
   const layer = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
-  for (let y = 0; y < WORLD_HEIGHT; y++) {
-    for (let x = 0; x < WORLD_WIDTH; x++) {
-      const idx = y * WORLD_WIDTH + x;
-      if (terrain[idx] !== 1) continue;
-      const b = biome[idx]!;
-      const s = shade[idx]!;
-      const r = region[idx]!;
-      const isFish = b === 2;
-      const isIron = (b === 1 && isNearMountainLocal(x, y, 4, terrain)) || (b === 0 && isNearMountainLocal(x, y, 1, terrain));
-      const isGems = b === 1;
-      const isFarm = b === 0 && s === 1;
-      const isFur = !isCoastalLandLocal(x, y, terrain) && ((b === 0 && s === 0 && r === 1) || b === 1);
-      if (isFish) fish++;
-      if (isIron) iron++;
-      if (isGems) gems++;
-      if (isFarm) farm++;
-      if (isFur) fur++;
-      // Display priority: FISH > IRON > GEMS > FARM > FUR
-      layer[idx] = isFish ? 5 : isIron ? 4 : isGems ? 3 : isFarm ? 2 : isFur ? 1 : 0;
-    }
+  for (const [tileKey, clusterId] of clusterByTile) {
+    const resourceType = clustersById.get(clusterId)?.resourceType;
+    if (!resourceType) continue;
+    const [x, y] = parseKey(tileKey);
+    // Display priority: FISH > IRON > GEMS > FARM > FUR
+    const code = resourceType === "FISH" ? 5 : resourceType === "IRON" ? 4 : resourceType === "GEMS" ? 3 : resourceType === "FARM" ? 2 : resourceType === "FUR" ? 1 : 0;
+    layer[y * WORLD_WIDTH + x] = code;
+    if (resourceType === "FISH") fish++;
+    else if (resourceType === "IRON") iron++;
+    else if (resourceType === "GEMS") gems++;
+    else if (resourceType === "FARM") farm++;
+    else if (resourceType === "FUR") fur++;
   }
   return { fish, iron, gems, farm, fur, layer };
 };
@@ -287,9 +330,9 @@ const placeNaturalWonders = (
   });
 };
 
-const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
+const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array, hills: Uint8Array): { land: number; sea: number; mountain: number; hillsCount: number } => {
   setWorldSeed(seed, style);
-  let land = 0, sea = 0, mountain = 0;
+  let land = 0, sea = 0, mountain = 0, hillsCount = 0;
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let x = 0; x < WORLD_WIDTH; x++) {
@@ -313,6 +356,11 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
         else region[idx] = 0;
 
         shade[idx] = grassShadeAt(x, y) === "LIGHT" ? 1 : 0;
+
+        if (isHillsTileAt(x, y)) {
+          hills[idx] = 1;
+          hillsCount++;
+        }
       } else if (t === "MOUNTAIN") {
         terrain[idx] = 2;
         mountain++;
@@ -326,7 +374,7 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
     }
   }
 
-  return { land, sea, mountain };
+  return { land, sea, mountain, hillsCount };
 };
 
 self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
@@ -338,12 +386,13 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const biome = new Uint8Array(size).fill(255);
   const region = new Uint8Array(size).fill(255);
   const shade = new Uint8Array(size).fill(255);
+  const hills = new Uint8Array(size);
 
   let currentSeed = seed;
   let attempts = 1;
   // Islands mode uses its own generation function (many small blobs) — no seed refinement needed.
   // Continents mode refines the seed until island-count criteria are met (legacy behaviour kept).
-  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade);
+  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade, hills);
 
   if (mapStyle === "continents") {
     const { significant, largestShare } = countIslands(terrain);
@@ -354,7 +403,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
         biome.fill(255);
         region.fill(255);
         shade.fill(255);
-        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade);
+        hills.fill(0);
+        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade, hills);
         const next = countIslands(terrain);
         attempts++;
         if (isIslandsWorldValid(next.significant, next.largestShare)) {
@@ -369,7 +419,10 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   }
 
   const { significant: islandCount, largestShare, dockCount, dockSiteIndices } = countIslands(terrain);
-  const resources = countResourceSites(terrain, biome, shade, region);
+  // setWorldSeed(currentSeed, ...) is still in effect from the terrain generation
+  // above (generateTerrain's last call used currentSeed), so real cluster
+  // placement below reads the same world the rendered terrain/biome grids came from.
+  const resources = placeResourceClusters(currentSeed);
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
   const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
 
@@ -396,6 +449,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     biome,
     region,
     shade,
+    hills,
     resourceLayer: resources.layer,
     townIndices,
     dockSiteIndices,
@@ -409,6 +463,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     maxLandY,
     townCount,
     dockCount,
+    hillsCount: counts.hillsCount,
     farmSites: resources.farm,
     fishSites: resources.fish,
     gemsSites: resources.gems,
@@ -418,7 +473,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   };
 
   self.postMessage(response, [
-    terrain.buffer, biome.buffer, region.buffer, shade.buffer,
+    terrain.buffer, biome.buffer, region.buffer, shade.buffer, hills.buffer,
     resources.layer.buffer, townIndices.buffer, dockSiteIndices.buffer
   ]);
 };

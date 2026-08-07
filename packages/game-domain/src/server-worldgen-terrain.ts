@@ -277,15 +277,24 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     return out.length >= count ? out.slice(0, count) : [];
   };
 
+  // Desert/sand FUR deposits are deliberately thin — 1 or 2 scattered pelts
+  // rather than a proper cluster — while forest FUR (the fallback 8/3 case
+  // below) stays large. IRON and GEMS are both trimmed by the same 2-tile
+  // cut so the total resource footprint comes down alongside FUR without
+  // singling either out.
   const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
-    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 4;
-    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 4;
+    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, 4242) < 0.5 ? 1 : 2;
+    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
+    if (resource === "IRON") return 6;
+    if (resource === "GEMS") return 5;
     return 8;
   };
 
   const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
-    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 2;
-    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
+    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 1;
+    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 1;
+    if (resource === "IRON") return 2;
+    if (resource === "GEMS") return 2;
     return 3;
   };
 
