@@ -416,4 +416,44 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).not.toContain("LIGHT_OUTPOST · 4");
     expect(html).not.toContain("-576.0/day");
   });
+
+  // Regression coverage for a real bug: the economy panel showed the IRON/
+  // CRYSTAL/SUPPLY summary cards and detail breakdowns unconditionally,
+  // revealing those resource categories exist before the player has
+  // researched the tech that reveals them server-side (same bug already
+  // fixed for the toolbar ribbon in client-panel-html.ts).
+  it("hides IRON/CRYSTAL/SUPPLY summary cards and detail sections when not revealed", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "ALL",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown: emptyEconomyBreakdown(),
+      isMobile: false,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type,
+      isRevealed: (key) => key === "FOOD"
+    });
+
+    expect(html).toContain("data-economy-focus=\"GOLD\"");
+    expect(html).toContain("data-economy-focus=\"FOOD\"");
+    expect(html).not.toContain("data-economy-focus=\"IRON\"");
+    expect(html).not.toContain("data-economy-focus=\"CRYSTAL\"");
+    expect(html).not.toContain("data-economy-focus=\"SUPPLY\"");
+  });
 });

@@ -41,6 +41,11 @@ type EconomyPanelArgs = {
   economicStructureName: (type: EconomicStructureType) => string;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
+  // Same reveal gate as the toolbar ribbon (client-panel-html.ts's
+  // strategicRibbonHtml): IRON/CRYSTAL/SUPPLY must stay hidden here too
+  // until the viewing player has researched the tech that reveals them.
+  // GOLD/FOOD are never gated by this.
+  isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean;
 };
 
 const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
@@ -298,12 +303,17 @@ const economyBucketAmountLabel = (
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
-  const visibleResources = args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus];
+  const isResourceRevealed = (resource: EconomyResource): boolean =>
+    resource === "GOLD" || !args.isRevealed || args.isRevealed(resource);
+  const revealedResources = resources.filter(isResourceRevealed);
+  const visibleResources = (
+    args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus]
+  ).filter(isResourceRevealed);
   const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconForKey);
   return `
     <div class="economy-panel">
       <div class="economy-summary-grid">
-        ${resources.map((resource) => economySummaryCardHtml(args, resource, resource === args.focus)).join("")}
+        ${revealedResources.map((resource) => economySummaryCardHtml(args, resource, resource === args.focus)).join("")}
       </div>
       ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
       ${visibleResources
