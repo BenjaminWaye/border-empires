@@ -3560,7 +3560,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("builds a market through the rewrite simulation path and places it on a supported town tile", async () => {
+  it("builds a market through the rewrite simulation path directly on the targeted tile", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3614,14 +3614,14 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().tiles).toContainEqual(
         expect.objectContaining({
           x: 16,
-          y: 17,
+          y: 16,
           economicStructureJson: expect.any(String)
         })
       );
 
       vi.advanceTimersByTime(structureBuildDurationMs("MARKET"));
 
-      const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
+      const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
       expect(exported?.economicStructureJson).toContain("\"type\":\"MARKET\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
     } finally {
@@ -3630,12 +3630,16 @@ describe("simulation runtime", () => {
   });
 
   it("rejects duplicate support structures submitted directly on another support tile", async () => {
+    // MARKET moved to same-tile/uncapped placement in the tech-tree redesign
+    // (per-town cap removed), so it no longer exercises the town_support
+    // one-per-town rule this test covers -- CENSUS_HALL is still
+    // town_support and needs no tech, so it stands in as the exemplar here.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
+          buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(), strategicResources: {} })
         ]
       ]),
       initialState: {
@@ -3654,7 +3658,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "MARKET", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "CENSUS_HALL", status: "active" }
           },
           {
             x: 17,
@@ -3673,17 +3677,17 @@ describe("simulation runtime", () => {
     });
 
     runtime.submitCommand({
-      commandId: "market-duplicate-support-1",
+      commandId: "census-hall-duplicate-support-1",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 17, y: 16, structureType: "MARKET" })
+      payloadJson: JSON.stringify({ x: 17, y: 16, structureType: "CENSUS_HALL" })
     });
 
     await Promise.resolve();
-    expect(events).toEqual([{ code: "BUILD_INVALID", message: "town already has market" }]);
+    expect(events).toEqual([{ code: "BUILD_INVALID", message: "town already has census hall" }]);
     const duplicateTarget = runtime.exportState().tiles.find((tile) => tile.x === 17 && tile.y === 16);
     expect(duplicateTarget?.economicStructureJson).toBeUndefined();
   });
@@ -3716,8 +3720,8 @@ describe("simulation runtime", () => {
             { x: 11, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-            // Ancillary Factory is a town-support building — must sit on a
-            // support tile adjacent to the town, not on the town tile itself.
+            // Ancillary Factory (same-tile, uncapped per town) — targets this
+            // support tile directly, adjacent to the town but not on it.
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -6735,6 +6739,82 @@ describe("simulation runtime", () => {
 
     expect(baselineAtkEff).toBe(10);
     expect(boostedAtkEff).toBeCloseTo(12.5, 6);
+  });
+
+  it("threads owned Weapons Workshop count into resolved combat atkEff and defEff", async () => {
+    // End-to-end smoke test: confirms the runtime wires
+    // ownedStructureCountForPlayer("WEAPONS_WORKSHOP") into
+    // resolveAttackCombat's combatModifiers on both the attacker (atkMult)
+    // and defender (defMult) side. The mult math itself is covered
+    // exhaustively in frontier-combat.test.ts.
+    const buildRuntime = (attackerWorkshops: number, defenderWorkshops: number): SimulationRuntime => {
+      const workshopTile = (x: number, y: number, ownerId: string) => ({
+        x,
+        y,
+        terrain: "LAND" as const,
+        ownerId,
+        ownershipState: "SETTLED" as const,
+        economicStructure: { ownerId, type: "WEAPONS_WORKSHOP" as const, status: "active" as const }
+      });
+      const tiles = [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND" as const,
+          ownerId: "player-1",
+          ownershipState: "FRONTIER" as const,
+          muster: { ownerId: "player-1", amount: 999, mode: "HOLD" as const, updatedAt: 0 }
+        },
+        {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "player-2",
+          ownershipState: "SETTLED" as const,
+          town: { name: "Target", type: "FARMING" as const, populationTier: "SETTLEMENT" as const }
+        }
+      ];
+      for (let i = 0; i < attackerWorkshops; i += 1) tiles.push(workshopTile(20 + i, 10, "player-1"));
+      for (let i = 0; i < defenderWorkshops; i += 1) tiles.push(workshopTile(30 + i, 10, "player-2"));
+      return new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", buildPlayer("player-1", { manpower: 5_000 })],
+          ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
+        ]),
+        seedTiles: new Map(),
+        initialState: { tiles, activeLocks: [] }
+      });
+    };
+
+    const captureCombatResult = async (runtime: SimulationRuntime): Promise<{ atkEff: number; defEff: number } | undefined> => {
+      const seen = collectEvents(runtime);
+      runtime.submitCommand({
+        commandId: "atk-workshop-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      const accepted = seen.find(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+          event.eventType === "COMMAND_ACCEPTED"
+      );
+      return accepted?.combatResult ? { atkEff: accepted.combatResult.atkEff, defEff: accepted.combatResult.defEff } : undefined;
+    };
+
+    const baseline = await captureCombatResult(buildRuntime(0, 0));
+    const attackerBoosted = await captureCombatResult(buildRuntime(2, 0));
+    const defenderBoosted = await captureCombatResult(buildRuntime(0, 3));
+
+    expect(baseline?.atkEff).toBe(10);
+    // 2 owned Weapons Workshops: +3%/each -> 1.06x
+    expect(attackerBoosted?.atkEff).toBeCloseTo(10 * 1.06, 6);
+    // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops -> +9%
+    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.09, 6);
   });
 
   describe("barbarian walk vs multiply", () => {

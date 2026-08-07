@@ -1525,6 +1525,27 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
+      if (buildShowsOnTile("WEAPONS_WORKSHOP", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_weapons_workshop",
+          label: "Build Weapons Workshop",
+          detail: deps.buildDetailTextForAction("build_weapons_workshop", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "WEAPONS_WORKSHOP",
+              state.techIds.includes("weapons-forging") && hasFreeResourceSlots(state, "WEAPONS_WORKSHOP") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("weapons-forging")
+                ? "Requires Weapons Forging"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "WEAPONS_WORKSHOP") ?? "Unavailable",
+              `${deps.structureCostText("WEAPONS_WORKSHOP")} • ${Math.round(economicStructureBuildMs("WEAPONS_WORKSHOP") / 60000)}m • +3% empire-wide attack and defense per copy • no per-town limit`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
     }
     if (
       buildShowsOnTile("LIGHT_OUTPOST", tile, supportedTowns.length, supportedDocks.length) &&
@@ -1655,7 +1676,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     if (townBuildSource) {
-      const townHasMarket = Boolean(townBuildSource.town?.hasMarket) || deps.townHasSupportStructure(townBuildSource, "MARKET");
+      // Market moved to same-tile/uncapped placement in the tech-tree
+      // redesign (per-town cap removed, specialization is the point) — no
+      // townHasMarket gate anymore, unlike the other town-support structures
+      // below that still cap at one per town.
       const townHasGranary = Boolean(townBuildSource.town?.hasGranary) || deps.townHasSupportStructure(townBuildSource, "GRANARY");
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
       const townHasBank = Boolean(townBuildSource.town?.hasBank) || deps.townHasSupportStructure(townBuildSource, "BANK");
@@ -1689,14 +1713,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "MARKET",
-            !supportPlacementBlocked && !townHasMarket && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MARKET"),
+            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MARKET"),
             supportPlacementBlocked
               ? "Tile already has structure"
-              : townHasMarket
-                ? "Nearby town already has Market"
-                : !state.techIds.includes("trade")
-                  ? "Requires Merchant Charters"
-                  : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
+              : !state.techIds.includes("trade")
+                ? "Requires Merchant Charters"
+                : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
             `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
           ),
           slots,

@@ -6,10 +6,13 @@ import {
   BREAKTHROUGH_DURATION_MS,
   rollFrontierCombat,
   targetOutpostMult,
+  WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
+  WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   wrapX,
   wrapY,
+  type BuildableStructureType,
   type FrontierCombatPreview,
   type OutpostPosition
 } from "@border-empires/shared";
@@ -38,6 +41,7 @@ export type RuntimeCombatSupportContext = {
   // Outpost/Wooden Fort doesn't grant its combat bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure") => boolean;
   manpowerLossByTileKey: Map<string, number>;
+  ownedStructureCountForPlayer: (playerId: string, structureType: BuildableStructureType) => number;
 };
 
 export type LockedCombatInput = Pick<
@@ -248,6 +252,16 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   attackerWon: true
 };
 
+// Weapons Workshop's combat bonus is a flat mult per owned copy, uncapped —
+// consistent with it being uncapped to build (config.ts). Reads the
+// incrementally-maintained ownedStructureCountForPlayer index rather than
+// scanning tiles, so this is cheap to call on every ATTACK resolution.
+const weaponsWorkshopAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
+  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING : 1;
+
+const weaponsWorkshopDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
+  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING : 1;
+
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
   lock: LockedCombatInput,
@@ -274,7 +288,9 @@ const resolveAttackCombat = (
     fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
     fortGarrison: targetHasActiveFort ? (previousTarget?.fort?.garrison ?? 0) : undefined,
     fortGarrisonCap: targetHasActiveFort ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
-    nowMs: ctx.now()
+    nowMs: ctx.now(),
+    weaponsWorkshopAttackMult: weaponsWorkshopAttackMultForPlayer(ctx, lock.playerId),
+    weaponsWorkshopDefenseMult: weaponsWorkshopDefenseMultForPlayer(ctx, defenderOwnerId)
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {

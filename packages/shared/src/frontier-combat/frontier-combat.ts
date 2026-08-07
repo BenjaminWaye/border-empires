@@ -38,6 +38,12 @@ export type FrontierCombatModifiers = {
   fortGarrisonCap?: number | undefined;
   // Breakthrough momentum: current timestamp for breach-window check.
   nowMs?: number | undefined;
+  // Weapons Workshop: an empire-wide attack/defense multiplier derived from
+  // how many the attacker/defender owns (WEAPONS_WORKSHOP_*_MULT_PER_BUILDING
+  // in config.ts). Attacker's mult feeds atkMult, defender's feeds defMult —
+  // each side only ever supplies its own side's field.
+  weaponsWorkshopAttackMult?: number | undefined;
+  weaponsWorkshopDefenseMult?: number | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -74,6 +80,7 @@ const defenseMultiplierForTile = (
   if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
     defMult *= BREAKTHROUGH_DEBUFF_MULT;
   }
+  if (modifiers.weaponsWorkshopDefenseMult != null) defMult *= modifiers.weaponsWorkshopDefenseMult;
   return defMult;
 };
 
@@ -82,6 +89,7 @@ const buildFrontierCombatPreviewImpl = (
   modifiers: FrontierCombatModifiers = {}
 ): FrontierCombatPreview => {
   let atkMult = modifiers.attackerOutpostMult ?? 1;
+  if (modifiers.weaponsWorkshopAttackMult != null) atkMult *= modifiers.weaponsWorkshopAttackMult;
   if (modifiers.dockAttackMult != null) atkMult *= modifiers.dockAttackMult;
   if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
   if (target.fortVariant) atkMult *= modifiers.attackVsFortsMult ?? 1;

@@ -91,6 +91,12 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   EXCHANGE_HOUSE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
+  // War branch — Weapons Workshop consumes both IRON and SUPPLY (per user
+  // decision) since it converts both into a combat-strength boost. Uncapped
+  // per town (placementMode "same_tile") so each copy's slot cost is real
+  // and scales with how many a player builds.
+  WEAPONS_WORKSHOP: [{ resource: "IRON", count: 1 }, { resource: "SUPPLY", count: 1 }],
+
   // Manpower branch — new buildings
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
   LOGISTICS_GUILD: [{ resource: "FOOD", count: 1 }],
