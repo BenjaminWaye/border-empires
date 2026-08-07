@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { SETTLE_COST, SETTLE_MANPOWER_COST, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST, grassShadeAt, isHillsTileAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
@@ -32,15 +32,22 @@ export const refundSettleCost = (actor: SettleActorLike, goldCost: number, manpo
 
 export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;
-export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
+// Hills are mutually exclusive with forest (see isHillsTileAt), so this never
+// stacks with FOREST_SETTLEMENT_MULT — both terrains independently double
+// settle time, matching the EXPAND-side forest/hills treatment.
+export const HILLS_SETTLEMENT_MULT = 2;
+export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * Math.max(FOREST_SETTLEMENT_MULT, HILLS_SETTLEMENT_MULT);
 
 const isForestSettlementTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" &&
   landBiomeAt(x, y) === "GRASS" &&
   grassShadeAt(x, y) === "DARK";
 
-export const settlementBaseDurationMsForTile = (tile: Pick<DomainTileState, "x" | "y">): number =>
-  isForestSettlementTile(tile.x, tile.y) ? SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT : SETTLE_DURATION_MS;
+export const settlementBaseDurationMsForTile = (tile: Pick<DomainTileState, "x" | "y">): number => {
+  if (isForestSettlementTile(tile.x, tile.y)) return SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
+  if (isHillsTileAt(tile.x, tile.y)) return SETTLE_DURATION_MS * HILLS_SETTLEMENT_MULT;
+  return SETTLE_DURATION_MS;
+};
 
 export const settlementDurationMsForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,

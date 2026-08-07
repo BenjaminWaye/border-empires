@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { COMBAT_LOCK_MS, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_BFS_CAP, ENCIRCLEMENT_DECAY_MS, isFrontierConnected } from "./encirclement.js";
 import { FRONTIER_DECAY_MS } from "../territory-automation/territory-automation.js";
@@ -374,7 +375,7 @@ describe("encirclement attack guard", () => {
       expect(events.find((e) => e.eventType === "COMMAND_ACCEPTED")).toBeDefined();
       expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
 
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const combatResolved = events.find((e) => e.eventType === "COMBAT_RESOLVED");
       expect(combatResolved).toBeDefined();
@@ -634,7 +635,7 @@ describe("encirclement expand reconnection", () => {
       });
       await Promise.resolve();
 
-      vi.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(FRONTIER_CLAIM_MS * 2 + 100);
 
       const tileDeltas = events
         .filter((event) => event.eventType === "TILE_DELTA_BATCH")
@@ -700,7 +701,7 @@ describe("encirclement expand reconnection", () => {
       await Promise.resolve();
 
       // Advance past the claim duration so the lock resolves
-      vi.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(FRONTIER_CLAIM_MS * 2 + 100);
 
       // The pocket tile (12,10) should now have frontierDecayAt cleared because
       // it is reconnected through the new (11,10) frontier tile to S(10,10).
@@ -754,7 +755,7 @@ describe("encirclement expand reconnection", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(FRONTIER_CLAIM_MS * 2 + 100);
 
       // No TILE_DELTA_BATCH event should carry a frontierDecayAt change for any tile.
       // The only delta batches expected are the EXPAND resolution itself (the new tile)

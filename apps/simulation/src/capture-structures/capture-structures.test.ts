@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
@@ -81,7 +82,7 @@ describe("capture structure survival", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(
@@ -147,8 +148,8 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              observatory: { ownerId: "player-2", status: "under_construction", completesAt: 10_000 },
-              economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "under_construction", completesAt: 10_000 }
+              observatory: { ownerId: "player-2", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 },
+              economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 }
             }
           ],
           activeLocks: []
@@ -166,7 +167,7 @@ describe("capture structure survival", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
@@ -223,7 +224,7 @@ describe("capture structure survival", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active", activatedAt: 1_000 }));
@@ -260,7 +261,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-2", status: "under_construction", completesAt: 10_000 },
+              fort: { ownerId: "player-2", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 },
               economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "active" }
             }
           ],
@@ -279,7 +280,7 @@ describe("capture structure survival", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
@@ -318,7 +319,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              observatory: { ownerId: "player-2", status: "removing", previousStatus: "inactive", completesAt: 10_000 }
+              observatory: { ownerId: "player-2", status: "removing", previousStatus: "inactive", completesAt: COMBAT_LOCK_MS + 20_000 }
             }
           ],
           activeLocks: []
@@ -336,7 +337,7 @@ describe("capture structure survival", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile?.observatoryJson).toBe(JSON.stringify({ ownerId: "player-1", status: "inactive", activatedAt: 1_000 }));
