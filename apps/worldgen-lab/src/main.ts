@@ -192,7 +192,7 @@ settlementFolder.addBinding(stats, "towns", { label: "Towns", readonly: true });
 settlementFolder.addBinding(stats, "docks", { label: "Docks", readonly: true });
 settlementFolder.addBinding(stats, "wonders", { label: "Wonders", readonly: true });
 
-// Resources (eligible tile counts)
+// Resources (placed cluster tile counts)
 const resourceFolder = pane.addFolder({ title: "Resources", expanded: true });
 resourceFolder.addBinding(stats, "farm", { label: "Farm", readonly: true });
 resourceFolder.addBinding(stats, "fish", { label: "Fish", readonly: true });
