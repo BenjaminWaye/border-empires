@@ -379,4 +379,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
+  {
+    createdAt: Date.now() + 3,
+    introducedIn: "next",
+    title: "Converters can now be pointed either direction: Refine or Sell off",
+    why: "Fur Works, Iron Works, and Aether Condenser (and their Advanced tiers) each had one job: turn gold into a resource slot. Now every one of them can point either way in place. Refine works as before — gold upkeep manufactures 1 slot of its resource. Sell off runs the building in reverse: it consumes that same slot and pays out gold each day instead, with no gold upkeep while selling off. The old 1-per-empire limit on these buildings is gone entirely — build as many as you can afford in whichever direction your economy needs. A captured converter also can't be sold off immediately — it starts mode-locked for the same 60 minutes as a fresh flip, so capturing one isn't an instant payday.",
+    changes: [
+      "New building names: Fur Synthesizer -> Fur Works, Ironworks -> Iron Works (Aether Condenser is unchanged — it already read as direction-neutral).",
+      "The structure panel shows a converter's current mode with a flip control and remaining cooldown.",
+      "Flipping a converter's mode has a 60-minute cooldown, and a freshly built or freshly captured converter starts locked for the same 60 minutes.",
+      "Sell off mode: no gold upkeep; pays 8 gold/day for Iron Works and Fur Works, 10 gold/day for Aether Condenser (Advanced tiers: 12 / 15 gold/day).",
+      "The 1-per-empire cap on these buildings is removed — build and run as many as you want, in either mode."
+    ]
+  }
 ];

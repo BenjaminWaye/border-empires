@@ -34,6 +34,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CHOOSE_TECH",
   "CHOOSE_DOMAIN",
   "SET_CONVERTER_STRUCTURE_ENABLED",
+  "SET_CONVERTER_STRUCTURE_MODE",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",
   "AETHER_LANCE",

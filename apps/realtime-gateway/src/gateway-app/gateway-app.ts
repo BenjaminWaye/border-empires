@@ -3012,10 +3012,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             });
           } else if (message.type === "CANCEL_CAPTURE") {
             await dispatchDurableCommand("CANCEL_CAPTURE", {});
-          } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
+          } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED" || message.type === "SET_CONVERTER_STRUCTURE_MODE") {
             await dispatchDurableCommand(
-              "SET_CONVERTER_STRUCTURE_ENABLED",
-              { x: message.x, y: message.y, enabled: message.enabled },
+              message.type,
+              message.type === "SET_CONVERTER_STRUCTURE_ENABLED" ? { x: message.x, y: message.y, enabled: message.enabled } : { x: message.x, y: message.y, mode: message.mode },
               true
             );
           } else if (message.type === "REVEAL_EMPIRE") {

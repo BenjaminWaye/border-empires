@@ -1,11 +1,13 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS } from "@border-empires/game-domain";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS, ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import {
+  parseConverterModePayload,
   parseConverterTogglePayload,
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
 import { economicStructureGoldUpkeepPerInterval } from "./runtime-structure-rules/runtime-structure-rules.js";
+import { SYNTHESIZER_TYPE_SET } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
@@ -107,7 +109,7 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
     if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
       context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure requires settled owned tile"); return;
     }
-    const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
+    const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, structure.converterMode ?? "SYNTHESIZE");
     if (actor.points < upkeep) {
       context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient gold for structure upkeep"); return;
     }
@@ -121,6 +123,69 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
       status: payload.enabled ? "active" : "inactive",
       inactiveReason: payload.enabled ? undefined : "manual",
       nextUpkeepAt: context.now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
+    }
+  };
+  context.replaceTileState(targetKey, updatedTile);
+  context.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: command.commandId,
+    playerId: command.playerId,
+    tileDeltas: [context.tileDeltaFromState(updatedTile)]
+  });
+  context.emitPlayerStateUpdate(command);
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+}
+
+export function handleSetConverterStructureModeCommand(context: RuntimeEconomicStructureCommandContext, command: CommandEnvelope): void {
+  const actor = context.players.get(command.playerId);
+  const payload = parseConverterModePayload(command.payloadJson);
+  if (!actor || !payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
+  const targetKey = simulationTileKey(payload.x, payload.y);
+  const target = context.tiles.get(targetKey);
+  const structure = target?.economicStructure;
+  if (!target || !structure || structure.ownerId !== command.playerId) {
+    context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "no owned structure on tile"); return;
+  }
+  if (!SYNTHESIZER_TYPE_SET.has(structure.type)) {
+    context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "structure is not a converter"); return;
+  }
+  if (structure.status === "under_construction" || structure.status === "removing") {
+    context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "structure is not ready"); return;
+  }
+  if (structure.modeLockedUntil && structure.modeLockedUntil > context.now()) {
+    const remainingMin = Math.ceil((structure.modeLockedUntil - context.now()) / 60_000);
+    context.rejectCommand(command, "STRUCTURE_MODE_LOCKED", `mode locked for another ${remainingMin} min`); return;
+  }
+
+  const currentMode = structure.converterMode ?? "SYNTHESIZE";
+  if (currentMode === payload.mode) {
+    context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    return;
+  }
+
+  // Cap removed per plan Decision 5: no limit on SYNTHESIZE-mode converters per family
+
+  // Flipping *to* SYNTHESIZE starts this converter owing gold upkeep it did
+  // not owe in EXCHANGE mode (§Phase 2) — charge the first interval at flip
+  // time, same treatment the enable-toggle already gives, rather than
+  // silently letting the next upkeep tick shut it down.
+  let nextUpkeepAt = structure.nextUpkeepAt;
+  if (payload.mode === "SYNTHESIZE") {
+    const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, "SYNTHESIZE");
+    if (actor.points < upkeep) {
+      context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "insufficient gold for structure upkeep"); return;
+    }
+    actor.points -= upkeep;
+    nextUpkeepAt = context.now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+  }
+
+  const updatedTile: DomainTileState = {
+    ...target,
+    economicStructure: {
+      ...structure,
+      converterMode: payload.mode,
+      modeLockedUntil: context.now() + CONVERTER_MODE_FLIP_COOLDOWN_MS,
+      nextUpkeepAt
     }
   };
   context.replaceTileState(targetKey, updatedTile);

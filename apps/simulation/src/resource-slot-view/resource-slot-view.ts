@@ -14,13 +14,14 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   BASE_SLOTS_BY_TILE_RESOURCE,
-  SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
   governorsOfficeFoodSlotWaiver,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
+  converterModeOf,
+  isSlotSourceConverter,
   type BuildableStructureType,
   type SlotResource,
   type SlotStructureType,
@@ -29,8 +30,6 @@ import {
 import { WATERWORKS_RADIUS, FOUNDRY_RADIUS, GOVERNORS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
-
-const SYNTHESIZER_TYPE_SET: ReadonlySet<string> = new Set(SYNTHESIZER_STRUCTURE_TYPES);
 
 export type ResourceSlotTotals = Record<SlotResource, number>;
 
@@ -95,22 +94,24 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
  * Slot supply from a player's owned, settled tiles: base + boost slots from
  * real resource tiles (§5.2's table, same-tile Farmstead/Mine/Camp +1, the
  * Waterworks-radius Farmstead bonus from §5.3, and the Foundry-radius Mine
- * bonus from §12), PLUS each active synthesizer's own hard-capped +1 slot of
- * its resource (§6.4: "a synthesizer provides exactly 1 slot of its
+ * bonus from §12), PLUS each active SYNTHESIZE-mode converter's own +1 slot
+ * of its resource (§6.4: "a synthesizer provides exactly 1 slot of its
  * resource... so a landlocked player *can* build the one Fort/etc. that
- * needs it" — a synthesizer is a supply *source* standing in for a resource
- * tile the player doesn't have, not a consumer; see the "doesn't sit on a
- * real resource tile" comment on SYNTHESIZER_STRUCTURE_TYPES in
- * structure-slots.ts). `waterworksKeys`/`foundryKeys` should both come from
+ * needs it" — a SYNTHESIZE-mode converter is a supply *source* standing in
+ * for a resource tile the player doesn't have, not a consumer; see the
+ * "doesn't sit on a real resource tile" comment on SYNTHESIZER_STRUCTURE_TYPES
+ * in structure-slots.ts). `waterworksKeys`/`foundryKeys` should both come from
  * `radiusStructureKeysForSettledTiles` over the same player's settled tiles
  * (shared with the legacy yield view so both can never disagree on "which
  * Waterworks/Foundries are active").
  *
- * §6.4's "hard-capped at 1, forever" is enforced empire-wide at build time
- * (synthesizerFamilyAlreadyOwnedElsewhere in runtime-structure-command-
- * handlers.ts), not here — this function just sums whatever synthesizers
- * actually exist, so if that build-time gate is ever bypassed the resulting
- * over-count is visible in the numbers rather than silently masked.
+ * §6.4's former "hard-capped at 1 per family, forever" rule was removed by
+ * the converter-mode-flip plan (docs/plans/2026-08-06-converter-mode-flip.md
+ * §Cap removal) — a player may run any number of SYNTHESIZE-mode converters
+ * per family, uncapped, at flat per-converter upkeep. This function still
+ * just sums whatever converters are actually in SYNTHESIZE mode; the value
+ * this doc comment used to describe (a build-time gate elsewhere) no longer
+ * exists.
  */
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
@@ -139,8 +140,11 @@ export const resourceSlotSupplyForPlayer = (
     const isActiveStructure = tile.economicStructure?.status === "active" && tile.economicStructure?.inactiveReason !== "manual";
     const structureType = isActiveStructure ? (tile.economicStructure!.type as BuildableStructureType) : undefined;
 
-    if (structureType && SYNTHESIZER_TYPE_SET.has(structureType)) {
-      for (const req of structureSlotRequirements(structureType as SlotStructureType)) totals[req.resource] += req.count;
+    if (structureType) {
+      const mode = converterModeOf(tile.economicStructure);
+      if (isSlotSourceConverter(structureType, mode)) {
+        for (const req of structureSlotRequirements(structureType as SlotStructureType)) totals[req.resource] += req.count;
+      }
     }
 
     if (!tile.resource) continue;
@@ -190,10 +194,14 @@ export const resourceSlotSupplyForPlayer = (
  * whole lifetime, from build start to the moment removal actually
  * completes (the tile field is cleared), not just while "active".
  *
- * Synthesizers (SYNTHESIZER_STRUCTURE_TYPES) are deliberately excluded —
- * per §6.4 they're a supply *source* (see resourceSlotSupplyForPlayer), not
- * a demand consumer, despite having an entry in STRUCTURE_SLOT_REQUIREMENTS
- * (needed there for their own build-time gate and gold-upkeep lookup).
+ * Synthesizers in SYNTHESIZE mode (SYNTHESIZER_STRUCTURE_TYPES) are
+ * deliberately excluded — per §6.4 they're a supply *source* (see
+ * resourceSlotSupplyForPlayer), not a demand consumer, despite having an
+ * entry in STRUCTURE_SLOT_REQUIREMENTS (needed there for their own
+ * build-time gate and gold-upkeep lookup).
+ *
+ * Synthesizers in EXCHANGE mode ARE demand contributors — they consume a
+ * slot of their resource and participate in dormancy like any other consumer.
  *
  * A settled, owned town itself also draws townFoodSlotDemandForTier(tier)
  * FOOD slots (§5.3: "a town requires ~2 food slots to be powered", +1 per
@@ -258,8 +266,12 @@ const buildDemandContributors = (
     if (tile.siegeOutpost?.ownerId === playerId) {
       addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
     }
-    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type) && tile.economicStructure.inactiveReason !== "manual") {
-      addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
+    if (tile.economicStructure?.ownerId === playerId && tile.economicStructure.inactiveReason !== "manual") {
+      const mode = converterModeOf(tile.economicStructure);
+      const isSourceConverter = isSlotSourceConverter(tile.economicStructure.type, mode);
+      if (!isSourceConverter) {
+        addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
+      }
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
       const baseFoodDemand = townFoodSlotDemandForTier(tile.town.populationTier);

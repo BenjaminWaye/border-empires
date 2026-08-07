@@ -8,6 +8,7 @@ import {
   BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   DOCK_INCOME_PER_MIN,
+  EXCHANGE_GOLD_PER_SLOT_PER_DAY,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
   PASSIVE_INCOME_MULT,
@@ -16,6 +17,7 @@ import {
   townFoodUpkeepPerMinute,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
+import { SYNTHESIZER_TYPE_SET, converterModeOf, SYNTHESIZER_FAMILY_RESOURCE, type BuildableStructureType } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   buildFedTownKeys,
@@ -120,11 +122,25 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
   }
 };
 
-// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
-// stockpiled resource (§5.6) — nothing left to convert.
-const converterOutputPerMinute = (_structureType: string): Partial<Record<StrategicResourceKey, number>> => ({});
+// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
+// resource (§5.6); EXCHANGE-mode converters produce gold from a slot instead.
+const converterOutputPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
+  if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
+    const family = SYNTHESIZER_FAMILY_RESOURCE[structureType as keyof typeof SYNTHESIZER_FAMILY_RESOURCE];
+    if (family) {
+      // EXCHANGE mode produces gold, not a strategic resource
+      const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[structureType as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
+      return { GOLD: goldPerDay / UPKEEP_MINUTES_PER_DAY };
+    }
+  }
+  return {};
+};
 
-const structureUpkeepPerMinute = (structureType: string): Partial<Record<EconomyResourceKey, number>> => {
+const structureUpkeepPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
+  // EXCHANGE-mode converters have no gold upkeep (they are a gold source)
+  if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
+    return {};
+  }
   switch (structureType) {
     // Every structure except the synthesizer family (Fur/Iron/Crystal +
     // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/IRON/CRYSTAL/SUPPLY
@@ -299,7 +315,11 @@ export const buildPlayerUpdateEconomySnapshot = (
   // §5.4: dormant economicStructure tile keys for this player
   // (Runtime.dormantEconomicStructureKeysForPlayer) — same default-empty
   // convention as foodDormantTownKeys above.
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  // Capture resets modeLockedUntil as its shock timer (capture-structures.ts,
+  // no separate captureShockUntil field) — EXCHANGE payout is suppressed
+  // while mode is locked, from a build, flip, or capture reset alike.
+  now: number = Date.now()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   // Iterate the Set directly rather than spreading it — avoids a 250k-element
@@ -396,11 +416,22 @@ export const buildPlayerUpdateEconomySnapshot = (
     // Observatory's CRYSTAL slot is still its only upkeep; Fort/Siege Outpost now also drain FOOD + their resource (below).
     const structure = tile.economicStructure;
     if (structure?.ownerId === player.id && structure.status === "active") {
-      addUpkeepSinks(structure.type, structureUpkeepPerMinute(structure.type));
-      const output = converterOutputPerMinute(structure.type);
+      const mode = converterModeOf(structure);
+      addUpkeepSinks(structure.type, structureUpkeepPerMinute(structure.type, mode));
+      const output = converterOutputPerMinute(structure.type, mode);
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      // §5.4: a dormant converter (slot supply can't cover its demand) is
+      // still "active" in construction terms but pays out nothing — reuse the
+      // same dormantEconomicStructureKeys the rest of the economy honors.
+      // Also suppressed while mode-locked (build/flip/capture-reset), and
+      // routed through incomeMultiplier/PASSIVE_INCOME_MULT like every other
+      // passive gold source (§Phase 4 headroom caveat).
+      const modeLocked = typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now;
+      if (output.GOLD && !modeLocked && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`)) {
+        addBucket(goldSources, structure.type, output.GOLD * incomeMultiplier * PASSIVE_INCOME_MULT, { count: 1 });
+      }
     }
     for (const military of [tile.fort, tile.siegeOutpost]) {
       if (military?.ownerId === player.id && military.status === "active" && military.variant) {

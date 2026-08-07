@@ -3,6 +3,7 @@ import {
   ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  EXCHANGE_GOLD_PER_SLOT_PER_DAY,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
   POPULATION_MAX,
@@ -10,6 +11,7 @@ import {
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import type { Tile } from "@border-empires/shared";
+import { SYNTHESIZER_FAMILY_RESOURCE, SYNTHESIZER_TYPE_SET, type BuildableStructureType } from "@border-empires/shared";
 import {
   type RuntimeState,
   type StrategicResourceKey,
@@ -147,7 +149,12 @@ export const strategicResourceForTile = (resource: string | undefined): Strategi
   }
 };
 
-export const structureUpkeepPerMinute = (structureType: string): Partial<Record<EconomyResourceKey, number>> => {
+export const structureUpkeepPerMinute = (
+  structureType: string,
+  mode?: "SYNTHESIZE" | "EXCHANGE"
+): Partial<Record<EconomyResourceKey, number>> => {
+  // EXCHANGE-mode converters are a gold *source* — no gold upkeep.
+  if (mode === "EXCHANGE" && SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType)) return {};
   switch (structureType) {
     // Every structure except the synthesizer family (Fur/Iron/Crystal +
     // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/IRON/CRYSTAL/SUPPLY
@@ -163,9 +170,23 @@ export const structureUpkeepPerMinute = (structureType: string): Partial<Record<
   }
 };
 
+// EXCHANGE-mode converters pay out gold per slot consumed; SYNTHESIZE-mode
+// converters (and all other structures) produce nothing on this path (§5.6 —
 // IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
-// stockpiled resource (§5.6) — nothing left to convert.
-export const converterOutputPerMinute = (_structureType: string): Partial<Record<StrategicResourceKey, number>> => ({});
+// stockpiled resource).
+export const converterOutputPerMinute = (
+  structureType: string,
+  mode?: "SYNTHESIZE" | "EXCHANGE"
+): Partial<Record<EconomyResourceKey, number>> => {
+  if (mode === "EXCHANGE" && SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType)) {
+    const family = SYNTHESIZER_FAMILY_RESOURCE[structureType as keyof typeof SYNTHESIZER_FAMILY_RESOURCE];
+    if (family) {
+      const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[structureType as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
+      return { GOLD: goldPerDay / UPKEEP_MINUTES_PER_DAY };
+    }
+  }
+  return {};
+};
 
 // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (§5.4) — a
 // Farmstead's real effect now is boosting FOOD *slot supply*
@@ -190,10 +211,13 @@ export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Ma
     const target = production.get(tile.ownerId) ?? emptyStrategic();
     const resourceKey = strategicResourceForTile(tile.resource);
     if (resourceKey) target[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    const structure = parseStructure<{ type?: string; status?: string; converterMode?: "SYNTHESIZE" | "EXCHANGE" }>(tile.economicStructureJson);
     if (structure?.status === "active" && structure.type) {
-      const output = converterOutputPerMinute(structure.type);
-      for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+      const output = converterOutputPerMinute(structure.type, structure.converterMode);
+      for (const [resource, amount] of Object.entries(output) as Array<[EconomyResourceKey, number]>) {
+        if (resource === "GOLD") continue;
+        target[resource] += amount;
+      }
       if (structure.type === "WATERWORKS") {
         (waterworksKeysByOwner.get(tile.ownerId) ?? waterworksKeysByOwner.set(tile.ownerId, new Set()).get(tile.ownerId)!).add(`${tile.x},${tile.y}`);
       } else if (structure.type === "FARMSTEAD") {
@@ -224,10 +248,13 @@ export const buildStrategicProductionByPlayerAsync = async (
     const target = production.get(tile.ownerId) ?? emptyStrategic();
     const resourceKey = strategicResourceForTile(tile.resource);
     if (resourceKey) target[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    const structure = parseStructure<{ type?: string; status?: string; converterMode?: "SYNTHESIZE" | "EXCHANGE" }>(tile.economicStructureJson);
     if (structure?.status === "active" && structure.type) {
-      const output = converterOutputPerMinute(structure.type);
-      for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+      const output = converterOutputPerMinute(structure.type, structure.converterMode);
+      for (const [resource, amount] of Object.entries(output) as Array<[EconomyResourceKey, number]>) {
+        if (resource === "GOLD") continue;
+        target[resource] += amount;
+      }
       if (structure.type === "WATERWORKS") {
         (waterworksKeysByOwner.get(tile.ownerId) ?? waterworksKeysByOwner.set(tile.ownerId, new Set()).get(tile.ownerId)!).add(`${tile.x},${tile.y}`);
       } else if (structure.type === "FARMSTEAD") {

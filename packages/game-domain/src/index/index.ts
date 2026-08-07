@@ -230,6 +230,8 @@ export type DomainTileState = {
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
         previousStatus?: "active" | "inactive" | undefined;
         bombardCooldownUntil?: number | undefined;
+        converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
+        modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
       }
     | undefined;
   sabotage?:

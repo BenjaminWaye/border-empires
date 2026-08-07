@@ -113,6 +113,26 @@ describe("TileDeltaStringifyCache", () => {
     jsonSpy.mockRestore();
   });
 
+  it("a new economicStructure ref carrying converterMode (mode flip) is re-stringified", () => {
+    const cache = new TileDeltaStringifyCache();
+    const eco1 = makeEconomicStructure();
+    const tile1: DomainTileState = { ...makeBaseTile(), economicStructure: eco1 };
+    cache.getOrComputeAll("1,1", tile1);
+
+    // The flip handler writes { ...structure, converterMode, modeLockedUntil },
+    // which is a NEW object ref — the cache must recompute economicStructureJson.
+    const eco2 = { ...eco1, converterMode: "EXCHANGE" as const, modeLockedUntil: 12345 };
+    const tile2: DomainTileState = { ...tile1, economicStructure: eco2 };
+
+    const jsonSpy = vi.spyOn(JSON, "stringify");
+    const result2 = cache.getOrComputeAll("1,1", tile2);
+    const ecoStringifyCalls = jsonSpy.mock.calls.filter(([arg]) => arg === eco2);
+    expect(ecoStringifyCalls.length).toBeGreaterThan(0);
+    expect(result2.economicStructureJson).toBe(JSON.stringify(eco2));
+    expect(result2.economicStructureJson).toContain("\"converterMode\":\"EXCHANGE\"");
+    jsonSpy.mockRestore();
+  });
+
   it("invalidateMany clears all specified keys", () => {
     const cache = new TileDeltaStringifyCache();
     const fort = makeFort();

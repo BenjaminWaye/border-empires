@@ -46,7 +46,14 @@ export const isConverterStructureType = (structureType: EconomicStructureType): 
   structureType === "CRYSTAL_SYNTHESIZER" ||
   structureType === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
-export const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number => {
+export const economicStructureGoldUpkeepPerInterval = (
+  structureType: EconomicStructureType,
+  mode?: "SYNTHESIZE" | "EXCHANGE"
+): number => {
+  // EXCHANGE-mode converters are a gold *source* — they pay no gold upkeep
+  // (converter mode flip plan §Phase 4), so re-enabling one is never rejected
+  // for an upkeep they don't owe.
+  if (mode === "EXCHANGE" && isConverterStructureType(structureType)) return 0;
   const perMinute =
     structureType === "FUR_SYNTHESIZER" ? FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
       : structureType === "ADVANCED_FUR_SYNTHESIZER" ? ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
