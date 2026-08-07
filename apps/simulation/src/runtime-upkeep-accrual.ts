@@ -181,7 +181,7 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
     if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
       const full = buildPlayerUpdateEconomySnapshot(player, ctx.summaryForPlayer(player.id), ctx.tiles, {
         dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
-      });
+      }, undefined, undefined, undefined, undefined, nowMs);
       // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
       // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
       // rounding noise below the gameplay-significant precision.

@@ -1907,7 +1907,8 @@ export class SimulationRuntime {
         econMult,
         townNetwork,
         this.foodDormantTownKeysForPlayer(player.id),
-        this.dormantEconomicStructureKeysForPlayer(player.id)
+        this.dormantEconomicStructureKeysForPlayer(player.id),
+        this.now()
       );
       this.economySnapshotCacheByPlayer.set(player.id, snapshot);
       this.economySnapshotDirtyPlayerIds.delete(player.id);
