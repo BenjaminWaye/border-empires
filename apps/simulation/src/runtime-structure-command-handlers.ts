@@ -162,12 +162,12 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   return undefined;
 }
 
-// §6.4: "hard-capped at 1, forever" — a player may never own more than one
-// synthesizer of a given family (base + Advanced count as the same slot,
-// Synthesizer cap removed per converter-mode-flip plan (Decision 5):
-// unlimited SYNTHESIZE-mode converters per family, flat upkeep, no curve.
-// The slot gate is bypassed for synthesizers because they are supply sources
-// (§6.4) — they must be buildable even with zero free slots.
+// §6.4's former "hard-capped at 1 per family, forever" rule (base + Advanced
+// counted as the same slot) is removed per the converter-mode-flip plan
+// (Decision 5): unlimited SYNTHESIZE-mode converters per family, flat
+// upkeep, no curve. The slot gate is still bypassed for synthesizers because
+// they are supply sources (§6.4) — they must be buildable even with zero
+// free slots.
 
 function strategicCostForStructure(
   structureType: BuildableStructureType,
