@@ -330,7 +330,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
 });
 
 describe("BUILD_STRUCTURE parity — economic family", () => {
-  it("builds MARKET (town-support)", async () => {
+  it("builds MARKET (same-tile, uncapped per town)", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -360,8 +360,11 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     });
     await Promise.resolve();
 
-    const supportTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
-    expect(supportTile?.economicStructureJson).toContain('"type":"MARKET"');
+    // Market moved from town_support to same_tile placement (tech-tree
+    // redesign: per-town cap removed) -- it now lands directly on the tile
+    // the BUILD_STRUCTURE command targeted, not redirected to a support tile.
+    const builtTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(builtTile?.economicStructureJson).toContain('"type":"MARKET"');
   });
 
   it("upgrades FUR_SYNTHESIZER → ADVANCED", async () => {

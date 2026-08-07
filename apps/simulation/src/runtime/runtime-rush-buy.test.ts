@@ -168,16 +168,19 @@ describe("RUSH_BUY", () => {
       });
       await Promise.resolve();
 
-      const supportTile = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 17);
-      expect(supportTile?.economicStructureJson).toContain('"status":"under_construction"');
+      // MARKET moved to same-tile/uncapped placement (tech-tree redesign),
+      // so it builds directly on the targeted tile rather than being
+      // redirected to a separate town_support tile.
+      const builtTile = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 16);
+      expect(builtTile?.economicStructureJson).toContain('"status":"under_construction"');
 
       runtime.submitCommand({
         commandId: "rush-1", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
-        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 16, y: 17 })
+        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 16, y: 16 })
       });
       await Promise.resolve();
 
-      const finished = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 17);
+      const finished = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 16);
       expect(finished?.economicStructureJson).toContain('"status":"active"');
     } finally {
       vi.useRealTimers();

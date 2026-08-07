@@ -1,0 +1,30 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Weapons Workshop: a small open-air smithy — low stone platform, an
+       anvil with a glowing ember in front of it, and a rack of blades off
+       to the side. Deliberately smaller/plainer than Foundry (no
+       furnace/chimneys) since this is a cheap, uncapped early War-branch
+       building meant to be built many times over. -->
+
+  <!-- Stone platform -->
+  <path d="M18 96L38 84H100L80 96H18Z" fill="#3E3A36"/>
+  <path d="M38 84V74H100V84H38Z" fill="#7C726A"/>
+
+  <!-- Anvil: base block + tapered horn pointing right -->
+  <path d="M52 76V66H68V76H52Z" fill="#7C726A"/>
+  <path d="M68 70L82 68L80 74L68 76V70Z" fill="#7C726A"/>
+  <path d="M52 66H68L64 62H56L52 66Z" fill="#9AA0A6"/>
+
+  <!-- Glowing ember pile in front of the anvil -->
+  <path d="M56 84L60 78L64 84L68 80L72 86H56Z" fill="#FF7A2A"/>
+  <path d="M60 84L63 80L66 84H60Z" fill="#FFD08A"/>
+
+  <!-- Weapon rack: two posts and three upright blades -->
+  <path d="M26 84V68" stroke="#3A302A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M40 84V68" stroke="#3A302A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M22 68L44 68" stroke="#3A302A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M25 68L20 44L24 42L28 68H25Z" fill="#C8CCD2"/>
+  <path d="M31 68L31 40L36 40L34 68H31Z" fill="#C8CCD2"/>
+  <path d="M39 68L44 44L48 46L42 68H39Z" fill="#C8CCD2"/>
+
+</svg>

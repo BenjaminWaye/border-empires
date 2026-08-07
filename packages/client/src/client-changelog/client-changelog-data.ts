@@ -364,6 +364,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The economy screen's summary cards and detail breakdowns now hide Iron/Crystal/Supply entirely until revealed, instead of showing an empty placeholder card."
     ]
   },
+  {
+    createdAt: Date.now() + 2,
+    introducedIn: "weapons-workshop",
+    title: "New: Weapons Workshop",
+    why: "The War branch needed a building that lets a town specialize for combat, and a new tech to reach it early.",
+    changes: [
+      "New building: Weapons Workshop. Converts 1 Iron slot + 1 Supply slot into a small empire-wide attack and defense boost (+3% each, per copy owned).",
+      "No per-town limit on Weapons Workshop — build as many as you like in one town to raise a dedicated military city.",
+      "New tech: Weapons Forging (War branch), unlocked by researching both Ironclad Masonry and Tanner's Craft.",
+      "Market and Ancillary Factory also lost their one-per-town limit, so towns can specialize with multiples of either."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

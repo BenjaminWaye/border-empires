@@ -22,7 +22,8 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "ASTRAL_DOCK",
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "IRON_LEVY",
-  "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER"
+  "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
+  "WEAPONS_WORKSHOP"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -113,6 +114,7 @@ export const IronLevy: Story = { args: { structures: ["IRON_LEVY"], cameraDistan
 export const AncillaryFactory: Story = { args: { structures: ["ANCILLARY_FACTORY"], cameraDistance: 3 } };
 export const IncubationEngine: Story = { args: { structures: ["INCUBATION_ENGINE"], cameraDistance: 3.5 } };
 export const AmbaricTower: Story = { args: { structures: ["AMBARIC_TOWER"], cameraDistance: 3.5 } };
+export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"], cameraDistance: 3 } };
 export const FirstBatch: Story = { args: { structures: ["BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
 export const CivicBatch: Story = { args: { structures: ["BANK", "CLEARING_HOUSE", "EXCHANGE_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
