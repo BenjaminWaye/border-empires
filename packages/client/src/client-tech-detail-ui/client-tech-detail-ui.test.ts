@@ -60,8 +60,7 @@ describe("tech detail crystal ability previews", () => {
       pendingTechUnlockId: "",
       techNameList: () => "",
       structureInfoButtonHtml: () => "",
-      techTier: () => 5,
-      formatTechBenefitSummary: () => "Unlocks reveal empire | Unlocks Siphon"
+      techTier: () => 5
     });
 
     expect(html).toContain("Abilities & actions");
@@ -268,5 +267,56 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
     expect(structureInfoForKey("WORLD_ENGINE", deps).image).toBe("/overlays/world-engine-overlay.svg");
+  });
+});
+
+// Regression coverage for real bugs found in the tech detail UI:
+// - the yellow "Unlocks X | Unlocks Y" text summary was redundant with the
+//   tag chips and is now removed from both the inline card and the modal.
+// - a tech whose only highlight is a single structure unlock (e.g. Supply
+//   Directorate -> Ancillary Factory) used to render NO tags at all
+//   (shouldRenderUnlockHighlights suppressed them), leaving just the yellow
+//   text -- now it always shows its tag(s).
+describe("tech detail highlight tags replace the yellow unlock-summary text", () => {
+  const supplyDirectorate: TechInfo = {
+    id: "organized-supply",
+    tier: 1,
+    name: "Supply Directorate",
+    description: "Armies march on paperwork, then complain about the rations.",
+    mods: {},
+    effects: { unlockGarrisonHall: true },
+    requirements: { gold: 10, resources: {}, checklist: [], canResearch: true }
+  };
+
+  const commonDeps = {
+    techCatalog: [supplyDirectorate],
+    ownedTechIds: [],
+    techPrereqIds: () => [],
+    unlockedByTech: () => [],
+    isPendingTechUnlock: () => false,
+    pendingTechUnlockId: "",
+    techNameList: () => "",
+    structureInfoButtonHtml: () => "",
+    techTier: () => 1
+  };
+
+  it("shows the Ancillary Factory tag on the inline card instead of only yellow text", () => {
+    const html = renderTechDetailCard({ tech: supplyDirectorate, techDetailOpen: true, ...commonDeps });
+    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("tech-payoff-chip");
+    expect(html).not.toContain("tech-detail-effect");
+  });
+
+  it("shows the Ancillary Factory tag on the modal instead of only yellow text", () => {
+    const html = renderTechDetailModal({ tech: supplyDirectorate, ...commonDeps });
+    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("tech-payoff-chip");
+    expect(html).not.toContain("tech-detail-effect");
+    expect(html).not.toContain("Unlocks garrison halls");
+  });
+
+  it("shows every highlight tag on the inline card, not capped at 2", () => {
+    const html = renderTechDetailCard({ tech: cryptographyTech, techDetailOpen: true, ...commonDeps, techCatalog: [cryptographyTech] });
+    expect(html).toContain("Aether EMP");
   });
 });

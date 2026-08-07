@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { isTechHighlightEffectKey } from "./client-tech-payoffs.js";
+import { isTechHighlightEffectKey, renderTechHighlightTagsHtml, techHighlightTags } from "./client-tech-payoffs.js";
 
 const dataPath = (name: string): string =>
   fileURLToPath(new URL(`../../game-domain/data/${name}`, import.meta.url));
@@ -35,4 +35,50 @@ describe("tech/domain unlock effect keys have a highlight-chip label", () => {
       expect(isTechHighlightEffectKey(key)).toBe(true);
     });
   }
+});
+
+// Regression coverage for a real bug: revealResource never got a highlight
+// chip at all (unlike every unlockX effect), so "Reveals Crystal" showed up
+// in the redundant yellow-text summary but nowhere in the tag chips on
+// either the tech-tree card or the tech detail view.
+describe("revealResource highlight tag", () => {
+  it("renders a resource-tone tag for each reveal category", () => {
+    const categories: Array<[string, string]> = [
+      ["food", "Reveals Food"],
+      ["iron", "Reveals Iron"],
+      ["crystal", "Reveals Crystal"],
+      ["supply", "Reveals Supply"]
+    ];
+    for (const [category, label] of categories) {
+      const tags = techHighlightTags({ effects: { revealResource: category } });
+      expect(tags).toContainEqual({ label, tone: "resource" });
+    }
+  });
+
+  it("is included alongside structure/action tags, not just on its own", () => {
+    const tags = techHighlightTags({
+      effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true, revealResource: "crystal" }
+    });
+    expect(tags.map((t) => t.label)).toEqual(["Observatory", "Aether Condenser", "Aether Purge", "Reveals Crystal"]);
+  });
+
+  it("is skipped for an unrecognized reveal category rather than rendering a blank tag", () => {
+    const tags = techHighlightTags({ effects: { revealResource: "shard" } });
+    expect(tags).toEqual([]);
+  });
+});
+
+// Regression coverage for a real bug: the tech-tree card capped highlight
+// tags at 2 while the detail view showed up to 6 -- a tech with 3+ tags
+// (e.g. 2 structures + 1 ability) showed a different tag set depending on
+// which view you looked at. Both views now share the same default cap.
+describe("renderTechHighlightTagsHtml default cap", () => {
+  it("renders more than 2 tags by default, matching every call site", () => {
+    const html = renderTechHighlightTagsHtml({
+      effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true }
+    });
+    expect(html).toContain("Observatory");
+    expect(html).toContain("Aether Condenser");
+    expect(html).toContain("Aether Purge");
+  });
 });

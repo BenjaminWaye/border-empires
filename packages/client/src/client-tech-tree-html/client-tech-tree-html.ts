@@ -216,7 +216,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
               <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
-            ${renderTechHighlightTagsHtml(tech, 2)}
+            ${renderTechHighlightTagsHtml(tech)}
             <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
           </button>`;
         })
@@ -505,7 +505,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
           <span class="tech-tree-card-badge">${stateLabel}</span>
         </div>
-        ${renderTechHighlightTagsHtml(tech, 2)}
+        ${renderTechHighlightTagsHtml(tech)}
         <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
       </button>`;
     })

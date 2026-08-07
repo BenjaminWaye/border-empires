@@ -1,5 +1,5 @@
 import { defensivenessMultiplier } from "@border-empires/shared";
-import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech-html/client-tech-html.js";
+import { currentDomainChoiceTier } from "./client-tech-html/client-tech-html.js";
 import { renderDomainProgressCard as renderDomainProgressCardFromModule } from "./client-domain-progress-card.js";
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
@@ -230,8 +230,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       pendingTechUnlockId: state.pendingTechUnlockId,
       techNameList,
       structureInfoButtonHtml: deps.structureInfoButtonHtml,
-      techTier,
-      formatTechBenefitSummary
+      techTier
     });
   };
 
