@@ -41,6 +41,12 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
     for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
 
     const centers: Array<{ x: number; y: number }> = [];
+    const tooCloseToExistingCenter = (cx: number, cy: number): boolean =>
+      centers.some((center) => {
+        const dx = Math.min(Math.abs(center.x - cx), WORLD_WIDTH - Math.abs(center.x - cx));
+        const dy = Math.min(Math.abs(center.y - cy), WORLD_HEIGHT - Math.abs(center.y - cy));
+        return dx + dy < 9;
+      });
     let attemptSeed = 0;
     for (const resource of clusterPlan) {
       const def = defByResource.get(resource);
@@ -50,13 +56,8 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
         const cx = Math.floor(seeded01((attemptSeed + tries) * 31, (attemptSeed + tries) * 47, seed + 101) * WORLD_WIDTH);
         const cy = Math.floor(seeded01((attemptSeed + tries) * 53, (attemptSeed + tries) * 67, seed + 151) * WORLD_HEIGHT);
         if (!clusterRuleMatch(cx, cy, resource)) continue;
-        const tooClose = centers.some((center) => {
-          const dx = Math.min(Math.abs(center.x - cx), WORLD_WIDTH - Math.abs(center.x - cx));
-          const dy = Math.min(Math.abs(center.y - cy), WORLD_HEIGHT - Math.abs(center.y - cy));
-          return dx + dy < 9;
-        });
-        if (tooClose) continue;
-        const tileCount = clusterTileCountForResource(resource, cx, cy);
+        if (tooCloseToExistingCenter(cx, cy)) continue;
+        const tileCount = clusterTileCountForResource(resource, cx, cy, seed);
         const tiles = collectClusterTiles(cx, cy, resource, tileCount);
         if (tiles.length < tileCount) continue;
         const clusterId = `cl-${clustersById.size}`;
@@ -80,7 +81,7 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
         const cx = Math.floor(seeded01((attemptSeed + tries) * 17, (attemptSeed + tries) * 29, seed + 701) * WORLD_WIDTH);
         const cy = Math.floor(seeded01((attemptSeed + tries) * 37, (attemptSeed + tries) * 43, seed + 751) * WORLD_HEIGHT);
         if (!clusterRuleMatchRelaxed(cx, cy, resource)) continue;
-        const tileCount = clusterTileCountForResource(resource, cx, cy);
+        const tileCount = clusterTileCountForResource(resource, cx, cy, seed);
         const tiles = collectClusterTilesRelaxed(cx, cy, resource, tileCount);
         if (tiles.length < tileCount) continue;
         const clusterId = `cl-${clustersById.size}`;
@@ -112,12 +113,7 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
         const cy = Math.floor(seeded01((attemptSeed + tries) * 29, (attemptSeed + tries) * 31, seed + 9721) * WORLD_HEIGHT);
         if (clusterByTile.has(key(cx, cy))) continue;
         if (!isHillsSparseResource(cx, cy, resource)) continue;
-        const tooClose = centers.some((center) => {
-          const dx = Math.min(Math.abs(center.x - cx), WORLD_WIDTH - Math.abs(center.x - cx));
-          const dy = Math.min(Math.abs(center.y - cy), WORLD_HEIGHT - Math.abs(center.y - cy));
-          return dx + dy < 9;
-        });
-        if (tooClose) continue;
+        if (tooCloseToExistingCenter(cx, cy)) continue;
         const clusterId = `cl-${clustersById.size}`;
         clustersById.set(clusterId, {
           clusterId,
