@@ -1475,7 +1475,8 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-      manpowerLossByTileKey: this.manpowerLossByTileKey
+      manpowerLossByTileKey: this.manpowerLossByTileKey,
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType)
     };
   }
 

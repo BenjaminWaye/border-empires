@@ -40,7 +40,8 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockLogisticsGuild: "Logistics Guild",
   unlockAssemblyWorks: "Assembly Works",
   unlockPopulationBureau: "Population Bureau",
-  unlockIronLevy: "The Iron Levy"
+  unlockIronLevy: "The Iron Levy",
+  unlockWeaponsWorkshop: "Weapons Workshop"
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {

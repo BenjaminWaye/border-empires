@@ -97,6 +97,10 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   LOGISTICS_GUILD: { baseGoldCost: 0, manpowerCost: 150 },
   ASSEMBLY_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
+  // Deliberately cheap and uncapped (placement-metadata.json: "same_tile",
+  // no per-town limit) — a player is meant to be able to build many of these
+  // in one town to specialize it for war, so the per-copy cost stays low.
+  WEAPONS_WORKSHOP: { baseGoldCost: 0, manpowerCost: 100 },
   IMPERIAL_EXCHANGE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   WORLD_ENGINE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   AEGIS_DOME_PART: { baseGoldCost: 0, manpowerCost: 1_000 },

@@ -44,7 +44,8 @@ export type OptimisticStructureKind =
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE" | "AEGIS_DOME"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY";
+  | "IRON_LEVY"
+  | "WEAPONS_WORKSHOP";
 
 export type TileUpkeepEntry = {
   label: string;
@@ -189,7 +190,8 @@ export type Tile = {
       | "WORLD_ENGINE"
       | "AEGIS_DOME"
       | "POPULATION_BUREAU"
-      | "IRON_LEVY";
+      | "IRON_LEVY"
+      | "WEAPONS_WORKSHOP";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
     disabledUntil?: number;
@@ -632,6 +634,7 @@ export type TileActionDef = {
     | "build_quartermasters_office"
     | "build_logistics_guild"
     | "build_assembly_works"
+    | "build_weapons_workshop"
     | "grow_settlement_to_town"
     | "grow_town_to_city"
     | "grow_city_to_great_city"

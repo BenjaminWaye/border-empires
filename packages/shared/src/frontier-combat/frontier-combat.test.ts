@@ -83,6 +83,26 @@ describe("frontier combat", () => {
     expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
   });
 
+  it("applies weaponsWorkshopAttackMult and weaponsWorkshopDefenseMult when present", () => {
+    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { weaponsWorkshopAttackMult: 1.06, weaponsWorkshopDefenseMult: 1.09 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(1.06, 6);
+    expect(boosted.defMult).toBeCloseTo(1.35 * 1.09, 6);
+  });
+
+  it("does not apply a Weapons Workshop defense bonus to a FRONTIER target (zero defense regardless)", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "FRONTIER" },
+      { weaponsWorkshopDefenseMult: 1.5 }
+    );
+    expect(preview.defMult).toBe(0);
+  });
+
   it("leaves atkMult unchanged when dockAttackMult is undefined", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },

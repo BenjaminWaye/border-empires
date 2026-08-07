@@ -15,7 +15,8 @@ export type IndustrialStructureKind =
   | "ADVANCED_FUR_SYNTHESIZER"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "ASTRAL_DOCK";
+  | "ASTRAL_DOCK"
+  | "WEAPONS_WORKSHOP";
 
 export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = new Set([
   "FOUNDRY",
@@ -24,7 +25,8 @@ export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = 
   "ADVANCED_FUR_SYNTHESIZER",
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER",
-  "ASTRAL_DOCK"
+  "ASTRAL_DOCK",
+  "WEAPONS_WORKSHOP"
 ]);
 
 export type IndustrialStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -88,6 +90,17 @@ export const registerIndustrialStructures = (
   const astralPadGeo = new CylinderGeometry(0.22, 0.24, 0.03, 20);
   const astralRingGeo = new CylinderGeometry(0.18, 0.18, 0.014, 24);
   const astralArchGeo = new CylinderGeometry(0.012, 0.012, 0.30, 6);
+  // WEAPONS_WORKSHOP: a small forge-adjacent smithy — low stone platform,
+  // an anvil (base + tapered horn), a glowing coal ember out front, and a
+  // weapon rack of upright blades on posts. Deliberately smaller/simpler
+  // than FOUNDRY's furnace silhouette (no chimneys/roof) since this is an
+  // early, cheap, uncapped War-branch building, not a late economic engine.
+  const weaponsBaseGeo = new BoxGeometry(0.30, 0.08, 0.22);
+  const weaponsAnvilBaseGeo = new BoxGeometry(0.09, 0.07, 0.06);
+  const weaponsAnvilHornGeo = new ConeGeometry(0.032, 0.09, 8);
+  const weaponsEmberGeo = new BoxGeometry(0.045, 0.045, 0.045);
+  const weaponsRackPostGeo = new CylinderGeometry(0.010, 0.010, 0.12, 6);
+  const weaponsBladeGeo = new BoxGeometry(0.016, 0.15, 0.007);
   const astralSpireGeo = new ConeGeometry(0.040, 0.18, 8);
   const astralCoreGeo = new OctahedronGeometry(0.05, 0);
 
@@ -126,6 +139,13 @@ export const registerIndustrialStructures = (
   builder.makeSlot("astralArch", astralArchGeo, astralArchMaterial, C * 4);
   builder.makeSlot("astralSpire", astralSpireGeo, astralSpireMaterial, C);
   builder.makeSlot("astralCore", astralCoreGeo, astralCoreMaterial, C);
+  // Weapons Workshop
+  builder.makeSlot("weaponsBase", weaponsBaseGeo, shared.forgeBaseMaterial, C);
+  builder.makeSlot("weaponsAnvilBase", weaponsAnvilBaseGeo, shared.forgeStoneMaterial, C);
+  builder.makeSlot("weaponsAnvilHorn", weaponsAnvilHornGeo, shared.forgeStoneMaterial, C);
+  builder.makeSlot("weaponsEmber", weaponsEmberGeo, shared.forgeGlowMaterial, C);
+  builder.makeSlot("weaponsRackPost", weaponsRackPostGeo, shared.forgeChimneyMaterial, C * 2);
+  builder.makeSlot("weaponsBlade", weaponsBladeGeo, shared.forgeStoneMaterial, C * 3);
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addIronSynthDual = (sx: number, sy: number, sz: number): void => {
@@ -229,6 +249,26 @@ export const registerIndustrialStructures = (
     builder.addPiece("astralCore", sx, sy, sz, 0, 0.28, 0, 1, 1.4, 1);
   };
 
+  const addWeaponsWorkshop: IndustrialStructureLayout = (sx, sy, sz) => {
+    // Low stone platform, an anvil (base block + tapered horn pointing
+    // outward), a glowing coal ember in front of it, and a small rack of
+    // upright blades on two posts off to the side.
+    builder.addPiece("weaponsBase", sx, sy, sz, 0, 0.04, 0);
+    builder.addPiece("weaponsAnvilBase", sx, sy, sz, 0.09, 0.075, -0.04);
+    builder.addPiece("weaponsAnvilHorn", sx, sy, sz, 0.14, 0.085, -0.04, 1, 1, 1, 0, 0, Math.PI * 0.5);
+    builder.addPiece("weaponsEmber", sx, sy, sz, 0.09, 0.10, 0.06);
+    builder.addPiece("weaponsRackPost", sx, sy, sz, -0.10, 0.10, -0.06);
+    builder.addPiece("weaponsRackPost", sx, sy, sz, -0.10, 0.10, 0.06);
+    const bladeOffsets: ReadonlyArray<readonly [number, number]> = [
+      [-0.05, -0.18],
+      [0, 0],
+      [0.05, 0.18]
+    ];
+    for (const [oz, rotZ] of bladeOffsets) {
+      builder.addPiece("weaponsBlade", sx, sy, sz, -0.10, 0.15, oz, 1, 1, 1, 0, 0, rotZ);
+    }
+  };
+
   return {
     layouts: {
       FOUNDRY: addFoundry,
@@ -237,7 +277,8 @@ export const registerIndustrialStructures = (
       ADVANCED_FUR_SYNTHESIZER: addAdvancedFurSynthesizer,
       CRYSTAL_SYNTHESIZER: addCrystalSynthesizer,
       ADVANCED_CRYSTAL_SYNTHESIZER: addAdvancedCrystalSynthesizer,
-      ASTRAL_DOCK: addAstralDock
+      ASTRAL_DOCK: addAstralDock,
+      WEAPONS_WORKSHOP: addWeaponsWorkshop
     }
   };
 };

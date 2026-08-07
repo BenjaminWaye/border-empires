@@ -59,7 +59,8 @@ export type StructureInfoKey =
   | "IRON_LEVY"
   | "SIEGE_OUTPOST"
   | "SIEGE_TOWER"
-  | "DREAD_TOWER";
+  | "DREAD_TOWER"
+  | "WEAPONS_WORKSHOP";
 
 export type StructureInfoView = {
   title: string;
@@ -87,6 +88,7 @@ export type StructureInfoView = {
 const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy" | "Manpower" | "Aether">> = {
   FORT: "War", IRON_BASTION: "War", THUNDER_BASTION: "War",
   SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
+  WEAPONS_WORKSHOP: "War",
   FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
   MARKET: "Economy", BANK: "Economy", CLEARING_HOUSE: "Economy",
   FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
@@ -153,6 +155,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "POPULATION_BUREAU") return "Population Bureau";
   if (kind === "IRON_LEVY_PART") return "The Iron Levy Part";
   if (kind === "IRON_LEVY") return "The Iron Levy";
+  if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
   return "Market";
 };
 
@@ -201,6 +204,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
   if (kind === "MINE") return "Improves iron or crystal production on this tile and adds +1 slot of that resource.";
+  if (kind === "WEAPONS_WORKSHOP") return "Converts Iron and Supply into a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
   return "Strengthens this tile's economy.";
 };
 
@@ -258,7 +262,8 @@ export const structureInfoForKey = (
     | "POPULATION_BUREAU_PART"
     | "POPULATION_BUREAU"
     | "IRON_LEVY_PART"
-    | "IRON_LEVY" => {
+    | "IRON_LEVY"
+    | "WEAPONS_WORKSHOP" => {
     if (key === "IRON_BASTION") return "FORT";
     if (key === "THUNDER_BASTION") return "FORT";
     if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
@@ -350,6 +355,7 @@ export const structureInfoForKey = (
     if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
     if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
     if (key === "IRON_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
+    if (key === "WEAPONS_WORKSHOP") return ["+3% empire-wide attack per Weapons Workshop you own", "+3% empire-wide defense per Weapons Workshop you own", "No per-town limit — build as many as you like to specialize a town for war"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
@@ -394,6 +400,7 @@ export const structureInfoForKey = (
     if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
     if (key === "POPULATION_BUREAU" || key === "POPULATION_BUREAU_PART") return "/overlays/population-bureau-overlay.svg";
     if (key === "IRON_LEVY" || key === "IRON_LEVY_PART") return "/overlays/iron-levy-overlay.svg";
+    if (key === "WEAPONS_WORKSHOP") return "/overlays/weapons-workshop-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
@@ -727,6 +734,16 @@ export const structureInfoForKey = (
       detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "WEAPONS_WORKSHOP") {
+    return structure({
+      title: "Weapons Workshop",
+      detail: "Weapons Workshops convert Iron and Supply into a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
+      glyph: "⚒",
+      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

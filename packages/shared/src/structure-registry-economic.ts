@@ -48,6 +48,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   QUARTERMASTERS_OFFICE: "field-logistics",
   LOGISTICS_GUILD: "remade-concordat",
   ASSEMBLY_WORKS: "conveyor-networks",
+  WEAPONS_WORKSHOP: "weapons-forging",
 };
 
 // ── Upgrade prerequisites ─────────────────────────────────────────
@@ -183,6 +184,9 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   QUARTERMASTERS_OFFICE: econSpec("QUARTERMASTERS_OFFICE"),
   LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
   ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
+
+  // War branch
+  WEAPONS_WORKSHOP: econSpec("WEAPONS_WORKSHOP"),
 
   // Wonder parts
   IMPERIAL_EXCHANGE_PART: econSpec("IMPERIAL_EXCHANGE_PART"),

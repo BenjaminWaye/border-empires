@@ -220,7 +220,6 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   };
 
   it("skips optimistic town-square builds for town-support structures", () => {
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", townTile)).toBe(false);
     expect(shouldOptimisticallyBuildOnSelectedTile("build_granary", townTile)).toBe(false);
     expect(shouldOptimisticallyBuildOnSelectedTile("build_ironworks", townTile)).toBe(false);
   });
@@ -230,7 +229,11 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   });
 
   it("keeps same-tile structures optimistic on town tiles", () => {
+    // Market moved to same-tile/uncapped placement in the tech-tree redesign
+    // (per-town cap removed), so it's optimistic on the town tile now too,
+    // same as Foundry.
     expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", townTile)).toBe(true);
   });
 });
 
