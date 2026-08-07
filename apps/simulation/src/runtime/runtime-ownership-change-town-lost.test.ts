@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
 // Regression coverage for townLost accuracy on the onOwnershipChange sample.
 // Bug: capturing a neutral (ownerless) town whose town survives the capture
@@ -45,7 +46,7 @@ describe("onOwnershipChange townLost signal", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const captureSample = samples.find((sample) => sample.previousOwnerId === undefined && sample.nextOwnerId === "player-1");
       expect(captureSample).toBeDefined();
@@ -113,7 +114,7 @@ describe("onOwnershipChange townLost signal", () => {
         payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 20, toY: 21 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const captureSample = samples.find((sample) => sample.previousOwnerId === "player-2" && sample.nextOwnerId === "player-1");
       expect(captureSample).toBeDefined();
