@@ -10,7 +10,7 @@ const UNSET_U8 = 255;
 const UNSET_I16 = -2;
 const TERRAIN_SEA = 0;
 export const TERRAIN_LAND = 1;
-const TERRAIN_MOUNTAIN = 2;
+export const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
 const BIOME_GRASS = 0;
@@ -130,7 +130,7 @@ const decodeRegionType = (region: number): RegionType | undefined => {
   return undefined;
 };
 
-const seeded01 = (x: number, y: number, seed: number): number => {
+export const seeded01 = (x: number, y: number, seed: number): number => {
   const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
   return n - Math.floor(n);
 };
