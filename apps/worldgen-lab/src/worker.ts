@@ -8,6 +8,7 @@ import {
   regionTypeAt,
   grassShadeAt,
   isHillsTileAt,
+  seeded01,
   wrapX,
   wrapY,
   type WorldStyle,
@@ -63,12 +64,6 @@ export type WorkerResponse = {
   ironSites: number;        // placed IRON resource tiles
   furSites: number;         // placed FUR resource tiles
   durationMs: number;
-};
-
-// Replicates the private seeded01 from shared/worldgen.ts for seed derivation
-const seeded01 = (x: number, y: number, seed: number): number => {
-  const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
-  return n - Math.floor(n);
 };
 
 // Replicates the seed refinement formula from apps/simulation/src/season-seed-world.ts

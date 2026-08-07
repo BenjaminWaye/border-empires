@@ -282,8 +282,8 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   // below) stays large. IRON and GEMS are both trimmed by the same 2-tile
   // cut so the total resource footprint comes down alongside FUR without
   // singling either out.
-  const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
-    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, 4242) < 0.5 ? 1 : 2;
+  const clusterTileCountForResource = (resource: ResourceType, x: number, y: number, seed: number): number => {
+    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, seed + 4242) < 0.5 ? 1 : 2;
     if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
     if (resource === "IRON") return 6;
     if (resource === "GEMS") return 5;
