@@ -76,4 +76,36 @@ describe("converter mode economy", () => {
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined);
     expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "IRONWORKS")?.amountPerMinute).toBeCloseTo((8 * 2) / 1440, 5);
   });
+
+  it("a freshly-captured EXCHANGE-mode converter pays no gold while modeLockedUntil is in the future (capture shock)", () => {
+    const player = makePlayer();
+    const tile: DomainTileState = {
+      x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: {
+        ownerId: "player-1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE",
+        modeLockedUntil: 5_000
+      }
+    };
+    const tiles = new Map([["10,10", tile]]);
+    const economy = buildPlayerUpdateEconomySnapshot(
+      player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined, 1_000
+    );
+    expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
+  });
+
+  it("resumes EXCHANGE-mode payout once modeLockedUntil (capture shock or otherwise) has passed", () => {
+    const player = makePlayer();
+    const tile: DomainTileState = {
+      x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: {
+        ownerId: "player-1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE",
+        modeLockedUntil: 5_000
+      }
+    };
+    const tiles = new Map([["10,10", tile]]);
+    const economy = buildPlayerUpdateEconomySnapshot(
+      player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined, 5_001
+    );
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "IRONWORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
+  });
 });

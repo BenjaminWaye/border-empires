@@ -6,7 +6,6 @@ import {
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   BANK_FLAT_GOLD_BONUS_PER_MIN,
   BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
-  CONVERTER_MODE_FLIP_COOLDOWN_MS,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   DOCK_INCOME_PER_MIN,
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
@@ -123,15 +122,14 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
   }
 };
 
-// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
-// stockpiled resource (§5.6) — nothing left to convert.
-// EXCHANGE-mode converters produce gold by consuming a slot of their resource.
+// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
+// resource (§5.6); EXCHANGE-mode converters produce gold from a slot instead.
 const converterOutputPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
   if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
     const family = SYNTHESIZER_FAMILY_RESOURCE[structureType as keyof typeof SYNTHESIZER_FAMILY_RESOURCE];
     if (family) {
-      const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[structureType as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
       // EXCHANGE mode produces gold, not a strategic resource
+      const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[structureType as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
       return { GOLD: goldPerDay / UPKEEP_MINUTES_PER_DAY };
     }
   }
@@ -317,7 +315,11 @@ export const buildPlayerUpdateEconomySnapshot = (
   // §5.4: dormant economicStructure tile keys for this player
   // (Runtime.dormantEconomicStructureKeysForPlayer) — same default-empty
   // convention as foodDormantTownKeys above.
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  // Capture resets modeLockedUntil as its shock timer (capture-structures.ts,
+  // no separate captureShockUntil field) — EXCHANGE payout is suppressed
+  // while mode is locked, from a build, flip, or capture reset alike.
+  now: number = Date.now()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   // Iterate the Set directly rather than spreading it — avoids a 250k-element
@@ -423,10 +425,11 @@ export const buildPlayerUpdateEconomySnapshot = (
       // §5.4: a dormant converter (slot supply can't cover its demand) is
       // still "active" in construction terms but pays out nothing — reuse the
       // same dormantEconomicStructureKeys the rest of the economy honors.
-      // Routed through incomeMultiplier/PASSIVE_INCOME_MULT like every other
-      // passive gold source (§Phase 4 headroom caveat) so a future income
-      // tech scales it identically to Market/Bank/Dock income.
-      if (output.GOLD && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`)) {
+      // Also suppressed while mode-locked (build/flip/capture-reset), and
+      // routed through incomeMultiplier/PASSIVE_INCOME_MULT like every other
+      // passive gold source (§Phase 4 headroom caveat).
+      const modeLocked = typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now;
+      if (output.GOLD && !modeLocked && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`)) {
         addBucket(goldSources, structure.type, output.GOLD * incomeMultiplier * PASSIVE_INCOME_MULT, { count: 1 });
       }
     }
