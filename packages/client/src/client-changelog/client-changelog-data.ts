@@ -335,6 +335,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your choice is still locked forever the moment you confirm the domain, same as before."
     ]
   },
+  {
+    createdAt: 1786101000000, // 2026-08-07
+    introducedIn: "fix-attack-reveal-scan",
+    title: "Faster attack resolution",
+    why: "Each ATTACK capture was building a (2r+1)² tile-delta batch to reveal fog-of-war, even though the target tile is always adjacent to the attacker's existing territory — meaning nearly every tile in the batch was already visible. With vision-radius tech bonuses, this batch could reach 361+ tiles and block the server event loop for 500ms+, causing action-accept-timeouts on ATTACK commands.",
+    changes: [
+      "The capture-reveal scan now skips already-visible tiles for ATTACK, matching EXPAND behavior.",
+      "Attack command acceptance is faster and more reliable."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
