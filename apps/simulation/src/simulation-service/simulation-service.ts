@@ -2020,7 +2020,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
             const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
               filterTileDeltasForPlayer: (deltas, playerId, options) => runtime.filterTileDeltasForPlayer(deltas, playerId, options),
-              wireDeltaForTileKey: (tileKey) => runtime.wireDeltaForTileKey(tileKey) as unknown as TileDeltaBatchTile | undefined
+              wireDeltaForTileKey: (tileKey, playerId) => runtime.wireDeltaForTileKey(tileKey, playerId) as unknown as TileDeltaBatchTile | undefined
             });
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;

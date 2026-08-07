@@ -40,4 +40,30 @@ describe("tileDeltaRevealOnly", () => {
     tileDeltaRevealOnly(tile, cache);
     expect(cache.getLastEmitted("3,4")?.ownerId).toBe("p1");
   });
+
+  // Regression coverage for a real bug: this is the fog-of-war "first
+  // exposure" delta path (fired when a tile enters a subscriber's vision for
+  // the first time, e.g. via EXPAND/SETTLE or a capture-reveal radius sweep).
+  // It used to include tile.resource completely unmasked, bypassing the
+  // resource-reveal gating already applied on the streaming
+  // (tile-delta-visibility-filter.ts) and login (runtime-visible-state.ts)
+  // paths -- so settling next to a hidden resource revealed it immediately
+  // regardless of tech.
+  it("masks resource for a viewer with no reveal tech, reveals it once the viewer has the tech", () => {
+    const cache = new TileDeltaStringifyCache();
+    const tile = makeTile({ resource: "IRON" });
+
+    const hidden = tileDeltaRevealOnly(tile, cache, { techIds: new Set() });
+    expect(hidden.resource).toBeUndefined();
+
+    const revealed = tileDeltaRevealOnly(tile, cache, { techIds: new Set(["masonry"]) });
+    expect(revealed.resource).toBe("IRON");
+  });
+
+  it("masks resource when no viewer is passed at all", () => {
+    const cache = new TileDeltaStringifyCache();
+    const tile = makeTile({ resource: "GEMS" });
+    const delta = tileDeltaRevealOnly(tile, cache);
+    expect(delta.resource).toBeUndefined();
+  });
 });

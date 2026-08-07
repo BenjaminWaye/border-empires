@@ -106,7 +106,7 @@ import {
   structureOverlayImages
 } from "./client-map-render/client-map-render.js";
 import { createInitialState, storageSet } from "./client-state/client-state.js";
-import { domainOwnedHtml, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
+import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,
@@ -336,6 +336,7 @@ bootstrapClientApp({
   formatGoldAmount,
   formatManpowerAmount,
   strategicRibbonHtml,
+  hasRevealedResourceCategory,
   openEconomyPanel,
   setActivePanel,
   mobileNavLabelHtml,
