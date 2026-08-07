@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
@@ -96,7 +97,8 @@ describe("capture structure survival", () => {
             type: "MARKET",
             status: "active",
             disabledUntil: 6_000,
-            activatedAt: 1_000
+            activatedAt: 1_000,
+            modeLockedUntil: 1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS
           })
         })
       );
@@ -227,7 +229,13 @@ describe("capture structure survival", () => {
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active", activatedAt: 1_000 }));
+      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({
+        ownerId: "player-1",
+        type: "WOODEN_FORT",
+        status: "active",
+        activatedAt: 1_000,
+        modeLockedUntil: 1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS
+      }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -285,7 +293,13 @@ describe("capture structure survival", () => {
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
       expect(capturedTile?.fortJson).toBeUndefined();
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active", activatedAt: 1_000 }));
+      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({
+        ownerId: "player-1",
+        type: "WOODEN_FORT",
+        status: "active",
+        activatedAt: 1_000,
+        modeLockedUntil: 1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS
+      }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

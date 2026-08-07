@@ -436,3 +436,6 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
     expect(reduced.incomePerMinute).toBeLessThan(base.incomePerMinute);
   });
 });
+
+// Converter mode-flip economy tests live in
+// player-update-economy-converter-mode.test.ts (500-line budget extraction).

@@ -6,6 +6,7 @@ import {
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
+import { converterStructureInfoView } from "./client-converter-structure-info.js";
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
@@ -127,10 +128,15 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "WOODEN_FORT") return "Wooden Fort";
   if (kind === "LIGHT_OUTPOST") return "Light Outpost";
   if (kind === "CARAVANARY") return "Caravanary";
-  if (kind === "FUR_SYNTHESIZER") return "Fur Synthesizer";
-  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Synthesizer";
-  if (kind === "IRONWORKS") return "Ironworks";
-  if (kind === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
+  // converter-mode-flip plan §Phase 6: these buildings now run either
+  // direction (Refine gold->resource, or Sell off resource->gold), so the
+  // display name is direction-neutral. The underlying type constants
+  // (FUR_SYNTHESIZER/IRONWORKS/ADVANCED_*) are unchanged — they're
+  // persisted identifiers, this is a copy-only change.
+  if (kind === "FUR_SYNTHESIZER") return "Fur Works";
+  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Works";
+  if (kind === "IRONWORKS") return "Iron Works";
+  if (kind === "ADVANCED_IRONWORKS") return "Advanced Iron Works";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
   if (kind === "FOUNDRY") return "Foundry";
@@ -172,12 +178,15 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
   if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Caravanary.";
-  if (kind === "FUR_SYNTHESIZER") return "Converts gold into 18 supply per day.";
-  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Converts gold into 21.6 supply per day.";
-  if (kind === "IRONWORKS") return "Converts gold into 18 iron per day.";
-  if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
-  if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
-  if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
+  // converter-mode-flip plan §Phase 6: this building can run either
+  // direction now — mode-neutral summary with both figures, since a
+  // one-directional description is simply false half the time.
+  if (kind === "FUR_SYNTHESIZER") return "Occupies 1 SUPPLY slot. Refine: gold → supply (18/day, 30 gold/day). Sell off: supply → gold (8 gold/day).";
+  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Occupies 1 SUPPLY slot. Refine: gold → supply (21.6/day, 45 gold/day). Sell off: supply → gold (12 gold/day).";
+  if (kind === "IRONWORKS") return "Occupies 1 IRON slot. Refine: gold → iron (18/day, 30 gold/day). Sell off: iron → gold (8 gold/day).";
+  if (kind === "ADVANCED_IRONWORKS") return "Occupies 1 IRON slot. Refine: gold → iron (21.6/day, 45 gold/day). Sell off: iron → gold (12 gold/day).";
+  if (kind === "CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (12/day, 40 gold/day). Sell off: crystal → gold (10 gold/day).";
+  if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (14.4/day, 60 gold/day). Sell off: crystal → gold (15 gold/day).";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
@@ -329,12 +338,12 @@ export const structureInfoForKey = (
     if (key === "BANK") return ["+50% city income", "+1 flat city income"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "FUR_SYNTHESIZER") return ["Produces 18 supply per day"];
-    if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Produces 21.6 supply per day"];
-    if (key === "IRONWORKS") return ["Produces 18 iron per day"];
-    if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
-    if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
-    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
+    if (key === "FUR_SYNTHESIZER") return ["Refine: gold → 18 supply/day", "Sell off: 1 supply slot → 8 gold/day"];
+    if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Refine: gold → 21.6 supply/day", "Sell off: 1 supply slot → 12 gold/day"];
+    if (key === "IRONWORKS") return ["Refine: gold → 18 iron/day", "Sell off: 1 iron slot → 8 gold/day"];
+    if (key === "ADVANCED_IRONWORKS") return ["Refine: gold → 21.6 iron/day", "Sell off: 1 iron slot → 12 gold/day"];
+    if (key === "CRYSTAL_SYNTHESIZER") return ["Refine: gold → 12 crystal/day", "Sell off: 1 crystal slot → 10 gold/day"];
+    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Refine: gold → 14.4 crystal/day", "Sell off: 1 crystal slot → 15 gold/day"];
     if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
@@ -558,25 +567,9 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "FUR_SYNTHESIZER") {
-    return structure({
-      title: "Fur Synthesizer",
-      detail: "Fur Synthesizers convert gold upkeep into 18 supply per day on a support tile.",
-      glyph: "📦",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "ADVANCED_FUR_SYNTHESIZER") {
-    return structure({
-      title: "Advanced Fur Synthesizer",
-      detail: "Advanced Fur Synthesizers upgrade an existing Fur Synthesizer from 18 to 21.6 supply per day.",
-      glyph: "🧵",
-      placement: "Upgrade an existing Fur Synthesizer on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
+  {
+    const converterInfo = converterStructureInfoView(type, structure, imageFor, costBitsFor, buildTimeLabelFor);
+    if (converterInfo) return converterInfo;
   }
   if (type === "LIGHT_OUTPOST") {
     return structure({
@@ -607,46 +600,6 @@ export const structureInfoForKey = (
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
-  }
-  if (type === "IRONWORKS") {
-    return structure({
-      title: "Ironworks",
-      detail: "Ironworks convert gold upkeep into 18 iron per day on a support tile.",
-      glyph: "⚙",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "ADVANCED_IRONWORKS") {
-    return structure({
-      title: "Advanced Ironworks",
-      detail: "Advanced Ironworks upgrade an existing Ironworks from 18 to 21.6 iron per day.",
-      glyph: "⚙",
-      placement: "Upgrade an existing Ironworks on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "CRYSTAL_SYNTHESIZER") {
-    return structure({
-      title: "Aether Condenser",
-      detail: "Aether Condensers convert gold upkeep into 12 crystal per day on a support tile.",
-      glyph: "💎",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") {
-    return structure({
-      title: "Advanced Aether Condenser",
-      detail: "Advanced Aether Condensers upgrade an existing Aether Condenser from 12 to 14.4 crystal per day.",
-      glyph: "💠",
-      placement: "Upgrade an existing Aether Condenser on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
   }
   if (type === "FOUNDRY") {
     return structure({

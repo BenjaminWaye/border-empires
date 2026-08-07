@@ -131,16 +131,17 @@ export const buildLivePlayerEconomySnapshot = (
     // isn't parsed here. Fort and Siege Outpost now DO carry a FOOD +
     // resource per-minute drain (structure-upkeep-rebalance) on top of
     // their slot occupation — see structureUpkeepPerMinute above.
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    const structure = parseStructure<{ type?: string; status?: string; converterMode?: "SYNTHESIZE" | "EXCHANGE" }>(tile.economicStructureJson);
     if (structure?.status === "active" && structure.type) {
-      const upkeep = structureUpkeepPerMinute(structure.type);
+      const upkeep = structureUpkeepPerMinute(structure.type, structure.converterMode);
       if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
       if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
       if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
-      const output = converterOutputPerMinute(structure.type);
+      const output = converterOutputPerMinute(structure.type, structure.converterMode);
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      if (output.GOLD) addBucket(goldSources, structure.type, output.GOLD, { count: 1 });
     }
     const fort = parseStructure<{ variant?: string; status?: string }>(tile.fortJson);
     if (fort?.status === "active" && fort.variant) {

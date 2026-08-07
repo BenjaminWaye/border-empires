@@ -1,4 +1,4 @@
-import type { DomainTileState } from "@border-empires/game-domain";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
 
 type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
 
@@ -26,13 +26,30 @@ const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: str
   return { ...tile.observatory, ownerId: nextOwnerId, activatedAt: now };
 };
 
+// Capture resets modeLockedUntil rather than adding a separate
+// captureShockUntil field — reusing the flip cooldown as the capture-shock
+// timer. This both blocks the new owner from flipping mode immediately and
+// (via player-update-economy.ts's modeLockedUntil check) suppresses
+// EXCHANGE-mode gold payout until the same window expires, so a captured
+// converter can't be harvested for gold the instant it changes hands.
 const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["economicStructure"] => {
   if (!tile?.economicStructure || tile.economicStructure.status === "under_construction") return undefined;
   if (tile.economicStructure.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus, ...economicStructure } = tile.economicStructure;
-    return { ...economicStructure, ownerId: nextOwnerId, status: previousStatus ?? "inactive", activatedAt: now };
+    return {
+      ...economicStructure,
+      ownerId: nextOwnerId,
+      status: previousStatus ?? "inactive",
+      activatedAt: now,
+      modeLockedUntil: now + CONVERTER_MODE_FLIP_COOLDOWN_MS
+    };
   }
-  return { ...tile.economicStructure, ownerId: nextOwnerId, activatedAt: now };
+  return {
+    ...tile.economicStructure,
+    ownerId: nextOwnerId,
+    activatedAt: now,
+    modeLockedUntil: now + CONVERTER_MODE_FLIP_COOLDOWN_MS
+  };
 };
 
 export const capturedStructureFields = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): CapturableStructureFields => ({
