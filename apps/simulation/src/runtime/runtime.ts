@@ -361,6 +361,7 @@ import {
 } from "../runtime-structure-command-handlers.js";
 import {
   handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
+  handleSetConverterStructureModeCommand as handleSetConverterStructureModeCommandImpl,
   handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
@@ -3929,10 +3930,6 @@ export class SimulationRuntime {
     handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command);
   }
 
-  private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
-    handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command);
-  }
-
   private abilityCommandContext(): RuntimeAbilityCommandContext {
     return {
       players: this.players,
@@ -4886,7 +4883,8 @@ export class SimulationRuntime {
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
       handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
-      handleSetConverterStructureEnabledCommand: (command) => this.handleSetConverterStructureEnabledCommand(command),
+      handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
+      handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
       handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
       handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),
       handleSurveySweepCommand: (command) => this.handleSurveySweepCommand(command),

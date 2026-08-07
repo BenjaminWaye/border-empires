@@ -18,6 +18,9 @@ export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
 export type TownType = "MARKET" | "FARMING";
 export type { EmpireVisualTint, EmpireBorderStyle, EmpireStructureAccent } from "./empire-cosmetics-types.js";
 export type { NaturalWonderType, NaturalWonderState } from "./natural-wonder-types.js";
+import type { ConverterMode, EconomicStructure } from "./economic-structure.js";
+export type { ConverterMode, EconomicStructure };
+
 export type EconomicStructureType =
   | "FARMSTEAD"
   | "WATERWORKS"
@@ -100,21 +103,6 @@ export interface TileHistory {
 export interface TileUpkeepEntry {
   label: string;
   perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD", number>>;
-}
-
-export interface EconomicStructure {
-  id: string;
-  type: EconomicStructureType;
-  tileKey: TileKey;
-  ownerId: PlayerId;
-  status: "under_construction" | "active" | "inactive" | "removing";
-  completesAt?: number;
-  disabledUntil?: number;
-  inactiveReason?: "manual" | "upkeep";
-  previousStatus?: "active" | "inactive";
-  nextUpkeepAt: number;
-  powered?: boolean;
-  bombardCooldownUntil?: number;
 }
 
 export interface SeasonVictoryObjectiveView {
@@ -316,6 +304,8 @@ export interface Tile {
     activatedAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
+    converterMode?: ConverterMode;
+    modeLockedUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };

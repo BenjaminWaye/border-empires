@@ -1,4 +1,4 @@
-import { structureSlotRequirements, SYNTHESIZER_STRUCTURE_TYPES, type BuildableStructureType, type SlotStructureType } from "@border-empires/shared";
+import { structureSlotRequirements, SYNTHESIZER_STRUCTURE_TYPES, converterModeOf, type BuildableStructureType, type SlotStructureType } from "@border-empires/shared";
 import { economicStructureName, resourceIconForKey } from "./client-map-display.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
@@ -33,11 +33,13 @@ const formatUpkeepEntry = (entry: TileUpkeepEntry): string => {
 // resource-slot occupation (structure-slots.ts), not a continuous
 // per-minute drain — show "N <resource> slot(s)" per active structure on
 // this tile instead of a fabricated /day rate. Synthesizers are exempt
-// (they provide a slot, never consume one).
+// while in Refine (SYNTHESIZE) mode (they provide a slot, never consume
+// one); an EXCHANGE-mode converter sells off its family slot and does
+// occupy it, so its slot must show.
 const slotLinesForTile = (tile: Tile): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
-  const pushSlotLines = (label: string, structureType: SlotStructureType): void => {
-    if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) return;
+  const pushSlotLines = (label: string, structureType: SlotStructureType, mode?: "SYNTHESIZE" | "EXCHANGE"): void => {
+    if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType) && converterModeOf({ converterMode: mode }) !== "EXCHANGE") return;
     for (const requirement of structureSlotRequirements(structureType)) {
       lines.push({ html: `${label}: ${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}` });
     }
@@ -47,7 +49,7 @@ const slotLinesForTile = (tile: Tile): TileOverviewLine[] => {
     pushSlotLines("Siege Outpost", tile.siegeOutpost.variant ?? "SIEGE_OUTPOST");
   }
   if (tile.economicStructure && tile.economicStructure.status === "active") {
-    pushSlotLines(economicStructureName(tile.economicStructure.type), tile.economicStructure.type);
+    pushSlotLines(economicStructureName(tile.economicStructure.type), tile.economicStructure.type, converterModeOf(tile.economicStructure));
   }
   return lines;
 };

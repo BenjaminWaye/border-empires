@@ -1,5 +1,6 @@
 import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
+import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -241,6 +242,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
     "SET_CONVERTER_STRUCTURE_ENABLED",
+    "SET_CONVERTER_STRUCTURE_MODE",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
     "AETHER_LANCE",
@@ -1364,24 +1366,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       handleBuildAction(actionId, genericStructureType, selected);
       return;
     }
-    if (actionId === "upgrade_fur_synthesizer")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
-        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_FUR_SYNTHESIZER"),
-        { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_FUR_SYNTHESIZER" }
-      );
-    if (actionId === "upgrade_ironworks")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_IRONWORKS" },
-        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_IRONWORKS"),
-        { x: selected.x, y: selected.y, label: `Advanced Ironworks at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_IRONWORKS" }
-      );
-    if (actionId === "upgrade_crystal_synthesizer")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_CRYSTAL_SYNTHESIZER" },
-        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
-        { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
-      );
+    if (actionId === "upgrade_fur_synthesizer" || actionId === "upgrade_ironworks" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
+      handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
+    }
     if (actionId === "build_light_outpost_frontier") {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
@@ -1432,8 +1419,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
-    if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
     if (actionId === "muster_advance") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "ADVANCE" });
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });

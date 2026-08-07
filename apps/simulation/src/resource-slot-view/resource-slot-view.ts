@@ -14,13 +14,14 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   BASE_SLOTS_BY_TILE_RESOURCE,
-  SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
   governorsOfficeFoodSlotWaiver,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
+  converterModeOf,
+  isSlotSourceConverter,
   type BuildableStructureType,
   type SlotResource,
   type SlotStructureType,
@@ -29,8 +30,6 @@ import {
 import { WATERWORKS_RADIUS, FOUNDRY_RADIUS, GOVERNORS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
-
-const SYNTHESIZER_TYPE_SET: ReadonlySet<string> = new Set(SYNTHESIZER_STRUCTURE_TYPES);
 
 export type ResourceSlotTotals = Record<SlotResource, number>;
 
@@ -139,8 +138,11 @@ export const resourceSlotSupplyForPlayer = (
     const isActiveStructure = tile.economicStructure?.status === "active" && tile.economicStructure?.inactiveReason !== "manual";
     const structureType = isActiveStructure ? (tile.economicStructure!.type as BuildableStructureType) : undefined;
 
-    if (structureType && SYNTHESIZER_TYPE_SET.has(structureType)) {
-      for (const req of structureSlotRequirements(structureType as SlotStructureType)) totals[req.resource] += req.count;
+    if (structureType) {
+      const mode = converterModeOf(tile.economicStructure);
+      if (isSlotSourceConverter(structureType, mode)) {
+        for (const req of structureSlotRequirements(structureType as SlotStructureType)) totals[req.resource] += req.count;
+      }
     }
 
     if (!tile.resource) continue;
@@ -190,10 +192,14 @@ export const resourceSlotSupplyForPlayer = (
  * whole lifetime, from build start to the moment removal actually
  * completes (the tile field is cleared), not just while "active".
  *
- * Synthesizers (SYNTHESIZER_STRUCTURE_TYPES) are deliberately excluded —
- * per §6.4 they're a supply *source* (see resourceSlotSupplyForPlayer), not
- * a demand consumer, despite having an entry in STRUCTURE_SLOT_REQUIREMENTS
- * (needed there for their own build-time gate and gold-upkeep lookup).
+ * Synthesizers in SYNTHESIZE mode (SYNTHESIZER_STRUCTURE_TYPES) are
+ * deliberately excluded — per §6.4 they're a supply *source* (see
+ * resourceSlotSupplyForPlayer), not a demand consumer, despite having an
+ * entry in STRUCTURE_SLOT_REQUIREMENTS (needed there for their own
+ * build-time gate and gold-upkeep lookup).
+ *
+ * Synthesizers in EXCHANGE mode ARE demand contributors — they consume a
+ * slot of their resource and participate in dormancy like any other consumer.
  *
  * A settled, owned town itself also draws townFoodSlotDemandForTier(tier)
  * FOOD slots (§5.3: "a town requires ~2 food slots to be powered", +1 per
@@ -258,8 +264,12 @@ const buildDemandContributors = (
     if (tile.siegeOutpost?.ownerId === playerId) {
       addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
     }
-    if (tile.economicStructure?.ownerId === playerId && !SYNTHESIZER_TYPE_SET.has(tile.economicStructure.type) && tile.economicStructure.inactiveReason !== "manual") {
-      addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
+    if (tile.economicStructure?.ownerId === playerId && tile.economicStructure.inactiveReason !== "manual") {
+      const mode = converterModeOf(tile.economicStructure);
+      const isSourceConverter = isSlotSourceConverter(tile.economicStructure.type, mode);
+      if (!isSourceConverter) {
+        addContributor(tileKey, "economicStructure", tile.economicStructure.type as SlotStructureType, tile.economicStructure.activatedAt ?? 0);
+      }
     }
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
       const baseFoodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
