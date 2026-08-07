@@ -14,7 +14,7 @@ import type { TileDeltaVisibilityFilterOptions } from "./tile-delta-visibility-f
  */
 export interface TileDeltaFanoutFilterDeps<TDelta> {
   readonly filterTileDeltasForPlayer: (tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions) => TDelta[];
-  readonly wireDeltaForTileKey: (tileKey: string) => TDelta | undefined;
+  readonly wireDeltaForTileKey: (tileKey: string, playerId: string) => TDelta | undefined;
 }
 
 export const buildFilteredTileDeltasForSubscriber = <
@@ -28,6 +28,6 @@ export const buildFilteredTileDeltasForSubscriber = <
   stampVisibilityAndMergeFogDeltas(deps.filterTileDeltasForPlayer(tileDeltas, subscribedPlayerId, { includeOwnershipClears: true }), {
     leftVisionTileKeys: visionTransitions.left.get(subscribedPlayerId),
     enteredVisionTileKeys: visionTransitions.entered.get(subscribedPlayerId),
-    wireDeltaForTileKey: deps.wireDeltaForTileKey,
+    wireDeltaForTileKey: (tileKey) => deps.wireDeltaForTileKey(tileKey, subscribedPlayerId),
     tileKeyFor: simulationTileKey
   });

@@ -345,6 +345,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attack command acceptance is faster and more reliable."
     ]
   },
+  {
+    createdAt: Date.now(),
+    introducedIn: "resource-reveal-settle-and-ribbon",
+    title: "Fixed: settling near a hidden resource revealed it early, and the toolbar showed hidden resource types",
+    why: "Iron, Supply, and Crystal are supposed to stay hidden until you've researched the tech that reveals them. That masking was already fixed for the streaming map view and for what you see on login, but settling next to a hidden resource (or capturing territory near one) still exposed it instantly through a separate reveal path. The toolbar's resource ribbon also always showed all four resource pills regardless of tech.",
+    changes: [
+      "Settling, expanding, or capturing near an unrevealed Iron/Supply/Crystal tile no longer exposes its resource type early.",
+      "The toolbar's resource ribbon now hides the Iron/Crystal/Supply pill entirely until you've researched the tech that reveals it."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
