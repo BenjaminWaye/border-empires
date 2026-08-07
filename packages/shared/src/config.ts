@@ -29,14 +29,14 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
-export const COMBAT_LOCK_MS = 3_000;
+export const COMBAT_LOCK_MS = 30_000;
 export const FRONTIER_CLAIM_COST = 0;
-export const FRONTIER_CLAIM_MS = 1_250;
-export const FOREST_FRONTIER_CLAIM_MULT = 4;
-// Additive (not multiplicative like the forest claim mult above) — hills
-// aren't as slow to break ground on as dense forest, just a bit rougher.
+export const FRONTIER_CLAIM_MS = 30_000;
+export const FOREST_FRONTIER_CLAIM_MULT = 2;
+// Changed to additive penalty that results in 2x multiplier (same as forest).
+// 30_000 ms additive + 30_000 ms base = 60_000 ms total (2x).
 // See isHillsTileAt usage in runtime-frontier-command.ts.
-export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 1_500;
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 30_000;
 export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**
