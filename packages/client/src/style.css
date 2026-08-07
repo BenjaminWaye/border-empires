@@ -4483,6 +4483,15 @@ body {
   content: "\2191"; /* up arrow — upgrade */
 }
 
+.tech-payoff-chip-resource {
+  color: #d6a8ff;
+  background: rgba(214, 168, 255, 0.1);
+}
+
+.tech-payoff-chip-resource::before {
+  content: "\1F441"; /* eye — reveals a resource */
+}
+
 .muted {
   color: rgba(233, 242, 255, 0.6);
 }
