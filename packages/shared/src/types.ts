@@ -61,7 +61,8 @@ export type EconomicStructureType =
   | "AEGIS_DOME"
   | "ASTRAL_DOCK"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY";
+  | "IRON_LEVY"
+  | "WEAPONS_WORKSHOP";
 // The late-game monument family: each is built in stages (a "*_PART"
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season

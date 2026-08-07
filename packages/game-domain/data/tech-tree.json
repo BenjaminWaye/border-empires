@@ -308,6 +308,24 @@
       }
     },
     {
+      "id": "weapons-forging",
+      "tier": 2,
+      "branch": "war",
+      "name": "Weapons Forging",
+      "description": "Unlocks the Weapons Workshop: converts Iron and Supply into an empire-wide attack and defense boost. Build as many as you like in one town to raise a dedicated military city.",
+      "prereqIds": [
+        "masonry",
+        "leatherworking"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 14400,
+      "effects": {
+        "unlockWeaponsWorkshop": true
+      }
+    },
+    {
       "id": "muster-command",
       "tier": 3,
       "branch": "war",

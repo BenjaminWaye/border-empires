@@ -59,7 +59,7 @@
   },
   "MARKET": {
     "showOn": ["town", "support"],
-    "placementMode": "town_support",
+    "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "GRANARY": {
@@ -154,7 +154,7 @@
   },
   "GARRISON_HALL": {
     "showOn": ["town", "support"],
-    "placementMode": "town_support",
+    "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "CUSTOMS_HOUSE": {
@@ -190,6 +190,11 @@
   "ASSEMBLY_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "WEAPONS_WORKSHOP": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "IMPERIAL_EXCHANGE_PART": {

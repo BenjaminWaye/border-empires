@@ -242,6 +242,16 @@ export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
 export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 // Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
 export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
+// Weapons Workshop: unlike most economic structures, a player may build
+// unlimited copies of this one per town (placementMode "same_tile", one per
+// tile, no per-town cap) so a player can build a dedicated "military town."
+// Each owned Weapons Workshop grants a small empire-wide attack AND defense
+// combat multiplier, applied additively per copy (first-pass balance figure,
+// not derived from anything — expect tuning). A future "network" building is
+// planned to instead scale off how many of these a single town has, but this
+// building's own bonus stays simple and per-copy for now.
+export const WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING = 0.03;
+export const WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING = 0.03;
 
 // --- Tech-tree redesign: new Manpower-branch buildings ---
 // Rail Depot's job narrows to Logistics Guild amplification only (Ancillary

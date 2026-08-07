@@ -92,6 +92,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
   if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
   if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
+  if (key === "unlockWeaponsWorkshop" && value === true) return "Unlocks Weapons Workshop";
   if (key === "unlockIronLevy" && value === true) return "Unlocks The Iron Levy";
   if (key === "musterMaxTilesAdd" && typeof value === "number") return `Muster tile cap +${value}`;
   if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
