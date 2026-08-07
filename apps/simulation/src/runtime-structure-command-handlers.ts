@@ -12,7 +12,6 @@ import {
   structureShowsOnTile,
   structureSlotRequirements,
   LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
-  GRANARY_INSTANT_POPULATION_BURST,
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -25,8 +24,6 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
-import { garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
-import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtime-monument-claim.js";
 
 export type RuntimeStructureCommandContext = {
   players: Map<string, DomainPlayer>;
@@ -167,34 +164,10 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
 
 // §6.4: "hard-capped at 1, forever" — a player may never own more than one
 // synthesizer of a given family (base + Advanced count as the same slot,
-// since Advanced replaces base in place). Base+Advanced pairs, keyed either
-// way so a lookup on either member finds the whole family.
-const SYNTHESIZER_FAMILY: Partial<Record<BuildableStructureType, readonly BuildableStructureType[]>> = {
-  FUR_SYNTHESIZER: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER"],
-  ADVANCED_FUR_SYNTHESIZER: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER"],
-  IRONWORKS: ["IRONWORKS", "ADVANCED_IRONWORKS"],
-  ADVANCED_IRONWORKS: ["IRONWORKS", "ADVANCED_IRONWORKS"],
-  CRYSTAL_SYNTHESIZER: ["CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"],
-  ADVANCED_CRYSTAL_SYNTHESIZER: ["CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"]
-};
-
-// `upgrading` is true exactly when this build is the in-place Advanced
-// upgrade of the synthesizer already standing on THIS tile — that's the one
-// case allowed to "already own one." Any other synthesizer build (fresh, or
-// on a different tile) is blocked once the player owns any member of the
-// same family anywhere, since resourceSlotSupplyForPlayer grants +1 SUPPLY/
-// IRON/CRYSTAL per synthesizer with no cap of its own (resource-slot-view.ts).
-function synthesizerFamilyAlreadyOwnedElsewhere(
-  context: RuntimeStructureCommandContext,
-  playerId: string,
-  structureType: BuildableStructureType,
-  upgrading: boolean
-): boolean {
-  if (upgrading) return false;
-  const family = SYNTHESIZER_FAMILY[structureType];
-  if (!family) return false;
-  return family.some((member) => context.ownedStructureCountForPlayer(playerId, member) > 0);
-}
+// Synthesizer cap removed per converter-mode-flip plan (Decision 5):
+// unlimited SYNTHESIZE-mode converters per family, flat upkeep, no curve.
+// The slot gate is bypassed for synthesizers because they are supply sources
+// (§6.4) — they must be buildable even with zero free slots.
 
 function strategicCostForStructure(
   structureType: BuildableStructureType,
@@ -378,10 +351,6 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }
-  if (synthesizerFamilyAlreadyOwnedElsewhere(context, command.playerId, structureType, upgrading)) {
-    rejectCommand(context, command, "BUILD_INVALID", `already own a ${structureLabel(upgradeBaseType(structureType) ?? structureType)} — only one allowed per empire`);
-    return;
-  }
 
   if (spec.kind === "FORT" && target.fort && !nextFortTierForUpgrade(target.fort.variant, hasTech)) {
     rejectCommand(context, command, "BUILD_INVALID", target.fort.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first");
@@ -476,85 +445,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   context.scheduleAfter(buildMs, () => context.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId));
 }
 
-export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
-  const spec = STRUCTURE_REGISTRY[structureType];
-  if (!spec) return;
-  const latest = context.tiles.get(targetKey);
-  if (!latest || latest.ownerId !== ownerId) return;
-  const structure = latest[spec.tileField];
-  if (!structure || structure.ownerId !== ownerId || structure.status !== "under_construction") return;
-  if (spec.tileField === "economicStructure" && latest.economicStructure?.type !== structureType) return;
-
-  // §16: two players' assemblies can both be "under_construction" at once (the reject gate only sees an already-ACTIVE one) — the completion race's loser must not also go active.
-  if (isMonumentBaseType(structureType)) {
-    const claimedBy = monumentClaimOwnerId(context.tiles, structureType);
-    if (claimedBy && claimedBy !== ownerId) {
-      resolveLostMonumentAssemblyRace(context, targetKey, latest, ownerId, structureType, commandId);
-      return;
-    }
-  }
-
-  const { completesAt: _, ...activeStructure } = structure;
-  const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const garrisonInit = spec.tileField === "fort"
-    ? {
-        garrison: initialGarrisonForVariant(activeVariant),
-        garrisonCap: garrisonCapForVariant(activeVariant),
-        garrisonUpdatedAt: context.now()
-      }
-    : {};
-  const clearingWoodenFort =
-    spec.tileField === "fort" &&
-    latest.economicStructure?.type === "WOODEN_FORT" &&
-    latest.economicStructure?.ownerId === ownerId;
-
-  const completedTile = {
-    ...latest,
-    ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-    [spec.tileField]: { ...activeStructure, status: "active", activatedAt: context.now(), ...garrisonInit }
-  } as DomainTileState;
-
-  context.replaceTileState(targetKey, completedTile);
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
-  context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
-  // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
-  // is applied by reconcileOutpostVisionBonus via the replaceTileState call
-  // above — runtime-outpost-vision.ts.
-  if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
-  // Incubation Engine (Granary, tech-tree redesign): instant one-time
-  // +10,000 population burst on build completion, applied to both the
-  // town's current population AND its cap (a burst that gets silently
-  // absorbed into existing headroom wouldn't read as a "burst" at all).
-  if (structureType === "GRANARY") {
-    grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
-  }
-}
-
-function grantGranaryPopulationBurst(
-  context: RuntimeStructureCommandContext,
-  ownerId: string,
-  x: number,
-  y: number,
-  commandId: string
-): void {
-  const townKey = context.assignedTownKeyForSupportTile(ownerId, x, y);
-  if (!townKey) return;
-  const townTile = context.tiles.get(townKey);
-  if (!townTile?.town || townTile.ownerId !== ownerId) return;
-  const updatedTownTile: DomainTileState = {
-    ...townTile,
-    town: {
-      ...townTile.town,
-      population: (townTile.town.population ?? 0) + GRANARY_INSTANT_POPULATION_BURST,
-      maxPopulation: (townTile.town.maxPopulation ?? 0) + GRANARY_INSTANT_POPULATION_BURST
-    }
-  };
-  context.replaceTileState(townKey, updatedTownTile, commandId);
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId,
-    playerId: ownerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
-  });
-}
+// completeStructureBuild lives in runtime-structure-build-completion.ts (500-
+// line budget extraction) — re-exported here so existing importers of this
+// module keep working unchanged.
+export { completeStructureBuild } from "./runtime-structure-build-completion.js";

@@ -397,11 +397,9 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     expect(tile?.economicStructureJson).toContain('"type":"ADVANCED_FUR_SYNTHESIZER"');
   });
 
-  // §6.4: synthesizers are hard-capped at 1 per family, forever — this is
-  // the empire-wide enforcement added alongside the slot-supply reading of
-  // §6.4 (a synthesizer grants +1 SUPPLY/IRON/CRYSTAL with no cap of its
-  // own in resource-slot-view.ts, so nothing else stops unbounded stacking).
-  it("rejects a second FUR_SYNTHESIZER in a different town when one is already owned", async () => {
+  // converter-mode-flip plan §Cap removal: the 1-per-empire synthesizer cap
+  // is gone. Regression test against the removed rule (used to assert the opposite).
+  it("allows a second FUR_SYNTHESIZER in a different town when one is already owned (cap removed)", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -433,9 +431,9 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     });
     await Promise.resolve();
 
-    expect(rejections).toEqual([{ code: "BUILD_INVALID", message: "already own a fur synthesizer — only one allowed per empire" }]);
+    expect(rejections).toEqual([]);
     const secondTile = runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10);
-    expect(secondTile?.economicStructureJson).toBeUndefined();
+    expect(secondTile?.economicStructureJson).toBeDefined();
   });
 
   it("allows a fresh FUR_SYNTHESIZER build when none is owned yet", async () => {

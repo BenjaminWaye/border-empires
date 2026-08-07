@@ -11,10 +11,15 @@ const clientSource = (filename: string): string => {
 describe("converter toggle regression guard", () => {
   it("wires enable and disable converter actions through the tile menu and action flow", () => {
     const logic = clientSource("../client-tile-action-logic/client-tile-action-logic.ts");
+    const converterMenu = clientSource("../client-converter-menu.ts");
     const flow = clientSource("../client-action-flow.ts");
-    expect(logic).toContain('id: "disable_converter_structure" as TileActionDef["id"]');
-    expect(logic).toContain('id: "enable_converter_structure" as TileActionDef["id"]');
-    expect(flow).toContain('type: "SET_CONVERTER_STRUCTURE_ENABLED"');
+    const converterActions = clientSource("../client-converter-actions.ts");
+    expect(converterMenu).toContain('id: "disable_converter_structure" as TileActionDef["id"]');
+    expect(converterMenu).toContain('id: "enable_converter_structure" as TileActionDef["id"]');
+    expect(flow).toContain("handleConverterTileAction");
+    expect(converterActions).toContain('type: "SET_CONVERTER_STRUCTURE_ENABLED"');
+    expect(converterActions).toContain('type: "SET_CONVERTER_STRUCTURE_MODE"');
+    expect(converterMenu).toContain('id: "set_converter_structure_mode" as TileActionDef["id"]');
   });
 
   it("preloads and renders the base crystal synthesizer overlay", () => {

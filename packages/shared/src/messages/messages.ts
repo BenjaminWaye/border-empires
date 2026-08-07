@@ -117,6 +117,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({
+    type: z.literal("SET_CONVERTER_STRUCTURE_MODE"),
+    x: z.number().int(),
+    y: z.number().int(),
+    mode: z.enum(["SYNTHESIZE", "EXCHANGE"]),
+    ...FrontierCommandMetadataSchema
+  }),
+  z.object({
     type: z.literal("SETTLE"),
     x: z.number().int(),
     y: z.number().int(),

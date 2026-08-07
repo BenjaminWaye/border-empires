@@ -11,7 +11,7 @@
 // `demand = Σ` over resource-consuming structures. No per-tile assignment.
 
 import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
-import type { FortVariant, PopulationTier, ResourceType, SiegeOutpostVariant } from "../types.js";
+import type { ConverterMode, FortVariant, PopulationTier, ResourceType, SiegeOutpostVariant } from "../types.js";
 
 // Fort/Siege tier-ladder variants (IRON_BASTION, THUNDER_BASTION, SIEGE_TOWER,
 // DREAD_TOWER) aren't part of BuildableStructureType — they're FortVariant/
@@ -144,6 +144,26 @@ export const SYNTHESIZER_STRUCTURE_TYPES: readonly BuildableStructureType[] = [
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER"
 ];
+
+export const SYNTHESIZER_TYPE_SET = new Set(SYNTHESIZER_STRUCTURE_TYPES);
+
+export const SYNTHESIZER_FAMILY_RESOURCE: Partial<Record<BuildableStructureType, SlotResource>> = {
+  FUR_SYNTHESIZER: "SUPPLY",
+  ADVANCED_FUR_SYNTHESIZER: "SUPPLY",
+  IRONWORKS: "IRON",
+  ADVANCED_IRONWORKS: "IRON",
+  CRYSTAL_SYNTHESIZER: "CRYSTAL",
+  ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL"
+} as const;
+
+export const converterModeOf = (structure: { converterMode?: ConverterMode | undefined } | undefined): ConverterMode =>
+  structure?.converterMode ?? "SYNTHESIZE";
+
+export const isSlotSourceConverter = (type: string, mode: ConverterMode): boolean =>
+  SYNTHESIZER_TYPE_SET.has(type as BuildableStructureType) && mode === "SYNTHESIZE";
+
+export const isSlotSinkConverter = (type: string, mode: ConverterMode): boolean =>
+  SYNTHESIZER_TYPE_SET.has(type as BuildableStructureType) && mode === "EXCHANGE";
 
 // §5.2/§5.3: base slot supply per raw resource tile, and the boost each
 // tile-sitting structure adds. FISH is deliberately fixed with no boost path

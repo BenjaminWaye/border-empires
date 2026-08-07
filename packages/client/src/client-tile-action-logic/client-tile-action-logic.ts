@@ -33,6 +33,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
+import { converterStructureMenuEntries } from "../client-converter-menu.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
@@ -473,14 +474,6 @@ const chainedBuildAvailabilityFromModule = (
 
 const frontierBuildDetailSuffix = (tile: Tile): string =>
   tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
-
-const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
-  type === "FUR_SYNTHESIZER" ||
-  type === "ADVANCED_FUR_SYNTHESIZER" ||
-  type === "IRONWORKS" ||
-  type === "ADVANCED_IRONWORKS" ||
-  type === "CRYSTAL_SYNTHESIZER" ||
-  type === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
 const resourceClassForTile = (resource: Tile["resource"]): "food" | "supply" | "iron" | "crystal" | undefined => {
   if (resource === "FARM" || resource === "FISH") return "food";
@@ -974,33 +967,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     if (tile.economicStructure) {
-      const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
-      const isConverter = isConverterStructureType(tile.economicStructure.type);
-      if (tile.economicStructure.status === "active") {
-        out.push({
-          id: "disable_converter_structure" as TileActionDef["id"],
-          label: `Disable ${economicStructureName(tile.economicStructure.type)}`,
-          detail: deps.buildDetailTextForAction("disable_converter_structure", tile)
-        });
-      } else if (tile.economicStructure.status === "inactive") {
-        out.push({
-          id: "enable_converter_structure" as TileActionDef["id"],
-          label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
-          detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
-          ...tileActionAvailability(
-            downtimeRemainingMs <= 0,
-            downtimeRemainingMs > 0
-              ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-              : "Needs enough gold for one upkeep tick",
-            isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
-          )
-        });
-      }
+      out.push(
+        ...converterStructureMenuEntries(tile, {
+          buildDetailTextForAction: deps.buildDetailTextForAction,
+          formatCooldownShort: deps.formatCooldownShort,
+          tileActionAvailability
+        })
+      );
     }
     if (tile.economicStructure?.type === "FUR_SYNTHESIZER") {
       out.push({
         id: "upgrade_fur_synthesizer" as TileActionDef["id"],
-        label: "Upgrade Fur Synth",
+        label: "Upgrade Fur Works",
         detail: deps.buildDetailTextForAction("upgrade_fur_synthesizer", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") &&
@@ -1020,7 +998,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     if (tile.economicStructure?.type === "IRONWORKS") {
       out.push({
         id: "upgrade_ironworks" as TileActionDef["id"],
-        label: "Upgrade Ironworks",
+        label: "Upgrade Iron Works",
         detail: deps.buildDetailTextForAction("upgrade_ironworks", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") &&
@@ -1830,7 +1808,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
       out.push({
         id: "build_fur_synthesizer",
-        label: "Build Fur Synthesizer",
+        label: "Build Fur Works",
         detail: deps.buildDetailTextForAction("build_fur_synthesizer", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1839,7 +1817,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasFurSynth
-                ? "Nearby town already has Fur Synthesizer"
+                ? "Nearby town already has Fur Works"
                 : !state.techIds.includes("workshops")
                   ? "Requires Artisan Workshops"
                   : "Unavailable",
@@ -1851,7 +1829,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
       out.push({
         id: "build_ironworks",
-        label: "Build Ironworks",
+        label: "Build Iron Works",
         detail: deps.buildDetailTextForAction("build_ironworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1860,7 +1838,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasIronworks
-                ? "Nearby town already has Ironworks"
+                ? "Nearby town already has Iron Works"
                 : !state.techIds.includes("alchemy")
                   ? "Requires Alchemical Forges"
                   : "Unavailable",
