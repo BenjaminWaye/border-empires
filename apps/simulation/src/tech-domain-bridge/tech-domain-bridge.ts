@@ -285,14 +285,31 @@ export const additiveEffectForPlayer = (
  * baked into the tile itself, since the same tile's resource type is
  * revealed/hidden independently for every player based on their own tech.
  */
+// tile.resource (FARM/FISH/IRON/GEMS/WOOD/FUR) is a raw terrain-resource
+// type, not the strategic category tech-tree.json's revealResource values
+// use (food/iron/crystal/supply) — mirrors client-map-display.ts's
+// strategicResourceKeyForTile. WOOD/FUR both feed SUPPLY; GEMS feeds
+// CRYSTAL. Without this mapping, comparing the raw tile type directly
+// against revealResource only ever happened to match for IRON (whose raw
+// type and category name are spelled the same) — SUPPLY and CRYSTAL tiles
+// stayed masked forever, tech or no tech.
+const REVEAL_CATEGORY_BY_TILE_RESOURCE: Record<string, string> = {
+  farm: "food",
+  fish: "food",
+  iron: "iron",
+  gems: "crystal",
+  wood: "supply",
+  fur: "supply"
+};
+
 export const hasRevealedResourceForPlayer = (
   player: Pick<DomainPlayer, "techIds">,
   resource: string
 ): boolean => {
-  const normalized = resource.toLowerCase();
-  if (normalized === "food") return true;
+  const category = REVEAL_CATEGORY_BY_TILE_RESOURCE[resource.toLowerCase()] ?? resource.toLowerCase();
+  if (category === "food") return true;
   for (const techId of player.techIds) {
-    if (techEntryById.get(techId)?.effects?.revealResource === normalized) return true;
+    if (techEntryById.get(techId)?.effects?.revealResource === category) return true;
   }
   return false;
 };
