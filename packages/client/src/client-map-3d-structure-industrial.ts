@@ -47,6 +47,13 @@ export const registerIndustrialStructures = (
 
   // ─── Materials ──────────────────────────────────────────────────────
   const slagMaterial = new MeshStandardMaterial({ color: "#5a3028", roughness: 0.86, metalness: 0.12, flatShading: true, emissive: "#ff4a12", emissiveIntensity: 0.35 });
+  // WEAPONS_WORKSHOP: titanium-alloy plating (cool, high-metalness,
+  // low-roughness -- an aerospace-metal finish, not dull blacksmith iron)
+  // and a cyan laser-blade edge (emissive, matching a plasma/energy weapon
+  // rather than hammered steel).
+  const titaniumAlloyMaterial = new MeshStandardMaterial({ color: "#9aa7b4", roughness: 0.25, metalness: 0.9, flatShading: true });
+  const laserBladeMaterial = new MeshStandardMaterial({ color: "#6fe3ff", roughness: 0.15, metalness: 0.1, flatShading: true, emissive: "#29c8ff", emissiveIntensity: 1.15 });
+  const plasmaCoreMaterial = new MeshStandardMaterial({ color: "#8fefff", roughness: 0.2, metalness: 0.1, flatShading: true, emissive: "#2ad0ff", emissiveIntensity: 1.0 });
   const synthBaseMaterial = new MeshStandardMaterial({ color: "#3e4248", roughness: 0.7, metalness: 0.35, flatShading: true });
   const synthChamberMaterial = new MeshStandardMaterial({ color: "#b6bcc0", roughness: 0.5, metalness: 0.55, flatShading: true });
   const synthTubeMaterial = new MeshStandardMaterial({ color: "#5a5e62", roughness: 0.6, metalness: 0.5, flatShading: true });
@@ -90,11 +97,12 @@ export const registerIndustrialStructures = (
   const astralPadGeo = new CylinderGeometry(0.22, 0.24, 0.03, 20);
   const astralRingGeo = new CylinderGeometry(0.18, 0.18, 0.014, 24);
   const astralArchGeo = new CylinderGeometry(0.012, 0.012, 0.30, 6);
-  // WEAPONS_WORKSHOP: a small forge-adjacent smithy — low stone platform,
-  // an anvil (base + tapered horn), a glowing coal ember out front, and a
-  // weapon rack of upright blades on posts. Deliberately smaller/simpler
-  // than FOUNDRY's furnace silhouette (no chimneys/roof) since this is an
-  // early, cheap, uncapped War-branch building, not a late economic engine.
+  // WEAPONS_WORKSHOP: a small titanium-alloy forging bay — low platform,
+  // an alloy press (base + tapered forming horn) that stamps armor plate,
+  // a glowing plasma core powering it, and a rack of charged energy blades
+  // on posts. Deliberately smaller/simpler than FOUNDRY's furnace
+  // silhouette (no chimneys/roof) since this is an early, cheap, uncapped
+  // War-branch building, not a late economic engine.
   const weaponsBaseGeo = new BoxGeometry(0.30, 0.08, 0.22);
   const weaponsAnvilBaseGeo = new BoxGeometry(0.09, 0.07, 0.06);
   const weaponsAnvilHornGeo = new ConeGeometry(0.032, 0.09, 8);
@@ -139,13 +147,13 @@ export const registerIndustrialStructures = (
   builder.makeSlot("astralArch", astralArchGeo, astralArchMaterial, C * 4);
   builder.makeSlot("astralSpire", astralSpireGeo, astralSpireMaterial, C);
   builder.makeSlot("astralCore", astralCoreGeo, astralCoreMaterial, C);
-  // Weapons Workshop
+  // Weapons Workshop: titanium-alloy press + plasma core + laser blades
   builder.makeSlot("weaponsBase", weaponsBaseGeo, shared.forgeBaseMaterial, C);
-  builder.makeSlot("weaponsAnvilBase", weaponsAnvilBaseGeo, shared.forgeStoneMaterial, C);
-  builder.makeSlot("weaponsAnvilHorn", weaponsAnvilHornGeo, shared.forgeStoneMaterial, C);
-  builder.makeSlot("weaponsEmber", weaponsEmberGeo, shared.forgeGlowMaterial, C);
-  builder.makeSlot("weaponsRackPost", weaponsRackPostGeo, shared.forgeChimneyMaterial, C * 2);
-  builder.makeSlot("weaponsBlade", weaponsBladeGeo, shared.forgeStoneMaterial, C * 3);
+  builder.makeSlot("weaponsAnvilBase", weaponsAnvilBaseGeo, titaniumAlloyMaterial, C);
+  builder.makeSlot("weaponsAnvilHorn", weaponsAnvilHornGeo, titaniumAlloyMaterial, C);
+  builder.makeSlot("weaponsEmber", weaponsEmberGeo, plasmaCoreMaterial, C);
+  builder.makeSlot("weaponsRackPost", weaponsRackPostGeo, titaniumAlloyMaterial, C * 2);
+  builder.makeSlot("weaponsBlade", weaponsBladeGeo, laserBladeMaterial, C * 3);
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addIronSynthDual = (sx: number, sy: number, sz: number): void => {
@@ -250,9 +258,9 @@ export const registerIndustrialStructures = (
   };
 
   const addWeaponsWorkshop: IndustrialStructureLayout = (sx, sy, sz) => {
-    // Low stone platform, an anvil (base block + tapered horn pointing
-    // outward), a glowing coal ember in front of it, and a small rack of
-    // upright blades on two posts off to the side.
+    // Low platform, a titanium-alloy press (base block + tapered forming
+    // horn pointing outward) with a glowing plasma core powering it, and a
+    // small rack of charged energy blades on two posts off to the side.
     builder.addPiece("weaponsBase", sx, sy, sz, 0, 0.04, 0);
     builder.addPiece("weaponsAnvilBase", sx, sy, sz, 0.09, 0.075, -0.04);
     builder.addPiece("weaponsAnvilHorn", sx, sy, sz, 0.14, 0.085, -0.04, 1, 1, 1, 0, 0, Math.PI * 0.5);
