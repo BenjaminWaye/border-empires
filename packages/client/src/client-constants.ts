@@ -86,11 +86,21 @@ export const formatManpowerAmount = (manpower: number): string => manpower.toFix
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;
 
-export const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 4 : FRONTIER_CLAIM_MS);
-export const settleDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? SETTLE_MS * 2 : SETTLE_MS);
+export const frontierClaimDurationMsForTile = (x: number, y: number): number => {
+  if (isForestTile(x, y)) return FRONTIER_CLAIM_MS * 2;
+  if (isHillsTile(x, y)) return FRONTIER_CLAIM_MS * 2;
+  return FRONTIER_CLAIM_MS;
+};
+export const settleDurationMsForTile = (x: number, y: number): number => {
+  if (isForestTile(x, y)) return SETTLE_MS * 2;
+  if (isHillsTile(x, y)) return SETTLE_MS * 2;
+  return SETTLE_MS;
+};
 
 export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
   const costLabel = `${EXPAND_MANPOWER_COST} manpower + ${FRONTIER_CLAIM_COST} gold`;
-  return isForestTile(x, y) ? `${costLabel} • ${seconds}s (Forest)` : `${costLabel} • ${seconds}s`;
+  if (isForestTile(x, y)) return `${costLabel} • ${seconds}s (Forest)`;
+  if (isHillsTile(x, y)) return `${costLabel} • ${seconds}s (Hills)`;
+  return `${costLabel} • ${seconds}s`;
 };

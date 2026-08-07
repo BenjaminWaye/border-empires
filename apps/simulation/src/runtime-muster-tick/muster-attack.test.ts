@@ -6,6 +6,7 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
 const makePlayer = (id: string) => ({
   id,
@@ -64,7 +65,7 @@ describe("muster-gated attacks", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
@@ -154,7 +155,7 @@ describe("muster-gated attacks", () => {
       const runtime = buildRuntime(60, "ADVANCE");
       runtime.tickMuster(1_000);
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
     } finally {
@@ -202,7 +203,7 @@ describe("muster-gated attacks", () => {
 
       runtime.tickMuster(1_000);
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       // (5,8) must still be owned by player-2: the isolated pocket at (5,7) must not be used.
       const shouldNotCapture = runtime.exportState().tiles.find((t) => t.x === 5 && t.y === 8);
@@ -261,7 +262,7 @@ describe("muster-gated attacks", () => {
       );
       expect(lockedRejections).toHaveLength(0);
 
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
     } finally {
@@ -318,7 +319,7 @@ describe("muster-gated attacks", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");

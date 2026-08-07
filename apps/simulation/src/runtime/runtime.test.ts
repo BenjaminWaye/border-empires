@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -1379,7 +1379,7 @@ describe("simulation runtime", () => {
         })
       );
       expect(scheduled).toHaveLength(1);
-      expect(scheduled[0]?.delayMs).toBe(3_000);
+      expect(scheduled[0]?.delayMs).toBe(COMBAT_LOCK_MS);
 
       scheduled[0]?.task();
 
@@ -1951,7 +1951,7 @@ describe("simulation runtime", () => {
 
       runtime.submitCommand(command);
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       runtime.submitCommand(command);
 
@@ -2001,7 +2001,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(runtime.exportState().tiles).toContainEqual(
         expect.objectContaining({
@@ -2043,7 +2043,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const targetTile = runtime.exportState().tiles.find((t) => t.x === 11 && t.y === 10);
       expect(targetTile).toBeDefined();
@@ -2237,7 +2237,7 @@ describe("simulation runtime", () => {
         })
       );
 
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
       expect(runtime.exportState().tiles).toContainEqual(
         expect.objectContaining({
           x: 11,
@@ -2292,7 +2292,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const combatResult = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> => event.eventType === "COMBAT_RESOLVED"
@@ -2358,7 +2358,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
     } finally {
@@ -2395,7 +2395,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(runtime.exportState().tiles.find((tile) => tile.x === 11 && tile.y === 10)).toEqual(
         expect.objectContaining({
@@ -2448,7 +2448,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const combatResolved = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> => event.eventType === "COMBAT_RESOLVED"
@@ -2526,7 +2526,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const flipped = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
       expect(flipped).toEqual(
@@ -2596,7 +2596,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const reclaimed = runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 273);
       expect(reclaimed).toEqual(
@@ -2656,7 +2656,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const combatResolved = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> =>
@@ -2730,7 +2730,7 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(seen).toContainEqual(
         expect.objectContaining({
@@ -4029,7 +4029,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       runtime.submitCommand({
         commandId: "cmd-2",
@@ -4688,7 +4688,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(tileDeltaEvents).toEqual(
         expect.arrayContaining([
@@ -4736,7 +4736,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       // First batch is the EXPAND resolution (just the new tile — the "AI compact delta" guarantee).
       // A second batch may follow for encirclement cut-off detection on the newly acquired tiles;
@@ -4804,7 +4804,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       // Resolution batch must contain the captured tile and stay small (a few
       // coalesced breach/walk tiles) — NOT the ~81-tile vision-radius reveal
@@ -5043,7 +5043,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 10, toY: 10 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(runtime.exportState().pendingSettlements).not.toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
@@ -5065,7 +5065,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 9, toX: 10, toY: 10 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
       vi.advanceTimersByTime(60_000);
 
       expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
@@ -5138,7 +5138,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 10, toY: 10 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       now = 6_000;
       runtime.submitCommand({
@@ -5151,7 +5151,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 9, toX: 10, toY: 10 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       now = 10_000;
       runtime.submitCommand({
@@ -7634,7 +7634,7 @@ describe("simulation runtime — shard rain", () => {
         });
 
         await Promise.resolve();
-        vi.advanceTimersByTime(3_100);
+        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
         const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
         expect(captured?.ownerId).toBe("player-1");
@@ -7715,7 +7715,7 @@ describe("simulation runtime — shard rain", () => {
         });
 
         await Promise.resolve();
-        vi.advanceTimersByTime(3_100);
+        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
         // Captured tile still loses its SETTLEMENT town (evacuation attempted).
         const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
@@ -7791,7 +7791,7 @@ describe("simulation runtime — shard rain", () => {
         });
 
         await Promise.resolve();
-        vi.advanceTimersByTime(3_100);
+        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
         const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
         expect(captured?.ownerId).toBe("player-1");

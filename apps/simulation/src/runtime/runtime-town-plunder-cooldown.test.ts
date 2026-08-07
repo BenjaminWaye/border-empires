@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 const makePlayer = (id: string, points: number) => ({
@@ -70,7 +71,7 @@ describe("town capture plunder cooldown", () => {
       });
       await Promise.resolve();
       nowMs = 5_000;
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const resolved = seen.find(
         (event): event is Extract<SimulationEvent, { eventType: "COMBAT_RESOLVED" }> =>

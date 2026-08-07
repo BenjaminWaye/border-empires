@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
 // §20 of the manpower-economy-rewrite plan: the durable per-player event log's
 // "town lost" launch event type. Deliberately keyed on ownership changing
@@ -63,7 +64,7 @@ describe("§20 event log — town lost", () => {
         payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 20, toY: 21 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const state = runtime.exportState();
       const loser = state.players.find((p) => p.id === "player-2");

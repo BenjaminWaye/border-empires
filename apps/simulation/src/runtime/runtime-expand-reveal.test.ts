@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import { buildPlayer } from "./runtime.test-helpers.js";
 import { stampVisibilityAndMergeFogDeltas } from "../tile-delta-visibility-stamp.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
@@ -57,7 +58,7 @@ describe("simulation runtime — EXPAND capture reveal", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(expandBatches.length).toBeGreaterThanOrEqual(1);
       // Resolution batch must contain only the captured tile — NOT the ~81-tile
@@ -126,7 +127,7 @@ describe("simulation runtime — EXPAND capture reveal", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       expect(lastBatch).toBeDefined();
       // Reproduce the same fanout pipeline simulation-service.ts runs per

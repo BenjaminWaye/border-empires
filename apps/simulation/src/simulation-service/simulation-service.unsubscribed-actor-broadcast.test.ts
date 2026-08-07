@@ -192,9 +192,12 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
     await subscribePlayer(client, actorId);
 
     const commandId = "actor-expand-self-visible";
+    // EXPAND can take up to FRONTIER_CLAIM_MS * 2 (forest/hills) to resolve —
+    // give the real-timers wait enough headroom.
     const tileFlipped = waitForStreamEvent(
       client,
-      (event) => event.event_type === "TILE_DELTA_BATCH" && event.command_id === commandId && event.player_id === actorId
+      (event) => event.event_type === "TILE_DELTA_BATCH" && event.command_id === commandId && event.player_id === actorId,
+      65_000
     );
 
     await submitCommand(client, {
@@ -219,7 +222,7 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
         player_id: actorId
       })
     );
-  });
+  }, 70_000);
 
   it("emits an ATTACK_ALERT player message addressed to the defender so they see the incoming-attack overlay", async () => {
     const service = await createSimulationService({

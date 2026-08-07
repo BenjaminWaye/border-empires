@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import { BARBARIAN_CAPTURE_PLUNDER_GOLD } from "../runtime-combat-support.js";
 
 describe("barbarian capture plunder cap", () => {
@@ -72,7 +73,7 @@ describe("barbarian capture plunder cap", () => {
       });
 
       await Promise.resolve();
-      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const plunderEvent = seen.find((event) => event.commandId === "cmd-barb-plunder");
       expect((plunderEvent?.pillagedGold as number) ?? 0).toBe(BARBARIAN_CAPTURE_PLUNDER_GOLD);
