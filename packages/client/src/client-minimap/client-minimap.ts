@@ -78,6 +78,8 @@ export const drawMiniMap = (options: {
   });
   const wxToPx = (wx: number): number => ((wx - box.x0) / box.w) * w;
   const wyToPy = (wy: number): number => ((wy - box.y0) / box.h) * h;
+  const inBox = (x: number, y: number): boolean =>
+    x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
   const baseW = options.miniMapBase.width;
   const baseH = options.miniMapBase.height;
@@ -108,23 +110,47 @@ export const drawMiniMap = (options: {
       );
       options.miniMapCtx.fillRect(px, py, 1, 1);
     }
+  } else {
+    for (const tile of options.state.tiles.values()) {
+      if (!tile.ownerId) continue;
+      if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+      if (!inBox(tile.x, tile.y)) continue;
+      const ox = Math.floor(wxToPx(tile.x));
+      const oy = Math.floor(wyToPy(tile.y));
+      options.miniMapCtx.fillStyle = hexWithAlpha(
+        options.effectiveOverlayColor(tile.ownerId),
+        tile.ownershipState === "SETTLED" ? 0.9 : 0.6
+      );
+      options.miniMapCtx.fillRect(ox, oy, 1, 1);
+    }
   }
 
   if (!effectiveFogDisabled(options.state)) {
+    const fogStyle: Record<"unexplored" | "fogged", string> = {
+      unexplored: "#000000",
+      fogged: "rgba(0,0,0,0.62)"
+    };
     for (let py = 0; py < h; py += 1) {
+      const wy = Math.floor(box.y0 + (py / h) * box.h);
+      let runVis: "unexplored" | "fogged" | undefined;
+      let runStartPx = 0;
+      const flushRun = (endPx: number): void => {
+        if (runVis === undefined) return;
+        options.miniMapCtx.fillStyle = fogStyle[runVis];
+        options.miniMapCtx.fillRect(runStartPx, py, endPx - runStartPx, 1);
+      };
       for (let px = 0; px < w; px += 1) {
         const wx = Math.floor(box.x0 + (px / w) * box.w);
-        const wy = Math.floor(box.y0 + (py / h) * box.h);
         const tile = options.state.tiles.get(options.keyFor(wx, wy));
         const vis = options.tileVisibilityStateAt(wx, wy, tile);
-        if (vis === "unexplored") {
-          options.miniMapCtx.fillStyle = "#000000";
-          options.miniMapCtx.fillRect(px, py, 1, 1);
-        } else if (vis === "fogged") {
-          options.miniMapCtx.fillStyle = "rgba(0,0,0,0.62)";
-          options.miniMapCtx.fillRect(px, py, 1, 1);
+        const cellVis = vis === "visible" ? undefined : vis;
+        if (cellVis !== runVis) {
+          flushRun(px);
+          runVis = cellVis;
+          runStartPx = px;
         }
       }
+      flushRun(w);
     }
   }
 
@@ -147,9 +173,6 @@ export const drawMiniMap = (options: {
   options.miniMapCtx.beginPath();
   options.miniMapCtx.arc(px, py, 2.8, 0, Math.PI * 2);
   options.miniMapCtx.fill();
-
-  const inBox = (x: number, y: number): boolean =>
-    x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
   options.miniMapCtx.fillStyle = "rgba(127, 238, 255, 0.9)";
   for (const pair of options.state.dockPairs) {
@@ -233,6 +256,32 @@ export const drawMiniMap = (options: {
     options.miniMapCtx.arc(tx, ty, 3.4 + pingPhase * 2.1, 0, Math.PI * 2);
     options.miniMapCtx.stroke();
   }
+
+  // Watchtowers: a dim marker while dormant, and — for ~10s right after a
+  // player expands onto one — a bright expanding pulse ring over the
+  // revealed 10x10-ish area (matches the 3D flicker; see
+  // client-map-3d-watchtower-overlay.ts).
+  for (const tile of options.state.tiles.values()) {
+    if (!tile.watchtower) continue;
+    if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
+    if (!inBox(tile.x, tile.y)) continue;
+    const tx = Math.floor(wxToPx(tile.x));
+    const ty = Math.floor(wyToPy(tile.y));
+    const revealing = typeof tile.watchtower.revealUntil === "number" && tile.watchtower.revealUntil > options.nowMs;
+    // Brass/amber palette to match the steampunk 3D lantern beacon.
+    options.miniMapCtx.fillStyle = tile.watchtower.activated ? "rgba(255, 190, 110, 0.95)" : "rgba(150, 120, 80, 0.75)";
+    options.miniMapCtx.beginPath();
+    options.miniMapCtx.arc(tx, ty, 2, 0, Math.PI * 2);
+    options.miniMapCtx.fill();
+    if (revealing) {
+      options.miniMapCtx.strokeStyle = `rgba(255, 179, 71, ${0.5 + pingPhase * 0.35})`;
+      options.miniMapCtx.lineWidth = 1.4;
+      options.miniMapCtx.beginPath();
+      options.miniMapCtx.arc(tx, ty, 5 + pingPhase * 3, 0, Math.PI * 2);
+      options.miniMapCtx.stroke();
+    }
+  }
+
   options.miniMapCtx.restore();
 
   return true;

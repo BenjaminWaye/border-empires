@@ -20,7 +20,9 @@ export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string 
           ? "Worldbreaker Shot"
           : ability === "airport_bombard"
             ? "Sky Dock Bombard"
-            : "Siphon";
+            : ability === "imperial_exchange_levy"
+              ? "Exchange Levy"
+              : "Siphon";
 
 export const crystalTargetingTone = (ability: CrystalTargetingAbility): "amber" | "cyan" | "red" =>
   ability === "aether_bridge" ? "cyan" : ability === "aether_wall" || ability === "aether_emp" ? "amber" : "red";
@@ -79,6 +81,17 @@ export const computeCrystalTargets = (
     }
     if (ability === "airport_bombard") {
       if (!selectedKey || selected?.economicStructure?.type !== "AIRPORT" || selected.economicStructure.ownerId !== state.me) continue;
+      if (!tile.ownerId || tile.ownerId === state.me || deps.isTileOwnedByAlly(tile)) continue;
+      const targetKey = deps.keyFor(tile.x, tile.y);
+      validTargets.add(targetKey);
+      originByTarget.set(targetKey, selectedKey);
+      continue;
+    }
+    if (ability === "imperial_exchange_levy") {
+      // §15: any tile owned by a rival identifies them as the levy's single
+      // target — no resource/town requirement, since the point is picking a
+      // player, not a specific yield-bearing tile.
+      if (!selectedKey || selected?.economicStructure?.type !== "IMPERIAL_EXCHANGE" || selected.economicStructure.ownerId !== state.me) continue;
       if (!tile.ownerId || tile.ownerId === state.me || deps.isTileOwnedByAlly(tile)) continue;
       const targetKey = deps.keyFor(tile.x, tile.y);
       validTargets.add(targetKey);
@@ -171,8 +184,8 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Worldbreaker Shot needs 500 CRYSTAL.", "combat", "warn");
       return;
     }
-    if (state.gold < 15_000) {
-      deps.pushFeed("Worldbreaker Shot needs 15,000 gold.", "combat", "warn");
+    if (state.gold < 1_000) {
+      deps.pushFeed("Worldbreaker Shot needs 1,000 gold.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
@@ -188,6 +201,19 @@ export const beginCrystalTargeting = (
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 1) {
       deps.pushFeed("Sky Dock Bombard needs 1 CRYSTAL.", "combat", "warn");
+      return;
+    }
+  }
+  if (ability === "imperial_exchange_levy") {
+    // §15/§17: free activation, 24hr cooldown only — no CRYSTAL cost.
+    const cooldown = deps.abilityCooldownRemainingMs("imperial_exchange_levy");
+    const current = deps.selectedTile();
+    if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "IMPERIAL_EXCHANGE") {
+      deps.pushFeed("Select your Imperial Exchange first.", "combat", "warn");
+      return;
+    }
+    if (cooldown > 0) {
+      deps.pushFeed(`Exchange Levy cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
@@ -254,7 +280,13 @@ export const executeCrystalTargeting = (
 ): boolean => {
   const targetKey = deps.keyFor(tile.x, tile.y);
   if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
-  if (state.crystalTargeting.ability !== "aether_bridge" && state.crystalTargeting.ability !== "world_engine_strike" && state.crystalTargeting.ability !== "airport_bombard" && deps.hostileObservatoryProtectingTile(tile)) {
+  if (
+    state.crystalTargeting.ability !== "aether_bridge" &&
+    state.crystalTargeting.ability !== "world_engine_strike" &&
+    state.crystalTargeting.ability !== "airport_bombard" &&
+    state.crystalTargeting.ability !== "imperial_exchange_levy" &&
+    deps.hostileObservatoryProtectingTile(tile)
+  ) {
     deps.pushFeed("Blocked by observatory field.", "combat", "warn");
     return false;
   }
@@ -275,6 +307,12 @@ export const executeCrystalTargeting = (
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
     deps.ws.send(JSON.stringify({ type: "AIRPORT_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y }));
+  } else if (ability === "imperial_exchange_levy") {
+    const originKey = state.crystalTargeting.originByTarget.get(targetKey);
+    if (!originKey) return false;
+    const [fromX, fromY] = originKey.split(",").map((value) => Number(value)) as [number, number];
+    deps.ws.send(JSON.stringify({ type: "IMPERIAL_EXCHANGE_LEVY", fromX, fromY, toX: tile.x, toY: tile.y }));
+    state.imperialExchangeLevyFxQueue.push({ x: fromX, y: fromY, queuedAt: Date.now() });
   } else {
     deps.ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
     if (ability === "siphon") state.siphonFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });

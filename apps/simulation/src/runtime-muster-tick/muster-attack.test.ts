@@ -102,6 +102,51 @@ describe("muster-gated attacks", () => {
     expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11)?.ownerId).toBe("player-2");
   });
 
+  it("EXPAND never requires muster, even with zero staged on the origin tile", async () => {
+    // Muster only gates ATTACK (musterAttack = actionType === "ATTACK" in
+    // validateFrontierCommand) — EXPAND must succeed regardless of the
+    // origin's muster reservoir.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 0, mode: "HOLD", updatedAt: 1_000 }
+          },
+          // Neutral LAND tile to expand onto (EXPAND requires an unowned LAND target).
+          { x: 9, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "expand-no-muster-needed",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 9, toY: 10 })
+    });
+    await Promise.resolve();
+    const accepted = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+        event.eventType === "COMMAND_ACCEPTED" && event.commandId === "expand-no-muster-needed"
+    );
+    expect(accepted).toBeDefined();
+  });
+
   it("ADVANCE flag auto-fires at an adjacent enemy when affordable", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
@@ -162,6 +207,63 @@ describe("muster-gated attacks", () => {
       // (5,8) must still be owned by player-2: the isolated pocket at (5,7) must not be used.
       const shouldNotCapture = runtime.exportState().tiles.find((t) => t.x === 5 && t.y === 8);
       expect(shouldNotCapture?.ownerId).toBe("player-2");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("two ADVANCE flags targeting the same enemy tile do not both fire — the second finds the target already locked", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // Two owned muster flags, both adjacent to the same enemy tile (10,11).
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            {
+              x: 11,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+      await Promise.resolve();
+
+      // Only one flag should have actually fired — the other should have skipped
+      // the already-locked target instead of submitting a doomed ATTACK.
+      const lockedRejections = seen.filter(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+          event.eventType === "COMMAND_REJECTED" && event.code === "LOCKED"
+      );
+      expect(lockedRejections).toHaveLength(0);
+
+      vi.advanceTimersByTime(3_100);
+      const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+      expect(captured?.ownerId).toBe("player-1");
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

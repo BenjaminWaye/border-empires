@@ -1,21 +1,29 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
+import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
+import { clearCameraLocation } from "../client-view-refresh.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
-import type { RevealEmpireStatsView, SurveySweepPingKind } from "../client-types.js";
+import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
   applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
+import { applySeasonVictorySnapshot, clearVictoryHoldAlert, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
+import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
+import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
-import { applyTechUpdateToState } from "../client-tech-update-state/client-tech-update-state.js";
+import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
+import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
 import {
@@ -26,61 +34,23 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
+import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
-import { notificationCategoryForServerError } from "../client-persistent-alerts/client-persistent-alerts.js";
+import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
+import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
   ws: RealtimeSocket;
   wsUrl: string;
   firebaseAuth?: any;
-};
-
-const revealStatsNumberKeys = [
-  "revealedAt",
-  "tiles",
-  "settledTiles",
-  "frontierTiles",
-  "controlledTowns",
-  "incomePerMinute",
-  "techCount",
-  "gold",
-  "manpower",
-  "manpowerCap"
-] as const;
-const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
-
-const isSurveySweepPingKind = (value: unknown): value is SurveySweepPingKind =>
-  value === "resource" || value === "town";
-
-const surveySweepPingsFromPayload = (value: unknown): Array<{ x: number; y: number; kind: SurveySweepPingKind }> => {
-  if (!Array.isArray(value)) return [];
-  const out: Array<{ x: number; y: number; kind: SurveySweepPingKind }> = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    if (typeof entry.x !== "number" || typeof entry.y !== "number" || !isSurveySweepPingKind(entry.kind)) continue;
-    out.push({ x: entry.x, y: entry.y, kind: entry.kind });
-  }
-  return out;
-};
-
-const isRevealEmpireStatsView = (value: unknown): value is RevealEmpireStatsView => {
-  if (!isRecord(value)) return false;
-  if (typeof value.playerId !== "string" || typeof value.playerName !== "string") return false;
-  for (const key of revealStatsNumberKeys) {
-    if (typeof value[key] !== "number") return false;
-  }
-  if (!isRecord(value.strategicResources)) return false;
-  for (const key of revealStatsResourceKeys) {
-    if (typeof value.strategicResources[key] !== "number") return false;
-  }
-  return true;
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
@@ -93,7 +63,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
@@ -157,6 +127,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       };
       showShardAlert(startedAlert);
       registerShardRainPingsFromAlert(state, startedAlert);
+    }
+  };
+  // Used for the WELCOME/INIT bootstrap notice, which is always populated
+  // (see computeShardRainWelcomeNotice) so the persistent Sharding-panel
+  // countdown has something to show on first paint — even when the next
+  // rain is many hours away. Unlike applyShardRainNotice (used for live
+  // push events), this must never pop the one-time toast alert for an
+  // "upcoming" rain on every login; the toast should only fire once a rain
+  // is actually live, or via the live near-term warning push.
+  const applyShardRainNoticeQuiet = (notice: ShardRainNoticeLike | undefined): void => {
+    if (notice?.phase === "started") {
+      applyShardRainNotice(notice);
+      return;
+    }
+    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
+      state.shardRainStatus = { key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt };
     }
   };
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
@@ -377,7 +363,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     debugTileTimeline(scope, timelineArgs);
   };
 
-  let reconnectReloadTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
@@ -700,13 +685,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.queuedDevelopmentDispatchPending = false;
   };
 
-  const clearReconnectReloadTimer = (): void => {
-    if (reconnectReloadTimer !== undefined) {
-      window.clearTimeout(reconnectReloadTimer);
-      reconnectReloadTimer = undefined;
-    }
-  };
-
   const clearDeferredBootstrapRefreshTimer = (): void => {
     if (deferredBootstrapRefreshTimer !== undefined) {
       window.clearTimeout(deferredBootstrapRefreshTimer);
@@ -729,15 +707,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
-  const scheduleReconnectReload = (): void => {
-    if (!state.hasEverInitialized) return;
-    if (reconnectReloadTimer !== undefined) return;
-    reconnectReloadTimer = window.setTimeout(() => {
-      reconnectReloadTimer = undefined;
-      if (state.connection === "initialized" || state.connection === "connected") return;
-      window.location.reload();
-    }, 4000);
-  };
+  const inPlaceReconnect = createInPlaceReconnectScheduler({ state, ws });
+  const clearReconnectReloadTimer = (): void => inPlaceReconnect.clear();
+  const resetInPlaceReconnectAttempt = (): void => inPlaceReconnect.resetAttempt();
+  const scheduleReconnectReload = (): void => inPlaceReconnect.schedule();
 
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);
@@ -849,6 +822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     state.capture = undefined;
     if (!handedOffToSettle) {
+      if (targetKey) state.autoBuildTargets.delete(targetKey);
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
@@ -873,6 +847,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
     }
     resetAttackPreviewState(state);
+    if (target) {
+      const targetKeyForCapture = keyFor(target.x, target.y);
+      emitTownCaptureIfCaptured({
+        tileUpdates: [{ x: target.x, y: target.y }],
+        previousTileByKey: new Map([
+          [targetKeyForCapture, targetBefore ? { ...(targetBefore.ownerId ? { ownerId: targetBefore.ownerId } : {}), ...(targetBefore.town ? { town: targetBefore.town } : {}) } : undefined]
+        ]),
+        tiles: state.tiles,
+        me: state.me,
+        meName: state.meName,
+        keyFor,
+        onJumpToTown: (x, y) => {
+          state.camX = x;
+          state.camY = y;
+          state.selected = { x, y };
+          requestViewRefreshSafely(1, true);
+        }
+      });
+    }
     renderHud();
   };
 
@@ -955,7 +948,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
-    else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    else if (!state.hasOwnedTileInCache) {
+      // Consume a one-shot skip so a restored last-viewed camera location
+      // (see client-state.ts / client-view-refresh.ts) isn't immediately
+      // discarded before the player's owned tiles have loaded in.
+      if (state.cameraRestoredFromStorage) state.cameraRestoredFromStorage = false;
+      else centerOnOwnedTile();
+    }
     if (resolvedQueuedFrontierCapture && !state.actionInFlight && !state.capture && state.actionQueue.length > 0) {
       processActionQueue();
     }
@@ -978,15 +977,53 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud();
   };
 
+  // Tracks how long the socket was open before a close/error, so repeated
+  // short-lived connections (a flapping proxy/network) are distinguishable
+  // from a single isolated disconnect in the persisted disconnect history.
+  let wsOpenedAt = 0;
+  const connectionUptimeMs = (): number | undefined => (wsOpenedAt > 0 ? Math.max(0, Date.now() - wsOpenedAt) : undefined);
+  const debugDisconnectPayload = (currentActionKey: string): Record<string, unknown> => ({
+    currentActionKey,
+    currentAction: state.actionCurrent,
+    actionStartedAt: state.actionStartedAt,
+    actionAcceptedAck: state.actionAcceptedAck,
+    combatStartAck: state.combatStartAck,
+    capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
+  });
+  const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
+    clearAuthInFlight?.(); state.connection = "disconnected";
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
+    state.pendingShardCollect = undefined;
+    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
+    pushFeed(feedMessage, "error", "warn");
+    if (state.authReady && !state.authSessionReady) {
+      applyLoginPhase("Connection interrupted", interruptedDetail);
+      state.authRetrying = false;
+      state.authRetryAttempt = 0;
+    }
+    clearAuthReconnectTimer();
+    scheduleReconnectReload();
+    renderHud();
+  };
+
   ws.addEventListener("open", () => {
     attackSyncLog("ws-open", {
       readyState: ws.readyState,
       authReady: state.authReady,
       authSessionReady: state.authSessionReady
     });
+    wsOpenedAt = Date.now();
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
+    resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();
     resetAuthReconnectAttempt();
     if (state.authReady && !state.authSessionReady) {
@@ -996,82 +1033,34 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     void authenticateSocket();
   });
 
-  ws.addEventListener("close", () => {
+  ws.addEventListener("close", (event: CloseEvent) => {
     clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    attackSyncLog("ws-close", {
-      currentActionKey,
-      currentAction: state.actionCurrent,
-      actionStartedAt: state.actionStartedAt,
-      actionAcceptedAck: state.actionAcceptedAck,
-      combatStartAck: state.combatStartAck,
-      capture: state.capture
-        ? {
-            target: state.capture.target,
-            resolvesAt: state.capture.resolvesAt
-          }
-        : undefined
+    recordSocketDisconnect("close", {
+      code: event.code,
+      reason: event.reason,
+      wasClean: event.wasClean,
+      connectionUptimeMs: connectionUptimeMs(),
+      debugPayload: debugDisconnectPayload(currentActionKey)
     });
-    state.connection = "disconnected";
-    state.actionInFlight = false;
-    state.actionAcceptedAck = false;
-    state.combatStartAck = false;
-    state.actionAcceptTimeoutHandledAt = 0;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
-    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
-    pushFeed("Connection lost. Retrying...", "error", "warn");
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase("Connection interrupted", `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`);
-      state.authRetrying = false;
-      state.authRetryAttempt = 0;
-    }
-    clearAuthReconnectTimer();
-    scheduleReconnectReload();
-    renderHud();
+    handleSocketTornDown(
+      currentActionKey,
+      "Connection lost. Retrying...",
+      `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`
+    );
   });
 
   ws.addEventListener("error", () => {
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    attackSyncLog("ws-error", {
-      currentActionKey,
-      currentAction: state.actionCurrent,
-      actionStartedAt: state.actionStartedAt,
-      actionAcceptedAck: state.actionAcceptedAck,
-      combatStartAck: state.combatStartAck,
-      capture: state.capture
-        ? {
-            target: state.capture.target,
-            resolvesAt: state.capture.resolvesAt
-          }
-        : undefined
+    recordSocketDisconnect("error", {
+      connectionUptimeMs: connectionUptimeMs(),
+      debugPayload: debugDisconnectPayload(currentActionKey)
     });
-    state.connection = "disconnected";
-    state.actionInFlight = false;
-    state.actionAcceptedAck = false;
-    state.combatStartAck = false;
-    state.actionAcceptTimeoutHandledAt = 0;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
-    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
-    pushFeed("Server unreachable. Retrying...", "error", "warn");
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase(
-        "Connection interrupted",
-        `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
-      );
-      state.authRetrying = false;
-      state.authRetryAttempt = 0;
-    }
-    clearAuthReconnectTimer();
-    scheduleReconnectReload();
-    renderHud();
+    handleSocketTornDown(
+      currentActionKey,
+      "Server unreachable. Retrying...",
+      `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
+    );
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;
@@ -1109,7 +1098,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let activeRevealMapChunksApplied = 0;
 
   ws.addEventListener("message", (ev) => {
-    const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    // This handler used to have zero error containment of its own (the rest
+    // of this file relied entirely on each branch happening to be internally
+    // guarded, e.g. renderHud()'s try/catch). A throw anywhere here — a
+    // browser API restriction on Safari, a malformed payload, anything —
+    // used to propagate straight out of the WS message dispatch uncaught.
+    // Wrap the whole thing as a blanket safety net; individual branches can
+    // still have their own more specific handling on top of this.
+    let msg: Record<string, unknown> | undefined;
+    try {
+    msg = JSON.parse(ev.data as string) as Record<string, unknown>;
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
     recordRecentTileMessage(msg, msgType);
     if (
@@ -1211,284 +1209,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
-      clearDeferredBootstrapRefreshTimer();
-      state.connection = "initialized";
-      state.serverDeploying = false;
-      clearServerDeployingSession();
-      state.authSessionReady = true;
-      state.hasEverInitialized = true;
-      resetAuthReconnectAttempt();
-      setAuthBusy(false);
-      state.authRetrying = false;
-      state.authBusyTitle = "";
-      state.authBusyDetail = "";
-      clearAuthReconnectTimer();
-      state.mapLoadStartedAt = Date.now();
-      state.firstChunkAt = 0;
-      state.chunkFullCount = 0;
-      state.hasOwnedTileInCache = false;
-      state.lastSubAt = 0;
-      state.lastSubCx = Number.NaN;
-      state.lastSubCy = Number.NaN;
-      state.lastSubRadius = -1;
-      state.lastChunkSnapshotGeneration = 0;
-      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
-      const incomingSeason = incomingConfig.season;
-      const incomingRuntimeIdentity =
-        (msg.runtimeIdentity as
-          | {
-              fingerprint?: string;
-              snapshotLabel?: string;
-            }
-          | undefined) ?? undefined;
-      const incomingPlayer = (msg.player as Record<string, unknown>) ?? {};
-      const incomingPlayerId = typeof incomingPlayer.id === "string" ? incomingPlayer.id : "";
-      const preserveDiscoveredTilesOnReconnect =
-        Boolean(incomingSeason?.seasonId) &&
-        state.bridgeDebugSeasonId === incomingSeason?.seasonId &&
-        incomingPlayerId.length > 0 &&
-        state.me === incomingPlayerId &&
-        state.tiles.size > 0 &&
-        state.discoveredTiles.size > 0;
-      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
-      state.serverSupportedMessageTypes = new Set(
-        Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
-          ? ((msg as { supportedMessageTypes: unknown[] }).supportedMessageTypes.filter((type): type is string => typeof type === "string"))
-          : []
-      );
-      state.bridgeDebugSupportedMessageCount = state.serverSupportedMessageTypes.size;
-      const gatewayRecovery = (msg.recovery as { nextClientSeq?: unknown; pendingCommands?: unknown } | undefined) ?? undefined;
-      applyGatewayRecoveryNextClientSeq(state, gatewayRecovery?.nextClientSeq);
-      const player = incomingPlayer;
-      state.me = player.id as string;
-      state.meName = player.name as string;
-      state.playerNames.set(state.me, state.meName);
-      state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-      state.mapRevealEligible = Boolean(player.canToggleFog);
-      syncDesiredFogDisabled();
-      setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
-      state.gold = (player.gold as number | undefined) ?? (player.points as number | undefined) ?? state.gold;
-      state.level = (player.level as number | undefined) ?? state.level;
-      state.mods = (player.mods as typeof state.mods) ?? state.mods;
-      state.modBreakdown = (player.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
-      state.incomePerMinute = (player.incomePerMinute as number) ?? state.incomePerMinute;
-      state.strategicResources =
-        (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
-      state.strategicProductionPerMinute =
-        (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
-      state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
-      state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
-      refreshAllGatewayDerivedTownSummaries({ state, keyFor });
-      state.stamina = (player.stamina as number | undefined) ?? state.stamina;
-      state.manpower = (player.manpower as number | undefined) ?? state.manpower;
-      state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
-      state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
-      state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
-      state.territoryT = (player.T as number) ?? state.territoryT;
-      state.exposureE = (player.E as number) ?? state.exposureE;
-      state.settledT = (player.Ts as number) ?? state.settledT;
-      state.settledE = (player.Es as number) ?? state.settledE;
-      const initDefensibility = defensibilityPctFromTE(
-        (player.Ts as number | undefined) ?? (player.T as number | undefined),
-        (player.Es as number | undefined) ?? (player.E as number | undefined)
-      );
-      state.defensibilityPct = initDefensibility;
-      state.defensibilityAnimDir = 0;
-      state.defensibilityAnimUntil = 0;
-      state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
-      state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
-      if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
-      state.activeDevelopmentProcessCount =
-        (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
-      logTileSync("development_player_update", {
-        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
-        developmentProcessLimit: state.developmentProcessLimit,
-        pendingSettlements: (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? [],
-        developmentQueueLength: state.developmentQueue.length,
-        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
-        settleProgressCount: state.settleProgressByTile.size
+      clearAuthInFlight?.(); applyInitMessage(msg, {
+        ...deps,
+        setAuthBusy,
+        applyShardRainNotice: applyShardRainNoticeQuiet,
+        logTileSync,
+        logIncomingTechPayload,
+        showCaptureAlertSafely,
+        applyIncomingRespawnNotice,
+        applySettlementRepairDiagnostic,
+        syncDesiredFogDisabled,
+        clearDeferredBootstrapRefreshTimer,
+        clearAuthReconnectTimer,
+        resetAuthReconnectAttempt,
+        clearQueuedDevelopmentDispatchPending,
+        appendFeedEntry
       });
-      state.techRootId = player.techRootId as string | undefined;
-      state.techIds = (player.techIds as string[]) ?? [];
-      state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
-      state.pendingTechUnlockId = "";
-      state.domainIds = (player.domainIds as string[]) ?? [];
-      const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
-      state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
-      state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
-      state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
-      state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
-      state.revealedEmpireStatsByPlayer.clear();
-      state.activeRevealEmpireStatsPopup = undefined;
-      if (!preserveDiscoveredTilesOnReconnect) {
-        state.discoveredTiles.clear();
-        state.discoveredDockTiles.clear();
-      }
-      state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
-      applyPendingSettlementsFromServer(
-        (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
-      );
-      if (state.developmentQueue.length === 0) {
-        state.developmentQueue = restorePersistedDevelopmentQueueForPlayer(
-          state.me,
-          state.tiles,
-          new Set(state.settleProgressByTile.keys())
-        );
-      }
-      applyAutoSettlementQueueFromServer(
-        state,
-        player.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-        { keyFor }
-      );
-      state.allies = (player.allies as string[]) ?? [];
-      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
-      const myTileColor = player.tileColor as string | undefined;
-      if (myTileColor) {
-        state.playerColors.set(state.me, myTileColor);
-        authProfileColorEl.value = myTileColor;
-      }
-      if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
-      const myVisualStyle = player.visualStyle as any;
-      if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
-      seedProfileSetupFields((player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
-      for (const style of ((msg.playerStyles as any[]) ?? [])) {
-        if (style.name) state.playerNames.set(style.id, style.name);
-        if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
-        if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
-        if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
-      }
-      const homeTile = player.homeTile as { x: number; y: number } | undefined;
-      if (homeTile) {
-        state.homeTile = homeTile;
-        state.camX = homeTile.x;
-        state.camY = homeTile.y;
-        state.selected = homeTile;
-      }
-      const appliedInitialTileCount = applyGatewayInitialState(
-        {
-          state,
-          keyFor,
-          mergeIncomingTileDetail,
-          mergeServerTileWithOptimisticState,
-          clearRenderCaches,
-          buildMiniMapBase
-        },
-        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
-        { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
-      );
-      state.bridgeDebugInitialTileCount = appliedInitialTileCount;
-      if (appliedInitialTileCount > 0) {
-        state.firstChunkAt = Date.now();
-        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
-        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
-        state.bridgeDebugBootstrap = "rewrite-init";
-      } else {
-        state.bridgeDebugBootstrap = "legacy-init";
-      }
-      requestViewRefresh(1, true);
-      state.techChoices = (msg.techChoices as string[]) ?? [];
-      state.techCatalog = (msg.techCatalog as any[]) ?? [];
-      logIncomingTechPayload("INIT", {
-        techIds: player.techIds,
-        techChoices: msg.techChoices,
-        techCatalog: msg.techCatalog,
-        currentResearch: player.currentResearch,
-        techRootId: player.techRootId,
-        availableTechPicks: player.availableTechPicks
-      });
-      state.domainChoices = (msg.domainChoices as string[]) ?? [];
-      state.domainCatalog = (msg.domainCatalog as any[]) ?? [];
-      if (!state.domainUiSelectedId && state.domainChoices.length > 0) state.domainUiSelectedId = state.domainChoices[0]!;
-      state.missions = (msg.missions as any[]) ?? [];
-      state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
-      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
-      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
-      if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
-      state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
-      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
-      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
-      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
-      state.activeTruces = (msg.activeTruces as any[]) ?? [];
-      state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
-      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
-      state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
-      state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
-      state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
-      resetStrategicReplayState();
-      state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
-      state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
-      state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
-      const incomingServerBuildSha = (msg as { serverBuildSha?: unknown }).serverBuildSha;
-      state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
-      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
-      if (typeof incomingSeason?.worldSeed === "number") {
-        setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle);
-        clearRenderCaches();
-        buildMiniMapBase();
-      }
-      const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
-      const shardRainNotice =
-        (msg.shardRainNotice as
-          | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number; sites?: { x: number; y: number }[] }
-          | undefined) ?? undefined;
-      const offlineActivity =
-        (msg.offlineActivity as
-          | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
-          | undefined) ?? [];
-      applyIncomingRespawnNotice(player.respawnNotice);
-      state.dockPairs = mapMeta.dockPairs ?? [];
-      state.dockRouteCache.clear();
-      pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
-      if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
-      if (offlineActivity.length > 0) {
-        for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {
-          const entry = offlineActivity[index]!;
-          const tileKey = typeof entry.tileKey === "string" ? entry.tileKey : undefined;
-          const parsedFocus = tileKey ? (() => {
-            const [xText, yText] = tileKey.split(",");
-            const x = Number(xText);
-            const y = Number(yText);
-            return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
-          })() : undefined;
-          appendFeedEntry({
-            title: typeof entry.title === "string" ? entry.title : undefined,
-            text: typeof entry.detail === "string" ? entry.detail : "Activity update",
-            type: entry.type === "combat" || entry.type === "mission" || entry.type === "error" || entry.type === "info" || entry.type === "alliance" || entry.type === "tech" ? entry.type : "info",
-            severity:
-              entry.severity === "info" || entry.severity === "success" || entry.severity === "warn" || entry.severity === "error"
-                ? entry.severity
-                : "info",
-            at: typeof entry.at === "number" ? entry.at : Date.now(),
-            ...(parsedFocus ? { focusX: parsedFocus.x, focusY: parsedFocus.y, actionLabel: typeof entry.actionLabel === "string" ? entry.actionLabel : "Center" } : {})
-          });
-        }
-        showCaptureAlert(
-          "While you were away",
-          offlineActivity.length === 1 && typeof offlineActivity[0]?.detail === "string"
-            ? offlineActivity[0].detail
-            : `${offlineActivity.length} empire updates happened while you were away.`,
-          "warn"
-        );
-      }
-      notifyIncomingDiplomacyRequestsOnInit(state, state.incomingAllianceRequests, state.incomingTruceRequests, {
-        pushFeed,
-        showCaptureAlert: showCaptureAlertSafely
-      });
-      notifyActiveAllianceBreaksOnInit(state, state.activeAllianceBreaks, {
-        pushFeed,
-        showCaptureAlert: showCaptureAlertSafely
-      });
-      notifyRecentAllianceBreaksOnInit(state, state.recentAllianceBreaks, {
-        pushFeed,
-        showCaptureAlert: showCaptureAlertSafely
-      });
-      applyShardRainNotice(shardRainNotice);
-      applySettlementRepairDiagnostic(msg as Record<string, unknown>);
-      syncAuthOverlay();
-      renderHud();
       return;
     }
 
@@ -1514,6 +1250,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.name === "string") {
         state.meName = msg.name;
         authProfileNameEl.value = msg.name;
+        if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === msg.name) {
+          state.pendingDisplayNameChange = "";
+          pushFeed("Display name updated.", "info", "success");
+          if (typeof window !== "undefined" && typeof window.alert === "function") {
+            window.alert(`Your display name is now "${msg.name}".`);
+          }
+        }
       }
       state.level = (msg.level as number | undefined) ?? state.level;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
@@ -1526,7 +1269,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
+      state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
+      state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+      state.eventLog = (msg.eventLog as typeof state.eventLog | undefined) ?? state.eventLog; state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
@@ -1584,11 +1329,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
       state.stamina = msg.stamina as number;
-      if (typeof (msg.T as number | undefined) === "number") state.territoryT = msg.T as number;
-      if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
+      if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
         state.defensibilityAnimDir = 1;
@@ -1601,8 +1345,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
-      state.activeDevelopmentProcessCount =
-        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      state.activeDevelopmentProcessCount = (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       logIncomingTechPayload("PLAYER_UPDATE", {
         techIds: (msg as { techIds?: unknown }).techIds,
         techChoices: msg.techChoices,
@@ -1612,7 +1355,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         availableTechPicks: msg.availableTechPicks
       });
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
-      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog; updateTechAffordabilityPulses(state, Date.now());
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
@@ -1634,13 +1377,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.abilityCooldowns = (msg.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
       state.missions = (msg.missions as any[]) ?? state.missions;
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
-      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
         authProfileColorEl.value = myTileColor;
+        if (state.pendingColorChange && state.pendingColorChange === myTileColor) {
+          state.pendingColorChange = "";
+          pushFeed("Empire colour updated.", "info", "success");
+        }
       }
       if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
       const myVisualStyle = msg.visualStyle as any;
@@ -1652,9 +1398,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "GLOBAL_STATUS_UPDATE") {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
-      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
+      if (msg.seasonStats) state.seasonStats = msg.seasonStats as SeasonStatsView;
       renderHud();
       return;
     }
@@ -2022,9 +1768,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
       clearLateFrontierAck(cancelledCurrentKey);
-      if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
-      if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
-      state.autoSettleTargets.clear();
+      if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
+      state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
       pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
       renderHud();
       return;
@@ -2151,6 +1896,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
+      const deltaTouchesOpenTileMenu = tileDeltaTouchesOpenTileMenu(state, updates, keyFor);
       for (const update of updates) {
         const gatewayNormalizedUpdate =
           ("townJson" in update ||
@@ -2162,7 +1908,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "siegeOutpostJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
-            "shardSiteJson" in update ||
+            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update ||
             "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
@@ -2204,15 +1950,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (!("landBiome" in normalizedUpdate)) delete merged.landBiome;
           if (!("regionType" in normalizedUpdate)) delete merged.regionType;
         }
+        // resource/dockId stay inline: unlike the gateway path, this handler
+        // only ever SETS these fields on a defined value -- it has no
+        // delete-on-falsy branch, so it must not be routed through the
+        // shared helper (which does delete on falsy).
         if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
-        if ("ownerId" in normalizedUpdate) {
-          if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
-          else delete merged.ownerId;
-        }
-        if ("ownershipState" in normalizedUpdate) {
-          if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
-          else delete merged.ownershipState;
-        }
+        // capital/breachShockUntil/clusterId/clusterType/dock are TILE_DELTA-only
+        // fields -- the gateway path has no equivalent handling for them.
         if ("capital" in normalizedUpdate) {
           if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
@@ -2221,15 +1965,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
-        if ("frontierDecayAt" in normalizedUpdate) {
-          if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
-          else delete merged.frontierDecayAt;
-        }
-        if ("frontierDecayKind" in normalizedUpdate) {
-          if (normalizedUpdate.frontierDecayKind) merged.frontierDecayKind = normalizedUpdate.frontierDecayKind;
-          else delete merged.frontierDecayKind;
-        }
-        if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
         if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
         if (normalizedUpdate.landBiome !== undefined) merged.landBiome = normalizedUpdate.landBiome;
@@ -2239,59 +1974,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
-        const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
-        if ("shardSite" in normalizedUpdate) {
-          if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
-          else if (claimedShardSite && normalizedUpdate.ownerId === state.me && normalizedUpdate.ownershipState === "FRONTIER") {
-            merged.shardSite = claimedShardSite;
-          } else delete merged.shardSite;
-        }
-        if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
-        if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
-        if ("fort" in normalizedUpdate) {
-          if (normalizedUpdate.fort) merged.fort = normalizedUpdate.fort;
-          else delete merged.fort;
-        }
-        if ("observatory" in normalizedUpdate) {
-          if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
-          else delete merged.observatory;
-        }
-        if ("economicStructure" in normalizedUpdate) {
-          if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
-          else delete merged.economicStructure;
-        }
-        if ("siegeOutpost" in normalizedUpdate) {
-          if (normalizedUpdate.siegeOutpost) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
-          else delete merged.siegeOutpost;
-        }
-        if ("sabotage" in normalizedUpdate) {
-          if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
-          else delete merged.sabotage;
-        }
-        if ("muster" in normalizedUpdate) {
-          if (normalizedUpdate.muster) merged.muster = normalizedUpdate.muster;
-          else delete merged.muster;
-        }
-        if ("yield" in normalizedUpdate) {
-          if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
-          else delete merged.yield;
-        }
-        if ("yieldRate" in normalizedUpdate) {
-          if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
-          else delete merged.yieldRate;
-        }
-        if ("yieldCap" in normalizedUpdate) {
-          if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
-          else delete merged.yieldCap;
-        }
-        if ("upkeepEntries" in normalizedUpdate) {
-          if (normalizedUpdate.upkeepEntries) merged.upkeepEntries = normalizedUpdate.upkeepEntries;
-          else delete merged.upkeepEntries;
-        }
-        if ("history" in normalizedUpdate) {
-          if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
-          else delete merged.history;
-        }
+        applyCommonTileFields(existing, merged, normalizedUpdate, { me: state.me });
         if (tileMatchesDebugKey(normalizedUpdate.x, normalizedUpdate.y, 0, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
           debugTileLog("tile-delta-fort-field", {
             x: normalizedUpdate.x,
@@ -2404,10 +2087,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           resolvedQueuedFrontierCapture = true;
         }
       }
-      if (resolvedQueuedFrontierCapture) {
-        resolveFrontierCapture("TILE_DELTA");
-        renderHud();
-      }
+      if (resolvedQueuedFrontierCapture) resolveFrontierCapture("TILE_DELTA");
+      if (resolvedQueuedFrontierCapture || deltaTouchesOpenTileMenu) renderHud();
       return;
     }
 
@@ -2427,6 +2108,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         nextChoices: (msg.nextChoices as string[])?.length ?? 0,
         techCatalogCount: (msg.techCatalog as any[] | undefined)?.length ?? 0
       });
+      // Tech-tree redesign: fire the unlock confetti/flash once per newly-
+      // researched tech (never on a pure catalog refresh with no new ids).
+      const previouslyOwnedTechIds = new Set(state.techIds ?? []);
+      const incomingTechIds = (msg.techIds as string[] | undefined) ?? [];
+      const hasNewlyResearchedTech = incomingTechIds.some((id) => !previouslyOwnedTechIds.has(id));
       applyTechUpdateToState(state, {
         status: msg.status as "started" | "completed" | undefined,
         techRootId: msg.techRootId as string | undefined,
@@ -2451,6 +2137,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         strategicResources: (msg.strategicResources as typeof state.strategicResources | undefined) ?? undefined
       }, pushFeed);
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
+      if (hasNewlyResearchedTech) triggerTechUnlockFx();
       renderHud();
       return;
     }
@@ -2490,7 +2177,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
       const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
       if (stats) {
@@ -2501,17 +2187,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
     if (msg.type === "SURVEY_SWEEP_RESULT") {
       const nowMs = Date.now();
       const pings = surveySweepPingsFromPayload(msg.pings);
-      state.surveySweepPings.push(
-        ...pings.map((ping) => ({
-          ...ping,
-          createdAt: nowMs,
-          expiresAt: nowMs + 12_000
-        }))
-      );
+      state.surveySweepPings.push(...pings.map((ping) => ({ ...ping, createdAt: nowMs, expiresAt: nowMs + 12_000 })));
+      logSurveySweepReceived(msg.pings, pings, state.surveySweepPings.length);
       const resourceCount = pings.filter((ping) => ping.kind === "resource").length;
       const townCount = pings.filter((ping) => ping.kind === "town").length;
       pushFeed(`Survey Sweep found ${resourceCount} resource ${resourceCount === 1 ? "site" : "sites"} and ${townCount} ${townCount === 1 ? "town" : "towns"} outside current vision.`, "info", "success");
@@ -2626,8 +2306,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "SEASON_VICTORY_UPDATE") {
-      state.seasonVictory = (msg.objectives as any[]) ?? state.seasonVictory;
-      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      applySeasonVictorySnapshot(state, msg.objectives as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       const announcement = msg.announcement as string | undefined;
       if (announcement) pushFeed(announcement, "info", "warn");
       renderHud();
@@ -2638,6 +2317,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.seasonWinner = (msg.winner as any | undefined) ?? state.seasonWinner;
       state.seasonVictory = (msg.objectives as any[] | undefined) ?? state.seasonVictory;
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard | undefined) ?? state.leaderboard;
+      clearVictoryHoldAlert(state);
       if (state.seasonWinner) {
         pushFeed(`${state.seasonWinner.playerName} was crowned season winner via ${state.seasonWinner.objectiveName}.`, "info", "warn");
         state.activePanel = "leaderboard";
@@ -2645,7 +2325,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-
+    if (msg.type === "SEASON_START_VOTE_UPDATE") {
+      const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : [];
+      state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount;
+      state.seasonStartVoted = votedBy.includes(state.me);
+      renderHud();
+      return;
+    }
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection
@@ -2662,7 +2348,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         state.pendingCollectVisibleKeys.clear();
         revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
@@ -2689,12 +2375,45 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
-        setAuthStatus(
-          `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`,
-          "error"
-        );
+        const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
+        setAuthStatus(fullMessage, "error");
         syncAuthOverlay();
+        // A pending display-name or color change rides on the same SET_PROFILE
+        // message as the (unchanged) color, so a color-collision rejection here
+        // also means both updates were never persisted — surface that on the
+        // Settings feed too, since the auth overlay above isn't visible from there.
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
+        }
+        if (state.pendingDisplayNameChange) {
+          state.pendingDisplayNameChange = "";
+          pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
+        }
         return;
+      }
+      if (errorCode === "DISPLAY_NAME_LIMIT") {
+        state.pendingDisplayNameChange = "";
+        pushFeed(errorMessage, "error", "warn");
+        return;
+      }
+      if (errorCode === "COLOR_LIMIT") {
+        state.pendingColorChange = "";
+        pushFeed(errorMessage, "error", "warn");
+        return;
+      }
+      // A generic gateway internal error can also orphan pending profile changes.
+      // Clear them here so the next PLAYER_UPDATE doesn't silently skip its feed
+      // message, even though the error is also surfaced via the generic handler.
+      if (errorCode === "GATEWAY_INTERNAL_ERROR") {
+        if (state.pendingDisplayNameChange) {
+          state.pendingDisplayNameChange = "";
+          pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
+        }
+        if (state.pendingColorChange) {
+          state.pendingColorChange = "";
+          pushFeed(`Empire colour not updated: ${errorMessage}`, "error", "error");
+        }
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
@@ -2733,7 +2452,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           clearSettlementProgressSafely(tileKey);
           state.queuedTargetKeys.delete(tileKey);
           dropQueuedTargetKeyIfAbsent(tileKey);
-          state.autoSettleTargets.delete(tileKey);
+          state.autoSettleTargets.delete(tileKey); state.autoBuildTargets.delete(tileKey);
         }
         if (backendUnavailableError) {
           state.capture = undefined;
@@ -2835,11 +2554,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state.authBusyTitle = "Securing session";
           state.authBusyDetail =
             errorCode === "SERVER_STARTING"
-              ? "The game server is still starting. Sign-in will retry automatically."
+              ? serverStartingBusyMessages(msg.backlogDegraded === true).detail
               : "Google account connected, but the authentication service did not answer in time. Retrying...";
           scheduleAuthReconnect(
             errorCode === "SERVER_STARTING"
-              ? "Game server is still starting. Retrying sign-in..."
+              ? serverStartingBusyMessages(msg.backlogDegraded === true).retryStatus
               : "Google account connected. Waiting for the game server to finish authorizing..."
           );
           return;
@@ -2902,6 +2621,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
           showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
         }
+      } else if (errorCode === "INSUFFICIENT_SLOT") {
+        // Same fix as INSUFFICIENT_GOLD directly above, same reason: a
+        // resource-slot rejection (docs/manpower-economy-rewrite-plan.md §5 —
+        // runtime-structure-command-handlers.ts's hasFreeResourceSlots) is a
+        // BUILD-only rejection whose COMMAND_REJECTED event carries no x/y,
+        // so it doesn't match isStructureActionError's errorTileKey lookup
+        // below. Without this, the optimistic under-construction ghost this
+        // build's own optimistic() call already drew never gets cleared, and
+        // the tile menu keeps showing a structure that was never actually built.
+        const attempt = state.lastDevelopmentAttempt;
+        if (attempt?.tileKey) {
+          clearOptimisticTileStateSafely(attempt.tileKey, true);
+          state.lastDevelopmentAttempt = undefined;
+        }
+        state.queuedDevelopmentDispatchPending = false;
+        showCaptureAlertSafely("Construction failed", errorMessage, "warn");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);
@@ -3014,7 +2749,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
-        if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+        if (failedTargetKey) { state.autoSettleTargets.delete(failedTargetKey); state.autoBuildTargets.delete(failedTargetKey); }
       } else if (failedTargetKey) {
         clearOptimisticTileStateSafely(failedTargetKey, true);
       }
@@ -3095,24 +2830,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "PLAYER_STYLE") {
-      const playerId = msg.playerId as string;
-      const name = msg.name as string | undefined;
-      const color = msg.tileColor as string | undefined;
-      const visualStyle = msg.visualStyle as any;
-      const shieldUntil = msg.shieldUntil as number | undefined;
-      if (playerId && name) {
-        state.playerNames.set(playerId, name);
-        if (playerId === state.me) {
-          state.meName = name;
-          authProfileNameEl.value = name;
-        }
-      }
-      if (playerId && color) {
-        state.playerColors.set(playerId, color);
-        if (playerId === state.me) authProfileColorEl.value = color;
-      }
-      if (playerId && visualStyle) state.playerVisualStyles.set(playerId, visualStyle);
-      if (playerId && typeof shieldUntil === "number") state.playerShieldUntil.set(playerId, shieldUntil);
+      applyPlayerStyleMessage(msg, { state, authProfileNameEl, authProfileColorEl, syncAuthOverlay, renderHud });
       return;
     }
 
@@ -3147,9 +2865,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
-        // Reset the season-end screen so it shows again when the next season ends.
+        state.seasonStats = undefined;
+        resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
-        state.seasonEndStarting = false;
+        state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
+        clearCameraLocation();
+        state.camX = 0;
+        state.camY = 0;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();
@@ -3189,6 +2911,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "IMPERIAL_WARD_ACTIVATED") {
       applyImperialWardActivatedMessage(state, msg);
       renderHud();
+    }
+    } catch (error) {
+      console.error("[client-network] unhandled message processing error", error, { msgType: msg?.type });
     }
   });
 };

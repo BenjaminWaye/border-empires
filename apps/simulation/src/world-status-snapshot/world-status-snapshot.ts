@@ -2,7 +2,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { anonymizedEmpireNameForId, isOpaquePlayerId, type SeasonVictoryPathId } from "@border-empires/shared";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { GOLD_RESCALE_DIVISOR, type DomainTileState } from "@border-empires/game-domain";
 import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -16,8 +16,13 @@ const isCompetitivePlayer = (playerId: string, excludedIds?: ReadonlySet<string>
 
 const hasZeroActivity = (entry: { tiles: number; incomePerMinute: number; techs: number }): boolean =>
   entry.tiles === 0 && entry.incomePerMinute === 0 && entry.techs === 0;
+// §24.5: the income term's weight (3) is an old (pre-§6.1) gold/min figure —
+// rescaled by the same GOLD_RESCALE_DIVISOR the real income source constants
+// went through, so income keeps contributing its intended share of the
+// leaderboard score instead of permanently vanishing to a rounding error
+// once incomePerMinute itself shrank ~288x.
 const leaderboardScoreFor = (settledTileCount: number, incomePerMinute: number, techCount: number): number =>
-  Math.round((settledTileCount + incomePerMinute * 3 + techCount * 8) * 10) / 10;
+  Math.round((settledTileCount + incomePerMinute * 3 * GOLD_RESCALE_DIVISOR + techCount * 8) * 10) / 10;
 
 const displayNameForPlayer = (playerId: string, fallbackName?: string): string => {
   if (fallbackName && fallbackName !== playerId) return fallbackName;
@@ -51,7 +56,8 @@ const toFallbackWorldTile = (tile: DomainTileState): WorldTile => ({
   ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
   ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
   ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
-  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {})
+  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+  ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {})
 });
 
 export const buildWorldStatusSnapshot = (

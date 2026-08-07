@@ -2,9 +2,52 @@ import { getCurrentFps } from "../client-fps-monitor/client-fps-monitor.js";
 
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000;
 const FPS_SAMPLE_INTERVAL_MS = 2_000;
+// ~1-2 minutes of real frames at 25-42fps — long enough to still hold an
+// earlier lag spike by the time a player notices and clicks Download
+// Diagnostics, short enough to stay cheap (a few dozen KB) for the session.
+const MAX_FRAME_PHASE_SAMPLES = 1_800;
+const MAX_DRAW_FPS_SAMPLES = 1_800;
+// A gap this large between rendered frames means the tab was backgrounded
+// or the browser paused rAF entirely, not that the renderer is slow —
+// without this cap one resumed-from-background frame poisons drawFps's
+// min/p50 with a near-zero outlier for as long as it stays in the buffer.
+const MAX_DRAW_FRAME_GAP_MS = 1_000;
 
 const fpsSamples: number[] = [];
 const MAX_FPS_SAMPLES = 3000;
+
+// Single source of truth for both the sample shape and which fields
+// snapshotFramePhases reports stats for — adding a phase means adding one
+// name here, not editing the type, the call site, and the stats mapping
+// separately and hoping they stay in sync.
+const FRAME_PHASE_FIELDS = [
+  "frameSetupMs",
+  "tileRenderMs",
+  "overlayPostMs",
+  "totalFrameMs",
+  // overlayPostMs sub-phases, in the order they run — they sum to
+  // overlayPostMs on every individual frame, so a spike there should show
+  // up as a spike in exactly one (or a consistent few) of these. overlayPostMs
+  // stays independently recorded rather than being dropped in favor of
+  // summing these percentile stats after the fact: percentiles aren't
+  // linear (p95 of a sum isn't the sum of each part's p95, since the worst
+  // frame for one sub-phase usually isn't the worst frame for another), so
+  // only overlayPostMs's own stats reflect the actual per-frame total.
+  "roadOverlayMs",
+  "tileOverlayMs",
+  "selectionOverlaysMs",
+  "targetingUiMs",
+  "routesMs",
+  "fxMs",
+  "minimapAlertsMs",
+  "tileDetailMs",
+  "cameraRefreshMs"
+] as const;
+
+export type FramePhaseSample = Record<(typeof FRAME_PHASE_FIELDS)[number], number>;
+
+const framePhaseSamples: FramePhaseSample[] = [];
+const drawFpsSamples: number[] = [];
 
 let navTiming: Record<string, number | string | undefined> | undefined;
 let connectionInfo: Record<string, unknown> | undefined;
@@ -121,55 +164,57 @@ const sampleFps = (): void => {
   }
 };
 
-export const markPhase = (name: string): void => {
-  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
-    performance.mark(name);
-  }
+// Records one completed render loop's phase timings, keyed to the same
+// frame (as opposed to the old performance.mark-based approach, which
+// paired marks from whichever frame happened to be most recent when the
+// snapshot was taken — including the idle gap since the last frame if a
+// snapshot was requested between frames).
+export const recordFramePhaseSample = (sample: FramePhaseSample): void => {
+  framePhaseSamples.push(sample);
+  if (framePhaseSamples.length > MAX_FRAME_PHASE_SAMPLES) framePhaseSamples.shift();
 };
 
-export const measurePhase = (name: string, startMark: string, endMark: string): number | undefined => {
-  if (typeof performance !== "undefined" && typeof performance.measure === "function") {
-    try {
-      const m = performance.measure(name, startMark, endMark);
-      return m.duration;
-    } catch {
-      return undefined;
+// Distinct from client-fps-monitor's getCurrentFps(), which samples on
+// every requestAnimationFrame tick (including ticks the mobile frame-gap
+// throttle bails out of) and drives the low-fps renderer-downgrade prompt.
+// This tracks the cadence of frames that actually rendered, so a reading
+// pinned near the mobile throttle's cap (25fps) reads as "hitting the
+// intentional cap," not "renderer is struggling." Takes the previous draw's
+// timestamp from the caller (which already tracks it for the throttle gate)
+// rather than duplicating that bookkeeping here.
+export const recordDrawFrame = (previousDrawAt: number, nowMs: number): void => {
+  if (previousDrawAt > 0) {
+    const deltaMs = nowMs - previousDrawAt;
+    if (deltaMs > 0 && deltaMs < MAX_DRAW_FRAME_GAP_MS) {
+      drawFpsSamples.push(1000 / deltaMs);
+      if (drawFpsSamples.length > MAX_DRAW_FPS_SAMPLES) drawFpsSamples.shift();
     }
   }
-  return undefined;
 };
 
-export const snapshotFramePhases = (): Record<string, number | undefined> | undefined => {
-  if (typeof performance === "undefined" || typeof performance.getEntriesByType !== "function") return undefined;
-  const marks = performance.getEntriesByType("mark") as PerformanceMark[];
-  if (marks.length === 0) return undefined;
-
-  let frameStart = 0;
-  let tileStart = 0;
-  let tileEnd = 0;
-
-  for (let i = marks.length - 1; i >= 0; i--) {
-    const e = marks[i]!;
-    if (!tileEnd && e.name === "tile-end") tileEnd = e.startTime;
-    if (!tileStart && e.name === "tile-start") tileStart = e.startTime;
-    if (!frameStart && e.name === "frame-start") frameStart = e.startTime;
-    if (frameStart && tileStart && tileEnd) break;
-  }
-
-  const now = performance.now();
+const numericStats = (
+  values: number[]
+): { count: number; min: number; max: number; avg: number; p50: number; p95: number; p99: number } | undefined => {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
   return {
-    frameSetupMs: tileStart > 0 && frameStart > 0 ? tileStart - frameStart : undefined,
-    tileRenderMs: tileEnd > 0 && tileStart > 0 ? tileEnd - tileStart : undefined,
-    overlayPostMs: tileEnd > 0 ? now - tileEnd : undefined,
-    totalFrameMs: frameStart > 0 ? now - frameStart : undefined
+    count: sorted.length,
+    min: sorted[0]!,
+    max: sorted[sorted.length - 1]!,
+    avg: sorted.reduce((a, b) => a + b, 0) / sorted.length,
+    p50: percentile(sorted, 50)!,
+    p95: percentile(sorted, 95)!,
+    p99: percentile(sorted, 99)!
   };
 };
 
-export const clearFramePhaseMarks = (): void => {
-  try { performance.clearMarks("frame-start"); } catch {}
-  try { performance.clearMarks("tile-start"); } catch {}
-  try { performance.clearMarks("tile-end"); } catch {}
-  try { performance.clearMeasures(); } catch {}
+export const snapshotFramePhases = (): Record<string, ReturnType<typeof numericStats>> | undefined => {
+  if (framePhaseSamples.length === 0) return undefined;
+  const result: Record<string, ReturnType<typeof numericStats>> = {};
+  for (const field of FRAME_PHASE_FIELDS) {
+    result[field] = numericStats(framePhaseSamples.map((s) => s[field]));
+  }
+  return result;
 };
 
 export const initPerformanceMetrics = (): void => {
@@ -186,22 +231,17 @@ export const initPerformanceMetrics = (): void => {
 };
 
 export const snapshotPerformanceMetrics = (): Record<string, unknown> => {
-  const sorted = [...fpsSamples].sort((a, b) => a - b);
-
   const mem = (performance as unknown as Record<string, unknown>).memory as
     | { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
     | undefined;
 
   return {
-    fps: {
-      count: sorted.length,
-      min: sorted[0] ?? undefined,
-      max: sorted[sorted.length - 1] ?? undefined,
-      avg: sorted.length > 0 ? sorted.reduce((a, b) => a + b, 0) / sorted.length : undefined,
-      p50: percentile(sorted, 50),
-      p95: percentile(sorted, 95),
-      p99: percentile(sorted, 99)
-    },
+    fps: numericStats(fpsSamples),
+    fpsNote:
+      "Sampled on every requestAnimationFrame tick, including ticks the mobile frame-gap throttle skips before rendering. Reflects main-thread responsiveness/jank, not visual update rate.",
+    drawFps: numericStats(drawFpsSamples),
+    drawFpsNote:
+      "Sampled once per frame that actually rendered (post-throttle). A reading pinned near the mobile cap (25fps) means the renderer is hitting its intentional cap, not struggling.",
     framePhases: snapshotFramePhases(),
     navigationTiming: navTiming,
     connection: connectionInfo,
@@ -219,11 +259,12 @@ export const snapshotPerformanceMetrics = (): Record<string, unknown> => {
 
 export const resetPerformanceMetricsForTests = (): void => {
   fpsSamples.length = 0;
+  framePhaseSamples.length = 0;
+  drawFpsSamples.length = 0;
   navTiming = undefined;
   connectionInfo = undefined;
   windowInfo = undefined;
   memorySamples = [];
-  clearFramePhaseMarks();
   if (memoryTimer !== undefined) {
     clearInterval(memoryTimer);
     memoryTimer = undefined;

@@ -6,6 +6,8 @@
   "rewrites": [
     { "source": "/admin/:path*", "destination": "/api/admin/:path*" },
     { "source": "/rally/new", "destination": "/" },
-    { "source": "/r/:code", "destination": "/" }
+    { "source": "/r/:code", "destination": "/" },
+    { "source": "/__/auth/:path*", "destination": "https://border-empires.firebaseapp.com/__/auth/:path*" },
+    { "source": "/__/firebase/:path*", "destination": "https://border-empires.firebaseapp.com/__/firebase/:path*" }
   ]
 }

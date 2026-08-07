@@ -2,16 +2,20 @@ import {
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
-  MUSTER_SYSTEM_ENABLED,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
+  rushBuyPriceGold,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
-  structureBuildDurationMs
+  structureBuildDurationMs,
+  structureBuildManpowerCost,
+  structureSlotRequirements,
+  type SlotResource,
+  type SlotStructureType
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
-import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
@@ -21,7 +25,7 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1 gold/m.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m.` : undefined; };
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +5 gold/day.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, boosts Bank's flat income from +5 to +7.5 gold/day.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -29,6 +33,43 @@ const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
   return undefined;
+};
+
+// §14.2: dormant/unpowered structure indicator. slotStructureTypeForField
+// mirrors Runtime.isStructureDormant's own field->slot-type mapping
+// (apps/simulation/src/runtime/runtime.ts) so the client and server can
+// never disagree on which structure a dormancy key refers to.
+type DormancyField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+
+const slotStructureTypeForField = (tile: Tile, field: DormancyField): SlotStructureType | undefined => {
+  if (field === "fort" && tile.fort) return (tile.fort.variant ?? "FORT") as SlotStructureType;
+  if (field === "observatory" && tile.observatory) return "OBSERVATORY";
+  if (field === "siegeOutpost" && tile.siegeOutpost) return (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType;
+  if (field === "economicStructure" && tile.economicStructure) return tile.economicStructure.type as SlotStructureType;
+  return undefined;
+};
+
+const SLOT_RESOURCE_TILE_HINT: Record<SlotResource, string> = {
+  FOOD: "a Farm or Fish tile",
+  IRON: "an Iron tile",
+  CRYSTAL: "a Crystal tile",
+  SUPPLY: "a Fur or Wood tile"
+};
+
+const dormantStructureLineHtml = (
+  tile: Tile,
+  field: DormancyField,
+  dormantResources: SlotResource[] | undefined
+): string | undefined => {
+  if (!dormantResources || dormantResources.length === 0) return undefined;
+  const slotType = slotStructureTypeForField(tile, field);
+  if (!slotType) return undefined;
+  const needed = structureSlotRequirements(slotType).filter((req) => dormantResources.includes(req.resource));
+  if (needed.length === 0) return undefined;
+  const parts = needed.map(
+    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "IRON" ? "Iron" : req.resource === "CRYSTAL" ? "Crystal" : "Supply"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
+  );
+  return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
 };
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
@@ -63,7 +104,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       ? `Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
-  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
+  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. First 5 Light Outposts are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
   if (actionId === "build_camp") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} production on this tile by 50% and adds +${tile.resource === "IRON" ? "15 iron" : "9 crystal"} cap.`;
@@ -79,37 +120,31 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_airport") return "Build a Sky Dock on empty settled land. Bombard enemy tiles within 30 tiles for crystal.";
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
-    return `Build on this support tile for ${supportedTownLabel}. Boosts its connected-town income bonus by 25%.`;
+    return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
   }
-  if (actionId === "build_fur_synthesizer") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
-  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
-  if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
-  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
-  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile with an Aether Condenser.";
-  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output.";
-  if (actionId === "overload_fur_synthesizer") return "Spend 12500 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
-  if (actionId === "overload_ironworks") return "Spend 12500 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
-  if (actionId === "overload_crystal_synthesizer") return "Spend 12500 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
-  if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
-  if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
+  if (actionId === "build_fur_synthesizer") return "Provides 1 Supply slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Supply tile.";
+  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Supply slot.";
+  if (actionId === "build_ironworks") return "Provides 1 Iron slot on this support tile — hard-capped at 1, never upgradeable — for 30 gold/day upkeep. Gives a landlocked empire access without a real Iron tile.";
+  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output (45 gold/day upkeep). Still provides exactly 1 Iron slot.";
+  if (actionId === "build_crystal_synthesizer") return "Provides 1 Crystal slot on this support tile — hard-capped at 1, never upgradeable — for 40 gold/day upkeep. Gives a landlocked empire access without a real Crystal tile.";
+  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
+  if (actionId === "enable_converter_structure") return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
+  if (actionId === "disable_converter_structure") return "Disable this structure. It stops occupying resource slots, stops paying upkeep, and stops providing bonuses until you enable it again.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
-  if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";
+  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts manpower regen and speeds up outpost muster within 50 tiles. Also settles the nearest owned frontier tile within 20 tiles every 10 minutes and adds +10 connected-town income points across the linked town network.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Logistics Guild.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Monumental City.";
   if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Monumental City.";
-  if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange for free after finishing three parts.";
-  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon for free after finishing three parts.";
-  if (actionId === "build_aegis_dome") return "Place the final Aegis Dome for free after finishing three parts.";
-  if (actionId === "build_astral_dock") return "Place the final Astral Dock for free after finishing three parts.";
-  if (actionId === "imperial_exchange_levy_food") return "Seize every rival empire's stored FOOD at once.";
-  if (actionId === "imperial_exchange_levy_iron") return "Seize every rival empire's stored IRON at once.";
-  if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
-  if (actionId === "imperial_exchange_levy_supply") return "Seize every rival empire's stored SUPPLY at once.";
+  if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange after finishing three parts.";
+  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon after finishing three parts.";
+  if (actionId === "build_aegis_dome") return "Place the final Aegis Dome after finishing three parts.";
+  if (actionId === "build_astral_dock") return "Place the final Astral Dock after finishing three parts.";
+  if (actionId === "imperial_exchange_levy") return "Choose one rival and seize 100% of their gold. Free, 24h cooldown.";
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
   if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
@@ -118,9 +153,9 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
   if (actionId === "aether_emp") return "Fire an Aether EMP to disable one hostile powered structure for 20 minutes.";
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
-  if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision.";
+  if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision. You must wait for the current satellite to come down before launching another.";
   if (actionId === "aegis_lock") return "Seal the Aegis Dome region so hostile attacks cannot change ownership and hostile abilities fail for a short time.";
-  if (actionId === "build_governors_office") return "Administrative center. Builds a Ministry Hall that reduces local food upkeep and settled-tile upkeep within 10 tiles.";
+  if (actionId === "build_governors_office") return "Administrative center. Reduces the FOOD slot demand of any town within 10 tiles by its tier's step (Town/City/Great City/Metropolis each need progressively more FOOD slots — a nearby Ministry Hall waives that extra demand).";
   if (actionId === "build_radar_system") return "Resonance grid. Blocks enemy sky bombardment within 30 tiles and reveals the attack origin.";
   if (actionId === "remove_structure") {
     const structureName = structureNameForTile(tile);
@@ -144,6 +179,12 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
+// §6.3 rush-buy: "⏩🪙N" preview label for finishing this in-progress action
+// right now. Client-side estimate only — the server (rushBuyPriceGold, same
+// formula) computes and enforces the real charge at command time.
+const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number): string =>
+  `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
+
 export const constructionProgressForTile = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string
@@ -157,7 +198,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
@@ -179,7 +222,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY")),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
@@ -201,7 +246,9 @@ export const constructionProgressForTile = (
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
@@ -217,13 +264,16 @@ export const constructionProgressForTile = (
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    const buildMs = economicStructureBuildMs(tile.economicStructure.type);
     return {
       title: `${economicStructureName(tile.economicStructure.type)} under construction`,
       detail: "This tile is still being developed and is not fully online yet.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type)),
+      rushBuyActionId: "rush_buy"
     };
   }
   if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
@@ -240,48 +290,9 @@ export const constructionProgressForTile = (
   return undefined;
 };
 
-export const queuedSettlementProgressForTile = (
-  tile: Tile,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string; optimisticKind?: string } | undefined;
-    queuedSettlementIndexForTile: (tileKey: string) => number;
-  }
-): TileMenuProgressView | undefined => {
-  const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
-  if (!entry || entry.kind !== "SETTLE") return undefined;
-  const queueIndex = deps.queuedSettlementIndexForTile(entry.tileKey);
-  return {
-    title: "Settlement queued",
-    detail: "This frontier tile is queued to settle as soon as a development slot becomes free.",
-    remainingLabel: queueIndex >= 0 ? `Queue #${queueIndex + 1}` : "Queued",
-    progress: 0,
-    note: "Queued settlements reserve their place in line and can be cancelled before they start.",
-    cancelLabel: "Cancel queued settlement",
-    cancelActionId: "cancel_queued_settlement"
-  };
-};
-
-export const queuedBuildProgressForTile = (
-  tile: Tile,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string } | undefined;
-  }
-): TileMenuProgressView | undefined => {
-  const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
-  if (!entry || entry.kind !== "BUILD") return undefined;
-  const baseTitle = entry.label?.replace(/\sat\s+\(.+\)$/, "") ?? "Build";
-  return {
-    title: `${baseTitle} queued`,
-    detail: "This build is queued and will start automatically when a development slot becomes free.",
-    remainingLabel: "Queued",
-    progress: 0,
-    note: "Queued builds hold their place in line and can be cancelled before they start.",
-    cancelLabel: "Cancel queued build",
-    cancelActionId: "cancel_queued_build"
-  };
-};
+// queuedSettlementProgressForTile / queuedBuildProgressForTile moved to
+// ../client-tile-menu-queue-progress/client-tile-menu-queue-progress.ts
+// (this file is already over the 500-line growth cap).
 
 // Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, etc.)
 // only ride the snapshot and REQUEST_TILE_DETAIL responses — they are NOT in
@@ -332,6 +343,13 @@ export const menuOverviewForTile = (
     // responsible for seeding the timestamp on the partial-state transition
     // and clearing it on resolve, so the render itself stays pure.
     townPartialLoadingStartedAt: (tileKey: string) => number;
+    // §14.2: dormant/unpowered structure indicator — the resource(s) this
+    // tile's given structure field is currently short on, or undefined when
+    // it's powered. Only meaningful for the caller's own structures; callers
+    // should return undefined for tiles not owned by the viewing player.
+    // Optional so existing callers/tests that haven't threaded it through
+    // yet just render without a dormancy line.
+    dormantResourcesForTile?: (tile: Tile, field: DormancyField) => SlotResource[] | undefined;
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -378,7 +396,7 @@ export const menuOverviewForTile = (
         ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
         : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
     );
-  }
+  } const naturalWonderLine = naturalWonderOverviewLine(tile, ownerKind); if (naturalWonderLine) pushLine(naturalWonderLine);
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);
@@ -457,16 +475,20 @@ export const menuOverviewForTile = (
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
-    const DOCK_BASE_INCOME_PER_MIN = 0.5;
+    // Mirrors DOCK_INCOME_PER_MIN (game-domain/server-game-constants.ts):
+    // 0.5 / GOLD_RESCALE_DIVISOR(288). Only used as a fallback when the
+    // server hasn't sent tile.dock.goldPerMinute yet — the raw pre-rescope
+    // 0.5 value here previously showed 288x the real dock income.
+    const DOCK_BASE_INCOME_PER_MIN = 0.5 / 288;
     const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
-    pushLine(`Dock income ${goldPerMinute.toFixed(2)} gold/m`);
+    pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
       : `Connected to ${connectedDockCount} dock${connectedDockCount === 1 ? "" : "s"}.`);
     if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
     if (tile.dock?.modifiers?.length) {
       for (const modifier of tile.dock.modifiers) {
-        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${modifier.deltaGoldPerMinute.toFixed(2)} gold/m)`);
+        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${(modifier.deltaGoldPerMinute * 1440).toFixed(1)} gold/day)`);
       }
     }
   }
@@ -508,13 +530,17 @@ export const menuOverviewForTile = (
     } else {
       pushLine("Observatory is inactive here and currently provides no vision or protection.");
     }
+    if (tile.observatory.status === "active") {
+      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"));
+      if (dormantLine) pushLine(dormantLine);
+    }
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (tile.fort?.status === "active" && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (MUSTER_SYSTEM_ENABLED && tile.fort?.status === "active" && !structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
     const garrison = tile.fort.garrison ?? 0;
     const garrisonCap = tile.fort.garrisonCap ?? 0;
     if (garrisonCap > 0) {
@@ -522,6 +548,14 @@ export const menuOverviewForTile = (
       const required = Math.max(MUSTER_ATTACK_COST, Math.ceil(garrison));
       pushLine(`Garrison: ${Math.floor(garrison)} / ${Math.floor(garrisonCap)} (${pct}%) — capturing requires ${required} mustered manpower.`);
     }
+  }
+  if (tile.fort?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
+    if (dormantLine) pushLine(dormantLine);
+  }
+  if (tile.siegeOutpost?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "siegeOutpost", deps.dormantResourcesForTile?.(tile, "siegeOutpost"));
+    if (dormantLine) pushLine(dormantLine);
   }
   if (tile.economicStructure) {
     if (tile.economicStructure.status === "removing") {
@@ -545,6 +579,10 @@ export const menuOverviewForTile = (
       pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
     } else if (tile.economicStructure.status === "inactive") {
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
+    }
+    if (tile.economicStructure.status === "active") {
+      const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
+      if (dormantLine) pushLine(dormantLine);
     }
   }
   for (const modifier of tileOverviewModifiersForTile(tile)) {
@@ -602,7 +640,6 @@ export const tileMenuViewForTile = (
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
     tile.ownerId === deps.state.me &&
-    tile.ownershipState === "SETTLED" &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");

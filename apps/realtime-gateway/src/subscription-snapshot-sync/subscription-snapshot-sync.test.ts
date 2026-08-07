@@ -112,6 +112,28 @@ describe("applyTileDeltasToSnapshot", () => {
 });
 
 describe("applyPlayerMessageToSnapshot", () => {
+  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): this gateway-
+  // side cache is the fallback served on reconnect when the simulation is
+  // unreachable (resolveInitialState's allowCachedSnapshotFallback) -- it must
+  // merge PLAYER_UPDATE's resourceSlots the same way apps/simulation's
+  // subscription-snapshot-cache.ts does, or a reconnect during a simulation
+  // outage would serve stale slot data and reintroduce the exact client
+  // build-affordability bug this field exists to fix.
+  it("merges resourceSlots from a PLAYER_UPDATE into the cached snapshot", () => {
+    const updated = applyPlayerMessageToSnapshot(snapshot(), {
+      type: "PLAYER_UPDATE",
+      resourceSlots: {
+        supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+      }
+    });
+
+    expect(updated.player?.resourceSlots).toEqual({
+      supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
+      demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+    });
+  });
+
   it("keeps progression modifiers in cached snapshots after tech updates", () => {
     const updated = applyPlayerMessageToSnapshot(snapshot(), {
       type: "TECH_UPDATE",

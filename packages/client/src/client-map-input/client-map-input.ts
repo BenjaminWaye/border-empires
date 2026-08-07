@@ -1,4 +1,4 @@
-import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
+import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -51,6 +51,20 @@ export type BoxSelectionMouseUpAction =
 export const resolveBoxSelectionMouseUpAction = (dragKeys: string[]): BoxSelectionMouseUpAction => {
   if (dragKeys.length === 0) return { type: "none" };
   return { type: "open-bulk-menu", targetKeys: dragKeys };
+};
+
+export const isDoubleTap = (args: {
+  now: number;
+  location: { x: number; y: number };
+  lastTapTime: number;
+  lastTapLocation: { x: number; y: number } | undefined;
+  maxDelayMs: number;
+  maxDistancePx: number;
+}): boolean => {
+  const { now, location, lastTapTime, lastTapLocation, maxDelayMs, maxDistancePx } = args;
+  if (lastTapTime <= 0 || !lastTapLocation) return false;
+  if (now - lastTapTime >= maxDelayMs) return false;
+  return Math.hypot(location.x - lastTapLocation.x, location.y - lastTapLocation.y) < maxDistancePx;
 };
 
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
@@ -263,6 +277,11 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
 
   let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let pinchStart: { distance: number; zoom: number } | undefined;
+  let lastTapTime = 0;
+  let lastTapLocation: { x: number; y: number } | undefined;
+  let lastDoubleTapZoomIn = true;
+  const DOUBLE_TAP_MAX_DELAY_MS = 300;
+  const DOUBLE_TAP_MAX_DISTANCE_PX = 20;
 
   deps.canvas.addEventListener(
     "touchstart",
@@ -326,20 +345,46 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     "touchend",
     () => {
       if (touchTapCandidate && !pinchStart) {
-        const rect = deps.canvas.getBoundingClientRect();
-        const offsetX = touchTapCandidate.x - rect.left;
-        const offsetY = touchTapCandidate.y - rect.top;
-        if (focusPersistentAlertAtPointer(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
+        const now = Date.now();
+        const doubleTapped = isDoubleTap({
+          now,
+          location: touchTapCandidate,
+          lastTapTime,
+          lastTapLocation,
+          maxDelayMs: DOUBLE_TAP_MAX_DELAY_MS,
+          maxDistancePx: DOUBLE_TAP_MAX_DISTANCE_PX
+        });
+
+        if (doubleTapped) {
+          if (lastDoubleTapZoomIn) {
+            state.zoom = Math.min(MAX_ZOOM, state.zoom + DOUBLE_TAP_ZOOM_STEP);
+          } else {
+            state.zoom = Math.max(MIN_ZOOM, state.zoom - DOUBLE_TAP_ZOOM_STEP);
+          }
+          // Flip so the next double-tap reverses direction; only a double-tap
+          // itself should flip this, not the single taps that precede it,
+          // otherwise every double-tap gesture would zoom in only.
+          lastDoubleTapZoomIn = !lastDoubleTapZoomIn;
+          lastTapTime = 0;
+          lastTapLocation = undefined;
+        } else {
+          const rect = deps.canvas.getBoundingClientRect();
+          const offsetX = touchTapCandidate.x - rect.left;
+          const offsetY = touchTapCandidate.y - rect.top;
+          if (focusPersistentAlertAtPointer(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
+            deps.interactionFlags.suppressNextClick = true;
+            touchHoldStart = undefined;
+            touchTapCandidate = undefined;
+            touchPanStart = undefined;
+            pinchStart = undefined;
+            return;
+          }
+          const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
           deps.interactionFlags.suppressNextClick = true;
-          touchHoldStart = undefined;
-          touchTapCandidate = undefined;
-          touchPanStart = undefined;
-          pinchStart = undefined;
-          return;
+          deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
+          lastTapTime = now;
+          lastTapLocation = { x: touchTapCandidate.x, y: touchTapCandidate.y };
         }
-        const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-        deps.interactionFlags.suppressNextClick = true;
-        deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
       }
       touchHoldStart = undefined;
       touchTapCandidate = undefined;

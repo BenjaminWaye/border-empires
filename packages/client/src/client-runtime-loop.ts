@@ -1,10 +1,12 @@
 import { isForestTile } from "./client-constants.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
+import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import {
   RENDERER_PROMPT_FPS_THRESHOLD,
   RENDERER_PROMPT_LOW_FPS_MS,
@@ -23,14 +25,25 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
-import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
+import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
+import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
+import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+
+// Persistent-alert tile scan is O(all tiles ever discovered this session,
+// up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
+// on mobile when run every frame. Town-unfed / muster-active status only
+// changes on human timescales, so recomputing on a ~220ms cadence is
+// visually lossless while cutting scan frequency by ~80-90%.
+const PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS = 220;
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -63,7 +76,7 @@ type StartClientRuntimeLoopDeps = {
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => "amber" | "cyan" | "red";
   startingExpansionArrowTargets: () => Array<{ x: number; y: number; dx: number; dy: number }>;
   drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
-  drawForestOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
+  drawForestOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void; drawHillsOverlay: (wx: number, wy: number, px: number, py: number, size: number) => void;
   effectiveOverlayColor: (ownerId: string) => string;
   overlayVariantIndexAt: (x: number, y: number, mod: number) => number;
   dockOverlayVariants: Array<HTMLImageElement | undefined>;
@@ -84,8 +97,8 @@ type StartClientRuntimeLoopDeps = {
   drawResourceCornerMarker: (tile: Tile, px: number, py: number, size: number) => void;
   drawRoadOverlay: (directions: RoadDirections, px: number, py: number, size: number) => void;
   fortificationOverlayImageFor: (
-    kind: "FORT" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST",
-    opening: "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST"
+    kind: FortificationOverlayKind,
+    opening: FortificationOpening
   ) => HTMLImageElement | undefined;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
@@ -129,12 +142,14 @@ type StartClientRuntimeLoopDeps = {
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
-  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
+  requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void;
+  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
+  processAutoSettleTargets: () => void;
+  processAutoBuildTargets: () => void;
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
@@ -143,7 +158,7 @@ type StartClientRuntimeLoopDeps = {
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   reconcileActionQueue: () => void;
-  sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+  processPendingMusterAttacks: () => void; sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
 };
 
@@ -155,6 +170,24 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  let persistentAlertsCache: PersistentAlert[] = [];
+  let persistentAlertsComputedAt = 0;
+  const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
+  });
+  const drawConstructionCountdownOverlay = (t: Tile, wk: string, px: number, py: number, size: number): void => {
+    const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
+    if (remainingConstructionMs === undefined) return;
+    maybeRefreshStalledConstruction(t, wk, remainingConstructionMs);
+    if (size < 18) return;
+    const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
+    deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
+    deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
+    deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
+    deps.ctx.font = "9px monospace";
+    deps.ctx.textBaseline = "top";
+    deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
+  };
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
@@ -164,13 +197,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
   const draw = (): void => {
     const nowMs = performance.now();
-    performance.mark("frame-start");
     recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
     }
+    const frameStartAt = nowMs;
+    const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
@@ -180,6 +214,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const label = fps === undefined ? "—" : Math.round(fps).toString();
         readouts.forEach((el) => {
           if (el.textContent !== label) el.textContent = label;
+        });
+      }
+      const zoomReadouts = document.querySelectorAll<HTMLElement>("[data-zoom-readout]");
+      if (zoomReadouts.length > 0) {
+        const zoomLabel = Math.round(state.zoom).toString();
+        zoomReadouts.forEach((el) => {
+          if (el.textContent !== zoomLabel) el.textContent = zoomLabel;
         });
       }
       if (
@@ -220,8 +261,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const debugSelected = state.selected;
     const canvasOverlayDebug: Array<Record<string, unknown>> = [];
     const queueIndex = new Map<string, number>();
-    const queuedBuildIndex = new Map<string, number>();
-    const settleQueueIndex = new Map<string, number>();
+    const { settleQueueIndex, queuedBuildIndex, settleQueueEntryState, queuedBuildEntryState } = devQueueBadgeIndex(state.developmentQueue);
     const startingArrowTargets = new Map(
       deps.startingExpansionArrowTargets().map((target) => [deps.keyFor(target.x, target.y), target] as const)
     );
@@ -244,12 +284,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const q = state.actionQueue[i];
       if (!q) continue;
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1 + queueOffset);
-    }
-    for (let i = 0; i < state.developmentQueue.length; i += 1) {
-      const entry = state.developmentQueue[i];
-      if (!entry) continue;
-      if (entry.kind === "SETTLE") settleQueueIndex.set(entry.tileKey, i + 1);
-      if (entry.kind === "BUILD") queuedBuildIndex.set(entry.tileKey, i + 1);
     }
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
@@ -310,14 +344,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in
-      // 3D mode so the icon-only summary remains visible when zoomed
-      // out (parallels drawResourceCornerMarker for resource tiles).
+      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
         deps.drawDockMarker(px, py, size);
       }
-      // The 3D dock overlay supersedes the SVG dock icon (and its
-      // fallback placeholder) when the true-3D renderer is mounted.
+      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
       if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
@@ -409,6 +440,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -559,18 +592,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           lastRenderedTileStateByKey.set(renderKey, renderSignature);
         }
       }
-      if (t && vis === "visible" && t.terrain === "LAND") {
-        const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-        if (remainingConstructionMs !== undefined && size >= 18) {
-          const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-          deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-          deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-          deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-          deps.ctx.font = "9px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-        }
-      }
+      if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
       if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
         deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
         deps.ctx.beginPath();
@@ -770,7 +792,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         py,
         size,
         isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress)
+        blocked: Boolean(settlementProgress),
+        entryState: settleQueueEntryState.get(wk) ?? "queued"
       });
       drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
       const queuedBuildBadge = queuedCornerBadgeLayout({
@@ -780,10 +803,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         py,
         size,
         isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress)
+        blocked: Boolean(settlementProgress),
+        entryState: queuedBuildEntryState.get(wk) ?? "queued"
       });
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
-    }; performance.mark("tile-start");
+    };
+    const tileStartAt = performance.now();
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
         const wx = deps.wrapX(state.camX + x);
@@ -819,7 +844,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
@@ -991,6 +1016,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
+
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
           const marker = Math.max(4, Math.floor(size * 0.22));
@@ -1078,18 +1105,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.lineWidth = 1;
           }
         }
-        if (t && vis === "visible" && t.terrain === "LAND") {
-          const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-          if (remainingConstructionMs !== undefined && size >= 18) {
-            const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-            deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-            deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-            deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-            deps.ctx.font = "9px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-          }
-        }
+        if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
         if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
           deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
           deps.ctx.beginPath();
@@ -1289,7 +1305,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           py,
           size,
           isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress)
+          blocked: Boolean(settlementProgress),
+          entryState: settleQueueEntryState.get(wk) ?? "queued"
         });
         drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
         const queuedBuildBadge = queuedCornerBadgeLayout({
@@ -1299,11 +1316,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           py,
           size,
           isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress)
+          blocked: Boolean(settlementProgress),
+          entryState: queuedBuildEntryState.get(wk) ?? "queued"
         });
         drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }
-    } performance.mark("tile-end");
+    }
+    const tileEndAt = performance.now();
+    // Sequential sub-phase timer for the rest of the frame: each phaseMs() call returns elapsed time since the previous call (or tileEndAt for the first), captured immediately — no hand-paired "XEndAt" checkpoints to mismatch.
+    let lastPhaseMarkAt = tileEndAt;
+    const phaseMs = (): number => {
+      const markAt = performance.now();
+      const elapsed = markAt - lastPhaseMarkAt;
+      lastPhaseMarkAt = markAt;
+      return elapsed;
+    };
 
     for (const { wk, px, py, vis, t } of overlayTiles) {
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
@@ -1311,8 +1338,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
       }
     }
+    const roadOverlayMs = phaseMs();
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
+    const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {
       debugWindow.__be3dCanvasOverlayDebug = {
@@ -1362,6 +1391,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
+    // Covers the true-3D debug overlay write above plus the observatory-range,
+    // structure-preview, and building-placement-preview overlays — named for
+    // the whole span, not just the last of those (selectionPreviewMs would
+    // undersell what this phase actually measures).
+    const selectionOverlaysMs = phaseMs();
 
     if (state.aetherWallTargeting.active) {
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
@@ -1452,6 +1486,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.restore();
       }
     }
+    const targetingUiMs = phaseMs();
 
     const routeDash = [9, 8];
     const wrapJumpX = (WORLD_WIDTH * size) / 2;
@@ -1499,43 +1534,48 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
-    // 2D supply line: flag → attack front, only for attacks on owned tiles (not neutral expands).
-    // For ADVANCE mode, scan for the adjacent muster tile that fired the attack.
+    // 2D supply lines: flag → attack front, one per active muster flag, only
+    // for attacks on owned tiles (not neutral expands). Each flag's line is
+    // independent of the others (different flags may be in different
+    // phases at once). For a server-fired ADVANCE-mode attack not covered
+    // by any tracked flag, fall back to scanning for the adjacent flag.
+    const musterSupplyLines2D = activeMusterSupplyLines(state, deps.keyFor);
+    const coveredTargetKeys2D = new Set(musterSupplyLines2D.map((line) => line.targetKey));
     const captureTargetKey2D = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
     const targetOwned = Boolean(state.tiles.get(captureTargetKey2D)?.ownerId);
-    const musterSupplySrc = state.activeMusterSource ?? (targetOwned && state.capture ? (() => {
-      if (advanceSrcCache2D?.targetKey !== captureTargetKey2D) {
-        let bestTile: { x: number; y: number } | undefined;
-        let bestDist = Infinity;
-        const tgt = state.capture.target;
-        for (const tile of state.tiles.values()) {
-          if (!tile.muster || tile.muster.ownerId !== state.me || tile.muster.mode !== "ADVANCE") continue;
-          const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
-          if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
-        }
-        advanceSrcCache2D = { targetKey: captureTargetKey2D, result: bestTile };
+    if (state.capture && targetOwned && !coveredTargetKeys2D.has(captureTargetKey2D)) {
+      const advanceFallback2D = resolveAdvanceMusterFallbackSource(state, captureTargetKey2D, state.capture.target, advanceSrcCache2D);
+      advanceSrcCache2D = advanceFallback2D.cache;
+      if (advanceFallback2D.result) {
+        musterSupplyLines2D.push({
+          musterX: advanceFallback2D.result.x,
+          musterY: advanceFallback2D.result.y,
+          targetX: state.capture.target.x,
+          targetY: state.capture.target.y,
+          targetKey: captureTargetKey2D,
+          phase: "locked"
+        });
       }
-      return advanceSrcCache2D.result;
-    })() : undefined);
-    if (!isTrue3DRendererActive() && musterSupplySrc && state.capture) {
-      const src = musterSupplySrc;
-      const tgt = state.capture.target;
-      const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
-      const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
-      const phase = state.musterTransit ? "transit" : "locked";
-      const alpha = phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
-      deps.ctx.save();
-      deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
-      deps.ctx.globalAlpha = alpha;
-      deps.ctx.lineWidth = phase === "transit" ? 3.5 : 2.5;
-      if (phase === "transit") deps.ctx.setLineDash([6, 4]);
-      deps.ctx.beginPath();
-      deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
-      deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
-      deps.ctx.stroke();
-      deps.ctx.setLineDash([]);
-      deps.ctx.restore();
     }
+    if (!isTrue3DRendererActive()) {
+      for (const line of musterSupplyLines2D) {
+        const srcScreen = deps.worldToScreen(line.musterX, line.musterY, size, halfW, halfH);
+        const tgtScreen = deps.worldToScreen(line.targetX, line.targetY, size, halfW, halfH);
+        const alpha = line.phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
+        deps.ctx.save();
+        deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
+        deps.ctx.globalAlpha = alpha;
+        deps.ctx.lineWidth = line.phase === "transit" ? 3.5 : 2.5;
+        if (line.phase === "transit") deps.ctx.setLineDash([6, 4]);
+        deps.ctx.beginPath();
+        deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
+        deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
+        deps.ctx.stroke();
+        deps.ctx.setLineDash([]);
+        deps.ctx.restore();
+      }
+    }
+    const routesMs = phaseMs();
 
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
@@ -1576,8 +1616,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
       deps.ctx.restore();
     }
+    const fxMs = phaseMs();
 
     deps.drawMiniMap();
+    if (persistentAlertsComputedAt === 0 || nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
+      persistentAlertsCache = persistentAlertsForState(state);
+      persistentAlertsComputedAt = nowMs;
+    }
     drawPersistentAlertLocators(state, {
       ctx: deps.ctx,
       canvas: deps.canvas,
@@ -1586,10 +1631,34 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       size,
       halfW,
       halfH,
-      nowMs
+      nowMs,
+      precomputedAlerts: persistentAlertsCache
     });
+    const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
+    const tileDetailMs = phaseMs();
+    // Split from tileDetailMs: maybeRefreshForCamera can fire a network
+    // send on a camera-chunk change, a fundamentally different cost than
+    // the local bookkeeping in requestVisibleTileDetails above it.
     deps.maybeRefreshForCamera(false);
+    const cameraRefreshMs = phaseMs();
+    const frameEndAt = lastPhaseMarkAt;
+    recordFramePhaseSample({
+      frameSetupMs: tileStartAt - frameStartAt,
+      tileRenderMs: tileEndAt - tileStartAt,
+      overlayPostMs: frameEndAt - tileEndAt,
+      totalFrameMs: frameEndAt - frameStartAt,
+      roadOverlayMs,
+      tileOverlayMs,
+      selectionOverlaysMs,
+      targetingUiMs,
+      routesMs,
+      fxMs,
+      minimapAlertsMs,
+      tileDetailMs,
+      cameraRefreshMs
+    });
+    recordDrawFrame(previousDrawAt, frameStartAt);
     requestAnimationFrame(draw);
   };
 
@@ -1597,11 +1666,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000);
   setInterval(() => {
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
+    if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
+    if (state.autoBuildTargets.size > 0) deps.processAutoBuildTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,
       dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,
@@ -1611,26 +1682,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
       deps.renderHud();
     }
-    // Fire deferred attack once the transit window expires.
-    if (state.musterTransit) {
-      if (Date.now() >= state.musterTransit.transitEndsAt) {
-        state.musterTransit = undefined;
-        const deferred = state.deferredAttack;
-        if (deferred) {
-          state.deferredAttack = undefined;
-          // Reset the action clock so the 2s accept timeout starts from now,
-          // not from the transit start.
-          state.actionStartedAt = Date.now();
-          state.actionAcceptTimeoutHandledAt = 0;
-          deps.sendDeferredAttack(deferred.fromX, deferred.fromY, deferred.toX, deferred.toY, deferred.commandId, deferred.clientSeq);
-        }
-        deps.requestViewRefresh();
-      } else {
-        // Troops still marching — skip the action-accept timeout check entirely.
-        // The server hasn't received ATTACK yet so no ACK is expected.
-        return;
-      }
-    }
+    // Fire whichever muster flags' transit windows have expired; each flag arms/marches
+    // independently and only claims actionInFlight for the one attack it actually sends.
+    fireDueMusterTransits(state, {
+      keyFor: deps.keyFor,
+      sendDeferredAttack: deps.sendDeferredAttack,
+      requestViewRefresh: deps.requestViewRefresh
+    });
+    if (state.pendingMusterAttacks.length > 0) deps.processPendingMusterAttacks(); // queued muster attacks share this heartbeat
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;

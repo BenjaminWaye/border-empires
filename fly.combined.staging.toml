@@ -26,7 +26,6 @@ primary_region = "arn"
 
   MUSTER_SYSTEM_ENABLED = "true"
   EMPIRE_INTEGRITY_ENABLED = "true"
-  AUTO_FILL_ENABLED = "true"
 
   # Simulation (loopback within the same Node process)
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
@@ -54,7 +53,6 @@ primary_region = "arn"
   SIMULATION_COMMAND_TRACE = "0"
   SIMULATION_VISIBILITY_AUDIT = "0"
   SIMULATION_ENABLE_AI_AUTOPILOT = "1"
-  SIMULATION_AI_MAX_COMMANDS_PER_TICK = "1"
   SIMULATION_ENABLE_SYSTEM_AUTOPILOT = "1"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "250"

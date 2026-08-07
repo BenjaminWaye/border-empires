@@ -14,6 +14,8 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
+  handleRushBuyCommand: (command: CommandEnvelope) => void;
+  handleCancelSettleCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
   handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
   handleCollectTileCommand: (command: CommandEnvelope) => void;
@@ -21,7 +23,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
-  handleOverloadSynthesizerCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
@@ -38,15 +39,18 @@ export type RuntimeCommandDispatchHandlers = {
   handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
   handleAegisLockCommand: (command: CommandEnvelope) => void;
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
+  handleIronLevyMusterCommand: (command: CommandEnvelope) => void;
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
+  handleSyncTruceCommand: (command: CommandEnvelope) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => void;
 };
 
 export const commandScheduling = (command: CommandEnvelope): "immediate" | "background" =>
   command.type !== "SYNC_ALLIANCE" &&
+  command.type !== "SYNC_TRUCE" &&
   (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
     ? "background"
     : "immediate";
@@ -66,6 +70,8 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
   if (command.type === "CANCEL_FORT_BUILD") return handlers.handleCancelFortBuildCommand(command);
   if (command.type === "CANCEL_STRUCTURE_BUILD") return handlers.handleCancelStructureBuildCommand(command);
+  if (command.type === "RUSH_BUY") return handlers.handleRushBuyCommand(command);
+  if (command.type === "CANCEL_SETTLE") return handlers.handleCancelSettleCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
   if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
   if (command.type === "COLLECT_TILE") return handlers.handleCollectTileCommand(command);
@@ -73,7 +79,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
-  if (command.type === "OVERLOAD_SYNTHESIZER") return handlers.handleOverloadSynthesizerCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
@@ -90,10 +95,12 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
   if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
+  if (command.type === "IRON_LEVY_MUSTER") return handlers.handleIronLevyMusterCommand(command);
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
+  if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
   if (command.type === "ATTACK" || command.type === "EXPAND") {
     handlers.handleFrontierCommand(command, command.type);
   }
@@ -118,6 +125,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CANCEL_CAPTURE" ||
   command.type === "CANCEL_FORT_BUILD" ||
   command.type === "CANCEL_STRUCTURE_BUILD" ||
+  command.type === "RUSH_BUY" ||
+  command.type === "CANCEL_SETTLE" ||
   command.type === "REMOVE_STRUCTURE" ||
   command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
@@ -125,7 +134,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
-  command.type === "OVERLOAD_SYNTHESIZER" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||
@@ -142,10 +150,12 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "WORLD_ENGINE_STRIKE" ||
   command.type === "AEGIS_LOCK" ||
   command.type === "ASTRAL_DOCK_LAUNCH" ||
+  command.type === "IRON_LEVY_MUSTER" ||
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||
-  command.type === "SYNC_ALLIANCE";
+  command.type === "SYNC_ALLIANCE" ||
+  command.type === "SYNC_TRUCE";
 
 export type RuntimeCommandEnqueue = (
   lane: QueueLane,

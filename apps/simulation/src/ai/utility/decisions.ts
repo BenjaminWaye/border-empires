@@ -37,9 +37,20 @@ export type DecisionInputs = {
   frontierEnemyCount: number;
   frontierOpportunityEconomic: number;
   // Aggregate expansion signal across all opportunity types (neutral, economic,
-  // town-support, scout, scaffold). Feeds the EXPAND linear curve so that any
-  // non-waste opportunity contributes proportionally.
+  // town-support, scout, scaffold). Feeds the EXPAND linear curve — EXPAND's
+  // own veto (hasAnyExpandCandidate / hasActionableNonWasteExpand below)
+  // already gates out the waste-only case, so counting waste here just adds
+  // texture once a real candidate is confirmed to exist.
   expansionOpportunityCount: number;
+  // Same aggregate, but with waste-classified plain neutrals excluded (see
+  // utility-dispatch.ts's buildDecisionInputs). Used by BUILD_ECONOMY's
+  // suppression term instead of expansionOpportunityCount: that term exists
+  // to defer economy-building "while expansion is available", and waste-only
+  // neutrals are NOT available to EXPAND (it refuses them) — counting them
+  // there suppressed BUILD_ECONOMY on the same tiles EXPAND was refusing to
+  // touch, deadlocking a hemmed-in AI on WAIT despite an affordable, ready
+  // economic build. See docs/agents/topics/ai-planner.md.
+  nonWasteExpansionOpportunityCount: number;
   // Expansion quality: true when an economic/scaffold/town-support opportunity
   // exists on the frontier, or when an expansion objective is set.  Without
   // this, plain-tile expansion is suppressed (matches old noDirectedExpansion).
@@ -54,6 +65,21 @@ export type DecisionInputs = {
   hasOnlyScoutExpand: boolean;
   hasWeakEnemyBorder: boolean;
   hasBarbTarget: boolean;
+  // Authoritative "can this class actually produce a command" gates — derived
+  // directly from the same concrete candidate fields executeClass() checks
+  // (see utility-dispatch.ts's buildDecisionInputs). Without these, EXPAND/
+  // ATTACK could score high off aggregate counts/flags (frontierNeutralCount,
+  // hasExpansionObjective, frontPosture) while every concrete candidate field
+  // (fa.expand, fa.directedExpand, preferredEnemyAttack, fa.barbarianAttack,
+  // ...) was actually undefined — e.g. a frontier where every neutral tile is
+  // classified "waste" with no fog value, so preferFogEfficientExpansion
+  // refuses to select any of them. The utility policy would then pick EXPAND
+  // as the winning class, executeClass would return undefined, and the
+  // planner would silently fall through every other class to WAIT — while
+  // still reporting a phantom nonzero EXPAND/ATTACK score. See
+  // docs/agents/topics/ai-planner.md.
+  hasAnyExpandCandidate: boolean;
+  hasAnyAttackCandidate: boolean;
   devSlotAvailable: boolean;
   // Strategic snapshot outputs
   attackReady: boolean;
@@ -96,6 +122,12 @@ const momentumBonus = (cls: DecisionClass, inp: DecisionInputs): number =>
 const scoreExpand = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canExpand),
+    // Authoritative gate: a concrete, executable EXPAND candidate must exist
+    // (mirrors executeClass's EXPAND branch exactly). Without this, the
+    // aggregate flags below can pass (e.g. an expansion objective is set, or
+    // frontierNeutralCount > 0) even when every candidate tile was refused as
+    // valueless waste — scoring EXPAND high with nothing to actually execute.
+    boolVeto(inp.hasAnyExpandCandidate),
     // Suppress plain/waste expansion when no actionable target exists AND no
     // expansion objective is set.  Scout-only passes this gate (hasOnlyScoutExpand)
     // but gets penalised below so WAIT wins when the economy is weak.
@@ -129,6 +161,12 @@ const scoreAttack = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.canAttack),
     boolVeto(inp.attackReady),
+    // Authoritative gate: a concrete, executable ATTACK candidate must exist
+    // (mirrors executeClass's ATTACK branch: preferredEnemyAttack or
+    // fa.barbarianAttack). Without this, frontPosture === "BREAK" alone could
+    // pass the veto below with zero enemy/barbarian targets on the frontier,
+    // scoring ATTACK high with nothing to actually execute.
+    boolVeto(inp.hasAnyAttackCandidate),
     // Defer to the MUSTER class ONLY when muster can actually engage — i.e. it
     // has a weak enemy-*player* border to advance on. MUSTER never handles
     // barbarian fronts, so a barbarian-only front with muster ready must stay
@@ -168,7 +206,10 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     // Includes frontier enemy count so that ANY enemy at the gate naturally
     // suppresses economy building, letting ATTACK win the competition.
     // 1 frontier action cuts BUILD_ECONOMY by ~67%; ≥1.5 pushes to 0.
-    1 - linear(inp.expansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
+    // Uses nonWasteExpansionOpportunityCount, NOT expansionOpportunityCount:
+    // waste-only neutrals are not real "expansion available" (EXPAND itself
+    // refuses them), so they must not suppress economy building either.
+    1 - linear(inp.nonWasteExpansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
     // Scales up when income is genuinely weak; midpoint 0.7 ensures
     // SETTLE/EXPAND/ATTACK (all scoring ~1.0) outrank economy builds.
     logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)

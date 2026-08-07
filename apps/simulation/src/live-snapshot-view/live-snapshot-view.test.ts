@@ -174,7 +174,10 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           townType: "FARMING",
           townName: "BrightFang",
           townPopulationTier: "CITY"
-        }
+        },
+        landTile(11, 11, "player-2", "CARAVANARY"),
+        // Feeds the Caravanary's own FOOD slot demand so it isn't dormant.
+        { x: 12, y: 12, terrain: "LAND" as const, resource: "FARM" as const, ownerId: "player-2", ownershipState: "SETTLED" as const }
       ],
       players: [
         {
@@ -209,7 +212,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownBonus).toBe(0.5);
   });
 
-  it("boosts a Farmstead FARM tile's FOOD yield by 1.5x when an active Waterworks is within radius", () => {
+  it("gives no FOOD yield to a Farmstead FARM tile regardless of an active Waterworks in radius (§5.4: slot-based, not yield-based)", () => {
     const farmTile = {
       x: 5,
       y: 5,
@@ -253,8 +256,10 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     });
     const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
     const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    expect(baseFood).toBeGreaterThan(0);
-    expect(boostedFood).toBeCloseTo(baseFood * 1.5, 5);
+    // §5.4: FOOD is slot-based, not yield-based — no Farmstead/Waterworks
+    // FOOD yield to boost anymore.
+    expect(baseFood).toBe(0);
+    expect(boostedFood).toBe(0);
   });
 
   it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {
@@ -273,16 +278,16 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     const tiles = enrichSnapshotTilesForGlobalVisibility({
       tiles: [
         // Bare settled resource tile — no structure, no dock: predicate is false.
-        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" },
-        // Active MINE — strategic-affecting structure: predicate is true.
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "WOOD" },
+        // Active FARMSTEAD — strategic-affecting structure: predicate is true.
         {
           x: 2,
           y: 1,
           terrain: "LAND",
           ownerId: "player-2",
           ownershipState: "SETTLED",
-          resource: "IRON",
-          economicStructureJson: JSON.stringify({ type: "MINE", status: "active", ownerId: "player-2" })
+          resource: "FARM",
+          economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "player-2" })
         },
         // Dock tile — predicate is true regardless of structure.
         { x: 3, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" }
@@ -293,13 +298,14 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     });
 
     const bare = tiles.find((t) => t.x === 1 && t.y === 1);
-    const mine = tiles.find((t) => t.x === 2 && t.y === 1);
+    const farmstead = tiles.find((t) => t.x === 2 && t.y === 1);
     const dock = tiles.find((t) => t.x === 3 && t.y === 1);
 
     expect(bare).not.toHaveProperty("yieldRate");
     expect(bare).not.toHaveProperty("yieldCap");
-    expect(mine).toHaveProperty("yieldRate");
-    expect((mine as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.IRON).toBe(90);
+    expect(farmstead).toHaveProperty("yieldRate");
+    // §5.4: FOOD is slot-based, not yield-based — no strategicPerDay.FOOD anymore.
+    expect((farmstead as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBeUndefined();
     expect(dock).toHaveProperty("yieldRate");
   });
 });

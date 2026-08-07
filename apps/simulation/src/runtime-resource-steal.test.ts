@@ -30,7 +30,6 @@ const summary = (overrides: Partial<PlayerRuntimeSummary> = {}): PlayerRuntimeSu
   activeDevelopmentProcessCount: 0,
   pendingSettlementsByTile: new Map(),
   fishFoodPerMinute: 0,
-  synthesizerCapBonus: { IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
   lastActiveAtMs: 0,
   ...overrides
 });

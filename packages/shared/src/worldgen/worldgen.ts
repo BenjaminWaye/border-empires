@@ -5,11 +5,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
 let CURRENT_WORLD_STYLE: WorldStyle = "continents";
-const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
+export const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
 const UNSET_U8 = 255;
 const UNSET_I16 = -2;
 const TERRAIN_SEA = 0;
-const TERRAIN_LAND = 1;
+export const TERRAIN_LAND = 1;
 const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
@@ -55,9 +55,9 @@ export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): vo
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
-const worldSeed = (): number => CURRENT_WORLD_SEED;
+export const worldSeed = (): number => CURRENT_WORLD_SEED;
 const TAU = Math.PI * 2;
-const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
+export const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 
 const encodeTerrain = (terrain: Terrain): number => {
   if (terrain === "LAND") return TERRAIN_LAND;
@@ -85,7 +85,7 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   return TERRAIN_LAND;
 };
 
-const terrainCodeAt = (x: number, y: number): number => {
+export const terrainCodeAt = (x: number, y: number): number => {
   const idx = worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
   const cached = terrainCache[idx] ?? UNSET_U8;
   if (cached !== UNSET_U8) return cached;
@@ -138,7 +138,7 @@ const seeded01 = (x: number, y: number, seed: number): number => {
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
-const valueNoise = (x: number, y: number, cell: number, seed: number): number => {
+export const valueNoise = (x: number, y: number, cell: number, seed: number): number => {
   const gx = Math.floor(x / cell);
   const gy = Math.floor(y / cell);
   const tx = (x % cell) / cell;

@@ -62,6 +62,9 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       } satisfies Tile);
     const next = { ...current };
     mutate(next);
+    if (next.ownerId !== current.ownerId || next.ownershipState !== current.ownershipState) {
+      state.tilesRevision += 1;
+    }
     state.tiles.set(tileKey, next);
     state.discoveredTiles.add(tileKey);
     debugTileTimeline("frontier-optimistic-applied", {
@@ -148,7 +151,6 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
-        delete tile.economicStructure;
         const hasTech = (id: string) => state.techIds.includes(id);
         // If the tile already has a fort at max tier with no upgrade path,
         // don't write an optimistic under_construction state the sim will reject.

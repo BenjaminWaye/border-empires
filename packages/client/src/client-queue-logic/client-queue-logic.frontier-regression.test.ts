@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SETTLE_COST } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 import { createInitialState } from "../client-state/client-state.js";
 import { developmentSlotReason, processActionQueue, requestSettlement } from "./client-queue-logic.js";
@@ -38,6 +38,102 @@ describe("frontier queue regressions", () => {
     expect(started).toBe(false);
     expect(showCaptureAlert).toHaveBeenCalledWith("Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`, "warn");
     expect(pushFeed).toHaveBeenCalledWith(`Need ${SETTLE_COST} gold to settle this tile.`, "combat", "warn");
+  });
+
+  it("shows a visible settlement warning when a frontier tile's manpower cannot be afforded, even with plenty of gold", () => {
+    // Regression for the client manpower-gate fix (docs/manpower-economy-rewrite-plan.md
+    // §4.1-§4.2): SETTLE now costs manpower too, and the client must check it
+    // before dispatching, not just gold — otherwise it shows the action as
+    // available when the server would reject it with INSUFFICIENT_MANPOWER.
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.manpower = SETTLE_MANPOWER_COST - 1;
+    state.tiles.set("7,8", makeTile({ x: 7, y: 8, ownerId: "me", ownershipState: "FRONTIER" }));
+    const pushFeed = vi.fn();
+    const showCaptureAlert = vi.fn();
+
+    const started = requestSettlement(state, 7, 8, {
+      keyFor: (x, y) => `${x},${y}`,
+      pushFeed,
+      showCaptureAlert,
+      renderHud: vi.fn(),
+      queueDevelopmentAction: vi.fn(() => true),
+      developmentSlotSummary: () => ({ busy: 0, limit: 1, available: 1 }),
+      developmentSlotReason,
+      sendGameMessage: vi.fn(() => true),
+      syncOptimisticSettlementTile: vi.fn()
+    });
+
+    expect(started).toBe(false);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`, "warn");
+  });
+
+  it("deducts both gold and manpower optimistically when a settlement is dispatched", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.manpower = 999;
+    state.tiles.set("7,8", makeTile({ x: 7, y: 8, ownerId: "me", ownershipState: "FRONTIER" }));
+
+    const started = requestSettlement(state, 7, 8, {
+      keyFor: (x, y) => `${x},${y}`,
+      pushFeed: vi.fn(),
+      showCaptureAlert: vi.fn(),
+      renderHud: vi.fn(),
+      queueDevelopmentAction: vi.fn(() => true),
+      developmentSlotSummary: () => ({ busy: 0, limit: 1, available: 1 }),
+      developmentSlotReason,
+      sendGameMessage: vi.fn(() => true),
+      syncOptimisticSettlementTile: vi.fn()
+    });
+
+    expect(started).toBe(true);
+    expect(state.gold).toBe(999 - SETTLE_COST);
+    expect(state.manpower).toBe(999 - SETTLE_MANPOWER_COST);
+  });
+
+  it("does not dispatch EXPAND when manpower is below EXPAND_MANPOWER_COST, even with plenty of gold", () => {
+    // Regression for the client manpower-gate fix: processActionQueue's EXPAND
+    // branch only checked gold before dispatching — it must also check manpower.
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+    state.manpower = EXPAND_MANPOWER_COST - 1;
+    state.selected = { x: 11, y: 18 };
+    state.actionQueue = [{ x: 12, y: 18, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["12,18"]);
+
+    const origin = makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "FRONTIER" });
+    const target = makeTile({ x: 12, y: 18 });
+    state.tiles.set("11,18", origin);
+    state.tiles.set("12,18", target);
+
+    const send = vi.fn();
+    const pushFeed = vi.fn();
+    const notifyInsufficientGoldForFrontierAction = vi.fn();
+
+    const started = processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => true,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => origin,
+      notifyInsufficientGoldForFrontierAction,
+      sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed,
+      renderHud: vi.fn()
+    });
+
+    expect(started).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+    expect(notifyInsufficientGoldForFrontierAction).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error");
+    expect(state.queuedTargetKeys.has("12,18")).toBe(false);
   });
 
   it("keeps neutral expand targets neutral until the server accepts the action", () => {

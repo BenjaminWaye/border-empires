@@ -17,12 +17,11 @@ export type EconomicStructureKind =
   | "IRONWORKS"
   | "MARKET"
   | "OBSERVATORY"
-  | "GRANARY"
   | "SEED_GRANARY";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
   "FARMSTEAD", "WATERWORKS", "CAMP", "MINE", "IRONWORKS",
-  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY"
+  "MARKET", "OBSERVATORY", "SEED_GRANARY"
 ]);
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
@@ -388,20 +387,6 @@ export const registerEconomicStructures = (
     builder.addPiece("observatoryCrystal", sx, sy, sz, -0.09, 0.27, -0.05, 0.9, 1.6, 0.9, 0, 0, -Math.PI * 0.12);
   };
 
-  const addGranary: EconomicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("granaryBody", sx, sy, sz, -0.06, 0.11, 0);
-    builder.addPiece("granaryRoof", sx, sy, sz, -0.06, 0.29, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("granaryBand", sx, sy, sz, -0.06, 0.09, 0.125);
-    builder.addPiece("granaryBand", sx, sy, sz, -0.06, 0.13, 0.125);
-    builder.addPiece("granaryBand", sx, sy, sz, -0.06, 0.17, 0.125);
-    builder.addPiece("granaryAnnexBody", sx, sy, sz, 0.18, 0.09, 0);
-    builder.addPiece("granaryAnnexRoof", sx, sy, sz, 0.18, 0.215, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("granaryCupola", sx, sy, sz, -0.06, 0.385, 0.03);
-    builder.addPiece("granaryCupolaRoof", sx, sy, sz, -0.06, 0.44, 0.03, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("granarySack", sx, sy, sz, -0.18, 0.025, 0.18);
-    builder.addPiece("granarySack", sx, sy, sz, -0.10, 0.025, 0.20);
-  };
-
   const addSeedGranary: EconomicStructureLayout = (sx, sy, sz) => {
     const silos: ReadonlyArray<readonly [number, number]> = [
       [-0.18, -0.08],
@@ -427,7 +412,6 @@ export const registerEconomicStructures = (
       IRONWORKS: addIronworks,
       MARKET: addMarket,
       OBSERVATORY: addObservatory,
-      GRANARY: addGranary,
       SEED_GRANARY: addSeedGranary
     },
     shared: {

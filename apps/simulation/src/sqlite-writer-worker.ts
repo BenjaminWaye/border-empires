@@ -9,7 +9,9 @@
 //   { id, op: "markRejected",         commandId, createdAt, code, message }
 //   { id, op: "markResolved",         commandId, createdAt }
 //   { id, op: "saveSnapshot",         lastAppliedEventId, json, createdAt }
-//   { id, op: "pruneAndCheckpoint" }  (prune world_events below oldest retained snapshot + WAL checkpoint)
+//   { id, op: "pruneAndCheckpoint" }  (prune world_events below oldest retained snapshot,
+//                                      prune RESOLVED/REJECTED commands older than
+//                                      SIMULATION_COMMAND_RETENTION_MS, + WAL checkpoint)
 //   { id, op: "flush" }                (no-op write, used for whenIdle() sync)
 //
 // Message protocol (this worker → sim thread):
@@ -61,6 +63,13 @@ const stmtInsertCommandResult = db.prepare(
   `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
    ON CONFLICT(command_id) DO NOTHING`
 );
+// Keeps client_seq_watermarks correct independent of the commands/command_results
+// retention pruning below — see that table's schema comment in
+// sqlite-command-store.ts for the full rationale.
+const stmtUpsertClientSeqWatermark = db.prepare(
+  `INSERT INTO client_seq_watermarks (player_id, max_client_seq) VALUES (?, ?)
+   ON CONFLICT(player_id) DO UPDATE SET max_client_seq = MAX(max_client_seq, excluded.max_client_seq)`
+);
 const stmtMarkAccepted = db.prepare(
   `UPDATE command_results SET status = 'ACCEPTED', accepted_at = ? WHERE command_id = ?`
 );
@@ -76,9 +85,16 @@ const stmtMarkResolved = db.prepare(
 // reader connection afterwards inside createSimulationSnapshotStore. Preparing
 // these at module load on a fresh DB would throw "no such table: world_snapshots".
 const PRUNE_CHUNK = 5000;
+// RESOLVED/REJECTED commands (and their command_results row, cascaded via the
+// FK) older than this are pruned during pruneAndCheckpoint. QUEUED/ACCEPTED
+// rows are never touched here regardless of age — they're still needed for
+// boot recovery. client_seq_watermarks (updated on every insert, see above)
+// keeps next-seq reseeding correct after these rows are gone.
+const COMMAND_RETENTION_MS = Math.max(0, Number(process.env.SIMULATION_COMMAND_RETENTION_MS ?? 3 * 24 * 60 * 60 * 1000));
 let stmtInsertSnapshot: ReturnType<typeof db.prepare> | undefined;
 let stmtDeleteOldSnapshots: ReturnType<typeof db.prepare> | undefined;
 let stmtPruneEvents: ReturnType<typeof db.prepare> | undefined;
+let stmtPruneResolvedCommands: ReturnType<typeof db.prepare> | undefined;
 
 parentPort.on("message", (msg: WriteMessage) => {
   const handlerStartedAtMs = Date.now();
@@ -92,6 +108,7 @@ parentPort.on("message", (msg: WriteMessage) => {
         try {
           stmtInsertCommand.run(msg.commandId, msg.sessionId, msg.playerId, msg.clientSeq, msg.commandType, msg.payloadJson, msg.queuedAt);
           stmtInsertCommandResult.run(msg.commandId);
+          stmtUpsertClientSeqWatermark.run(msg.playerId, msg.clientSeq);
           db.exec("COMMIT");
         } catch (txError) {
           db.exec("ROLLBACK");
@@ -137,6 +154,21 @@ parentPort.on("message", (msg: WriteMessage) => {
         while (true) {
           const result = stmtPruneEvents.run(PRUNE_CHUNK);
           if (!result.changes) break;
+        }
+        if (COMMAND_RETENTION_MS > 0) {
+          stmtPruneResolvedCommands ??= db.prepare(
+            `DELETE FROM commands WHERE command_id IN (
+              SELECT c.command_id FROM commands c
+              JOIN command_results r ON r.command_id = c.command_id
+              WHERE r.status IN ('RESOLVED', 'REJECTED') AND c.queued_at < ?
+              LIMIT ?
+            )`
+          );
+          const cutoff = Date.now() - COMMAND_RETENTION_MS;
+          while (true) {
+            const result = stmtPruneResolvedCommands.run(cutoff, PRUNE_CHUNK);
+            if (!result.changes) break;
+          }
         }
         db.exec("PRAGMA wal_checkpoint(PASSIVE)");
         break;

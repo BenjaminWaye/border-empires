@@ -1,5 +1,7 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
+  bestFortTierForTech,
+  bestSiegeTierForTech,
   structureBuildGoldCost,
   structureCostDefinition,
   structureShowsOnTile,
@@ -8,6 +10,12 @@ import {
 } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import {
+  economicStructureTypesForSupportedTown,
+  openTownSupportNeighborTiles,
+  townSupportStructureShowsOnTile
+} from "../town-support-lookup.js";
+import { economyWeak } from "./ai-economic-heuristics.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -15,6 +23,7 @@ type StrategicResourceKey = DomainStrategicResourceKey;
 export type StructurePlannerPlayer = {
   id: string;
   points: number;
+  manpower?: number;
   techIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount?: number;
@@ -117,7 +126,7 @@ const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesB
 };
 
 const tileOpenForStructure = (tile: StructurePlannerTile): boolean =>
-  !tile.fort && !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
+  !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
 
 const structureVisibleOnTile = (
   structureType: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType,
@@ -163,9 +172,6 @@ const canAffordStructure = (
 const foodCoverageLow = (player: StructurePlannerPlayer): boolean =>
   resourceStock(player, "FOOD") <= Math.max(24, (player.townCount ?? 0) * 12);
 
-const economyWeak = (player: StructurePlannerPlayer): boolean =>
-  (player.incomePerMinute ?? 0) < Math.max(3, (player.settledTileCount ?? 0) * 0.45);
-
 export const chooseBestEconomicBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -174,13 +180,27 @@ export const chooseBestEconomicBuild = (
 ): { tile: StructurePlannerTile; structureType: EconomicStructureType } | undefined => {
   let best: { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number } | undefined;
   const foodLow = foodCoverageLow(player);
-  const econWeak = economyWeak(player);
+  // §24.5: consolidated onto the shared ai-economic-heuristics.ts
+  // implementation instead of this file's own hand-written duplicate (which
+  // had drifted to a different signature but the same stale gold-income
+  // logic) — see that file for the manpower-based rationale.
+  const econWeak = economyWeak(player.manpower ?? 0, player.settledTileCount ?? 0);
   const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const techSet = playerTechSet(player);
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
+    // Town-support structures (MARKET/BANK/GRANARY) build on an open,
+    // already-SETTLED neighbor tile assigned to this town
+    // (resolveTownSupportTarget in runtime-structure-command-handlers.ts),
+    // never on the town tile itself. Computed once per tile — the neighbor
+    // scan is identical regardless of which of the three types is chosen, so
+    // scanning it per-candidate-type would triple an 8-neighbor scan for no
+    // reason (see town-support-lookup.ts).
+    let openSupportNeighbors: readonly StructurePlannerTile[] | undefined;
+    let existingSupportStructureTypes: ReadonlySet<EconomicStructureType> | undefined;
+    const townKey = tileKeyOf(tile.x, tile.y);
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
     } else if (tile.resource === "WOOD" || tile.resource === "FUR") {
@@ -189,14 +209,42 @@ export const chooseBestEconomicBuild = (
       candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
     } else if (tile.town && tile.town.populationTier !== "SETTLEMENT" &&
         (typeof tile.town.supportCurrent !== "number" || typeof tile.town.supportMax !== "number" || tile.town.supportCurrent < tile.town.supportMax)) {
-      candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
-      candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
-      candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+      openSupportNeighbors = openTownSupportNeighborTiles(tilesByKey, player.id, townKey);
+      // A town missing support capacity does NOT guarantee an open neighbor
+      // exists to host the structure — the town may be boxed in by FRONTIER
+      // neighbors or neighbors already holding a structure. Without this
+      // check the AI proposed BUILD_ECONOMIC_STRUCTURE for towns with
+      // nowhere to place it, and the runtime rejected ~99.9% of those
+      // commands in production, burning the tick's action budget every time.
+      if (openSupportNeighbors.length > 0) {
+        // Computed once per tile, not per candidate type — see
+        // economicStructureTypesForSupportedTown's docs in town-support-lookup.ts.
+        existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
+        candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
+        candidates.push({ type: "BANK", score: econWeak ? 30 : 66 });
+        candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+      }
     }
     for (const candidate of candidates) {
       const existingOwnedCount = plannedOwnedStructureCount(player, counts, candidate.type);
       if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
+      if (
+        openSupportNeighbors &&
+        !openSupportNeighbors.some((neighbor) => townSupportStructureShowsOnTile(tilesByKey, player.id, neighbor, candidate.type))
+      ) {
+        continue;
+      }
+      // A town needing MORE support capacity overall (supportCurrent <
+      // supportMax, checked above) does not mean it's missing THIS specific
+      // type — it might already have a GRANARY and just need a MARKET/BANK.
+      // The runtime rejects a duplicate ("town already has granary") via
+      // economicStructureForSupportedTown; without this same check here the
+      // AI kept proposing a structure type the town already had, on repeat,
+      // every rejection-cooldown cycle, forever (see town-support-lookup.ts).
+      if (existingSupportStructureTypes?.has(candidate.type)) {
+        continue;
+      }
       const next = { tile, structureType: candidate.type, score: candidate.score };
       if (!best || next.score > best.score) best = next;
     }
@@ -211,14 +259,22 @@ export const chooseBestFortBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
-  if (resourceStock(player, "IRON") < 45) return undefined;
-  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
-  if (!canAffordGold(player, structureBuildGoldCost("FORT", plannedOwnedStructureCount(player, counts, "FORT")))) return undefined;
+  // Iron/gold requirements must match the tier the runtime will actually
+  // build (runtime-structure-command-handlers.ts always resolves a fresh
+  // fort via bestFortTierForTech, never the flat base-FORT cost) — a player
+  // with fortified-walls/steelworking tech gets IRON_BASTION/THUNDER_BASTION
+  // (90/180 iron, 1800/4200 gold) instead of the base 45 iron / 900 gold.
+  // Using the flat base cost here let the AI repeatedly propose a fort it
+  // could never afford, rejected every tick with "insufficient IRON for
+  // fort" — confirmed in production (74/74 BUILD_FORT commands rejected).
+  const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
+  if (resourceStock(player, "IRON") < fortTier.iron) return undefined;
+  if (!canAffordGold(player, fortTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-    if (!tileOpenForStructure(tile)) continue;
+    if (tile.fort || !tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("FORT", player.id, tile, tilesByKey)) continue;
     let adjacentLandCount = 0;
     let hostileAdjacency = 0;
@@ -249,9 +305,13 @@ export const chooseBestSiegeOutpostBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("leatherworking")) return undefined;
-  if (resourceStock(player, "SUPPLY") < 45) return undefined;
-  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
-  if (!canAffordGold(player, structureBuildGoldCost("SIEGE_OUTPOST", plannedOwnedStructureCount(player, counts, "SIEGE_OUTPOST")))) return undefined;
+  // Same tier-awareness fix as chooseBestFortBuild above: siegecraft/
+  // standing-army tech means the runtime builds SIEGE_TOWER/DREAD_TOWER
+  // (90/140 supply, 60/120 iron, 1800/4200 gold), not the flat base cost.
+  const siegeTier = bestSiegeTierForTech((id) => playerTechSet(player).has(id));
+  if (resourceStock(player, "SUPPLY") < siegeTier.supply) return undefined;
+  if (siegeTier.iron > 0 && resourceStock(player, "IRON") < siegeTier.iron) return undefined;
+  if (!canAffordGold(player, siegeTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {

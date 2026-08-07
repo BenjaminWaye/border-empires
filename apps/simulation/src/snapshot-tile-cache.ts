@@ -1,8 +1,9 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empires/shared";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { WORLD_HEIGHT, WORLD_WIDTH, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
+import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
+import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
 
 export type RuntimeState = {
   tiles: Array<{
@@ -23,6 +24,7 @@ export type RuntimeState = {
     economicStructureJson?: string;
     sabotageJson?: string;
     shardSiteJson?: string;
+    naturalWonderJson?: string;
   }>;
   players: Array<{
     id: string;
@@ -34,6 +36,7 @@ export type RuntimeState = {
     domainIds: string[];
     chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     imperialWardCharges?: number;
+    eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     vision: number;
@@ -83,6 +86,8 @@ export type UpkeepLastTick = {
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+  dormantStructures: DormantStructureDetail[];
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
   economyBreakdown: EconomyBreakdown;
@@ -127,6 +132,18 @@ export const parseStructure = <T>(json: string | undefined): T | undefined => {
   }
 };
 
+// §5.4/§14.3 bugfix: economicStructure is included so every reconnect-path
+// consumer of domainTilesByKey (dockSupportedByCustomsHouse, and
+// economy-network.ts's hasSupportedStructure for Clearing House/Garrison
+// Hall/Rail Depot) can actually see it — this field used to be omitted
+// entirely, which silently zeroed the Harbor Exchange dock-gold bonus (and,
+// less visibly, the Clearing House/Garrison Hall/Rail Depot network bonuses
+// too, since they read the exact same tiles map) for every player on the
+// cold/reconnect snapshot path, never on the live incremental path. Checked
+// every other domainTilesByKey/settledDomainTilesByPlayerId consumer first —
+// none branches on economicStructure being absent as anything other than
+// "no structure here," so populating it only fixes the false-negative, it
+// doesn't change any other behavior.
 export const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTown(tile)): DomainTileState => ({
   x: tile.x,
   y: tile.y,
@@ -135,6 +152,10 @@ export const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTo
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState as DomainTileState["ownershipState"] } : {}),
+  ...(() => {
+    const economicStructure = parseStructure<DomainTileState["economicStructure"]>(tile.economicStructureJson);
+    return economicStructure ? { economicStructure } : {};
+  })(),
   ...(town
     ? {
         town: {
@@ -156,6 +177,11 @@ export const settledDomainTilesByPlayerIdCache: WeakMap<RuntimeState, Map<string
 export const firstThreeTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 export const strategicProductionByPlayerCache: WeakMap<RuntimeState, Map<string, Record<StrategicResourceKey, number>>> = new WeakMap();
 export const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+// §5.4: per-player resource-slot dormancy, computed once per snapshot and
+// shared by buildFedTownKeysByPlayer (FOOD) and every reconnect-path
+// support-structure/dock bonus check (economicStructure) — see
+// buildResourceSlotDormancyByPlayer in snapshot-economy-helpers.ts.
+export const resourceSlotDormancyByPlayerCache: WeakMap<RuntimeState, Map<string, ResourceSlotDormancy>> = new WeakMap();
 export const waterworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 export const foundryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 

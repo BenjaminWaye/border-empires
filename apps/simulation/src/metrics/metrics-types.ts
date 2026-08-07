@@ -8,10 +8,6 @@ import {
   type AutomationPreplanProgressState,
   type AutomationPreplanReason
 } from "../ai/automation-command-planner.js";
-import {
-  AUTOMATION_SETTLE_DECISION_REASONS,
-  type AutomationSettleDecisionReason
-} from "../ai/automation-command-planner-helpers.js";
 import { DECISION_CLASSES, type DecisionClass } from "../ai/utility/decisions.js";
 import type { QuantileSample } from "./metrics-format.js";
 
@@ -21,15 +17,13 @@ export type {
   AutomationNoopReason,
   AutomationPreplanProgressState,
   AutomationPreplanReason,
-  AutomationSettleDecisionReason,
   DecisionClass,
   QuantileSample
 };
 export {
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_PROGRESS_STATES,
-  AUTOMATION_PREPLAN_REASONS,
-  AUTOMATION_SETTLE_DECISION_REASONS
+  AUTOMATION_PREPLAN_REASONS
 };
 
 export const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -47,7 +41,6 @@ export type DurableCommandType = CommandEnvelope["type"];
 export const AI_PLANNER_PHASES = [
   // Worker-side (inside the planner thread).
   "resolve_player_tiles",
-  "planner_choose_settlement",
   "planner_choose_frontier",
   "planner_summarize_frontier",
   "planner_total",
@@ -84,7 +77,46 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
-export const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout", "season_ended"] as const;
+// Phases passed to trackSyncMainThreadTask / mainThreadTasks.trackSync
+// throughout runtime.ts and simulation-service.ts. These already had solid
+// attribution via the event_loop_blocked log payload (mainThreadTasks.recentSince),
+// but that's an in-memory ring buffer surfaced only through stdout logs with
+// ~9min retention on Fly — a live incident (2026-07-22) traced a 20s+ gateway
+// stall to town_network_rebuild / tile_yield_economy_context_rebuild stacking
+// across many players, and the only way to see that was catching the log
+// live. Track them here too so the same signal survives as a queryable
+// Prometheus quantile, like every other per-phase timing in this file.
+export const MAIN_THREAD_TASK_PHASES = [
+  "ai_export_planner_player_views",
+  "ai_export_planner_world_view",
+  "ai_export_tiles_for_keys",
+  "apply_economy_accrual",
+  "cached_economy_snapshot_rebuild",
+  "classify_visibility_for_player",
+  "command_execution",
+  "runtime_submit_command",
+  "snapshot_materialize_inline",
+  "system_export_barb_activation_visible_union",
+  "system_export_planner_player_views",
+  "system_export_planner_world_view",
+  "system_get_barb_activation_vision_signature",
+  "tick_orphan_lock_sweep",
+  "tick_population_growth",
+  "tick_shard_rain",
+  "tile_delta_fanout",
+  "tile_yield_economy_context_rebuild",
+  "town_network_rebuild"
+] as const;
+export type MainThreadTaskPhase = (typeof MAIN_THREAD_TASK_PHASES)[number];
+
+export const AI_TICK_THROTTLE_REASONS = [
+  "adaptive",
+  "budget",
+  "loop_lag",
+  "plan_timeout",
+  "season_ended",
+  "checkpoint_in_flight"
+] as const;
 export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];
 
 export type SimulationSnapshotMetricSample = {
@@ -121,6 +153,14 @@ export type SimulationMetricsSnapshot = {
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  /** Durable-persistence writes skipped for ephemeral view-toggle commands (WATCH_MUSTER/UNWATCH_MUSTER).
+   * These only mutate in-memory watch state and are meaningless after a restart, so their QUEUED rows are
+   * never written — previously every one after a player's first collided with UNIQUE(player_id, client_seq). */
+  simEphemeralCommandPersistSkippedTotal: number;
+  /** Persistence writes rejected by a SQLite constraint (e.g. UNIQUE on (player_id, client_seq)). Deterministic,
+   * so it is deliberately non-fatal — the command is skipped rather than crash-looping the process. A non-zero,
+   * still-climbing value after the client_seq DB-max seeding fix means a new collision source has appeared. */
+  simPersistenceConstraintViolationTotal: number;
   /** In-flight sqlite-writer-channel messages (gauge). Growing without bound means the writer worker is falling behind. */
   simWriterQueueDepth: number;
   /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
@@ -143,6 +183,11 @@ export type SimulationMetricsSnapshot = {
   simAiNarrowAnalyzeCapped: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
   simAiCommandRejectedTotalByType: Record<DurableCommandType, number>;
+  // Coarse rejection triage: the runtime's rejectCommand code (e.g.
+  // "BUILD_INVALID", "INSUFFICIENT_GOLD"), not broken down by command type —
+  // cross-reference with simAiCommandRejectedTotalByType to narrow down
+  // which command type is producing which code when one type dominates.
+  simAiCommandRejectedCodeTotal: Record<string, number>;
   simAiCommandRecent: string[];
   simAiPreplanTotalByReason: Record<AutomationPreplanReason, number>;
   simAiPreplanRecent: string[];
@@ -154,10 +199,8 @@ export type SimulationMetricsSnapshot = {
   simAiTickThrottledTotal: Record<AiTickThrottleReason, number>;
   simAiCurrentTickIntervalMs: number;
   simAiBudgetUsedMs: number;
-  simAiSettleDecisionTotalByReason: Record<AutomationSettleDecisionReason, number>;
-  simAiSettleDecisionRecent: string[];
-  simAiSettleDecisionTopScore: QuantileSample;
   simAiPlannerPhaseMs: Record<AiPlannerPhase, QuantileSample>;
+  simMainThreadTaskMs: Record<MainThreadTaskPhase, QuantileSample>;
   // Per-runtime-drain histogram. submit_command on the bridge measured 92-319ms
   // p99, which we now know was the drain that runs as a microtask after each
   // submitDurableCommand. This histogram measures the drain directly:
@@ -195,11 +238,16 @@ export type SimulationMetricsSnapshot = {
   simMusterRemoteAttackTotal: number;
   simMusterRemoteBlockedTotal: number;
   simMusterRemoteBlockedBarbarianTotal: number;
+  simOwnershipChangeAlertSkippedSettlementTierTotal: number;
   simSeasonEndSnapshotWarmTotal: number;
   simSeasonEndSnapshotWarmFailedTotal: number;
   /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */
   simFullVisInlineBuildTotal: number;
   simAutoFillTilesTotal: number;
+  /** auth_recovery respawn placed via ensurePlayerHasSpawnTerritory (overwrites the player's prior empire). */
+  simAuthRecoveryRespawnTotal: number;
+  /** auth_recovery respawn suppressed by the world-sanity guard (ctx.tiles empty at check time). */
+  simAuthRecoveryRespawnGuardedTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
   /** Counter per utility DecisionClass acted on. */
@@ -209,4 +257,14 @@ export type SimulationMetricsSnapshot = {
   simPostSeasonProtoTileCacheHitTotal: number;
   /** Post-season proto-tile cache misses (first map or new season). */
   simPostSeasonProtoTileCacheMissTotal: number;
+  /** Current gold per AI player (gauge), sampled once/sec from exportPlayerDebugSnapshot — see metrics-ai-player-state.ts for why this is a gauge, not a spend counter. */
+  simAiPlayerGoldGauge: Record<string, number>;
+  /** Empire gold storage cap per AI player (gauge) — Math.max(EMPIRE_STORAGE_FLOOR.GOLD, goldIncomePerMinute * STORAGE_MINUTES), same formula as runtime-empire-storage.ts. */
+  simAiPlayerGoldCapacityGauge: Record<string, number>;
+  /** Settled tile count per AI player (gauge). */
+  simAiPlayerSettledTilesGauge: Record<string, number>;
+  /** Owned (territory) tile count per AI player (gauge). */
+  simAiPlayerOwnedTilesGauge: Record<string, number>;
+  /** EXPAND commands accepted per AI player (counter) — the one growth-relevant command type tracked per-player; SETTLE/BUILD are not (see metrics-ai-player-state.ts). */
+  simAiExpandTotalByPlayer: Record<string, number>;
 };

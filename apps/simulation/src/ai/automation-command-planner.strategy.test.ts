@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
 import { planAutomationCommand } from "./automation-command-planner.js";
@@ -80,7 +81,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 4,
       townCount: 1,
@@ -121,7 +122,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 4,
       townCount: 1,
@@ -160,7 +161,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 100,
       settledTileCount: 1,
       townCount: 1,
@@ -255,7 +256,7 @@ describe("automation command planner strategic parity", () => {
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 3,
+      points: 4,
       manpower: 10,
       settledTileCount: 4,
       townCount: 1,
@@ -314,10 +315,9 @@ describe("automation command planner strategic parity", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 1, toY: 1 })
-    });
+    // Attack path wins on this front; under the muster system with no muster
+    // staged yet, that's SET_MUSTER (staging manpower) rather than ATTACK.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 
   it("retains a remembered economic path while still choosing frontier growth", () => {
@@ -334,7 +334,7 @@ describe("automation command planner strategic parity", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 80,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 7,
@@ -413,7 +413,7 @@ describe("automation command planner strategic parity", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       techIds: ["masonry"],
       strategicResources: { IRON: 60 },
       settledTileCount: 5,
@@ -474,9 +474,8 @@ describe("automation command planner strategic parity", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
-    });
+    // Attack path wins over the barbarian-dock alternative; under the muster
+    // system with no muster staged yet, that's SET_MUSTER rather than ATTACK.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 });

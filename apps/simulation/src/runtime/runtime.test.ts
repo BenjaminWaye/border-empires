@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile, SimulationRuntime } from "./runtime.js";
+import { SimulationRuntime } from "./runtime.js";
+import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile } from "../runtime-settlement-rules.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
 
@@ -14,7 +15,7 @@ describe("simulation runtime", () => {
     const elapsedMs = 60_000; // 1 minute
     const runtime = new SimulationRuntime({
       now: () => startMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 0 })]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [
@@ -225,6 +226,57 @@ describe("simulation runtime", () => {
     expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
   });
 
+  it("does not respawn (world-sanity guard) when the world tile map is empty", () => {
+    // Regression: territoryTiles reads 0 from the same in-memory ctx.tiles map
+    // that backs every ownership check. If the world itself never loaded
+    // (e.g. a stale/incomplete startup recovery), that zero is not
+    // trustworthy — placing a fresh auth_recovery spawn here would silently
+    // overwrite the player's real empire once the world does load. See
+    // ensurePlayerHasSpawnTerritory's world-sanity guard.
+    let guardedCount = 0;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialState: { tiles: [], activeLocks: [] },
+      onAuthRecoveryRespawnGuarded: () => { guardedCount += 1; }
+    });
+
+    const respawned = runtime.ensurePlayerHasSpawnTerritory("returning-human");
+    expect(respawned).toBe(false);
+    expect(guardedCount).toBe(1);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "returning-human")).toHaveLength(0);
+  });
+
+  it("still respawns a genuinely zero-territory player when the world is populated", () => {
+    // The legitimate case the guard must not break: an existing/new player
+    // with no owned tiles reconnecting into a healthy, populated world.
+    let respawnCount = 0;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1")]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      },
+      onAuthRecoveryRespawn: () => { respawnCount += 1; }
+    });
+
+    const respawned = runtime.ensurePlayerHasSpawnTerritory("firebase-user-1");
+    expect(respawned).toBe(true);
+    expect(respawnCount).toBe(1);
+
+    const state = runtime.exportState();
+    expect(state.tiles.some((tile) => tile.ownerId === "firebase-user-1")).toBe(true);
+  });
+
   it("preserves recovered territory for a returning player missing from initialState.players", () => {
     // Regression: after a sim restart, recovery rebuilds per-player tile
     // summaries via lazy applyTileToPlayerSummaries even when the human
@@ -326,14 +378,14 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
     });
 
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
-    expect(player?.manpower).toBe(MANPOWER_BASE_REGEN_PER_MINUTE);
+    expect(player?.manpower).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
   });
 
   it("emits town-scaled manpower regen and breakdown in player updates", async () => {
@@ -341,7 +393,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -393,10 +445,10 @@ describe("simulation runtime", () => {
     };
     const settlementCap = TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
     const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
-    expect(payload.manpowerCap).toBe(settlementCap * 2);
-    expect(payload.manpowerRegenPerMinute).toBe(settlementRegen * 2);
-    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "2 Settlements", amount: settlementCap * 2 }]);
-    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "2 Settlements", amount: settlementRegen * 2 }]);
+    expect(payload.manpowerCap).toBe(STARTING_CAPITAL_MANPOWER_CAP + settlementCap * 2); // starting capital (§4.3) is additive on top of town cap/regen
+    expect(payload.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2);
+    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, { label: "2 Settlements", amount: settlementCap * 2 }]);
+    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, { label: "2 Settlements", amount: settlementRegen * 2 }]);
 
     currentNow = 120_000;
     runtime.submitCommand({
@@ -419,14 +471,14 @@ describe("simulation runtime", () => {
           event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
       );
     const secondPayload = JSON.parse(secondPlayerUpdateEvent!.payloadJson) as { manpower: number };
-    expect(secondPayload.manpower - payload.manpower).toBeCloseTo(settlementRegen * 2, 10);
+    expect(secondPayload.manpower - payload.manpower).toBeCloseTo(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2, 10); // starting capital's regen (§4.3) too
   });
 
   it("does not grant town manpower boosts while a claimed town tile is still frontier", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: 150 })]
+        ["player-1", buildPlayer("player-1", { manpower: 0, manpowerUpdatedAt: 0, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -445,11 +497,11 @@ describe("simulation runtime", () => {
     });
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
 
-    expect(player?.manpowerCap).toBe(MANPOWER_BASE_CAP);
-    expect(player?.manpowerRegenPerMinute).toBe(MANPOWER_BASE_REGEN_PER_MINUTE);
+    expect(player?.manpowerCap).toBe(STARTING_CAPITAL_MANPOWER_CAP);
+    expect(player?.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
     expect(player?.manpowerBreakdown).toEqual({
-      cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
-      regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+      cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }],
+      regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }]
     });
     expect(player?.ownedTownTileKeys).toEqual([]);
     expect(player?.townCount).toBe(0);
@@ -521,8 +573,8 @@ describe("simulation runtime", () => {
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
       manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
     };
-    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
-    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
   });
 
   it("exports only the player's visible tiles for bootstrap snapshots", () => {
@@ -536,7 +588,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 14, y: 10, terrain: "LAND" },
+          { x: 11, y: 10, terrain: "LAND" },
           { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -547,9 +599,55 @@ describe("simulation runtime", () => {
 
     expect(visibleState.tiles).toEqual([
       expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-      expect.objectContaining({ x: 14, y: 10, terrain: "LAND" })
+      expect.objectContaining({ x: 11, y: 10, terrain: "LAND" })
     ]);
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
+  });
+
+  it("restores an active light outpost's vision bonus into the coverage cache on boot", () => {
+    // Simulates a server restart: the outpost was already active before this
+    // SimulationRuntime instance was constructed, so its vision bonus must be
+    // re-applied while indexing tiles, not just when the outpost is built.
+    // The bonus lives in the refcounted visibilityCoverage cache (consumed by
+    // filterTileDeltasForPlayer), not the territorial vision-expansion cache
+    // used by exportVisibleStateForPlayer.
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 100 })],
+        ["player-2", buildPlayer("player-2", { manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 60,
+            y: 60,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "active" }
+          },
+          { x: 65, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 66, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const deltas = [
+      // 5 tiles from the outpost — only reachable via LIGHT_OUTPOST_VISION_BONUS
+      // (5), not player-1's base territory radius (the outpost tile itself is
+      // player-1's only territory).
+      { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
+      // 6 tiles from the outpost — outside even the bonus radius.
+      { x: 66, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" }
+    ];
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+
+    expect(filtered.some((delta) => delta.x === 65 && delta.y === 60)).toBe(true);
+    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(false);
   });
 
   it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
@@ -639,7 +737,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: [
@@ -661,7 +759,7 @@ describe("simulation runtime", () => {
 
     runtime.exportVisibleStateForPlayer("player-1");
 
-    const radiusAudit = audits.find((entry) => entry.tileKey === "12,10");
+    const radiusAudit = audits.find((entry) => entry.tileKey === "11,10");
     expect(radiusAudit).toBeDefined();
     expect(radiusAudit?.playerId).toBe("player-1");
     expect(radiusAudit?.reasons).toEqual(["radius:self"]);
@@ -686,7 +784,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -705,7 +803,7 @@ describe("simulation runtime", () => {
       },
       // Player-2 captured a tile inside player-1's vision radius.
       {
-        x: 12,
+        x: 11,
         y: 10,
         terrain: "LAND" as const,
         ownerId: "player-2",
@@ -724,11 +822,11 @@ describe("simulation runtime", () => {
 
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
 
-    expect(filtered.map((delta) => `${delta.x},${delta.y}`).sort()).toEqual(["10,10", "12,10"]);
+    expect(filtered.map((delta) => `${delta.x},${delta.y}`).sort()).toEqual(["10,10", "11,10"]);
     expect(filtered.some((delta) => delta.x === 50 && delta.y === 50)).toBe(false);
     const ownDelta = filtered.find((delta) => delta.x === 10 && delta.y === 10);
     expect(ownDelta?.ownerId).toBe("player-1");
-    const visibleOpponent = filtered.find((delta) => delta.x === 12 && delta.y === 10);
+    const visibleOpponent = filtered.find((delta) => delta.x === 11 && delta.y === 10);
     expect(visibleOpponent?.townJson).toEqual(expect.any(String));
   });
 
@@ -822,9 +920,9 @@ describe("simulation runtime", () => {
     // their own region), so the post-flip ownerId attached to each delta
     // doesn't grant retroactive vision.
     const deltas = [
-      { x: 12, y: 10, terrain: "LAND" as const, ownerId: "player-3", ownershipState: "SETTLED", townJson: "{}" },
-      { x: 102, y: 100, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED", townJson: "{}" },
-      { x: 202, y: 200, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED", townJson: "{}" }
+      { x: 11, y: 10, terrain: "LAND" as const, ownerId: "player-3", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 101, y: 100, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 201, y: 200, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED", townJson: "{}" }
     ];
 
     const p1Filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
@@ -834,16 +932,16 @@ describe("simulation runtime", () => {
     // Each subscriber sees exactly the one delta in their vision radius and
     // no others — proving the leak from cross-region opponent activity is
     // closed even with multiple subscribers in a single batch.
-    expect(p1Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["12,10"]);
-    expect(p2Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["102,100"]);
-    expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["202,200"]);
+    expect(p1Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["11,10"]);
+    expect(p2Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["101,100"]);
+    expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["201,200"]);
   });
 
   it("filterTileDeltasForPlayer eager and lazy paths agree on large delta batches", () => {
     // The eager fast path kicks in when tileDeltas.length >= 16. This test
     // builds a batch large enough to trip the threshold and confirms the
-    // visible-set output matches the lazy path on a smaller slice (R=4, so
-    // tiles at Chebyshev distance ≤ 4 from an owned tile are visible).
+    // visible-set output matches the lazy path on a smaller slice (R=1, so
+    // tiles at Chebyshev distance ≤ 1 from an owned tile are visible).
     const makePlayer = (id: string) => ({
       id,
       isAi: false,
@@ -871,7 +969,7 @@ describe("simulation runtime", () => {
       }
     });
 
-    // Build 25 deltas: mix of tiles inside player-1's vision (Chebyshev ≤ 4
+    // Build 25 deltas: mix of tiles inside player-1's vision (Chebyshev ≤ 1
     // from 10,10) and tiles outside it. The eager path must drop the same
     // tiles as the lazy path would.
     const deltas: Array<{ x: number; y: number; terrain: "LAND"; ownerId: string; ownershipState: "SETTLED" }> = [];
@@ -886,8 +984,8 @@ describe("simulation runtime", () => {
 
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
     const visibleXs = filtered.map((delta) => delta.x).sort((a, b) => a - b);
-    // Player-1 owns (10,10) with vision radius 4 → x in [6..14] visible at y=10.
-    expect(visibleXs).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    // Player-1 owns (10,10) with vision radius 1 → x in [9..11] visible at y=10.
+    expect(visibleXs).toEqual([9, 10, 11]);
     expect(filtered.some((delta) => delta.y === 200)).toBe(false);
   });
 
@@ -1123,6 +1221,23 @@ describe("simulation runtime", () => {
 
   it("accepts a human frontier command before queued AI work drains", async () => {
     const runtime = new SimulationRuntime({ now: () => 1_000 });
+    // Default-seeded player-1 owns (10,10) with no muster staged — the muster
+    // system now requires FRONTIER_ATTACK_MUSTER_COST (15) mustered on the
+    // origin before an ATTACK is accepted. Stage it directly via SET_MUSTER +
+    // a manual tick (rather than real/fake wall-clock time) since this test's
+    // whole point is queue-priority ordering, not muster accumulation timing.
+    runtime.submitCommand({
+      commandId: "stage-muster",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    runtime.tickMuster(7_000);
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(event.eventType);
@@ -1138,7 +1253,7 @@ describe("simulation runtime", () => {
       commandId: "cmd-1",
       sessionId: "session-1",
       playerId: "player-1",
-      clientSeq: 1,
+      clientSeq: 2,
       issuedAt: 1_000,
       type: "ATTACK",
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
@@ -1158,7 +1273,14 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 24, y: 245, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 24,
+            y: 245,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
           { x: 23, y: 246, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
@@ -1200,7 +1322,14 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -1265,33 +1394,52 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("accepts dock-crossing frontier expansion to linked islands", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      seedTiles: new Map(),
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]
-      ]),
-      initialState: {
-        tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
-          { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
-          { x: 51, y: 50, terrain: "LAND" }
-        ],
-        docks: [
-          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
-          { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen: string[] = [];
-    runtime.onEvent((event) => {
-      seen.push(event.eventType);
-    });
+  it("accepts dock-crossing frontier expansion onto the linked dock tile but not the land beside it", async () => {
+    const buildDockRuntime = () =>
+      new SimulationRuntime({
+        now: () => 1_000,
+        seedTiles: new Map(),
+        initialPlayers: new Map([
+          ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+            { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
+            { x: 51, y: 50, terrain: "LAND" }
+          ],
+          docks: [
+            { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+            { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+          ],
+          activeLocks: []
+        }
+      });
 
-    runtime.submitCommand({
-      commandId: "cmd-dock-expand",
+    // EXPAND must land on the linked dock tile (50,50) itself — you capture the
+    // dock before claiming land beyond it.
+    const acceptRuntime = buildDockRuntime();
+    const acceptSeen: string[] = [];
+    acceptRuntime.onEvent((event) => acceptSeen.push(event.eventType));
+    acceptRuntime.submitCommand({
+      commandId: "cmd-dock-expand-onto-dock",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(acceptSeen[0]).toBe("COMMAND_ACCEPTED");
+
+    // Expanding onto the land beside the dock (51,50) must be rejected — that
+    // previously let AI/barbarians settle past an uncaptured dock.
+    const rejectRuntime = buildDockRuntime();
+    const rejectSeen: string[] = [];
+    rejectRuntime.onEvent((event) => rejectSeen.push(event.eventType));
+    rejectRuntime.submitCommand({
+      commandId: "cmd-dock-expand-adjacent",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
@@ -1299,9 +1447,8 @@ describe("simulation runtime", () => {
       type: "EXPAND",
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 51, toY: 50 })
     });
-
     await Promise.resolve();
-    expect(seen[0]).toBe("COMMAND_ACCEPTED");
+    expect(rejectSeen[0]).toBe("COMMAND_REJECTED");
   });
 
   it("emits a fresh player update after collecting buffered tile yield", async () => {
@@ -1351,10 +1498,10 @@ describe("simulation runtime", () => {
       })
     );
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as { gold?: number };
-    expect(payload.gold).toBeGreaterThan(0.9);
+    expect(payload.gold).toBeGreaterThan(0); // was >0.9 pre-gold-rescope (§6.1); just assert some gold was credited
   });
 
-  it("drains food upkeep continuously so net-negative food balances actually decrement", async () => {
+  it("no longer drains food upkeep from the stockpile (§5.4: FOOD is slot-based, town upkeep is 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1400,8 +1547,8 @@ describe("simulation runtime", () => {
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
       strategicResources: { FOOD: number };
     };
-    // Town tier upkeep is 0.1 food/min; 5 minutes elapsed → 0.5 drained from 10.
-    expect(payload.strategicResources.FOOD).toBeCloseTo(9.5, 2);
+    // Town food upkeep is retired to 0 (§5.4) — the FOOD stockpile never moves.
+    expect(payload.strategicResources.FOOD).toBe(10);
   });
 
   it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
@@ -1460,7 +1607,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 0 }
           },
           {
             x: 6,
@@ -1468,25 +1615,84 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
-    // 60 min elapse: town yields ~60 gold, GARRISON_HALL draws 2.5
-    // gold/min (~150 gold). Yield covers part of it; the ~90 gold
-    // deficit hits the stockpile, so points drops below 1000 but stays
-    // well above 0.
+    // 60 min elapse: FUR_SYNTHESIZER draws the §6.4-decided 30 gold/day
+    // (= 30/1440 gold/min) upkeep, partially offset by the SETTLEMENT town's
+    // own SETTLEMENT_BASE_GOLD_PER_MIN yield (§24.6); the remaining deficit
+    // hits the stockpile.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(850);
-    expect(player?.points).toBeLessThan(960);
+    expect(player?.points).toBeGreaterThan(999);
+    expect(player?.points).toBeLessThan(1000);
   });
 
-  it("drains accumulated food yield to cover food upkeep before touching the food stockpile", async () => {
+  it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
+    // Regression guard for the visiblePlayersProjection self/other split:
+    // player-1 (the requester) must still get full applyManpowerRegen (gold
+    // upkeep drains their points every export, same as before this change).
+    // player-2 (visible but not the requester) must NOT have its own upkeep
+    // drained by player-1's export — that was the whole point of switching
+    // player-2 to refreshManpowerOnly (skips the economy-accrual side effect
+    // and the tile-yield-economy/town-network rebuild it can trigger).
+    // player-2's own upkeep still applies normally once IT exports/acts.
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        ["player-1", testRuntimePlayer("player-1", { points: 1000 })],
+        ["player-2", testRuntimePlayer("player-2", { points: 1000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
+          },
+          {
+            x: 40,
+            y: 40,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-2" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // Both players accrue the same FUR_SYNTHESIZER gold upkeep (§6.4 — the
+    // one structure family still gated on ongoing gold) with no offsetting
+    // yield, so absent any export at all both would drain identically.
+    currentNow += 60 * 60_000;
+
+    const visible = runtime.exportVisibleStateForPlayer("player-1");
+    const self = visible.players.find((p) => p.id === "player-1");
+    const other = visible.players.find((p) => p.id === "player-2");
+
+    expect(self?.points).toBeLessThan(1000);
+    expect(other?.points).toBe(1000);
+
+    // player-2's own upkeep still applies once THEY export/act — nothing lost,
+    // only deferred to their own path, exactly as refreshManpowerOnly's
+    // existing doc comment already guarantees for the sibling planner exports.
+    const player2Visible = runtime.exportVisibleStateForPlayer("player-2");
+    const player2Self = player2Visible.players.find((p) => p.id === "player-2");
+    expect(player2Self?.points).toBeLessThan(1000);
+  });
+
+  it("no longer touches the food stockpile at all (§5.4: FOOD upkeep/production are both retired to 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1524,14 +1730,13 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
-    // tiles produce 48/day = 0.0333/min each (4 food total). Net -2 food,
-    // so FOOD stockpile drops from 100 to 98.
+    // 60 min elapse: town food upkeep and FARM tile production are both
+    // retired to 0 (§5.4) — the FOOD stockpile stays exactly where it started.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeCloseTo(98, 0);
+    expect(player?.strategicResources.FOOD).toBe(100);
   });
 
   it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
@@ -1558,17 +1763,20 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
     // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
-    // before any drain); GARRISON_HALL draws 150 gold. Accrual consumes
-    // 150 from the buffer and advances the tile's anchor. A subsequent
-    // COLLECT_TILE should only see the ~460 leftover — never the full
-    // 610 — which would happen if the anchor hadn't moved.
+    // before any drain); FUR_SYNTHESIZER draws the §6.4-decided 30
+    // gold/day (~1.25 gold over 60 min) — the only structure family that
+    // still carries an ongoing gold upkeep post-§12.1. Accrual consumes
+    // that from the buffer and advances the tile's anchor. A subsequent
+    // COLLECT_TILE should only see the leftover — strictly less than the
+    // full ~610 undrained yield, which would happen if the anchor hadn't
+    // moved — but very close to it, since the drain itself is now tiny.
     currentNow += 60 * 60_000;
     runtime.submitCommand({
       commandId: "collect-1",
@@ -1582,11 +1790,11 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(440);
-    expect(player?.points).toBeLessThan(480);
+    expect(player?.points).toBeGreaterThan(600);
+    expect(player?.points).toBeLessThan(610);
   });
 
-  it("drains unconsumed food yield on a mixed-yield tile when gold upkeep advances the shared anchor", async () => {
+  it("collects no FOOD on a mixed-yield tile — FOOD production is retired (§5.4: slot-based, not yield-based)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
       now: () => currentNow,
@@ -1617,13 +1825,9 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    // The mixed-yield tile (5,5) produces 10 gold/min AND 48 FOOD/day
-    // (~2.03 FOOD over 61 minutes since the anchor was never set).
-    // GARRISON_HALL draws gold but no food, so accrual consumes gold
-    // only — yet the single shared anchor advances, so a later collect
-    // sees less than the full 61-minute window of FOOD. This pins the
-    // documented multi-resource trade-off; if per-resource anchors are
-    // ever introduced, this test should be updated.
+    // The mixed-yield tile (5,5) produces 10 gold/min; FOOD production is
+    // retired (§5.4: FOOD is slot-based, not yield-based) so there's no FOOD
+    // left in this tile's yield to collect, regardless of the shared anchor.
     currentNow += 60 * 60_000;
     runtime.submitCommand({
       commandId: "collect-1",
@@ -1637,8 +1841,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBeGreaterThan(1);
-    expect(player?.strategicResources.FOOD).toBeLessThan(2);
+    expect(player?.strategicResources.FOOD).toBe(0);
   });
 
   it("does not choose unaffordable frontier actions for AI automation", () => {
@@ -1663,12 +1866,12 @@ describe("simulation runtime", () => {
 
   it("does not auto-expand onto worthless plain frontier land without an expansion objective", () => {
     // Plain neutral tiles (no resource/town/dock) must not be expanded unless the planner
-    // has an expansionObjective pointing toward them. Without one, the AI should produce
-    // no command rather than burning 1 gold on a tile that decays in ~10 minutes.
+    // has an expansionObjective pointing toward them. points: 0 keeps "nothing affordable"
+    // true even though tech is cheap now (gold rescope, §6) — otherwise the AI would fall back to CHOOSE_TECH.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1719,6 +1922,18 @@ describe("simulation runtime", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const seen: string[] = [];
       runtime.onEvent((event) => {
         seen.push(`${event.eventType}:${event.commandId}`);
@@ -2050,7 +2265,14 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 21, y: 20, terrain: "LAND" }
           ],
@@ -2085,14 +2307,14 @@ describe("simulation runtime", () => {
       expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
-      expect((exported.players.find((entry) => entry.id === "player-1")?.manpower ?? 0) < 150).toBe(true);
+      // (no absolute manpower assertion here — player-1 also respawns with a fresh SETTLEMENT, granting extra cap per §4.3, on top of the manpowerDelta loss already asserted above)
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
           ownershipState: "SETTLED"
         })
       );
-      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100);
+      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST + full integrity income
       const respawnPlayerUpdate = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
           event.eventType === "PLAYER_MESSAGE" &&
@@ -2138,7 +2360,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(3_100);
 
-      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(99);
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
     } finally {
       vi.useRealTimers();
     }
@@ -2200,7 +2422,14 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -2269,6 +2498,7 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 },
               town: {
                 name: "Kettlecorner",
                 type: "FARMING",
@@ -2338,6 +2568,7 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "captor",
               ownershipState: "FRONTIER",
+              muster: { ownerId: "captor", amount: 999, mode: "HOLD", updatedAt: 0 },
               town: {
                 name: "Kettlecorner",
                 type: "FARMING",
@@ -2402,9 +2633,12 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-1", status: "active" }
+              fort: { ownerId: "player-1", status: "active" },
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+            // §5.4: FORT needs 1 IRON slot to not go dormant.
+            { x: 9, y: 10, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -2460,7 +2694,14 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             {
               x: 10,
               y: 11,
@@ -2525,7 +2766,8 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2555,7 +2797,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(0);
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (876, §4.3) before Fort's 300 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -2580,7 +2822,9 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2624,7 +2868,9 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2650,10 +2896,11 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toBeDefined();
       expect(tile?.fortJson).toContain("\"variant\":\"IRON_BASTION\"");
-      // Should charge 1800 gold + 90 iron (not base FORT costs).
-      // Points drop: 10_000 - (round(1800 * 1.0)) = 8_200
+      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
+      // §12) — the fort tier ladder no longer charges gold at all, just the
+      // manpower/iron already asserted above via the fort variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
-      expect(player.points).toBeLessThan(9_000); // clearly less than the base FORT 900
+      expect(player.points).toBe(10_000);
     } finally {
       vi.useRealTimers();
     }
@@ -2758,7 +3005,11 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2812,7 +3063,9 @@ describe("simulation runtime", () => {
               ownershipState: "SETTLED",
               town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
               economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -2923,7 +3176,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["cartography"]), strategicResources: { CRYSTAL: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: 100 } })
           ]
         ]),
         initialState: {
@@ -2935,7 +3188,8 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Lookout", type: "MARKET", populationTier: "TOWN" }
-            }
+            },
+            { x: 13, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
           ],
           activeLocks: []
         }
@@ -2988,7 +3242,8 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED"
-            }
+            },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }
           ],
           activeLocks: []
         }
@@ -3012,7 +3267,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(90);
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (726, §4.3) before outpost's 60 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 
@@ -3036,7 +3291,10 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3074,7 +3332,10 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3094,9 +3355,11 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
       expect(tile?.siegeOutpostJson).toBeDefined();
       expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
-      // Should charge 1800 gold + 90 supply + 60 iron (not base SIEGE_OUTPOST costs)
+      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
+      // §12) — the siege tier ladder no longer charges gold at all, just the
+      // manpower/supply/iron already asserted above via the siege variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
-      expect(player.points).toBeLessThan(9_000); // clearly less than the base 900
+      expect(player.points).toBe(10_000);
     } finally {
       vi.useRealTimers();
     }
@@ -3201,7 +3464,12 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3232,7 +3500,13 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("does not lose SUPPLY when IRON is insufficient for a siege upgrade", async () => {
+  // Step 5 item 3 (Slice A): FOOD/IRON/CRYSTAL/SUPPLY stockpile amounts no
+  // longer gate a build (stripRetiredStockpileCost strips them before
+  // spendStrategicCost ever sees them) -- hasFreeResourceSlots is the real
+  // gate now. This test used to prove a low IRON stockpile blocked the build
+  // and left SUPPLY untouched; rewritten to prove the build now succeeds on
+  // slot supply alone, and both legacy stockpile balances stay untouched.
+  it("SIEGE_TOWER upgrade succeeds on slot supply alone, leaving legacy SUPPLY/IRON stockpile balances untouched", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3240,13 +3514,18 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            // enough SUPPLY, not enough IRON
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 100, IRON: 10 } })
+            // Both far below the old SIEGE_TOWER stockpile cost (SUPPLY 90, IRON 60).
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 5, IRON: 10 } })
           ]
         ]),
         initialState: {
           tiles: [
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }
@@ -3268,12 +3547,14 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      expect(events).toHaveLength(1);
-      expect(events[0].code).toBe("BUILD_INVALID");
-      expect(events[0].message).toBe("insufficient IRON for siege outpost");
-      // SUPPLY must be unchanged — no silent resource theft.
+      expect(events).toEqual([]);
+      const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      // Legacy stockpile balances must be completely untouched -- nothing is
+      // spent from them for this build any more.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
-      expect(player.strategicResources.SUPPLY).toBe(100);
+      expect(player.strategicResources.SUPPLY).toBe(5);
+      expect(player.strategicResources.IRON).toBe(10);
     } finally {
       vi.useRealTimers();
     }
@@ -3306,7 +3587,14 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED"
-            }
+            },
+            // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more — supply
+            // it or the build rejects with INSUFFICIENT_SLOT.
+            { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 16, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
           ],
           activeLocks: []
         }
@@ -3420,7 +3708,17 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            // §5.3: the town draws 4 FOOD slots, GARRISON_HALL draws 1 more.
+            { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 11, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+            // Ancillary Factory is a town-support building — must sit on a
+            // support tile adjacent to the town, not on the town tile itself.
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -3438,7 +3736,7 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "GARRISON_HALL" })
+        payloadJson: JSON.stringify({ x: 9, y: 10, structureType: "GARRISON_HALL" })
       });
 
       await Promise.resolve();
@@ -3446,7 +3744,7 @@ describe("simulation runtime", () => {
 
       vi.advanceTimersByTime(structureBuildDurationMs("GARRISON_HALL"));
 
-      const exported = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      const exported = runtime.exportState().tiles.find((tile) => tile.x === 9 && tile.y === 10);
       expect(exported?.economicStructureJson).toContain("\"type\":\"GARRISON_HALL\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
     } finally {
@@ -3651,52 +3949,6 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("overloads a ready synthesizer through the rewrite simulation path", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        [
-          "player-1",
-          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["overload-protocols"]), strategicResources: { SUPPLY: 0 } })
-        ]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 22,
-            y: 22,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: {
-              ownerId: "player-1",
-              type: "FUR_SYNTHESIZER",
-              status: "active"
-            }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    runtime.submitCommand({
-      commandId: "overload-cmd-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "OVERLOAD_SYNTHESIZER",
-      payloadJson: JSON.stringify({ x: 22, y: 22 })
-    });
-
-    await Promise.resolve();
-
-    const exportedTile = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 22);
-    expect(exportedTile?.economicStructureJson).toContain("\"status\":\"inactive\"");
-    expect(exportedTile?.economicStructureJson).toContain("\"disabledUntil\":86401000");
-  });
-
   it("reenables converter structures through the rewrite simulation path", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -3745,6 +3997,18 @@ describe("simulation runtime", () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const seen: string[] = [];
       runtime.onEvent((event) => {
         seen.push(`${event.eventType}:${event.commandId}`);
@@ -3813,6 +4077,18 @@ describe("simulation runtime", () => {
         eventsByCommandId: new Map()
       }
     });
+    runtime.submitCommand({
+      commandId: "stage-muster",
+      sessionId: "session-2",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    runtime.tickMuster(7_000);
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(`${event.eventType}:${event.commandId}`);
@@ -3836,6 +4112,18 @@ describe("simulation runtime", () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({ now: () => 1_000, backgroundBatchSize: 1 });
+      runtime.submitCommand({
+        commandId: "stage-muster",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: 1_000,
+        type: "SET_MUSTER",
+        payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+      });
+      await Promise.resolve();
+      runtime.tickMuster(7_000);
+
       const order: string[] = [];
       runtime.onEvent((event) => {
         order.push(event.eventType);
@@ -3878,8 +4166,35 @@ describe("simulation runtime", () => {
       scheduleSoon: (task) => {
         scheduled.push(task);
       },
-      now: () => 1_000
+      now: () => 1_000,
+      // Merge-patch muster onto the two origin tiles (5,0)/(4,4) from the
+      // stress-10ai seed, rather than staging it via SET_MUSTER commands
+      // (which would themselves get queued into these same lanes and skew
+      // the queueDepths assertion this test is actually about).
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 0,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
+          {
+            x: 4,
+            y: 4,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          }
+        ],
+        activeLocks: []
+      }
     });
+
     const seen: string[] = [];
     runtime.onEvent((event) => {
       seen.push(`${event.eventType}:${event.commandId}`);
@@ -3924,7 +4239,20 @@ describe("simulation runtime", () => {
       scheduleSoon: (task) => {
         scheduled.push(task);
       },
-      now: () => 1_000
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          {
+            x: 4,
+            y: 4,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          }
+        ],
+        activeLocks: []
+      }
     });
     const seen: string[] = [];
     runtime.onEvent((event) => {
@@ -4290,6 +4618,19 @@ describe("simulation runtime", () => {
             }
           ],
           eventsByCommandId: new Map()
+        },
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            }
+          ],
+          activeLocks: []
         }
       });
       const seen: string[] = [];
@@ -4312,7 +4653,14 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
             { x: 9, y: 11, terrain: "LAND" }
           ],
@@ -4544,7 +4892,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
+          buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
         ]
       ]),
       initialState: {
@@ -4598,7 +4946,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { manpower: 100, techIds: new Set(["toolmaking"]) })
+            buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
           ]
         ]),
         initialState: {
@@ -4620,7 +4968,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
 
       expect(scheduledTasks).toHaveLength(1);
-      // Forest doubles the base (MAX_SETTLE_DURATION_MS); toolmaking applies a 1.05x speed mult.
+      // Forest doubles the base (MAX_SETTLE_DURATION_MS); logistics applies a 1.05x speed mult.
       expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
     } finally {
       setWorldSeed(previousSeed);
@@ -4642,9 +4990,23 @@ describe("simulation runtime", () => {
           tiles: [
             // Settled anchor so recaptured tiles are connected and won't encirclement-expire.
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "ai-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -4665,6 +5027,7 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().pendingSettlements).toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
       );
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
 
       runtime.submitCommand({
         commandId: "ai-captures-settling-tile",
@@ -4681,6 +5044,9 @@ describe("simulation runtime", () => {
       expect(runtime.exportState().pendingSettlements).not.toContainEqual(
         expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
       );
+      // Settlement was cancelled by the capture, not completed — refund the
+      // gold that was spent to start it instead of leaving it lost forever.
+      expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(100);
       expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
         expect.objectContaining({ ownerId: "ai-1", ownershipState: "FRONTIER" })
       );
@@ -4723,9 +5089,23 @@ describe("simulation runtime", () => {
           tiles: [
             // Settled anchor so frontier tiles are connected and won't encirclement-expire.
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "ai-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "ai-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
             { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
@@ -5109,7 +5489,7 @@ describe("simulation runtime", () => {
     expect(latestStartUpdate).toBeDefined();
     expect(JSON.parse(latestStartUpdate!.payloadJson)).toEqual(
       expect.objectContaining({
-        gold: 88,
+        gold: 100,
         developmentProcessLimit: 3,
         activeDevelopmentProcessCount: 3,
         pendingSettlements: expect.arrayContaining([
@@ -5222,7 +5602,21 @@ describe("simulation runtime", () => {
           { x: 0, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "METROPOLIS", name: "Four" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "One" } },
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Two" } },
-          { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } }
+          { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } },
+          // §5.4: each town needs 4 FOOD slots to not go dormant (TOWN_FOOD_SLOT_DEMAND),
+          // plus METROPOLIS's +3 tier step (townFoodSlotDemandForTier) — 10 FISH
+          // tiles (2 slots each = 20) cover all 4 towns' demand (7+4+4+4=19)
+          // with a slot to spare.
+          { x: 1, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 21, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 31, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 41, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 51, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 61, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 71, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 81, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 91, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: [],
         players: [
@@ -5247,7 +5641,7 @@ describe("simulation runtime", () => {
     const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
 
     expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
-    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4);
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4 / 288); // was 15.4 pre-gold-rescope (§6.1)
   });
 
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
@@ -5289,7 +5683,7 @@ describe("simulation runtime", () => {
         ],
         [
           "player-2",
-          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["cartography"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -5297,7 +5691,9 @@ describe("simulation runtime", () => {
         tiles: [
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } }
+          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5368,7 +5764,9 @@ describe("simulation runtime", () => {
           { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "WOOD" },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
+          { x: 0, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5451,7 +5849,11 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } }
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          // §5.4: three CRYSTAL slots so all three Observatories aren't dormant.
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 9, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5620,7 +6022,10 @@ describe("simulation runtime", () => {
           { x: 0, y: 4, terrain: "SEA" },
           { x: 0, y: 5, terrain: "LAND" },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
-          { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // §5.4: two CRYSTAL slots so both Observatories aren't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5699,7 +6104,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
-          { x: 0, y: 3, terrain: "LAND" }
+          { x: 0, y: 3, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5768,7 +6175,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
-          { x: 0, y: 3, terrain: "LAND" }
+          { x: 0, y: 3, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5861,7 +6270,9 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "LAND" },
-          { x: 0, y: 4, terrain: "LAND" }
+          { x: 0, y: 4, terrain: "LAND" },
+          // §5.4: CRYSTAL supply so the Observatory isn't dormant.
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5943,7 +6354,18 @@ describe("simulation runtime", () => {
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          // §5.4: FOOD supply (FISH gives 2 base slots, §5.3) covering both
+          // AETHER_TOWER's own 1 FOOD slot and the pre-existing seed-world
+          // Nauticus town at (10,10) this suite always merges in (a lone
+          // FARM/town tile supplying 1 against a 2-slot town demand) — a
+          // single FARM tile here would leave that hidden town short and,
+          // via the "newest first, key tie-break" dormancy rule, would
+          // sometimes dormant the tower itself instead.
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
         activeLocks: []
       }
@@ -5995,11 +6417,9 @@ describe("simulation runtime", () => {
   });
 
   const buildAetherTowerRuntime = (options: {
-    towerX?: number;
-    towerY?: number;
+    towerX?: number; towerY?: number;
     towerStatus?: "active" | "under_construction";
-    towerOwnerId?: string;
-    omitTower?: boolean;
+    towerOwnerId?: string; omitTower?: boolean; points?: number;
     resources?: { CRYSTAL?: number };
   } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
@@ -6012,7 +6432,18 @@ describe("simulation runtime", () => {
         economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
       },
       { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant — a
+      // dormant tower no longer powers isStructurePowered's callers. FISH
+      // (2 base FOOD slots, §5.3) rather than FARM (1) because this suite
+      // always merges in the seed-world Nauticus town at (10,10), whose
+      // own FARM/town tile nets a 1-slot FOOD shortfall on its own — a
+      // single FARM tile here would leave that hidden shortfall in place
+      // and risk the tie-break dormanting the tower instead.
+      { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -6033,7 +6464,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
+          buildPlayer("player-1", { points: options.points ?? 20_000, manpower: 10_000, strategicResources: options.resources ?? { CRYSTAL: 10 } })
         ],
                   ["player-2", buildAiOpponent()]
       ]),
@@ -6061,6 +6492,113 @@ describe("simulation runtime", () => {
     expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
   });
 
+  describe("§5.4 dormancy on resource-slot shortfall", () => {
+    it("marks only the newest of two Forts dormant when there's just one IRON slot", () => {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 100 } },
+            { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 200 } }
+          ],
+          activeLocks: []
+        }
+      });
+      expect(runtime.isStructureDormant("player-1", "1,0", "fort")).toBe(false);
+      expect(runtime.isStructureDormant("player-1", "2,0", "fort")).toBe(true);
+    });
+
+    it("a town's FOOD demand is protected ahead of a newer FOOD-slot building", () => {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 3, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
+            {
+              x: 2,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Market) = 5, short by 1 —
+      // shedding just the newer Market covers it, so the town isn't touched.
+      expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
+      expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
+    });
+
+    it("excludes a dormant Market's gold bonus from the exported tile view (tileDeltaFromState)", () => {
+      // Regression: tileDeltaFromState (the function every TILE_DELTA_BATCH/
+      // exportTilesInAreaForPlayer response goes through) calls
+      // enrichTileWithTownContext -> refreshTownEconomyFields, a SEPARATE
+      // path from buildPlayerUpdateEconomySnapshot's authoritative gold
+      // total. It was missing the dormancy set entirely, so a dormant
+      // Market/Bank/Clearing House still showed its bonus in the client's
+      // own tile view even though the player's real income excluded it.
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+        mergeSeedTilesWithInitialState: false,
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 3, y: 0, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+            {
+              x: 1,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: {
+                type: "MARKET",
+                populationTier: "TOWN",
+                supportCurrent: 1,
+                supportMax: 1,
+                population: 10_000,
+                maxPopulation: 10_000_000
+              }
+            },
+            {
+              x: 2,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      // Same supply/demand shape as the test above: 4 FOOD slots supply,
+      // 4 (town) + 1 (Market) = 5 demand — the newer Market goes dormant,
+      // the town stays fed.
+      expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
+
+      const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 1, 0, 0, { fullVisibility: true });
+      const town = centerDelta?.townJson ? (JSON.parse(centerDelta.townJson) as { goldPerMinute?: number }) : undefined;
+      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Market
+      // 1.5x multiplier applied, since the dormant Market doesn't count.
+      // Before the fix this was TOWN_BASE_GOLD_PER_MIN * 1.5.
+      expect(town?.goldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN, 6);
+    });
+  });
+
   it("rejects AIRPORT_BOMBARD without a powering Aether Tower", async () => {
     const runtime = buildAetherTowerRuntime({ omitTower: true });
     const events: Array<Record<string, unknown>> = [];
@@ -6086,12 +6624,12 @@ describe("simulation runtime", () => {
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
   });
 
-  it("AIRPORT_BOMBARD consumes CRYSTAL and rejects when CRYSTAL is insufficient", async () => {
-    const runtime = buildAetherTowerRuntime({ resources: { CRYSTAL: 0 } });
+  it("AIRPORT_BOMBARD rejects when gold is insufficient (§17: no longer costs CRYSTAL)", async () => {
+    const runtime = buildAetherTowerRuntime({ points: 0 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({
-      commandId: "bombard-no-crystal",
+      commandId: "bombard-no-gold",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
@@ -6103,9 +6641,9 @@ describe("simulation runtime", () => {
     expect(events).toContainEqual(
       expect.objectContaining({
         eventType: "COMMAND_REJECTED",
-        commandId: "bombard-no-crystal",
+        commandId: "bombard-no-gold",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient CRYSTAL for bombardment"
+        message: "insufficient gold for bombardment"
       })
     );
   });
@@ -6132,7 +6670,8 @@ describe("simulation runtime", () => {
               y: 10,
               terrain: "LAND",
               ownerId: "player-1",
-              ownershipState: "FRONTIER"
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
             {
               x: 10,
@@ -6155,6 +6694,15 @@ describe("simulation runtime", () => {
                       type: "LIGHT_OUTPOST" as const,
                       status: "active" as const
                     }
+                  },
+                  // §5.4: LIGHT_OUTPOST needs 1 FOOD slot to not go dormant.
+                  {
+                    x: 12,
+                    y: 10,
+                    terrain: "LAND" as const,
+                    resource: "FISH" as const,
+                    ownerId: "player-1",
+                    ownershipState: "SETTLED" as const
                   }
                 ]
               : [])
@@ -6338,10 +6886,7 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("does not multiply when walking into neutral land at threshold-equivalent progress", () => {
-      // Even with the source carrying threshold-or-above progress, a walk
-      // into neutral land does not multiply — capture of a player tile is
-      // the only way to earn the multiply event.
+    it("multiplies into neutral land when source carries threshold-level progress", () => {
       const { runtime, randomSpy, runResolve } = buildBarbRuntime({
         barbTiles: [
           { x: 10, y: 10 },
@@ -6352,14 +6897,12 @@ describe("simulation runtime", () => {
         lockTarget: { x: 10, y: 11 },
         attackerId: "barbarian-1"
       });
-      readProgress(runtime).set("10,10", 3);
+      readProgress(runtime).set("10,10", 5);
 
       runResolve();
 
       const state = runtime.exportState();
-      // newProgress = 3 + 0 = 3, hits threshold, but source releases (walk)
-      // because the population is way below the cap — verify multiply still
-      // fires on a non-zero-gain capture in the runtime-level test below.
+      // newProgress = 5 + 0 = 5, hits threshold → multiply fires
       expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("barbarian-1");
       expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("barbarian-1");
 
@@ -6381,7 +6924,7 @@ describe("simulation runtime", () => {
         attackerId: "barbarian-1"
       });
       // Stamp origin with at-threshold progress so without the cap it would multiply.
-      readProgress(runtime).set("100,100", 3);
+      readProgress(runtime).set("100,100", 5);
 
       runResolve();
 
@@ -6397,7 +6940,7 @@ describe("simulation runtime", () => {
       // as soon as the population drops below cap.
       const progress = readProgress(runtime);
       expect(progress.get("100,100")).toBeUndefined();
-      expect(progress.get("50,50")).toBe(3);
+      expect(progress.get("50,50")).toBe(5);
 
       randomSpy.mockRestore();
     });
@@ -6491,11 +7034,12 @@ describe("simulation runtime", () => {
     });
   });
 
-  it("subscription snapshot includes synthesizer crystal regen without COLLECT_VISIBLE", () => {
-    // Regression: strategicProductionPerMinute in subscription snapshots was
-    // sourced from summary.strategicProductionPerMinute (terrain-only), so
-    // players with CRYSTAL_SYNTHESIZER but no GEMS tiles saw 0 crystal regen
-    // on connect until COLLECT_VISIBLE fired emitPlayerStateUpdate.
+  it("CRYSTAL_SYNTHESIZER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
+    // Was: "subscription snapshot includes synthesizer crystal regen without
+    // COLLECT_VISIBLE" — CRYSTAL_SYNTHESIZER's tile-production accrual was
+    // retired under the manpower-economy rewrite (docs/manpower-economy-
+    // rewrite-plan.md §5.6); the field/spend stays live for abilities/tech,
+    // but nothing feeds it from this structure anymore.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
@@ -6519,13 +7063,12 @@ describe("simulation runtime", () => {
     const state = runtime.exportVisibleStateForPlayer("player-1");
     const player = state.players.find((p) => p.id === "player-1");
     expect(player).toBeDefined();
-    // Crystal synthesizer outputs CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 per minute.
-    expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBeGreaterThan(0);
+    expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBe(0);
   });
 
-  it("chosenTrickleResource round-trips through snapshot and trickle is credited after recovery", () => {
+  it("chosenTrickleResource round-trips through the compaction snapshot", () => {
     // Regression: chosenTrickleResource was never persisted to the compaction
-    // snapshot, so Clockwork Stipend trickle was lost after sim restart.
+    // snapshot, so Clockwork Stipend's slot grant was lost after sim restart.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -6536,7 +7079,7 @@ describe("simulation runtime", () => {
         tiles: [
           {
             x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Slot Town" }
           }
         ],
         activeLocks: []
@@ -6552,31 +7095,6 @@ describe("simulation runtime", () => {
     const recovered = createPlayersFromRecoveredState(sections.initialState);
     const recoveredPlayer = recovered?.get("player-1");
     expect(recoveredPlayer?.chosenTrickleResource).toBe("IRON");
-
-    // Build a new runtime from the recovered state, use fake timers, and
-    // advance time — the trickle should actually credit IRON.
-    vi.useFakeTimers();
-    const recoveredRuntime = new SimulationRuntime({
-      now: () => Date.now(),
-      initialPlayers: recovered,
-      initialState: {
-        tiles: [
-          {
-            x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    // Advance time by 10 minutes. Clockwork Stipend IRON rate is 0.2/min.
-    vi.advanceTimersByTime(10 * 60_000);
-    const stateAfter = recoveredRuntime.exportState();
-    const playerAfter = stateAfter.players.find((p) => p.id === "player-1");
-    // 10 min × 0.2/min = 2.0 IRON (before upkeep drain on a single settlement).
-    expect(playerAfter?.strategicResources?.IRON ?? 0).toBeGreaterThan(0);
-    vi.useRealTimers();
   });
 });
 
@@ -6995,7 +7513,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7068,7 +7593,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7126,7 +7658,7 @@ describe("simulation runtime — shard rain", () => {
           })
         );
         expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
-        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(100);
+        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(10); // §24.2: floored from 0 to RESPAWN_MINIMUM_GOLD
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
@@ -7147,7 +7679,14 @@ describe("simulation runtime — shard rain", () => {
           initialState: {
             tiles: [
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "FRONTIER",
+                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+              },
               {
                 x: 10,
                 y: 11,
@@ -7248,173 +7787,67 @@ describe("simulation runtime — tile shedding", () => {
     const state = runtime.exportState();
     expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
   });
-});
 
-describe("imperial exchange levy", () => {
-  const buildLevyRuntime = (options: {
-    techIds?: string[];
-    crystal?: number;
-    omitTower?: boolean;
-    rivalStocks?: Record<string, Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>>>;
-    allies?: string[];
-  } = {}): SimulationRuntime => {
-    const tiles: Array<Record<string, unknown>> = [
-      {
-        x: 0,
-        y: 0,
-        terrain: "LAND",
-        ownerId: "player-1",
-        ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
-      }
-    ];
-    if (!options.omitTower) {
-      tiles.push({
-        x: 1,
-        y: 0,
-        terrain: "LAND",
-        ownerId: "player-1",
-        ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
-      });
-    }
-    const players = new Map<string, Record<string, unknown>>();
-    players.set("player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(options.techIds ?? ["exchange-levy"]), allies: new Set<string>(options.allies ?? []), strategicResources: { CRYSTAL: options.crystal ?? 1_000 } }));
-    for (const [pid, stocks] of Object.entries(options.rivalStocks ?? {})) {
-      players.set(pid, {
-        id: pid,
-        isAi: true,
-        points: 100,
-        manpower: 100,
-        techIds: new Set<string>(),
-        domainIds: new Set<string>(),
-        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local",
-        allies: new Set<string>(),
-        strategicResources: stocks
-      });
-    }
-    return new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: players as never,
-      initialState: { tiles: tiles as never, activeLocks: [] }
-    });
-  };
-
-  it("rejects without exchange-levy tech", async () => {
-    const runtime = buildLevyRuntime({ techIds: [] });
-    const events: Array<Record<string, unknown>> = [];
-    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
-    runtime.submitCommand({
-      commandId: "levy-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
-    });
-    await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
-      eventType: "COMMAND_REJECTED",
-      commandId: "levy-1",
-      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-      message: "requires Exchange Levy Writs research"
-    }));
-  });
-
-  it("rejects without a powering Aether Tower", async () => {
-    const runtime = buildLevyRuntime({ omitTower: true });
-    const events: Array<Record<string, unknown>> = [];
-    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
-    runtime.submitCommand({
-      commandId: "levy-2",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
-    });
-    await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
-      eventType: "COMMAND_REJECTED",
-      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-      message: "Imperial Exchange requires a nearby Aether Tower"
-    }));
-  });
-
-  it("transfers a quarter of each rival's stock and applies cooldown", async () => {
-    const runtime = buildLevyRuntime({
-      rivalStocks: {
-        "player-2": { FOOD: 100 },
-        "player-3": { FOOD: 40 }
+  it("releases ownership of a town tile without destroying the town", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "TOWN", population: 400 }
+          }
+        ],
+        activeLocks: []
       }
     });
-    runtime.submitCommand({
-      commandId: "levy-3",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
-    });
-    await Promise.resolve();
-    const state = runtime.exportState();
-    const p1 = state.players.find((p) => p.id === "player-1");
-    const p2 = state.players.find((p) => p.id === "player-2");
-    const p3 = state.players.find((p) => p.id === "player-3");
-    // 25% of 100 = 25; 25% of 40 = 10. Actor gets 35.
-    expect(p1?.strategicResources?.FOOD).toBe(35);
-    expect(p2?.strategicResources?.FOOD).toBe(75);
-    expect(p3?.strategicResources?.FOOD).toBe(30);
-    // Second invocation should be on cooldown.
-    const events: Array<Record<string, unknown>> = [];
-    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
-    runtime.submitCommand({
-      commandId: "levy-3b",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 2,
-      issuedAt: 1_000,
-      type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
-    });
-    await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
-      eventType: "COMMAND_REJECTED",
-      commandId: "levy-3b",
-      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-      message: "ability on cooldown"
-    }));
+
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    const shed = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    expect(shed?.ownerId).toBeUndefined();
+    expect(shed?.townPopulationTier).toBe("TOWN");
   });
 
-  it("does not seize from allies", async () => {
-    const runtime = buildLevyRuntime({
-      rivalStocks: {
-        "player-2": { FOOD: 100 },
-        "player-3": { FOOD: 100 }
-      },
-      allies: ["player-2"]
+  it("never sheds a SETTLEMENT-tier town, even when it is the player's only eligible tile", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+          }
+        ],
+        activeLocks: []
+      }
     });
-    runtime.submitCommand({
-      commandId: "levy-ally",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "IMPERIAL_EXCHANGE_LEVY",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
-    });
-    await Promise.resolve();
-    const state = runtime.exportState();
-    const p1 = state.players.find((p) => p.id === "player-1");
-    const p2 = state.players.find((p) => p.id === "player-2");
-    const p3 = state.players.find((p) => p.id === "player-3");
-    expect(p2?.strategicResources?.FOOD).toBe(100);
-    expect(p3?.strategicResources?.FOOD).toBe(75);
-    expect(p1?.strategicResources?.FOOD).toBe(25);
+
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    const tile = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    expect(tile?.ownerId).toBe("ai-1");
+    expect(tile?.townPopulationTier).toBe("SETTLEMENT");
   });
 });
 
@@ -7444,7 +7877,9 @@ describe("aether purge", () => {
         ownerId: "player-2",
         ownershipState: "FRONTIER",
         fort: { ownerId: "player-2", status: "active" }
-      }
+      },
+      // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
+      { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (options.enemyAegisDome) {
       tiles.push(
@@ -7463,7 +7898,12 @@ describe("aether purge", () => {
           ownerId: "player-2",
           ownershipState: "SETTLED",
           economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
-        }
+        },
+        // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+        { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+        { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" }
       );
     }
     return new SimulationRuntime({
@@ -7500,7 +7940,7 @@ describe("aether purge", () => {
     expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
     expect(actor?.points).toBe(2_000);
-    expect(actor?.strategicResources?.CRYSTAL).toBe(400);
+    expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });
 
   it("purges hostile frontier control", async () => {
@@ -7569,7 +8009,12 @@ describe("worldbreaker shot", () => {
         ownerId: "player-1",
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
-      }
+      },
+      // §5.4: CRYSTAL supply so WORLD_ENGINE/AETHER_TOWER aren't dormant.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
       tiles.push({
@@ -7613,6 +8058,11 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
       });
+      // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+      tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      tiles.push({ x: 55, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" });
     }
     return new SimulationRuntime({
       now: () => 1_000,
@@ -7624,7 +8074,7 @@ describe("worldbreaker shot", () => {
     });
   };
 
-  it("rejects without worldbreaker-fire tech", async () => {
+  it("succeeds without any tech at all (strike is inherent to the built monument, Worldbreaker Ignition was cut)", async () => {
     const runtime = buildStrikeRuntime({ techIds: [] });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -7638,11 +8088,10 @@ describe("worldbreaker shot", () => {
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
-    expect(events).toContainEqual(expect.objectContaining({
+    expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-1",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "requires Worldbreaker Fire research"
+      code: "WORLD_ENGINE_STRIKE_INVALID"
     }));
   });
 
@@ -7668,7 +8117,7 @@ describe("worldbreaker shot", () => {
   });
 
   it("rejects without enough gold", async () => {
-    const runtime = buildStrikeRuntime({ points: 1_000 });
+    const runtime = buildStrikeRuntime({ points: 500 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({
@@ -7851,11 +8300,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(centerDelta).toBeDefined();
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
     // The gateway-side tile-detail-snapshot still computes them from buildTileYieldView.
-    // Persisted goldPerMinute was 0.5; live recompute must override it. Exact
-    // value depends on the gold formula, just assert it's the recomputed one
-    // (not the stale stub).
+    // Persisted goldPerMinute was 0.5; live recompute must override it (now far below 0.5
+    // post-gold-rescope, §6.1) — just assert it's the recomputed one, not a magnitude.
     const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
-    expect(refreshedTown?.goldPerMinute).toBeGreaterThan(0.5);
+    expect(refreshedTown?.goldPerMinute).not.toBe(0.5);
   });
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
@@ -7913,7 +8361,11 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
-          }))
+          })),
+          // §5.4: the town needs 4 FOOD slots to not go dormant (which would
+          // otherwise zero its gold income and make it non-yield-bearing).
+          { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+          { x: 8, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
         ],
         // lastCollectedAt = now means zero elapsed time → live buffer = 0.
         tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
@@ -7993,10 +8445,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             x: 6, y: 6, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
             town: { name: "Velramanor", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
           },
-          // Five plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
+          // Four plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
           ...[
             [4, 4], [5, 4], [6, 4],
-            [4, 5],
             [4, 6]
           ].map(([x, y]) => ({
             x,
@@ -8004,6 +8455,21 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
+          })),
+          // Fifth neighbor carries a Caravanary support structure — the
+          // connected-town road network (and its gold bonus) only exists
+          // where at least one town has one built.
+          {
+            x: 4, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+          },
+          // §5.4: 4 towns need 4 FOOD slots each (16 total), plus 1 more for
+          // the Caravanary's own FOOD slot demand (17 total), to not go
+          // dormant (which would otherwise zero their gold income / disable
+          // the Caravanary's road-network gate) — 9 FISH tiles (2 slots
+          // each = 18) cover it, placed well outside the BFS neighborhood.
+          ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100], [108, 100]].map(([x, y]) => ({
+            x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
           }))
         ],
         activeLocks: []
@@ -8020,8 +8486,9 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
     // Now the load-bearing assertion: gpm must reflect that bonus.
     // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
-    // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
-    expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
+    // TOWN_BASE_GOLD_PER_MIN * 1.0 (support) * 1.0 (TOWN tier popMult) * 2.2 (connected bonus)
+    // = 4.4 pre-gold-rescope; TOWN_BASE_GOLD_PER_MIN is now cut 288x (§6.1), so 4.4 / 288.
+    expect(town?.goldPerMinute).toBeCloseTo(4.4 / 288, 5);
   });
 
   it("keeps ownerId/ownershipState in a tile delta even when an unrelated later event re-touches the same tile (#774/#777/#779 regression)", async () => {
@@ -8054,7 +8521,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Regression Town", type: "MARKET", populationTier: "TOWN" }
-            }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
           ],
           activeLocks: []
         }

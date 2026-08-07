@@ -3,27 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-const quantile = (values, q) => {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * q) - 1));
-  return sorted[index] ?? null;
-};
-
-const parsePrometheus = (text) => {
-  const metrics = {};
-  for (const line of text.split(/\r?\n/)) {
-    if (!line || line.startsWith("#")) continue;
-    const parts = line.trim().split(/\s+/);
-    if (parts.length < 2) continue;
-    const key = parts[0];
-    const value = Number(parts[1]);
-    if (!Number.isFinite(value)) continue;
-    metrics[key] = value;
-  }
-  return metrics;
-};
+import { parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
 
 const fetchMetrics = async (url) => {
   const response = await fetch(url, { headers: { accept: "text/plain" } });
@@ -118,11 +98,10 @@ const readMetricsSample = async () => {
 };
 
 const metricsSamples = [];
+const metricsErrors = [];
 let monitorTimer;
 
-const collectMetricsSample = async () => {
-  metricsSamples.push(await readMetricsSample());
-};
+const collectMetricsSample = (label) => safeCollectMetricsSample(readMetricsSample, metricsSamples, metricsErrors, label);
 
 const waitForMetricsWarmup = async () => {
   if (metricsWarmupStableMs === 0) {
@@ -169,11 +148,9 @@ const metricsWarmup = await waitForMetricsWarmup();
 const startedAt = Date.now();
 const deadlineAt = startedAt + soakMinutes * 60_000;
 
-await collectMetricsSample();
+await collectMetricsSample("initial metrics collection failed");
 monitorTimer = setInterval(() => {
-  void collectMetricsSample().catch(() => {
-    // transient metrics scrape failures are captured in final checks
-  });
+  void collectMetricsSample("periodic metrics collection failed");
 }, pollIntervalMs);
 
 const soakBatches = [];
@@ -217,7 +194,12 @@ try {
   clearInterval(monitorTimer);
 }
 
-await collectMetricsSample();
+// This call matters most for the failure mode this file guards against:
+// if the simulation or gateway process died at any point during the soak,
+// this final scrape must not throw — otherwise an unhandled rejection here
+// would kill the whole harness before it writes the result JSON, losing
+// every batch collected during the (up to 30-minute) run.
+await collectMetricsSample("final metrics collection failed");
 
 const acceptedP95Ms = quantile(acceptedLatenciesMs, 0.95);
 const acceptedP99Ms = quantile(acceptedLatenciesMs, 0.99);
@@ -289,6 +271,7 @@ const payload = {
     simulationMetricsUrl,
     warmup: metricsWarmup,
     sampleCount: metricsSamples.length,
+    sampleErrors: metricsErrors,
     gatewayEventLoopMaxMs,
     simEventLoopMaxMs,
     simHumanInteractiveBacklogMaxMs,

@@ -22,6 +22,11 @@ export interface UpdateSettingsDisplayNameDeps {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   updateFirebaseDisplayName: (name: string) => Promise<void>;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
+  // Records the in-flight name so client-network can confirm success (on the
+  // matching PLAYER_UPDATE) or report failure (on a SET_PROFILE ERROR)
+  // instead of this function assuming success the instant the socket send
+  // succeeds — the gateway can still reject the whole message server-side.
+  setPendingDisplayNameChange: (name: string) => void;
 }
 
 export const updateSettingsDisplayName = async (rawName: string, deps: UpdateSettingsDisplayNameDeps): Promise<void> => {
@@ -34,11 +39,41 @@ export const updateSettingsDisplayName = async (rawName: string, deps: UpdateSet
     deps.pushFeed("Display name is unchanged.", "info", "info");
     return;
   }
+  deps.setPendingDisplayNameChange(newName);
   const sent = deps.sendGameMessage(
     { type: "SET_PROFILE", displayName: newName, color: deps.currentColor },
     "Finish sign-in before changing your display name."
   );
-  if (!sent) return;
+  if (!sent) {
+    deps.setPendingDisplayNameChange("");
+    deps.pushFeed("Could not update display name. Finish sign-in and try again.", "error", "warn");
+    return;
+  }
   await deps.updateFirebaseDisplayName(newName);
-  deps.pushFeed("Display name updated.", "info", "success");
+};
+
+export interface UpdateSettingsColorDeps {
+  currentName: string;
+  currentColor: string;
+  sendGameMessage: (payload: unknown, message?: string) => boolean;
+  pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
+  setPendingColorChange: (color: string) => void;
+}
+
+export const updateSettingsColor = async (newColor: string, deps: UpdateSettingsColorDeps): Promise<void> => {
+  const trimmedColor = newColor.trim();
+  if (trimmedColor === deps.currentColor) {
+    deps.pushFeed("Empire colour is unchanged.", "info", "info");
+    return;
+  }
+  deps.setPendingColorChange(trimmedColor);
+  const sent = deps.sendGameMessage(
+    { type: "SET_PROFILE", displayName: deps.currentName, color: trimmedColor },
+    "Finish sign-in before changing your empire colour."
+  );
+  if (!sent) {
+    deps.setPendingColorChange("");
+    deps.pushFeed("Could not update empire colour. Finish sign-in and try again.", "error", "warn");
+    return;
+  }
 };

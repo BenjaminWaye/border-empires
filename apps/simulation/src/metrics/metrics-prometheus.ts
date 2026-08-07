@@ -5,10 +5,10 @@ import {
   AUTOMATION_NOOP_REASONS,
   AUTOMATION_PREPLAN_PROGRESS_STATES,
   AUTOMATION_PREPLAN_REASONS,
-  AUTOMATION_SETTLE_DECISION_REASONS,
   DECISION_CLASSES,
   DURABLE_COMMAND_TYPES,
   LANES,
+  MAIN_THREAD_TASK_PHASES,
   type SimulationMetricsSnapshot
 } from "./metrics-types.js";
 
@@ -60,6 +60,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_global_status_broadcast_coalesced_total ${formatMetricValue(sample.simGlobalStatusBroadcastCoalescedTotal)}`,
     "# TYPE sim_snapshot_prune_failed_total counter",
     `sim_snapshot_prune_failed_total ${formatMetricValue(sample.simSnapshotPruneFailedTotal)}`,
+    "# TYPE sim_ephemeral_command_persist_skipped_total counter",
+    `sim_ephemeral_command_persist_skipped_total ${formatMetricValue(sample.simEphemeralCommandPersistSkippedTotal)}`,
+    "# TYPE sim_persistence_constraint_violation_total counter",
+    `sim_persistence_constraint_violation_total ${formatMetricValue(sample.simPersistenceConstraintViolationTotal)}`,
     "# TYPE sim_writer_queue_depth gauge",
     `sim_writer_queue_depth ${formatMetricValue(sample.simWriterQueueDepth)}`,
     "# TYPE sim_writer_queue_backpressure_wait_total counter",
@@ -93,11 +97,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_ai_preplan_total counter",
     "# TYPE sim_ai_preplan_progress_total counter",
     "# TYPE sim_ai_noop_total counter",
-    "# TYPE sim_ai_settle_decision_total counter",
-    "# TYPE sim_ai_settle_decision_top_score gauge",
-    `sim_ai_settle_decision_top_score{quantile=\"p50\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p50)}`,
-    `sim_ai_settle_decision_top_score{quantile=\"p95\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p95)}`,
-    `sim_ai_settle_decision_top_score{quantile=\"p99\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p99)}`,
     "# TYPE sim_checkpoint_export_ms gauge",
     `sim_checkpoint_export_ms{quantile="p50"} ${formatMetricValue(sample.simCheckpointExportMs.p50)}`,
     `sim_checkpoint_export_ms{quantile="p95"} ${formatMetricValue(sample.simCheckpointExportMs.p95)}`,
@@ -119,6 +118,7 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_event_store_write_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventStoreWriteMs.p95)}`,
     `sim_event_store_write_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventStoreWriteMs.p99)}`,
     "# TYPE sim_ai_planner_phase_ms gauge",
+    "# TYPE sim_main_thread_task_ms gauge",
     "# TYPE sim_runtime_drain_ms gauge",
     `sim_runtime_drain_ms{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainMs.p50)}`,
     `sim_runtime_drain_ms{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainMs.p95)}`,
@@ -165,6 +165,12 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
     lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
   }
+  for (const phase of MAIN_THREAD_TASK_PHASES) {
+    const phaseSample = sample.simMainThreadTaskMs[phase];
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p50\"} ${formatMetricValue(phaseSample.p50)}`);
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
+    lines.push(`sim_main_thread_task_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
+  }
   for (const [commandType, commandSample] of Object.entries(sample.simRuntimeApplyMsByCommandType)) {
     lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p50\"} ${formatMetricValue(commandSample.p50)}`);
     lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p95\"} ${formatMetricValue(commandSample.p95)}`);
@@ -176,6 +182,9 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const commandType of DURABLE_COMMAND_TYPES) {
     lines.push(`sim_ai_command_rejected_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandRejectedTotalByType[commandType] ?? 0)}`);
   }
+  for (const [code, count] of Object.entries(sample.simAiCommandRejectedCodeTotal)) {
+    lines.push(`sim_ai_command_rejected_code_total{code=\"${code}\"} ${formatMetricValue(count)}`);
+  }
   for (const reason of AUTOMATION_PREPLAN_REASONS) {
     lines.push(`sim_ai_preplan_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiPreplanTotalByReason[reason])}`);
   }
@@ -184,9 +193,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   }
   for (const reason of AUTOMATION_NOOP_REASONS) {
     lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
-  }
-  for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
-    lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
   }
   for (const reason of AI_TICK_THROTTLE_REASONS) {
     lines.push(`sim_ai_tick_throttled_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiTickThrottledTotal[reason])}`);
@@ -207,6 +213,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`,
     "# TYPE sim_muster_remote_blocked_barbarian_total counter",
     `sim_muster_remote_blocked_barbarian_total ${formatMetricValue(sample.simMusterRemoteBlockedBarbarianTotal)}`,
+    "# TYPE sim_ownership_change_alert_skipped_settlement_tier_total counter",
+    `sim_ownership_change_alert_skipped_settlement_tier_total ${formatMetricValue(sample.simOwnershipChangeAlertSkippedSettlementTierTotal)}`,
     "# TYPE sim_season_end_snapshot_warm_total counter",
     `sim_season_end_snapshot_warm_total ${formatMetricValue(sample.simSeasonEndSnapshotWarmTotal)}`,
     "# TYPE sim_season_end_snapshot_warm_failed_total counter",
@@ -218,7 +226,11 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_full_vis_inline_build_total counter",
     `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
     "# TYPE sim_auto_fill_tiles_total counter",
-    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`
+    `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`,
+    "# TYPE sim_auth_recovery_respawn_total counter",
+    `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
+    "# TYPE sim_auth_recovery_respawn_guarded_total counter",
+    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
@@ -227,6 +239,29 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   lines.push("# TYPE sim_ai_action_class_total counter");
   for (const cls of DECISION_CLASSES) {
     lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);
+  }
+  // Per-AI-player growth/spend gauges + EXPAND counter (bounded to the fixed
+  // AI roster). See metrics-ai-player-state.ts for why gold is a gauge, not a
+  // spend counter, and why only EXPAND (not SETTLE/BUILD) is tracked per-player.
+  lines.push("# TYPE sim_ai_player_gold gauge");
+  for (const [playerId, gold] of Object.entries(sample.simAiPlayerGoldGauge)) {
+    lines.push(`sim_ai_player_gold{player_id=\"${playerId}\"} ${formatMetricValue(gold)}`);
+  }
+  lines.push("# TYPE sim_ai_player_gold_capacity gauge");
+  for (const [playerId, capacity] of Object.entries(sample.simAiPlayerGoldCapacityGauge)) {
+    lines.push(`sim_ai_player_gold_capacity{player_id=\"${playerId}\"} ${formatMetricValue(capacity)}`);
+  }
+  lines.push("# TYPE sim_ai_player_settled_tiles gauge");
+  for (const [playerId, count] of Object.entries(sample.simAiPlayerSettledTilesGauge)) {
+    lines.push(`sim_ai_player_settled_tiles{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_player_owned_tiles gauge");
+  for (const [playerId, count] of Object.entries(sample.simAiPlayerOwnedTilesGauge)) {
+    lines.push(`sim_ai_player_owned_tiles{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_expand_total counter");
+  for (const [playerId, count] of Object.entries(sample.simAiExpandTotalByPlayer)) {
+    lines.push(`sim_ai_expand_total{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
   }
 
   return lines.join("\n");

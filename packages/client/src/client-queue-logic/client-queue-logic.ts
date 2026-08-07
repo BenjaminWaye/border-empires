@@ -1,8 +1,7 @@
-import { FRONTIER_CLAIM_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
-  clearSkippedAutoSettlementTileKeyForPlayer,
   persistDevelopmentQueueForPlayer,
   persistSkippedAutoSettlementTileKeysForPlayer,
   pruneExpiredAutoSettlementQueueVisibleHolds,
@@ -11,7 +10,7 @@ import {
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
-import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
@@ -226,11 +225,12 @@ export const clearSettlementProgressForTile = (
   deps.clearSettlementProgressByKey(deps.keyFor(x, y));
 };
 
-export const queuedDevelopmentActionExists = (
-  state: ClientState,
-  tileKey: string,
-  kind?: QueuedDevelopmentAction["kind"]
-): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
+// queuedDevelopmentActionExists / queueDevelopmentAction (incl. the total
+// queue-cap check) live in client-development-queue.ts alongside the other
+// developmentQueue persistence/cap logic -- re-exported here since callers
+// throughout this module (and its own callers) reach them via this module's
+// path.
+export { queuedDevelopmentActionExists, queueDevelopmentAction } from "../client-development-queue/client-development-queue.js";
 
 const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolean => {
   if (!tileKey) return false;
@@ -239,29 +239,6 @@ const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolea
   if (state.capture && `${state.capture.target.x},${state.capture.target.y}` === tileKey) return true;
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(tileKey) ?? 0;
   return frontierSyncWaitUntil > Date.now();
-};
-
-export const queueDevelopmentAction = (
-  state: ClientState,
-  entry: QueuedDevelopmentAction,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-  }
-): boolean => {
-  if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
-    deps.pushFeed(`${entry.label} is already queued.`, "combat", "warn");
-    deps.renderHud();
-    return false;
-  }
-  if (entry.kind === "SETTLE") {
-    state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
-  }
-  state.developmentQueue.push(entry);
-  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
-  deps.renderHud();
-  return true;
 };
 
 export const syncOptimisticSettlementTile = (
@@ -318,6 +295,9 @@ export const queuedDevelopmentEntryForTile = (state: ClientState, tileKey: strin
 export const queuedSettlementIndexForTile = (state: ClientState, tileKey: string): number =>
   queuedSettlementOrderForTile(state.developmentQueue, tileKey);
 
+export const queuedEntryIndexForTile = (state: ClientState, tileKey: string): number =>
+  state.developmentQueue.findIndex((entry) => entry.tileKey === tileKey);
+
 export const queuedBuildEntryForTile = (state: ClientState, tileKey: string): Extract<QueuedDevelopmentAction, { kind: "BUILD" }> | undefined => {
   const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey && queued.kind === "BUILD");
   return entry && entry.kind === "BUILD" ? entry : undefined;
@@ -359,6 +339,27 @@ export const cancelQueuedBuild = (
   state.developmentQueue = nextQueue;
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
+  deps.renderHud();
+  return true;
+};
+
+export const moveQueuedEntryToFront = (
+  state: ClientState,
+  tileKey: string,
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+  }
+): boolean => {
+  const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey);
+  if (!entry) return false;
+  const index = state.developmentQueue.indexOf(entry);
+  if (index <= 0) return false;
+  const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
+  nextQueue.unshift(entry);
+  state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.pushFeed(`${entry.label} moved to the front of the queue.`, "combat", "info");
   deps.renderHud();
   return true;
 };
@@ -445,11 +446,8 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
-  if (!canAffordCost(state.gold, SETTLE_COST)) {
-    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`);
-    deps.renderHud();
-    return false;
-  }
+  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`); deps.renderHud(); return false; }
+  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
@@ -484,7 +482,7 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
-  state.gold = Math.max(0, state.gold - SETTLE_COST);
+  state.gold = Math.max(0, state.gold - SETTLE_COST); state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);
@@ -658,6 +656,29 @@ export const processDevelopmentQueue = (
   return started;
 };
 
+const BARBARIAN_TRACK_RADIUS = 5;
+
+const findNearestBarbarian = (
+  cx: number,
+  cy: number,
+  radius: number,
+  state: Pick<ClientState, "tiles">,
+  keyFor: (x: number, y: number) => string
+): { x: number; y: number } | undefined => {
+  for (let r = 0; r <= radius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = wrapX(cx + dx, WORLD_WIDTH);
+        const y = wrapY(cy + dy, WORLD_HEIGHT);
+        const tile = state.tiles.get(keyFor(x, y));
+        if (tile?.ownerId === "barbarian-1") return { x, y };
+      }
+    }
+  }
+  return undefined;
+};
+
 // Walk the active waypoint plan one tile forward into the action queue.
 // Called when the action queue is empty so manual taps always take
 // priority. Re-plans against current state on every call so fog reveals,
@@ -672,7 +693,7 @@ export const topUpFromWaypoint = (
   if (state.actionQueue.length > 0) return false;
   if (state.actionInFlight) return false;
 
-  const target = waypoint.target;
+  let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   if (targetTile && targetTile.ownerId === state.me) {
     pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
@@ -680,9 +701,19 @@ export const topUpFromWaypoint = (
     return false;
   }
 
+  // Barbarian tracking: if the original tile is no longer barbarian-owned,
+  // scan for where it moved and retarget.
+  if (waypoint.trackBarbarian && targetTile?.ownerId !== "barbarian-1") {
+    const moved = findNearestBarbarian(target.x, target.y, BARBARIAN_TRACK_RADIUS, state, keyFor);
+    if (moved) {
+      waypoint.target = moved;
+      target = moved;
+    }
+  }
+
   const plan = planWaypoint(target, { state, keyFor });
   waypoint.plan = plan;
-  if (!plan.reachable) return false;
+  if (!plan.reachable) return cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
@@ -931,7 +962,7 @@ export const reconcileActionQueue = (
     const hasOptimisticOrigin = tile.ownerId ? hasConfirmedOrigin : Boolean(deps.pickOriginForTarget(tile.x, tile.y, false, true));
     if (!hasConfirmedOrigin && !hasOptimisticOrigin) {
       deps.clearOptimisticTileState(targetKey, true);
-      state.autoSettleTargets.delete(targetKey);
+      state.autoSettleTargets.delete(targetKey); state.autoBuildTargets.delete(targetKey);
       continue;
     }
     nextQueue.push(entry);
@@ -1268,8 +1299,8 @@ export const processActionQueue = (
     }
     resetAttackPreviewState(state);
     if (!to.ownerId) {
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        deps.notifyInsufficientGoldForFrontierAction("claim");
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST) || state.manpower < EXPAND_MANPOWER_COST) {
+        if (state.manpower < EXPAND_MANPOWER_COST) deps.pushFeed(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error"); else deps.notifyInsufficientGoldForFrontierAction("claim");
         state.capture = undefined;
         state.actionInFlight = false;
         state.actionCurrent = undefined;
@@ -1312,7 +1343,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      if (MUSTER_SYSTEM_ENABLED && to.ownerId !== "barbarian-1") {
+      if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {
           // No flag close enough — park the attack and auto-create a flag on
@@ -1344,42 +1375,30 @@ export const processActionQueue = (
           deps.renderHud();
           continue;
         }
-        // Flag found within range — compute transit delay and defer the send.
-        const transitMs = closest.dist * MUSTER_TRANSIT_MS_PER_TILE;
-        const now = Date.now();
-        state.musterTransit = {
-          musterX: closest.tile.x,
-          musterY: closest.tile.y,
-          targetX: to.x,
-          targetY: to.y,
-          transitStartAt: now,
-          transitEndsAt: now + transitMs,
-        };
-        state.activeMusterSource = { x: closest.tile.x, y: closest.tile.y };
-        state.capture = {
-          startAt: now + transitMs,
-          resolvesAt: now + transitMs + 3_000,
-          target: { x: to.x, y: to.y },
-        };
-        state.deferredAttack = {
-          fromX: from.x, fromY: from.y,
-          toX: to.x, toY: to.y,
-          commandId, clientSeq,
-        };
-        state.actionInFlight = true;
+        // Flag found within range — queue the attack and let it fire once
+        // the existing flag accumulates enough manpower.
+        state.capture = undefined;
+        state.actionInFlight = false;
+        state.actionCurrent = undefined;
+        state.actionTargetKey = "";
         state.actionAcceptedAck = false;
         state.combatStartAck = false;
         state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = now;
-        state.actionTargetKey = targetKey;
-        deps.pushFeed(
-          `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — troops marching (${Math.round(transitMs / 1000)}s transit)`,
-          "combat",
-          "info"
+        state.queuedTargetKeys.delete(targetKey);
+        const musterTileKey = deps.keyFor(closest.tile.x, closest.tile.y);
+        const alreadyPending = state.pendingMusterAttacks.some(
+          (e) => e.targetX === to.x && e.targetY === to.y
         );
-        state.selected = { x: to.x, y: to.y };
+        if (!alreadyPending) {
+          state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
+          deps.pushFeed(
+            `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack queued`,
+            "combat",
+            "info"
+          );
+        }
         deps.renderHud();
-        return true;
+        continue;
       }
       deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
       attackSyncLog("send", {

@@ -1,4 +1,4 @@
-import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, scanOutpostMult, type FortVariant, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import type { PlayerSubscriptionDock } from "@border-empires/sim-protocol";
 
@@ -14,12 +14,15 @@ type PreviewTile = {
   townType?: string | undefined;
   economicStructureJson?: string | undefined;
   siegeOutpostJson?: string | undefined;
+  fortJson?: string | undefined;
   breachShockUntil?: number | undefined;
 };
 
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
 
-type PreviewTileWithAura = PreviewTile & OutpostAuraTileFacts;
+type PreviewTileWithAura = PreviewTile & OutpostAuraTileFacts & {
+  fort?: { ownerId?: string | undefined; status?: string | undefined; variant?: FortVariant | undefined } | undefined;
+};
 
 const parseStructureJson = <T>(json: string | undefined): T | undefined => {
   if (!json) return undefined;
@@ -38,10 +41,12 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
   for (const tile of tiles) {
     const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
     const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
+    const fort = parseStructureJson<{ ownerId?: string; status?: string; variant?: FortVariant }>(tile.fortJson);
     map.set(previewTileKey(tile.x, tile.y), {
       ...tile,
       ...(siegeOutpost ? { siegeOutpost } : {}),
-      ...(economicStructure ? { economicStructure } : {})
+      ...(economicStructure ? { economicStructure } : {}),
+      ...(fort ? { fort } : {})
     });
   }
   return map;
@@ -101,11 +106,15 @@ export const attackPreviewResult = (
         defenderPlayerData?.domainIds,
       )
     : undefined;
-  const preview = buildFrontierCombatPreview(target, {
-    attackerOutpostMult,
-    defenderOwnerId: target.ownerId,
-    ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
-  });
+  const targetHasActiveFort = Boolean(target.fort && target.fort.status === "active" && target.fort.ownerId === target.ownerId);
+  const preview = buildFrontierCombatPreview(
+    { ...target, fortVariant: targetHasActiveFort ? target.fort?.variant : undefined },
+    {
+      attackerOutpostMult,
+      defenderOwnerId: target.ownerId,
+      ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
+    }
+  );
   return {
     ...responseBase,
     valid: true,

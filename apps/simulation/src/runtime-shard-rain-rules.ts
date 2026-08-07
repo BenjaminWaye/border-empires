@@ -51,6 +51,32 @@ export const computeShardRainNotice = (input: {
   return undefined;
 };
 
+// Unlike computeShardRainNotice (which only surfaces an "upcoming" notice
+// within SHARD_RAIN_WARNING_LEAD_MS of the next rain, since it backs a
+// one-time push alert), this always returns a notice so a persistent panel
+// can show a countdown to the next scheduled rain regardless of how far away
+// it is.
+export const computeShardRainWelcomeNotice = (input: {
+  nowMs: number;
+  currentSiteCount: number;
+  currentExpiresAt: number | undefined;
+}): Record<string, unknown> => {
+  if (
+    input.currentSiteCount > 0 &&
+    typeof input.currentExpiresAt === "number" &&
+    input.currentExpiresAt > input.nowMs
+  ) {
+    return {
+      type: "SHARD_RAIN_EVENT",
+      phase: "started",
+      startsAt: input.currentExpiresAt - SHARD_RAIN_TTL_MS,
+      expiresAt: input.currentExpiresAt,
+      siteCount: input.currentSiteCount
+    };
+  }
+  return { type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextShardRainStartAt(input.nowMs) };
+};
+
 export const shouldBroadcastShardRainWarningAt = (nowMs: number): { nextStart: number; slotKey: string } | undefined => {
   const current = new Date(nowMs);
   if (current.getMinutes() !== 0) return undefined;

@@ -19,7 +19,10 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+        ],
         activeLocks: [],
       },
     });
@@ -47,7 +50,11 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+        ],
         activeLocks: [],
       },
     });
@@ -76,7 +83,11 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
           strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
         }]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          ],
           activeLocks: [],
         },
       });
@@ -116,6 +127,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
         activeLocks: [],
@@ -146,6 +158,9 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+          { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
         ],
         activeLocks: [],
@@ -176,6 +191,8 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
         ],
         activeLocks: [],
       },
@@ -223,9 +240,17 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     expect(events[0]?.code).toBe("UNKNOWN_STRUCTURE");
   });
 
-  // Atomic spend: alphabetic-first resource (IRON) succeeds, later (SUPPLY)
-  // fails. Without atomic pre-check, IRON is silently stolen.
-  it("preserves IRON when SUPPLY is insufficient for SIEGE_TOWER upgrade", async () => {
+  // Step 5 item 3 (Slice A): SUPPLY/IRON stockpile amounts no longer gate a
+  // build at all -- hasFreeResourceSlots (slot supply/demand) is the real
+  // gate now, and stripRetiredStockpileCost means spendStrategicCost never
+  // even sees FOOD/IRON/CRYSTAL/SUPPLY. This test used to prove the atomic
+  // check-then-spend pre-check prevented a partial stockpile spend when IRON
+  // succeeded but SUPPLY failed; that scenario can no longer occur for these
+  // four keys since nothing is spent from the stockpile for them any more.
+  // Rewritten to prove the inverse: an upgrade with plenty of slot supply
+  // succeeds despite near-empty legacy stockpile balances, and those balances
+  // are left completely untouched (proving they were never read as a gate).
+  it("SIEGE_TOWER upgrade succeeds on slot supply alone, ignoring near-empty legacy SUPPLY/IRON stockpile balances", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -234,14 +259,17 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
         domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        // SIEGE_TOWER costs: SUPPLY 90 + IRON 60
-        // Alphabetically: [IRON, SUPPLY]. IRON is sufficient, SUPPLY is not.
-        // Atomic path: IRON stays at 100. Broken path: IRON drops to 40.
+        // SIEGE_TOWER's old stockpile cost was SUPPLY 90 + IRON 60 -- far more
+        // than these balances. The build must succeed anyway: slots, not
+        // stockpile, are the real gate now.
         strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 10, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
+          { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+          { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
         ],
         activeLocks: [],
@@ -257,10 +285,14 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     });
     await Promise.resolve();
 
-    expect(events[0]?.code).toBe("BUILD_INVALID");
+    expect(events).toEqual([]);
+    const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.siegeOutpostJson).toContain('"variant":"SIEGE_TOWER"');
     const player = runtime.exportState().players.find((p) => p.id === "player-1");
-    // IRON must still be 100 — atomic pre-check prevented the spend.
+    // Legacy stockpile balances must be completely untouched -- nothing is
+    // spent from them for this build any more.
     expect(player?.strategicResources?.IRON).toBe(100);
+    expect(player?.strategicResources?.SUPPLY).toBe(10);
   });
 });
 
@@ -270,12 +302,18 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
-        techIds: new Set<string>(["cartography"]), domainIds: new Set<string>(),
+        techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
         strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },
       }]]),
-      initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+        ],
+        activeLocks: [],
+      },
     });
 
     runtime.submitCommand({
@@ -306,6 +344,10 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // §5.3: town draws 4 FOOD, MARKET 1 more — 2 FISH (2 each) + 1 FARM = 5.
+          { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+          { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
         ],
         activeLocks: [],
       },
@@ -350,5 +392,165 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(tile?.economicStructureJson).toContain('"type":"ADVANCED_FUR_SYNTHESIZER"');
+  });
+
+  // §6.4: synthesizers are hard-capped at 1 per family, forever — this is
+  // the empire-wide enforcement added alongside the slot-supply reading of
+  // §6.4 (a synthesizer grants +1 SUPPLY/IRON/CRYSTAL with no cap of its
+  // own in resource-slot-view.ts, so nothing else stops unbounded stacking).
+  it("rejects a second FUR_SYNTHESIZER in a different town when one is already owned", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "FUR_SYNTHESIZER" as const, status: "active" as const } },
+          { x: 20, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
+          { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        ],
+        activeLocks: [],
+      },
+    });
+
+    const rejections: Array<{ code: string; message: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code, message: event.message });
+    });
+    runtime.submitCommand({
+      commandId: "fs-dupe-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 20, y: 9, structureType: "FUR_SYNTHESIZER" }),
+    });
+    await Promise.resolve();
+
+    expect(rejections).toEqual([{ code: "BUILD_INVALID", message: "already own a fur synthesizer — only one allowed per empire" }]);
+    const secondTile = runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10);
+    expect(secondTile?.economicStructureJson).toBeUndefined();
+  });
+
+  it("allows a fresh FUR_SYNTHESIZER build when none is owned yet", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        ],
+        activeLocks: [],
+      },
+    });
+
+    const rejections: Array<{ code: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code });
+    });
+    runtime.submitCommand({
+      commandId: "fs-fresh-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FUR_SYNTHESIZER" }),
+    });
+    await Promise.resolve();
+
+    expect(rejections).toEqual([]);
+    const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.economicStructureJson).toContain('"type":"FUR_SYNTHESIZER"');
+  });
+});
+
+// §5.1: "occupies a slot for as long as it exists" — demand is derived live
+// from tile state (resource-slot-view.ts has no persisted "occupied slot"
+// record), so removing a structure should free its slot automatically with
+// no extra removal-side code. Verifies that claim end-to-end rather than by
+// inspection only.
+describe("BUILD_STRUCTURE parity — resource slots free on removal", () => {
+  it("a slot occupied by a removed Fort becomes free again once removal completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", {
+          id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+          techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local", allies: new Set<string>(),
+          strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+        }]]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
+            { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
+            // Only 1 IRON slot in the whole empire — exactly enough for one Fort.
+            { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          ],
+          activeLocks: [],
+        },
+      });
+
+      const rejections: Array<{ code: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code });
+      });
+
+      runtime.submitCommand({
+        commandId: "slot-free-1a", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"under_construction"');
+
+      // The one IRON slot is already spoken for (by the under_construction
+      // Fort — occupation starts at build time, not completion) — a second
+      // Fort elsewhere must be rejected.
+      runtime.submitCommand({
+        commandId: "slot-free-2a", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(rejections).toEqual([{ code: "INSUFFICIENT_SLOT" }]);
+      expect(runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10)?.fortJson).toBeUndefined();
+
+      // Finish building the first Fort, then remove it entirely.
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"active"');
+
+      runtime.submitCommand({
+        commandId: "slot-free-3a", sessionId: "session-1", playerId: "player-1", clientSeq: 3, issuedAt: 1_000,
+        type: "REMOVE_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10 }),
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toBeUndefined();
+
+      // The IRON slot is free again with no removal-side slot bookkeeping at
+      // all — the second Fort build should now succeed.
+      runtime.submitCommand({
+        commandId: "slot-free-2b", sessionId: "session-1", playerId: "player-1", clientSeq: 4, issuedAt: 1_000,
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "FORT" }),
+      });
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10)?.fortJson).toContain('"status":"under_construction"');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

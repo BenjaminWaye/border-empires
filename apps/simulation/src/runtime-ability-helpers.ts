@@ -70,7 +70,15 @@ export function isStructurePowered(
   tiles: ReadonlyMap<string, DomainTileState>,
   ownerId: string,
   tileKey: string,
-  structureType: EconomicStructureType
+  structureType: EconomicStructureType,
+  // §5.4: an Aether Tower itself demands a FOOD + CRYSTAL slot
+  // (STRUCTURE_SLOT_REQUIREMENTS.AETHER_TOWER) and can go dormant like any
+  // other structure — a dormant tower provides no bonus, including its own
+  // powering radius, same as every other structure this class of check
+  // gates (monument abilities, Observatory abilities). Optional so existing
+  // callers that haven't threaded it through yet default to "nothing
+  // dormant" rather than a hard type error.
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean = () => false
 ): boolean {
   const tile = tiles.get(tileKey);
   const structure = tile?.economicStructure;
@@ -79,13 +87,16 @@ export function isStructurePowered(
   for (const candidate of tiles.values()) {
     const tower = candidate.economicStructure;
     if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
+    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AETHER_TOWER_RADIUS) continue;
+    if (isStructureDormant(ownerId, simulationTileKey(candidate.x, candidate.y), "economicStructure")) continue;
+    return true;
   }
   return false;
 }
 
 export function isTileShieldedByEnemyAegisDome(
   tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
   targetY: number
@@ -95,7 +106,10 @@ export function isTileShieldedByEnemyAegisDome(
     if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
     if (!dome.ownerId || dome.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
-    if (isStructurePowered(tiles, dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
+    const domeKey = simulationTileKey(candidate.x, candidate.y);
+    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME", isStructureDormant)) continue;
+    if (isStructureDormant(dome.ownerId, domeKey, "economicStructure")) continue;
+    return true;
   }
   return false;
 }
@@ -137,6 +151,7 @@ export function isTileShieldedByAegisLock(
 
 export function isTileBombardBlockedByRadar(
   tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
   targetY: number
@@ -146,7 +161,10 @@ export function isTileBombardBlockedByRadar(
     if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
     if (!s.ownerId || s.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
-    if (isStructurePowered(tiles, s.ownerId, simulationTileKey(candidate.x, candidate.y), s.type)) return true;
+    const radarKey = simulationTileKey(candidate.x, candidate.y);
+    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant)) continue;
+    if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;
+    return true;
   }
   return false;
 }
@@ -156,6 +174,15 @@ export function observatoryCastRadiusFor(player: DomainPlayer | undefined): numb
   return observatoryCastRadiusForPlayer(player, OBSERVATORY_CAST_RADIUS);
 }
 
+// Watchtower Engine's own observatory reaches +10 tiles further than a
+// built one — a fixed bonus that does NOT stack with tech/domain range
+// effects (unlike a real Observatory's range, which does), so it's computed
+// off the base radius directly rather than through observatoryCastRadiusFor.
+export const WATCHTOWER_ENGINE_OBSERVATORY_RANGE = OBSERVATORY_CAST_RADIUS + 10;
+
+const observatoryRangeForTile = (tile: DomainTileState, playerRange: number): number =>
+  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? WATCHTOWER_ENGINE_OBSERVATORY_RANGE : playerRange;
+
 export function pickReadyOwnedObservatoryForTarget(input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   territoryTileKeys: ReadonlySet<string>;
@@ -164,6 +191,11 @@ export function pickReadyOwnedObservatoryForTarget(input: {
   targetY: number;
   now: number;
   range: number;
+  // §5.4: an Observatory demands a CRYSTAL slot (STRUCTURE_SLOT_REQUIREMENTS)
+  // and can go dormant like any other structure — a dormant one shouldn't be
+  // pickable to cast an ability, same as isStructurePowered's Aether Tower
+  // check gates the monument abilities.
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
 }): string | undefined {
   let bestKey: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
@@ -173,9 +205,10 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== input.playerId || obs.status !== "active") continue;
     const distance = wrappedChebyshev(tile.x, tile.y, input.targetX, input.targetY);
-    if (distance > input.range) continue;
+    if (distance > observatoryRangeForTile(tile, input.range)) continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > input.now) continue;
+    if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
     if (distance < bestDistance) {
       bestDistance = distance;
       bestKey = tileKey;
@@ -188,7 +221,8 @@ export function pickReadyOwnedObservatoryAny(
   tiles: ReadonlyMap<string, DomainTileState>,
   territoryTileKeys: ReadonlySet<string>,
   playerId: string,
-  now: number
+  now: number,
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean
 ): string | undefined {
   let bestKey: string | undefined;
   let bestCooldownUntil = Number.POSITIVE_INFINITY;
@@ -199,6 +233,7 @@ export function pickReadyOwnedObservatoryAny(
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > now) continue;
+    if (isStructureDormant(playerId, tileKey, "observatory")) continue;
     if (cooldownUntil < bestCooldownUntil) {
       bestCooldownUntil = cooldownUntil;
       bestKey = tileKey;

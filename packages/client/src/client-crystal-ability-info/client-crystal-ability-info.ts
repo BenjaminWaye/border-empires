@@ -47,7 +47,9 @@ const STORMFRONT_COOLDOWN_MS = 45 * 60_000;
 const STORMFRONT_DURATION_MS = 15 * 60_000;
 const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
-const ASTRAL_DOCK_COOLDOWN_MS = 90 * 60_000;
+// Cooldown matches the satellite's own uptime — you must wait for the
+// current satellite to come down before launching another.
+const ASTRAL_DOCK_COOLDOWN_MS = 24 * 60 * 60_000;
 const ASTRAL_DOCK_DURATION_MS = 24 * 60 * 60_000;
 
 export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => {
@@ -104,8 +106,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Reveals one hostile empire's territory until you cancel it. Only one empire can be actively revealed at a time.",
       glyph: "◉",
       target: "Tap any hostile tile owned by the empire you want to track.",
-      costBits: ["20 CRYSTAL"],
-      upkeepLabel: "0.15 CRYSTAL / 10m"
+      costBits: ["Free"]
     };
   }
   if (key === "survey_sweep") {
@@ -114,7 +115,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Pulses one of your active observatories to mark hidden resource sites and towns without revealing tile details.",
       glyph: "⌖",
       target: "Owned active observatory. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
-      costBits: ["30 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS)
     };
   }
@@ -124,7 +125,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Purge enemy control from a tile, turning it neutral.",
       glyph: "✦",
       target: "Enemy settled or frontier tile within observatory range.",
-      costBits: ["3,000 gold", "100 CRYSTAL"],
+      costBits: ["3,000 gold"],
       cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
     };
   }
@@ -134,7 +135,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Opens a temporary assault route from one of your settled coastal tiles to a coastal land target across up to 4 sea tiles.",
       glyph: "⟷",
       target: "Target coastal land reachable from one of your settled coastal tiles.",
-      costBits: ["30 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_BRIDGE_DURATION_MS)
     };
@@ -155,7 +156,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Extracts a one-time intelligence snapshot of a hostile empire's economy, stockpiles, manpower, and territory totals.",
       glyph: "◈",
       target: "Select a hostile tile, then cast to inspect that empire.",
-      costBits: ["15 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(REVEAL_EMPIRE_STATS_COOLDOWN_MS)
     };
   }
@@ -165,7 +166,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Projects a one-way crystal barrier along up to 3 border edges. Units cannot cross from the faced side until it expires.",
       glyph: "║",
       target: "Select one of your settled border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
-      costBits: ["25 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(AETHER_WALL_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_WALL_DURATION_MS)
     };
@@ -176,7 +177,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Siphons a hostile town or resource tile plus nearby eligible town and resource tiles at 100% output for 60 minutes.",
       glyph: "☍",
       target: "Enemy town or resource tile within 30 tiles of one of your observatories.",
-      costBits: ["15 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(SIPHON_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(SIPHON_DURATION_MS)
     };
@@ -220,7 +221,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Hardens the Aegis Dome into a temporary untouchable core. During the lock, hostile attacks cannot change ownership and hostile structure-breaking abilities fail in the dome's radius.",
       glyph: "⬡",
       target: "Activate from your powered Aegis Dome to lock the surrounding 25-tile region.",
-      costBits: ["220 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(AEGIS_LOCK_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AEGIS_LOCK_DURATION_MS)
     };
@@ -231,7 +232,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Launches an aether satellite into orbit from a powered Astral Dock. While it stays aloft, your empire sees the entire map.",
       glyph: "🜨",
       target: "Activate from your powered Astral Dock monument.",
-      costBits: ["300 CRYSTAL"],
+      costBits: ["Free"],
       cooldownLabel: deps.formatCooldownShort(ASTRAL_DOCK_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(ASTRAL_DOCK_DURATION_MS)
     };
@@ -242,7 +243,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Raises impassable mountain terrain to block routes and reshape the frontline.",
       glyph: "⛰",
       target: "Land tile within 2 tiles of your territory. Cannot target towns, docks, or structured tiles.",
-      costBits: ["8,000 gold", "400 CRYSTAL"],
+      costBits: ["8,000 gold"],
       cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
     };
   }
@@ -251,7 +252,7 @@ export const crystalAbilityInfoForKey = (
     detail: "Clears a mountain to reopen a pass near your territory.",
     glyph: "⌵",
     target: "Mountain tile within 2 tiles of your territory.",
-    costBits: ["8,000 gold", "400 CRYSTAL"],
+    costBits: ["8,000 gold"],
     cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
   };
 };

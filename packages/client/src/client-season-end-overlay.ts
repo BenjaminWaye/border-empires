@@ -2,6 +2,7 @@ import type { ClientState } from "./client-state/client-state.js";
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
+  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
@@ -17,7 +18,16 @@ type SeasonEndLeaderboard = {
 type SeasonEndOverlayDeps = {
   state: Pick<
     ClientState,
-    "me" | "seasonWinner" | "leaderboard" | "seasonVictory" | "seasonEndDismissed" | "seasonEndStarting" | "playerColors"
+    | "me"
+    | "seasonWinner"
+    | "leaderboard"
+    | "seasonVictory"
+    | "seasonStats"
+    | "seasonEndDismissed"
+    | "seasonEndStarting"
+    | "seasonStartVoteCount"
+    | "seasonStartVoted"
+    | "playerColors"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -56,19 +66,17 @@ const num = (value: number, digits = 0): string =>
 const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
   Boolean(state.seasonWinner) && !state.seasonEndDismissed;
 
-// renderClientHud runs on every state tick; post-season the player is parked on
-// the frozen map and the HUD still re-renders on feed/status updates. Rebuilding
-// the overlay innerHTML each time is wasteful and restarts the cog/crown CSS
-// animations (visible stutter). Skip the rebuild unless the rendered inputs
-// actually changed, keyed by this signature.
 const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
   JSON.stringify({
     winner: state.seasonWinner?.playerId,
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
+    voteCount: state.seasonStartVoteCount,
+    voted: state.seasonStartVoted,
     self: leaderboard.selfOverall?.id,
     overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
-    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet])
+    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
+    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined
   });
 
 const victorMedallion = (
@@ -102,7 +110,7 @@ const rankRowHtml = (
       <span class="se-rank-stats">
         <span class="se-gauge" title="Final score"><em>${num(entry.score, 1)}</em><span>score</span></span>
         <span class="se-gauge" title="Settled tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>
-        <span class="se-gauge" title="Income / min"><em>${num(entry.incomePerMinute, 1)}</em><span>gold/m</span></span>
+        <span class="se-gauge" title="Income / day"><em>${num(entry.incomePerMinute * 1440, 1)}</em><span>gold/day</span></span>
         <span class="se-gauge" title="Technologies"><em>${num(entry.techs)}</em><span>tech</span></span>
       </span>
     </li>`;
@@ -164,6 +172,27 @@ const victoryGauges = (
     </section>`;
 };
 
+const miscPanel = (seasonStats: SeasonStatsView): string => {
+  const items: string[] = [];
+  if (seasonStats.mostDeadlyTile) {
+    items.push(`<div class="se-misc-item">
+      <span class="se-misc-label">Most Deadly Tile</span>
+      <span class="se-misc-value"><strong>${num(seasonStats.mostDeadlyTile.manpowerLost)}</strong> manpower lost on tile (${seasonStats.mostDeadlyTile.x}, ${seasonStats.mostDeadlyTile.y})</span>
+    </div>`);
+  }
+  if (seasonStats.longestRoad) {
+    items.push(`<div class="se-misc-item">
+      <span class="se-misc-label">Longest Road</span>
+      <span class="se-misc-value"><strong>${num(seasonStats.longestRoad.tileCount)}</strong> tiles long</span>
+    </div>`);
+  }
+  return `
+    <section class="se-panel se-misc">
+      <h3 class="se-panel-title">Season Miscellany</h3>
+      <div class="se-misc-items">${items.join("")}</div>
+    </section>`;
+};
+
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const { state, overlayEl, renderHud, startNewSeason } = deps;
   const visible = seasonEndVisible(state);
@@ -177,7 +206,6 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
 
   const leaderboard: SeasonEndLeaderboard = state.leaderboard;
-  // Skip the rebuild (and animation restart) when nothing rendered has changed.
   const signature = renderSignature(state, leaderboard);
   if (overlayEl.dataset.seSignature === signature) return;
   overlayEl.dataset.seSignature = signature;
@@ -190,6 +218,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
   const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
+  const hasStats = Boolean(state.seasonStats && (state.seasonStats.mostDeadlyTile || state.seasonStats.longestRoad));
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -217,6 +246,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
           <nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
+            ${hasStats ? `<button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Misc</button>` : ""}
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -225,13 +255,16 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             ${hasVictory ? `<div class="se-tab-panel${activeTab === "victory" ? " is-active" : ""}" data-tab="victory" role="tabpanel">
               ${victoryHtml}
             </div>` : ""}
+            ${hasStats && state.seasonStats ? `<div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
+              ${miscPanel(state.seasonStats)}
+            </div>` : ""}
           </div>
         </div>
         <div class="se-scroll-footer">
           <footer class="se-actions">
-            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting ? "disabled" : ""}>
+            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting || state.seasonStartVoted ? "disabled" : ""}>
               <span class="se-btn-cog" aria-hidden="true"></span>
-              ${starting ? "Winding the Spring…" : "Start New Season"}
+              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for New Season"}
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
@@ -251,14 +284,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
   if (newSeason) {
     newSeason.onclick = () => {
-      if (state.seasonEndStarting) return;
-      const ok = window.confirm(
-        "Start a new season for EVERYONE? This resets the world and all progression for every player."
-      );
-      if (!ok) return;
-      state.seasonEndStarting = true;
+      if (state.seasonEndStarting || state.seasonStartVoted) return;
       startNewSeason();
-      renderHud();
     };
   }
 

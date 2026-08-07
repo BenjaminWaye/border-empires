@@ -6,6 +6,7 @@ import {
   renderShardAlert as renderShardAlertFromModule,
   settlePixelWanderPoint as settlePixelWanderPointFromModule
 } from "../client-capture-effects/client-capture-effects.js";
+import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-victory-alert-bootstrap.js";
 import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
@@ -75,7 +76,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     maybeRefreshForCamera,
     shouldPreserveOptimisticExpandByKey,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     dockOverlayVariants,
@@ -132,7 +133,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     applyOptimisticTileCollect,
     applyOptimisticTileState,
     applyOptimisticStructureBuild,
-    applyOptimisticStructureCancel,
+    applyOptimisticStructureCancel, applyOptimisticStructureRemoval,
     ownerSpawnShieldActive,
     supportedOwnedTownsForTile,
     supportedOwnedDocksForTile,
@@ -186,10 +187,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     ws,
     wsUrl,
     requireAuthedSession: (message?: string) => requireAuthedSessionImpl(message),
-    renderHud: () => renderHudImpl()
+    renderHud: () => renderHudImpl(),
+    isMobile
   });
 
-  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
+  const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;
   [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) => mount({ firebaseAuth, wsUrl }));
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
@@ -271,7 +273,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     applyOptimisticTileState,
     clearOptimisticTileState,
     applyOptimisticStructureBuild,
-    applyOptimisticStructureCancel,
+    applyOptimisticStructureCancel, applyOptimisticStructureRemoval,
     mergeServerTileWithOptimisticState,
     playerNameForOwner,
     ownerSpawnShieldActive,
@@ -324,14 +326,13 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     });
 
   const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
-
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
       shardAlertOverlayEl: dom.shardAlertOverlayEl,
       shardAlertTitleEl: dom.shardAlertTitleEl,
       shardAlertDetailEl: dom.shardAlertDetailEl
     });
-
+  const { renderVictoryHoldAlert, acknowledgeVictoryHoldAlert } = createVictoryHoldAlertHandlers(state, dom);
   const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void =>
     drawStartingExpansionArrowFromModule(ctx, px, py, size, dx, dy);
 
@@ -368,7 +369,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       renderTileActionMenu: actionFlow.renderTileActionMenu,
       tileMenuViewForTile: actionFlow.tileMenuViewForTile,
       renderCaptureProgress,
-      renderShardAlert,
+      renderShardAlert, renderVictoryHoldAlert,
       renderTechChoiceGrid: techFlow.renderTechChoiceGrid,
       techDetailsUseOverlay: techFlow.techDetailsUseOverlay,
       renderTechDetailPrompt: techFlow.renderTechDetailPrompt,
@@ -419,7 +420,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     } catch (error) {
       console.error("[hud-render-fatal]", error);
       setAuthStatus("The interface hit an unexpected error. Retrying UI render...", "error");
-      syncAuthOverlay();
+      try { syncAuthOverlay(); } catch (overlayError) { console.error("[hud-render-fatal-overlay]", overlayError); }
     }
   };
   renderHudImpl = renderHud;
@@ -455,7 +456,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureTimeEl,
     placementCancelBtn: dom.placementCancelBtn,
     placementConfirmBtn: dom.placementConfirmBtn,
-    shardAlertCloseBtn,
+    shardAlertCloseBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
     panelCloseBtn,
     panelActionButtons,
     authColorPresetButtons,
@@ -475,7 +476,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     confirmBuildingPlacement: actionFlow.confirmBuildingPlacement,
     cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     hideShardAlert: deps.hideShardAlert,
-    renderShardAlert,
+    renderShardAlert, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
     renderCaptureProgress,
     downloadDebugBundle,
     setActivePanel,
@@ -491,7 +492,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     renderHud,
     setAuthStatus,
     syncAuthOverlay,
-    authenticateSocket,
+    authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
@@ -560,7 +561,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     crystalTargetingTone: actionFlow.crystalTargetingTone,
     startingExpansionArrowTargets: originSelection.startingExpansionArrowTargets,
     drawTerrainTile,
-    drawForestOverlay,
+    drawForestOverlay, drawHillsOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
     // The 3D dock overlay supersedes the SVG dock icons when the true-3D
@@ -616,9 +617,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     renderHud,
     renderCaptureProgress,
-    renderShardAlert,
+    renderShardAlert, renderVictoryHoldAlert,
     cleanupExpiredSettlementProgress: actionFlow.cleanupExpiredSettlementProgress,
     processDevelopmentQueue: actionFlow.processDevelopmentQueue,
+    processAutoSettleTargets: actionFlow.processAutoSettleTargets,
+    processAutoBuildTargets: actionFlow.processAutoBuildTargets,
     clearOptimisticTileState,
     dropQueuedTargetKeyIfAbsent: actionFlow.dropQueuedTargetKeyIfAbsent,
     pushFeed,
@@ -626,7 +629,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
-    reconcileActionQueue: actionFlow.reconcileActionQueue,
+    reconcileActionQueue: actionFlow.reconcileActionQueue, processPendingMusterAttacks: actionFlow.processPendingMusterAttacks,
     sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
       ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
     isPlacementValidForTile: actionFlow.isPlacementValidForTile

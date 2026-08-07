@@ -28,9 +28,10 @@ describe("3d survey sweep fx regression guard", () => {
   it("renders coarse hidden-intel pings without resource-specific badge kinds", () => {
     const overlaySource = clientSource("../client-map-3d-survey-sweep-ping-overlay.ts");
     const networkSource = clientSource("../client-network/client-network.ts");
+    const codecSource = clientSource("../client-network/client-network-codec.ts");
     expect(overlaySource).toContain('kind === "resource"');
     expect(overlaySource).toContain("townMesh");
-    expect(networkSource).toContain('value === "resource" || value === "town"');
+    expect(codecSource).toContain('value === "resource" || value === "town"');
     expect(networkSource).toContain("state.surveySweepPings.push");
     expect(overlaySource).not.toContain('"GEMS"');
     expect(overlaySource).not.toContain('"IRON"');

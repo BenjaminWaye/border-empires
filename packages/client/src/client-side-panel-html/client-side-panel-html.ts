@@ -103,7 +103,7 @@ export const renderSocialInspectCardHtml = (args: {
         <div class="economy-line"><span>Tiles</span><strong>${entry ? entry.tiles.toFixed(0) : "?"}</strong></div>
       </div>
       <div class="economy-detail-column">
-        <div class="economy-line"><span>Income</span><strong>${entry ? `${entry.incomePerMinute.toFixed(1)}/m` : "?"}</strong></div>
+        <div class="economy-line"><span>Income</span><strong>${entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?"}</strong></div>
         <div class="economy-line"><span>Techs</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
       </div>
     </div>

@@ -1,4 +1,12 @@
-import { landBiomeAt, structureBuildGoldCost, structureBuildManpowerCost, structureCostDefinition } from "@border-empires/shared";
+import {
+  landBiomeAt,
+  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT,
+  structureBuildGoldCost,
+  structureBuildManpowerCost,
+  structureSlotRequirements,
+  SYNTHESIZER_STRUCTURE_TYPES,
+  type BuildableStructureType
+} from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import {
   structureInfoButtonHtml as structureInfoButtonHtmlFromModule,
@@ -8,6 +16,7 @@ import {
 } from "../client-map-display.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { ownedLightOutpostCount } from "../client-light-outpost-food-slot/client-light-outpost-food-slot.js";
 
 type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | NonNullable<Tile["economicStructure"]>["type"];
 
@@ -33,14 +42,30 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const structureGoldCost = (structureType: BuildableStructureId): number =>
     structureBuildGoldCost(structureType, ownedStructureCount(structureType));
 
+  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/IRON/
+  // CRYSTAL/SUPPLY build-time stockpile spend was retired server-side (Step
+  // 5 item 4 Slice A) -- structureCostDefinition's resourceCost field for
+  // these four keys is stale display copy. structureSlotRequirements is the
+  // real cost now; synthesizers are exempt (they provide a slot, never
+  // consume one, §6.4) so they show no resource line at all, matching the
+  // server-side hasFreeResourceSlots skip.
   const structureCostText = (structureType: BuildableStructureId, resourceOverride?: string): string => {
-    const def = structureCostDefinition(structureType);
     const goldCost = structureGoldCost(structureType);
-    const parts = [`${goldCost} gold`];
+    const parts: string[] = [];
+    if (goldCost > 0) parts.push(`${goldCost} gold`);
     const manpowerCost = structureBuildManpowerCost(structureType);
     if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
-    if (resourceOverride) parts.push(resourceOverride);
-    else if (def.resourceCost) parts.push(`${def.resourceCost.amount} ${def.resourceCost.resource}`);
+    if (resourceOverride) {
+      parts.push(resourceOverride);
+    } else if (structureType === "LIGHT_OUTPOST" && ownedLightOutpostCount(state) < LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) {
+      // The player's first LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts are
+      // waived server-side (slot-waivers.ts) — omit the FOOD slot line
+      // entirely rather than showing a cost that won't actually be charged.
+    } else if (!SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) {
+      for (const requirement of structureSlotRequirements(structureType)) {
+        parts.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
+      }
+    }
     return parts.join(" + ");
   };
 

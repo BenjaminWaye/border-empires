@@ -66,11 +66,75 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 docks");
-    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1.0 | tech 1");
+    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1440.0/day | tech 1");
     expect(html).toContain("11. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (7.0)");
     expect(html).toContain("8. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (3.5)");
     expect(html).toContain("13. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (2.0)");
     expect(html).toContain("<span class=\"lb-player-dot\" style=\"--player-color:#38b000\" aria-hidden=\"true\"></span><span>Alpha</span>");
+  });
+
+  it("shows a hold countdown line when an objective's threshold is met and holding", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderPlayerId: "p1",
+          leaderName: "Ivan",
+          progressLabel: "87/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86_400,
+          holdRemainingSeconds: 86_280,
+          statusLabel: "Holding pressure",
+          conditionMet: true
+        }
+      ],
+      undefined
+    );
+
+    expect(html).toContain("Winning in 23h 58m unless stopped");
+  });
+
+  it("omits the hold countdown line when the objective has no active hold", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderName: "Ivan",
+          progressLabel: "20/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86_400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        }
+      ],
+      undefined
+    );
+
+    expect(html).not.toContain("Winning in");
   });
 
   it("does not duplicate self metric rows when the player is already in the visible top five", () => {
@@ -111,9 +175,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Nauticus</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Nauticus</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0'
     );
-    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("11. You (1.0)");
     expect(html).not.toContain("11. You (0.0)");
   });
@@ -147,9 +211,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0'
     );
-    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("12. You (1.0)");
     expect(html).not.toContain("9. You (1.0)");
     expect(html).not.toContain("5. You (0.0)");
@@ -172,9 +236,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1497.6/day | tech 0'
     );
-    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1497.6/day | tech 0");
     expect(html).not.toContain("9. You (1.0)");
     expect(html).not.toContain("5. You (0.0)");
   });

@@ -57,6 +57,10 @@ export const findClosestMuster = (
   for (const tile of state.tiles.values()) {
     if (!tile.muster || tile.muster.ownerId !== state.me) continue;
     if (tile.muster.amount < MUSTER_ATTACK_COST) continue;
+    // A flag already funding another in-flight (marching or just-fired)
+    // attack can't be double-booked for a second target at the same time —
+    // skip it so a different flag (or none) is chosen instead.
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
     const rawDist = chebyshevDistanceClient(tile.x, tile.y, targetX, targetY);
     const dist = isDockCrossingBetween(state, tile.x, tile.y, targetX, targetY)
       ? Math.min(rawDist, DOCK_CROSSING_MUSTER_TRANSIT_TILES)

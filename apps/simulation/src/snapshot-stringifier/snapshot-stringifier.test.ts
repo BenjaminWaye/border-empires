@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createChunkedSnapshotStringifier,
+  createHybridSnapshotStringifier,
   createInlineSnapshotStringifier,
-  createWorkerSnapshotStringifier
+  createWorkerSnapshotStringifier,
+  type SnapshotStringifier
 } from "./snapshot-stringifier.js";
 
 describe("createChunkedSnapshotStringifier", () => {
@@ -47,11 +49,26 @@ describe("createChunkedSnapshotStringifier", () => {
     expect(await stringify(payload)).toBe(JSON.stringify(payload));
   });
 
-  it("invokes onYield more than once for a large payload", async () => {
+  it("does not chunk (or yield) a realistic checkpoint-sized payload", async () => {
     const onYield = vi.fn();
     const stringify = createChunkedSnapshotStringifier({ onYield });
-    // 5000 tiles > CHUNK_THRESHOLD(500); CHUNK_SIZE(2000) → 3 slices → 2 yields
+    // Real compacted checkpoint payloads measured ~5,147 elements on staging;
+    // this must stay well under CHUNK_THRESHOLD so it never yields — see the
+    // constant's comment for why yielding here is actively harmful under AI
+    // planner contention on the sim thread.
     const tiles = Array.from({ length: 5_000 }, (_, i) => ({ x: i, y: 0 }));
+    const payload = { initialState: { tiles, activeLocks: [] }, commandEvents: [] };
+    await stringify(payload);
+    expect(onYield.mock.calls.length).toBe(0);
+  });
+
+  it("invokes onYield more than once for a genuinely huge payload", async () => {
+    const onYield = vi.fn();
+    const stringify = createChunkedSnapshotStringifier({ onYield });
+    // Only payloads far beyond any realistic compacted checkpoint (the
+    // ~18MB uncompacted fallback case, when no worldgen baseline resolves)
+    // should still chunk at all.
+    const tiles = Array.from({ length: 250_000 }, (_, i) => ({ x: i, y: 0 }));
     const payload = { initialState: { tiles, activeLocks: [] }, commandEvents: [] };
     await stringify(payload);
     expect(onYield.mock.calls.length).toBeGreaterThan(1);
@@ -152,5 +169,97 @@ describe("createWorkerSnapshotStringifier", () => {
     } finally {
       await stringify.close();
     }
+  });
+});
+
+describe("createHybridSnapshotStringifier", () => {
+  const trackingWorker = (): SnapshotStringifier & { calls: number } => {
+    const worker = (async (payload: unknown) => {
+      worker.calls += 1;
+      return JSON.stringify(payload);
+    }) as SnapshotStringifier & { calls: number };
+    worker.calls = 0;
+    return worker;
+  };
+
+  it("stringifies small payloads inline, never calling the worker", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    const payload = { tileOverlay: Array.from({ length: 50 }, (_, i) => ({ x: i, y: i })) };
+    const result = await stringify(payload);
+    expect(result).toBe(JSON.stringify(payload));
+    expect(worker.calls).toBe(0);
+  });
+
+  it("routes payloads at/above the threshold to the worker", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    const payload = { tileOverlay: Array.from({ length: 150 }, (_, i) => ({ x: i, y: i })) };
+    const result = await stringify(payload);
+    expect(result).toBe(JSON.stringify(payload));
+    expect(worker.calls).toBe(1);
+  });
+
+  it("checks every top-level array, not just the first key", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    // commandEvents is small; tileOverlay (checked second, but must still count) is large.
+    const payload = {
+      commandEvents: [1, 2, 3],
+      tileOverlay: Array.from({ length: 200 }, (_, i) => i)
+    };
+    await stringify(payload);
+    expect(worker.calls).toBe(1);
+  });
+
+  it("stringifies non-array, non-object payloads inline", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    expect(await stringify(null)).toBe(JSON.stringify(null));
+    expect(await stringify("scalar")).toBe(JSON.stringify("scalar"));
+    expect(worker.calls).toBe(0);
+  });
+
+  it("defaults the threshold high enough that a realistic compacted checkpoint stays inline", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker });
+    const tileOverlay = Array.from({ length: 5_147 }, (_, i) => ({ x: i % 450, y: Math.floor(i / 450), ownerId: `p-${i}` }));
+    await stringify({ tileOverlay });
+    expect(worker.calls).toBe(0);
+  });
+
+  it("still routes a genuinely huge (uncompacted-fallback-scale) payload to the worker by default", async () => {
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker });
+    const tiles = Array.from({ length: 202_500 }, (_, i) => ({ x: i % 450, y: Math.floor(i / 450) }));
+    await stringify({ tiles });
+    expect(worker.calls).toBe(1);
+  });
+
+  it("routes to the worker when the large array is nested (uncompacted `initialState.tiles` shape)", async () => {
+    // Regression guard: buildSimulationSnapshotPayload nests its ~202k-element
+    // array as `initialState.tiles`, with only small sibling arrays at the top
+    // level. A top-level-only size check would misroute this 18MB-scale payload
+    // to the inline path and block the sim event loop.
+    const worker = trackingWorker();
+    const stringify = createHybridSnapshotStringifier({ worker, inlineThreshold: 100 });
+    const payload = {
+      initialState: {
+        tiles: Array.from({ length: 500 }, (_, i) => ({ x: i, y: i })),
+        activeLocks: [],
+        players: []
+      },
+      commandEvents: [{ commandId: "c1", events: [] }]
+    };
+    await stringify(payload);
+    expect(worker.calls).toBe(1);
+  });
+
+  it("exposes close/getWorkerMetrics from the wrapped worker when present", async () => {
+    const realWorker = createWorkerSnapshotStringifier();
+    const stringify = createHybridSnapshotStringifier({ worker: realWorker, inlineThreshold: 1 });
+    expect(typeof stringify.close).toBe("function");
+    expect(typeof stringify.getWorkerMetrics).toBe("function");
+    await stringify.close?.();
   });
 });

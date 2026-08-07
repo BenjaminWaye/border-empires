@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRONTIER_CLAIM_MS } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { validateFrontierCommand } from "./index.js";
 
 describe("game domain frontier validation", () => {
@@ -22,7 +22,8 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
-      defenderIsAlliedOrTruced: false
+      defenderIsAlliedOrTruced: false,
+      originMuster: 100
     });
 
     expect(result).toMatchObject({
@@ -60,14 +61,16 @@ describe("game domain frontier validation", () => {
     });
   });
 
-  it("allows EXPAND onto neutral land with zero manpower", () => {
+  // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2): EXPAND
+  // now costs EXPAND_MANPOWER_COST manpower — it is no longer free.
+  it("allows EXPAND onto neutral land when manpower covers EXPAND_MANPOWER_COST", () => {
     const result = validateFrontierCommand({
       now: 1_000,
       actor: {
         id: "p1",
         isAi: false,
         points: 100,
-        manpower: 0,
+        manpower: EXPAND_MANPOWER_COST,
         techIds: new Set<string>(),
         allies: new Set<string>()
       },
@@ -82,10 +85,35 @@ describe("game domain frontier validation", () => {
       defenderIsAlliedOrTruced: false
     });
 
-    expect(result).toMatchObject({ ok: true });
+    expect(result).toMatchObject({ ok: true, manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST });
   });
 
-  it("rejects ATTACK when manpower is below the attack minimum", () => {
+  it("rejects EXPAND with INSUFFICIENT_MANPOWER when below EXPAND_MANPOWER_COST", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: EXPAND_MANPOWER_COST - 1,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 11, y: 11, terrain: "LAND" },
+      actionGoldCost: 1,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false
+    });
+
+    expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_MANPOWER", message: expect.stringContaining("claim frontier") });
+  });
+
+  it("rejects ATTACK when the origin tile's mustered manpower is below the requirement", () => {
     const result = validateFrontierCommand({
       now: 1_000,
       actor: {
@@ -104,92 +132,57 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
-      defenderIsAlliedOrTruced: false
+      defenderIsAlliedOrTruced: false,
+      originMuster: 10
     });
 
-    expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_MANPOWER" });
+    expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_MUSTER" });
   });
 
-  it("scales attack manpower by fortification strength", () => {
-    const cases = [
-      {
-        label: "wooden fort",
-        manpower: 90,
-        to: {
-          x: 10,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "p2",
-          ownershipState: "FRONTIER" as const,
-          economicStructure: { ownerId: "p2", type: "WOODEN_FORT" as const, status: "active" as const }
-        }
-      },
-      {
-        label: "active fort",
-        manpower: 300,
-        to: {
-          x: 10,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "p2",
-          ownershipState: "FRONTIER" as const,
-          fort: { ownerId: "p2", status: "active" as const }
-        }
-      },
-      {
-        label: "iron bastion",
-        manpower: 600,
-        to: {
-          x: 10,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "p2",
-          ownershipState: "FRONTIER" as const,
-          fort: { ownerId: "p2", status: "active" as const, variant: "IRON_BASTION" as const }
-        }
-      },
-      {
-        label: "thunder bastion",
+  // Fort-based attack-cost scaling no longer lives here — under the muster
+  // system, the caller (SimulationRuntime.requiredMusterForTarget) computes
+  // the required muster from the target's *actual* live garrison count, not
+  // a static per-fort-tier table, and passes the result in as `requiredMuster`.
+  // That scaling behavior is covered by
+  // apps/simulation/src/runtime-muster-tick/muster-fort-garrison.test.ts.
+  // This test just confirms validateFrontierCommand still honors whatever
+  // requiredMuster it's given for manpowerMin/manpowerCost.
+  it("honors an explicit requiredMuster for manpowerMin/manpowerCost", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
         manpower: 1_200,
-        to: {
-          x: 10,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "p2",
-          ownershipState: "FRONTIER" as const,
-          fort: { ownerId: "p2", status: "active" as const, variant: "THUNDER_BASTION" as const }
-        }
-      }
-    ];
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "ATTACK",
+      from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: {
+        x: 10,
+        y: 11,
+        terrain: "LAND",
+        ownerId: "p2",
+        ownershipState: "FRONTIER",
+        fort: { ownerId: "p2", status: "active", variant: "THUNDER_BASTION" }
+      },
+      actionGoldCost: 10,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false,
+      originMuster: 1_200,
+      requiredMuster: 1_200
+    });
 
-    for (const testCase of cases) {
-      const result = validateFrontierCommand({
-        now: 1_000,
-        actor: {
-          id: "p1",
-          isAi: false,
-          points: 100,
-          manpower: testCase.manpower,
-          techIds: new Set<string>(),
-          allies: new Set<string>()
-        },
-        actionType: "ATTACK",
-        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
-        to: testCase.to,
-        actionGoldCost: 10,
-        isAdjacent: true,
-        isDockCrossing: false,
-        isBridgeCrossing: false,
-        targetShielded: false,
-        defenderIsAlliedOrTruced: false
-      });
-
-      expect(result, testCase.label).toMatchObject({
-        ok: true,
-        manpowerMin: testCase.manpower,
-        manpowerCost: testCase.manpower
-      });
-    }
+    expect(result).toMatchObject({
+      ok: true,
+      manpowerMin: 1_200,
+      manpowerCost: 1_200
+    });
   });
 
   it("returns LOCKED instead of ATTACK_COOLDOWN when origin lock belongs to another player", () => {

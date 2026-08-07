@@ -10,30 +10,30 @@ import {
 } from "three";
 import {
   createTerrainDetailMaps,
-  legacy3DTerrainPalette,
   type TerrainDetailMaps
 } from "../client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
+import {
+  elevationJitter,
+  heightfieldTileBaseElevation,
+  heightfieldTileColor,
+  wrap,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  type HeightfieldTerrainKind
+} from "../client-map-3d-heightfield-terrain.js";
+// Re-exported so existing consumers (client-map-3d-hills.ts, storybook,
+// this module's own test) keep importing terrain data from here.
+export * from "../client-map-3d-heightfield-terrain.js";
 
-export type HeightfieldTerrainKind = "GRASS" | "SAND" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
-
-// Each rebuild passes per-tile kind for the visible window. A vertex shared by N
-// adjacent tiles takes the mean of those tiles' elevations and colors, so two
-// neighbouring mountain tiles raise their shared edge to a continuous ridge
-// while a lone mountain tile only swells to ~25% height (visually completed by
-// the mountain massif peak in commit 3).
+// A vertex shared by N tiles takes the mean of their elevations/colors, so
+// two mountain tiles raise their shared edge to a ridge while a lone
+// mountain swells to only ~25% height (completed by its massif peak).
 export const HEIGHTFIELD_MAX_TILES_PER_AXIS = 240;
 const VERT_DIM = HEIGHTFIELD_MAX_TILES_PER_AXIS + 1;
 const VERT_COUNT = VERT_DIM * VERT_DIM;
 const QUAD_COUNT = HEIGHTFIELD_MAX_TILES_PER_AXIS * HEIGHTFIELD_MAX_TILES_PER_AXIS;
 const MAX_INDEX_COUNT = QUAD_COUNT * 6;
-
-export const HEIGHTFIELD_DEEP_SEA_ELEVATION = -0.36;
-export const HEIGHTFIELD_COASTAL_SEA_ELEVATION = -0.16;
-export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
-export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
-export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
 
 // The heightfield surface has zero thickness, and sea tiles are skipped
 // entirely so the water plane can sit on top of the hole. At grazing camera
@@ -46,65 +46,6 @@ export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
 const SKIRT_BOTTOM_Y = -0.6;
 const SKIRT_SHADE = 0.55;
 
-export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): number => {
-  switch (kind) {
-    case "MOUNTAIN":
-      return HEIGHTFIELD_MOUNTAIN_ELEVATION;
-    case "GRASS":
-      return HEIGHTFIELD_GRASS_ELEVATION;
-    case "SAND":
-      return HEIGHTFIELD_SAND_ELEVATION;
-    case "COASTAL_SEA":
-      return HEIGHTFIELD_COASTAL_SEA_ELEVATION;
-    case "SEA":
-      return HEIGHTFIELD_DEEP_SEA_ELEVATION;
-  }
-};
-
-const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [128, 120, 124];
-const MOUNTAIN_ROCK_DARK: [number, number, number] = [98, 92, 96];
-const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDark;
-const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
-// Distinct turquoise for the shoreline so it reads clearly through the
-// transparent water plane and contrasts with the darker deep-sea floor.
-const COASTAL_SEA_FLOOR: [number, number, number] = [188, 162, 112];
-const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
-
-const heightfieldTileColor = (
-  kind: HeightfieldTerrainKind,
-  variant: 0 | 1 | 2
-): [number, number, number] => {
-  switch (kind) {
-    case "MOUNTAIN":
-      return variant === 0 ? MOUNTAIN_ROCK_DARK : MOUNTAIN_ROCK_LIGHT;
-    case "GRASS":
-      return variant === 0 ? GRASS_TINT_DEEP : variant === 1 ? GRASS_TINT_LIGHT : GRASS_TINT_DEEP;
-    case "SAND":
-      return legacy3DTerrainPalette.sand;
-    case "COASTAL_SEA":
-      return COASTAL_SEA_FLOOR;
-    case "SEA":
-      return DEEP_SEA_FLOOR;
-  }
-};
-
-const wrap = (n: number, dim: number): number => {
-  const m = n % dim;
-  return m < 0 ? m + dim : m;
-};
-
-const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind): number => {
-  if (kind === "MOUNTAIN") {
-    const h = ((wx * 73856093) ^ (wy * 19349663)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.16;
-  }
-  if (kind === "GRASS" || kind === "SAND") {
-    const h = ((wx * 374761393) ^ (wy * 668265263)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.05;
-  }
-  return 0;
-};
-
 export type HeightfieldRebuildInputs = {
   readonly camX: number;
   readonly camY: number;
@@ -114,11 +55,11 @@ export type HeightfieldRebuildInputs = {
   readonly worldHeight: number;
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
   readonly isExploredAt?: (wx: number, wy: number) => boolean;
-  // Drives the "darker grass around trees" zone — any tile within
-  // FOREST_HALO_RADIUS of a forest tile gets a forestProximity = 1, smoothed
-  // at corners through vertex averaging. Optional so tests don't have to
-  // pass it; absent → no halo.
+  // Drives the "darker grass" halo near trees (forestProximity, smoothed
+  // via vertex averaging). Absent → no halo.
   readonly isForestAt?: (wx: number, wy: number) => boolean;
+  // Excludes GRASS/SAND hills tiles (rendered by client-map-3d-hills.ts).
+  readonly isHillsAt?: (wx: number, wy: number) => boolean;
 };
 
 const FOREST_HALO_RADIUS = 2;
@@ -323,11 +264,20 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   skirtMesh.receiveShadow = false;
   skirtMesh.castShadow = false;
 
-  // Gridlines: a LineSegments that reuses the heightfield's position buffer,
-  // with a precomputed index that draws only the horizontal and vertical
-  // tile edges (no diagonals) so the grid follows the sculpted surface.
+  // Gridlines: a LineSegments with its own position buffer, offset a hair
+  // above the main heightfield's (GRID_Y_EPSILON). A hill tile's boundary
+  // sits at exactly the same Y as the dome mesh's own flat outer collar
+  // (domeFalloff is 0 at the tile edge by construction — see
+  // client-map-3d-hills.ts), so sharing the main buffer put the grid line
+  // and the dome's opaque collar triangles at the identical depth: a
+  // coplanar tie the line consistently lost, leaving hill tiles with no
+  // visible grid square around them. The epsilon is far below any real
+  // terrain height difference, so lines are still correctly hidden behind
+  // actually-taller geometry (mountains, buildings) elsewhere.
+  const GRID_Y_EPSILON = 0.003;
   const gridGeometry = new BufferGeometry();
-  gridGeometry.setAttribute("position", geometry.getAttribute("position"));
+  const gridPositions = new Float32Array(VERT_COUNT * 3);
+  gridGeometry.setAttribute("position", new BufferAttribute(gridPositions, 3));
   const HORIZONTAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const VERTICAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
   const GRID_INDEX_COUNT = (HORIZONTAL_LINES + VERTICAL_LINES) * 2;
@@ -373,10 +323,12 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       worldHeight,
       tileKindAt,
       isExploredAt,
-      isForestAt
+      isForestAt,
+      isHillsAt
     } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
     const forestAt = isForestAt ?? ((): boolean => false);
+    const hillsAt = isHillsAt ?? ((): boolean => false);
 
     const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
     const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
@@ -392,6 +344,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       readonly b: number;
       readonly isSea: boolean;
       readonly isExplored: boolean;
+      readonly isHills: boolean;
       readonly forestProx: number;
     };
     const tileSampleCache = new Map<number, TileSample>();
@@ -417,7 +370,13 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       const kind = tileKindAt(wx, wy);
       const variant = terrainShadeVariantAt(wx, wy);
       const [cr, cg, cb] = heightfieldTileColor(kind, variant);
-      const elevation = heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
+      // Excluded from land averaging below (s00Land etc.) — hills render as
+      // their own dome mesh (client-map-3d-hills.ts), so a flat neighbour
+      // never rises.
+      const isHillsTile = (kind === "GRASS" || kind === "SAND") && hillsAt(wx, wy);
+      const hillsBonus = isHillsTile ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0;
+      const baseElevation = heightfieldTileBaseElevation(kind) + hillsBonus;
+      const elevation = baseElevation + elevationJitter(wx, wy, kind);
       const isSea = kind === "SEA" || kind === "COASTAL_SEA";
       const isExplored = exploredAt(wx, wy);
       // Forest halo only matters on land grass — no point scanning sea/mountain.
@@ -429,10 +388,11 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         b: cb / 255,
         isSea,
         isExplored,
+        isHills: isHillsTile,
         forestProx
       };
       tileSampleCache.set(cacheKey, sample);
-      elevationCache.set(elevationKey(wx, wy), heightfieldTileBaseElevation(kind));
+      elevationCache.set(elevationKey(wx, wy), baseElevation);
       return sample;
     };
 
@@ -457,10 +417,13 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         // Count categories inline — the previous Array.filter chain ran
         // three filters per vertex (3× allocations + 3× closures × VERT_COUNT)
         // and dominated GC during pan. Same averaging semantics, no allocs.
-        const s00Land = s00.isExplored && !s00.isSea;
-        const s10Land = s10.isExplored && !s10.isSea;
-        const s01Land = s01.isExplored && !s01.isSea;
-        const s11Land = s11.isExplored && !s11.isSea;
+        // Hills tiles are excluded from "land" here (see isHillsTile above)
+        // so a flat neighbour's corner is only ever averaged against other
+        // flat land — it never rises just because a hills tile touches it.
+        const s00Land = s00.isExplored && !s00.isSea && !s00.isHills;
+        const s10Land = s10.isExplored && !s10.isSea && !s10.isHills;
+        const s01Land = s01.isExplored && !s01.isSea && !s01.isHills;
+        const s11Land = s11.isExplored && !s11.isSea && !s11.isHills;
         const s00Sea = s00.isExplored && s00.isSea;
         const s10Sea = s10.isExplored && s10.isSea;
         const s01Sea = s01.isExplored && s01.isSea;
@@ -469,19 +432,47 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           (s00Land ? 1 : 0) + (s10Land ? 1 : 0) + (s01Land ? 1 : 0) + (s11Land ? 1 : 0);
         const seaCount =
           (s00Sea ? 1 : 0) + (s10Sea ? 1 : 0) + (s01Sea ? 1 : 0) + (s11Sea ? 1 : 0);
-        const exploredCount = landCount + seaCount;
+        // Hills count as neither land nor sea above (by design — a flat
+        // neighbour's corner must never average against a hill's raised
+        // elevation), but they ARE explored. A corner deep inside a large
+        // hills cluster (every one of its 4 tiles a hill, common once hills
+        // cluster into highland regions) has landCount=0 and seaCount=0 —
+        // using landCount+seaCount here mistook that for "nothing explored
+        // touches this corner" and pinned it to the deep-sea-floor
+        // placeholder, tens of units below the actual dome surface. That
+        // silently broke cornerYAt() for those corners (gridlines resting
+        // on the sea floor instead of the hill, and any overlay anchored via
+        // cornerYAt sinking the same way).
+        const exploredCount =
+          (s00.isExplored ? 1 : 0) + (s10.isExplored ? 1 : 0) + (s01.isExplored ? 1 : 0) + (s11.isExplored ? 1 : 0);
         let elevation: number;
         let r: number;
         let g: number;
         let b: number;
-        if (exploredCount === 0 || landCount === 0) {
-          // No explored land touches this corner; vertex won't be drawn
+        if (exploredCount === 0) {
+          // Nothing explored touches this corner; vertex won't be drawn
           // (all surrounding tiles are skipped in the index buffer), so
           // values here are placeholders.
           elevation = seaFloorFallbackY;
           r = (s00.r + s10.r + s01.r + s11.r) * 0.25;
           g = (s00.g + s10.g + s01.g + s11.g) * 0.25;
           b = (s00.b + s10.b + s01.b + s11.b) * 0.25;
+        } else if (landCount === 0) {
+          // Explored but no *flat* land (sea and/or hills only). Not drawn
+          // by any triangle, but cornerYAt still reads the cache, so
+          // average the explored tiles instead of a bogus sea-floor Y.
+          // Hill samples' elevation includes HEIGHTFIELD_HILLS_ELEVATION_BONUS
+          // (see sampleTile) but the dome's own corner fallback
+          // (flatCorner's inner "no flat neighbour" branch in
+          // client-map-3d-hills.ts) averages the bonus-free base elevation —
+          // subtract it back out here so a deep-cluster corner matches the
+          // dome's true tapered-to-zero edge instead of floating above it.
+          const explored: TileSample[] = [s00, s10, s01, s11].filter((s) => s.isExplored);
+          const invFallback = 1 / explored.length;
+          elevation = explored.reduce((sum, s) => sum + (s.isHills ? s.elevation - HEIGHTFIELD_HILLS_ELEVATION_BONUS : s.elevation), 0) * invFallback;
+          r = explored.reduce((sum, s) => sum + s.r, 0) * invFallback;
+          g = explored.reduce((sum, s) => sum + s.g, 0) * invFallback;
+          b = explored.reduce((sum, s) => sum + s.b, 0) * invFallback;
         } else if (seaCount === 0) {
           // All explored neighbours are land — flat land top, no beach.
           let sumE = 0;
@@ -522,6 +513,9 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         positions[baseIdx + 0] = tileOffsetX + i;
         positions[baseIdx + 1] = elevation;
         positions[baseIdx + 2] = tileOffsetY + j;
+        gridPositions[baseIdx + 0] = tileOffsetX + i;
+        gridPositions[baseIdx + 1] = elevation + GRID_Y_EPSILON;
+        gridPositions[baseIdx + 2] = tileOffsetY + j;
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
@@ -548,13 +542,14 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
     // Index buffer rebuilt every call now: the sea/land mask shifts as
     // the camera pans, and sea tiles are skipped entirely so the
     // heightfield has tile-shaped holes where the per-tile water quads
-    // sit on top.
+    // sit on top. Hills tiles are skipped the same way — their footprint
+    // is covered by client-map-3d-hills.ts's own dome mesh instead.
     {
       let idxCount = 0;
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
           const sample = sampleTile(i, j);
-          if (sample.isSea || !sample.isExplored) continue;
+          if (sample.isSea || !sample.isExplored || sample.isHills) continue;
           const a = j * VERT_DIM + i;
           const b = a + 1;
           const c = a + VERT_DIM;
@@ -637,7 +632,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
           const sample = sampleTile(i, j);
-          if (sample.isSea || !sample.isExplored) continue;
+          if (sample.isSea || !sample.isExplored || sample.isHills) continue;
           // Corner grid indices for this tile: a=TL, b=TR, c=BL, d=BR.
           const a = cornerAt(i, j);
           const b = cornerAt(i + 1, j);

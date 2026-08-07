@@ -152,6 +152,7 @@ export function applyEncirclement(
       frontierDecayKind: undefined,
       fort: undefined,
       observatory: undefined,
+      naturalWonder: undefined,
       siegeOutpost: undefined,
       economicStructure: undefined,
       muster: undefined,

@@ -120,17 +120,26 @@ describe("automation command planner — utility AI path", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    // ATTACK should win over BUILD_ECONOMY despite weak income
-    expect(result.command?.type).toBe("ATTACK");
+    // The attack path should win over BUILD_ECONOMY despite weak income. Under
+    // the muster system, with no muster staged yet the AI issues SET_MUSTER
+    // first (it stages manpower via SET_MUSTER rather than attacking blind) —
+    // that's still "the attack path," not the economic build.
+    expect(result.command?.type).toBe("SET_MUSTER");
   });
 
   it("economic build fires when there is no frontier opportunity", () => {
-    // Mirrors the GOAP test — isolated town with no neutral neighbours
+    // Mirrors the GOAP test — isolated town with no neutral neighbours, plus
+    // one open SETTLED support-tile neighbor. MARKET is a town-support
+    // structure — the runtime places it on an open neighbor assigned to this
+    // town (resolveTownSupportTarget), never on the town tile itself, so a
+    // fixture with zero neighbors is unrealistic (see
+    // structure-command-planner.test.ts for the dedicated regression test).
     const ownedTown = makeTile(5, 5, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
       town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
     });
+    const openSupportTile = makeTile(6, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
@@ -143,8 +152,11 @@ describe("automation command planner — utility AI path", () => {
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       frontierTiles: [],           // no frontier tiles
-      ownedTiles: [ownedTown],
-      tilesByKey: new Map([["5,5", ownedTown]]),
+      ownedTiles: [ownedTown, openSupportTile],
+      tilesByKey: new Map([
+        ["5,5", ownedTown],
+        ["6,5", openSupportTile]
+      ]),
       clientSeq: 3,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
@@ -281,11 +293,14 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
   });
 
   it("populates utilityWinner=BUILD_ECONOMY when economy build fires (no frontier)", () => {
+    // See the "economic build fires when there is no frontier opportunity"
+    // test above for why an open support-tile neighbor is required.
     const ownedTown = makeTile(5, 5, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
       town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
     });
+    const openSupportTile = makeTile(6, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
@@ -298,8 +313,11 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       frontierTiles: [],
-      ownedTiles: [ownedTown],
-      tilesByKey: new Map([["5,5", ownedTown]]),
+      ownedTiles: [ownedTown, openSupportTile],
+      tilesByKey: new Map([
+        ["5,5", ownedTown],
+        ["6,5", openSupportTile]
+      ]),
       clientSeq: 3,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"

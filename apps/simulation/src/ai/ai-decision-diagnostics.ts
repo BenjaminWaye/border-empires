@@ -13,6 +13,7 @@
  */
 
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner-types.js";
+import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 
 export type AiDecisionDiagnostic = {
   playerId: string;
@@ -29,14 +30,62 @@ export type AiDecisionDiagnostic = {
     enemyCount: number;
     barbarianCount: number;
   };
+  /**
+   * Neighbor candidate tiles the frontier scan visited vs how many were
+   * entirely absent from the worker's tile map. A high missing/total ratio
+   * for a large empire is a sync-scope gap (tiles never delivered via
+   * tile_deltas), not a legitimately empty frontier — see
+   * frontier-command-planner.ts's FrontierAnalysis doc comment.
+   */
+  neighborCandidateTotal: number;
+  missingNeighborTileCount: number;
+  /** "x,y" of the first few frontier-scan origin tiles this tick — the tile(s)
+   *  the AI's scan is currently anchored on (see hotFrontierTiles priority
+   *  ladder in automation-command-planner.ts's baseFrontierOrigins). */
+  frontierOriginKeysSample: readonly string[];
+  /** Why each frontierOriginKeysSample tile was classified hot — see
+   *  planner-candidate-index.ts's explainFrontierOriginTile. */
+  frontierOriginExplanations: readonly FrontierOriginExplanation[];
+  /**
+   * Sizes of the three tile sets baseFrontierOrigins picks from, in priority
+   * order (automation-command-planner.ts): hotFrontierTiles is used if
+   * non-empty, else strategicFrontierTiles, else frontierTiles. Which one is
+   * >0 first tells you which tier actually produced frontierOriginKeysSample —
+   * without this, a plain "fell through to the full frontier list" (tier 3,
+   * hotFrontierTileCountInput 0) is indistinguishable from "these tiles are
+   * still in the cached hot set but no longer qualify live" (tier 1, >0, but
+   * frontierOriginExplanations shows reason: "none" — a stale-index signal).
+   */
+  hotFrontierTileCountInput: number;
+  strategicFrontierTileCountInput: number;
+  frontierTileCountInput: number;
   winner: string | undefined;
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
+  economicBuildCandidate: string | undefined;
+  /** Most recent COMMAND_REJECTED this player has seen, if any — most
+   *  rejection reasons collapse to the same "BUILD_INVALID" code (see
+   *  sim_ai_command_rejected_code_total), so the message is what actually
+   *  disambiguates "tile already has structure" from "needs an open
+   *  support tile" etc. */
+  lastRejection: { commandType: string; code: string; message: string; at: number } | undefined;
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
 const MAX_DIAGNOSTICS_PER_PLAYER = 100;
+
+// Bounded by the fixed AI player set for a season, not user input.
+const lastRejectionByPlayer = new Map<string, { commandType: string; code: string; message: string; at: number }>();
+
+export const recordAiCommandRejectionMessage = (
+  playerId: string,
+  commandType: string,
+  code: string,
+  message: string
+): void => {
+  lastRejectionByPlayer.set(playerId, { commandType, code, message, at: Date.now() });
+};
 
 export const recordAiDecisionDiagnostic = (diag: AiDecisionDiagnostic): void => {
   const existing = recentDiagnostics.get(diag.playerId) ?? [];
@@ -72,10 +121,19 @@ export const recordAiDecisionDiagnosticFromPlanner = (
       enemyCount: diagnostic.frontierEnemyTargetCount,
       barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0
     },
+    neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
+    missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
+    frontierOriginKeysSample: diagnostic.frontierOriginKeysSample ?? [],
+    frontierOriginExplanations: diagnostic.frontierOriginExplanations ?? [],
+    hotFrontierTileCountInput: diagnostic.hotFrontierTileCountInput ?? 0,
+    strategicFrontierTileCountInput: diagnostic.strategicFrontierTileCountInput ?? 0,
+    frontierTileCountInput: diagnostic.frontierTileCountInput ?? 0,
     winner: diagnostic.utilityWinner,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
-    gates: diagnostic.utilityGates
+    gates: diagnostic.utilityGates,
+    economicBuildCandidate: diagnostic.economicBuildCandidate,
+    lastRejection: lastRejectionByPlayer.get(diagnostic.playerId)
   });
 };
 
@@ -88,9 +146,4 @@ export const getAiDecisionDiagnostics = (playerId?: string): AiDecisionDiagnosti
     all.push(...diags);
   }
   return all.sort((a, b) => b.recordedAt - a.recordedAt);
-};
-
-export const getLatestAiDecisionDiagnostic = (playerId: string): AiDecisionDiagnostic | undefined => {
-  const diags = recentDiagnostics.get(playerId);
-  return diags?.[diags.length - 1];
 };

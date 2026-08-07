@@ -80,6 +80,12 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
 - `frontierState` – Counts of frontier opportunities: neutral, economic, town-support, scout, enemy, barbarian
 - Resource state: gold, manpower, dev slot availability
 - `canExpand` / `canAttack` flags
+- `economicBuildCandidate` – The economic structure type (MARKET/BANK/GRANARY/etc.) the
+  planner most recently proposed for this player, if any
+- `lastRejection` – `{ commandType, code, message, at }` for the most recent runtime-rejected
+  command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has
+  granary"). Use this to catch propose-then-reject loops that burn planner cycles without
+  producing accepted commands.
 
 **Use when**: AI is stuck in wait_and_recover with no commands. Shows exactly which decision classes scored 0 and why.
 
@@ -124,10 +130,18 @@ Prometheus-format metrics including AI diagnostics:
 - `sim_ai_autopilot_player_count` – Number of active AI players
 - `sim_ai_noop_total` – AI commands by type (WAIT, SET_MUSTER, BUILD_FORT, ATTACK, etc.)
   - Grouped by player and action; high WAIT count = idle/waiting AI
+- `sim_ai_player_gold{player_id}` – Current gold for each AI player (gauge, 1s cadence)
+- `sim_ai_player_gold_capacity{player_id}` – Gold storage cap for each AI player (gauge)
+  - `max(EMPIRE_STORAGE_FLOOR.GOLD, goldIncomePerMinute * STORAGE_MINUTES)`, `STORAGE_MINUTES = 720` (12h)
+- `sim_ai_player_settled_tiles{player_id}` – Settled tile count for each AI player (gauge)
+- `sim_ai_player_owned_tiles{player_id}` – Owned tile count for each AI player (gauge)
+- `sim_ai_expand_total{player_id}` – Cumulative accepted `EXPAND` commands per AI player (counter)
 - `sim_event_loop_blocked_total` – Main thread blocking events
 - `sim_snapshot_export_ms` – Snapshot export duration
 
-**Use when**: Checking AI health, event loop pressure, command type distribution.
+**Use when**: Checking AI health, event loop pressure, command type distribution, or
+whether an AI is actually growing (gaining tiles / spending gold) vs. just idling
+with a rising gold balance.
 
 Example grep for AI metrics:
 ```bash
@@ -141,7 +155,19 @@ sim_ai_noop_total{player="ai-1",type="WAIT"} 45000
 sim_ai_noop_total{player="ai-1",type="SET_MUSTER"} 1200
 sim_ai_noop_total{player="ai-1",type="BUILD_FORT"} 1100
 sim_ai_noop_total{player="ai-1",type="ATTACK"} 300
+sim_ai_player_gold{player_id="ai-1"} 27856.4
+sim_ai_player_gold_capacity{player_id="ai-1"} 45000
+sim_ai_player_settled_tiles{player_id="ai-1"} 12
+sim_ai_player_owned_tiles{player_id="ai-1"} 87
+sim_ai_expand_total{player_id="ai-1"} 5
 ```
+
+**Checking growth/spend velocity**: these are gauges/counters sampled once per
+second, so use `rate()`/`increase()` in PromQL (or diff two curl snapshots
+locally) rather than reading a single point:
+- `increase(sim_ai_expand_total{player_id="ai-1"}[10m])` – EXPAND commands accepted in the last 10 minutes (zero = not growing).
+- `sim_ai_player_gold{player_id="ai-1"} / sim_ai_player_gold_capacity{player_id="ai-1"}` – how close to the storage cap (sitting near 1.0 with no EXPAND growth suggests the AI isn't spending).
+- A gold gauge that only ever rises (never dips) between planner ticks with no matching `BUILD_ECONOMIC_STRUCTURE`/`EXPAND` activity indicates the AI isn't spending its income.
 
 ---
 
@@ -167,10 +193,36 @@ sim_ai_noop_total{player="ai-1",type="ATTACK"} 300
 2. Check whether settled/owned tiles are reasonable for that AI
 3. Check `/admin/runtime/metrics` → main thread lag (can starve economic calculations)
 
+### AI gold is growing but the empire isn't (no tile/structure growth)
+1. Poll `/admin/debug/ai` twice, ~60-90s apart → compare `settledTiles`/`ownedTiles`
+   for each AI player; zero change over that window despite positive
+   `incomePerMinute` is a real problem, not just "waiting for the next tick".
+2. Check `sim_ai_expand_total{player_id}` via `increase(...[10m])` — zero means
+   the AI hasn't had an EXPAND command accepted recently.
+3. Check `sim_ai_player_gold` vs `sim_ai_player_gold_capacity` — gold sitting
+   near the cap with no EXPAND/BUILD growth means the AI is accumulating but
+   not spending.
+4. Check `/admin/debug/ai/decisions?playerId=<id>` → `lastRejection` and
+   `economicBuildCandidate` for why EXPAND/BUILD_ECONOMIC_STRUCTURE keeps
+   getting proposed-and-rejected instead of accepted.
+
 ---
 
 ## Notes
 
+- **Planner internals / CPU profiling / dead-code hunting**: for the AI decision
+  pipeline architecture, how to profile per-plan cost (`sim_ai_planner_phase_ms`),
+  what the AI emits vs. computes, and how to find dead/wasteful AI work, see
+  `docs/agents/topics/ai-planner.md`.
+- **Known AI capability gaps** (not wired up, tracked intentionally — low priority):
+  - The AI never builds **observatories**. `structure-command-planner.ts` only
+    has economic/fort/siege builders; there is no observatory builder, so
+    `BUILD_OBSERVATORY` is never emitted (it appears only in command-classifier
+    lists). Wiring it up means adding a `chooseBestObservatoryBuild` and a
+    `BUILD_OBSERVATORY` path in the planner/utility policy.
+  - The AI never uses **crystal abilities** (`AIRPORT_BOMBARD` / Sky Dock
+    Bombard, `CRYSTAL_SYNTHESIZER`, `ADVANCED_CRYSTAL_SYNTHESIZER`). No AI code
+    references them — the AI accumulates crystal but never spends it on abilities.
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time
 - **Metrics delay**: Prometheus metrics may lag 30–60 seconds in practice

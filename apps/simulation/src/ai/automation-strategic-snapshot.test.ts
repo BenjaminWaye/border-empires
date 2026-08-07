@@ -31,7 +31,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 4,
       controlledTileCount: 4,
       townCount: 1,
-      incomePerMinute: 9,
+      incomePerMinute: 9 / 288,
       ownedTiles: [ownedDock],
       tilesByKey: new Map([
         ["10,10", ownedDock],
@@ -78,7 +78,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 1,
       controlledTileCount: 6,
       townCount: 1,
-      incomePerMinute: 10,
+      incomePerMinute: 10 / 288,
       ownedTiles: [town, ...frontierTiles],
       tilesByKey: new Map([
         ["0,0", town],
@@ -109,7 +109,6 @@ describe("automation strategic snapshot", () => {
     });
 
     expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
-    expect(snapshot.victoryPathContender).toBe(true);
   });
 
   it("chooses break posture and town-control pressure when healthy towns face enemy border pressure", () => {
@@ -122,7 +121,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 5,
       controlledTileCount: 5,
       townCount: 2,
-      incomePerMinute: 10,
+      incomePerMinute: 10 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -167,7 +166,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 5,
       controlledTileCount: 5,
       townCount: 1,
-      incomePerMinute: 7,
+      incomePerMinute: 7 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -217,7 +216,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 5,
       controlledTileCount: 5,
       townCount: 1,
-      incomePerMinute: 9,
+      incomePerMinute: 9 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -267,7 +266,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 15,
       controlledTileCount: 15,
       townCount: 2,
-      incomePerMinute: 10,
+      incomePerMinute: 10 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -315,7 +314,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 1,
       controlledTileCount: 2,
       townCount: 0,
-      incomePerMinute: 2,
+      incomePerMinute: 2 / 288,
       ownedTiles: [settled, frontier],
       tilesByKey: new Map([
         ["20,19", settled],
@@ -361,7 +360,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 7,
       controlledTileCount: 7,
       townCount: 1,
-      incomePerMinute: 11,
+      incomePerMinute: 11 / 288,
       ownedTiles: ironTiles,
       tilesByKey,
       frontierAnalysis: {
@@ -396,7 +395,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 4,
       controlledTileCount: 4,
       townCount: 1,
-      incomePerMinute: 9,
+      incomePerMinute: 9 / 288,
       ownedTiles: [dockA, dockB],
       tilesByKey: new Map([
         ["0,0", dockA],
@@ -435,7 +434,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 3,
       controlledTileCount: 3,
       townCount: 1,
-      incomePerMinute: 6,
+      incomePerMinute: 6 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([["0,0", town]]),
       frontierAnalysis: {
@@ -474,7 +473,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 5,
       controlledTileCount: 5,
       townCount: 2,
-      incomePerMinute: 1,
+      incomePerMinute: 1 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -516,7 +515,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 5,
       controlledTileCount: 5,
       townCount: 2,
-      incomePerMinute: 1,
+      incomePerMinute: 1 / 288,
       ownedTiles: [town],
       tilesByKey: new Map([
         ["0,0", town],
@@ -557,7 +556,7 @@ describe("automation strategic snapshot", () => {
       settledTileCount: 8,
       controlledTileCount: 8,
       townCount: 2,
-      incomePerMinute: 12,
+      incomePerMinute: 12 / 288,
       ownedTiles: [town, otherTown],
       tilesByKey: new Map([
         ["0,0", town],

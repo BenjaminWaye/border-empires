@@ -1,3 +1,4 @@
+import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type MapLoadingView = {
@@ -16,7 +17,10 @@ export type MapLoadingView = {
 // progress, expose explicit recovery actions (retry, reload, diagnostics).
 // Decoupled from the server-side watchdog (which fires at 30s) on purpose:
 // these are pure UX timings that don't require the server to be dead.
-const SOFT_HINT_THRESHOLD_MS = 8_000;
+// SOFT_HINT_THRESHOLD_MS is shared with the earlier client-auth-ui.ts busy
+// modal (see AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS in client-constants.ts) so
+// the "past 8s is abnormal" judgment call lives in exactly one place.
+const SOFT_HINT_THRESHOLD_MS = AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS;
 const ACTION_AFFORDANCE_THRESHOLD_MS = 25_000;
 
 export const buildMapLoadingView = (
@@ -141,7 +145,13 @@ export const buildMapLoadingView = (
         meta: `Login is taking longer than usual (${elapsedSeconds}s). Hang on…`,
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        // Diagnostics only (no retry/reload yet) — a slow-but-not-yet-dead
+        // auth wait is exactly the window we most want a bundle from: past
+        // SOFT_HINT (8s, abnormal for a warm login) but before
+        // ACTION_AFFORDANCE (25s, where retry/reload appear). Waiting until
+        // 25s to offer diagnostics meant anything in the 8-25s band (a very
+        // common slow-login shape) had no way to grab logs.
+        showDiagnostics: true,
         tone: "normal"
       };
     }

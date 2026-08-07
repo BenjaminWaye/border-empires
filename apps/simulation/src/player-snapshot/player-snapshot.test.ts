@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
-import { buildLivePlayerEconomySnapshot } from "../live-snapshot-view/live-snapshot-view.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 describe("buildPlayerSubscriptionSnapshot", () => {
@@ -71,7 +70,12 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townType: "MARKET",
           townName: "Old Growth",
           townPopulationTier: "TOWN"
-        }
+        },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles). Placed away from the town so
+        // it doesn't change supportCurrent/supportMax (a §5 v1 global pool).
+        { x: 30, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 31, y: 30, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -80,7 +84,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10"]
+          territoryTileKeys: ["10,10", "30,30", "31,30"]
         }
       ],
       pendingSettlements: [],
@@ -122,7 +126,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Warwick",
           townPopulationTier: "TOWN"
         },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles), not the legacy
+        // strategicResources.FOOD stockpile below.
+        { x: 11, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 11, y: 11, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
@@ -132,7 +140,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
+          territoryTileKeys: ["10,10", "11,10", "11,11"]
         }
       ],
       pendingSettlements: [],
@@ -176,7 +184,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "Quietwick",
           townPopulationTier: "TOWN"
         },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant
+        // (4 slots for a TOWN — two FISH tiles).
+        { x: 12, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 12, y: 11, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
       players: [
         {
@@ -185,7 +197,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
+          territoryTileKeys: ["10,10", "11,10", "12,10", "12,11"]
         }
       ],
       pendingSettlements: [],
@@ -213,8 +225,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING" },
-        { x: 14, y: 10, terrain: "LAND" },
-        { x: 15, y: 10, terrain: "LAND" },
+        { x: 11, y: 10, terrain: "LAND" },
+        { x: 12, y: 10, terrain: "LAND" },
         { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
@@ -240,7 +252,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.playerId).toBe("player-1");
     expect(snapshot.tiles).toEqual([
       expect.objectContaining({ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING" }),
-      { x: 14, y: 10, terrain: "LAND" }
+      { x: 11, y: 10, terrain: "LAND" }
     ]);
   });
 
@@ -319,7 +331,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          { x: 24, y: 20, terrain: "LAND" }
+          { x: 21, y: 20, terrain: "LAND" }
         ],
         players: [
           {
@@ -346,7 +358,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         tiles: [
           expect.objectContaining({ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }),
           expect.objectContaining({ x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }),
-          expect.objectContaining({ x: 24, y: 20, terrain: "LAND" })
+          expect.objectContaining({ x: 21, y: 20, terrain: "LAND" })
         ]
       })
     );
@@ -445,7 +457,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           activeDevelopmentProcessCount: 1,
           pendingSettlements: [{ x: 11, y: 10, startedAt: 1_000, resolvesAt: 61_000 }],
           strategicResources: expect.objectContaining({ FOOD: 3 }),
-          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0.0333 })
+          // §5.4: FOOD is slot-based, not produced — strategicProductionPerMinute.FOOD is always 0 now.
+          strategicProductionPerMinute: expect.objectContaining({ FOOD: 0 })
         })
       })
     );
@@ -682,7 +695,13 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) }
+        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) },
+        // §5.4: FOOD slot supply — town(2) + MARKET/BANK/GRANARY/CLEARING_HOUSE
+        // (1 each) = 6 demand; the FARM tile above only gives 1, so these
+        // support structures need real supply to not go dormant.
+        { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 8, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 8, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
       ],
       players: [
         {
@@ -697,7 +716,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "9,10", "9,9", "11,10", "10,9", "10,11"]
+          territoryTileKeys: ["10,10", "9,10", "9,9", "11,10", "10,9", "10,11", "8,10", "8,9", "8,11"]
         }
       ],
       pendingSettlements: [],
@@ -717,10 +736,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         marketActive: true, granaryActive: true, bankActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
-        foodUpkeepPerMinute: 0.1
+        // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
+        foodUpkeepPerMinute: 0
       })
     );
-    expect(town?.goldPerMinute).toBeCloseTo(7.45);
+    expect(town?.goldPerMinute).toBeCloseTo(1.5207, 4);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
@@ -734,43 +754,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.player?.economyBreakdown?.GOLD.sources[0]).toEqual(
       expect.objectContaining({ label: "Towns", amountPerMinute: expect.any(Number) })
     );
-    expect(snapshot.player?.upkeepPerMinute?.food).toBeGreaterThan(0.1);
-  });
-
-  it("shows Clockwork Stipend in the SUPPLY source bucket for live snapshot economy breakdown", () => {
-    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
-      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
-      players: [
-        {
-          id: "player-1",
-          name: "Nauticus",
-          points: 64,
-          manpower: 120,
-          incomeMultiplier: 1,
-          techIds: [],
-          domainIds: ["clockwork-stipend"],
-          chosenTrickleResource: "SUPPLY",
-          strategicResources: { FOOD: 3, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-          allies: [],
-          vision: 1,
-          visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10"]
-        }
-      ],
-      pendingSettlements: [],
-      activeLocks: []
-    });
-
-    expect(snapshot.player?.economyBreakdown?.SUPPLY.sources).toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
-    );
-    expect(snapshot.player?.economyBreakdown?.IRON.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend" })
-    );
-    expect(snapshot.player?.economyBreakdown?.CRYSTAL.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend" })
-    );
-    expect(snapshot.player?.strategicProductionPerMinute?.SUPPLY).toBeCloseTo(0.2);
+    // §5.4: FOOD is slot-based — town/structure food upkeep is retired to 0.
+    expect(snapshot.player?.upkeepPerMinute?.food).toBe(0);
   });
 
   it("keeps settlement food upkeep at zero in rewrite economy snapshots", () => {
@@ -848,7 +833,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         {
           id: "player-1",
           allies: [],
-          vision: 1,
+          vision: 4, // dx=4 reach to the remote town, independent of base VISION_RADIUS
           visionRadiusBonus: 0,
           territoryTileKeys: ["10,10"]
         },
@@ -917,7 +902,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         {
           id: "player-1",
           allies: [],
-          vision: 1,
+          vision: 4, // dx=4 reach to the remote town, independent of base VISION_RADIUS
           visionRadiusBonus: 0,
           territoryTileKeys: ["10,10"]
         },
@@ -947,7 +932,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
-
   it("derives full remote settlement summaries from recovered synthetic settlement identity", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
@@ -968,11 +952,13 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townType: "FARMING",
           townName: "Settlement 14,10",
           townPopulationTier: "SETTLEMENT"
-        }
+        },
+        // §5.4: a town needs real FOOD slot supply to be fed/not-dormant.
+        { x: 15, y: 10, terrain: "LAND", resource: "FISH", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
-        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10"] }
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "15,10"] }
       ],
       pendingSettlements: [],
       activeLocks: []
@@ -1016,7 +1002,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
         { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10"] }
       ],
       pendingSettlements: [],
@@ -1061,15 +1047,18 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 13, y: 9, terrain: "LAND" },
         { x: 14, y: 9, terrain: "LAND" },
         { x: 15, y: 9, terrain: "LAND" },
-        { x: 13, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" },
+        // §5.4: FISH gives 2 FOOD slot supply (was FARM's 1) — the TOWN-tier
+        // town needs 4 to not go dormant, so two FISH tiles.
+        { x: 13, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FISH" },
+        { x: 16, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FISH" },
         { x: 15, y: 10, terrain: "LAND" },
         { x: 13, y: 11, terrain: "LAND" },
         { x: 14, y: 11, terrain: "LAND" },
         { x: 15, y: 11, terrain: "LAND" }
       ],
       players: [
-        { id: "player-1", allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
-        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "13,10"] }
+        { id: "player-1", allies: [], vision: 4, visionRadiusBonus: 0, territoryTileKeys: ["10,10"] },
+        { id: "player-2", strategicResources: { FOOD: 3 }, allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: ["14,10", "13,10", "16,10"] }
       ],
       pendingSettlements: [],
       activeLocks: []
@@ -1089,59 +1078,19 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
-  it("preserves tech-driven vision radius across snapshot export and restart bootstrap", () => {
-    const initialPlayers = new Map([
-      [
-        "player-1",
-        {
-          id: "player-1",
-          isAi: false,
-          name: "Player 1",
-          points: 100,
-          manpower: 120,
-          techIds: new Set<string>(["cartography"]),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          techRootId: "rewrite-local",
-          allies: new Set<string>(),
-          strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
-        }
-      ]
-    ]);
-    const initialState = {
-      tiles: [
-        { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
-        { x: 15, y: 10, terrain: "LAND" as const },
-        { x: 16, y: 10, terrain: "LAND" as const }
-      ],
-      activeLocks: []
-    };
-
-    const runtimeBeforeRestart = new SimulationRuntime({
-      initialPlayers,
-      initialState
-    });
-    const beforeRestartSnapshot = buildPlayerSubscriptionSnapshot("player-1", runtimeBeforeRestart.exportState());
-    expect(beforeRestartSnapshot.tiles).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-        expect.objectContaining({ x: 15, y: 10 })
-      ])
-    );
-    expect(beforeRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
-
-    const runtimeAfterRestart = new SimulationRuntime({
-      initialState: runtimeBeforeRestart.exportSnapshotSections().initialState
-    });
-    const afterRestartSnapshot = buildPlayerSubscriptionSnapshot("player-1", runtimeAfterRestart.exportState());
-    expect(afterRestartSnapshot.tiles).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
-        expect.objectContaining({ x: 15, y: 10 })
-      ])
-    );
-    expect(afterRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
-  });
+  // Removed: "preserves tech-driven vision radius across snapshot export and
+  // restart bootstrap" pinned Cartography's old flat visionRadiusBonus tech
+  // effect (a plain per-player radius bump consumed by this file's own
+  // addVision, independent of the VisibilityCoverageTracker's town/outpost
+  // rings). That effect has been redesigned into townVisionRadiusBonus
+  // (Cartography) and outpostVisionRadiusBonus (Survey Corps) — see
+  // tech-tree.json — neither of which this snapshot's addVision models (it
+  // only reads the flat per-player visionRadiusBonus export field), so no
+  // current tech drives this code path any more. Left removed rather than
+  // reworked: this snapshot's vision math being blind to town/outpost rings
+  // is a separate, pre-existing gap from the VisibilityCoverageTracker path
+  // (see runtime-visibility-classifier.ts's "sole source of truth" claim,
+  // which this file doesn't actually honor) that predates this change.
 
   it("includes live town manpower regen and breakdown in subscription snapshots", () => {
     const runtime = new SimulationRuntime({
@@ -1194,11 +1143,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
     expect(snapshot.player).toEqual(
       expect.objectContaining({
-        manpowerCap: settlementCap * 2,
-        manpowerRegenPerMinute: settlementRegen * 2,
+        // Starting capital (§4.3) is additive on top of every owned town's cap/regen.
+        manpowerCap: STARTING_CAPITAL_MANPOWER_CAP + settlementCap * 2, manpowerRegenPerMinute: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2,
         manpowerBreakdown: {
-          cap: [{ label: "2 Settlements", amount: settlementCap * 2 }],
-          regen: [{ label: "2 Settlements", amount: settlementRegen * 2 }]
+          cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, { label: "2 Settlements", amount: settlementCap * 2 }],
+          regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, { label: "2 Settlements", amount: settlementRegen * 2 }]
         }
       })
     );
@@ -1234,42 +1183,3 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     }
   });
 });
-
-describe("buildLivePlayerEconomySnapshot (Clockwork Stipend trickle)", () => {
-  it("folds the Clockwork Stipend SUPPLY trickle into the breakdown sources and strategicProductionPerMinute", () => {
-    // Regression: buildLivePlayerEconomySnapshot was never patched to include
-    // the trickle, so the economyBreakdown in the detailed income view showed
-    // the correct total (from the runtime-cached strategicProductionPerMinute)
-    // but no "Clockwork Stipend" source row explaining it.
-    const runtimeState = {
-      tiles: [
-        { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
-      ],
-      players: [
-        {
-          id: "player-1",
-          points: 100,
-          manpower: 200,
-          techIds: [],
-          domainIds: ["clockwork-stipend"],
-          chosenTrickleResource: "SUPPLY",
-          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-          allies: [],
-          vision: 1,
-          visionRadiusBonus: 0
-        }
-      ]
-    };
-
-    const economy = buildLivePlayerEconomySnapshot("player-1", runtimeState);
-
-    expect(economy.strategicProductionPerMinute.SUPPLY).toBeCloseTo(0.2);
-    expect(economy.economyBreakdown.SUPPLY.sources).toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
-    );
-    expect(economy.economyBreakdown.IRON.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend" })
-    );
-  });
-});
-

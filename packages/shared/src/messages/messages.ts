@@ -87,20 +87,28 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RAIL_DEPOT",
       "GOVERNORS_OFFICE",
       "RADAR_SYSTEM",
+      "QUARTERMASTERS_OFFICE",
+      "LOGISTICS_GUILD",
+      "ASSEMBLY_WORKS",
       "IMPERIAL_EXCHANGE_PART",
       "WORLD_ENGINE_PART",
       "AEGIS_DOME_PART",
       "ASTRAL_DOCK_PART",
+      "POPULATION_BUREAU_PART",
+      "IRON_LEVY_PART",
       "IMPERIAL_EXCHANGE",
       "WORLD_ENGINE",
       "AEGIS_DOME",
-      "ASTRAL_DOCK"
+      "ASTRAL_DOCK",
+      "POPULATION_BUREAU",
+      "IRON_LEVY"
     ])
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("RUSH_BUY"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("CANCEL_SETTLE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REMOVE_STRUCTURE"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("OVERLOAD_SYNTHESIZER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("SET_CONVERTER_STRUCTURE_ENABLED"),
     x: z.number().int(),
@@ -165,10 +173,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toY: z.number().int(),
     ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("IMPERIAL_EXCHANGE_LEVY"), fromX: z.number().int(), fromY: z.number().int(), resource: z.enum(["FOOD", "IRON", "CRYSTAL", "SUPPLY"]), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("IMPERIAL_EXCHANGE_LEVY"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("WORLD_ENGINE_STRIKE"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AEGIS_LOCK"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("ASTRAL_DOCK_LAUNCH"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  // The Iron Levy monument: converts 50% of currently-banked manpower into
+  // an instant one-time army at the anchor tile, then freezes empire-wide
+  // manpower regen for 2 hours.
+  z.object({ type: z.literal("IRON_LEVY_MUSTER"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   // Emperor-endorsement bonus: burns one Imperial Ward charge, granting the
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
@@ -196,7 +208,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // Without this field on the schema, Zod's default `.object` strip mode
     // silently drops the resource key from the parsed message, so the
     // gateway forwards an empty payload and the sim rejects with
-    // `trickle resource choice required` even when the client picked one.
+    // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
   })
 ]);

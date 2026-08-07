@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { VISION_RADIUS } from "@border-empires/shared";
+import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
+import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -18,6 +19,10 @@ type TechCatalogEntry = {
   description: string;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to -- surfaced to the client for the
+  // branch-tag UI requirement.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   effects?: Record<string, unknown>;
@@ -181,8 +186,8 @@ const playerWorldFlags = (playerId: string, tiles: Iterable<AiProgressionPlanner
   return flags;
 };
 
-const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
-const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
+export const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
+export const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
 export const recomputeMods = (player: Pick<DomainPlayer, "techIds" | "domainIds">): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
@@ -272,6 +277,43 @@ export const additiveEffectForPlayer = (
   return total;
 };
 
+/**
+ * Resource-reveal gating: FOOD (Farm/Fish) is always visible, but Iron,
+ * Supply, and Crystal each stay hidden on the map until the player has
+ * researched the tech that reveals them (tech-tree.json's `revealResource`
+ * effect key). Checked per-viewing-player at tile-delta filter time, not
+ * baked into the tile itself, since the same tile's resource type is
+ * revealed/hidden independently for every player based on their own tech.
+ */
+// tile.resource (FARM/FISH/IRON/GEMS/WOOD/FUR) is a raw terrain-resource
+// type, not the strategic category tech-tree.json's revealResource values
+// use (food/iron/crystal/supply) — mirrors client-map-display.ts's
+// strategicResourceKeyForTile. WOOD/FUR both feed SUPPLY; GEMS feeds
+// CRYSTAL. Without this mapping, comparing the raw tile type directly
+// against revealResource only ever happened to match for IRON (whose raw
+// type and category name are spelled the same) — SUPPLY and CRYSTAL tiles
+// stayed masked forever, tech or no tech.
+const REVEAL_CATEGORY_BY_TILE_RESOURCE: Record<string, string> = {
+  farm: "food",
+  fish: "food",
+  iron: "iron",
+  gems: "crystal",
+  wood: "supply",
+  fur: "supply"
+};
+
+export const hasRevealedResourceForPlayer = (
+  player: Pick<DomainPlayer, "techIds">,
+  resource: string
+): boolean => {
+  const category = REVEAL_CATEGORY_BY_TILE_RESOURCE[resource.toLowerCase()] ?? resource.toLowerCase();
+  if (category === "food") return true;
+  for (const techId of player.techIds) {
+    if (techEntryById.get(techId)?.effects?.revealResource === category) return true;
+  }
+  return false;
+};
+
 export const multiplicativeEffectForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   effectKey: string
@@ -288,9 +330,31 @@ export const multiplicativeEffectForPlayer = (
   return multiplier;
 };
 
+/**
+ * Extra vision radius for an owned SETTLED town's own +1 reveal ring
+ * (runtime-town-vision.ts), on top of the unconditional +1 every town
+ * already gets. Cartography's townVisionRadiusBonus is the only source
+ * today; unlike visionRadiusBonusForPlayer this doesn't touch the player's
+ * base radius, so it has no effect on plain (non-town) tiles.
+ */
+export const townVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "townVisionRadiusBonus");
+
+/**
+ * Extra vision radius for an owned active Light Outpost or Siege Outpost
+ * (runtime-outpost-vision.ts), stacked on top of Light Outpost's flat
+ * LIGHT_OUTPOST_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
+ * vision bonus of its own. Survey Corps's outpostVisionRadiusBonus is the
+ * only source today.
+ */
+export const outpostVisionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => additiveEffectForPlayer(player, "outpostVisionRadiusBonus");
+
 export const effectiveVisionRadiusForPlayer = (
-  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
-): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));
+  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus">
+): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0));
 
 /**
  * Effective crystal-observatory cast radius for a player, mirroring the client's
@@ -303,8 +367,7 @@ export const observatoryCastRadiusForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   baseRadius: number
 ): number =>
-  baseRadius +
-  additiveEffectForPlayer(player, "observatoryRangeBonus");
+  baseRadius + additiveEffectForPlayer(player, "observatoryRangeBonus");
 
 export const chooseAiTechChoiceForPlayer = (
   player: AiProgressionPlayer,
@@ -337,21 +400,21 @@ export const chooseAiTechChoiceForPlayer = (
       if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       const resourceCost = toResources(tech.cost);
+      const goldCost = techGoldCostForResearchedCount(player.techIds.length);
       return {
         id: tech.id,
         score,
-        goldCost: tech.cost?.gold ?? 0,
+        goldCost,
         resourceCost,
-        affordable: player.points >= (tech.cost?.gold ?? 0) && hasResources(resourceCost, available)
+        affordable: player.points >= goldCost && hasResources(resourceCost, available)
       };
     })
     // Affordable techs win over unaffordable ones regardless of score, so a
-    // gold-only fallback is preferred over a higher-scored option the player
-    // can't actually pay for. Without this, an AI with 74k gold but zero
-    // IRON/CRYSTAL/SUPPLY locks at preplan=tech_unaffordable forever because
-    // the top-scored tech needs a strategic resource it lacks. When nothing is
-    // affordable, score order is preserved so the diagnostic still surfaces
-    // the most-wanted-but-blocked tech.
+    // cheaper fallback is preferred over a pricier higher-scored option the
+    // player can't pay for (techs below tier 5 are gold-only now, §6.2/§13
+    // of manpower-economy-rewrite-plan.md — per-tier gold scarcity is the
+    // trigger). When nothing is affordable, score order is preserved so the
+    // diagnostic still surfaces the most-wanted-but-blocked tech.
     .sort((left, right) =>
       Number(right.affordable) - Number(left.affordable) ||
       right.score - left.score ||
@@ -391,8 +454,8 @@ export const chooseAiDomainChoiceForPlayer = (
       };
     })
     // Affordability dominates score so an AI starved of one resource still
-    // picks an affordable domain (e.g. clockwork-stipend, which trickles the
-    // missing resource) instead of being pinned to an unaffordable top score.
+    // picks an affordable domain (e.g. clockwork-stipend, which grants a free
+    // slot of the missing resource) instead of being pinned to an unaffordable top score.
     .sort((left, right) =>
       Number(right.affordable) - Number(left.affordable) ||
       right.score - left.score ||
@@ -431,10 +494,9 @@ export const chooseTechForPlayer = (
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available)) {
-    return { ok: false, reason: "requirements not met" };
-  }
-  player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
+  const goldCost = goldCostForTechResearch(player, tech);
+  if (player.points < goldCost || !hasResources(required, available)) { return { ok: false, reason: "requirements not met" }; }
+  player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
   player.techIds.add(techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
@@ -443,35 +505,28 @@ export const chooseTechForPlayer = (
 };
 
 // Re-exported so runtime.ts and other sim modules that already import this
-// bridge for chooseDomainForPlayer / chosenTrickleRateForPlayer don't need a
+// bridge for chooseDomainForPlayer / domainGrantedResourceSlots don't need a
 // second import line. The canonical definition lives in
 // @border-empires/shared (trickle-resources.ts) so the client uses the same
 // type via its own shared-package import.
 export type { ChosenTrickleResource };
 
-export const chosenTrickleOptionsForDomain = (
-  domainId: string
-): Record<ChosenTrickleResource, number> | undefined => {
+export const domainHasResourceSubChoice = (domainId: string): boolean => {
   const domain = domainEntryById.get(domainId);
-  const raw = domain?.effects?.chosenResourceTrickleOptions;
-  if (!raw || typeof raw !== "object") return undefined;
-  const options: Partial<Record<ChosenTrickleResource, number>> = {};
-  for (const key of TRICKLE_RESOURCE_KEYS) {
-    const rate = (raw as Record<string, unknown>)[key];
-    if (typeof rate === "number" && Number.isFinite(rate) && rate > 0) options[key] = rate;
-  }
-  return Object.keys(options).length > 0 ? (options as Record<ChosenTrickleResource, number>) : undefined;
+  return typeof domain?.effects?.chosenResourceSlotGrant === "number" && (domain.effects.chosenResourceSlotGrant as number) > 0;
 };
 
-export const chosenTrickleRateForPlayer = (
+export const domainGrantedResourceSlots = (
   player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource">
-): { resource: ChosenTrickleResource; ratePerMinute: number } | undefined => {
+): Partial<Record<SlotResource, number>> | undefined => {
   const chosen = player.chosenTrickleResource;
   if (chosen !== "IRON" && chosen !== "SUPPLY" && chosen !== "CRYSTAL") return undefined;
   for (const domainId of player.domainIds ?? []) {
-    const options = chosenTrickleOptionsForDomain(domainId);
-    const rate = options?.[chosen];
-    if (typeof rate === "number") return { resource: chosen, ratePerMinute: rate };
+    const domain = domainEntryById.get(domainId);
+    const grant = domain?.effects?.chosenResourceSlotGrant;
+    if (typeof grant === "number" && grant > 0) {
+      return { [chosen]: grant };
+    }
   }
   return undefined;
 };
@@ -496,19 +551,19 @@ export const chooseDomainForPlayer = (
   }
   // Domains that ask the player to pick a resource (Clockwork Stipend) require
   // the sub-choice up front, and the choice must be one of the offered keys.
-  const trickleOptions = chosenTrickleOptionsForDomain(domainId);
-  if (trickleOptions) {
+  const needsSubChoice = domainHasResourceSubChoice(domainId);
+  if (needsSubChoice) {
     const picked = options?.chosenTrickleResource;
-    if (!picked || !(picked in trickleOptions)) {
-      return { ok: false, reason: "trickle resource choice required" };
+    if (!picked || !TRICKLE_RESOURCE_KEYS.includes(picked)) {
+      return { ok: false, reason: "resource choice required" };
     }
   }
   player.points = Math.max(0, player.points - (domain.cost?.gold ?? 0));
   spendStrategicResources(player, required);
   if (!player.domainIds) player.domainIds = new Set<string>();
   player.domainIds.add(domainId);
-  if (trickleOptions && options?.chosenTrickleResource) {
-    // Locked forever: once a trickle resource is chosen, it does not change
+  if (needsSubChoice && options?.chosenTrickleResource) {
+    // Locked forever: once a resource is chosen, it does not change
     // even if another domain later offers a different option set.
     if (!player.chosenTrickleResource) player.chosenTrickleResource = options.chosenTrickleResource;
   }
@@ -527,6 +582,7 @@ export const buildTechUpdatePayload = (
   const domainChoices = openDomainChoices(domainIds);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const available = player.strategicResources ?? {};
+  const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
     IRON: available.IRON ?? 0,
@@ -554,14 +610,15 @@ export const buildTechUpdatePayload = (
       description: tech.description,
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
       ...(tech.rootId ? { rootId: tech.rootId } : {}),
+      ...(tech.branch ? { branch: tech.branch } : {}),
       ...(tech.requires ? { requires: tech.requires } : {}),
       ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {
-        gold: tech.cost?.gold ?? 0,
+        gold: goldCost,
         resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id) && player.points >= (tech.cost?.gold ?? 0) && hasResources(toResources(tech.cost), available)
+        canResearch: techChoices.includes(tech.id) && player.points >= goldCost && hasResources(toResources(tech.cost), available)
       },
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),

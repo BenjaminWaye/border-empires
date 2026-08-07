@@ -7,15 +7,17 @@ import {
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
-  MUSTER_SYSTEM_ENABLED,
+  HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_ATTACK_COST,
   grassShadeAt,
+  isHillsTileAt,
   landBiomeAt,
   terrainAt
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
@@ -39,9 +41,9 @@ export type RuntimeFrontierCommandContext = {
   onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   scheduleLockResolution: (lock: LockRecord) => void;
   adjacentTileStates: (x: number, y: number) => DomainTileState[];
-  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
+  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number, allowAdjacent: boolean) => DomainTileState | undefined;
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
-  isDockCrossingTarget: (from: DomainTileState, x: number, y: number) => boolean;
+  isDockCrossingTarget: (from: DomainTileState, x: number, y: number, allowAdjacent: boolean) => boolean;
   isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
@@ -72,7 +74,7 @@ export const handleFrontierCommandImpl = (
     submittedFrom.ownerId === actor.id
       ? submittedFrom
       : ctx.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
-        ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
+        ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y, actionType !== "EXPAND") ??
         ctx.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
         submittedFrom;
 
@@ -100,25 +102,24 @@ export const handleFrontierCommandImpl = (
     return false;
   }
 
-  const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
+  const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y, actionType !== "EXPAND");
   const isForestTarget =
     terrainAt(to.x, to.y) === "LAND" &&
     landBiomeAt(to.x, to.y) === "GRASS" &&
     grassShadeAt(to.x, to.y) === "DARK";
   const expandClaimDurationMs =
     actionType === "EXPAND"
-      ? isForestTarget
-        ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT
-        : FRONTIER_CLAIM_MS
+      ? (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
+        (isHillsTileAt(to.x, to.y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
       : undefined;
-  const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
+  const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
     : undefined;
   const advancePreferredKey =
     payload.musterSourceX != null && payload.musterSourceY != null
       ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
       : undefined;
-  const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
+  const musterSource = actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
     ? ctx.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
     : undefined;
   const validation = validateFrontierCommand({
@@ -140,15 +141,14 @@ export const handleFrontierCommandImpl = (
     targetShielded:
       (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
       ctx.isTileWardedByImperialWard(to.ownerId),
-    defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
+    defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
-    musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
     requiredMuster
   });
 
   if (!validation.ok) {
-    if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
+    if (validation.code === "INSUFFICIENT_MUSTER" && actionType === "ATTACK") {
       ctx.onMusterRemoteBlocked?.();
       if (actor.id.startsWith("barbarian-") && !to.ownerId?.startsWith("barbarian-")) {
         ctx.onMusterRemoteBlockedBarbarian?.();
@@ -186,7 +186,7 @@ export const handleFrontierCommandImpl = (
     targetKey: simulationTileKey(validation.target.x, validation.target.y),
     resolvesAt: validation.resolvesAt,
     source: lockSourceFromSessionId(command.sessionId),
-    ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
+    ...(actionType === "ATTACK" && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
   };
   if (baseLock.musterSourceKey && actionType === "ATTACK") {
     const prev = ctx.musterReservedByKey.get(baseLock.musterSourceKey) ?? 0;

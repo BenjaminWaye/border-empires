@@ -12,12 +12,11 @@ export type CivicStructureKind =
   | "CLEARING_HOUSE"
   | "CUSTOMS_HOUSE"
   | "EXCHANGE_HOUSE"
-  | "GARRISON_HALL"
   | "GOVERNORS_OFFICE"
   | "CENSUS_HALL";
 
 export const CIVIC_STRUCTURE_KINDS: ReadonlySet<CivicStructureKind> = new Set([
-  "CARAVANARY", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE",
+  "CARAVANARY", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE", "GOVERNORS_OFFICE",
   "CENSUS_HALL"
 ]);
 
@@ -245,16 +244,6 @@ export const registerCivicStructures = (
     builder.addPiece("clearingHouseScalePan", sx, sy, sz, 0.075, 0.37, 0.018);
   };
 
-  const addGarrisonHall: CivicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("garrisonBody", sx, sy, sz, 0, 0.085, -0.02);
-    builder.addPiece("garrisonRoof", sx, sy, sz, 0, 0.21, -0.02, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("garrisonSandbag", sx, sy, sz, -0.12, 0.0175, 0.16);
-    builder.addPiece("garrisonSandbag", sx, sy, sz, 0, 0.0175, 0.16);
-    builder.addPiece("garrisonSandbag", sx, sy, sz, 0.12, 0.0175, 0.16);
-    builder.addPiece("garrisonPole", sx, sy, sz, 0.18, 0.13, -0.16);
-    builder.addPiece("garrisonBanner", sx, sy, sz, 0.21, 0.20, -0.16);
-  };
-
   const addGovernorsOffice: CivicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("governorStep", sx, sy, sz, 0, 0.025, 0.12);
     builder.addPiece("governorBody", sx, sy, sz, 0, 0.115, 0);
@@ -281,7 +270,6 @@ export const registerCivicStructures = (
       CLEARING_HOUSE: addClearingHouse,
       CUSTOMS_HOUSE: addCustomsHouse,
       EXCHANGE_HOUSE: addExchangeHouse,
-      GARRISON_HALL: addGarrisonHall,
       GOVERNORS_OFFICE: addGovernorsOffice,
       CENSUS_HALL: addCensusHall
     }

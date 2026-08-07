@@ -23,6 +23,16 @@ export type RecentEvent = {
   payload: Record<string, unknown>;
 };
 
+export type BugReportInput = {
+  description: string;
+  playerName: string;
+  playerId: string;
+  clientEvents: Array<{ at: number; level: string; scope: string; event: string; payload: Record<string, unknown> }>;
+  serverEvents: RecentEvent[];
+  clientContext: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
 export type SlackAlerterOptions = {
   /** Slack incoming webhook URL. Unset → no-op. */
   webhookUrl?: string;
@@ -63,6 +73,18 @@ export type SlackAlerter = {
   alertMachineRestart: (uptimeMs: number) => void;
   /** gateway_sqlite_retry_total rate > threshold per minute. */
   alertSqliteRetryHigh: (ratePerMin: number) => void;
+  /** Player-submitted bug report. */
+  alertPlayerBugReport: (report: BugReportInput) => void;
+  /** Player was silently respawned (lost territory). */
+  alertPlayerRespawned: (playerId: string, reason: string) => void;
+  /** New season started. */
+  alertSeasonStarted: (seasonId: string, force: boolean) => void;
+  /** A player's websocket closed. Fires for every disconnect (not deduped) so
+   * repeated/flapping disconnects for the same player are all visible. */
+  alertPlayerDisconnected: (playerId: string, details: { code: number; reason: string; isNormalClose: boolean }) => void;
+  /** A player's websocket authenticated (covers both first connect and every
+   * reconnect). Fires for every event (not deduped), same rationale as above. */
+  alertPlayerReconnected: (playerId: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -72,6 +94,23 @@ export type SlackAlerter = {
 const DEFAULT_DEDUPE_WINDOW_MS = 300_000; // 5 min
 const POST_TIMEOUT_MS = 5_000;
 const RECENT_EVENT_LIMIT = 5;
+// Close codes worth paging on: protocol/data errors (1002/1003/1007-1010)
+// and unhandled server-side failures during close (1011) or a failed TLS
+// handshake (1015). Everything else — 1000/1001 normal, and especially
+// 1005/1006 (no close frame at all, the standard signature of a phone being
+// backgrounded, a laptop sleeping, a wifi handoff, or an idle proxy timeout)
+// — is common background churn, not something a human needs to see paged.
+// It's still counted in gateway_websocket_abnormal_disconnect_total for
+// aggregate-rate monitoring; it just doesn't need a Slack message per event.
+const ALERT_WORTHY_DISCONNECT_CODES = new Set([1002, 1003, 1007, 1008, 1009, 1010, 1011, 1015]);
+// alertPlayerDisconnected/alertPlayerReconnected intentionally fire on every
+// event (no per-player dedupe — the point is showing every flap), but a
+// pathological reconnect storm (bad client, bot, or a real network outage
+// hitting every player at once) must not be able to flood the webhook. This
+// caps the two event types combined to a fixed budget per rolling minute
+// using two plain counters (not a growing map), so it can't leak memory.
+const CONNECTION_ALERT_LIMIT_PER_MIN = 30;
+const CONNECTION_ALERT_WINDOW_MS = 60_000;
 
 const SUGGESTED_FIX_BY_EVENT: Record<string, string> = {
   gateway_command_submit_latency_high: "docs/plans/2026-06-01-ai-time-budget-cap.md",
@@ -88,7 +127,11 @@ const EMOJI_BY_EVENT: Record<string, string> = {
   queue_persist_failed: ":x:",
   simulation_wake_exhausted: ":zzz:",
   machine_restart: ":arrows_counterclockwise:",
-  sqlite_retry_high: ":warning:"
+  sqlite_retry_high: ":warning:",
+  player_respawned: ":baby:",
+  season_started: ":tada:",
+  player_disconnected: ":electric_plug:",
+  player_reconnected: ":link:"
 };
 
 // ---------------------------------------------------------------------------
@@ -209,6 +252,43 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
   // Dedupe state: eventKey → lastSentAt
   const lastSent = new Map<string, number>();
 
+  // Shared rolling-window budget for the two never-deduped connection alerts
+  // (see CONNECTION_ALERT_LIMIT_PER_MIN above). Two numbers, not a map — can't grow.
+  let connectionAlertWindowStart = 0;
+  let connectionAlertCountInWindow = 0;
+  const allowConnectionAlert = (): boolean => {
+    const nowMs = now();
+    if (nowMs - connectionAlertWindowStart >= CONNECTION_ALERT_WINDOW_MS) {
+      connectionAlertWindowStart = nowMs;
+      connectionAlertCountInWindow = 0;
+    }
+    connectionAlertCountInWindow += 1;
+    return connectionAlertCountInWindow <= CONNECTION_ALERT_LIMIT_PER_MIN;
+  };
+
+  /** Fires unconditionally (no dedupe) — used for per-event connection alerts
+   * where every occurrence matters, guarded only by allowConnectionAlert(). */
+  const alertAlways = (eventName: string, input: { summary: string; currentValue: string; targetLabel: string; triggerDetail: string }): void => {
+    if (!allowConnectionAlert()) return;
+    const metrics = options.metricsSnapshot();
+    const recentEvents = options.recentEvents().slice(-RECENT_EVENT_LIMIT);
+    const payload = buildAlertPayload({
+      appLabel,
+      eventName,
+      summary: input.summary,
+      currentValue: input.currentValue,
+      targetLabel: input.targetLabel,
+      triggerDetail: input.triggerDetail,
+      tileCount: options.tileCount?.() ?? metrics.gatewaySnapshotTileCount.p50,
+      wsSessions: options.wsSessions?.() ?? metrics.gatewayWsSessions,
+      aiPlayerCount: options.aiPlayerCount,
+      buildSha: options.buildSha,
+      recentEvents,
+      metrics
+    });
+    void post(eventName, payload);
+  };
+
   /** Check dedupe window. Returns true if the alert should fire. */
   const shouldFire = (eventKey: string): boolean => {
     const last = lastSent.get(eventKey);
@@ -255,6 +335,8 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
     currentValue: string;
     targetLabel: string;
     triggerDetail: string;
+    /** Base event name for emoji/fix lookup, when eventKey is per-entity (e.g. `player_respawned:${playerId}`). */
+    eventName?: string;
   }): void => {
     if (!shouldFire(eventKey)) return;
     markSent(eventKey);
@@ -264,7 +346,7 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
 
     const payload = buildAlertPayload({
       appLabel,
-      eventName: eventKey,
+      eventName: input.eventName ?? eventKey,
       summary: input.summary,
       currentValue: input.currentValue,
       targetLabel: input.targetLabel,
@@ -336,6 +418,80 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
         targetLabel: "<10/min",
         triggerDetail: `rate exceeded 10/min threshold`
       });
+    },
+
+    alertPlayerRespawned(playerId: string, reason: string): void {
+      alert(`player_respawned:${playerId}`, {
+        eventName: "player_respawned",
+        summary: `player respawned (${reason})`,
+        currentValue: reason,
+        targetLabel: "no silent respawns",
+        triggerDetail: `player ${playerId} lost territory and was respawned (reason: ${reason})`
+      });
+    },
+
+    alertSeasonStarted(seasonId: string, force: boolean): void {
+      alert(`season_started:${seasonId}`, {
+        eventName: "season_started",
+        summary: `season ${seasonId} started`,
+        currentValue: seasonId,
+        targetLabel: "n/a",
+        triggerDetail: `season started (force=${force})`
+      });
+    },
+
+    alertPlayerDisconnected(playerId: string, details: { code: number; reason: string; isNormalClose: boolean }): void {
+      if (!ALERT_WORTHY_DISCONNECT_CODES.has(details.code)) return;
+      const label = details.isNormalClose ? "normal" : "abnormal";
+      alertAlways("player_disconnected", {
+        summary: `player disconnected (${label}, code ${details.code})`,
+        currentValue: `code ${details.code}${details.reason ? ` "${details.reason}"` : ""}`,
+        targetLabel: "n/a",
+        triggerDetail: `player ${playerId} websocket closed with code ${details.code} (${label})`
+      });
+    },
+
+    alertPlayerReconnected(playerId: string): void {
+      alertAlways("player_reconnected", {
+        summary: "player connected",
+        currentValue: playerId,
+        targetLabel: "n/a",
+        triggerDetail: `player ${playerId} authenticated a websocket session`
+      });
+    },
+
+    alertPlayerBugReport(report: BugReportInput): void {
+      const serverErrorEvents = report.serverEvents.filter((e) => e.level === "error");
+      const serverWarnEvents = report.serverEvents.filter((e) => e.level === "warn");
+      const clientErrorEvents = report.clientEvents.filter((e) => e.level === "error");
+      const recentServerErrors = serverErrorEvents.slice(-5).map((e) => `  \`${e.event}\` ${e.payload.commandId ? `cmd:${e.payload.commandId}` : ""}`).join("\n");
+      const recentClientErrors = clientErrorEvents.slice(-5).map((e) => `  \`${e.scope}/${e.event}\``).join("\n");
+
+      const headerText = `:bug: ${appLabel} *Player bug report*`;
+      const bodyLines: string[] = [];
+      bodyLines.push(`*Player:* ${report.playerName || "unknown"} (\`${report.playerId}\`)`);
+      bodyLines.push(`*Description:* ${report.description.slice(0, 500)}`);
+      bodyLines.push(`*Server events:* ${report.serverEvents.length} total (${serverErrorEvents.length} errors, ${serverWarnEvents.length} warnings)`);
+      bodyLines.push(`*Client events:* ${report.clientEvents.length} total (${clientErrorEvents.length} errors)`);
+      if (recentServerErrors) bodyLines.push(`*Recent server errors:*\n${recentServerErrors}`);
+      if (recentClientErrors) bodyLines.push(`*Recent client errors:*\n${recentClientErrors}`);
+      if (options.buildSha) bodyLines.push(`*Build:* \`${options.buildSha}\``);
+
+      const payload = {
+        text: headerText,
+        blocks: [
+          { type: "header", text: { type: "plain_text", text: headerText, emoji: true } },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: bodyLines.join("\n")
+            }
+          }
+        ]
+      };
+
+      void post("player_bug_report", payload);
     }
   };
 };

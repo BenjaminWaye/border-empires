@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBarbarianPlanner, BARBARIAN_PLAYER_ID, BARBARIAN_TILE_COOLDOWN_MS } from "./system-job-barbarian-planner.js";
+import { createBarbarianPlanner, BARBARIAN_PLAYER_ID, BARBARIAN_TILE_COOLDOWN_MS, MAX_BARBARIAN_TILES } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 
 const makeBarbTile = (x: number, y: number): PlannerTileView => ({
@@ -192,4 +192,95 @@ describe("createBarbarianPlanner cooldown", () => {
     });
     expect(planner.choose(makeBarbPlayer([tileKey(5, 5)]), 1, 1_000)).toBeNull();
   });
+
+  it("self-erodes (releases one of its own tiles) once at/over the territory cap, instead of expanding", () => {
+    // Build a barbarian at exactly the cap, every tile visible and eligible.
+    // Without the cap the planner would emit an expansion command; with it,
+    // the barbarian releases one of its own tiles instead, actively shrinking
+    // back toward the cap (see MAX_BARBARIAN_TILES rationale) rather than
+    // freezing in place forever.
+    const tilesByKey = new Map<string, PlannerTileView>();
+    const territory: string[] = [];
+    const visible = new Set<string>();
+    for (let i = 0; i < MAX_BARBARIAN_TILES; i += 1) {
+      const x = i;
+      const y = 0;
+      tilesByKey.set(tileKey(x, y), makeBarbTile(x, y));
+      territory.push(tileKey(x, y));
+      visible.add(tileKey(x, y));
+    }
+    // A neutral tile the barbarian could expand into if it were allowed to act.
+    tilesByKey.set(tileKey(0, 1), { x: 0, y: 1, terrain: "LAND" });
+    const planner = createBarbarianPlanner({
+      tilesByKey,
+      resolveOwnedTiles: (p) =>
+        p.territoryTileKeys.map((k) => tilesByKey.get(k)).filter((t): t is PlannerTileView => !!t),
+      getDockLinksByDockTileKey: () => new Map(),
+      getVisibleToAnyNonBarbPlayer: () => visible,
+      now: () => 1_000
+    });
+    const cmd = planner.choose(makeBarbPlayer(territory), 1, 1_000);
+    expect(cmd).not.toBeNull();
+    expect(cmd!.type).toBe("UNCAPTURE_TILE");
+    const payload = JSON.parse(cmd!.payloadJson) as { x: number; y: number };
+    expect(territory).toContain(tileKey(payload.x, payload.y));
+
+    // One tile below the cap, it resumes normal walk/expand behavior.
+    const belowCap = territory.slice(0, MAX_BARBARIAN_TILES - 1);
+    const belowCapCmd = planner.choose(makeBarbPlayer(belowCap), 2, 1_000);
+    expect(belowCapCmd).not.toBeNull();
+    expect(belowCapCmd!.type).not.toBe("UNCAPTURE_TILE");
+  });
+
+  it("erosion is unaffected by vision — a barbarian over the cap sheds tiles even with no visible players", () => {
+    // Erosion is a size-management action, not player-facing combat, so it
+    // must not require the getVisibleToAnyNonBarbPlayer() gate that walk/
+    // expand uses — an oversized barbarian sitting entirely in fog must still
+    // recover.
+    const tilesByKey = new Map<string, PlannerTileView>();
+    const territory: string[] = [];
+    for (let i = 0; i < MAX_BARBARIAN_TILES; i += 1) {
+      tilesByKey.set(tileKey(i, 0), makeBarbTile(i, 0));
+      territory.push(tileKey(i, 0));
+    }
+    const planner = createBarbarianPlanner({
+      tilesByKey,
+      resolveOwnedTiles: (p) =>
+        p.territoryTileKeys.map((k) => tilesByKey.get(k)).filter((t): t is PlannerTileView => !!t),
+      getDockLinksByDockTileKey: () => new Map(),
+      getVisibleToAnyNonBarbPlayer: () => new Set(),
+      now: () => 1_000
+    });
+    const cmd = planner.choose(makeBarbPlayer(territory), 1, 1_000);
+    expect(cmd).not.toBeNull();
+    expect(cmd!.type).toBe("UNCAPTURE_TILE");
+  });
+
+  it("erosion respects the per-tile cooldown so it doesn't retarget the same tile every cycle", () => {
+    const tilesByKey = new Map<string, PlannerTileView>();
+    const territory: string[] = [];
+    for (let i = 0; i < MAX_BARBARIAN_TILES; i += 1) {
+      tilesByKey.set(tileKey(i, 0), makeBarbTile(i, 0));
+      territory.push(tileKey(i, 0));
+    }
+    const planner = createBarbarianPlanner({
+      tilesByKey,
+      resolveOwnedTiles: (p) =>
+        p.territoryTileKeys.map((k) => tilesByKey.get(k)).filter((t): t is PlannerTileView => !!t),
+      getDockLinksByDockTileKey: () => new Map(),
+      getVisibleToAnyNonBarbPlayer: () => new Set(),
+      now: () => 1_000
+    });
+    const first = planner.choose(makeBarbPlayer(territory), 1, 1_000);
+    expect(first).not.toBeNull();
+    const firstPayload = JSON.parse(first!.payloadJson) as { x: number; y: number };
+    // Simulate the released tile still appearing in territory this same
+    // instant (command not yet applied) — the cooldown must steer to a
+    // different tile rather than re-emitting the same release.
+    const second = planner.choose(makeBarbPlayer(territory), 2, 1_000);
+    expect(second).not.toBeNull();
+    const secondPayload = JSON.parse(second!.payloadJson) as { x: number; y: number };
+    expect(tileKey(secondPayload.x, secondPayload.y)).not.toBe(tileKey(firstPayload.x, firstPayload.y));
+  });
+
 });

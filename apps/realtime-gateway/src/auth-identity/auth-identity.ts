@@ -37,6 +37,28 @@ const fallbackDisplayNameForToken = (token: string): string => {
   return `${trimmed.slice(0, 12)}...${trimmed.slice(-8)}`;
 };
 
+// Cosmetic default display name for a player who has never set a real
+// profile/auth name (their name still literally equals their raw player id).
+// Must stay in sync with the equivalent fallbacks in
+// apps/realtime-gateway/src/init-payload/init-payload.ts (displayNameForSeedPlayer)
+// and apps/simulation/src/world-status-snapshot/world-status-snapshot.ts
+// (displayNameForPlayer) so a name shown to other players (e.g. on the
+// leaderboard or in the alliance search dropdown) is always resolvable by
+// social-state's resolveByName for alliance/truce requests.
+export const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
+  if (playerId === "barbarian-1") return "Barbarians";
+  if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
+  if (playerId === "player-1" && (seedName === undefined || seedName === playerId)) return "Nauticus";
+  return seedName ?? playerId;
+};
+
+// Applies the same "uncustomized player" cosmetic default at registration
+// time (login), not just at initial world seeding, so it also covers the
+// direct-player-id-token auth path where the resolved auth name is just the
+// raw player id (i.e. no real display name has ever been set).
+export const socialRegistrationNameFor = (playerId: string, resolvedName: string): string =>
+  resolvedName === playerId ? initialSocialNameForSeedPlayer(playerId, undefined) : resolvedName;
+
 export type GatewayResolvedIdentity = {
   playerId: string;
   playerName: string;

@@ -9,6 +9,7 @@ import type { QueueLane } from "./command-lane/command-lane.js";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import type { buildConnectedTownNetworkForPlayer } from "./economy-network/economy-network.js";
 import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thread-task-tracker.js";
+import type { OwnershipChangeSample } from "./runtime/runtime-ownership-change-sample.js";
 
 export type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
@@ -19,6 +20,10 @@ export type RuntimeTileYieldEconomyContext = {
   waterworksKeys: Set<string>;
   /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
   foundryKeys: Set<string>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
+  // dormant Market/Bank/Caravanary/Clearing House stops granting its gold
+  // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
+  dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
 export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;
@@ -171,17 +176,7 @@ export type SimulationRuntimeOptions = {
   // ensurePlayerHasSpawnTerritory in runtime.ts).
   pendingImperialWard?: { playerId: string; charges: number };
   commandTrace?: (sample: Record<string, unknown>) => void;
-  onOwnershipChange?: (sample: {
-    tileKey: string;
-    x: number;
-    y: number;
-    previousOwnerId: string | undefined;
-    nextOwnerId: string | undefined;
-    commandId: string;
-    hadTown: boolean;
-    townLost: boolean;
-    hadOwnershipState: string | undefined;
-  }) => void;
+  onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   onQueueDrain?: (sample: {
     durationMs: number;
     processedJobs: number;
@@ -205,8 +200,8 @@ export type SimulationRuntimeOptions = {
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
   // Wraps the exact synchronous blocks worth attributing on an event_loop_blocked
-  // stall (currently: classifyVisibilityForPlayer's vision-expansion-cache-miss
-  // path). Optional so tests/other callers can omit it; falls back to a plain call.
+  // stall (currently: classifyVisibilityForPlayer). Optional so tests/other
+  // callers can omit it; falls back to a plain call.
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   onCaptureRevealBuilt?: (sample: {
     commandId: string;
@@ -231,6 +226,14 @@ export type SimulationRuntimeOptions = {
    *  AI player (no WS subscribers — see PR #732 for the same rationale
    *  applied to lock resolution). Zero forever means the skip never engages. */
   onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
+  /** Fires whenever ensurePlayerHasSpawnTerritory places a fresh auth_recovery
+   *  spawn for a human player — this overwrites their prior empire location,
+   *  so a nonzero rate is worth alerting on. */
+  onAuthRecoveryRespawn?: () => void;
+  /** Fires when the auth_recovery respawn path is suppressed by the
+   *  world-sanity guard (territory read as zero but the world tile map
+   *  itself was empty, i.e. territory data was not confirmed loaded). */
+  onAuthRecoveryRespawnGuarded?: () => void;
 };
 
 export type SimulationTileWireDelta = {
@@ -254,7 +257,8 @@ export type SimulationTileWireDelta = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  shardSiteJson?: string;
+  naturalWonderJson?: string | undefined;
+  shardSiteJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

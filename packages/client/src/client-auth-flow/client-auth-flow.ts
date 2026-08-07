@@ -9,11 +9,8 @@ import {
   signInWithEmailLink,
   signInWithPopup,
   updateProfile,
-  type Auth,
-  type GoogleAuthProvider,
   type User
 } from "firebase/auth";
-import type { initClientDom } from "../client-dom.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
   seedProfileSetupFields as seedProfileSetupFieldsFromModule,
@@ -21,43 +18,21 @@ import {
   syncAuthOverlay as syncAuthOverlayFromModule,
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "../client-auth-ui/client-auth-ui.js";
+import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
+import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import {
+  detectInAppBrowserName,
+  inAppBrowserGoogleSignInMessage,
+  isMissingInitialStateError,
+  MISSING_INITIAL_STATE_MESSAGE
+} from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
-import { rallyCodeFromLocation } from "../client-rally-links/client-rally-links.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
-import type { ClientState } from "../client-state/client-state.js";
+import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
-export type AuthSession = {
-  token: string;
-  uid: string;
-  emailLinkSentTo: string;
-  emailLinkPending: boolean;
-};
-
-type ClientDom = ReturnType<typeof initClientDom>;
-
-type AuthFlowDeps = {
-  state: ClientState;
-  dom: ClientDom;
-  firebaseAuth?: Auth;
-  googleProvider?: GoogleAuthProvider | undefined;
-  ws: RealtimeSocket;
-  wsUrl: string;
-  requireAuthedSession: (message?: string) => boolean;
-  renderHud: () => void;
-};
-
-type ClientAuthFlow = {
-  authSession: AuthSession;
-  setAuthStatus: (message: string, tone?: "normal" | "error") => void;
-  syncAuthPanelState: () => void;
-  syncAuthOverlay: () => void;
-  authLabelForUser: (user: User) => string;
-  seedProfileSetupFields: (name?: string, color?: string) => void;
-  authenticateSocket: (forceRefresh?: boolean) => Promise<void>;
-  bindAuthUi: () => void;
-  bindFirebaseAuth: () => void;
-};
+export type { AuthSession } from "./client-auth-flow-types.js";
 
 export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const {
@@ -68,7 +43,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     ws,
     wsUrl,
     requireAuthedSession,
-    renderHud
+    renderHud,
+    isMobile
   } = deps;
 
   const authSession: AuthSession = {
@@ -78,6 +54,51 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     emailLinkPending: false
   };
   const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
+
+  // Safari private browsing / ITP (and email-link taps opened from Mail in a
+  // locked-down WebKit context) can throw on any localStorage access rather
+  // than just returning null. An unguarded throw here during bootstrap used
+  // to abort the entire client init with no diagnostics, and because the
+  // sign-in link's query string is never cleared on that path, every reload
+  // of the same link reproduced the identical crash (Safari's "a problem
+  // repeatedly occurred" page). These wrappers make storage access degrade
+  // gracefully instead of crashing; normal browsers with working storage are
+  // unaffected.
+  const safeLocalStorageGet = (key: string): string | null => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+
+  const safeLocalStorageSet = (key: string, value: string): void => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // Storage unavailable — same-device autofill just won't work.
+    }
+  };
+
+  const safeLocalStorageRemove = (key: string): void => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Storage unavailable — nothing to clean up.
+    }
+  };
+
+  const clearEmailLinkUrl = (): void => {
+    try {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.search = "";
+      cleanUrl.hash = "";
+      window.history.replaceState({}, document.title, cleanUrl.toString());
+    } catch {
+      // If history mutation fails for any reason, leave the URL as-is
+      // rather than throwing during auth handling.
+    }
+  };
 
   const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void =>
     setAuthStatusFromModule(state, dom.authStatusEl, message, tone);
@@ -91,7 +112,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authColorPresetButtons: dom.authColorPresetButtons
     });
 
-  const syncAuthOverlay = (): void =>
+  const syncAuthOverlay = (): void => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
       authBusyModalEl: dom.authBusyModalEl,
@@ -108,12 +129,17 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authProfileSaveBtn: dom.authProfileSaveBtn,
       authBusyTitleEl: dom.authBusyTitleEl,
       authBusyCopyEl: dom.authBusyCopyEl,
+      authBusyDiagnosticsBtn: dom.authBusyDiagnosticsBtn,
       authStatusEl: dom.authStatusEl,
       authDebugRouteEl: dom.authDebugRouteEl,
       wsUrl,
       syncAuthPanelState,
       setAuthStatus
     });
+    dom.authBusyDiagnosticsBtn.onclick = () => {
+      downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
+    };
+  };
 
   const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);
 
@@ -128,13 +154,13 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       color
     );
 
-  const authenticateSocket = async (forceRefresh = false): Promise<void> => {
-    if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
-    authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
-    authSession.uid = firebaseAuth.currentUser.uid;
-    const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
-    ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
-  };
+  // Guards against a duplicate AUTH send on the same socket (e.g. the
+  // reconnect scheduler's retry racing the onAuthStateChanged handler below,
+  // or Firebase firing onAuthStateChanged more than once for the same sign-in).
+  // clearAuthInFlight must be called by the caller (client-network.ts) on
+  // INIT/ERROR/close/error so a rejected or dropped login doesn't get stuck
+  // unable to retry.
+  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession);
 
   const setAuthBusy = (busy: boolean): void => {
     state.authBusy = busy;
@@ -156,12 +182,16 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       await signInWithEmailLink(firebaseAuth, email, window.location.href);
       authSession.emailLinkPending = false;
       authSession.emailLinkSentTo = "";
-      window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.search = "";
-      cleanUrl.hash = "";
-      window.history.replaceState({}, document.title, cleanUrl.toString());
+      safeLocalStorageRemove(EMAIL_LINK_STORAGE_KEY);
+      clearEmailLinkUrl();
     } catch (error) {
+      // The sign-in code is single-use and short-lived: a failure here means
+      // retrying with the same URL/stored email will always fail the same
+      // way. Clear both so a reload (or Safari's own retry) starts fresh
+      // instead of repeating the identical failure indefinitely.
+      authSession.emailLinkPending = false;
+      safeLocalStorageRemove(EMAIL_LINK_STORAGE_KEY);
+      clearEmailLinkUrl();
       setAuthStatus(error instanceof Error ? error.message : "Email link sign-in failed.", "error");
     } finally {
       setAuthBusy(false);
@@ -215,6 +245,13 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
 
     dom.authGoogleBtn.onclick = async () => {
       if (!firebaseAuth || !googleProvider) return;
+      const inAppBrowserName =
+        typeof navigator !== "undefined" ? detectInAppBrowserName(navigator.userAgent) : undefined;
+      if (inAppBrowserName) {
+        setAuthStatus(inAppBrowserGoogleSignInMessage(inAppBrowserName), "error");
+        syncAuthOverlay();
+        return;
+      }
       authSession.emailLinkSentTo = "";
       setAuthBusy(true);
       setAuthStatus("Opening Google sign-in...");
@@ -225,7 +262,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSucceeded = true;
         setAuthStatus("Google sign-in complete. Authorizing empire...");
       } catch (error) {
-        setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.", "error");
+        const rawMessage = error instanceof Error ? error.message : "Google sign-in failed.";
+        setAuthStatus(isMissingInitialStateError(rawMessage) ? MISSING_INITIAL_STATE_MESSAGE : rawMessage, "error");
       } finally {
         if (!authSucceeded) setAuthBusy(false);
         syncAuthOverlay();
@@ -252,7 +290,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           url: window.location.href,
           handleCodeInApp: true
         });
-        window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
+        safeLocalStorageSet(EMAIL_LINK_STORAGE_KEY, email);
         authSession.emailLinkSentTo = email;
         setAuthStatus("");
       } catch (error) {
@@ -301,6 +339,14 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
 
   const bindFirebaseAuth = (): void => {
     state.authConfigured = Boolean(firebaseAuth);
+    if (firebaseAuth) {
+      // Cover the raw login panel with the spinner until the async
+      // onAuthStateChanged check below confirms there's no persisted user —
+      // otherwise every boot flashes "Sign in" before settling.
+      setAuthBusy(true);
+      state.authBusyTitle = "Securing session";
+      state.authBusyDetail = "Checking your saved session...";
+    }
     syncAuthOverlay();
 
     if (firebaseAuth) {
@@ -342,6 +388,9 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         });
         state.authReady = true;
         state.authSessionReady = false;
+        if (isMobile()) {
+          state.zoom = MOBILE_LOGIN_ZOOM;
+        }
         setAuthBusy(true);
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
@@ -351,14 +400,15 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
-          authSession.token = await user.getIdToken();
-          authSession.uid = user.uid;
           state.authBusyTitle = "Connecting your empire...";
           state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
           setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
           if (ws.readyState === ws.OPEN) {
-            const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
-            ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
+            // Routed through the guarded authenticateSocket (not a direct
+            // ws.send here) so this can never race a concurrent AUTH send
+            // from the reconnect scheduler or a second onAuthStateChanged
+            // firing for the same sign-in.
+            await authenticateSocket();
           } else {
             setAuthBusy(true);
             state.authBusyTitle = "Securing session";
@@ -378,16 +428,27 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       });
     }
 
-    if (firebaseAuth && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
-      const storedEmail = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY) ?? dom.authEmailEl.value.trim();
-      if (storedEmail) {
-        void completeEmailLinkSignIn(storedEmail);
-      } else {
-        authSession.emailLinkPending = true;
-        authSession.emailLinkSentTo = "";
-        setAuthStatus("Enter the email address that received the sign-in link, then press Continue with Email.");
-        syncAuthOverlay();
+    try {
+      if (firebaseAuth && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
+        const storedEmail = safeLocalStorageGet(EMAIL_LINK_STORAGE_KEY) ?? dom.authEmailEl.value.trim();
+        if (storedEmail) {
+          void completeEmailLinkSignIn(storedEmail);
+        } else {
+          authSession.emailLinkPending = true;
+          authSession.emailLinkSentTo = "";
+          setAuthStatus("Enter the email address that received the sign-in link, then press Continue with Email.");
+          syncAuthOverlay();
+        }
       }
+    } catch (error) {
+      // Detecting/handling the email-sign-in link touched a Firebase SDK or
+      // browser storage call that threw (e.g. Safari private browsing).
+      // Clear the stale link params so a reload doesn't repeat the crash,
+      // and fall back to the normal login form instead of leaving the app
+      // stuck mid-bootstrap.
+      clearEmailLinkUrl();
+      setAuthStatus(error instanceof Error ? error.message : "Could not process the sign-in link.", "error");
+      syncAuthOverlay();
     }
   };
 
@@ -399,6 +460,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     authLabelForUser,
     seedProfileSetupFields,
     authenticateSocket,
+    clearAuthInFlight,
     bindAuthUi,
     bindFirebaseAuth
   };

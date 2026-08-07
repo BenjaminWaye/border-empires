@@ -31,6 +31,26 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
 });
 
 describe("applyPlayerMessageToSnapshot", () => {
+  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): the client
+  // build-affordability gate now reads resourceSlots off ClientState, sourced
+  // from this cached PlayerSubscriptionSnapshot on reconnect -- a merge gap
+  // here would serve stale slot data and reintroduce the exact bug the
+  // resourceSlots wire field exists to fix.
+  it("merges resourceSlots from a PLAYER_UPDATE into the cached snapshot", () => {
+    const updated = applyPlayerMessageToSnapshot(snapshot(), {
+      type: "PLAYER_UPDATE",
+      resourceSlots: {
+        supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+      }
+    });
+
+    expect(updated.player?.resourceSlots).toEqual({
+      supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
+      demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+    });
+  });
+
   it("keeps progression modifiers in cached snapshots after tech updates", () => {
     const updated = applyPlayerMessageToSnapshot(snapshot(), {
       type: "TECH_UPDATE",

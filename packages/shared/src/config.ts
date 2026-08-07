@@ -1,22 +1,43 @@
 declare const process: {
   env: {
-    MUSTER_SYSTEM_ENABLED?: string;
     BREAKTHROUGH_ENABLED?: string;
     EMPIRE_INTEGRITY_ENABLED?: string;
     AI_UTILITY_POLICY_ENABLED?: string;
-    AUTO_FILL_ENABLED?: string;
   };
 };
 
 export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
-export const VISION_RADIUS = 4;
+export const PLAYER_BASE_VISION = 1;
+// Lowered from 4 so the hills vision bonus (below) is a meaningful,
+// visible incentive to hold hilly ground — 1 base + 1 hills bonus = 2.
+export const VISION_RADIUS = 1;
+// Watchtower sites: world-generated scouting structures, spread out across
+// the map. `WATCHTOWER_TARGET_COEFFICIENT` is tuned so a default 450x450
+// world (worldScale = 0.2025) yields ~50 sites.
+export const WATCHTOWER_TARGET_MIN_COUNT = 25;
+export const WATCHTOWER_TARGET_COEFFICIENT = 247;
+export const WATCHTOWER_REVEAL_RADIUS = 5;
+export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// A vision source standing on a forest tile only sees this far, regardless
+// of the player's effective vision radius (tech/observatory bonuses). The
+// forest itself and its immediate neighbors remain visible; nothing farther
+// is dilated from that source. See vision-footprint-table.ts.
+export const FOREST_VISION_RANGE = 1;
+// A vision source standing on a hills tile sees one extra tile beyond its
+// normal effective radius (before forest clamping is applied). See
+// isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
+export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 3_000;
-export const FRONTIER_CLAIM_COST = 1;
+export const FRONTIER_CLAIM_COST = 0;
 export const FRONTIER_CLAIM_MS = 1_250;
 export const FOREST_FRONTIER_CLAIM_MULT = 4;
-export const SETTLE_COST = 4;
+// Additive (not multiplicative like the forest claim mult above) — hills
+// aren't as slow to break ground on as dense forest, just a bit rougher.
+// See isHillsTileAt usage in runtime-frontier-command.ts.
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 1_500;
+export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**
  * AI-only reserve: the automatic per-tick frontier auto-claim (see
@@ -50,6 +71,44 @@ export const MANPOWER_BASE_CAP = 150;
 // per-tier regen below — otherwise the tier values are masked.
 export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
+
+// --- Manpower economy: Expand/Settle costs (manpower-economy-rewrite-plan.md §4.2) ---
+// Cheapest action — just claiming dirt; deliberately matches BARBARIAN_RAID_COST
+// (10) so claiming land and raiding a barbarian tile share one "10 = a cheap
+// frontier poke" mental model.
+export const EXPAND_MANPOWER_COST = 10;
+// Priced below every structure on purpose — acquisition is always a little
+// cheaper than optimization (§4.2's ordering rule).
+export const SETTLE_MANPOWER_COST = 20;
+/**
+ * AI-only reserve, manpower analogue of AI_AUTO_CLAIM_GOLD_RESERVE (below):
+ * the automatic per-tick frontier auto-claim stops spending manpower on new
+ * claims once an AI player's manpower would drop below this floor. Sized to
+ * SETTLE_MANPOWER_COST for the same reason the gold reserve exists — without
+ * it, auto-claim (which fires every tick, unconditionally, well before the
+ * AI's own deliberate SETTLE decision runs) could drain manpower down to
+ * near-zero every tick, starving the AI of the manpower a SETTLE needs.
+ */
+export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
+
+// --- Manpower economy: starting capital tier (§4.3) ---
+// A new player's capital is a distinct manpower source from the generic
+// SETTLEMENT tier (TOWN_MANPOWER_BY_TIER.SETTLEMENT below) — it is not counted
+// via ownedTownTierByTile, and its cap/regen are added on top of every owned
+// town's contribution, unconditionally (see playerManpowerCapFromSummary /
+// playerManpowerRegenPerMinuteFromSummary in apps/simulation/src/runtime-manpower.ts).
+// Sized so a new player can expand ~40 tiles and settle ~8 before waiting on
+// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 576
+// cap leaves a small margin. Regen 0.4/min implies a 24h fill window
+// (576 = 0.4 * 1440), a deliberate departure from the 12h SETTLEMENT-tier
+// convention — see §4.3 for the full onboarding-math writeup.
+export const STARTING_CAPITAL_MANPOWER_CAP = 576;
+export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
+// Global regen safety floor. Deliberately kept low (below every real tier's
+// regenPerMinute, including SETTLEMENT's ~0.208) so it never masks a captured
+// town's contribution the way MANPOWER_BASE_REGEN_PER_MINUTE would if reused
+// here — see §4.3's "critical implementation trap" note.
+export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
@@ -85,7 +144,11 @@ export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 5;
-export const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
+// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's ongoing
+// crystal drain is replaced entirely by its permanent CRYSTAL slot
+// occupation — "the slot occupation itself is the upkeep... there is
+// nothing left to meter per-minute." Retired to 0 rather than deleted.
+export const OBSERVATORY_UPKEEP_PER_MIN = 0;
 /** Single unified base range for both cast radius and protection field. */
 export const OBSERVATORY_RANGE = 20;
 /** Max effective range after all tech/domain bonuses (real max 36, buffer at 40). */
@@ -99,6 +162,11 @@ export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
 export const ECONOMIC_STRUCTURE_REMOVE_MS = 5 * 60_000;
 export const LIGHT_OUTPOST_BUILD_MS = 60_000;
 export const LIGHT_OUTPOST_ATTACK_MULT = 1.25;
+export const LIGHT_OUTPOST_VISION_BONUS = 5;
+// Mirrors slotWaiversForPlayer's lightOutpostFoodSlotWaiverCount
+// (apps/simulation/src/tech-domain-bridge/slot-waivers.ts) — the player's
+// first N Light Outposts (earliest build-order first) need zero FOOD slots.
+export const LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT = 5;
 export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;
@@ -117,7 +185,7 @@ export const CLUSTER_COUNT_MAX = 238;
 export const SEASON_LENGTH_DAYS = 30;
 
 export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
-export const BARBARIAN_MULTIPLY_THRESHOLD = 3;
+export const BARBARIAN_MULTIPLY_THRESHOLD = 5;
 // Soft population cap. Once barbarian-1 owns this many tiles, multiplication
 // is suppressed (over-threshold walks behave as plain walks, carrying their
 // stored progress to the target so they immediately re-multiply once the
@@ -129,10 +197,8 @@ export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
 export const INITIAL_BARBARIAN_COUNT = 80;
 
-// --- Mustering system (Phase 0) ---
-// Master switch. When false, the game behaves exactly as before.
-export const MUSTER_SYSTEM_ENABLED =
-  process.env.MUSTER_SYSTEM_ENABLED === "true";
+// --- Mustering system ---
+// Attacks always consume pre-staged muster; there is no flag or opt-out.
 
 // How much mustered manpower one ordinary attack costs (placeholder).
 // Also used as the fill-ratio reference for the muster flag animation.
@@ -148,7 +214,10 @@ export const MUSTER_BASE_RATE_PER_MIN = 180;
 // Maximum manpower a single muster tile can hold.
 export const MUSTER_TILE_CAP = 150;
 // Max simultaneous muster tiles per player.
-export const MUSTER_MAX_TILES = 5;
+// Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
+// tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as
+// before, now gated behind real unlocks instead of a flat constant.
+export const MUSTER_MAX_TILES = 2;
 // Auto-clear stale musters after this many milliseconds since the flag was set.
 export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 // Multiplier to muster inflow when the tile is inside an outpost depot zone
@@ -158,14 +227,51 @@ export const MUSTER_DEPOT_SPEED_MULT = 1.25;
 export const OUTPOST_DEPOT_RADIUS = 5;
 
 // --- Rail Depot mustering hub ---
-// Global manpower regen bonus per Rail Depot built.
-export const RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5;
+// docs/manpower-economy-rewrite-plan.md §4.4: Garrison Hall grants a flat,
+// unconditional manpower-cap bonus to the town it's built in, regardless of
+// network. Rail Depot no longer grants its own flat per-depot regen (the old
+// RAIL_DEPOT_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a
+// network-wide bonus: one Rail Depot per connected-town network amplifies
+// every Garrison Hall already in that network, uncapped in count.
+export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
+export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
 // Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.
 export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 // Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
 export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
+
+// --- Tech-tree redesign: new Manpower-branch buildings ---
+// Rail Depot's job narrows to Logistics Guild amplification only (Ancillary
+// Factory/Garrison Hall amplification moved to Assembly Works, below).
+export const LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05;
+export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD = 0.1;
+// Population Bureau monument: +0.1/min manpower regen per Manpower-branch
+// building owned, empire-wide, simple linear count.
+export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = 0.1;
+// Quartermaster's Office: reduces manpower cost of War-branch structures
+// built within this radius. Exact discount left unspecified by the design
+// plan ("first-pass, balancing pass task") — 20% chosen to match the
+// existing radius-effect magnitude used elsewhere (Waterworks, Governor's
+// Office).
+export const QUARTERMASTERS_OFFICE_RADIUS = 20;
+export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.8;
+// Incubation Engine (Granary): instant one-time population burst on build
+// completion.
+export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
+// Census Hall: population bonus per connected city with an active Granary
+// (Incubation Engine) — network-scoped, recomputed live (not a one-time
+// grant), so losing a connection or the neighbor's Granary shrinks it back.
+export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
+// Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
+export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
+// The Iron Levy monument: converts this fraction of currently-banked
+// manpower into an instant one-time army, then freezes empire-wide manpower
+// regen for IRON_LEVY_REGEN_FREEZE_MS.
+export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
+export const IRON_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
 
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
@@ -197,7 +303,6 @@ export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
 export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";
 
 // --- Auto-fill ---
-export const AUTO_FILL_ENABLED = process.env["AUTO_FILL_ENABLED"] === "true";
 export const AUTO_FILL_MAX_REGION_SIZE = 500;
 // A pocket sealed purely by the player's own SETTLED tiles may be up to
 // AUTO_FILL_MAX_REGION_SIZE. But when a natural barrier (sea, mountain) helps

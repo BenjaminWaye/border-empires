@@ -19,9 +19,12 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 43 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 35 economic (incl. WOODEN_FORT) = 43
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(43);
+test("STRUCTURE_REGISTRY covers exactly 50 structure types", () => {
+  // 3 forts + 1 observatory + 4 outposts + 42 economic (incl. WOODEN_FORT) = 50
+  // (tech-tree redesign added 7: QUARTERMASTERS_OFFICE, LOGISTICS_GUILD,
+  // ASSEMBLY_WORKS, POPULATION_BUREAU_PART, POPULATION_BUREAU,
+  // IRON_LEVY_PART, IRON_LEVY)
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(50);
 });
 
 test("all registered types are unique", () => {
@@ -73,6 +76,14 @@ test("WOODEN_FORT is present", () => {
 
 describe("fort cost parity against FORT_TIER_LADDER", () => {
   for (const [variant, tier] of Object.entries(FORT_TIER_LADDER)) {
+    // WOODEN_FORT is excluded: STRUCTURE_REGISTRY["WOODEN_FORT"] is the
+    // standalone base-build ECONOMIC spec (structure-registry-economic.ts,
+    // 30 manpower), not the FORT_TIER_LADDER.WOODEN_FORT entry (150
+    // manpower) — that ladder entry only describes the upgrade-target cost
+    // once you already have a Wooden Fort. Same key, two different specs;
+    // pre-existing in this not-yet-wired Phase 2 registry, not something
+    // this pass reconciles.
+    if (variant === "WOODEN_FORT") continue;
     test(`${variant}: cost matches tier ladder`, () => {
       const spec = STRUCTURE_REGISTRY[variant];
       expect(spec).toBeDefined();
@@ -103,8 +114,11 @@ describe("siege outpost cost parity against SIEGE_TIER_LADDER", () => {
 
 test("OBSERVATORY cost matches existing constants", () => {
   const spec = STRUCTURE_REGISTRY["OBSERVATORY"];
-  expect(spec.cost.gold).toBe(800);
-  expect(spec.cost.manpower).toBe(0);
+  // Build gold cost is zeroed (docs/manpower-economy-rewrite-plan.md §12).
+  expect(spec.cost.gold).toBe(0);
+  // Manpower-economy rewrite Step 4 (docs/manpower-economy-rewrite-plan.md §4.1/§4.4, §12):
+  // Observatory is a Tier 1 economic sink, now 80 manpower.
+  expect(spec.cost.manpower).toBe(80);
   expect(spec.cost.strategic).toEqual({ CRYSTAL: 45 });
 });
 
@@ -194,8 +208,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(ids).toContain("steelworking");
   });
 
-  test("OBSERVATORY requires cartography", () => {
-    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("cartography");
+  test("OBSERVATORY requires crystal-lattices (Aetheric Resonance)", () => {
+    expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("crystal-lattices");
   });
 
   test("SIEGE_OUTPOST requires leatherworking", () => {
@@ -290,42 +304,26 @@ describe("prerequisiteStructureTypes parity", () => {
 // ── Upkeep parity (per-minute rates from structureUpkeepPerMinute) ─
 
 describe("upkeep parity", () => {
-  // Per-minute rates derived from structureUpkeepPerMinute in
-  // player-update-economy.ts. Constants divided by 10 where the source
-  // uses per-10-minute interval buckets.
+  // §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+  // occupation is its upkeep now, so every structure except synthesizers
+  // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
+  // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
+  // per-minute (÷1440).
+  //
+  // Fort ladder (FORT, IRON_BASTION, THUNDER_BASTION), Siege ladder
+  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and LIGHT_OUTPOST
+  // used to carry a fake FOOD/IRON/SUPPLY per-minute upkeep that double-billed
+  // the same cost already charged via their resource-slot occupation
+  // (structure-slots.ts) — removed, same as AIRPORT's CRYSTAL upkeep before
+  // it (§12.1). Their slot occupation is the upkeep now.
 
   const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
-    // Economic structures — per-minute from structureUpkeepPerMinute switch
-    FARMSTEAD: { GOLD: 0.1 },
-    CAMP: { GOLD: 0.12 },
-    MINE: { GOLD: 0.12 },
-    MARKET: { FOOD: 0.05 },
-    GRANARY: { GOLD: 0.1 },
-    BANK: { FOOD: 0.1 },
-    WOODEN_FORT: { GOLD: 0.05 },
-    LIGHT_OUTPOST: { GOLD: 0.05 },
-    CARAVANARY: { FOOD: 0.075 },
-    FUR_SYNTHESIZER: { GOLD: 6 },
-    ADVANCED_FUR_SYNTHESIZER: { GOLD: 6 },
-    IRONWORKS: { GOLD: 6 },
-    ADVANCED_IRONWORKS: { GOLD: 6 },
-    CRYSTAL_SYNTHESIZER: { GOLD: 8 },
-    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 8 },
-    FOUNDRY: { GOLD: 5 },
-    CUSTOMS_HOUSE: { GOLD: 1.5 },
-    GARRISON_HALL: { GOLD: 2.5 },
-    GOVERNORS_OFFICE: { GOLD: 3 },
-    RADAR_SYSTEM: { GOLD: 4.5 },
-    AIRPORT: { CRYSTAL: 0.025 },
-
-    // Non-economic structures — per-tile upkeep loop at L448-456
-    FORT: { GOLD: 1, IRON: 0.025 },
-    IRON_BASTION: { GOLD: 1, IRON: 0.025 },
-    THUNDER_BASTION: { GOLD: 1, IRON: 0.025 },
-    SIEGE_OUTPOST: { GOLD: 1, SUPPLY: 0.025 },
-    SIEGE_TOWER: { GOLD: 1, SUPPLY: 0.025 },
-    DREAD_TOWER: { GOLD: 1, SUPPLY: 0.025 },
-    OBSERVATORY: { CRYSTAL: 0.025 },
+    FUR_SYNTHESIZER: { GOLD: 30 / 1440 },
+    ADVANCED_FUR_SYNTHESIZER: { GOLD: 45 / 1440 },
+    IRONWORKS: { GOLD: 30 / 1440 },
+    ADVANCED_IRONWORKS: { GOLD: 45 / 1440 },
+    CRYSTAL_SYNTHESIZER: { GOLD: 40 / 1440 },
+    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 60 / 1440 },
   };
 
   const noUpkeepTypes = new Set([
@@ -334,6 +332,15 @@ describe("upkeep parity", () => {
     "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
+    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
+    "CARAVANARY", "FOUNDRY",
+    "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
+    "AIRPORT", "OBSERVATORY",
+    "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION",
+    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
+    "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
+    "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
+    "IRON_LEVY_PART", "IRON_LEVY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

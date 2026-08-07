@@ -42,7 +42,7 @@ describe("tech benefit summaries", () => {
     );
 
     expect(html).toContain("<span>Vision</span>");
-    expect(html).toContain("<strong>5 tiles</strong>");
+    expect(html).toContain("<strong>2 tiles</strong>");
     expect(html).toContain("<span>Cartography</span>");
     expect(html).toContain("+1 radius");
     expect(html).not.toContain("<span>Income</span>");
@@ -114,7 +114,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Purge");
-    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (+50% farmstead food within 10 tiles; raises food cap)");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (+100% farmstead food within 10 tiles; raises food cap)");
   });
 
   it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {
@@ -170,7 +170,7 @@ describe("tech benefit summaries", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplyUpkeepMult: 0.8
+        outpostSupplySlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,
@@ -202,7 +202,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
-    expect(formatTechBenefitSummary(organizedSupply)).toContain("Outpost supply upkeep -20%");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Outposts need no SUPPLY slot");
     expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
     expect(formatTechBenefitSummary(logistics)).toContain("Settlement speed +5%");

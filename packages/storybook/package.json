@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@border-empires/client": "workspace:*",
+    "@border-empires/shared": "workspace:*",
     "three": "^0.179.1"
   },
   "devDependencies": {

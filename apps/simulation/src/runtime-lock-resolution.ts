@@ -1,8 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST,
-  MUSTER_SYSTEM_ENABLED
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -44,6 +43,12 @@ export type RuntimeLockResolutionContext = {
   respawnIfEliminated: (playerId: string, commandId: string) => void;
   ensureGrossIncomeSettlementForPlayer: (playerId: string, commandId: string) => boolean;
   applyBreachToNeighbors?: ((capturedTile: DomainTileState, attackerId: string) => DomainTileState[]) | undefined;
+  // Activates a dormant watchtower (see server-worldgen-watchtowers.ts / the
+  // Tile.watchtower feature) the first time a player expands onto its tile:
+  // grants that player a one-time 10-second vision pulse over the
+  // surrounding area, then reverts to normal fog-of-war. No-op if the tile
+  // has no watchtower or it was already activated.
+  maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -100,7 +105,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   });
 
   if (attacker && typeof combatResult?.manpowerDelta === "number") {
-    if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
+    if (lock.actionType === "ATTACK") {
       const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
       if (lock.playerId === "barbarian-1") {
         // Barbarian-origin attacks are rate-limited by tile cooldown, not manpower.
@@ -145,8 +150,10 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
+      ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
+      ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
-      ...capturedStructureFields(previousTarget, lock.playerId),
+      ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
     };
@@ -160,6 +167,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
+    if (lock.actionType === "EXPAND") {
+      context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+    }
 
     let tileDeltas: SimulationTileWireDelta[];
     // Only human captors get the vision-radius capture-reveal square; AI-
@@ -251,7 +261,7 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
     frontierDecayKind: undefined,
-    ...capturedStructureFields(previousOrigin, previousOwnerId)
+    ...capturedStructureFields(previousOrigin, previousOwnerId, context.now())
   };
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
@@ -277,6 +287,8 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
         ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
         ...(defenderTile.town ? { town: defenderTile.town } : {}),
         ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
+        ...(defenderTile.naturalWonder ? { naturalWonder: defenderTile.naturalWonder } : {}),
+        ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
         ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
       };
       context.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
@@ -311,7 +323,6 @@ function applyCombatEncirclement(
     if (encirclementChangedKeys.length === 0) return;
     const affectedPlayerIds = new Set<string>();
     if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    if (attackerWon) affectedPlayerIds.add(lock.playerId);
     if (originLost) affectedPlayerIds.add(lock.playerId);
     if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
     for (const pid of affectedPlayerIds) {

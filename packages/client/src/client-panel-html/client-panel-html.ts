@@ -1,3 +1,4 @@
+import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import type {
   ActiveTruceView,
   ActiveAllianceBreakView,
@@ -282,7 +283,8 @@ export const strategicRibbonHtml = (
   strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number },
   strategicAnim: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
-  rateToneClass: (rate: number) => string
+  rateToneClass: (rate: number) => string,
+  resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> }
 ): string => {
   const nowMs = Date.now();
   const entries: Array<{
@@ -299,28 +301,15 @@ export const strategicRibbonHtml = (
   ];
   return `<div class="resource-ribbon">${entries
     .map((entry) => {
-      const stock = strategicResources[entry.key];
-      const upkeep =
-        entry.key === "FOOD"
-          ? upkeepPerMinute.food
-          : entry.key === "IRON"
-            ? upkeepPerMinute.iron
-            : entry.key === "CRYSTAL"
-              ? upkeepPerMinute.crystal
-              : entry.key === "SUPPLY"
-                ? upkeepPerMinute.supply
-                : 0;
-      const net = strategicProductionPerMinute[entry.key] - upkeep;
-      const prodText = `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
-      const rateClass = rateToneClass(net);
+      const demand = resourceSlots?.demand[entry.key] ?? 0;
+      const supply = resourceSlots?.supply[entry.key] ?? 0;
       const anim = strategicAnim[entry.key];
       const deltaClass =
         nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
       return `<button class="resource-pill ${entry.className} ${deltaClass}" type="button" data-economy-open="${entry.key}" title="${entry.label} · ${entry.source}">
         <span class="resource-icon" aria-hidden="true">${entry.icon}</span>
         <span class="resource-value-row">
-          <span class="resource-value">${Number(stock).toFixed(1)}</span>
-          ${prodText ? `<span class="resource-rate ${rateClass}">${prodText}</span>` : ""}
+          <span class="resource-value">${demand}/${supply}</span>
         </span>
       </button>`;
     })
@@ -372,7 +361,7 @@ export const leaderboardHtml = (
   const overallLineText = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
   const overallLineHtml = (entry: LeaderboardOverallEntry): string =>
-    `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
+    `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs}`;
   const metricLineText = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
   const metricLineHtml = (entry: LeaderboardMetricEntry): string => `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} (${entry.value.toFixed(1)})`;
   const includesOverallEntry = (entries: LeaderboardOverallEntry[], selfEntry: LeaderboardOverallEntry | undefined): boolean => {
@@ -426,6 +415,11 @@ export const leaderboardHtml = (
             <div class="pressure-meta">Leader: ${objectiveLeaderHtml(objective)} · ${objective.progressLabel}</div>
             ${shouldShowSelfProgress(objective) ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
             <div class="pressure-meta">${objective.thresholdLabel}</div>
+            ${
+              typeof objective.holdRemainingSeconds === "number"
+                ? `<div class="pressure-meta pressure-meta-countdown">Winning in ${formatHoldCountdown(objective.holdRemainingSeconds)} unless stopped</div>`
+                : ""
+            }
           </div>`
         )
         .join("")}
@@ -439,7 +433,7 @@ export const leaderboardHtml = (
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLineHtml(entry)}</div>`).join("")}
       ${
         leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesOverallEntry(leaderboard.overall, leaderboard.selfOverall)
-          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors)} | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>`
+          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors)} | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${(leaderboard.selfOverall.incomePerMinute * 1440).toFixed(1)}/day | tech ${leaderboard.selfOverall.techs}</div>`
           : ""
       }
     </article>
