@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasRevealedResourceForPlayer } from "./tech-domain-bridge.js";
+import { hasRevealedResourceForPlayer, revealedResourceValueForPlayer } from "./tech-domain-bridge.js";
 
 // Regression coverage for a real bug: tile.resource values (FARM/FISH/IRON/
 // GEMS/WOOD/FUR) are raw terrain-resource types, not the strategic
@@ -36,5 +36,22 @@ describe("hasRevealedResourceForPlayer", () => {
     expect(hasRevealedResourceForPlayer({ techIds: ["agriculture"] }, "IRON")).toBe(false);
     expect(hasRevealedResourceForPlayer({ techIds: ["agriculture"] }, "WOOD")).toBe(false);
     expect(hasRevealedResourceForPlayer({ techIds: ["agriculture"] }, "GEMS")).toBe(false);
+  });
+});
+
+// revealedResourceValueForPlayer is the single shared helper every tile-wire-
+// delta builder (streaming, login/full-export, fog-of-war first-exposure)
+// must call instead of re-deriving this same masking logic inline -- three
+// separate builders each did that inline this session, and each one
+// individually forgot it at some point.
+describe("revealedResourceValueForPlayer", () => {
+  it("returns the resource value when revealed, undefined when masked", () => {
+    expect(revealedResourceValueForPlayer("IRON", { techIds: ["masonry"] })).toBe("IRON");
+    expect(revealedResourceValueForPlayer("IRON", { techIds: [] })).toBeUndefined();
+  });
+
+  it("returns undefined when there is no resource or no viewer", () => {
+    expect(revealedResourceValueForPlayer(undefined, { techIds: ["masonry"] })).toBeUndefined();
+    expect(revealedResourceValueForPlayer("IRON", undefined)).toBeUndefined();
   });
 });
