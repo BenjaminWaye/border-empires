@@ -5,6 +5,7 @@ export type Layers = {
   biome: boolean;
   region: boolean;
   shade: boolean;
+  hills: boolean;
   resources: boolean;
   towns: boolean;
   docks: boolean;
@@ -23,6 +24,8 @@ const C_COASTAL_SAND: [number, number, number] = [205, 182, 105];
 const C_MOUNTAIN: [number, number, number] = [88, 82, 76];
 const C_POLAR: [number, number, number] = [210, 225, 238]; // snow/ice color for polar band
 const POLAR_BAND = 15; // must match worldgen.ts POLAR_BAND constant
+
+const C_HILLS: [number, number, number] = [150, 120, 55]; // tan/khaki tint for isHillsTileAt() tiles
 
 const REGION_TINTS: Record<number, [number, number, number]> = {
   0: [90, 200, 70],   // FERTILE_PLAINS
@@ -136,6 +139,12 @@ export const renderWorld = (
           r = Math.min(255, r + 18);
           g = Math.min(255, g + 18);
           b = Math.min(255, b + 12);
+        }
+
+        if (layers.hills && data.hills[idx] === 1) {
+          r = mix(r, C_HILLS[0], 0.45);
+          g = mix(g, C_HILLS[1], 0.45);
+          b = mix(b, C_HILLS[2], 0.45);
         }
 
         if (layers.resources) {

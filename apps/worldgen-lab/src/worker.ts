@@ -7,6 +7,7 @@ import {
   landBiomeAt,
   regionTypeAt,
   grassShadeAt,
+  isHillsTileAt,
   wrapX,
   wrapY,
   type WorldStyle,
@@ -41,6 +42,7 @@ export type WorkerResponse = {
   biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 255=N/A
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
+  hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)
   resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
   dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
@@ -54,6 +56,7 @@ export type WorkerResponse = {
   maxLandY: number;         // bottommost row containing any LAND tile
   townCount: number;        // estimated town placements
   dockCount: number;        // 1 per significant island + 1 extra per island ≥250 tiles
+  hillsCount: number;       // land tiles flagged as hills
   farmSites: number;        // placed FARM resource tiles
   fishSites: number;        // placed FISH resource tiles
   gemsSites: number;        // placed GEMS resource tiles
@@ -327,9 +330,9 @@ const placeNaturalWonders = (
   });
 };
 
-const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array): { land: number; sea: number; mountain: number } => {
+const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array, hills: Uint8Array): { land: number; sea: number; mountain: number; hillsCount: number } => {
   setWorldSeed(seed, style);
-  let land = 0, sea = 0, mountain = 0;
+  let land = 0, sea = 0, mountain = 0, hillsCount = 0;
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let x = 0; x < WORLD_WIDTH; x++) {
@@ -353,6 +356,11 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
         else region[idx] = 0;
 
         shade[idx] = grassShadeAt(x, y) === "LIGHT" ? 1 : 0;
+
+        if (isHillsTileAt(x, y)) {
+          hills[idx] = 1;
+          hillsCount++;
+        }
       } else if (t === "MOUNTAIN") {
         terrain[idx] = 2;
         mountain++;
@@ -366,7 +374,7 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
     }
   }
 
-  return { land, sea, mountain };
+  return { land, sea, mountain, hillsCount };
 };
 
 self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
@@ -378,12 +386,13 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const biome = new Uint8Array(size).fill(255);
   const region = new Uint8Array(size).fill(255);
   const shade = new Uint8Array(size).fill(255);
+  const hills = new Uint8Array(size);
 
   let currentSeed = seed;
   let attempts = 1;
   // Islands mode uses its own generation function (many small blobs) — no seed refinement needed.
   // Continents mode refines the seed until island-count criteria are met (legacy behaviour kept).
-  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade);
+  let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade, hills);
 
   if (mapStyle === "continents") {
     const { significant, largestShare } = countIslands(terrain);
@@ -394,7 +403,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
         biome.fill(255);
         region.fill(255);
         shade.fill(255);
-        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade);
+        hills.fill(0);
+        counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade, hills);
         const next = countIslands(terrain);
         attempts++;
         if (isIslandsWorldValid(next.significant, next.largestShare)) {
@@ -439,6 +449,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     biome,
     region,
     shade,
+    hills,
     resourceLayer: resources.layer,
     townIndices,
     dockSiteIndices,
@@ -452,6 +463,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     maxLandY,
     townCount,
     dockCount,
+    hillsCount: counts.hillsCount,
     farmSites: resources.farm,
     fishSites: resources.fish,
     gemsSites: resources.gems,
@@ -461,7 +473,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   };
 
   self.postMessage(response, [
-    terrain.buffer, biome.buffer, region.buffer, shade.buffer,
+    terrain.buffer, biome.buffer, region.buffer, shade.buffer, hills.buffer,
     resources.layer.buffer, townIndices.buffer, dockSiteIndices.buffer
   ]);
 };

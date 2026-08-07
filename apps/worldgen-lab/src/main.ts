@@ -25,6 +25,7 @@ const layers: Layers = {
   biome: true,
   region: false,
   shade: true,
+  hills: false,
   resources: false,
   towns: false,
   docks: false,
@@ -44,6 +45,7 @@ const stats = {
   towns: "—",
   docks: "—",
   wonders: "—",
+  hills: "—",
   farm: "—",
   fish: "—",
   gems: "—",
@@ -103,6 +105,7 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
   stats.time = `${d.durationMs.toFixed(0)} ms`;
   stats.towns = `${d.townCount}`;
   stats.docks = `${d.dockCount}`;
+  stats.hills = `${d.hillsCount.toLocaleString()} tiles (${d.landCount > 0 ? Math.round((d.hillsCount / d.landCount) * 100) : 0}% of land)`;
   stats.farm = `${d.farmSites.toLocaleString()} tiles`;
   stats.fish = `${d.fishSites.toLocaleString()} tiles`;
   stats.gems = `${d.gemsSites.toLocaleString()} tiles`;
@@ -173,6 +176,7 @@ const layerFolder = pane.addFolder({ title: "Layers" });
 layerFolder.addBinding(layers, "biome", { label: "Biome colors" }).on("change", redraw);
 layerFolder.addBinding(layers, "region", { label: "Region tint" }).on("change", redraw);
 layerFolder.addBinding(layers, "shade", { label: "Grass shade" }).on("change", redraw);
+layerFolder.addBinding(layers, "hills", { label: "Hills" }).on("change", redraw);
 layerFolder.addBinding(layers, "resources", { label: "Resources" }).on("change", redraw);
 layerFolder.addBinding(layers, "towns", { label: "Towns" }).on("change", redraw);
 layerFolder.addBinding(layers, "docks", { label: "Docks" }).on("change", redraw);
@@ -181,6 +185,7 @@ layerFolder.addBinding(layers, "wonders", { label: "Natural Wonders" }).on("chan
 // Stats
 const statsFolder = pane.addFolder({ title: "Stats", expanded: true });
 statsFolder.addBinding(stats, "land", { label: "Land", readonly: true });
+statsFolder.addBinding(stats, "hills", { label: "Hills", readonly: true });
 statsFolder.addBinding(stats, "islands", { label: "Islands", readonly: true });
 statsFolder.addBinding(stats, "largestIsland", { label: "Largest", readonly: true });
 statsFolder.addBinding(stats, "attempts", { label: "Attempts", readonly: true });
