@@ -30,7 +30,7 @@ export type RuntimeCombatSupportContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
-  tileDeltaRevealOnly: (tile: DomainTileState) => SimulationTileWireDelta;
+  tileDeltaRevealOnly: (tile: DomainTileState, playerId: string) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   // §5.4: true when the given structure field is currently unpowered
@@ -122,7 +122,7 @@ export const buildCaptureRevealTileDeltas = (
     for (let dx = -radius; dx <= radius; dx += 1) {
       const tile = ctx.tiles.get(simulationTileKey(centerX + dx, centerY + dy));
       if (!tile) continue;
-      deltas.set(simulationTileKey(tile.x, tile.y), ctx.tileDeltaRevealOnly(tile));
+      deltas.set(simulationTileKey(tile.x, tile.y), ctx.tileDeltaRevealOnly(tile, playerId));
     }
   }
   return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
@@ -148,7 +148,7 @@ export const buildRevealTileDeltasForCenters = (
         if (deltas.has(key)) continue;
         const tile = ctx.tiles.get(key);
         if (!tile) continue;
-        deltas.set(key, ctx.tileDeltaRevealOnly(tile));
+        deltas.set(key, ctx.tileDeltaRevealOnly(tile, playerId));
       }
     }
   }

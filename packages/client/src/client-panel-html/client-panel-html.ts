@@ -284,10 +284,11 @@ export const strategicRibbonHtml = (
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number },
   strategicAnim: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
   rateToneClass: (rate: number) => string,
-  resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> }
+  resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> },
+  isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean
 ): string => {
   const nowMs = Date.now();
-  const entries: Array<{
+  const allEntries: Array<{
     key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
     icon: string;
     label: string;
@@ -299,6 +300,7 @@ export const strategicRibbonHtml = (
     { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
     { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" }
   ];
+  const entries = allEntries.filter((entry) => (isRevealed ? isRevealed(entry.key) : true));
   return `<div class="resource-ribbon">${entries
     .map((entry) => {
       const demand = resourceSlots?.demand[entry.key] ?? 0;
