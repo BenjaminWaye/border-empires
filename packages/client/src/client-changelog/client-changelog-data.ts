@@ -376,6 +376,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Market and Ancillary Factory also lost their one-per-town limit, so towns can specialize with multiples of either."
     ]
   },
+  {
+    createdAt: Date.now() + 3,
+    introducedIn: "tech-tag-consistency",
+    title: "Fixed: tech tags were inconsistent between the tech-tree card and the tech detail screen",
+    why: "The tech-tree card and the tech detail screen could show a different set of unlock tags for the same tech, resource-reveal effects (like 'Reveals Crystal') never got a tag at all, and some techs showed only a redundant yellow text summary instead of tags.",
+    changes: [
+      "The tech-tree card and the tech detail screen now always show the exact same tags for a tech.",
+      "Resource-reveal effects (Reveals Food/Iron/Crystal/Supply) now show as their own tag, everywhere a tech's unlocks are shown.",
+      "Removed the separate yellow 'Unlocks X' text summary — tags are now the only way a tech's unlocks are shown."
+    ]
+  },
   // Older entries (2026.07.22.1 and earlier) trimmed: the release-day
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.

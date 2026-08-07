@@ -558,7 +558,6 @@ export const renderTechDetailCardHtml = (args: {
     <div class="tech-detail-head">
       <div>
         <div class="tech-detail-title">${tech.name}${techBranchTagHtml(tech.branch)}</div>
-        <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       </div>
