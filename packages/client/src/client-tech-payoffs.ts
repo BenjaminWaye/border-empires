@@ -1,6 +1,6 @@
 import type { TechInfo } from "./client-types.js";
 
-export type TechHighlightTone = "structure" | "action" | "upgrade";
+export type TechHighlightTone = "structure" | "action" | "upgrade" | "resource";
 
 export type TechHighlightTag = {
   label: string;
@@ -63,6 +63,16 @@ const ACTION_UNLOCK_LABELS: Record<string, string> = {
   unlockAegisLock: "Aegis Lock"
 };
 
+// revealResource's value is a lowercase category string (food/iron/crystal/
+// supply), not a boolean like every other unlock key -- handled separately
+// in techHighlightTags below rather than via the boolean-keyed maps above.
+const REVEAL_RESOURCE_LABELS: Record<string, string> = {
+  food: "Reveals Food",
+  iron: "Reveals Iron",
+  crystal: "Reveals Crystal",
+  supply: "Reveals Supply"
+};
+
 const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
   unlockIronBastion: "Iron Bastion",
   unlockSiegeTower: "Siege Tower",
@@ -78,7 +88,7 @@ const addTag = (tags: TechHighlightTag[], label: string, tone: TechHighlightTone
 };
 
 export const isTechHighlightEffectKey = (key: string): boolean =>
-  key in STRUCTURE_UNLOCK_LABELS || key in ACTION_UNLOCK_LABELS || key in UPGRADE_UNLOCK_LABELS || key === "unlockAdvancedSynthesizers";
+  key in STRUCTURE_UNLOCK_LABELS || key in ACTION_UNLOCK_LABELS || key in UPGRADE_UNLOCK_LABELS || key === "unlockAdvancedSynthesizers" || key === "revealResource";
 
 export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighlightTag[] => {
   const tags: TechHighlightTag[] = [];
@@ -94,11 +104,20 @@ export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighligh
     if (effects[key] === true) addTag(tags, label, "upgrade");
   }
   if (effects.unlockAdvancedSynthesizers === true) addTag(tags, "Advanced Synths", "upgrade");
+  if (typeof effects.revealResource === "string") {
+    const label = REVEAL_RESOURCE_LABELS[effects.revealResource.toLowerCase()];
+    if (label) addTag(tags, label, "resource");
+  }
 
   return tags;
 };
 
-export const renderTechHighlightTagsHtml = (tech: Pick<TechInfo, "effects">, maxTags = 4): string => {
+// Single cap shared by every call site (tech-tree card, tech-tree graph
+// node, tech detail modal) so a tech never shows a different set of tags
+// depending on which view you're looking at.
+export const TECH_HIGHLIGHT_TAG_LIMIT = 6;
+
+export const renderTechHighlightTagsHtml = (tech: Pick<TechInfo, "effects">, maxTags: number = TECH_HIGHLIGHT_TAG_LIMIT): string => {
   const tags = techHighlightTags(tech).slice(0, maxTags);
   if (tags.length === 0) return "";
   return `<div class="tech-payoff-chips">${tags

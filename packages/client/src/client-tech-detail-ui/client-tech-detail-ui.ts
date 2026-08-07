@@ -2,7 +2,7 @@ import {
   crystalAbilityInfoButtonHtml,
   relatedCrystalAbilitiesForTech,
 } from "../client-crystal-ability-info/client-crystal-ability-info.js";
-import { renderTechHighlightTagsHtml, techHighlightTags } from "../client-tech-payoffs.js";
+import { renderTechHighlightTagsHtml } from "../client-tech-payoffs.js";
 import { techBlockedReasonSummary, techMissingResourceSummary } from "../client-tech-requirements/client-tech-requirements.js";
 import {
   currentDomainChoiceTier,
@@ -249,19 +249,6 @@ export const selectedTechInfo = (deps: {
 
 export const renderTechDetailPrompt = (): string => "";
 
-const shouldRenderUnlockHighlights = (
-  tech: TechInfo,
-  relatedStructures: StructureInfoKey[],
-  relatedCrystalAbilities: ReturnType<typeof relatedCrystalAbilitiesForTech>
-): boolean => {
-  const highlights = techHighlightTags(tech);
-  if (highlights.length === 0) return false;
-  const allStructureHighlights = highlights.every((highlight) => highlight.tone === "structure");
-  if (allStructureHighlights && relatedStructures.length > 0 && relatedCrystalAbilities.length === 0) return false;
-  if (highlights.length === relatedStructures.length && relatedStructures.length > 0 && relatedCrystalAbilities.length === 0) return false;
-  return true;
-};
-
 export const renderTechDetailCard = (deps: {
   tech: TechInfo | undefined;
   techDetailOpen: boolean;
@@ -298,9 +285,7 @@ export const renderTechDetailCard = (deps: {
     relatedCrystalAbilities.length > 0
       ? `<p class="muted"><strong>Abilities & actions:</strong> ${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</p>`
       : "";
-  const highlightHtml = shouldRenderUnlockHighlights(deps.tech, relatedStructures, relatedCrystalAbilities)
-    ? renderTechHighlightTagsHtml(deps.tech, 6)
-    : "";
+  const highlightHtml = renderTechHighlightTagsHtml(deps.tech);
   const payoffHtml = highlightHtml
     ? `<section class="structure-info-section">
         <span class="structure-info-section-label">Unlock highlights</span>
@@ -400,7 +385,6 @@ export const renderTechDetailModal = (deps: {
   techNameList: (ids: string[]) => string;
   structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
   techTier: (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>) => number;
-  formatTechBenefitSummary: (tech: TechInfo) => string;
 }): string => {
   const byId = new Map(deps.techCatalog.map((item) => [item.id, item]));
   const tierMemo = new Map<string, number>();
@@ -424,9 +408,7 @@ export const renderTechDetailModal = (deps: {
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const requirements = deps.tech.requirements.checklist ?? [];
-  const highlightHtml = shouldRenderUnlockHighlights(deps.tech, relatedStructures, relatedCrystalAbilities)
-    ? renderTechHighlightTagsHtml(deps.tech, 6)
-    : "";
+  const highlightHtml = renderTechHighlightTagsHtml(deps.tech);
   const requirementsHtml =
     requirements.length > 0
       ? `<ul class="tech-req-list">${requirements
@@ -442,7 +424,6 @@ export const renderTechDetailModal = (deps: {
             <div class="tech-detail-kicker">Technology</div>
             <h3>${deps.tech.name}</h3>
             ${highlightHtml}
-            <p class="tech-detail-effect">${deps.formatTechBenefitSummary(deps.tech)}</p>
             <p class="muted">${statusText}</p>
           </div>
         </div>
