@@ -204,7 +204,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
   if (kind === "MINE") return "Improves iron or crystal production on this tile and adds +1 slot of that resource.";
-  if (kind === "WEAPONS_WORKSHOP") return "Converts Iron and Supply into a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
+  if (kind === "WEAPONS_WORKSHOP") return "Forges Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
   return "Strengthens this tile's economy.";
 };
 
@@ -741,8 +741,8 @@ export const structureInfoForKey = (
   if (type === "WEAPONS_WORKSHOP") {
     return structure({
       title: "Weapons Workshop",
-      detail: "Weapons Workshops convert Iron and Supply into a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
-      glyph: "⚒",
+      detail: "Weapons Workshops forge Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
+      glyph: "🗡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
