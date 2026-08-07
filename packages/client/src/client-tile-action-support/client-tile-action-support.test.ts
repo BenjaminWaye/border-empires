@@ -8,7 +8,7 @@ import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-
 import type { Tile, TileActionDef } from "../client-types.js";
 
 const state = {
-  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"],
+  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "crystal-lattices", "leatherworking"],
   localhostDevAetherWall: false
 };
 
@@ -65,7 +65,7 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
-  it("hides disabled-only non-crystal action tabs while keeping overview fallback possible", () => {
+  it("shows disabled non-crystal actions with their blocker messages", () => {
     const disabledActions: TileActionDef[] = [
       {
         id: "launch_attack",
@@ -77,7 +77,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(disabledActions, state)).toEqual({
-      actions: [],
+      actions: disabledActions,
       buildings: [],
       crystal: []
     });
@@ -240,6 +240,9 @@ describe("town support tile actions", () => {
     clientState.me = "me";
     clientState.gold = 500;
     clientState.techIds = ["trade"];
+    // §5 (resource slots): MARKET needs a free FOOD slot at build time now
+    // that the old FOOD stockpile check is retired (Step 5 item 4 Slice A).
+    clientState.resourceSlots.supply.FOOD = 1;
     const supportTile: Tile = { x: 210, y: 149, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
     const town = (x: number, y: number): Tile => ({
       x,

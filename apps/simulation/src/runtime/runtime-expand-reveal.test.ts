@@ -144,10 +144,10 @@ describe("simulation runtime — EXPAND capture reveal", () => {
       // ...and the fringe tile beyond it that only just entered vision
       // because the player's footprint moved outward with the capture --
       // this is the fog that silently never cleared once EXPAND stopped
-      // building the full reveal square. Owning only (10,10) covers y 6-14
-      // at the base vision radius (4, mods.vision: 1); owning (10,11) too
-      // extends coverage to y 7-15, so (10,15) is the one genuinely new cell.
-      expect(filtered.some((d) => d.x === 10 && d.y === 15)).toBe(true);
+      // building the full reveal square. Owning only (10,10) covers y 9-11
+      // at the base vision radius (1, mods.vision: 1); owning (10,11) too
+      // extends coverage to y 10-12, so (10,12) is the one genuinely new cell.
+      expect(filtered.some((d) => d.x === 10 && d.y === 12)).toBe(true);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

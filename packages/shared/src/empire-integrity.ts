@@ -8,8 +8,7 @@ import { defensibilityScore } from "./math/math.js";
 
 const lerpByIntegrity = (t: number, min: number, max: number): number => min + t * (max - min);
 
-export const empireIntegrity = (settledTiles: number, settledExposed: number): number =>
-  defensibilityScore(settledTiles, settledExposed);
+export const empireIntegrity = (Ts: number, Es: number): number => defensibilityScore(Ts, Es);
 
 export const integrityEconomyMult = (t: number): number =>
   lerpByIntegrity(t, INTEGRITY_ECON_MIN_MULT, INTEGRITY_ECON_MAX_MULT);

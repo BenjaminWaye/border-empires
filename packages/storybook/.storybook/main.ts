@@ -19,6 +19,16 @@ const config: StorybookConfig = {
       ...(cfg.resolve.alias ?? {}),
       "@client": resolve(__dirname, "../../client/src")
     };
+    cfg.define = {
+      ...(cfg.define ?? {}),
+      // Shared package dist files reference Node's `process.env` directly
+      // (mirrors packages/client/vite.config.ts). Without this, any story
+      // that transitively imports packages/shared/src/config.ts throws
+      // "process is not defined" in the browser.
+      "process.env": JSON.stringify({
+        EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
+      })
+    };
     return cfg;
   }
 };

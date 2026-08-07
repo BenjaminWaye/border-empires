@@ -50,8 +50,8 @@ jobs:
       # Loaded-state DB fixture (~1900+ tiles, 20 AI players, islands map)
       # published as a GitHub Release asset. Update FIXTURE_TAG when a
       # fresher/larger snapshot is captured from staging.
-      FIXTURE_TAG: "load-harness-fixture-v1"
-      FIXTURE_ASSET: "harness-fixture-v1.db"
+      FIXTURE_TAG: "load-harness-fixture-v2"
+      FIXTURE_ASSET: "harness-fixture-v2.db"
 
     steps:
       - name: Checkout
@@ -59,6 +59,20 @@ jobs:
         with:
           # Use a deploy key or PAT so the subsequent commit push works.
           token: ${{ secrets.GH_PAT || github.token }}
+
+      # NOTE: job-level `env:` cannot self-reference the `env` context (per
+      # GitHub's context-availability rules, the `env` context is not
+      # available while `jobs.<job_id>.env` itself is being evaluated). A
+      # previous `GATEWAY_SQLITE_PATH: "...${{ env.FIXTURE_ASSET }}"` entry
+      # in the job-level `env:` block above made this workflow file fail
+      # validation, which caused GitHub to log a "No jobs were run" failure
+      # for every push across the whole repo (not just this workflow's own
+      # schedule/workflow_dispatch triggers). Steps *do* have access to the
+      # `env` context, so derive GATEWAY_SQLITE_PATH here instead — this
+      # keeps it in sync with FIXTURE_ASSET automatically if that ever
+      # changes.
+      - name: Derive fixture-dependent paths
+        run: echo "GATEWAY_SQLITE_PATH=${{ github.workspace }}/.local-data/${{ env.FIXTURE_ASSET }}" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -134,6 +148,28 @@ jobs:
           RESULT_FILE="$(tail -1 /tmp/harness-output.txt | grep -o 'docs/load-results/[^ ]*' || true)"
           echo "result_file=${RESULT_FILE}" >> "$GITHUB_OUTPUT"
         continue-on-error: true
+
+      - name: Dump process logs on harness failure
+        if: always() && steps.harness.outcome == 'failure'
+        run: |
+          echo "::group::sim.log"
+          cat /tmp/sim.log || true
+          echo "::endgroup::"
+          echo "::group::gateway.log"
+          cat /tmp/gateway.log || true
+          echo "::endgroup::"
+
+      - name: Upload process logs
+        if: always() && steps.harness.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-harness-process-logs
+          path: |
+            /tmp/sim.log
+            /tmp/gateway.log
+            /tmp/harness-output.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Stop simulation and gateway
         if: always()

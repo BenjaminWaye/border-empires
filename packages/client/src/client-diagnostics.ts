@@ -1,4 +1,5 @@
 import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
+import { summarizeDisconnectHistory } from "./client-connection-diagnostics/client-connection-diagnostics.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-performance-metrics/client-performance-metrics.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -89,7 +90,12 @@ export const buildDiagnosticsBundle = (
       hasEverInitialized: state.hasEverInitialized
     },
     performanceMetrics: snapshotPerformanceMetrics(),
-    recentDebugEvents: snapshotClientDebugEvents()
+    recentDebugEvents: snapshotClientDebugEvents(),
+    // Persisted across page reloads (see client-connection-diagnostics.ts),
+    // so this survives the full-page reload scheduleReconnectReload() does
+    // after a prolonged disconnect and can be used to diagnose reports of
+    // frequent reconnects.
+    disconnectHistory: summarizeDisconnectHistory()
   };
 };
 

@@ -18,8 +18,10 @@ type TileActionMenuUiDeps = {
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
+  moveQueuedEntryToFront: (tileKey: string) => boolean;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   applyOptimisticStructureCancel: (x: number, y: number) => void;
+  clearSettlementProgressByKey: (tileKey: string) => void;
   renderHud: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
@@ -111,6 +113,23 @@ export const renderTileActionMenu = (
         }
         if (btn.dataset.progressAction === "cancel_queued_build") {
           deps.cancelQueuedBuild(deps.keyFor(tile.x, tile.y));
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "move_queued_entry_to_front") {
+          deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
+          return;
+        }
+        if (btn.dataset.progressAction === "rush_buy") {
+          deps.sendGameMessage({ type: "RUSH_BUY", x: tile.x, y: tile.y });
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "cancel_settle") {
+          if (deps.sendGameMessage({ type: "CANCEL_SETTLE", x: tile.x, y: tile.y })) {
+            deps.clearSettlementProgressByKey(deps.keyFor(tile.x, tile.y));
+            deps.renderHud();
+          }
           deps.hideTileActionMenu();
           return;
         }

@@ -212,4 +212,28 @@ describe("simulation runtime env", () => {
     });
     expect(env.nonCompetitivePlayerIds).toEqual(new Set(["probe-uid-1", "probe-uid-2"]));
   });
+
+  it("clamps SIMULATION_AI_TICK_MS / SIMULATION_SYSTEM_TICK_MS to a floor instead of applying an aggressive override verbatim", () => {
+    // Found live on staging: SIMULATION_AI_TICK_MS=25 / SIMULATION_SYSTEM_TICK_MS=100
+    // (10x / 5x faster than this file's own defaults) drove continuous,
+    // compounding CPU load from the AI planner and barbarian producer ticking
+    // 40 and 10 times a second — contending with every other thread on a
+    // shared-cpu box for no gameplay benefit. A misconfigured env value must
+    // never silently apply below the floor.
+    const env = parseSimulationRuntimeEnv({
+      SIMULATION_AI_TICK_MS: "25",
+      SIMULATION_SYSTEM_TICK_MS: "100"
+    });
+    expect(env.aiTickMs).toBe(100);
+    expect(env.systemTickMs).toBe(200);
+  });
+
+  it("still allows a moderately faster tick interval above the floor", () => {
+    const env = parseSimulationRuntimeEnv({
+      SIMULATION_AI_TICK_MS: "150",
+      SIMULATION_SYSTEM_TICK_MS: "300"
+    });
+    expect(env.aiTickMs).toBe(150);
+    expect(env.systemTickMs).toBe(300);
+  });
 });

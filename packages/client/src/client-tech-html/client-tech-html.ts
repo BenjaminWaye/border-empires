@@ -1,8 +1,6 @@
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { isTechHighlightEffectKey } from "../client-tech-payoffs.js";
-
-const BASE_EMPIRE_VISION_RADIUS = 4;
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 type ActiveBonusContext = {
@@ -21,7 +19,7 @@ const formatSignedPercent = (mult: number): string => {
   return `${pct >= 0 ? "+" : ""}${pct}%`;
 };
 
-const effectSummaryLabel = (key: string, value: unknown): string | null => {
+export const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
@@ -72,36 +70,26 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+50% farmstead food within 10 tiles; raises food cap)";
+  if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+100% farmstead food within 10 tiles; raises food cap)";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
+  if (key === "unlockQuartermastersOffice" && value === true) return "Unlocks Quartermaster's Office";
+  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
+  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
+  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
+  if (key === "unlockIronLevy" && value === true) return "Unlocks The Iron Levy";
+  if (key === "musterMaxTilesAdd" && typeof value === "number") return `Muster tile cap +${value}`;
+  if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
   if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Connected dock income +${Math.round(value * 100)}% per link`;
   if (key === "marketCrystalUpkeepMult" && typeof value === "number") return `Market crystal upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
-  if (key === "supportEconomicFoodUpkeepMult" && typeof value === "number") return `Town support food upkeep -${Math.round((1 - value) * 100)}%`;
+  if (key === "firstTownsFoodSlotWaiverCount" && typeof value === "number") return `First ${value} towns need 1 fewer FOOD slot`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
-    const resourceOutput = value as Record<string, unknown>;
-    const labels: string[] = [];
-    if (typeof resourceOutput.farm === "number" && resourceOutput.farm !== 1) {
-      labels.push(`Farm output +${((resourceOutput.farm - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.fish === "number" && resourceOutput.fish !== 1) {
-      labels.push(`Fish output +${((resourceOutput.fish - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.iron === "number" && resourceOutput.iron !== 1) {
-      labels.push(`Iron output +${((resourceOutput.iron - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.crystal === "number" && resourceOutput.crystal !== 1) {
-      labels.push(`Crystal output +${((resourceOutput.crystal - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.supply === "number" && resourceOutput.supply !== 1) {
-      labels.push(`Supply output +${((resourceOutput.supply - 1) * 100).toFixed(0)}%`);
-    }
-    if (typeof resourceOutput.shard === "number" && resourceOutput.shard !== 1) {
-      labels.push(`Shard output +${((resourceOutput.shard - 1) * 100).toFixed(0)}%`);
-    }
+    const ro = value as Record<string, unknown>;
+    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["iron", "Iron"], ["crystal", "Crystal"], ["supply", "Supply"], ["shard", "Shard"]];
+    const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }
   if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -112,8 +100,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
     return `Sabotage cooldown ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "newSettlementDefenseMult" && typeof value === "number")
     return `New settlement defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "settledFoodUpkeepMult" && typeof value === "number") return `Settled food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "settledGoldUpkeepMult" && typeof value === "number") return `Settled gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "allTownsFoodSlotWaiverPerTown" && typeof value === "number") return `Every town needs ${value} fewer FOOD slot${value === 1 ? "" : "s"}`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsGoldOutputMult" && typeof value === "number")
@@ -139,33 +126,30 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "fortIronSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no IRON slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
     return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs barbarians ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostSupplySlotWaiverCount" && typeof value === "number") return `First ${value} Siege Outposts need no SUPPLY slot`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "chosenResourceTrickleOptions" && value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, rate]) => typeof rate === "number");
-    if (entries.length === 0) return null;
-    const summary = entries
-      .map(([resource, rate]) => `${String(resource).toLowerCase()} +${(rate as number).toFixed(2)}/min`)
-      .join(", ");
-    return `Pick one on confirm: ${summary}`;
+  if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
+    return `Pick one on confirm: +${value} free slot of chosen resource`;
   }
-  if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
+  if (key === "townVisionRadiusBonus" && typeof value === "number") return `Town vision radius +${value}`;
+  if (key === "outpostVisionRadiusBonus" && typeof value === "number") return `Light/Siege Outpost vision radius +${value}`;
   if (key === "observatoryRangeBonus" && typeof value === "number") return `Observatory range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
-  if (key === "frontierDefenseAdd" && typeof value === "number") return `Frontier defense +${value}`;
   if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "observatoryVisionBonus" && typeof value === "number") return `Observatory vision +${value}`;
   return null;
 };
 
@@ -199,61 +183,19 @@ const formatEffectSummaryLines = (effects: TechInfo["effects"] | DomainInfo["eff
   return lines;
 };
 
-const combatStrengthSummary = (attack: number | undefined, defense: number | undefined): string | null => {
-  if (typeof attack === "number" && typeof defense === "number" && attack === defense && attack !== 1) {
-    return `Combat strength ${attack > 1 ? "+" : ""}${((attack - 1) * 100).toFixed(0)}%`;
-  }
-  return null;
-};
-
-const formatTechModifiers = (mods: TechInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
-  if (combatStrength) {
-    lines.push(combatStrength);
-  } else {
-    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  }
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
-export const formatTechPassiveSummary = (tech: TechInfo): string => {
-  const lines = formatTechModifiers(tech.mods);
-  for (const label of formatEffectSummaryLines(tech.effects)) {
-    if (tech.effects && Object.entries(tech.effects).some(([key, value]) => isTechHighlightEffectKey(key) && effectSummaryLabel(key, value) === label)) continue;
-    lines.push(label);
-  }
-  if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
-  return lines.join(" | ");
-};
-
-const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
-  if (combatStrength) {
-    lines.push(combatStrength);
-  } else {
-    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  }
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
+// Tech-tree redesign: every tech unlocks a real building/ability, never a
+// flat stat multiplier — mods (attack/defense/income/vision) are legacy
+// pre-redesign data still present on some tech-tree.json rows and must not
+// be surfaced to players as if they were the tech's payoff. Only effect
+// (unlock) summary lines and powerup grants are shown.
 export const formatTechBenefitSummary = (tech: TechInfo): string => {
-  const lines = formatTechModifiers(tech.mods);
-  lines.push(...formatEffectSummaryLines(tech.effects));
+  const lines = formatEffectSummaryLines(tech.effects);
   if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
-  const lines = formatDomainModifiers(domain.mods);
-  lines.push(...formatEffectSummaryLines(domain.effects));
+  const lines = formatEffectSummaryLines(domain.effects);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
@@ -273,24 +215,17 @@ export const techOwnedHtml = (
     .join("");
 };
 
-// Returns the set of valid trickle resource keys offered by this domain's
-// chosenResourceTrickleOptions effect, or null if the effect is absent /
-// malformed / present-but-empty. The TRICKLE_RESOURCE_KEYS list is the
-// shared contract with the sim's chosenTrickleOptionsForDomain — any change
-// to the offered resource set must flip a single constant in shared.
-const domainTrickleOptionKeys = (
+// Returns the set of valid resource keys offered by this domain's
+// chosenResourceSlotGrant effect, or null if the effect is absent.
+// The TRICKLE_RESOURCE_KEYS list is the shared contract with the sim's
+// domainHasResourceSubChoice — any change to the offered resource set
+// must flip a single constant in shared.
+const domainResourceSlotKeys = (
   domain: DomainInfo | undefined
 ): ReadonlySet<ChosenTrickleResource> | null => {
-  const raw = domain?.effects?.chosenResourceTrickleOptions;
-  if (!raw || typeof raw !== "object") return null;
-  const rawRecord = raw as Record<string, unknown>;
-  const keys = new Set<ChosenTrickleResource>();
-  for (const candidate of TRICKLE_RESOURCE_KEYS) {
-    const rate = rawRecord[candidate];
-    if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) continue;
-    keys.add(candidate);
-  }
-  return keys.size > 0 ? keys : null;
+  const grant = domain?.effects?.chosenResourceSlotGrant;
+  if (typeof grant !== "number" || !Number.isFinite(grant) || grant <= 0) return null;
+  return new Set(TRICKLE_RESOURCE_KEYS);
 };
 
 export const domainOwnedHtml = (
@@ -304,16 +239,16 @@ export const domainOwnedHtml = (
     .map((id) => {
       const domain = catalogById.get(id);
       // Surface the player's locked resource on the owned card ONLY when this
-      // specific domain's options table actually offered that resource. This
-      // prevents a future trickle-offering domain with a narrower table (e.g.
-      // only IRON) from misleadingly displaying "(SUPPLY trickle)" because the
-      // player happens to have locked SUPPLY on a different domain.
-      const offeredKeys = domainTrickleOptionKeys(domain);
-      const trickleSuffix =
+      // specific domain offered that resource. This prevents a future domain
+      // with a narrower table (e.g. only IRON) from misleadingly displaying
+      // "(SUPPLY slot)" because the player happens to have locked SUPPLY on
+      // a different domain.
+      const offeredKeys = domainResourceSlotKeys(domain);
+      const slotSuffix =
         offeredKeys && chosenTrickleResource && offeredKeys.has(chosenTrickleResource)
-          ? ` <em>(${chosenTrickleResource} trickle)</em>`
+          ? ` <em>(${chosenTrickleResource} slot)</em>`
           : "";
-      return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
+      return `<article class="card"><strong>${domain?.name ?? id}${slotSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
     })
     .join("");
 };
@@ -344,7 +279,7 @@ export const techCurrentModsHtml = (
     })
     .filter((entry): entry is Extract<ActiveBonusBreakdownEntry, { kind: "radius" }> => Boolean(entry));
   const visionRadiusBonus = radiusEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const effectiveVisionRadius = Math.max(1, Math.floor(BASE_EMPIRE_VISION_RADIUS * (mods.vision ?? 1)) + visionRadiusBonus);
+  const effectiveVisionRadius = Math.max(1, Math.floor(PLAYER_BASE_VISION * (mods.vision ?? 1)) + visionRadiusBonus);
 
   const statDefs = [
     {
@@ -454,6 +389,21 @@ export const techCurrentModsHtml = (
       ${breakdown}
     </div>
   `;
+};
+
+// Tech-tree redesign: a small colored label showing which of the 4
+// player-facing branches (war, economy, manpower, aether) a tech belongs
+// to. Deliberately a plain text/color tag, not a redesign of the tech card.
+const TECH_BRANCH_LABELS: Record<string, string> = {
+  war: "War",
+  economy: "Economy",
+  manpower: "Manpower",
+  aether: "Aether"
+};
+export const techBranchTagHtml = (branch: string | undefined): string => {
+  if (!branch) return "";
+  const label = TECH_BRANCH_LABELS[branch] ?? branch;
+  return ` <span class="tech-branch-tag tech-branch-tag-${branch}">${label}</span>`;
 };
 
 const checklistHtml = (items: Array<{ label: string; met: boolean }>, className = "tech-req-list"): string =>
@@ -591,7 +541,7 @@ export const renderTechDetailCardHtml = (args: {
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
-        <div class="tech-detail-title">${tech.name}</div>
+        <div class="tech-detail-title">${tech.name}${techBranchTagHtml(tech.branch)}</div>
         <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}
@@ -719,16 +669,16 @@ export const renderDomainDetailCardHtml = (args: {
   // domain offered it — same gate as the owned-summary card, so a
   // future narrower-table domain doesn't claim credit for a pick made on
   // another domain.
-  const detailOfferedKeys = domainTrickleOptionKeys(domain);
-  const detailTrickleRate =
+  const detailOfferedKeys = domainResourceSlotKeys(domain);
+  const detailSlotGrant =
     owned && chosenTrickleResource && detailOfferedKeys?.has(chosenTrickleResource)
-      ? (domain.effects?.chosenResourceTrickleOptions as Record<string, number> | undefined)?.[chosenTrickleResource]
+      ? (domain.effects?.chosenResourceSlotGrant as number | undefined)
       : undefined;
-  const trickleSection =
-    detailTrickleRate !== undefined && detailTrickleRate > 0
+  const slotSection =
+    detailSlotGrant !== undefined && detailSlotGrant > 0
       ? `<section class="structure-info-section">
         <span class="structure-info-section-label">Your pick</span>
-        <strong>${chosenTrickleResource} (+${detailTrickleRate.toFixed(2)}/min, locked)</strong>
+        <strong>${chosenTrickleResource} (+${detailSlotGrant} slot${detailSlotGrant === 1 ? "" : "s"}, locked)</strong>
       </section>`
       : "";
   const tierRuleText =
@@ -762,7 +712,7 @@ export const renderDomainDetailCardHtml = (args: {
       <p class="domain-detail-tier-rule">${tierRuleText}</p>
       ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       <p>${domain.description}</p>
-      ${trickleSection}
+      ${slotSection}
       <section class="structure-info-section">
         <span class="structure-info-section-label">Benefits</span>
         <strong>${formatDomainBenefitSummary(domain)}</strong>
@@ -784,33 +734,3 @@ export const renderDomainDetailCardHtml = (args: {
   </article>`;
 };
 
-export const renderTechChoiceDetailsHtml = (args: {
-  tech: TechInfo | undefined;
-  statusText: string | undefined;
-  currentMods: Record<ModKey, number>;
-  prereqs: string[];
-}): string => {
-  const { tech, statusText, currentMods, prereqs } = args;
-  if (!tech) return `<p class="muted">No tech selected.</p>`;
-  const mods = Object.entries(tech.mods ?? {})
-    .map(([key, value]) => `${key} x${Number(value).toFixed(3)}`)
-    .join(" | ");
-  const projected = {
-    attack: currentMods.attack * (tech.mods.attack ?? 1),
-    defense: currentMods.defense * (tech.mods.defense ?? 1),
-    income: currentMods.income * (tech.mods.income ?? 1),
-    vision: currentMods.vision * (tech.mods.vision ?? 1)
-  };
-  return `<article class="card">
-    <strong>${tech.name}</strong>
-    ${statusText ? `<p class="muted">${statusText}</p>` : ""}
-    <p>${tech.description}</p>
-    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
-    <p><strong>Requirements:</strong></p>
-    ${compactChecklistHtml(effectiveRequirementChecklist(tech.requirements))}
-    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
-    <p><strong>Current:</strong> atk x${currentMods.attack.toFixed(3)} | def x${currentMods.defense.toFixed(3)} | inc x${currentMods.income.toFixed(3)} | vis x${currentMods.vision.toFixed(3)}</p>
-    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
-    ${tech.grantsPowerup ? `<p><strong>Powerup:</strong> ${tech.grantsPowerup.id} (+${tech.grantsPowerup.charges})</p>` : ""}
-  </article>`;
-};

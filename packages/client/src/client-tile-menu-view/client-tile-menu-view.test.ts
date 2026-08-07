@@ -109,8 +109,8 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true); expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
-
-  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m."); });
+  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
+  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, boosts Bank's flat income from +5 to +7.5 gold/day."); });
   it("uses Monumental City in the overview label for the final tier", () => {
     const lines = menuOverviewForTile(
       {
@@ -640,7 +640,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("43.2/day"))).toBe(true);
   });
 
   it("shows a crystal-casting recharge countdown on our own active observatory still on cooldown", () => {
@@ -717,9 +717,9 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("0.04/m"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1.00/m"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1.00/m") && line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("57.6/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1440.0/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1440.0/day") && line.html.includes("36.0/day"))).toBe(true);
     expect(lines.some((line) => line.html.startsWith("Upkeep:"))).toBe(false);
   });
 
@@ -960,6 +960,41 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html.startsWith("Stored yield:"))).toBe(false);
+  });
+
+  it("shows a rush-buy preview label for an in-progress build, priced off the remaining time", () => {
+    const progress = constructionProgressForTile(
+      {
+        ...settledSupportTile("under_construction"),
+        economicStructure: {
+          ownerId: "me",
+          type: "LIGHT_OUTPOST",
+          status: "under_construction",
+          completesAt: Date.now() + 1 // effectively fully elapsed -> minimal price
+        }
+      },
+      () => "0:00"
+    );
+
+    expect(progress?.rushBuyActionId).toBe("rush_buy");
+    expect(progress?.rushBuyLabel).toMatch(/^⏩ 🪙\d+$/);
+  });
+
+  it("omits a rush-buy label for removal progress (only in-progress builds can be rushed)", () => {
+    const progress = constructionProgressForTile(
+      {
+        ...settledSupportTile("removing"),
+        economicStructure: {
+          ownerId: "me",
+          type: "LIGHT_OUTPOST",
+          status: "removing",
+          completesAt: Date.now() + 45_000
+        }
+      },
+      () => "0:45"
+    );
+
+    expect(progress?.rushBuyLabel).toBeUndefined();
   });
 
   it("shows building-specific removal progress timing", () => {

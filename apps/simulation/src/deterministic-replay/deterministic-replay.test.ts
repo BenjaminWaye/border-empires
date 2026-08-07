@@ -16,8 +16,27 @@ describe("runDeterministicReplay", () => {
       }
     ];
 
-    const firstRun = runDeterministicReplay(commands, { startTime: 1_000 });
-    const secondRun = runDeterministicReplay(commands, { startTime: 1_000 });
+    // Muster is unconditionally required to attack — merge-patch it onto the
+    // default-seeded origin tile (10,10) rather than relying on the tick
+    // (runDeterministicReplay never calls tickMuster, so it would never grow).
+    const replayOptions = {
+      startTime: 1_000,
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD" as const, updatedAt: 0 }
+          }
+        ],
+        activeLocks: []
+      }
+    };
+    const firstRun = runDeterministicReplay(commands, replayOptions);
+    const secondRun = runDeterministicReplay(commands, replayOptions);
 
     // terrainEpoch is a per-runtime-instance counter used for caching, not
     // game state — different runtime instances naturally get different values.

@@ -7,6 +7,7 @@ import { createPlannerRelevantTileKeyIndex, DEFAULT_PLANNER_SYNC_RADIUS } from "
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import type { CombinedWorkerChannel } from "./combined-worker-host.js";
 
 export type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
 import {
@@ -29,61 +30,18 @@ import {
 } from "./ai-attack-stalemate.js";
 import {
   clearDevelopmentReservation,
+  clearDevelopmentReservationsForPlayer,
   reserveDevelopmentSlot,
   reservedDevelopmentSlotCount,
   type DevelopmentSlotReservation
 } from "./ai-development-slot-reservations.js";
 import { buildAiTickIterationOrder, DEFAULT_STARVATION_GUARD_MS } from "./ai-tick-fairness.js";
+import { activeCooldownsForPlayer, createRejectionCooldownState, recordRejectionCooldown } from "./ai-rejection-cooldown.js";
+import { mergePlannerTileDelta, toPlannerTileDelta } from "./planner-tile-delta-merge.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
-const mergePlannerTileDelta = (
-  existing: PlannerTileView | undefined,
-  tileDelta: SimulationTileDelta
-): PlannerTileView | undefined => {
-  const terrain = tileDelta.terrain ?? existing?.terrain;
-  if (!terrain) return undefined;
-  const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
-  if (tileDelta.terrain) next.terrain = tileDelta.terrain;
-  if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
-    else delete next.resource;
-  }
-  if ("dockId" in tileDelta) {
-    if (tileDelta.dockId) next.dockId = tileDelta.dockId;
-    else delete next.dockId;
-  }
-  if ("ownerId" in tileDelta) {
-    if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
-    else delete next.ownerId;
-  }
-  if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
-    else delete next.ownershipState;
-  }
-  return next;
-};
-
-/**
- * Converts a PlannerTileView back to the SimulationTileDelta wire format so
- * backfilled tiles can be sent to the worker via the existing "tile_deltas"
- * message path.
- */
-const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta => ({
-  x: tile.x,
-  y: tile.y,
-  terrain: tile.terrain,
-  ...(tile.resource !== undefined ? { resource: tile.resource } : {}),
-  ...(tile.dockId !== undefined ? { dockId: tile.dockId } : {}),
-  ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
-  ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
-  ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
-  ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
-  ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeOutpost !== undefined ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-  ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})
-});
 
 type WorkerAiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews" | "exportTilesForKeys">;
@@ -110,6 +68,18 @@ type WorkerAiCommandProducerOptions = {
   /** Injectable factory for tests — defaults to `new Worker(path, opts)`. */
   workerFactory?: (path: string | URL, opts: { resourceLimits: { maxOldGenerationSizeMb: number } }) => Worker;
   maxOldGenerationSizeMb?: number;
+  /**
+   * Optional shared worker channel from a `createCombinedWorkerHost` (P3
+   * thread-consolidation path — see combined-worker-host.ts). When supplied,
+   * this producer sends/receives all worker messages over the shared
+   * channel instead of spawning its own dedicated Worker/OS thread — the
+   * caller (typically simulation-service.ts) owns the underlying worker's
+   * lifecycle and must call the host's own `close()` once both the AI and
+   * system producers have released it. When omitted (the default, and what
+   * every existing test uses), behavior is unchanged: this producer spawns
+   * and owns its own dedicated `ai-planner-worker.js` Worker.
+   */
+  workerHost?: CombinedWorkerChannel;
   plannerBreachThresholdMs?: number;
   /**
    * Optional per-player budget gate.  Called after per-player gates
@@ -139,7 +109,7 @@ type WorkerAiCommandProducerOptions = {
     lastCommandType?: string;
   }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
-  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string; rejectionMessage: string }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   /** Diagnostic experiment flags — staging investigation only. */
@@ -164,7 +134,6 @@ type WorkerAiCommandProducerOptions = {
       | "tile_delta_sync"
       | "request_plan_round_trip"
       | "resolve_player_tiles"
-      | "planner_choose_settlement"
       | "planner_choose_frontier"
       | "planner_summarize_frontier"
       | "planner_total"
@@ -208,7 +177,6 @@ type PlannedCommandResult = {
 
 const isExpandAction = (type: CommandEnvelope["type"]): boolean => type === "EXPAND" || type === "ATTACK";
 const isBuildAction = (type: CommandEnvelope["type"]): boolean =>
-  type === "SETTLE" ||
   type === "BUILD_FORT" ||
   type === "BUILD_OBSERVATORY" ||
   type === "BUILD_SIEGE_OUTPOST" ||
@@ -245,6 +213,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
+  const rejectionCooldowns = createRejectionCooldownState();
   // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
   // collects). The preplan uses this to gate the 60s heartbeat — if we
   // shared this with organic collects (collect_for_unaffordable_progression,
@@ -281,119 +250,97 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   let closed = false;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
-  let worker!: Worker;
+  let worker!: Worker; // only assigned/used in the self-spawned (no shared host) path
   let relevantTileKeyIndex!: ReturnType<typeof createPlannerRelevantTileKeyIndex>;
 
-  const spawnWorker = (): void => {
-    const factory = options.workerFactory ?? ((path, opts) => new Worker(path, opts));
-    worker = factory(workerScriptPath, {
-      resourceLimits: { maxOldGenerationSizeMb }
-    });
-
-    worker.on("message", (msg: unknown) => {
-      if (!msg || typeof msg !== "object") return;
-      const message = msg as Record<string, unknown>;
-      if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
-        const mu = message.memoryUsage as NodeJS.MemoryUsage;
-        workerMetrics.rssBytes = mu.rss;
-        workerMetrics.heapTotalBytes = mu.heapTotal;
-        workerMetrics.heapUsedBytes = mu.heapUsed;
-        workerMetrics.externalBytes = mu.external;
-        workerMetrics.arrayBuffersBytes = mu.arrayBuffers;
-        return;
+  const handleWorkerMessage = (msg: unknown): void => {
+    if (!msg || typeof msg !== "object") return;
+    const message = msg as Record<string, unknown>;
+    if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
+      const mu = message.memoryUsage as NodeJS.MemoryUsage;
+      workerMetrics.rssBytes = mu.rss;
+      workerMetrics.heapTotalBytes = mu.heapTotal;
+      workerMetrics.heapUsedBytes = mu.heapUsed;
+      workerMetrics.externalBytes = mu.external;
+      workerMetrics.arrayBuffersBytes = mu.arrayBuffers;
+      return;
+    }
+    if (message.type === "command") {
+      const key = message.playerId as string;
+      const resolve = pendingRequests.get(key);
+      if (resolve) {
+        pendingRequests.delete(key);
+        resolve({
+          command: (message.command as CommandEnvelope | null) ?? null,
+          ...(message.diagnostic
+            ? { diagnostic: message.diagnostic as AutomationPlannerDiagnostic }
+            : {})
+        });
       }
-      if (message.type === "command") {
-        const key = message.playerId as string;
-        const resolve = pendingRequests.get(key);
-        if (resolve) {
-          pendingRequests.delete(key);
-          resolve({
-            command: (message.command as CommandEnvelope | null) ?? null,
-            ...(message.diagnostic
-              ? { diagnostic: message.diagnostic as AutomationPlannerDiagnostic }
-              : {})
-          });
-        }
-      } else if (message.type === "diagnostic") {
-        const diagnostic = message.diagnostic as {
-          phase:
-            | "resolve_player_tiles"
-            | "planner_choose_settlement"
-            | "planner_choose_frontier"
-            | "planner_summarize_frontier"
-            | "planner_total";
-          durationMs: number;
-          playerId: string;
-          ownedTileCount?: number;
-          frontierTileCount?: number;
-          queueWaitMs?: number; messagesAheadCount?: number;
-        };
-        options.onDiagnostic?.(diagnostic);
-      } else if (message.type === "error") {
-        const key = message.playerId as string;
-        console.error("[ai-planner-worker] planner error:", message.message);
-        if (typeof key === "string" && key.length > 0) {
-          options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
-        }
-        const resolve = pendingRequests.get(key);
-        if (resolve) {
-          pendingRequests.delete(key);
-          resolve({ command: null });
-        }
+    } else if (message.type === "diagnostic") {
+      const diagnostic = message.diagnostic as {
+        phase:
+          | "resolve_player_tiles"
+          | "planner_choose_frontier"
+          | "planner_summarize_frontier"
+          | "planner_total";
+        durationMs: number;
+        playerId: string;
+        ownedTileCount?: number;
+        frontierTileCount?: number;
+        queueWaitMs?: number; messagesAheadCount?: number;
+      };
+      options.onDiagnostic?.(diagnostic);
+    } else if (message.type === "error") {
+      const key = message.playerId as string;
+      console.error("[ai-planner-worker] planner error:", message.message);
+      if (typeof key === "string" && key.length > 0) {
+        options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
       }
-    });
-
-    worker.on("error", (err) => {
-      console.error("[ai-planner-worker] uncaught error:", err);
-      // Drain pending requests so ticks don't hang
-      for (const [, resolve] of pendingRequests) resolve({ command: null });
-      pendingRequests.clear();
-    });
-
-    worker.on("exit", (code) => {
-      workerMetrics.lastExitCode = code;
-      workerMetrics.lastExitAt = Date.now();
-      if (closed) return;
-      if (code !== 0) {
-        console.error(
-          `[ai-planner-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
-        );
+      const resolve = pendingRequests.get(key);
+      if (resolve) {
+        pendingRequests.delete(key);
+        resolve({ command: null });
       }
-      for (const [, resolve] of pendingRequests) resolve({ command: null });
-      pendingRequests.clear();
-      // The new worker thread starts unpaused. Reset our local backlog-tracking
-      // flag so the next tick re-issues pause/resume against the fresh worker;
-      // otherwise we'd silently keep planning while the main thread thinks the
-      // worker is paused (or vice-versa).
-      humanBacklogWasNonEmpty = false;
-      workerMetrics.respawnCount += 1;
-      scheduleRespawn(0);
-    });
+    }
   };
 
-  // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
-  // blows up under main-thread memory pressure), retry on a timer instead of
-  // letting the unhandled throw propagate from the exit handler and crash the
-  // whole process. Capped retry delay so we don't busy-loop.
-  const RESPAWN_RETRY_DELAY_MS = 5_000;
-  const scheduleRespawn = (delayMs: number): void => {
+  const handleWorkerError = (err: unknown): void => {
+    console.error("[ai-planner-worker] uncaught error:", err);
+    // Drain pending requests so ticks don't hang
+    for (const [, resolve] of pendingRequests) resolve({ command: null });
+    pendingRequests.clear();
+  };
+
+  // Shared by both the self-spawned and shared-host paths. Respawn scheduling
+  // itself differs per-path (see below) — the self-spawned path retries
+  // locally; the shared-host path defers entirely to the host.
+  const handleWorkerExit = (code: number): void => {
+    workerMetrics.lastExitCode = code;
+    workerMetrics.lastExitAt = Date.now();
     if (closed) return;
-    setTimeout(() => {
-      if (closed) return;
-      try {
-        initializeWorkerFromRuntime();
-      } catch (err) {
-        console.error(
-          `[ai-planner-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
-          err
-        );
-        scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
-      }
-    }, delayMs).unref();
+    if (code !== 0) {
+      console.error(
+        `[ai-planner-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
+      );
+    }
+    for (const [, resolve] of pendingRequests) resolve({ command: null });
+    pendingRequests.clear();
+    // The new worker starts unpaused — reset the local flag so the next
+    // tick re-issues pause/resume against it, or we'd silently desync.
+    humanBacklogWasNonEmpty = false;
+    workerMetrics.respawnCount += 1;
   };
 
-  const initializeWorkerFromRuntime = (): void => {
-    spawnWorker();
+  // Re-derives planner state from the runtime and (re)sends "init" to
+  // whichever transport is active. Runs on first spawn AND every respawn —
+  // in the self-spawned path that's driven by initializeWorkerFromRuntime()
+  // below; in the shared-host path the host's onRespawn() drives it
+  // (including an immediate call if the shared worker is already live).
+  let postToWorker: (msg: Record<string, unknown>) => void = () => {
+    throw new Error("postToWorker used before worker transport was initialized");
+  };
+  const runtimeInit = (): void => {
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
     const worldView = options.runtime.exportPlannerWorldView(options.aiPlayerIds);
@@ -411,13 +358,83 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
     });
     relevantTileKeys = relevantTileKeyIndex.keys();
-    worker.postMessage({
+    postToWorker({
       type: "init",
       worldView
     });
   };
 
-  initializeWorkerFromRuntime();
+  let closeWorker: () => void;
+
+  if (options.workerHost) {
+    // ── Shared worker path (P3): messages go over the caller-supplied
+    // channel; the host owns spawn/respawn — this producer only reacts. ──
+    const host = options.workerHost;
+    postToWorker = (msg) => host.postMessage(msg);
+    host.onMessage(handleWorkerMessage);
+    host.onError((err) => handleWorkerError(err));
+    host.onExit((code) => handleWorkerExit(code));
+    // Fires immediately (worker already live) plus on every future respawn.
+    host.onRespawn(runtimeInit);
+    closeWorker = () => {
+      // The shared worker may still be serving the other producer (AI vs.
+      // system) — do NOT post shutdown or terminate it here. Whoever created
+      // the host (simulation-service.ts) calls its own close() once both
+      // producers have released it.
+    };
+  } else {
+    // ── Self-spawned path (default; used by every existing test): this
+    // producer owns a dedicated Worker exactly as before the P3 merge. ──
+    postToWorker = (msg) => worker.postMessage(msg);
+
+    const spawnWorker = (): void => {
+      const factory = options.workerFactory ?? ((path, opts) => new Worker(path, opts));
+      worker = factory(workerScriptPath, {
+        resourceLimits: { maxOldGenerationSizeMb }
+      });
+
+      worker.on("message", handleWorkerMessage);
+      worker.on("error", handleWorkerError);
+      worker.on("exit", (code) => {
+        handleWorkerExit(code);
+        if (closed) return;
+        scheduleRespawn(0);
+      });
+    };
+
+    // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
+    // blows up under main-thread memory pressure), retry on a timer instead of
+    // letting the unhandled throw propagate from the exit handler and crash the
+    // whole process. Capped retry delay so we don't busy-loop.
+    const RESPAWN_RETRY_DELAY_MS = 5_000;
+    const scheduleRespawn = (delayMs: number): void => {
+      if (closed) return;
+      setTimeout(() => {
+        if (closed) return;
+        try {
+          initializeWorkerFromRuntime();
+        } catch (err) {
+          console.error(
+            `[ai-planner-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
+            err
+          );
+          scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
+        }
+      }, delayMs).unref();
+    };
+
+    const initializeWorkerFromRuntime = (): void => {
+      spawnWorker();
+      runtimeInit();
+    };
+
+    closeWorker = () => {
+      postToWorker({ type: "shutdown" });
+      void worker.terminate();
+    };
+
+    initializeWorkerFromRuntime();
+  }
 
   const pendingPlayerSyncIds = new Set<string>();
   let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -434,12 +451,13 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       durationMs: Math.max(0, now() - exportStartedAt),
       playerCount: players.length
     });
-    for (const player of players) plannerPlayersById.set(player.id, player);
+    for (const player of players) {
+      plannerPlayersById.set(player.id, player);
+      clearDevelopmentReservationsForPlayer(developmentReservationsByPlayer, player.id);
+    }
     const replacePlayersStartedAt = now();
-    // replacePlayers returns only the keys that are newly relevant to the
-    // rebuilt players. We scope the unseen-tile backfill scan to these keys
-    // instead of scanning all relevantTileKeys (was O(global_100k), now
-    // O(newly_relevant) ≈ 0 at steady state, small on territory expansion).
+    // replacePlayers returns only newly-relevant keys, scoping the backfill
+    // scan below to O(newly_relevant) instead of O(global_100k).
     const newlyRelevantKeys = trackSync(
       "sync_players_replace_players",
       { playerCount: players.length },
@@ -497,7 +515,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         backfillDeltas.push(toPlannerTileDelta(tile));
       }
       if (backfillDeltas.length > 0) {
-        worker.postMessage({ type: "tile_deltas", tileDeltas: backfillDeltas });
+        postToWorker({ type: "tile_deltas", tileDeltas: backfillDeltas });
       }
       options.onDiagnostic?.({
         phase: "sync_players_export_unseen_tiles",
@@ -525,7 +543,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       "sync_players_post",
       { playerCount: playersForPost.length },
       () =>
-        worker.postMessage({
+        postToWorker({
           type: "sync_players",
           players: playersForPost
         })
@@ -576,7 +594,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const tileDeltas = [...pendingTileDeltasByKey.values()];
     pendingTileDeltasByKey.clear();
     const postStartedAt = now();
-    worker.postMessage({ type: "tile_deltas", tileDeltas });
+    postToWorker({ type: "tile_deltas", tileDeltas });
     options.onDiagnostic?.({
       phase: "tile_delta_post",
       durationMs: Math.max(0, now() - postStartedAt),
@@ -836,7 +854,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         releaseAiLatchedIntent(intentLatchState, event.playerId);
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
-        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType });
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code, rejectionMessage: event.message });
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, pending.commandType, now());
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);
@@ -897,7 +916,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
 
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
-      worker.postMessage({
+      const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, now());
+      postToWorker({
         type: "plan",
         playerId,
         clientSeq,
@@ -905,7 +925,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         sessionPrefix: "ai-runtime",
         ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
         ...(requestOptions?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: requestOptions.reservedDevelopmentSlots } : {}),
-        ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
+        ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {}),
+        ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
       });
     });
   };
@@ -921,7 +942,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const queueDepths = options.runtime.queueDepths();
     const humanBacklogNonEmpty = hasHumanInteractiveBacklog(queueDepths);
     if (humanBacklogNonEmpty !== humanBacklogWasNonEmpty) {
-      worker.postMessage({ type: humanBacklogNonEmpty ? "pause" : "resume" });
+      postToWorker({ type: humanBacklogNonEmpty ? "pause" : "resume" });
       humanBacklogWasNonEmpty = humanBacklogNonEmpty;
     }
     if (humanBacklogNonEmpty) {
@@ -1087,8 +1108,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       trackedPreplanByCommandId.clear();
       flushPendingTileDeltas();
       stopListening();
-      worker.postMessage({ type: "shutdown" });
-      void worker.terminate();
+      closeWorker();
     }
   };
 };

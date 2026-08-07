@@ -67,6 +67,17 @@ export const hudMarkup = `
     </div>
   </div>
 
+  <div id="victory-alert-overlay" style="display:none">
+    <div id="victory-alert-card">
+      <div id="victory-alert-head">
+        <div id="victory-alert-title"></div>
+        <button id="victory-alert-collapse" class="victory-alert-collapse-btn" type="button" title="Minimize" aria-label="Minimize">✕</button>
+      </div>
+      <div id="victory-alert-detail"></div>
+    </div>
+    <button id="victory-alert-banner" class="victory-alert-banner-btn" type="button"></button>
+  </div>
+
   <div id="map-loading-overlay">
     <div id="map-loading-row">
       <div id="map-loading-spinner" aria-hidden="true"></div>
@@ -191,6 +202,7 @@ export const hudMarkup = `
           <div class="auth-busy-eyebrow">Securing session</div>
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
+          <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
         </div>
       </div>
     </div>

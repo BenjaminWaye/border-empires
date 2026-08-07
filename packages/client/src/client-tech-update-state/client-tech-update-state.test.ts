@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyTechUpdateToState } from "./client-tech-update-state.js";
+import { applyTechUpdateToState, TECH_AFFORDABILITY_PULSE_MS, updateTechAffordabilityPulses } from "./client-tech-update-state.js";
+
+const tech = (id: string, gold: number) =>
+  ({ id, tier: 1, name: id, description: "", mods: {}, effects: {}, requirements: { gold, resources: {}, checklist: [], canResearch: true } }) as any;
 
 describe("applyTechUpdateToState", () => {
   it("closes the tech detail view and returns focus to the tech panel after a completed unlock", () => {
@@ -27,7 +30,10 @@ describe("applyTechUpdateToState", () => {
       domainChoices: [],
       domainCatalog: [],
       revealCapacity: 1,
-      activeRevealTargets: []
+      activeRevealTargets: [],
+      gold: 0,
+      techAffordableByTechId: new Map(),
+      techAffordablePulseUntilByTechId: new Map()
     } as any;
 
     const pushFeed = vi.fn();
@@ -86,7 +92,10 @@ describe("applyTechUpdateToState", () => {
       domainChoices: [],
       domainCatalog: [],
       revealCapacity: 1,
-      activeRevealTargets: []
+      activeRevealTargets: [],
+      gold: 0,
+      techAffordableByTechId: new Map(),
+      techAffordablePulseUntilByTechId: new Map()
     } as any;
 
     applyTechUpdateToState(
@@ -101,5 +110,85 @@ describe("applyTechUpdateToState", () => {
     );
 
     expect(state.techCatalog.map((tech: any) => tech.tier)).toEqual([7, 7]);
+  });
+});
+
+describe("updateTechAffordabilityPulses", () => {
+  it("does not pulse a tech seen for the first time (no prior tracked value)", () => {
+    const state = { techCatalog: [tech("agriculture", 10)], gold: 10, techAffordableByTechId: new Map(), techAffordablePulseUntilByTechId: new Map() } as any;
+    updateTechAffordabilityPulses(state, 1_000);
+    expect(state.techAffordablePulseUntilByTechId.has("agriculture")).toBe(false);
+    expect(state.techAffordableByTechId.get("agriculture")).toBe(true);
+  });
+
+  it("pulses on a false -> true affordability crossing", () => {
+    const state = {
+      techCatalog: [tech("agriculture", 10)],
+      gold: 5,
+      techAffordableByTechId: new Map([["agriculture", false]]),
+      techAffordablePulseUntilByTechId: new Map()
+    } as any;
+    state.gold = 10;
+    updateTechAffordabilityPulses(state, 1_000);
+    expect(state.techAffordablePulseUntilByTechId.get("agriculture")).toBe(1_000 + TECH_AFFORDABILITY_PULSE_MS);
+  });
+
+  it("does not re-pulse a tech that was already affordable", () => {
+    const state = {
+      techCatalog: [tech("agriculture", 10)],
+      gold: 100,
+      techAffordableByTechId: new Map([["agriculture", true]]),
+      techAffordablePulseUntilByTechId: new Map()
+    } as any;
+    updateTechAffordabilityPulses(state, 1_000);
+    expect(state.techAffordablePulseUntilByTechId.has("agriculture")).toBe(false);
+  });
+
+  it("does not pulse when a tech is still unaffordable", () => {
+    const state = {
+      techCatalog: [tech("agriculture", 10)],
+      gold: 0,
+      techAffordableByTechId: new Map([["agriculture", false]]),
+      techAffordablePulseUntilByTechId: new Map()
+    } as any;
+    updateTechAffordabilityPulses(state, 1_000);
+    expect(state.techAffordablePulseUntilByTechId.has("agriculture")).toBe(false);
+    expect(state.techAffordableByTechId.get("agriculture")).toBe(false);
+  });
+
+  it("applyTechUpdateToState arms a pulse end-to-end when gold crosses a tech's cost", () => {
+    const state = {
+      pendingTechUnlockId: "",
+      techUiSelectedId: "",
+      techDetailOpen: false,
+      activePanel: null,
+      mobilePanel: "core",
+      structureInfoKey: "",
+      crystalAbilityInfoKey: "",
+      techChoices: [],
+      techIds: [],
+      techRootId: undefined,
+      currentResearch: undefined,
+      availableTechPicks: 1,
+      developmentProcessLimit: 3,
+      activeDevelopmentProcessCount: 0,
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      modBreakdown: { attack: [], defense: [], income: [], vision: [] },
+      incomePerMinute: 0,
+      missions: [],
+      techCatalog: [tech("agriculture", 10)],
+      domainIds: [],
+      domainChoices: [],
+      domainCatalog: [],
+      revealCapacity: 1,
+      activeRevealTargets: [],
+      gold: 5,
+      techAffordableByTechId: new Map([["agriculture", false]]),
+      techAffordablePulseUntilByTechId: new Map()
+    } as any;
+
+    applyTechUpdateToState(state, { gold: 10, techCatalog: [tech("agriculture", 10)] }, vi.fn());
+
+    expect(state.techAffordablePulseUntilByTechId.has("agriculture")).toBe(true);
   });
 });

@@ -1,16 +1,20 @@
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
   AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   DOCK_INCOME_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   FOUNDRY_OUTPUT_MULT,
   FOUNDRY_RADIUS,
@@ -21,8 +25,7 @@ import {
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
   IRONWORKS_IRON_PER_DAY,
-  IRONWORKS_GOLD_UPKEEP,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
@@ -30,7 +33,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
-  WOODEN_FORT_GOLD_UPKEEP,
+  UPKEEP_MINUTES_PER_DAY,
   type SnapshotEconomySection,
   type SnapshotPlayersSection,
   type SnapshotSystemsSection,
@@ -261,14 +264,19 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "CAMP": return CAMP_GOLD_UPKEEP / 10;
     case "MINE": return MINE_GOLD_UPKEEP / 10;
     case "GRANARY": return GRANARY_GOLD_UPKEEP / 10;
-    case "WOODEN_FORT": return WOODEN_FORT_GOLD_UPKEEP / 10;
-    case "LIGHT_OUTPOST": return LIGHT_OUTPOST_GOLD_UPKEEP / 10;
-    case "FUR_SYNTHESIZER":
-    case "ADVANCED_FUR_SYNTHESIZER": return CAMP_GOLD_UPKEEP / 10;
-    case "IRONWORKS":
-    case "ADVANCED_IRONWORKS": return IRONWORKS_GOLD_UPKEEP / 10;
-    case "CRYSTAL_SYNTHESIZER":
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10;
+    // §6.4 (docs/manpower-economy-rewrite-plan.md): this switch previously
+    // had BOTH the base and Advanced Fur Synthesizer cases returning
+    // CAMP_GOLD_UPKEEP instead of their own rate — a third, previously-
+    // unfound instance of the exact "Advanced synthesizer costs less to
+    // run than the thing it upgrades" bug class §6.4 already flagged for
+    // the live-code/live-screenshot discrepancy. Fixed to each synthesizer's
+    // own §6.4-decided gold/day figure.
+    case "FUR_SYNTHESIZER": return FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "ADVANCED_FUR_SYNTHESIZER": return ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "IRONWORKS": return IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "ADVANCED_IRONWORKS": return ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "CRYSTAL_SYNTHESIZER": return CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "ADVANCED_CRYSTAL_SYNTHESIZER": return ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
     case "FOUNDRY": return FOUNDRY_GOLD_UPKEEP / 10;
     case "GARRISON_HALL": return GARRISON_HALL_GOLD_UPKEEP / 10;
     case "CUSTOMS_HOUSE": return CUSTOMS_HOUSE_GOLD_UPKEEP / 10;
@@ -278,10 +286,14 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
   }
 };
 
+// §upkeep-rebalance: Light Outpost/Wooden Fort and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
+const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   if (structureType === "MARKET") return MARKET_FOOD_UPKEEP / 10;
   if (structureType === "BANK") return BANK_FOOD_UPKEEP / 10;
   if (structureType === "CARAVANARY") return CARAVANARY_FOOD_UPKEEP / 10;
+  if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
 };
 
@@ -535,13 +547,10 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     if (bankFlatIncome > 0) addBucket(sourceBuckets.GOLD, "Banks", bankFlatIncome, { count: activePlayerStructures.filter((structure) => structure.type === "BANK").length });
     if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} settled docks` });
 
-    const settledLandGoldUpkeep = activeSettledTileKeys.reduce((total, tileKey) => {
-      const town = townsByTile.get(tileKey);
-      return total + (town && townPopulationTier(town) === "SETTLEMENT" ? 0 : 0.04);
-    }, 0);
-    upkeep.gold += settledLandGoldUpkeep;
-    addBucket(sinkBuckets.GOLD, "Settled land upkeep", settledLandGoldUpkeep, { count: activeSettledTileKeys.length, note: `${activeSettledTileKeys.length} settled tiles` });
-
+    // §6 (docs/manpower-economy-rewrite-plan.md): gold's only remaining
+    // jobs post-rewrite are tech/rush-buys/synthesizer upkeep — a flat
+    // per-settled-tile gold drain isn't one of those, so it's retired
+    // rather than rescaled.
     const townFoodUpkeep = townFoodNeeds.reduce((total, entry) => total + entry.need, 0);
     upkeep.food += townFoodUpkeep;
     addBucket(sinkBuckets.FOOD, "Town upkeep", townFoodUpkeep, { count: ownedTowns.length, note: `${ownedTowns.length} towns` });

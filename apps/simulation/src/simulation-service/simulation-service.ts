@@ -22,7 +22,8 @@ import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
-import { getAiDecisionDiagnostics, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
+import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -30,16 +31,23 @@ import type { SimulationEventStore } from "../event-store/event-store.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
-import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import {
+  createHybridSnapshotStringifier,
+  createWorkerSnapshotStringifier,
+  type WorkerMemoryMetrics
+} from "../snapshot-stringifier/snapshot-stringifier.js";
 import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
+import { createCombinedWorkerHost, type CombinedWorkerHost } from "../ai/combined-worker-host.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
+import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
+import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
+import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -47,6 +55,7 @@ import { createPlayerSubscriptionRegistry } from "../subscription-registry/subsc
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
+import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
@@ -54,11 +63,12 @@ import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recov
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
-import { mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
-import { parseSubscribeOptions } from "../parse-subscribe-options/parse-subscribe-options.js";
+import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
+import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
+import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
@@ -68,10 +78,16 @@ import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
-import { createMainThreadTaskTrackerFromEnv } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import {
+  createMainThreadTaskTrackerFromEnv,
+  type MainThreadTaskTracker
+} from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
+import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
+import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
+import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -184,7 +200,6 @@ const formatNoFrontierDiagnostic = (
     `dock_origins=${diagnostic.dockOriginCount ?? 0}`,
     `scope_keys=${diagnostic.playerScopeKeyCount ?? 0}`,
     `scope_tiles=${diagnostic.playerScopeTileCount ?? 0}`,
-    `settle=${diagnostic.settlementCandidateFound ? 1 : 0}`,
     `enemy=${diagnostic.frontierEnemyTargetCount}`,
     `enemy_player=${diagnostic.frontierEnemyPlayerTargetCount ?? 0}`,
     `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
@@ -247,7 +262,7 @@ const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorl
       terrain: tile.terrain,
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}), ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -399,20 +414,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const verboseSnapshotDiagnostics = process.env.SIMULATION_VERBOSE_SNAPSHOT_DIAGNOSTICS === "1";
   const slowSnapshotBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_SNAPSHOT_BUILD_WARN_MS ?? 100));
   const simulationMetricsLogIntervalMs = Math.max(0, Number(process.env.SIMULATION_METRICS_LOG_INTERVAL_MS ?? 0));
-  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH"
-  // diagnostic. Set 0 to disable. Captures total + max-per-subscriber filter
-  // time so we can tell whether filterTileDeltasForPlayer is the source of
-  // simulation event-loop stalls under heavy combat load.
+  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH" diagnostic (0 disables); captures total + max-per-subscriber filter time to attribute event-loop stalls to filterTileDeltasForPlayer under heavy combat.
   const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
-  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see
-  // SqliteWriterChannel.onWriteTimed). Discriminates "the SQL write itself was
-  // slow" (workMs) from "the worker was still busy with a prior message when
-  // this one arrived" (queueWaitMs) — a multi-second appendEvent round trip
-  // looks identical in the event_store diagnostic either way.
+  // Threshold for the sqlite-writer-worker queueWaitMs/workMs breakdown (see SqliteWriterChannel.onWriteTimed) — discriminates a slow SQL write (workMs) from the worker still being busy with a prior message (queueWaitMs).
   const slowWriterQueueWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_WRITER_QUEUE_WARN_MS ?? 50));
-  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
-  // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
-  // under heavy combat the build itself (before fanout) could block the loop.
+  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic — each human capture builds (2*VISION_RADIUS+1)² tile deltas, which could block the loop under heavy combat.
   const slowCaptureRevealBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_CAPTURE_REVEAL_BUILD_WARN_MS ?? 20));
   const captureRevealBuildSample = (sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }): void => {
     if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;
@@ -425,6 +431,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  // Wraps mainThreadTasks.trackSync so every named phase (town_network_rebuild,
+  // tile_yield_economy_context_rebuild, etc.) also lands in a Prometheus
+  // quantile, not just the in-memory ring buffer mainThreadTasks itself keeps
+  // for event_loop_blocked attribution. That ring buffer already had good
+  // attribution, but only surfaces through stdout logs with ~9min retention
+  // on Fly; a live incident (2026-07-22) needed a lucky log capture to see
+  // which phase was dominating a 3s+ block. simulationMetrics is referenced
+  // here via closure (defined further below in this function) rather than
+  // passed as a parameter — safe because this function is only ever CALLED
+  // later, once simulationMetrics is fully initialised, exactly like the
+  // wrapJobRun/shouldPauseBackground closures elsewhere in this file.
+  const trackSyncMainThreadTaskWithMetrics: MainThreadTaskTracker["trackSync"] = (phase, details, task) => {
+    const startedAtMs = Date.now();
+    try {
+      return mainThreadTasks.trackSync(phase, details, task);
+    } finally {
+      simulationMetrics.observeSimMainThreadTaskMs(phase, Date.now() - startedAtMs);
+    }
+  };
+  const rssHeapGapMonitor = createRssHeapGapMonitor();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
     const writer = logWriters[level];
@@ -434,21 +460,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     console[level](message, payload);
   };
-  // Death-forensics ring buffer — rolling window of recent lag diagnostics
-  // forwarded to the gateway main thread so both watchdog-kill and sim-exit
-  // write paths have the sim's last known state. See lag-diagnostics.ts.
+  // Death-forensics ring buffer — rolling window of recent lag diagnostics forwarded to the gateway main
+  // thread so both watchdog-kill and sim-exit write paths have the sim's last known state (lag-diagnostics.ts).
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
-  // GC observer to detect stop-the-world pauses. Major GC can cause multi-second
-  // event_loop_blocked entries with no tracked tasks; GC pauses are invisible to
-  // instrumentation since they block JS execution.
+  // GC observer; "warn" so recordLagDiagnostic retains it for death forensics.
   let gcPauseObserver: PerformanceObserver | undefined;
   try {
     gcPauseObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
-          recordLagDiagnostic("info", "gc_pause_detected", {
+          recordLagDiagnostic("warn", "gc_pause_detected", {
             durationMs: (entry.duration as number),
-            gcKind: (entry as unknown as Record<string, unknown>).kind
+            gcKind: decodeGcKind((entry as unknown as Record<string, unknown>).kind as number | undefined)
           });
         }
       }
@@ -509,13 +532,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
-  let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
-  // Only spin up a stringify worker for SQLite-backed deployments — full
-  // snapshots there are ~18MB and inline JSON.stringify blocks the
-  // simulation event loop. In-memory tests stay inline.
+  let snapshotStringifier: ReturnType<typeof createHybridSnapshotStringifier> | undefined;
+  // Only spin up a stringify worker for SQLite-backed deployments — full snapshots there are ~18MB and
+  // inline JSON.stringify blocks the simulation event loop. In-memory tests stay inline.
+  //
+  // Wrapped in the hybrid router: routing EVERY checkpoint through the worker
+  // (even the common case, a compacted overlay of a few thousand entries)
+  // pays a postMessage structured-clone + IPC round-trip regardless of size.
+  // Measured live in prod at 2.6s for a payload whose own inline
+  // JSON.stringify costs ~11ms (see snapshot-stringifier.ts). The hybrid
+  // stringifier only pays the worker's cost once a payload is actually large
+  // enough to need it.
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
     try {
-      snapshotStringifier = createWorkerSnapshotStringifier();
+      snapshotStringifier = createHybridSnapshotStringifier({ worker: createWorkerSnapshotStringifier() });
     } catch (err) {
       log.error(
         { err: err instanceof Error ? err.message : String(err) },
@@ -559,8 +589,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     (await createSimulationEventStore(storeFactoryOptions));
   // Route all SQLite writes through a dedicated worker thread so the sim
   // thread's event loop is never blocked by I/O (157–822ms per write observed).
-  // Only wrap when using real SQLite stores (not injected test doubles).
-  // Reads stay on the sim thread; WAL mode allows concurrent readers.
+  // Only wrap when using real SQLite stores (not test doubles); reads stay on the sim thread (WAL allows concurrent readers).
   const writerChannel =
     !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
       ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath, {
@@ -574,7 +603,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           onBackpressureWait: () => {
             simulationMetrics.incrementSimWriterQueueBackpressureWait();
             log.warn({ phase: "sqlite_writer_channel" }, "writer queue backpressure engaged; sim thread awaiting drain");
-          }
+          },
+          trackSync: mainThreadTasks.trackSync
         })
       : undefined;
   const commandStore = writerChannel
@@ -851,9 +881,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     wrapJobRun: (run, meta) => () =>
-      mainThreadTasks.trackSync("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
+      trackSyncMainThreadTaskWithMetrics("command_execution", { lane: meta.lane, ...(meta.commandId ? { commandId: meta.commandId } : {}) }, run),
     onVisibilityAudit: handleVisibilityAudit,
-    trackSyncMainThreadTask: mainThreadTasks.trackSync,
+    trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
     shouldPauseBackground: () => {
       if (loginExportsInFlight > 0) {
         simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -869,43 +899,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onAuthRecoveryRespawn: () => { simulationMetrics.incrementSimAuthRecoveryRespawn(); },
+    onAuthRecoveryRespawnGuarded: () => { simulationMetrics.incrementSimAuthRecoveryRespawnGuarded(); },
     onOwnershipChange: (sample) => {
       const lostTown = sample.townLost;
       const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
       if (!lostTown && !lostSettled) return;
-      const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
       if (lostTown) {
-        const message = `[ownership_audit] TOWN LOST on tile ${sample.tileKey} (${sample.x},${sample.y}) — previous owner ${sample.previousOwnerId}`;
-        log.warn(
-          {
-            tileKey: sample.tileKey,
-            x: sample.x,
-            y: sample.y,
-            previousOwnerId: sample.previousOwnerId,
-            nextOwnerId: sample.nextOwnerId,
-            commandId: sample.commandId,
-            hadTown: sample.hadTown
-          },
-          message
-        );
-        if (webhookUrl) {
-          const body = JSON.stringify({
-            text: `<!channel> *${process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires"}:* ${message}`,
-            blocks: [
-              { type: "header", text: { type: "plain_text", text: "🏚️ Town Lost" } },
-              {
-                type: "section",
-                fields: [
-                  { type: "mrkdwn", text: `*Tile:* ${sample.tileKey} (${sample.x},${sample.y})` },
-                  { type: "mrkdwn", text: `*Previous Owner:* ${sample.previousOwnerId}` },
-                  { type: "mrkdwn", text: `*Command:* \`${sample.commandId}\`` }
-                ]
-              }
-            ]
-          });
-          fetch(webhookUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(5_000) }).catch(() => {});
+        const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+        const environmentLabel = resolveEnvironmentLabel(process.env);
+        const alert = buildTownLostAlert(sample, environmentLabel, process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
+        log.warn(alert.logFields, alert.message);
+        if (alert.skippedSettlementTier) {
+          simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier();
+        } else if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(alert.slackBody),
+            signal: AbortSignal.timeout(5_000)
+          }).catch(() => {});
         }
       } else {
+        const environmentLabel = resolveEnvironmentLabel(process.env);
         log.warn(
           {
             tileKey: sample.tileKey,
@@ -914,9 +930,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             previousOwnerId: sample.previousOwnerId,
             nextOwnerId: sample.nextOwnerId,
             commandId: sample.commandId,
-            hadTown: sample.hadTown
+            hadTown: sample.hadTown,
+            environment: environmentLabel
           },
-          `[ownership_audit] SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+          `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
         );
       }
     },
@@ -1051,17 +1068,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onPersistenceFailure: (error) => {
+      if (handlePersistenceConstraintViolation(error, simulationMetrics, recordLagDiagnostic, log)) return;
       if (fatalPersistenceError) return;
       fatalPersistenceError = error;
       recordLagDiagnostic("error", "simulation_persistence_failed", {
         error: error.message
       });
       log.error({ err: error }, "simulation entering fatal persistence failure mode");
-      // Dump the error to /data/ before exiting so flyctl logs don't need to
-      // retain it — the file survives the restart and is logged on next boot.
+      // Dump to /data/ before exiting — survives the restart, logged on next boot.
       try {
-        const stamp = new Date().toISOString();
-        const payload = JSON.stringify({ at: stamp, error: error.message, stack: error.stack ?? "" });
+        const payload = JSON.stringify({ at: new Date().toISOString(), error: error.message, stack: error.stack ?? "" });
         fs.writeFileSync("/data/last-persistence-failure.json", payload);
       } catch {
         // /data/ may not exist in dev; ignore silently
@@ -1076,16 +1092,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
-  const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
-  // Post-season proto-tile cache: tiles are frozen after season end so the
-  // marshalled proto tile array is an immutable constant for a given seasonId.
-  // All players get identical full-visibility tiles post-season, so one cached
-  // array can be shared across all concurrent SubscribePlayer RPCs.
+  const snapshotCache = createPlayerSnapshotCache();
+  // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
-  const invalidateSharedFullVisibilityTilesCache = (): void => {
-    sharedFullVisibilityTilesCache = undefined;
-  };
+  const invalidateSharedFullVisibilityTilesCache = (): void => { sharedFullVisibilityTilesCache = undefined; };
   const sharedFullVisibilityTiles = (runtimeState: ReturnType<SimulationRuntime["exportState"]>): PlayerSubscriptionSnapshot["tiles"] => {
     if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
     return sharedFullVisibilityTilesCache;
@@ -1106,23 +1117,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return inFlightFullVisExportPromise;
   };
   const refreshSnapshotCacheMetrics = () => {
-    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
+    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCache.entries());
     simulationMetrics.setSimSnapshotCache({
       entries: cacheSummary.entryCount,
       bytes: cacheSummary.totalSnapshotJsonBytes
     });
     return cacheSummary;
   };
-  const setCachedSnapshot = (playerId: string, snapshot: PlayerSubscriptionSnapshot) => {
-    snapshotCacheByPlayerId.set(playerId, snapshot);
+  const setCachedSnapshot = (playerId: string, snapshot: PlayerSubscriptionSnapshot, atRevision?: number) => {
+    snapshotCache.set(playerId, snapshot, atRevision);
     return refreshSnapshotCacheMetrics();
   };
   const deleteCachedSnapshot = (playerId: string) => {
-    snapshotCacheByPlayerId.delete(playerId);
+    snapshotCache.delete(playerId);
     return refreshSnapshotCacheMetrics();
   };
   const clearCachedSnapshots = () => {
-    snapshotCacheByPlayerId.clear();
+    snapshotCache.clear();
     postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
   };
@@ -1132,6 +1143,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; }
     if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
+    if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
     if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
     if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
     log.info("season ended — gameplay tickers stopped");
@@ -1215,6 +1227,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
+  let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
@@ -1249,6 +1262,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // System-lane jobs are NOT paused — they settle commands the export depends on.
     loginExportsInFlight += 1;
     try {
+    const builtAtRevision = snapshotCache.worldRevision(); // stamp from before the export; a batch landing mid-build must not count as included
     const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
@@ -1278,17 +1292,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
-    const buildOpts = {
-      includeWorldStatus: needsFullWorldExport,
-      fullVisibility: useFullVisibility,
-      // Pass pre-computed global tiles so the worker skips the O(202k) enrichment.
-      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      // worldStatusRuntimeState is always === runtimeState for full-vis; the
-      // worker falls back to runtimeState automatically, so omit it here.
-      seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
-    };
+    const buildOpts = buildSnapshotBuildOptions({
+      useFullVisibility,
+      needsFullWorldExport,
+      runtimeState,
+      respawnNotice,
+      currentSeasonState,
+      nonCompetitivePlayerIds,
+      sharedFullVisibilityTiles,
+    });
     // Full-visibility builds (season-ended / spectator) bypass the worker pool.
     // For full-vis the per-tile enrichment is already memoised on the main
     // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
@@ -1305,7 +1317,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
     const snapshot = useWorkerBuild
       ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
-      : buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts);
+      : trackSyncMainThreadTaskWithMetrics("snapshot_materialize_inline", { playerId }, () =>
+          buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts));
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -1314,7 +1327,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     if (!useFullVisibility || options?.cacheSnapshot === true) {
       const cacheStartedAt = Date.now();
-      setCachedSnapshot(playerId, snapshot);
+      setCachedSnapshot(playerId, snapshot, builtAtRevision);
       recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
         playerId,
         trigger: options?.trigger ?? "",
@@ -1352,7 +1365,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the export. Self rank/progress fills in on the next global-status push.
     if (options?.includeWorldStatus === true && !needsFullWorldExport) {
       const summary = await readCurrentSummary();
-      return { ...snapshot, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+      return {
+        ...snapshot,
+        worldStatus: {
+          leaderboard: summary.leaderboard,
+          seasonVictory: summary.seasonVictory,
+          shardRainNotice: runtime.currentShardRainWelcomeNotice()
+        }
+      };
     }
     return snapshot;
     } finally {
@@ -1419,7 +1439,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      worldStatus
+      worldStatus,
+      manpowerLossByTileKey: runtime.manpowerLossByTileKey
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1442,19 +1463,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
-    const finalSummary =
-      trackerResult.changed || trackerResult.crownedWinner
-        ? buildCurrentSeasonSummary({
+    const finalSummary = (trackerResult.changed || trackerResult.crownedWinner
+      ? { ...buildCurrentSeasonSummary({
             seasonState: currentSeasonState,
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            worldStatus
-          })
-        : {
-            ...baseSummary,
-            seasonVictory: trackerResult.objectives
-          };
+            worldStatus,
+            manpowerLossByTileKey: runtime.manpowerLossByTileKey
+          }), seasonVictory: trackerResult.objectives }
+      : { ...baseSummary, seasonVictory: trackerResult.objectives });
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
       clearCachedSnapshots();
@@ -1470,8 +1488,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (subscriptionRegistry.subscribedPlayerIds().length === 0) return;
     if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) return;
     // Phase 3b: O(n_players) player-only fetch replaces the O(202k-tile) exportStateAsync.
-    // Season-victory objectives are served from the cached currentSummary; they stay fresh
-    // via the recomputeAndPersistCurrentSummary timer (every 5 min or on victory pressure).
+    // Non-economy objectives are served from the cached currentSummary; ECONOMIC_HEGEMONY is refreshed live below (seasonVictoryForBroadcast — single source of truth vs "Overall").
     const globalLeaderboard = buildLeaderboardFromPlayers(
       runtime.getPlayersForLeaderboard(),
       options.nonCompetitivePlayerIds
@@ -1490,6 +1507,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (sig !== currentSummarySignature) { currentSummary = refreshed; currentSummarySignature = sig; }
     }
     const acceptLatencyP95Ms = simulationMetrics.currentAcceptLatencyP95Ms();
+    const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall); // once per tick — sorts the leaderboard; do not move into the loop below
     for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
       const selfOverall = globalLeaderboard.overall.find((e) => e.id === subscribedPlayerId);
       const selfByTiles = globalLeaderboard.byTiles.find((e) => e.id === subscribedPlayerId);
@@ -1502,18 +1520,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = mergeSelfProgress(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId));
+      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute);
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
         leaderboard: playerLeaderboard,
         seasonVictory,
         ...(seasonWinner ? { seasonWinner } : {}),
+        ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
-      const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+      const cachedSnapshot = snapshotCache.peek(subscribedPlayerId);
       if (cachedSnapshot)
-        snapshotCacheByPlayerId.set(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
+        snapshotCache.update(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
       const globalStatusEvent = toProtoEvent({
         eventType: "PLAYER_MESSAGE",
         commandId: commandId ?? `global-status:${Date.now()}`,
@@ -1546,7 +1565,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
-    mainThreadTasks.trackSync(
+    // WATCH_MUSTER/UNWATCH_MUSTER only toggle in-memory view state
+    // (watchedMusterTileByPlayer) that is meaningless after a restart, so
+    // their QUEUED rows are never persisted. Before this exemption every one
+    // after a player's first collided with UNIQUE(player_id, client_seq) —
+    // the gateway submits them with clientSeq 0 by design.
+    const isEphemeralViewCommand =
+      (command.type as string) === "WATCH_MUSTER" || (command.type as string) === "UNWATCH_MUSTER";
+    if (isEphemeralViewCommand) {
+      simulationMetrics.incrementSimEphemeralCommandPersistSkipped();
+    } else {
+      // Persist the QUEUED row first so the ACCEPTED/REJECTED event enqueued
+      // below (via runtime.onEvent) has a row to update — see enqueueQueuedCommand doc.
+      persistenceQueue.enqueueQueuedCommand(command, runtimeSubmitStartedAt);
+    }
+    trackSyncMainThreadTaskWithMetrics(
       "runtime_submit_command",
       {
         commandId: command.commandId,
@@ -1570,9 +1603,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const autopilotMaxPersistencePending = 256;
+  // recoveredCommands only reflects the process's startup-recovery snapshot,
+  // so it's only meaningful for the first (boot) call. loadMaxClientSeqByPlayer
+  // is re-queried on every call so a season rollover (which reruns this via
+  // startAutopilots without a process restart) reseeds from commands issued
+  // during prior seasons instead of the stale boot-time snapshot — otherwise
+  // reused AI/system player ids (ai-1, barbarian-1, ...) restart from a low
+  // seq that collides with rows already in the commands table.
   const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
-  const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
-    buildNextClientSeqByPlayer(recoveredCommands, playerIds);
+  const nextClientSeqByPlayers = async (playerIds: string[]): Promise<Record<string, number>> =>
+    seedNextClientSeqByPlayer(recoveredCommands, await commandStore.loadMaxClientSeqByPlayer(), playerIds);
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
@@ -1603,6 +1643,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
     }
 
+    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
     return (
       !persistenceQueue.isDegraded() &&
       persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
@@ -1615,6 +1656,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       simulationMetrics.incrementSimAiTickThrottled("season_ended");
       return false;
     }
+    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
     return (
       !persistenceQueue.isDegraded() &&
       persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
@@ -1629,10 +1671,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     | ReturnType<typeof createSystemCommandProducer>
     | ReturnType<typeof createWorkerSystemCommandProducer>
     | undefined;
+  // P3 thread-consolidation (checkpoint-contention fallback plan): when
+  // useAiWorker is on, the AI and system producers share ONE worker thread
+  // instead of one each — one fewer OS thread contending for the single
+  // shared vCPU. Owned here (not by either producer) since it outlives
+  // whichever producer(s) happen to be enabled this round.
+  let combinedWorkerHost: CombinedWorkerHost | undefined;
   let unsubscribeRuntimeEvents: (() => void) | undefined;
   const closeAutopilots = (): void => {
     aiCommandProducer?.close();
     systemCommandProducer?.close();
+    // Only terminate the shared worker after both producers have released it.
+    combinedWorkerHost?.close();
+    combinedWorkerHost = undefined;
     aiCommandProducer = undefined;
     systemCommandProducer = undefined;
   };
@@ -1650,13 +1701,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     return [];
   };
-  const startAutopilots = (): void => {
+  const startAutopilots = async (): Promise<void> => {
     closeAutopilots();
+    if (useAiWorker && (aiAutopilotEnabled || systemAutopilotEnabled)) {
+      // One shared worker thread serves both the AI and system producers
+      // (P3 thread-consolidation — see combined-worker-host.ts) instead of
+      // each spawning its own. Created once per autopilot startup cycle;
+      // closeAutopilots() (called above, and on season end / shutdown)
+      // terminates it again.
+      combinedWorkerHost = createCombinedWorkerHost({});
+    }
     const aiPlayerIds = resolveAutopilotAiPlayerIds();
     // Per-player rolling time-budget trackers — each AI gets its own
     // 200ms-per-1s-window budget so one large/expensive AI cannot exhaust
     // a shared pool and starve smaller AIs of planning time.
     const aiBudgetTrackers = createPerPlayerAiBudgetTrackers(aiPlayerIds);
+    const onAiRejectedCommand = ({ playerId, commandType, rejectionCode, rejectionMessage }: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string; rejectionMessage: string }): void => {
+      simulationMetrics.observeSimAiCommandRejected(commandType, rejectionCode);
+      recordAiCommandRejectionMessage(playerId, commandType, rejectionCode, rejectionMessage);
+    };
+    const onAiCommand = ({ playerId, commandType }: { playerId: string; commandType: CommandEnvelope["type"] }): void => { simulationMetrics.observeSimAiCommand(commandType, playerId); if (commandType === "EXPAND") simulationMetrics.incrementSimAiExpand(playerId); };
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
     emitLog("info", "simulation autopilot startup", {
       enableAiAutopilot: aiAutopilotEnabled,
@@ -1685,48 +1749,38 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               queueDepths: () => runtime.queueDepths(),
               onEvent: (handler) => runtime.onEvent(handler),
               exportPlannerWorldView: (playerIds) =>
-                mainThreadTasks.trackSync("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerWorldView(playerIds)
                 ),
               exportPlannerPlayerViews: (playerIds) =>
-                mainThreadTasks.trackSync("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
               exportTilesForKeys: (keys) =>
-                mainThreadTasks.trackSync("ai_export_tiles_for_keys", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("ai_export_tiles_for_keys", undefined, () =>
                   runtime.exportTilesForKeys(keys)
                 )
             },
-            trackSync: (phase, details, task) => mainThreadTasks.trackSync(phase, details, task),
+            trackSync: (phase, details, task) => trackSyncMainThreadTaskWithMetrics(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
+            ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("ai") } : {}),
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
             playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
-            onCommand: ({ playerId, commandType }) => {
-              simulationMetrics.observeSimAiCommand(commandType, playerId);
-            },
-            onRejectedCommand: ({ commandType }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType);
-            },
+            onCommand: onAiCommand,
+            onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
                 simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
               }
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
-                simulationMetrics.observeSimAiSettleDecision(
-                  diagnostic.settleDecisionReason,
-                  diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
-                );
               }
               if (diagnostic.broadFallbackSkipped) {
                 simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
@@ -1803,30 +1857,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
-            onCommand: ({ playerId, commandType }) => {
-              simulationMetrics.observeSimAiCommand(commandType, playerId);
-            },
-            onRejectedCommand: ({ commandType }) => {
-              simulationMetrics.observeSimAiCommandRejected(commandType);
-            },
+            onCommand: onAiCommand,
+            onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
               if (diagnostic.preplanReason) {
                 simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
               }
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
-                simulationMetrics.observeSimAiSettleDecision(
-                  diagnostic.settleDecisionReason,
-                  diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
-                );
               }
               if (diagnostic.broadFallbackSkipped) {
                 simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
@@ -1864,27 +1907,28 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               queueDepths: () => runtime.queueDepths(),
               onEvent: (handler) => runtime.onEvent(handler),
               exportPlannerWorldView: (playerIds) =>
-                mainThreadTasks.trackSync("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_planner_world_view", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerWorldView(playerIds)
                 ),
               exportPlannerPlayerViews: (playerIds) =>
-                mainThreadTasks.trackSync("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
               getBarbActivationVisionSignature: () =>
-                mainThreadTasks.trackSync("system_get_barb_activation_vision_signature", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("system_get_barb_activation_vision_signature", undefined, () =>
                   runtime.getBarbActivationVisionSignature()
                 ),
               exportBarbActivationVisibleUnion: () =>
-                mainThreadTasks.trackSync("system_export_barb_activation_visible_union", undefined, () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_barb_activation_visible_union", undefined, () =>
                   runtime.exportBarbActivationVisibleUnion()
                 )
             },
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(systemPlayerIds),
             tickIntervalMs: options.systemTickMs ?? 500,
+            ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("system") } : {}),
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
             },
@@ -1897,7 +1941,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             systemPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: systemShouldRun,
-            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            startingClientSeqByPlayer: await nextClientSeqByPlayers(systemPlayerIds),
             tickIntervalMs: options.systemTickMs ?? 500,
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
@@ -1936,23 +1980,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED");
       persistenceQueue.enqueueEvent(event);
       if (shouldBroadcastGlobalStatus) scheduleGlobalStatusBroadcast(event.commandId);
-      if (event.eventType === "PLAYER_MESSAGE") {
-        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
-        if (payload) {
-          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
-          if (cachedSnapshot) {
-            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
-          }
-        }
-      }
-      if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
-        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
-        if (payload) {
-          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
-          if (cachedSnapshot) {
-            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, { type: event.eventType, ...payload }));
-          }
-        }
+      if (event.eventType === "PLAYER_MESSAGE" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
+        // Updates the cached snapshot in place without advancing its revision
+        // stamp — these events carry no tile state and reach offline players.
+        if (applyNonTileEventToCache(snapshotCache, event.eventType, event.playerId, event.payloadJson)) refreshSnapshotCacheMetrics();
       }
       // TILE_DELTA_BATCH events describe authoritative tile changes. Each
       // subscribed player only sees the subset of tiles they have vision of,
@@ -1974,7 +2005,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // Capture-reveal-only deltas skip yield, economy, and town-enrichment
       // computation.
       if (event.eventType === "TILE_DELTA_BATCH") {
-        mainThreadTasks.trackSync("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId }, () => {
+        trackSyncMainThreadTaskWithMetrics("tile_delta_fanout", { deltaCount: event.tileDeltas.length, commandId: event.commandId, subscriberCount: subscriptionRegistry.subscribedPlayerIds().length }, () => {
           const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
           let maxFilterMs = 0;
           let slowestFilterPlayerId = "";
@@ -1983,6 +2014,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // with identical visible tiles share one serialization pass.
           const protoCache = new Map<string, ProtoSimulationEvent>();
           const visionTransitions = runtime.takeVisionTransitions(); // fog-of-war edges since last batch; see runtime-vision-transition.ts
+          const priorRevision = snapshotCache.worldRevision(); // see applyIfCurrent/advanceIfCurrent in player-snapshot-cache.ts
+          snapshotCache.bumpWorldRevision();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
             const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
@@ -1997,10 +2030,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 slowestFilterPlayerId = subscribedPlayerId;
               }
             }
-            const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-            if (cachedSnapshot && filteredDeltas.length > 0) {
-              setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
-            }
+            // Only advances an entry that was already current as of priorRevision
+            // (a reconnecting player can be in subscribedPlayerIds() with a stale
+            // pre-rebuild entry still in cache) — see player-snapshot-cache.ts.
+            const applied =
+              filteredDeltas.length > 0
+                ? snapshotCache.applyIfCurrent(subscribedPlayerId, priorRevision, (snapshot) => applyTileDeltasToSnapshot(snapshot, filteredDeltas))
+                : snapshotCache.advanceIfCurrent(subscribedPlayerId, priorRevision);
+            if (applied) refreshSnapshotCacheMetrics();
             if (filteredDeltas.length === 0) continue;
             // Group subscribers whose filtered delta set serializes identically
             // so the proto pass runs once per unique set. The key must separate
@@ -2047,8 +2084,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   if (shouldRepairZeroGrossIncomeSettlements) {
     for (const id of runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState)).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
   }
-  startAutopilots();
-  const replaceRuntime = ({
+  await startAutopilots();
+  const replaceRuntime = async ({
     nextRuntime,
     nextPlayers,
     nextSeasonState,
@@ -2058,7 +2095,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     nextPlayers: typeof activePlayers;
     nextSeasonState: SimulationSeasonState;
     nextSeededTileCount: number;
-  }): void => {
+  }): Promise<void> => {
     runtime = nextRuntime;
     activePlayers = nextPlayers;
     currentSeasonState = nextSeasonState;
@@ -2066,7 +2103,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
     for (const id of runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
-    startAutopilots();
+    await startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
     if (currentSummary) return currentSummary;
@@ -2116,7 +2153,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
-        trackSyncMainThreadTask: mainThreadTasks.trackSync,
+        trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample,
         ...(pendingImperialWard ? { pendingImperialWard } : {}),
         shouldPauseBackground: () => {
@@ -2148,7 +2185,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         currentSummary: nextSummary,
         createdAt: bootstrap.seasonState.startedAt
       });
-      replaceRuntime({
+      await replaceRuntime({
         nextRuntime,
         nextPlayers: createActivePlayerIdentityMap(bootstrap.initialPlayers.values()),
         nextSeasonState: bootstrap.seasonState,
@@ -2158,7 +2195,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       currentSummarySignature = leaderboardSignature(nextSummary);
       currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
-      clearSeasonVictoryTimer();
+      // Old timer's closure captured the previous season's state, so clear it —
+      // but re-arm the 5-min fallback for the new season, otherwise no code
+      // path ever recomputes seasonVictory again and every objective stays
+      // frozen at its post-rollover all-zero snapshot (`nextSummary` above).
+      scheduleSeasonVictoryRecheck(undefined);
       for (const stream of eventStreams) {
         stream.write(
           toProtoEvent({
@@ -2359,14 +2400,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           try {
             return subscribeOptions.mode === "bootstrap-only"
               ? await (async () => {
-                  // On gateway retry (first build finished in >10s, client fired again),
-                  // the in-flight dedup above is already resolved, but the snapshot was
-                  // cached by the first build. Serve from cache + cheap worldStatus
-                  // rather than re-running the full 9-23s export.
-                  const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+                  // On gateway retry, serve from cache + cheap worldStatus rather than
+                  // re-running the full 9-23s export (see shouldServeCachedSubscribeSnapshot).
+                  const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
+                  const cached = cacheOk ? snapshotCache.getCurrent(call.request.player_id) : undefined;
                   if (cached) {
                     const summary = await readCurrentSummary();
-                    return { ...cached, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+                    return {
+                      ...cached,
+                      worldStatus: {
+                        leaderboard: summary.leaderboard,
+                        seasonVictory: summary.seasonVictory,
+                        shardRainNotice: runtime.currentShardRainWelcomeNotice()
+                      }
+                    };
                   }
                   return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
                     includeWorldStatus: true,
@@ -2375,17 +2422,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   });
                 })()
               : await (() => {
-                  // Phase B3: reuse the cached snapshot when available. For
-                  // normal logins, always check cache. For full-vis (admin/spectator
-                  // or season-ended), only check cache post-season — warming pre-builds
-                  // full-vis snapshots there; during active season full-vis is only for
-                  // admin spectators who shouldn't get a stale non-full-vis snapshot.
-                  const useFullVisibility = subscribeOptions.fullVisibility === true || currentSeasonState.status === "ended";
-                  const seasonEnded = currentSeasonState.status === "ended";
-                  if (!useFullVisibility || seasonEnded) {
-                    const cached = snapshotCacheByPlayerId.get(call.request.player_id);
-                    if (cached) return cached;
-                  }
+                  // Phase B3: reuse the cached snapshot when available (see
+                  // shouldServeCachedSubscribeSnapshot for the full-vis/season rule).
+                  const cacheOk = shouldServeCachedSubscribeSnapshot(subscribeOptions.fullVisibility, currentSeasonState.status === "ended");
+                  const cached = cacheOk ? snapshotCache.getCurrent(call.request.player_id) : undefined;
+                  if (cached) return cached;
                   return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
                     fullVisibility: subscribeOptions.fullVisibility,
                     ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
@@ -2440,6 +2481,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   }
                 : {}),
               tiles: (() => {
+                if (subscribeOptions.omitTiles) return [];
                 // Post-season: tiles are frozen and all players share identical
                 // full-visibility tiles, so marshal once and reuse.
                 if (currentSeasonState.status === "ended") {
@@ -2485,7 +2527,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               : undefined;
             // Emit a WELCOME_BACK message showing how much the player earned
             // since their last active session (capped at 12h of accrual).
-            const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+            // Reuse incomePerMinute already computed for this subscribe's
+            // snapshot instead of triggering a second, synchronous economy
+            // rebuild on the live runtime (see welcomeBackSummary doc comment).
+            const welcomeBack = runtime.welcomeBackSummary(
+              call.request.player_id,
+              Date.now(),
+              snapshotPayload.player?.incomePerMinute
+            );
             const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
               ? toProtoEvent({
                   eventType: "PLAYER_MESSAGE",
@@ -2529,9 +2578,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean }) => void
     ) {
       subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
-      // Keep the snapshot in cache on unsubscribe so reconnects can skip the
-      // cold 16s rebuild. The delta replay (lastAppliedEventId) brings the client
-      // current after bootstrap. Spawn path has its own deleteCachedSnapshot call.
+      // Keep the snapshot in cache on unsubscribe so a quick reconnect can skip
+      // the rebuild — it is not maintained while unsubscribed and is served
+      // later only while its revision stamp is still current (there is no
+      // server-side tile replay). See player-snapshot-cache.ts. Spawn path has
+      // its own deleteCachedSnapshot call.
       callback(null, { ok: true });
     },
     FetchTileDetail(
@@ -2582,7 +2633,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         1,
         { fullVisibility }
       );
-      const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+      const cached = snapshotCache.peek(call.request.player_id);
       const upkeep = cached?.player?.upkeepLastTick;
       callback(null, {
         ok: true,
@@ -2762,7 +2813,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       shardRainTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          mainThreadTasks.trackSync("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
+          trackSyncMainThreadTaskWithMetrics("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
         } catch (error) {
           log.error({ err: error }, "shard rain tick failed");
         }
@@ -2786,7 +2837,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       populationGrowthTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+          const growthResult = trackSyncMainThreadTaskWithMetrics("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
           if (growthResult) {
             const { townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedCaptureShock, townsSkippedUnfed, townsSkippedLogisticCap, playersSkippedNoFedTowns, playerDiag } = growthResult;
             const anyStalled = growthStalledNoFood > 0 || townsSkippedUnfed > 0 || playersSkippedNoFedTowns > 0;
@@ -2833,7 +2884,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       orphanLockSweepTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
-          mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
+          trackSyncMainThreadTaskWithMetrics("tick_orphan_lock_sweep", undefined, () => {
             const dropped = runtime.tickOrphanedLockSweep(Date.now());
             if (dropped > 0) log.error({ dropped }, "orphan-lock sweep dropped stale locks");
           });
@@ -2844,6 +2895,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       watchedMusterTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchedMusterTiles(Date.now());
+      }, 1_000);
+      watchtowerRevealTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
+        runtime.tickWatchtowerReveals(Date.now());
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
@@ -2869,30 +2924,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
-        // Focused warn whenever a 5s+ block is detected. Otherwise the spike
-        // is silently rolled into sim_event_loop_max_ms in the 1Hz dump and
-        // we lose the exact moment to correlate with other logs. Block was
-        // detected just NOW (the sampler is `lagMs` ms late firing), so the
-        // block started at `now - lagMs`. Includes runtime + memory context
-        // so we can localise what was running.
+        // Focused warn for a 2s+ block (else the spike is silently rolled into
+        // sim_event_loop_max_ms). Payload building (GC-pause/RSS-gap correlation)
+        // lives in event-loop-block-diagnostic.ts. Routed through
+        // recordLagDiagnostic (not bare emitLog) so the block also lands in the
+        // diagnostics ring the gateway debug bundle exports — stdout scrolls out
+        // of the flyctl buffer in minutes, and the 2026-07-26 prod incident dump
+        // contained zero stall attribution because this event was log-only.
+        // durationMs is set so the ring entry (which strips most payload fields)
+        // still carries the block length.
         if (lagMs >= 2_000) {
-          const memory = process.memoryUsage();
-          emitLog("warn", "simulation event loop blocked", {
-            phase: "event_loop_blocked",
+          const blockedPayload = buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,
             blockStartedAtMs: now - lagMs,
             queueDepths: runtime.queueDepths(),
-            heapUsedMb: memory.heapUsed / (1024 * 1024),
-            heapTotalMb: memory.heapTotal / (1024 * 1024),
-            rssMb: memory.rss / (1024 * 1024),
+            memory: process.memoryUsage(),
             persistencePendingCount: persistenceQueue.pendingCount(),
             persistenceDegraded: persistenceQueue.isDegraded(),
             activePlayerCount: activePlayers.size,
-            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now)
-              .sort((a, b) => (b.active ? b.elapsedMs : b.durationMs) - (a.active ? a.elapsedMs : a.durationMs))
-              .slice(0, 16)
+            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now),
+            lagDiagRing: getLagDiagRing()
           });
+          recordLagDiagnostic("warn", "event_loop_blocked", { ...blockedPayload, durationMs: lagMs });
         }
       }, 100);
       metricsTicker = setInterval(() => {
@@ -2910,11 +2964,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
+        applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({
           heapUsedMb: memory.heapUsed / (1024 * 1024),
           heapTotalMb: memory.heapTotal / (1024 * 1024)
         });
+        // rss - heapTotal = native/external memory invisible to heapUsed/heapTotal; cooldown-gated, see mem-gap-diagnostic.ts.
+        const rssHeapGap = rssHeapGapMonitor.check(memory);
+        if (rssHeapGap.shouldWarn) {
+          recordLagDiagnostic("warn", "rss_heap_gap_high", { rssHeapGapMb: rssHeapGap.gapMb, rssMb: memory.rss / (1024 * 1024) });
+        }
         if (pendingGcDurationsMs.length > 0) {
           for (const durationMs of pendingGcDurationsMs.splice(0)) {
             simulationMetrics.observeSimGcPauseMs(durationMs);
@@ -3002,9 +3062,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               sim_ai_noop_total: sample.simAiNoopTotalByReason,
               sim_ai_noop_recent: sample.simAiNoopRecent,
               sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
-              sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
-              sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
-              sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
               sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
               sim_runtime_drain_ms: sample.simRuntimeDrainMs,
               sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
@@ -3107,6 +3164,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
+      if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();

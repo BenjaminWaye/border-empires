@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
+  techGoldCostForResearchedCount,
   anonymizedEmpireNameForId,
   isChosenTrickleResource,
   isOpaquePlayerId,
@@ -49,6 +50,10 @@ type TechCatalogEntry = {
   description: string;
   researchTimeSeconds?: number;
   rootId?: string;
+  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
+  // manpower, aether) this tech belongs to -- surfaced to the client for the
+  // branch-tag UI requirement.
+  branch?: string;
   requires?: string;
   prereqIds?: string[];
   effects?: Record<string, unknown>;
@@ -97,6 +102,11 @@ type GatewayInitPayload = {
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
     strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    resourceSlots: {
+      supply: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+      demand: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>;
+    };
+    dormantStructures: Array<{ key: string; resources: Array<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY"> }>;
     economyBreakdown?: Record<string, unknown>;
     upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
@@ -169,6 +179,7 @@ type GatewayInitPayload = {
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
+  shardRainNotice?: Record<string, unknown>;
 };
 
 export const resolveDataPath = (
@@ -303,24 +314,25 @@ const snapshotDisplayNameForPlayer = (
   return snapshotName && snapshotName.length > 0 ? snapshotName : undefined;
 };
 
+// Social state keys AI players by "AI N", so recovered names must match even if the live leaderboard reports a seasonal name.
+const recoveredEntryName = <T extends { id: string; name: string }>(
+  entry: T,
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): string => {
+  if (entry.id.startsWith("ai-")) return `AI ${entry.id.slice(3)}`;
+  if (!liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry.name;
+  return snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap) ?? entry.name;
+};
+
 const recoverEntryNameFromSnapshot = <T extends { id: string; name: string }>(
   entries: T[],
   snapshotBootstrap: LegacySnapshotBootstrap | undefined
-): T[] =>
-  entries.map((entry) => {
-    if (!liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
-    const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
-    return snapshotName ? { ...entry, name: snapshotName } : entry;
-  });
+): T[] => entries.map((entry) => ({ ...entry, name: recoveredEntryName(entry, snapshotBootstrap) }));
 
 const recoverOptionalEntryNameFromSnapshot = <T extends { id: string; name: string }>(
   entry: T | undefined,
   snapshotBootstrap: LegacySnapshotBootstrap | undefined
-): T | undefined => {
-  if (!entry || !liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
-  const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
-  return snapshotName ? { ...entry, name: snapshotName } : entry;
-};
+): T | undefined => (entry ? { ...entry, name: recoveredEntryName(entry, snapshotBootstrap) } : entry);
 
 const recoverSeasonVictoryNamesFromSnapshot = (
   objectives: SeasonVictoryObjectiveView[],
@@ -566,7 +578,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
     let bestResource: ResourceType | undefined;
@@ -671,8 +683,8 @@ const buildSeasonVictoryObjectives = (
       leaderPlayerId = leader?.id;
       leaderName = leader?.name ?? "No leader";
       leaderValue = leader?.incomePerMinute ?? 0;
-      progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${(runnerUp?.incomePerMinute ?? 0).toFixed(1)}`;
-      thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
+      progressLabel = `${(leaderValue * 1440).toFixed(1)} gold/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+      thresholdLabel = `Need at least 1000 gold/day and 33% lead`;
       conditionMet = Boolean(
         leaderPlayerId &&
           runnerUp &&
@@ -794,8 +806,7 @@ export const buildGatewayInitPayload = (
     id: playerId,
     name:
       snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
-      liveVisibleNameByPlayerId.get(playerId) ??
-      displayNameForSeedPlayer(playerId, playerIdentity.playerName),
+      (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : (liveVisibleNameByPlayerId.get(playerId) ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName))),
     tileColor: hexColorForPlayerId(playerId)
   }));
 
@@ -919,6 +930,15 @@ export const buildGatewayInitPayload = (
         liveSnapshotPlayer?.strategicProductionPerMinute ??
         bootstrapProfile?.strategicProductionPerMinute ??
         { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      // Legacy season-bootstrap profiles predate the slots pillar (§5) and
+      // never carry resourceSlots -- only the live snapshot path does.
+      resourceSlots:
+        liveSnapshotPlayer?.resourceSlots ?? {
+          supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+          demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        },
+      // Same legacy-bootstrap caveat as resourceSlots above.
+      dormantStructures: liveSnapshotPlayer?.dormantStructures ?? [],
       ...(
         liveSnapshotPlayer?.economyBreakdown
           ? { economyBreakdown: liveSnapshotPlayer.economyBreakdown }
@@ -971,6 +991,7 @@ export const buildGatewayInitPayload = (
     techChoices,
     techCatalog: techTree.techs.map((tech) => {
       const resources = toResources(tech.cost);
+      const goldCost = techGoldCostForResearchedCount(techIds.length);
       return {
         id: tech.id,
         tier: tech.tier,
@@ -978,16 +999,17 @@ export const buildGatewayInitPayload = (
         description: tech.description,
         ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
         ...(tech.rootId ? { rootId: tech.rootId } : {}),
+        ...(tech.branch ? { branch: tech.branch } : {}),
         ...(tech.requires ? { requires: tech.requires } : {}),
         ...(tech.prereqIds ? { prereqIds: tech.prereqIds } : {}),
         ...(tech.effects ? { effects: tech.effects } : {}),
         mods: tech.mods ?? {},
         requirements: {
-          gold: tech.cost?.gold ?? 0,
+          gold: goldCost,
           resources,
           canResearch:
             techChoices.includes(tech.id) &&
-            availableGold >= (tech.cost?.gold ?? 0) &&
+            availableGold >= goldCost &&
             hasResources(resources, availableStrategic)
         },
         ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
@@ -1041,6 +1063,7 @@ export const buildGatewayInitPayload = (
         initialState?.tiles.filter((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.townType).length ??
         seedWorld.summary.totalTownTiles,
       dockPairs
-    }
+    },
+    ...(liveWorldStatus?.shardRainNotice ? { shardRainNotice: liveWorldStatus.shardRainNotice } : {})
   };
 };

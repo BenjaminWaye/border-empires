@@ -21,7 +21,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     if (!tile || !state.buildingPlacement.active) return false;
     const st = state.buildingPlacement.structureType;
     if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
-    return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.strategicResources).available;
+    return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
 
   const removePlacementOverlay = (): void => {

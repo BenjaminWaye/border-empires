@@ -11,7 +11,8 @@ import {
   compactSnapshotForStorage,
   expandSnapshotFromStorage,
   SNAPSHOT_FORMAT_VERSION,
-  type RecoveredTile
+  type RecoveredTile,
+  type TileOverlayMemo
 } from "../snapshot-compaction/snapshot-compaction.js";
 import {
   createChunkedSnapshotStringifier,
@@ -26,6 +27,15 @@ type Row = {
 };
 
 const defaultStringify: SnapshotStringifier = createChunkedSnapshotStringifier();
+
+// Diagnostic only: names which checkpoint sub-step is actually slow, so a
+// future stall doesn't require re-deriving this by elimination again (see
+// the compaction and stringify fix history for how much guessing that took).
+const SLOW_CHECKPOINT_PHASE_MS = 300;
+const logSlowCheckpointPhase = (phase: string, durationMs: number): void => {
+  if (durationMs < SLOW_CHECKPOINT_PHASE_MS) return;
+  console.warn(`[sqlite-snapshot-store] slow checkpoint phase: ${phase} took ${durationMs}ms`);
+};
 
 /**
  * Resolve the worldgen baseline tiles for a given (rulesetId, worldSeed).
@@ -42,6 +52,27 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly resolveBaseline: WorldgenBaselineResolver | undefined;
   private readonly onPruneFailure: ((error: unknown) => void) | undefined;
   private lastLoadedFormatVersion: number | undefined;
+  // Memoised key->tile index per baseline array (see resolveBaselineIndexFromSections).
+  private readonly baselineIndexCache = new WeakMap<
+    ReadonlyArray<RecoveredTile>,
+    ReadonlyMap<string, RecoveredTile>
+  >();
+  // Per-tile overlay-diff memo, keyed by tile object identity (see
+  // TileOverlayMemo's doc comment in snapshot-compaction.ts for why identity
+  // is a correct cache key). Nested under the baseline index it was computed
+  // against: a tile's correct overlay depends on BOTH the tile and the
+  // baseline, and while the baseline is immutable within a season, a season
+  // rollover swaps it. Keying the memo by baseline-index identity means a new
+  // baseline automatically gets a fresh memo — correct by construction rather
+  // than relying on tiles happening to be rebuilt on rollover. The
+  // baselineIndex is itself identity-stable across checkpoints within a
+  // season (baselineIndexCache above), so the common path is a steady hit.
+  // WeakMap on both levels lets a superseded baseline's whole memo, and any
+  // mutated tile's entry, be collected.
+  private readonly overlayMemoByBaseline = new WeakMap<
+    ReadonlyMap<string, RecoveredTile>,
+    TileOverlayMemo
+  >();
 
   constructor(
     private readonly db: DatabaseSync,
@@ -74,11 +105,20 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   }
 
   async preparePayload(sections: SimulationSnapshotSections): Promise<string> {
+    const baselineT0 = Date.now();
     const baselineIndex = await this.resolveBaselineIndexFromSections(sections);
+    logSlowCheckpointPhase("resolve_baseline_index", Date.now() - baselineT0);
+
+    const compactT0 = Date.now();
     const payload = baselineIndex
-      ? await compactSnapshotForStorage(sections, baselineIndex)
+      ? await compactSnapshotForStorage(sections, baselineIndex, undefined, this.overlayMemoForBaseline(baselineIndex))
       : buildSimulationSnapshotPayload(sections);
-    return await this.stringify(payload);
+    logSlowCheckpointPhase("compact", Date.now() - compactT0);
+
+    const stringifyT0 = Date.now();
+    const json = await this.stringify(payload);
+    logSlowCheckpointPhase("stringify", Date.now() - stringifyT0);
+    return json;
   }
 
   async saveSnapshot(snapshot: {
@@ -87,11 +127,13 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     createdAt: number;
   }): Promise<void> {
     const json = await this.preparePayload(snapshot.snapshotSections);
+    const insertT0 = Date.now();
     this.db
       .prepare(
         `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
       )
       .run(snapshot.lastAppliedEventId, json, snapshot.createdAt);
+    logSlowCheckpointPhase("sqlite_insert", Date.now() - insertT0);
     // Retention: keep only the most recent 3 snapshots. Each is a full
     // world dump, so unbounded retention fills the volume in hours.
     this.db.exec(
@@ -134,6 +176,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     // (the 2026-06-13 staging death-spiral). So swallow, count, and report —
     // the worst case is unpruned events, not data loss. Boot-time REINDEX
     // (sqlite-db.ts) is what actually repairs the underlying corruption.
+    const pruneT0 = Date.now();
     try {
       const PRUNE_CHUNK = 5000;
       const pruneStmt = this.db.prepare(
@@ -149,6 +192,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
       this.db.exec("PRAGMA wal_checkpoint(PASSIVE)");
+      logSlowCheckpointPhase("prune_events", Date.now() - pruneT0);
     } catch (pruneError) {
       this.onPruneFailure?.(pruneError);
     }
@@ -165,9 +209,32 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       worldSeed: season.worldSeed,
       ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
     });
+    // The baseline `tiles` array is immutable per season and returned by
+    // identity from resolveBaseline's own in-memory cache, so the derived
+    // key->tile index is immutable too. Rebuilding it here (202k Map.set +
+    // 202k `${x},${y}` string allocations) measured ~3.2s of synchronous
+    // main-thread block on EVERY checkpoint in prod (sim_checkpoint_export_ms
+    // slow-phase `resolve_baseline_index`), plus a large slug of transient
+    // garbage feeding the GC storm that already pins heap at the ceiling
+    // during a checkpoint. Memoise the index by the baseline array identity:
+    // a stale array reference (new season / regenerated baseline) rebuilds
+    // automatically; a WeakMap lets a superseded baseline be collected.
+    const cached = this.baselineIndexCache.get(tiles);
+    if (cached) return cached;
     const index = new Map<string, RecoveredTile>();
     for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
+    this.baselineIndexCache.set(tiles, index);
     return index;
+  }
+
+  /** Get-or-create the per-tile overlay memo scoped to this baseline index (see field doc). */
+  private overlayMemoForBaseline(baselineIndex: ReadonlyMap<string, RecoveredTile>): TileOverlayMemo {
+    let memo = this.overlayMemoByBaseline.get(baselineIndex);
+    if (!memo) {
+      memo = new WeakMap();
+      this.overlayMemoByBaseline.set(baselineIndex, memo);
+    }
+    return memo;
   }
 
   private async resolveBaselineForLoadedPayload(parsed: unknown): Promise<ReadonlyArray<RecoveredTile> | undefined> {

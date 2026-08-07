@@ -106,9 +106,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockExchangeHouse":
         out.add("EXCHANGE_HOUSE");
         break;
-      case "unlockSkyFoundryUpgrade":
-        out.add("ADVANCED_FOUNDRY");
-        break;
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");
         break;
@@ -143,8 +140,22 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockRailDepot":
         out.add("RAIL_DEPOT");
         break;
-      case "unlockWeatherEngine":
-        out.add("WEATHER_ENGINE");
+      case "unlockQuartermastersOffice":
+        out.add("QUARTERMASTERS_OFFICE");
+        break;
+      case "unlockLogisticsGuild":
+        out.add("LOGISTICS_GUILD");
+        break;
+      case "unlockAssemblyWorks":
+        out.add("ASSEMBLY_WORKS");
+        break;
+      case "unlockPopulationBureau":
+        out.add("POPULATION_BUREAU_PART");
+        out.add("POPULATION_BUREAU");
+        break;
+      case "unlockIronLevy":
+        out.add("IRON_LEVY_PART");
+        out.add("IRON_LEVY");
         break;
       case "unlockSiegeOutposts":
         out.add("SIEGE_OUTPOST");
@@ -169,7 +180,7 @@ export const renderTechChoiceGrid = (deps: {
     techUiSelectedId: string;
     techRootId: string | undefined;
     currentResearch: { techId?: string; completesAt?: number } | null | undefined;
-    techTreeZoom: number;
+    techTreeZoom: number; techAffordablePulseUntilByTechId: ReadonlyMap<string, number>;
   };
   effectiveOwnedTechIds: () => string[];
   effectiveTechChoices: () => string[];
@@ -201,7 +212,7 @@ export const renderTechChoiceGrid = (deps: {
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
         isMobile: deps.isMobile,
-        techTreeZoom: deps.state.techTreeZoom
+        techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       })
     : renderCompactTechChoiceGridHtml({
         techCatalog: deps.state.techCatalog,
@@ -220,7 +231,7 @@ export const renderTechChoiceGrid = (deps: {
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
         isMobile: deps.isMobile,
-        techTreeZoom: deps.state.techTreeZoom
+        techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       });
 
 export const selectedTechInfo = (deps: {
@@ -329,6 +340,7 @@ export const renderStructureInfoOverlay = (
     costBits: string[];
     buildTimeLabel: string;
     upkeepBits?: string[];
+    branch?: "War" | "Economy" | "Manpower" | "Aether";
   }
 ): string => {
   const type = structureInfoKey as StructureInfoKey | "";
@@ -358,7 +370,7 @@ export const renderStructureInfoOverlay = (
         <div class="structure-info-hero">
           ${artHtml}
           <div class="structure-info-head">
-            <div class="structure-info-kicker">Structure</div>
+            <div class="structure-info-kicker">Structure${info.branch ? ` <span class="tech-branch-tag tech-branch-tag-${info.branch.toLowerCase()}">${info.branch}</span>` : ""}</div>
             <h3 id="structure-info-title">${info.title}</h3>
             <p>${info.detail}</p>
           </div>

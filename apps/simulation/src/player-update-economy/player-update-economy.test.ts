@@ -75,9 +75,12 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ])
     });
 
-    expect(economy.incomePerMinute).toBe(1.5);
+    // 1.5 was the pre-gold-rescope figure; DOCK_INCOME_PER_MIN is now cut
+    // 288x (docs/manpower-economy-rewrite-plan.md §6.1), with each dock's
+    // contribution rounded to 6dp as it's accumulated into the bucket.
+    expect(economy.incomePerMinute).toBe(0.005208);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Docks", amountPerMinute: 1.5, count: 2 })
+      expect.objectContaining({ label: "Docks", amountPerMinute: 0.005208, count: 2 })
     );
   });
 
@@ -105,38 +108,27 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
           ownershipState: "SETTLED",
           town: { type: "MARKET", populationTier: "TOWN", name: "Two" }
         }
+      ],
+      [
+        "10,9",
+        {
+          x: 10,
+          y: 9,
+          terrain: "LAND",
+          ownerId: player.id,
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: player.id, type: "CARAVANARY", status: "active" }
+        }
       ]
     ]);
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
 
-    expect(economy.incomePerMinute).toBe(6);
+    // 6 was the pre-gold-rescope figure; TOWN_BASE_GOLD_PER_MIN is now cut
+    // 288x (docs/manpower-economy-rewrite-plan.md §6.1).
+    expect(economy.incomePerMinute).toBe(0.020834);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Towns", amountPerMinute: 6, count: 2 })
-    );
-  });
-
-  it("folds the Clockwork Stipend trickle into the matching strategic-resource source bucket", () => {
-    // Regression: the trickle was applied directly to player.strategicResources
-    // each tick but never appeared in strategicProductionPerMinute or the
-    // economyBreakdown sources, so players who picked SUPPLY (or IRON/CRYSTAL)
-    // saw their stockpile climb but no income line explaining where it came
-    // from.
-    const player = makePlayer();
-    player.domainIds = new Set<string>(["clockwork-stipend"]);
-    player.chosenTrickleResource = "SUPPLY";
-    const tiles = new Map<string, DomainTileState>([
-      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED" }]
-    ]);
-
-    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-
-    expect(economy.strategicProductionPerMinute.SUPPLY).toBeCloseTo(0.2);
-    expect(economy.economyBreakdown.SUPPLY.sources).toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
-    );
-    expect(economy.economyBreakdown.IRON.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Clockwork Stipend" })
+      expect.objectContaining({ label: "Towns", amountPerMinute: 0.020834, count: 2 })
     );
   });
 
@@ -176,9 +168,55 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
 
-    expect(economy.incomePerMinute).toBeCloseTo(15.4);
+    // 15.4 was the pre-gold-rescope figure; town/settlement base gold
+    // income is now cut 288x (docs/manpower-economy-rewrite-plan.md §6.1).
+    expect(economy.incomePerMinute).toBeCloseTo(15.4 / 288, 5);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Towns", amountPerMinute: 15.4, count: 4 })
+      expect.objectContaining({ label: "Towns", amountPerMinute: expect.closeTo(15.4 / 288, 5), count: 4 })
+    );
+  });
+
+  it("an active Farmstead on a FARM tile adds no strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
+    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a Farmstead's
+    // real effect now is boosting FOOD *slot supply* (structure-slots.ts),
+    // a separate mechanism this snapshot doesn't compute.
+    const player = makePlayer();
+    const farmTile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      resource: "FARM",
+      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", farmTile]]);
+
+    const withFarmstead = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+
+    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBe(0);
+    expect(withFarmstead.economyBreakdown.FOOD.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Farmstead", resourceKey: "FOOD" })
+    );
+  });
+
+  it("regression: Farmstead gives no food bonus on FISH tiles", () => {
+    const player = makePlayer();
+    const fishTile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      resource: "FISH",
+      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", fishTile]]);
+
+    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+
+    expect(economy.economyBreakdown.FOOD.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Farmstead" })
     );
   });
 
@@ -189,21 +227,24 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ["20,10", { x: 20, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
     ]);
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-    expect(economy.goldCapIncomePerMinute).toBe(economy.incomePerMinute);
+    // toBeCloseTo, not toBe: incomePerMinute and goldCapIncomePerMinute are
+    // independently accumulated (separate bucket chains), so even at 6dp
+    // rounding (bumped from 4dp for the gold rescope, §6.1 — see addBucket's
+    // comment) they can land a unit apart in the last decimal despite being
+    // mathematically identical with no cap multiplier active. This was
+    // already true pre-rescale; it just wasn't visible until gold's new,
+    // much smaller magnitude made the relative rounding noise non-trivial.
+    expect(economy.goldCapIncomePerMinute).toBeCloseTo(economy.incomePerMinute, 4);
   });
 
-  it("goldCapIncomePerMinute is higher than incomePerMinute when dockGoldCapMult is active", () => {
-    const base = makePlayer();
-    const boosted = makePlayer();
-    boosted.techIds.add("port-infrastructure"); // dockGoldCapMult: 1.25
-    const tiles = new Map<string, DomainTileState>([
-      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" }]
-    ]);
-    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
-    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
-    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
-    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.25, 4);
-  });
+  // Removed: this test boosted "port-infrastructure" for its dockGoldCapMult:
+  // 1.25 effect. The 2026 tech-tree redesign cut port-infrastructure (it was
+  // a bonus-only tech with no building/ability attached, contrary to the
+  // redesign's "no flat bonus techs" rule) and did not carry dockGoldCapMult
+  // forward onto any surviving tech — grepping tech-tree.json confirms the
+  // effect key no longer exists anywhere. Flagging for product awareness: if
+  // a dock-gold-cap-multiplier tech is still meant to exist, it needs a new
+  // home, not a test workaround.
 
   it("goldCapIncomePerMinute is higher than incomePerMinute when townGoldCapMult is active", () => {
     const base = makePlayer();
@@ -370,18 +411,21 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
     expect(boosted.incomePerMinute).toBeGreaterThan(base.incomePerMinute);
   });
 
-  it("high mult scales up strategicProductionPerMinute values", () => {
-    const ironTile: DomainTileState = {
-      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON"
+  it("mult has nothing left to scale in strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
+    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a bare FARM tile
+    // no longer produces a mult-scalable FOOD rate at all.
+    const farmTile: DomainTileState = {
+      x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM"
     };
     const tiles = new Map<string, DomainTileState>([
       ["10,10", makeSettledTownTile(10, 10)],
-      ["11,10", ironTile]
+      ["11,10", farmTile]
     ]);
     const summary = summaryForTiles(tiles);
     const base = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1);
     const boosted = buildPlayerUpdateEconomySnapshot(player, summary, tiles, undefined, 1.25);
-    expect(boosted.strategicProductionPerMinute.IRON).toBeGreaterThan(base.strategicProductionPerMinute.IRON);
+    expect(boosted.strategicProductionPerMinute.FOOD).toBe(0);
+    expect(base.strategicProductionPerMinute.FOOD).toBe(0);
   });
 
   it("low mult (< 1) reduces incomePerMinute", () => {

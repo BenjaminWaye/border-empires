@@ -26,8 +26,8 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Changelog gate (client-visible changes)
 
-- Any user-visible gameplay, client, shared-rules, or server behavior change must update `packages/client/src/client-changelog.ts` in the same branch, bumping the exported `version` and preserving the `title`/`summary`/`entries` structure.
-- Treat the changelog as the **last** file you touch on a branch — two agents picking the same `version` is a structural collision.
+- Any user-visible gameplay, client, shared-rules, or server behavior change must add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch, with `createdAt: Date.now()`.
+- Entries are unordered and timestamp-sorted at render time — append your entry anywhere (the end is easiest) instead of inserting at the top, and there's no shared `version` field to bump. This is deliberate: it avoids merge conflicts between agents landing changelog entries in parallel.
 - Do not ship, merge, or deploy a user-visible update if the changelog check fails.
 
 ## Testing and debugging

@@ -1,7 +1,11 @@
 import {
   AmbientLight,
   DirectionalLight,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
   PerspectiveCamera,
+  PlaneGeometry,
   Scene,
   WebGLRenderer
 } from "three";
@@ -83,6 +87,42 @@ export const forEachGridCell = (
       visit(dx * spacing, dz * spacing);
     }
   }
+};
+
+// Matches legacy3DTerrainPalette.grassLight/grassDark in
+// client-map-3d-terrain-textures.ts, without pulling in that module's full
+// procedural-texture pipeline for a Storybook ground plane. Checkerboard
+// shading + a thin gap between tiles reads as individual map tiles, the
+// same way a wonder actually sits on one grass tile in-game.
+const GRASS_LIGHT = "#778e42"; // rgb(119, 142, 66)
+const GRASS_DARK = "#5e7c30"; // rgb(94, 124, 48)
+const GRASS_TILE_GAP = 0.04;
+
+/**
+ * A field of grass tiles surrounding a wonder's own multi-tile ground
+ * effect. `holeRadius` (in whole tiles, Chebyshev distance from center)
+ * leaves that many tiles unfilled at the center so the wonder's own
+ * ground shader — sized to match — can occupy them without a grass tile
+ * poking through underneath. holeRadius 1 = skip the center tile plus its
+ * 8 neighbors (a 3x3 hole), matching a wonder that visually spans its 8
+ * neighbor tiles while only actually occupying the one center tile.
+ */
+export const createGrassGround = (radius: number, holeRadius = 0): { group: Group; dispose: () => void } => {
+  const group = new Group();
+  const geometry = new PlaneGeometry(1 - GRASS_TILE_GAP, 1 - GRASS_TILE_GAP);
+  const lightMat = new MeshStandardMaterial({ color: GRASS_LIGHT, roughness: 0.95, metalness: 0 });
+  const darkMat = new MeshStandardMaterial({ color: GRASS_DARK, roughness: 0.95, metalness: 0 });
+  for (let gz = -radius; gz <= radius; gz += 1) {
+    for (let gx = -radius; gx <= radius; gx += 1) {
+      if (holeRadius > 0 && Math.max(Math.abs(gx), Math.abs(gz)) <= holeRadius) continue;
+      const tile = new Mesh(geometry, (gx + gz) % 2 === 0 ? lightMat : darkMat);
+      tile.rotation.x = -Math.PI / 2;
+      tile.position.set(gx, -0.01, gz);
+      group.add(tile);
+    }
+  }
+  const dispose = (): void => { geometry.dispose(); lightMat.dispose(); darkMat.dispose(); };
+  return { group, dispose };
 };
 
 export const wrapWithCleanup = (stage: Stage, cleanups: ReadonlyArray<() => void>): HTMLElement => {

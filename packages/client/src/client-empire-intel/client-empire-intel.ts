@@ -15,7 +15,7 @@ export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | und
   if (!stats) return [];
   return [
     `Intel: ${stats.playerName}`,
-    `Economy ${stats.incomePerMinute.toFixed(1)}/m • Gold ${formatInt(stats.gold)}`,
+    `Economy ${(stats.incomePerMinute * 1440).toFixed(1)}/day • Gold ${formatInt(stats.gold)}`,
     `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`,
     `Towns ${formatInt(stats.controlledTowns)} • Tech ${formatInt(stats.techCount)}`,
     `Manpower ${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`,
@@ -24,7 +24,7 @@ export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | und
 };
 
 export const revealEmpireStatsFeedText = (stats: RevealEmpireStatsView): string =>
-  `${stats.playerName}: ${stats.incomePerMinute.toFixed(1)}/m, ${formatInt(stats.tiles)} tiles, ${formatInt(stats.controlledTowns)} towns, ${formatInt(stats.gold)} gold.`;
+  `${stats.playerName}: ${(stats.incomePerMinute * 1440).toFixed(1)}/day, ${formatInt(stats.tiles)} tiles, ${formatInt(stats.controlledTowns)} towns, ${formatInt(stats.gold)} gold.`;
 
 export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): string => {
   const stockpile = stats.strategicResources;
@@ -40,7 +40,7 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
         <div class="intel-hero-sigil" aria-hidden="true">◈</div>
       </div>
       <div class="intel-stat-grid">
-        ${statCardHtml("Economy", `${stats.incomePerMinute.toFixed(1)}/m`, `${formatInt(stats.gold)} gold held`)}
+        ${statCardHtml("Economy", `${(stats.incomePerMinute * 1440).toFixed(1)}/day`, `${formatInt(stats.gold)} gold held`)}
         ${statCardHtml("Territory", formatInt(stats.tiles), `${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`)}
         ${statCardHtml("Towns", formatInt(stats.controlledTowns), `${formatInt(stats.techCount)} techs known`)}
         ${statCardHtml("Manpower", `${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`)}

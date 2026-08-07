@@ -1,5 +1,18 @@
-import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED, structureBuildDurationMs } from "@border-empires/shared";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import {
+  FORT_TIER_LADDER,
+  MUSTER_MAX_TILES,
+  SIEGE_TIER_LADDER,
+  STRUCTURE_REGISTRY,
+  structureBuildDurationMs,
+  structureBuildGoldCost,
+  structureBuildManpowerCost,
+  structureCostDefinition,
+  type BuildableStructureType,
+  type FortVariant,
+  type SiegeOutpostVariant
+} from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   parseClearMusterPayload,
@@ -8,6 +21,9 @@ import {
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
+import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import type { StrategicResourceKey } from "./runtime-types.js";
 
 function rejectCommand(
   context: RuntimeStructureCommandContext,
@@ -22,6 +38,100 @@ function rejectCommand(
     code,
     message
   });
+}
+
+// Every handler in this file is "instant" (no combat lock, no async
+// accept-then-resolve lifecycle) — success is fully determined by the time
+// the handler returns. Without this, persistCommandStatus has no event to
+// key off on the success path (only TILE_DELTA_BATCH is emitted), so the
+// command's persisted status stays QUEUED forever: confirmed root cause of
+// 5000+ permanently-QUEUED SET_MUSTER commands in production, re-recovered
+// and re-queued on every restart. REMOVE_STRUCTURE resolves its ORIGINAL
+// command here too (at dispatch, not at completeStructureRemoval) — the
+// actual multi-minute completion is tracked independently via completesAt
+// on the tile and re-scheduled on boot recovery, not via command replay, so
+// there is no need to keep the original command non-terminal until then.
+function resolveCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+}
+
+type StrategicRefund = Partial<Record<StrategicResourceKey, number>>;
+
+export type StructureCancelRefund = {
+  gold: number;
+  manpower: number;
+  strategic: StrategicRefund;
+};
+
+// Cancelling a build/upgrade must hand back exactly what handleBuildStructureCommand
+// (runtime-structure-command-handlers.ts) took, or the player permanently loses that
+// gold/manpower/strategic spend. Fort and siege outpost tiers are recomputed from the
+// tile's stored `variant` (not the player's *current* tech) so a tech unlock mid-build
+// can't change what gets refunded -- this is exact regardless of concurrency, since the
+// ladder is keyed by variant, not by a count that could shift under other in-flight builds.
+//
+// Economic/observatory gold is scaling-by-owned-count, so we subtract 1 from the current
+// owned-structure-count index first: the index bumps as soon as construction starts, so by
+// cancel time it already counts this under-construction structure, and `count - 1`
+// reproduces the count that was active when *this* build started. Known limitation: this
+// is exact as long as the player has at most one structure of that type under construction
+// at a time. If two builds of the same scaling economic/observatory type are in flight
+// concurrently (allowed by DEVELOPMENT_PROCESS_LIMIT slots) and only one is cancelled, the
+// refund can be attributed to the wrong tier -- the discrepancy nets to zero once every
+// concurrent build of that type is either completed or cancelled, but cancelling one while
+// keeping the other can over- or under-refund by the gap between two adjacent cost tiers.
+// A fully drift-proof fix would persist the exact cost paid on the tile at build time.
+function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourceKey, amount: number): void {
+  if (amount <= 0) return;
+  const current = actor.strategicResources?.[resource] ?? 0;
+  actor.strategicResources = { ...(actor.strategicResources ?? {}), [resource]: current + amount };
+}
+
+export function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
+  actor.points += refund.gold;
+  actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + refund.manpower);
+  for (const resource of Object.keys(refund.strategic) as StrategicResourceKey[]) {
+    creditStrategicResource(actor, resource, refund.strategic[resource] ?? 0);
+  }
+}
+
+export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
+  const tier = FORT_TIER_LADDER[variant ?? "FORT"];
+  const goldMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
+  // Step 5 item 3 (Slice A): IRON is a retired build-time stockpile key (never
+  // actually spent by handleBuildStructureCommand any more, see
+  // stripRetiredStockpileCost) -- refunding it here would hand back a resource
+  // that was never taken.
+  return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ IRON: tier.iron }) };
+}
+
+export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
+  const tier = SIEGE_TIER_LADDER[variant ?? "SIEGE_OUTPOST"];
+  return {
+    gold: tier.gold,
+    manpower: tier.manpower,
+    strategic: stripRetiredStockpileCost({ SUPPLY: tier.supply, ...(tier.iron > 0 ? { IRON: tier.iron } : {}) })
+  };
+}
+
+export function economicOrObservatoryCancelRefund(
+  context: RuntimeStructureCommandContext,
+  playerId: string,
+  structureType: BuildableStructureType
+): StructureCancelRefund {
+  const existingCount = Math.max(0, context.ownedStructureCountForPlayer(playerId, structureType) - 1);
+  const gold = structureBuildGoldCost(structureType, existingCount);
+  const manpower = structureBuildManpowerCost(structureType);
+  // Mirrors handleBuildStructureCommand's strategicCostForStructure precedence exactly
+  // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
+  // this can't drift from what was actually charged if the two tables ever disagree.
+  // stripRetiredStockpileCost then drops FOOD/IRON/CRYSTAL/SUPPLY (retired,
+  // never actually spent) while preserving SHARD (monument assembly, still spent).
+  const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
+  const costDef = structureCostDefinition(structureType);
+  const strategic: StrategicRefund =
+    registryStrategic ?? (costDef.resourceCost ? { [costDef.resourceCost.resource]: costDef.resourceCost.amount } : {});
+  return { gold, manpower, strategic: stripRetiredStockpileCost(strategic) };
 }
 
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {
@@ -42,10 +152,6 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!MUSTER_SYSTEM_ENABLED) {
-    rejectCommand(context, command, "MUSTER_DISABLED", "muster system is not enabled");
-    return;
-  }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!target || target.ownerId !== command.playerId || target.terrain !== "LAND") {
@@ -54,9 +160,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
+    const musterLimit =
+      MUSTER_MAX_TILES +
+      additiveEffectForPlayer(actor, "musterMaxTilesAdd") +
+      (actor.wonderMusterExtraFlag ?? 0);
     const activeMusters = context.musterTilesByOwner.get(command.playerId)?.size ?? 0;
-    if (activeMusters >= MUSTER_MAX_TILES) {
-      rejectCommand(context, command, "MUSTER_LIMIT", `max ${MUSTER_MAX_TILES} muster tiles per player`);
+    if (activeMusters >= musterLimit) {
+      rejectCommand(context, command, "MUSTER_LIMIT", `max ${musterLimit} muster tiles per player`);
       return;
     }
   }
@@ -83,6 +193,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: 0, updatedAt: now }) }]
   });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
 export function handleClearMusterCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -115,6 +226,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
   });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
 export function handleCancelFortBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -130,9 +242,12 @@ export function handleCancelFortBuildCommand(context: RuntimeStructureCommandCon
     rejectCommand(context, command, "FORT_CANCEL_INVALID", "no fort under construction on tile");
     return;
   }
+  applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
   const updatedTile: DomainTileState = { ...target, fort: undefined };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
 export function handleCancelStructureBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -148,17 +263,25 @@ export function handleCancelStructureBuildCommand(context: RuntimeStructureComma
     rejectCommand(context, command, "STRUCTURE_CANCEL_INVALID", "no removable structure action on tile");
     return;
   }
-  const updatedTile = cancelStructureActionTile(target, command.playerId);
+  const updatedTile = cancelStructureActionTile(context, actor, target, command.playerId);
   if (!updatedTile) {
     rejectCommand(context, command, "STRUCTURE_CANCEL_INVALID", "no removable structure action on tile");
     return;
   }
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }
 
-function cancelStructureActionTile(target: DomainTileState, playerId: string): DomainTileState | undefined {
+function cancelStructureActionTile(
+  context: RuntimeStructureCommandContext,
+  actor: DomainPlayer,
+  target: DomainTileState,
+  playerId: string
+): DomainTileState | undefined {
   if (target.fort?.ownerId === playerId && (target.fort.status === "under_construction" || target.fort.status === "removing")) {
+    if (target.fort.status === "under_construction") applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
     return {
       ...target,
       fort: target.fort.status === "under_construction"
@@ -167,6 +290,9 @@ function cancelStructureActionTile(target: DomainTileState, playerId: string): D
     };
   }
   if (target.observatory?.ownerId === playerId && (target.observatory.status === "under_construction" || target.observatory.status === "removing")) {
+    if (target.observatory.status === "under_construction") {
+      applyStructureCancelRefund(context, actor, economicOrObservatoryCancelRefund(context, playerId, "OBSERVATORY"));
+    }
     return {
       ...target,
       observatory: target.observatory.status === "under_construction"
@@ -175,6 +301,9 @@ function cancelStructureActionTile(target: DomainTileState, playerId: string): D
     };
   }
   if (target.siegeOutpost?.ownerId === playerId && (target.siegeOutpost.status === "under_construction" || target.siegeOutpost.status === "removing")) {
+    if (target.siegeOutpost.status === "under_construction") {
+      applyStructureCancelRefund(context, actor, siegeOutpostCancelRefund(target.siegeOutpost.variant));
+    }
     return {
       ...target,
       siegeOutpost: target.siegeOutpost.status === "under_construction"
@@ -183,6 +312,13 @@ function cancelStructureActionTile(target: DomainTileState, playerId: string): D
     };
   }
   if (target.economicStructure?.ownerId === playerId && (target.economicStructure.status === "under_construction" || target.economicStructure.status === "removing")) {
+    if (target.economicStructure.status === "under_construction") {
+      applyStructureCancelRefund(
+        context,
+        actor,
+        economicOrObservatoryCancelRefund(context, playerId, target.economicStructure.type as BuildableStructureType)
+      );
+    }
     return {
       ...target,
       economicStructure: target.economicStructure.status === "under_construction"
@@ -207,7 +343,12 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     return;
   }
   const fort = target.fort?.ownerId === command.playerId ? target.fort : undefined;
-  const observatory = target.observatory?.ownerId === command.playerId ? target.observatory : undefined;
+  // Watchtower Engine's observatory isn't a built structure — nothing to
+  // demolish, it comes and goes with the wonder tile's ownership.
+  const observatory =
+    target.observatory?.ownerId === command.playerId && target.naturalWonder?.type !== "WATCHTOWER_ENGINE"
+      ? target.observatory
+      : undefined;
   const siegeOutpost = target.siegeOutpost?.ownerId === command.playerId ? target.siegeOutpost : undefined;
   const economicStructure = target.economicStructure?.ownerId === command.playerId ? target.economicStructure : undefined;
   const ownedStructure = fort ?? observatory ?? siegeOutpost ?? economicStructure;
@@ -245,6 +386,7 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
   context.scheduleAfter(removeDurationMs, () => context.completeStructureRemoval(targetKey, command.playerId, command.commandId));
 }
 
@@ -265,6 +407,8 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+  // A removed Light Outpost's vision bonus is dropped by reconcileOutpostVisionBonus
+  // via the replaceTileState call above — runtime-outpost-vision.ts.
 }
 
 export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
@@ -280,8 +424,10 @@ export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCo
     rejectCommand(context, command, "SIEGE_OUTPOST_CANCEL_INVALID", "no siege outpost under construction on tile");
     return;
   }
+  applyStructureCancelRefund(context, actor, siegeOutpostCancelRefund(target.siegeOutpost.variant));
   const updatedTile: DomainTileState = { ...target, siegeOutpost: undefined };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
+  resolveCommand(context, command);
 }

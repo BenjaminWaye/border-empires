@@ -25,6 +25,9 @@ describe("simulation metrics", () => {
     metrics.observeSimAiCommand("SETTLE", "ai-4");
     metrics.observeSimAiCommand("EXPAND", "ai-2");
     metrics.observeSimAiCommand("BUILD_ECONOMIC_STRUCTURE", "ai-9");
+    metrics.observeSimAiCommandRejected("BUILD_ECONOMIC_STRUCTURE", "BUILD_INVALID");
+    metrics.observeSimAiCommandRejected("BUILD_ECONOMIC_STRUCTURE", "BUILD_INVALID");
+    metrics.observeSimAiCommandRejected("ATTACK", "INSUFFICIENT_GOLD");
     metrics.observeSimAiPreplan("defer_unaffordable_progression", "ai-4");
     metrics.observeSimAiPreplan("choose_domain", "ai-9");
     metrics.observeSimAiPreplanProgress("tech_and_domain_unaffordable", "ai-4");
@@ -43,6 +46,9 @@ describe("simulation metrics", () => {
     metrics.observeSimEventStoreWriteMs(11);
     metrics.observeSimAiPlannerPhaseMs("planner_total", 13);
     metrics.observeSimAiPlannerPhaseMs("request_plan_round_trip", 21);
+    metrics.observeSimMainThreadTaskMs("town_network_rebuild", 396);
+    metrics.observeSimMainThreadTaskMs("tile_yield_economy_context_rebuild", 243);
+    metrics.observeSimMainThreadTaskMs("some_future_phase_not_yet_tracked", 999);
     metrics.observeSimRuntimeDrain({
       durationMs: 31,
       processedJobs: 1,
@@ -97,6 +103,10 @@ describe("simulation metrics", () => {
     expect(sample.simAiCommandTotalByType.SETTLE).toBe(1);
     expect(sample.simAiCommandTotalByType.EXPAND).toBe(1);
     expect(sample.simAiCommandTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(1);
+    expect(sample.simAiCommandRejectedTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(2);
+    expect(sample.simAiCommandRejectedTotalByType.ATTACK).toBe(1);
+    expect(sample.simAiCommandRejectedCodeTotal.BUILD_INVALID).toBe(2);
+    expect(sample.simAiCommandRejectedCodeTotal.INSUFFICIENT_GOLD).toBe(1);
     expect(sample.simAiCommandRecent).toContain("ai-4:SETTLE");
     expect(sample.simAiCommandRecent).toContain("ai-9:BUILD_ECONOMIC_STRUCTURE");
     expect(sample.simAiPreplanTotalByReason.defer_unaffordable_progression).toBe(1);
@@ -121,6 +131,10 @@ describe("simulation metrics", () => {
     expect(sample.simEventStoreWriteMs.p95).toBe(11);
     expect(sample.simAiPlannerPhaseMs.planner_total.p95).toBe(13);
     expect(sample.simAiPlannerPhaseMs.request_plan_round_trip.p95).toBe(21);
+    expect(sample.simMainThreadTaskMs.town_network_rebuild.p95).toBe(396);
+    expect(sample.simMainThreadTaskMs.tile_yield_economy_context_rebuild.p95).toBe(243);
+    // An untracked phase name must not throw and must not appear in the snapshot.
+    expect(Object.keys(sample.simMainThreadTaskMs)).not.toContain("some_future_phase_not_yet_tracked");
     expect(sample.simRuntimeDrainMs.p95).toBe(31);
     expect(sample.simRuntimeDrainMsByLane.ai.p95).toBe(31);
     expect(sample.simRuntimeApplyMsByCommandType.EXPAND?.p95).toBe(17);
@@ -166,11 +180,16 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_gc_pause_ms{quantile="p95"}');
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
     expect(exposition).toContain('sim_ai_planner_phase_ms{phase="request_plan_round_trip",quantile="p95"} 21');
+    expect(exposition).toContain('sim_main_thread_task_ms{phase="town_network_rebuild",quantile="p95"} 396');
+    expect(exposition).toContain('sim_main_thread_task_ms{phase="tile_yield_economy_context_rebuild",quantile="p95"} 243');
     expect(exposition).toContain('sim_runtime_drain_ms{quantile="p95"} 31');
     expect(exposition).toContain('sim_runtime_drain_ms_by_lane{lane="ai",quantile="p95"} 31');
     expect(exposition).toContain('sim_runtime_apply_ms_by_command{type="EXPAND",quantile="p95"} 17');
     expect(exposition).toContain('sim_ai_command_total{type="SETTLE"} 1');
     expect(exposition).toContain('sim_ai_command_total{type="BUILD_ECONOMIC_STRUCTURE"} 1');
+    expect(exposition).toContain('sim_ai_command_rejected_total{type="BUILD_ECONOMIC_STRUCTURE"} 2');
+    expect(exposition).toContain('sim_ai_command_rejected_code_total{code="BUILD_INVALID"} 2');
+    expect(exposition).toContain('sim_ai_command_rejected_code_total{code="INSUFFICIENT_GOLD"} 1');
     expect(exposition).toContain('sim_ai_preplan_total{reason="defer_unaffordable_progression"} 1');
     expect(exposition).toContain('sim_ai_preplan_progress_total{state="tech_and_domain_unaffordable"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
@@ -220,5 +239,65 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_ai_action_class_total{class="BUILD_DEFENSE"} 0');
     expect(exposition).toContain('sim_ai_action_class_total{class="MUSTER"} 0');
     expect(exposition).toContain('sim_ai_action_class_total{class="CHOOSE_TECH"} 0');
+  });
+
+  it("still exposes the experiment-mode skip counters after extraction into metrics-experiment-counters.ts", () => {
+    // Regression: these four counters (dry-run/command-cap/expand-disabled/
+    // build-disabled skips) were moved out of metrics.ts's own closure state
+    // into a separate module to make room under the 500-line file cap.
+    // The public method names and snapshot/exposition field names must stay
+    // identical — this pins that the extraction didn't silently drop wiring.
+    const metrics = createSimulationMetrics();
+    metrics.incrementSimAiDryRunSkipped();
+    metrics.incrementSimAiCommandCapSkipped();
+    metrics.incrementSimAiCommandCapSkipped();
+    metrics.incrementSimAiExpandDisabled();
+    metrics.incrementSimAiBuildDisabled();
+
+    const sample = metrics.snapshot();
+    expect(sample.simAiDryRunSkippedTotal).toBe(1);
+    expect(sample.simAiCommandCapSkippedTotal).toBe(2);
+    expect(sample.simAiExpandDisabledTotal).toBe(1);
+    expect(sample.simAiBuildDisabledTotal).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain("sim_ai_dry_run_skipped_total 1");
+    expect(exposition).toContain("sim_ai_command_cap_skipped_total 2");
+    expect(exposition).toContain("sim_ai_expand_disabled_total 1");
+    expect(exposition).toContain("sim_ai_build_disabled_total 1");
+  });
+
+  it("exposes per-AI-player gold, gold-capacity, tile-count gauges and an EXPAND-only command counter", () => {
+    // Growth/spend visibility: previously the only way to check whether AI
+    // players were expanding or spending gold was manually diffing
+    // /admin/debug/ai snapshots by hand (see staging investigation — this was
+    // wrong once already, misreading a stale diagnostics ring-buffer window
+    // as "AI stalled" when it wasn't). These gauges/counter make growth speed
+    // and gold-capacity headroom directly queryable via Prometheus.
+    const metrics = createSimulationMetrics();
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_856, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 513 });
+    metrics.setSimAiPlayerState("ai-2", { gold: 2_921, goldCapacity: 7_200, settledTiles: 271, ownedTiles: 501 });
+    // A later call for the same player replaces, not accumulates — this is a gauge, not a counter.
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_900, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 514 });
+    metrics.incrementSimAiExpand("ai-1");
+    metrics.incrementSimAiExpand("ai-1");
+    metrics.incrementSimAiExpand("ai-2");
+
+    const sample = metrics.snapshot();
+    expect(sample.simAiPlayerGoldGauge["ai-1"]).toBe(27_900);
+    expect(sample.simAiPlayerGoldGauge["ai-2"]).toBe(2_921);
+    expect(sample.simAiPlayerGoldCapacityGauge["ai-1"]).toBe(15_480);
+    expect(sample.simAiPlayerSettledTilesGauge["ai-1"]).toBe(92);
+    expect(sample.simAiPlayerOwnedTilesGauge["ai-1"]).toBe(514);
+    expect(sample.simAiExpandTotalByPlayer["ai-1"]).toBe(2);
+    expect(sample.simAiExpandTotalByPlayer["ai-2"]).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain('sim_ai_player_gold{player_id="ai-1"} 27900');
+    expect(exposition).toContain('sim_ai_player_gold_capacity{player_id="ai-1"} 15480');
+    expect(exposition).toContain('sim_ai_player_settled_tiles{player_id="ai-1"} 92');
+    expect(exposition).toContain('sim_ai_player_owned_tiles{player_id="ai-1"} 514');
+    expect(exposition).toContain('sim_ai_expand_total{player_id="ai-1"} 2');
+    expect(exposition).toContain('sim_ai_expand_total{player_id="ai-2"} 1');
   });
 });

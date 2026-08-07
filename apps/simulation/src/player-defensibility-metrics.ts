@@ -1,6 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH ,
-  isSeaTerrain
-} from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isSeaTerrain } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 const wrap = (value: number, size: number): number => {
@@ -39,15 +37,41 @@ const exposedEdgesFor = (
   return exposed;
 };
 
+export type PlayerDefensibilityMetrics = {
+  T: number;
+  E: number;
+  Ts: number;
+  Es: number;
+};
+
 export const buildPlayerDefensibilityMetrics = (
   playerId: string,
   tiles: ReadonlyMap<string, DomainTileState>,
-  ownedTileKeys?: ReadonlySet<string>
-): { T: number; E: number; Ts: number; Es: number } => {
+  ownedTileKeys?: ReadonlySet<string>,
+  // 2026-07-29 login-stall investigation: T/E (all-owned exposed-edge count)
+  // is sent to the client for HUD display ONLY — every gameplay consumer
+  // (integrityEconomyMult, integrityGrowthMult) reads Ts/Es (settled-only).
+  // AI players have no client ever subscribed to read T/E, so for them the
+  // exposedEdgesFor(..., false) call below — the dominant per-tile cost — is
+  // pure waste across every FRONTIER tile, which is the majority of a
+  // sprawling AI empire's owned tiles. skipAllOwnedStats lets callers who
+  // know nothing reads T/E for this player skip it; T/Ts still count so the
+  // Math.max(1, ...) floors stay meaningful, but E is left at 0 (never read
+  // in that case).
+  skipAllOwnedStats = false
+): PlayerDefensibilityMetrics => {
   let T = 0;
   let E = 0;
   let Ts = 0;
   let Es = 0;
+
+  const accumulate = (tile: DomainTileState): void => {
+    T += 1;
+    if (!skipAllOwnedStats) E += exposedEdgesFor(tile, playerId, tiles, false);
+    if (!ownedTile(tile, playerId, true)) return;
+    Ts += 1;
+    Es += exposedEdgesFor(tile, playerId, tiles, true);
+  };
   // Iterate the player's owned tiles only when the caller provides the
   // index — O(owned-tiles) instead of O(all-map-tiles). The summary's
   // territoryTileKeys is maintained incrementally as ownership changes, so
@@ -58,20 +82,12 @@ export const buildPlayerDefensibilityMetrics = (
     for (const tileKey of ownedTileKeys) {
       const tile = tiles.get(tileKey);
       if (!tile || !ownedTile(tile, playerId, false)) continue;
-      T += 1;
-      E += exposedEdgesFor(tile, playerId, tiles, false);
-      if (!ownedTile(tile, playerId, true)) continue;
-      Ts += 1;
-      Es += exposedEdgesFor(tile, playerId, tiles, true);
+      accumulate(tile);
     }
   } else {
     for (const tile of tiles.values()) {
       if (!ownedTile(tile, playerId, false)) continue;
-      T += 1;
-      E += exposedEdgesFor(tile, playerId, tiles, false);
-      if (!ownedTile(tile, playerId, true)) continue;
-      Ts += 1;
-      Es += exposedEdgesFor(tile, playerId, tiles, true);
+      accumulate(tile);
     }
   }
   return {

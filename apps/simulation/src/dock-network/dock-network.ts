@@ -52,13 +52,17 @@ export const isValidDockCrossingTarget = (
   fromDockTileKey: string,
   toX: number,
   toY: number,
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
+  // ATTACK may reach land beside a linked dock (raiding past a hostile dock);
+  // EXPAND must land on the linked dock tile itself — you can't settle around
+  // an unowned dock without capturing it first.
+  allowAdjacent: boolean
 ): boolean =>
   (dockLinksByDockTileKey.get(fromDockTileKey) ?? []).some((dockTileKey) => {
     const coords = parseTileKey(dockTileKey);
     return Boolean(coords) && (
       dockTileKey === `${toX},${toY}` ||
-      isFrontierAdjacent(coords!.x, coords!.y, toX, toY)
+      (allowAdjacent && isFrontierAdjacent(coords!.x, coords!.y, toX, toY))
     );
   });
 

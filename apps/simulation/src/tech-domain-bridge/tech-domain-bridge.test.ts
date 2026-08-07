@@ -16,12 +16,16 @@ import {
   chooseAiDomainChoiceForPlayer,
   chooseAiTechChoiceForPlayer,
   chooseDomainForPlayer,
-  chosenTrickleOptionsForDomain,
-  chosenTrickleRateForPlayer,
+  domainGrantedResourceSlots,
+  domainHasResourceSubChoice,
   multiplicativeEffectForPlayer,
+  outpostVisionRadiusBonusForPlayer,
   recomputeMods,
-  resolveDataPath
+  resolveDataPath,
+  townVisionRadiusBonusForPlayer,
+  visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
+import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
 const MODULE_URL = new URL("./tech-domain-bridge.js", import.meta.url).href;
 const EXPECTED_TECH_TREE_PATH = fileURLToPath(new URL("../../../../packages/game-domain/data/tech-tree.json", import.meta.url));
@@ -67,17 +71,29 @@ describe("tech-domain bridge progression sources", () => {
     expect(resolved).toBe(EXPECTED_TECH_TREE_PATH);
   });
 
-  it("recomputes active stat mods and source labels from unlocked techs", () => {
+  it("recomputes active stat mods and source labels from unlocked domains (tribal-warfare tech was cut in the tech-tree redesign)", () => {
     const player = {
-      techIds: new Set<string>(["tribal-warfare"]),
-      domainIds: new Set<string>()
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(["war-foundries"])
     };
 
-    expect(recomputeMods(player)).toEqual({ attack: 1.05, defense: 1.05, income: 1, vision: 1 });
+    expect(recomputeMods(player)).toEqual({ attack: 1.1, defense: 1.1, income: 1, vision: 1 });
     expect(buildModBreakdownForPlayer(player).attack).toEqual([
       { label: "Base", mult: 1 },
-      { label: "Warbands", mult: 1.05 }
+      { label: "War Foundries", mult: 1.1 }
     ]);
+  });
+
+  it("Survey Corps grants outpostVisionRadiusBonus, not a generic visionRadiusBonus (Cartography's townVisionRadiusBonus was retired with the tech-tree redesign)", () => {
+    const player = { techIds: new Set<string>(["surveying"]), domainIds: new Set<string>() };
+    expect(outpostVisionRadiusBonusForPlayer(player)).toBe(1);
+    expect(visionRadiusBonusForPlayer(player)).toBe(0);
+    expect(townVisionRadiusBonusForPlayer(player)).toBe(0);
+  });
+
+  it("no catalog tech grants a generic visionRadiusBonus any more (retired in favor of town/outpost-specific bonuses)", () => {
+    const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: Array<{ id: string; effects?: Record<string, unknown> }> };
+    expect(techTree.techs.some((tech) => typeof tech.effects?.visionRadiusBonus === "number")).toBe(false);
   });
 
   it("uses authoritative income when building domain update payloads", () => {
@@ -109,9 +125,9 @@ describe("tech-domain bridge progression sources", () => {
 
     const payload = buildDomainUpdatePayload(player, []);
 
-    expect(payload.domainChoices).toEqual(expect.arrayContaining(["frontier-bureau", "stone-curtain"]));
+    expect(payload.domainChoices).toEqual(expect.arrayContaining(["cogwork-foundries", "stone-curtain"]));
     expect(payload.domainChoices).not.toContain("frontier-doctrine");
-    expect(payload.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
+    expect(payload.domainCatalog.find((domain) => domain.id === "cogwork-foundries")?.requirements.canResearch).toBe(false);
   });
 
   it("still rejects choosing a domain whose tier is open but required tech is missing", () => {
@@ -126,23 +142,23 @@ describe("tech-domain bridge progression sources", () => {
       strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
     };
 
-    const outcome = chooseDomainForPlayer(player, "frontier-bureau", []);
+    const outcome = chooseDomainForPlayer(player, "cogwork-foundries", []);
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.reason).toBe("requirements not met");
-    expect(player.domainIds.has("frontier-bureau")).toBe(false);
+    expect(player.domainIds.has("cogwork-foundries")).toBe(false);
   });
 });
 
 describe("tier-1 domain effects are wired", () => {
-  it("Iron Bastions exposes fortBuildSpeedMult / fortIronUpkeepMult / fortGoldUpkeepMult to the multiplicative resolver", () => {
+  it("Iron Bastions (Dwarf Kingdom) exposes fortBuildSpeedMult and the §23.2 fortIronSlotWaiverCount waiver", () => {
     const player = {
       techIds: new Set<string>(["masonry"]),
       domainIds: new Set<string>(["iron-bastions"])
     };
     expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortIronUpkeepMult")).toBeCloseTo(0.6, 6);
-    expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
+    expect(maxEffectForPlayer(player, "fortIronSlotWaiverCount")).toBe(3);
+    expect(slotWaiversForPlayer(player).fortIronSlotWaiverCount).toBe(3);
   });
 
   it("Supply Raiding exposes attackVsBarbariansMult at 1.5", () => {
@@ -175,7 +191,7 @@ describe("tier-1 domain effects are wired", () => {
   });
 });
 
-describe("Clockwork Stipend trickle resource choice", () => {
+describe("Clockwork Stipend resource slot grant", () => {
   const baseClockworkPlayer = (): {
     id: string;
     isAi: boolean;
@@ -197,39 +213,19 @@ describe("Clockwork Stipend trickle resource choice", () => {
     strategicResources: { FOOD: 500 } as Record<string, number>
   });
 
-  it("publishes the offered per-resource trickle rates", () => {
-    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
-    expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
+  it("publishes domainHasResourceSubChoice as true for clockwork-stipend", () => {
+    expect(domainHasResourceSubChoice("clockwork-stipend")).toBe(true);
+    // Sanity: a domain without the slot grant returns false.
+    expect(domainHasResourceSubChoice("iron-bastions")).toBe(false);
   });
 
-  it("data file's clockwork-stipend options match TRICKLE_RESOURCE_KEYS exactly", () => {
-    // Parity guard, both directions:
-    //
-    //   1. If TRICKLE_RESOURCE_KEYS is widened without updating the data file,
-    //      the raw-data subset check below fails because shared has extra keys
-    //      the data doesn't carry (the validator would silently return undefined
-    //      for those — a real correctness bug).
-    //   2. If the data file grows an extra rate (e.g. SHARD: 0.5) without
-    //      widening TRICKLE_RESOURCE_KEYS, the raw-data superset check below
-    //      fails because data has a key shared doesn't honor (the sim and
-    //      client would both silently ignore it — not a bug today but a
-    //      maintenance trap).
-    //
-    // We read the JSON directly rather than going through the bridge so we're
-    // checking the source data, not the already-filtered helper output.
+  it("data file's clockwork-stipend carries chosenResourceSlotGrant: 1", () => {
     const rawTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as {
       domains: Array<{ id: string; effects?: Record<string, unknown> }>;
     };
     const clockwork = rawTree.domains.find((domain) => domain.id === "clockwork-stipend");
     expect(clockwork).toBeDefined();
-    const rawOptions = clockwork!.effects?.chosenResourceTrickleOptions as Record<string, unknown> | undefined;
-    expect(rawOptions).toBeDefined();
-    expect(Object.keys(rawOptions!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
-
-    // Belt-and-braces: every data key passes the runtime guard.
-    for (const key of Object.keys(rawOptions!)) {
-      expect(isChosenTrickleResource(key)).toBe(true);
-    }
+    expect(clockwork!.effects?.chosenResourceSlotGrant).toBe(1);
   });
 
   it("isChosenTrickleResource rejects unrelated resource keys and non-strings", () => {
@@ -249,13 +245,12 @@ describe("Clockwork Stipend trickle resource choice", () => {
     const player = baseClockworkPlayer();
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", []);
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.reason).toMatch(/trickle resource choice required/);
+    if (!outcome.ok) expect(outcome.reason).toMatch(/resource choice required/);
     expect(player.domainIds.has("clockwork-stipend")).toBe(false);
   });
 
   it("rejects unsupported sub-choices (e.g. SHARD)", () => {
     const player = baseClockworkPlayer();
-    // SHARD is a strategic resource but not in the offered table.
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
       chosenTrickleResource: "SHARD" as unknown as "IRON"
     });
@@ -270,47 +265,41 @@ describe("Clockwork Stipend trickle resource choice", () => {
     expect(player.chosenTrickleResource).toBe("CRYSTAL");
   });
 
-  it("chosenTrickleRateForPlayer returns the rate matching the locked pick", () => {
+  it("domainGrantedResourceSlots returns the slot grant for the locked pick", () => {
     const player = {
       domainIds: new Set<string>(["clockwork-stipend"]),
       chosenTrickleResource: "IRON" as const
     };
-    expect(chosenTrickleRateForPlayer(player)).toEqual({ resource: "IRON", ratePerMinute: 0.2 });
+    expect(domainGrantedResourceSlots(player)).toEqual({ IRON: 1 });
   });
 
-  it("chosenTrickleRateForPlayer returns undefined when no resource is locked", () => {
+  it("domainGrantedResourceSlots returns undefined when no resource is locked", () => {
     const player = { domainIds: new Set<string>(["clockwork-stipend"]) };
-    expect(chosenTrickleRateForPlayer(player)).toBeUndefined();
+    expect(domainGrantedResourceSlots(player)).toBeUndefined();
   });
 
   it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
-    // Simulate a player who already locked IRON on a prior run (e.g. snapshot
-    // recovery, or a future second-trickle domain). Calling chooseDomainForPlayer
-    // with a different valid sub-choice MUST NOT reassign the locked value.
     const player = baseClockworkPlayer();
     player.chosenTrickleResource = "IRON";
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "SUPPLY" });
     expect(outcome.ok).toBe(true);
     expect(player.domainIds.has("clockwork-stipend")).toBe(true);
-    // Locked forever — the SUPPLY pick we just passed in is ignored.
     expect(player.chosenTrickleResource).toBe("IRON");
   });
 });
 
 describe("AI progression choice prefers affordable options over higher-scored unaffordable ones", () => {
-  // Reproduces the prod state where Freja Sund (ai-4) sat on 74k gold with
-  // zero IRON/CRYSTAL/SUPPLY and the preplan reported tech_unaffordable every
-  // tick: every higher-scored tier-1 tech (trade, cartography, tribal-warfare)
-  // needs a strategic resource she lacks, while toolmaking (gold-only) is
-  // strictly affordable but used to be hidden behind those higher scores.
-  const ownedSettledTown = {
-    x: 0,
-    y: 0,
-    ownerId: "ai-4",
-    ownershipState: "SETTLED" as const,
-    terrain: "LAND" as const,
-    town: { name: "Core", populationTier: "TOWN" as const }
-  };
+  // Originally reproduced a prod state (Freja Sund, ai-4) where an AI sitting
+  // on gold but zero IRON/CRYSTAL/SUPPLY got stuck wanting a higher-scored
+  // tech it couldn't pay the strategic-resource cost for. Under the gold
+  // rescope (docs/manpower-economy-rewrite-plan.md §6.2, §13) every tech
+  // below tier 5 costs gold only now — that specific starvation scenario is
+  // structurally impossible below tier 5 (and tier 5+ needs SHARD, a
+  // separately event-gated resource, not a strategy-starvable one). The
+  // surviving, still-real trigger for "prefers affordable over higher-scored
+  // unaffordable" is now plain per-tier GOLD scarcity (tier 1 = 10 gold,
+  // tier 2 = 50, ... — §13): a player who can afford tier 1 but not tier 2
+  // must fall back to a lower-scored, actually-affordable tier-1 tech.
   const ownedSettledDock = {
     x: 1,
     y: 0,
@@ -319,56 +308,72 @@ describe("AI progression choice prefers affordable options over higher-scored un
     terrain: "LAND" as const,
     dockId: "dock-a"
   };
+  // Only used by the domain-choice test below (domains are untouched by the
+  // gold rescope this round — §19/§23 territory, not this step).
+  const ownedSettledTown = {
+    x: 0,
+    y: 0,
+    ownerId: "ai-4",
+    ownershipState: "SETTLED" as const,
+    terrain: "LAND" as const,
+    town: { name: "Core", populationTier: "TOWN" as const }
+  };
+  // trade already researched. tribal-warfare/toolmaking were cut in the
+  // tech-tree redesign, and costs are now a uniform researched-count curve
+  // (10 gold for the first research, then +50 per tech already researched —
+  // tech-economy.ts) rather than per-tech/per-tier numbers, so the
+  // affordable/highest-scored candidates shifted (verified directly against
+  // chooseAiTechChoiceForPlayer's actual output, not hand-derived from the
+  // scoring heuristics). With trade researched, every reachable tech costs
+  // 60 gold, so the affordability split is purely points >= 60.
+  const alreadyResearched = ["trade"];
 
-  it("returns the gold-only toolmaking tech when crystal/iron-gated higher-scored techs are unaffordable", () => {
+  it("uses the flat researched-count gold cost and prefers an affordable tech", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
         id: "ai-4",
-        points: 74_000,
-        techIds: [],
+        points: 60, // exactly the flat cost with 1 tech already researched
+        techIds: alreadyResearched,
         domainIds: [],
-        strategicResources: { FOOD: 5_000, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        strategicResources: {}
       },
-      [ownedSettledTown, ownedSettledDock]
+      [ownedSettledDock]
     );
 
     expect(choice).toBeDefined();
+    expect(choice!.goldCost).toBe(60);
     expect(choice!.affordable).toBe(true);
-    // toolmaking is the highest-scored tech among gold-only-affordable
-    // options when the player has a settled town + dock but no strategic
-    // resources.
-    expect(choice!.id).toBe("toolmaking");
+    // All reachable techs cost the same; the highest-scored one wins.
+    expect(choice!.id).toBe("masonry");
   });
 
   it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
     const choice = chooseAiTechChoiceForPlayer(
       {
-        id: "ai-broke",
-        points: 100, // below every tier-1 tech's gold cost
-        techIds: [],
+        id: "ai-4", // must match ownedSettledDock's ownerId for active_dock to apply
+        points: 0, // below every tech's gold cost
+        techIds: alreadyResearched,
         domainIds: [],
         strategicResources: {}
       },
-      [ownedSettledTown, ownedSettledDock]
+      [ownedSettledDock]
     );
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(false);
     // Diagnostic still gets the most-wanted tech so preplan can report
     // tech_unaffordable accurately.
+    expect(choice!.id).toBe("masonry");
     expect(choice!.score).toBeGreaterThan(0);
   });
 
-  it("prefers an affordable lower-scored domain when the top-scored domain needs a missing resource", () => {
-    // mercantile-charter scores higher than clockwork-stipend when the player
-    // owns a town + dock, but it costs crystal. Without any crystal, the AI
-    // should pick clockwork-stipend (food-cost, +30 score) — the food-driven
-    // trickle domain that can produce the missing strategic resources.
-    // clockwork-stipend requires `agriculture` tech to unlock, so the
-    // scenario seeds it; the agriculture-less variant in Freja's actual prod
-    // state is fixed one step earlier by the tech-choice change above (the AI
-    // will pick toolmaking → agriculture → then clockwork-stipend becomes
-    // reachable on a later tick).
+  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities", () => {
+    // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
+    // crystal, so the AI fell back to clockwork-stipend despite its lower
+    // score. §19 dropped every domain's cost to gold + SHARD only — mercantile-charter
+    // and clockwork-stipend are both tier 1 (40 gold, no shard), so neither
+    // is gated by strategicResources anymore and the AI should just take the
+    // higher-scored candidate.
     const choice = chooseAiDomainChoiceForPlayer(
       {
         id: "ai-4",
@@ -383,6 +388,6 @@ describe("AI progression choice prefers affordable options over higher-scored un
 
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(true);
-    expect(choice!.id).toBe("clockwork-stipend");
+    expect(choice!.id).toBe("mercantile-charter");
   });
 });

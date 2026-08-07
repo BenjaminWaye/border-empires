@@ -26,3 +26,9 @@ export type QuantileSample = {
   p95: number;
   p99: number;
 };
+
+export const quantileSample = (series: number[]): QuantileSample => ({
+  p50: quantile(series, 0.5),
+  p95: quantile(series, 0.95),
+  p99: quantile(series, 0.99)
+});

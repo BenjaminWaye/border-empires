@@ -38,6 +38,22 @@ const musterLabel = (tile: Tile): string => {
   return `Holding ${muster.amount} manpower at (${tile.x}, ${tile.y}).`;
 };
 
+// Regression for the 2026-07-14 staging login stall: the generic "still
+// starting" message is misleading once the sim is up but draining a large
+// command backlog after a restart (which can take minutes) — the gateway
+// flags that case with backlogDegraded: true on the SERVER_STARTING payload
+// so this can show an accurate message instead.
+export const serverStartingBusyMessages = (backlogDegraded: boolean): { detail: string; retryStatus: string } =>
+  backlogDegraded
+    ? {
+        detail: "The game server is replaying a backlog of prior activity after a restart. This can take a few minutes; no progress is lost.",
+        retryStatus: "Server is replaying a backlog after a restart. Retrying sign-in..."
+      }
+    : {
+        detail: "The game server is still starting. Sign-in will retry automatically.",
+        retryStatus: "Game server is still starting. Retrying sign-in..."
+      };
+
 export const notificationCategoryForServerError = (code: string): NotificationCategory => {
   if (code === "TOWN_UNFED") return "persistent_alert";
   if (code === "SIMULATION_UNAVAILABLE" || code === "SERVER_STARTING") return "debug";
@@ -116,6 +132,66 @@ const locatorEdgePoint = (
 const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; height: number }, margin: number): boolean =>
   point.sx >= margin && point.sx <= canvas.width - margin && point.sy >= margin && point.sy <= canvas.height - margin;
 
+const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const flip of [1, -1]) {
+    ctx.save();
+    ctx.scale(flip, 1);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = Math.max(3, size * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(size * 0.55, size * 0.55);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.55);
+    ctx.lineTo(-size * 0.55, -size * 0.3);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(-size * 0.42, -size * 0.42);
+    ctx.rotate(-Math.PI / 4);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.lineWidth = Math.max(2.5, size * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, 0);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+  ctx.strokeStyle = "#fff7d1";
+  ctx.fillStyle = "#fff7d1";
+  ctx.lineWidth = Math.max(1.5, size * 0.16);
+  for (const flip of [1, -1]) {
+    ctx.save();
+    ctx.scale(flip, 1);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(size * 0.55, size * 0.55);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.55, -size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.55);
+    ctx.lineTo(-size * 0.55, -size * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save();
+    ctx.translate(-size * 0.42, -size * 0.42);
+    ctx.rotate(-Math.PI / 4);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.16, 0);
+    ctx.lineTo(size * 0.16, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+  ctx.restore();
+};
+
 export const drawPersistentAlertLocators = (
   state: PersistentAlertState & Pick<ClientState, "camX" | "camY">,
   deps: {
@@ -127,9 +203,10 @@ export const drawPersistentAlertLocators = (
     halfW: number;
     halfH: number;
     nowMs: number;
+    precomputedAlerts?: PersistentAlert[];
   }
 ): void => {
-  const allAlerts = persistentAlertsForState(state);
+  const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
   const alerts = nearestPersistentAlerts(
     allAlerts,
     state,
@@ -150,7 +227,7 @@ export const drawPersistentAlertLocators = (
     if (isOnScreen(projected, canvas, margin)) continue;
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
-    const radius = 20;
+    const radius = 26;
     state.persistentAlertLocators.push({
       id: alert.id,
       kind: alert.kind,
@@ -165,7 +242,7 @@ export const drawPersistentAlertLocators = (
     ctx.globalAlpha = pulse;
     ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
     ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -173,18 +250,24 @@ export const drawPersistentAlertLocators = (
     ctx.rotate(edge.angle);
     ctx.fillStyle = "#ffd166";
     ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(-5, -8);
-    ctx.lineTo(-2, 0);
-    ctx.lineTo(-5, 8);
+    ctx.moveTo(radius * 0.6, 0);
+    ctx.lineTo(-radius * 0.35, -radius * 0.5);
+    ctx.lineTo(-radius * 0.15, 0);
+    ctx.lineTo(-radius * 0.35, radius * 0.5);
     ctx.closePath();
     ctx.fill();
     ctx.rotate(-edge.angle);
-    ctx.fillStyle = "#fff7d1";
-    ctx.font = "700 13px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", 0, 0);
+    if (alert.kind === "muster_active") {
+      drawCrossedSwordsGlyph(ctx, radius * 0.55);
+    } else {
+      ctx.font = `700 ${radius * 1.3}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillText("!", 0, radius * 0.05);
+      ctx.fillStyle = "#fff7d1";
+      ctx.fillText("!", 0, radius * 0.02);
+    }
     ctx.restore();
     drawnCount += 1;
   }

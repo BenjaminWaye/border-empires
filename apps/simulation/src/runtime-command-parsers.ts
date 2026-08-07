@@ -143,6 +143,18 @@ export const parseAllianceSyncPayload = (payloadJson: string): { targetPlayerId:
   }
 };
 
+export const parseTruceSyncPayload = (payloadJson: string): { targetPlayerId: string; truced: boolean } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0 || typeof parsed.truced !== "boolean") {
+      return null;
+    }
+    return { targetPlayerId: parsed.targetPlayerId, truced: parsed.truced };
+  } catch {
+    return null;
+  }
+};
+
 export const parseAetherWallPayload = (
   payloadJson: string
 ): { x: number; y: number; direction: AetherWallDirection; length: 1 | 2 | 3 } | null => {
@@ -189,17 +201,19 @@ export const parseAirportBombardPayload = (payloadJson: string): { fromX: number
   }
 };
 
-export const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: number; fromY: number; resource: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" } | null => {
+// §15: single target chosen by the caster (from's Imperial Exchange tile ->
+// a rival-owned tile that identifies the target player), not the old
+// "pick a resource, hit everyone" shape.
+export const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (
       typeof parsed.fromX !== "number" ||
       typeof parsed.fromY !== "number" ||
-      typeof parsed.resource !== "string"
+      typeof parsed.toX !== "number" ||
+      typeof parsed.toY !== "number"
     ) return null;
-    const resource = parsed.resource;
-    if (resource !== "FOOD" && resource !== "IRON" && resource !== "CRYSTAL" && resource !== "SUPPLY") return null;
-    return { fromX: parsed.fromX, fromY: parsed.fromY, resource };
+    return { fromX: parsed.fromX, fromY: parsed.fromY, toX: parsed.toX, toY: parsed.toY };
   } catch {
     return null;
   }
@@ -231,6 +245,16 @@ export const parseAegisLockPayload = (payloadJson: string): { fromX: number; fro
 };
 
 export const parseAstralDockLaunchPayload = (payloadJson: string): { fromX: number; fromY: number } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.fromX !== "number" || typeof parsed.fromY !== "number") return null;
+    return { fromX: parsed.fromX, fromY: parsed.fromY };
+  } catch {
+    return null;
+  }
+};
+
+export const parseIronLevyMusterPayload = (payloadJson: string): { fromX: number; fromY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.fromX !== "number" || typeof parsed.fromY !== "number") return null;

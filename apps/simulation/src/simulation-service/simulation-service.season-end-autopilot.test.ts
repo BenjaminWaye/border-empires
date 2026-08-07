@@ -41,12 +41,12 @@ describe("Fix 1 — autopilots stop on season end and restart on rollover", () =
     // replaceRuntime is the only code path that transitions to a new season.
     // It must call startAutopilots() to re-enable AI for the new season.
     // Extract the replaceRuntime body and confirm startAutopilots is inside it.
-    const replaceRuntimeStart = file.indexOf("const replaceRuntime = ({");
+    const replaceRuntimeStart = file.indexOf("const replaceRuntime = async ({");
     const replaceRuntimeEnd = file.indexOf("\n  };", replaceRuntimeStart) + 5;
     const replaceRuntimeBlock = file.slice(replaceRuntimeStart, replaceRuntimeEnd);
     expect(replaceRuntimeBlock).toContain("startAutopilots()");
     // startAutopilots itself calls closeAutopilots first (idempotent guard).
-    const startAutopilotsFn = file.slice(file.indexOf("const startAutopilots = ():"));
+    const startAutopilotsFn = file.slice(file.indexOf("const startAutopilots = async ():"));
     expect(startAutopilotsFn.slice(0, 200)).toContain("closeAutopilots()");
   });
 

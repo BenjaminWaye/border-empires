@@ -1,6 +1,6 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState } from "@border-empires/game-domain";
+import { type DomainTileState, type PlayerEventLogEntry } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
@@ -16,6 +16,8 @@ type RecoveredTileState = {
   resource?: DomainTileState["resource"];
   dockId?: DomainTileState["dockId"];
   shardSite?: DomainTileState["shardSite"];
+  naturalWonder?: DomainTileState["naturalWonder"];
+  watchtower?: DomainTileState["watchtower"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
@@ -71,6 +73,7 @@ export type RecoveredSimulationState = {
     strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
+    eventLog?: PlayerEventLogEntry[];
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;
@@ -102,6 +105,8 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
+  ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -168,6 +173,20 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.shardSite
         ? { shardSite: existing.shardSite }
+        : {}),
+    ...("watchtowerJson" in tileDelta
+      ? (tileDelta.watchtowerJson
+          ? { watchtower: parseOptionalJson<DomainTileState["watchtower"]>(tileDelta.watchtowerJson) }
+          : {})
+      : existing?.watchtower
+        ? { watchtower: existing.watchtower }
+        : {}),
+    ...("naturalWonderJson" in tileDelta
+      ? (tileDelta.naturalWonderJson
+          ? { naturalWonder: parseOptionalJson<DomainTileState["naturalWonder"]>(tileDelta.naturalWonderJson) }
+          : {})
+      : existing?.naturalWonder
+        ? { naturalWonder: existing.naturalWonder }
         : {}),
     // For ownership + per-tile-structure fields, an empty-string delta value
     // means "explicit clear" (mirrors the existing shardSiteJson pattern just
@@ -329,7 +348,8 @@ export const applySimulationEventsToRecoveredAccumulator = (
         tileKey: event.tileKey,
         startedAt: event.startedAt,
         resolvesAt: event.resolvesAt,
-        goldCost: event.goldCost
+        goldCost: event.goldCost,
+        commandId: event.commandId
       });
       continue;
     }
@@ -398,6 +418,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
               ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+              ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.
               ...(previousOrigin.town ? { town: previousOrigin.town } : {}),

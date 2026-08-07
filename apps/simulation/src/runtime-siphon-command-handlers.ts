@@ -2,11 +2,11 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   SIPHON_COOLDOWN_MS,
-  SIPHON_CRYSTAL_COST,
   SIPHON_DURATION_MS,
   SIPHON_SHARE
 } from "@border-empires/game-domain";
 import { parseTilePayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
 
@@ -34,7 +34,7 @@ function siphonableTileForActor(
   actor: DomainPlayer,
   now: number
 ): tile is DomainTileState {
-  if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) {
+  if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || isAlliedOrTruced(actor, tile.ownerId)) {
     return false;
   }
   if (!tile.town && !tile.resource) return false;
@@ -75,10 +75,6 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
     rejectCommand(context, command, "SIPHON_INVALID", "no eligible town or resource tiles in siphon area");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) {
-    rejectCommand(context, command, "SIPHON_INVALID", "insufficient CRYSTAL for siphon");
-    return;
-  }
   context.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
   const endsAt = siphonNow + SIPHON_DURATION_MS;
   const updatedTiles = affectedTiles.map((tile): DomainTileState => ({
@@ -96,4 +92,5 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
     playerId: command.playerId,
     tileDeltas: updatedTiles.map((updatedTile) => context.tileDeltaFromState(updatedTile))
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

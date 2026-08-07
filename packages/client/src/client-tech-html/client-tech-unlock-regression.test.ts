@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { chooseTechFromUi } from "../client-player-actions.js";
+import type { RealtimeSocket } from "../client-socket-types.js";
 
 describe("tech unlock UI", () => {
   it("sends CHOOSE_TECH even when the websocket mock does not expose instance OPEN", () => {
@@ -18,7 +19,7 @@ describe("tech unlock UI", () => {
       state,
       techPickEl: { value: "" } as HTMLSelectElement,
       mobileTechPickEl: { value: "" } as HTMLSelectElement,
-      ws: { readyState: 1, send } as unknown as WebSocket,
+      ws: { readyState: 1, send } as unknown as RealtimeSocket,
       wsUrl: "ws://example.test/game",
       setAuthStatus: vi.fn(),
       syncAuthOverlay: vi.fn(),

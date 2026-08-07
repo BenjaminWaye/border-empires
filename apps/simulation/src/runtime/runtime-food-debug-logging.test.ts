@@ -97,8 +97,7 @@ describe("simulation food diagnostics", () => {
     const attacker = testRuntimePlayer("attacker");
     const defender = testRuntimePlayer("defender");
     const summary = {
-      strategicProductionPerMinute: { FOOD: 0.1 },
-      synthesizerCapBonus: {}
+      strategicProductionPerMinute: { FOOD: 0.1 }
     } as PlayerRuntimeSummary;
 
     applyResourceTileSteal(
@@ -114,7 +113,6 @@ describe("simulation food diagnostics", () => {
   it("keeps food debug markers out of simulation hot-path files", () => {
     const hotPathFiles = [
       join(here, "runtime.ts"),
-      join(here, "../runtime-economy-accrual.ts"),
       join(here, "../runtime-resource-steal.ts")
     ];
 

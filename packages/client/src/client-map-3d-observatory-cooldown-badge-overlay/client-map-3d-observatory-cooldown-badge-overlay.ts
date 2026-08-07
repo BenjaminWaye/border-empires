@@ -102,7 +102,13 @@ export const createObservatoryCooldownBadgeOverlay = (
   const mesh = new InstancedMesh(planeGeometry, material, maxTiles);
   mesh.frustumCulled = false;
   mesh.count = 0;
-  mesh.renderOrder = 7;
+  // 27, not 7: must clear the road overlay's renderOrder (25, see
+  // client-map-3d-road-overlay.ts) — both are transparent, and this badge
+  // sitting below the road in draw order got painted over by it wherever a
+  // road passes under a floating badge (see client-map-3d-unfed-badge-overlay.ts
+  // for the same fix). Stays below the transient selection/waypoint marker
+  // band (28+).
+  mesh.renderOrder = 27;
   group.add(mesh);
 
   const xs = new Float32Array(maxTiles);

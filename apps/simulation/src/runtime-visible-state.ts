@@ -25,6 +25,7 @@ type VisibilityPlayerProjectionDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   applyManpowerRegen: (player: RuntimePlayer) => void;
+  refreshManpowerOnly: (player: RuntimePlayer) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   cachedEconomySnapshot: (player: RuntimePlayer) => { strategicProductionPerMinute: Record<StrategicResourceKey, number> };
 };
@@ -123,6 +124,17 @@ export function exportBarbActivationVisibleUnion(input: {
       if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
       radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius);
     }
+    // Owned SETTLED towns reveal one extra ring (radius+1), matching the
+    // town-ring bonus tracked in VisibilityCoverageCache so barb-activation
+    // eligibility stays consistent with what the player actually sees.
+    for (const townKey of summary.ownedTownTierByTile.keys()) {
+      const [rawX, rawY] = townKey.split(",");
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      radiusByOwnedTileNumericKey.set(y * WORLD_WIDTH + x, radius + 1);
+      if (radius + 1 > maxRadius) maxRadius = radius + 1;
+    }
   }
 
   const union = new Set<string>();
@@ -167,11 +179,7 @@ export function emitVisibilityAudit(input: {
   const onVisibilityAudit = input.onVisibilityAudit;
   if (!onVisibilityAudit) return;
   if (!input.tile.ownerId || input.classification.allyAndSelfIds.has(input.tile.ownerId)) return;
-  const reasons: string[] = [];
-  if (input.classification.radiusSelfKeys.has(input.tileKey)) reasons.push("radius:self");
-  for (const [allyId, set] of input.classification.radiusAllyKeys) {
-    if (set.has(input.tileKey)) reasons.push(`radius:ally:${allyId}`);
-  }
+  const reasons: string[] = [...input.classification.coverageReasonsForTile(input.tileKey)];
   if (input.classification.lockOriginKeys.has(input.tileKey)) reasons.push("lock-origin");
   if (input.classification.dockRevealKeys.has(input.tileKey)) reasons.push("dock-reveal");
   if (input.classification.lockTargetOnlyKeys.has(input.tileKey)) reasons.push("lock-target");
@@ -309,6 +317,7 @@ function visibleTileProjection(
     ...(tile.resource ? { resource: tile.resource } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+    ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -331,7 +340,22 @@ function visiblePlayersProjection(
 ): RuntimeExportState["players"] {
   return [...input.players.values()]
     .map((player) => {
-      input.applyManpowerRegen(player);
+      // Full economy accrual (applyManpowerRegen) only for the requesting
+      // player — everyone else gets the manpower-only refresh, matching the
+      // self-only cachedEconomySnapshot() branch on strategicProductionPerMinute
+      // below, and the same skip-for-others pattern already proven safe in
+      // exportPlannerWorldView / exportPlannerPlayerViews / exportPlayerDebugSnapshot
+      // (see refreshManpowerOnly's doc comment: this export recomputing full
+      // accrual for every player, every call, is exactly what caused the prior
+      // sync_players_export event-loop block — same shape as this one, just a
+      // different export function no one had gotten to yet). The manpower
+      // number itself stays fully correct either way; only OTHER players'
+      // gold/resource accrual is deferred to their own next command or tick.
+      if (player.id === visiblePlayerId) {
+        input.applyManpowerRegen(player);
+      } else {
+        input.refreshManpowerOnly(player);
+      }
       const summary = input.summaryForPlayer(player.id);
       return {
         id: player.id,
@@ -343,6 +367,7 @@ function visiblePlayersProjection(
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
+        truces: [...(player.truces ?? [])].sort(),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,

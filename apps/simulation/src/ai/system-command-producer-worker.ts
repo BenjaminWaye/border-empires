@@ -12,37 +12,12 @@ import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
+import { mergePlannerTileDelta } from "./planner-tile-delta-merge.js";
+import type { CombinedWorkerChannel } from "./combined-worker-host.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
-
-const mergePlannerTileDelta = (
-  existing: PlannerTileView | undefined,
-  tileDelta: SimulationTileDelta
-): PlannerTileView | undefined => {
-  const terrain = tileDelta.terrain ?? existing?.terrain;
-  if (!terrain) return undefined;
-  const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
-  if (tileDelta.terrain) next.terrain = tileDelta.terrain;
-  if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
-    else delete next.resource;
-  }
-  if ("dockId" in tileDelta) {
-    if (tileDelta.dockId) next.dockId = tileDelta.dockId;
-    else delete next.dockId;
-  }
-  if ("ownerId" in tileDelta) {
-    if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
-    else delete next.ownerId;
-  }
-  if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
-    else delete next.ownershipState;
-  }
-  return next;
-};
 
 type WorkerSystemCommandProducerOptions = {
   runtime: Pick<
@@ -64,6 +39,18 @@ type WorkerSystemCommandProducerOptions = {
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
   maxOldGenerationSizeMb?: number;
+  /**
+   * Optional shared worker channel from a `createCombinedWorkerHost` (P3
+   * thread-consolidation path — see combined-worker-host.ts). When supplied,
+   * this producer sends/receives all worker messages over the shared
+   * channel instead of spawning its own dedicated Worker/OS thread — the
+   * caller (typically simulation-service.ts) owns the underlying worker's
+   * lifecycle and must call the host's own `close()` once both the AI and
+   * system producers have released it. When omitted (the default, and what
+   * every existing test uses), behavior is unchanged: this producer spawns
+   * and owns its own dedicated `system-job-worker.js` Worker.
+   */
+  workerHost?: CombinedWorkerChannel;
   onTick?: (sample: { durationMs: number }) => void;
   /** Minimum ms between exportBarbActivationVisibleUnion recomputes, regardless
    *  of signature churn. See ensureVisionUnionFresh for why this is needed. */
@@ -130,93 +117,75 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   let lastVisionUnionComputedAtMs = 0;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
-  let worker!: Worker;
+  let worker!: Worker; // only assigned/used in the self-spawned (no shared host) path
   let relevantTileKeyIndex!: ReturnType<typeof createPlannerRelevantTileKeyIndex>;
 
-  const spawnWorker = (): void => {
-    worker = new Worker(workerScriptPath, {
-      resourceLimits: { maxOldGenerationSizeMb }
-    });
-
-    worker.on("message", (msg: unknown) => {
-      if (!msg || typeof msg !== "object") return;
-      const message = msg as Record<string, unknown>;
-      if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
-        const mu = message.memoryUsage as NodeJS.MemoryUsage;
-        workerMetrics.rssBytes = mu.rss;
-        workerMetrics.heapTotalBytes = mu.heapTotal;
-        workerMetrics.heapUsedBytes = mu.heapUsed;
-        workerMetrics.externalBytes = mu.external;
-        workerMetrics.arrayBuffersBytes = mu.arrayBuffers;
-        return;
+  const handleWorkerMessage = (msg: unknown): void => {
+    if (!msg || typeof msg !== "object") return;
+    const message = msg as Record<string, unknown>;
+    if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
+      const mu = message.memoryUsage as NodeJS.MemoryUsage;
+      workerMetrics.rssBytes = mu.rss;
+      workerMetrics.heapTotalBytes = mu.heapTotal;
+      workerMetrics.heapUsedBytes = mu.heapUsed;
+      workerMetrics.externalBytes = mu.external;
+      workerMetrics.arrayBuffersBytes = mu.arrayBuffers;
+      return;
+    }
+    if (message.type === "command") {
+      const resolve = pendingRequests.get(message.playerId as string);
+      if (resolve) {
+        pendingRequests.delete(message.playerId as string);
+        resolve(message.command as CommandEnvelope | null);
       }
-      if (message.type === "command") {
-        const resolve = pendingRequests.get(message.playerId as string);
-        if (resolve) {
-          pendingRequests.delete(message.playerId as string);
-          resolve(message.command as CommandEnvelope | null);
-        }
-      } else if (message.type === "error") {
-        const playerId = message.playerId as string;
-        console.error("[system-job-worker] planner error:", message.message);
-        const resolve = pendingRequests.get(playerId);
-        if (resolve) {
-          pendingRequests.delete(playerId);
-          resolve(null);
-        }
+    } else if (message.type === "error") {
+      const playerId = message.playerId as string;
+      console.error("[system-job-worker] planner error:", message.message);
+      const resolve = pendingRequests.get(playerId);
+      if (resolve) {
+        pendingRequests.delete(playerId);
+        resolve(null);
       }
-    });
-
-    worker.on("error", (err) => {
-      console.error("[system-job-worker] uncaught error:", err);
-      for (const [, resolve] of pendingRequests) resolve(null);
-      pendingRequests.clear();
-    });
-
-    worker.on("exit", (code) => {
-      workerMetrics.lastExitCode = code;
-      workerMetrics.lastExitAt = Date.now();
-      if (closed) return;
-      if (code !== 0) {
-        console.error(
-          `[system-job-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
-        );
-      }
-      for (const [, resolve] of pendingRequests) resolve(null);
-      pendingRequests.clear();
-      // The new worker thread starts unpaused. Reset our local backlog-tracking
-      // flag so the next tick re-issues pause/resume against the fresh worker;
-      // otherwise we'd silently keep planning while the main thread thinks the
-      // worker is paused (or vice-versa).
-      lastBacklogState = false;
-      workerMetrics.respawnCount += 1;
-      scheduleRespawn(0);
-    });
+    }
   };
 
-  // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
-  // blows up under main-thread memory pressure), retry on a timer instead of
-  // letting the unhandled throw propagate from the exit handler and crash the
-  // whole process.
-  const RESPAWN_RETRY_DELAY_MS = 5_000;
-  const scheduleRespawn = (delayMs: number): void => {
+  const handleWorkerError = (err: unknown): void => {
+    console.error("[system-job-worker] uncaught error:", err);
+    for (const [, resolve] of pendingRequests) resolve(null);
+    pendingRequests.clear();
+  };
+
+  // Shared by both the self-spawned and shared-host paths. Respawn scheduling
+  // itself differs per-path (see below) — the self-spawned path retries
+  // locally; the shared-host path defers entirely to the host.
+  const handleWorkerExit = (code: number): void => {
+    workerMetrics.lastExitCode = code;
+    workerMetrics.lastExitAt = Date.now();
     if (closed) return;
-    setTimeout(() => {
-      if (closed) return;
-      try {
-        initializeWorkerFromRuntime();
-      } catch (err) {
-        console.error(
-          `[system-job-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
-          err
-        );
-        scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
-      }
-    }, delayMs).unref();
+    if (code !== 0) {
+      console.error(
+        `[system-job-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
+      );
+    }
+    for (const [, resolve] of pendingRequests) resolve(null);
+    pendingRequests.clear();
+    // The new worker thread starts unpaused. Reset our local backlog-tracking
+    // flag so the next tick re-issues pause/resume against the fresh worker;
+    // otherwise we'd silently keep planning while the main thread thinks the
+    // worker is paused (or vice-versa).
+    lastBacklogState = false;
+    workerMetrics.respawnCount += 1;
   };
 
-  const initializeWorkerFromRuntime = (): void => {
-    spawnWorker();
+  // Re-derives planner state from the runtime and (re)sends "init" to
+  // whichever transport is active. Runs on first spawn AND every respawn —
+  // in the self-spawned path that's driven by initializeWorkerFromRuntime()
+  // below; in the shared-host path the host's onRespawn() drives it
+  // (including an immediate call if the shared worker is already live).
+  let postToWorker: (msg: Record<string, unknown>) => void = () => {
+    throw new Error("postToWorker used before worker transport was initialized");
+  };
+  const runtimeInit = (): void => {
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
     // Force a fresh vision_union push after (re)spawn — the new worker has
@@ -230,13 +199,82 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     }
     relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
     relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-    worker.postMessage({
+    postToWorker({
       type: "init",
       worldView
     });
   };
 
-  initializeWorkerFromRuntime();
+  let closeWorker: () => void;
+
+  if (options.workerHost) {
+    // ── Shared worker path (P3): messages go over the caller-supplied
+    // channel; the host owns spawn/respawn — this producer only reacts. ──
+    const host = options.workerHost;
+    postToWorker = (msg) => host.postMessage(msg);
+    host.onMessage(handleWorkerMessage);
+    host.onError((err) => handleWorkerError(err));
+    host.onExit((code) => handleWorkerExit(code));
+    // Fires immediately (worker already live) plus on every future respawn.
+    host.onRespawn(runtimeInit);
+    closeWorker = () => {
+      // The shared worker may still be serving the other producer (AI vs.
+      // system) — do NOT post shutdown or terminate it here. Whoever created
+      // the host (simulation-service.ts) calls its own close() once both
+      // producers have released it.
+    };
+  } else {
+    // ── Self-spawned path (default; used by every existing test): this
+    // producer owns a dedicated Worker exactly as before the P3 merge. ──
+    postToWorker = (msg) => worker.postMessage(msg);
+
+    const spawnWorker = (): void => {
+      worker = new Worker(workerScriptPath, {
+        resourceLimits: { maxOldGenerationSizeMb }
+      });
+
+      worker.on("message", handleWorkerMessage);
+      worker.on("error", handleWorkerError);
+      worker.on("exit", (code) => {
+        handleWorkerExit(code);
+        if (closed) return;
+        scheduleRespawn(0);
+      });
+    };
+
+    // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
+    // blows up under main-thread memory pressure), retry on a timer instead of
+    // letting the unhandled throw propagate from the exit handler and crash the
+    // whole process.
+    const RESPAWN_RETRY_DELAY_MS = 5_000;
+    const scheduleRespawn = (delayMs: number): void => {
+      if (closed) return;
+      setTimeout(() => {
+        if (closed) return;
+        try {
+          initializeWorkerFromRuntime();
+        } catch (err) {
+          console.error(
+            `[system-job-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
+            err
+          );
+          scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
+        }
+      }, delayMs).unref();
+    };
+
+    const initializeWorkerFromRuntime = (): void => {
+      spawnWorker();
+      runtimeInit();
+    };
+
+    closeWorker = () => {
+      postToWorker({ type: "shutdown" });
+      void worker.terminate();
+    };
+
+    initializeWorkerFromRuntime();
+  }
 
   const pendingPlayerSyncIds = new Set<string>();
   let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -249,7 +287,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     for (const player of players) plannerPlayersById.set(player.id, player);
     relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
     relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-    worker.postMessage({
+    postToWorker({
       type: "sync_players",
       players
     });
@@ -287,7 +325,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     if (pendingTileDeltasByKey.size === 0) return;
     const tileDeltas = [...pendingTileDeltasByKey.values()];
     pendingTileDeltasByKey.clear();
-    worker.postMessage({ type: "tile_deltas", tileDeltas });
+    postToWorker({ type: "tile_deltas", tileDeltas });
   };
 
   const queueTileDeltas = (tileDeltas: readonly SimulationTileDelta[]): void => {
@@ -355,7 +393,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       return;
     }
     const { keys, signature } = options.runtime.exportBarbActivationVisibleUnion();
-    worker.postMessage({ type: "vision_union", keys, version: signature });
+    postToWorker({ type: "vision_union", keys, version: signature });
     lastSentVisionSignature = signature;
     lastVisionUnionComputedAtMs = now();
   };
@@ -367,7 +405,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   ): Promise<CommandEnvelope | null> => {
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
-      worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "system-runtime" });
+      postToWorker({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "system-runtime" });
     });
   };
 
@@ -378,8 +416,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     const queueDepths = options.runtime.queueDepths();
     const hasBacklog = hasAnyBacklog(queueDepths);
 
-    if (hasBacklog && !lastBacklogState) worker.postMessage({ type: "pause" });
-    else if (!hasBacklog && lastBacklogState) worker.postMessage({ type: "resume" });
+    if (hasBacklog && !lastBacklogState) postToWorker({ type: "pause" });
+    else if (!hasBacklog && lastBacklogState) postToWorker({ type: "resume" });
     lastBacklogState = hasBacklog;
 
     if (hasBacklog) return;
@@ -434,8 +472,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       if (tileDeltaSyncTimeout) clearTimeout(tileDeltaSyncTimeout);
       flushPendingTileDeltas();
       stopListening();
-      worker.postMessage({ type: "shutdown" });
-      void worker.terminate();
+      closeWorker();
     }
   };
 };

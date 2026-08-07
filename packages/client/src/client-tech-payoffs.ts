@@ -24,18 +24,23 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockIronworks: "Ironworks",
   unlockCrystalSynthesizer: "Aether Condenser",
   unlockFoundry: "Sky Foundry",
-  unlockAetherTower: "Aether Tower",
+  unlockAetherTower: "Ambaric Tower",
   unlockExchangeHouse: "Exchange House",
   unlockCustomsHouse: "Harbor Exchange",
   unlockGovernorsOffice: "Ministry Hall",
-  unlockGarrisonHall: "Garrison Hall",
-  unlockAirport: "Sky Dock",
+  unlockGarrisonHall: "Ancillary Factory",
+  unlockAirport: "Aetherport",
   unlockRadarSystem: "Resonance Grid",
   unlockAstralDock: "Astral Dock",
   unlockRailDepot: "Rail Depot",
   unlockImperialExchange: "Imperial Exchange",
   unlockWorldEngine: "Worldbreaker Cannon",
-  unlockAegisDome: "Aegis Dome"
+  unlockAegisDome: "Aegis Dome",
+  unlockQuartermastersOffice: "Quartermaster's Office",
+  unlockLogisticsGuild: "Logistics Guild",
+  unlockAssemblyWorks: "Assembly Works",
+  unlockPopulationBureau: "Population Bureau",
+  unlockIronLevy: "The Iron Levy"
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {

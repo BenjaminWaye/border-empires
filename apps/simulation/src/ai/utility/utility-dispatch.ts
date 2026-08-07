@@ -17,6 +17,7 @@ import {
 } from "../automation-command-planner-helpers.js";
 import type { AutomationStrategicSnapshot } from "../automation-strategic-snapshot.js";
 import type { FrontierAnalysis } from "../frontier-command-planner.js";
+import { tileKeyOf } from "../frontier-scoring.js";
 import type {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
@@ -24,12 +25,12 @@ import type {
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
 export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
-  // context already carries settlementCandidate, fallbackSettlementCandidate,
-  // frontierAnalysis, needsFood, needsEconomy
+  // context already carries frontierAnalysis, needsFood, needsEconomy
   context: AutomationPlannerDecisionContext<TTile>;
   strategic: AutomationStrategicSnapshot;
   canAttack: boolean;
@@ -43,6 +44,7 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
+  decisionCooldowns: DecisionCooldownMap | undefined;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,6 +81,20 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       fa.frontierOpportunityTownSupport +
       fa.frontierOpportunityScout +
       fa.frontierOpportunityScaffold,
+    // Same aggregate as expansionOpportunityCount, but with waste-classified
+    // plain neutrals excluded from the neutral term (mirrors the veto EXPAND
+    // itself applies via hasActionableNonWasteExpand — see that field below).
+    // BUILD_ECONOMY's suppression term must use this one: counting waste
+    // tiles there was suppressing economy building on the same tiles EXPAND
+    // was refusing to touch, permanently deadlocking a hemmed-in AI on WAIT
+    // even with a real, affordable economic candidate ready. See
+    // decisions.ts's scoreBuildEconomy and docs/agents/topics/ai-planner.md.
+    nonWasteExpansionOpportunityCount:
+      Math.max(0, fa.frontierNeutralTargetCount - fa.frontierOpportunityWaste) +
+      fa.frontierOpportunityEconomic +
+      fa.frontierOpportunityTownSupport +
+      fa.frontierOpportunityScout +
+      fa.frontierOpportunityScaffold,
     hasWeakEnemyBorder:
       fa.frontierEnemyPlayerTargetCount > 0 && !targetStalemated(fa.enemyAttack, state),
     hasBarbTarget:
@@ -93,6 +109,18 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       !(fa.frontierOpportunityEconomic > 0 ||
         fa.frontierOpportunityTownSupport > 0 ||
         fa.frontierOpportunityScaffold > 0),
+    hasAnyExpandCandidate:
+      fa.economicExpand !== undefined ||
+      fa.directedExpand !== undefined ||
+      fa.townSupportExpand !== undefined ||
+      fa.expand !== undefined ||
+      fa.scaffoldExpand !== undefined ||
+      fa.scoutExpand !== undefined,
+    hasAnyAttackCandidate:
+      (state.preferredEnemyAttack !== undefined &&
+        !targetStalemated(state.preferredEnemyAttack, state)) ||
+      (fa.barbarianAttack !== undefined &&
+        !targetStalemated(fa.barbarianAttack, state)),
     devSlotAvailable: state.devSlotAvailable,
     attackReady: strategic.attackReady,
     musterReady: strategic.musterReady,
@@ -108,7 +136,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
-    cooldown: {},
+    cooldown: state.decisionCooldowns ?? {},
     stalemated: targetStalemated(state.preferredEnemyAttack, state)
   };
 };
@@ -160,6 +188,17 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     case "MUSTER": {
       const target = fa.enemyAttack;
       if (target && strategic.musterReady && notStalemated(target) && fa.frontierEnemyPlayerTargetCount > 0) {
+        // Skip re-issuing at a tile that already has this player's active
+        // flag — handleSetMusterCommand treats a same-tile re-issue as a
+        // harmless no-op re-affirmation (not a new flag, doesn't free/consume
+        // a cap slot), but since the utility scorer re-picks MUSTER every
+        // tick the front stays hot, it was submitting a fresh SET_MUSTER
+        // roughly every 19s indefinitely — 5000+ permanently-QUEUED SET_MUSTER
+        // commands found in production (see runtime-structure-lifecycle-command-handlers.ts
+        // for the separate fix to the QUEUED-forever bug this caused). The
+        // existing flag keeps accumulating/auto-firing on its own either way,
+        // so skipping the reissue changes nothing about combat behavior.
+        if (strategic.musterTileKeys?.has(tileKeyOf(target.from.x, target.from.y))) return undefined;
         return buildPlannerCommand(context, "SET_MUSTER", {
           x: target.from.x,
           y: target.from.y,

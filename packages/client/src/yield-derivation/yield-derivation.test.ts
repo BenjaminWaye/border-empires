@@ -67,42 +67,46 @@ describe("deriveTileYieldRate — MINE/CAMP output multiplier (Phase 5 local fal
 });
 
 describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
+  // Expected values below rescaled for the gold rescope
+  // (docs/manpower-economy-rewrite-plan.md §6.1): SETTLEMENT_BASE_GOLD_PER_MIN
+  // and DOCK_INCOME_PER_MIN are now cut 288x, then rounded to 4dp
+  // (roundPositive, yield-derivation.ts) same as before.
   it("produces correct yield with incomeMultiplier=1 (enemy-tile path)", () => {
-    // Settlement fallback: 1 * 1.0 * 1.0 = 1.0
+    // Settlement fallback: (2/288) * 1.0 * 1.0 ≈ 0.0069
     const rate = deriveTileYieldRate(
       { town: { populationTier: "SETTLEMENT" } },
       1.0
     );
-    expect(rate!.goldPerMinute).toBe(1.0);
+    expect(rate!.goldPerMinute).toBe(0.0069);
   });
 
   it("applies incomeMultiplier to settlement fallback gold for own tiles", () => {
-    // Settlement fallback: 1 * 1.25 * 1.0 = 1.25
+    // Settlement fallback: (2/288) * 1.25 * 1.0 ≈ 0.0087
     const rate = deriveTileYieldRate(
       { town: { populationTier: "SETTLEMENT" } },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(1.25);
+    expect(rate!.goldPerMinute).toBe(0.0087);
   });
 
   it("applies incomeMultiplier to dock gold for own tiles", () => {
-    // Dock: 0.5 * 1.0 * 1.25 = 0.625
+    // Dock: (0.5/288) * 1.0 * 1.25 ≈ 0.0022
     const rate = deriveTileYieldRate(
       { dockId: "dock-abc" },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(0.625);
+    expect(rate!.goldPerMinute).toBe(0.0022);
   });
 
   it("combines settlement fallback and dock gold with income multiplier", () => {
-    // Settlement: 1 * 1.25 * 1.0 = 1.25
-    // Dock: 0.5 * 1.0 * 1.25 = 0.625
-    // Total: 1.875
+    // Settlement: (2/288) * 1.25 * 1.0 ≈ 0.0087
+    // Dock: (0.5/288) * 1.0 * 1.25 ≈ 0.0022
+    // Total: 0.0109
     const rate = deriveTileYieldRate(
       { town: { populationTier: "SETTLEMENT" }, dockId: "dock-abc" },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(1.875);
+    expect(rate!.goldPerMinute).toBe(0.0109);
   });
 
   it("does not apply incomeMultiplier to persisted town.goldPerMinute", () => {

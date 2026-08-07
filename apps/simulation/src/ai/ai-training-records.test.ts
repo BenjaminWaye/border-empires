@@ -69,8 +69,6 @@ describe("buildAiTrainingRecord", () => {
       diagnostic: {
         playerId: "ai-3",
         sessionPrefix: "ai-runtime",
-        settlementEligible: true,
-        settlementCandidateFound: false,
         frontierEnemyTargetCount: 0,
         frontierNeutralTargetCount: 1,
         canAttack: true,
@@ -143,8 +141,6 @@ describe("buildAiTrainingRecord", () => {
         diagnostic: {
           playerId: "ai-3",
           sessionPrefix: "ai-runtime",
-          settlementEligible: true,
-          settlementCandidateFound: false,
           frontierEnemyTargetCount: 0,
           frontierNeutralTargetCount: 1,
           canAttack: true,

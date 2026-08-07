@@ -5,191 +5,21 @@ import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../../simulation/src/command-store/command-store.js";
-import type { RecoveredSimulationState } from "../../../simulation/src/event-recovery/event-recovery.js";
-import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "../../../simulation/src/snapshot-store/snapshot-store.js";
 import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
-
-process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS = "0";
-process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "999";
-
-const silentLog = {
-  info: () => undefined,
-  error: () => undefined
-};
-
-const firebaseJwtFor = (payload: Record<string, unknown>): string => {
-  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${header}.${body}.sig`;
-};
-
-type TestWebSocket = {
-  readonly readyState: number;
-  readonly CLOSED: number;
-  send(data: string): void;
-  close(): void;
-  addEventListener(type: "open", listener: () => void, options?: { once?: boolean }): void;
-  addEventListener(type: "message", listener: (event: { data: string }) => void, options?: { once?: boolean }): void;
-  addEventListener(type: "close", listener: () => void, options?: { once?: boolean }): void;
-};
-
-type BufferedSocket = {
-  socket: TestWebSocket;
-  nextJsonMessage: (label: string) => Promise<Record<string, unknown>>;
-};
-
-const WebSocketCtor = (globalThis as typeof globalThis & { WebSocket?: new (url: string) => TestWebSocket }).WebSocket;
-
-const withTimeout = async <T>(label: string, task: Promise<T>, timeoutMs = 5_000): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      task,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-};
-
-const openSocket = async (url: string): Promise<BufferedSocket> => {
-  if (!WebSocketCtor) throw new Error("global WebSocket is unavailable in this runtime");
-  const socket = new WebSocketCtor(url);
-  const queuedMessages: string[] = [];
-  const pendingResolvers: Array<(payload: string) => void> = [];
-  socket.addEventListener("message", (event) => {
-    const nextResolver = pendingResolvers.shift();
-    if (nextResolver) {
-      nextResolver(event.data);
-      return;
-    }
-    queuedMessages.push(event.data);
-  });
-  await withTimeout(
-    `socket open (${url})`,
-    new Promise<void>((resolve) => {
-      socket.addEventListener("open", () => resolve(), { once: true });
-    })
-  );
-  return {
-    socket,
-    nextJsonMessage: async (label: string) => {
-      const queued = queuedMessages.shift();
-      if (queued) return JSON.parse(queued) as Record<string, unknown>;
-      const payload = await withTimeout(
-        `message ${label}`,
-        new Promise<string>((resolve) => {
-          pendingResolvers.push(resolve);
-        })
-      );
-      return JSON.parse(payload) as Record<string, unknown>;
-    }
-  };
-};
-
-const closeSocket = async (socket: TestWebSocket): Promise<void> => {
-  if (socket.readyState === socket.CLOSED) return;
-  const closed = withTimeout(
-    "socket close",
-    new Promise<void>((resolve) => {
-      socket.addEventListener("close", () => resolve(), { once: true });
-    })
-  );
-  socket.close();
-  await closed;
-};
-
-const nextNonBootstrapMessage = async (
-  socket: BufferedSocket,
-  label: string
-): Promise<Record<string, unknown>> => {
-  for (;;) {
-    const message = await socket.nextJsonMessage(label);
-    if (message.type === "PLAYER_UPDATE") {
-      continue;
-    }
-    if (message.type === "TILE_DELTA_BATCH" && typeof message.commandId === "string" && message.commandId.startsWith("bootstrap:")) {
-      continue;
-    }
-    return message;
-  }
-};
-
-const nextCommandMessage = async (
-  socket: BufferedSocket,
-  label: string,
-  commandId: string,
-  type?: string
-): Promise<Record<string, unknown>> => {
-  for (;;) {
-    const message = await nextNonBootstrapMessage(socket, label);
-    if (message.commandId !== commandId) {
-      continue;
-    }
-    if (typeof type === "string" && message.type !== type) {
-      continue;
-    }
-    return message;
-  }
-};
-
-const nextTypedMessage = async (
-  socket: BufferedSocket,
-  label: string,
-  type: string
-): Promise<Record<string, unknown>> => {
-  for (;;) {
-    const message = await nextNonBootstrapMessage(socket, label);
-    if (message.type === type) return message;
-  }
-};
-
-const nextMatchingMessage = async (
-  socket: BufferedSocket,
-  label: string,
-  predicate: (message: Record<string, unknown>) => boolean
-): Promise<Record<string, unknown>> => {
-  for (;;) {
-    const message = await nextNonBootstrapMessage(socket, label);
-    if (predicate(message)) return message;
-  }
-};
-
-const waitUntil = async (predicate: () => boolean | Promise<boolean>, timeoutMs = 1_000): Promise<void> => {
-  const startedAt = Date.now();
-  while (!(await predicate())) {
-    if (Date.now() - startedAt > timeoutMs) throw new Error("timed out waiting for condition");
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-};
-
-const flushScheduledTasks = (
-  scheduled: Array<{ delayMs: number; task: () => void }>,
-  startIndex = 0,
-  maxRuns = 20
-): void => {
-  let runs = 0;
-  for (let index = startIndex; index < scheduled.length && runs < maxRuns; index += 1) {
-    scheduled[index]?.task();
-    runs += 1;
-  }
-};
-
-const createStartupSnapshotStore = async (initialState: RecoveredSimulationState): Promise<InMemorySimulationSnapshotStore> => {
-  const snapshotStore = new InMemorySimulationSnapshotStore();
-  await snapshotStore.saveSnapshot({
-    lastAppliedEventId: 0,
-    snapshotSections: buildSimulationSnapshotSections({
-      initialState,
-      commands: [],
-      eventsByCommandId: new Map()
-    }),
-    createdAt: 1_000
-  });
-  return snapshotStore;
-};
+import {
+  closeSocket,
+  createStartupSnapshotStore,
+  firebaseJwtFor,
+  flushScheduledTasks,
+  nextCommandMessage,
+  nextMatchingMessage,
+  nextNonBootstrapMessage,
+  nextTypedMessage,
+  openSocket,
+  silentLog,
+  waitUntil,
+  withTimeout
+} from "./rewrite-stack-test-helpers.js";
 
 describe("rewrite stack integration", () => {
   const cleanup: Array<() => Promise<void>> = [];
@@ -236,6 +66,27 @@ describe("rewrite stack integration", () => {
     expect((await nextNonBootstrapMessage(firstSocket, "first init")).type).toBe("INIT");
     firstSocket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
 
+    // Muster is unconditionally required to attack — stage it through the
+    // real command path (like production), then advance muster accumulation
+    // with a direct tick (not real/fake wall-clock time), matching the
+    // pattern used in runtime.test.ts.
+    firstSocket.socket.send(
+      JSON.stringify({
+        type: "SET_MUSTER",
+        x: 10,
+        y: 10,
+        mode: "HOLD",
+        clientSeq: 1
+      })
+    );
+    const musterQueued = await nextTypedMessage(firstSocket, "muster queued", "COMMAND_QUEUED");
+    expect(musterQueued).toEqual(
+      expect.objectContaining({ type: "COMMAND_QUEUED", clientSeq: 1 })
+    );
+    const musterCommandId = (musterQueued as { commandId: string }).commandId;
+    await waitUntil(async () => (await gatewayCommandStore.get(musterCommandId))?.status !== "QUEUED");
+    simulation.runtime.tickMuster(7_000);
+
     firstSocket.socket.send(
       JSON.stringify({
         type: "ATTACK",
@@ -244,23 +95,24 @@ describe("rewrite stack integration", () => {
         toX: 10,
         toY: 11,
         commandId: "cmd-1",
-        clientSeq: 1
+        clientSeq: 2
       })
     );
 
-    expect(await nextNonBootstrapMessage(firstSocket, "queued")).toEqual({
+    expect(await nextTypedMessage(firstSocket, "queued", "COMMAND_QUEUED")).toEqual({
       type: "COMMAND_QUEUED",
       commandId: "cmd-1",
-      clientSeq: 1
+      clientSeq: 2
     });
-    expect(await nextNonBootstrapMessage(firstSocket, "accepted")).toEqual(
+
+    expect(await nextTypedMessage(firstSocket, "accepted", "ACTION_ACCEPTED")).toEqual(
       expect.objectContaining({
         type: "ACTION_ACCEPTED",
         commandId: "cmd-1",
         actionType: "ATTACK"
       })
     );
-    expect(await nextNonBootstrapMessage(firstSocket, "combat start")).toEqual(
+    expect(await nextTypedMessage(firstSocket, "combat start", "COMBAT_START")).toEqual(
       expect.objectContaining({
         type: "COMBAT_START",
         commandId: "cmd-1",
@@ -295,7 +147,7 @@ describe("rewrite stack integration", () => {
           ])
         }),
         recovery: {
-          nextClientSeq: 2,
+          nextClientSeq: 3,
           pendingCommands: []
         }
       })
@@ -318,7 +170,7 @@ describe("rewrite stack integration", () => {
         ])
       })
     );
-  });
+  }, 15_000);
 
   it("keeps tech modifiers in the cached init for another socket on the same player", async () => {
     const snapshotStore = await createStartupSnapshotStore({
@@ -359,12 +211,20 @@ describe("rewrite stack integration", () => {
     firstSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect((await nextTypedMessage(firstSocket, "first init", "INIT")).type).toBe("INIT");
 
-    firstSocket.socket.send(JSON.stringify({ type: "CHOOSE_TECH", techId: "tribal-warfare" }));
-    const techUpdate = await nextTypedMessage(firstSocket, "warbands tech update", "TECH_UPDATE");
+    // "tribal-warfare" was cut in the tech-tree redesign (never confirmed to
+    // gate anything real), and the redesign's "no flat bonus techs" rule
+    // means NO tech carries a `mods` (attack/defense/income/vision)
+    // multiplier anymore — grepping tech-tree.json confirms zero techs have
+    // a non-empty `mods` field. "agriculture" (real, T1, still exists) is
+    // used here instead; mods stay at their unmodified defaults since no
+    // tech can change them, and this test's actual point — the tech-cache
+    // survives across sockets for the same player — is unaffected either way.
+    firstSocket.socket.send(JSON.stringify({ type: "CHOOSE_TECH", techId: "agriculture" }));
+    const techUpdate = await nextTypedMessage(firstSocket, "agriculture tech update", "TECH_UPDATE");
     expect(techUpdate).toEqual(
       expect.objectContaining({
-        techIds: expect.arrayContaining(["tribal-warfare"]),
-        mods: expect.objectContaining({ attack: 1.05, defense: 1.05 })
+        techIds: expect.arrayContaining(["agriculture"]),
+        mods: expect.objectContaining({ attack: 1, defense: 1 })
       })
     );
 
@@ -375,11 +235,8 @@ describe("rewrite stack integration", () => {
     expect(cachedInit).toEqual(
       expect.objectContaining({
         player: expect.objectContaining({
-          techIds: expect.arrayContaining(["tribal-warfare"]),
-          mods: expect.objectContaining({ attack: 1.05, defense: 1.05 }),
-          modBreakdown: expect.objectContaining({
-            attack: expect.arrayContaining([expect.objectContaining({ label: "Warbands", mult: 1.05 })])
-          })
+          techIds: expect.arrayContaining(["agriculture"]),
+          mods: expect.objectContaining({ attack: 1, defense: 1 })
         })
       })
     );
@@ -889,7 +746,7 @@ describe("rewrite stack integration", () => {
       expect.objectContaining({
         type: "TRUCE_UPDATE",
         activeTruces: [expect.objectContaining({ otherPlayerId: "ai-1", otherPlayerName: "AI 1" })],
-        announcement: "AI 1 and player-1 agreed to a 24h truce."
+        announcement: "AI 1 and Nauticus agreed to a 24h truce."
       })
     );
   });
@@ -1172,6 +1029,15 @@ describe("rewrite stack integration", () => {
     expect(await nextTypedMessage(fogAdminSocket, "fog update", "FOG_UPDATE")).toEqual({ type: "FOG_UPDATE", fogDisabled: true });
     expect((await nextNonBootstrapMessage(fogAdminSocket, "fog snapshot replace")).type).toBe("TILE_SNAPSHOT_REPLACE");
 
+    // Muster is unconditionally required to attack — stage it through the
+    // real command path, then advance muster accumulation with a direct tick.
+    fogAdminSocket.socket.send(
+      JSON.stringify({ type: "SET_MUSTER", x: 10, y: 10, mode: "HOLD", clientSeq: 1 })
+    );
+    await nextNonBootstrapMessage(fogAdminSocket, "muster queued");
+    await nextNonBootstrapMessage(fogAdminSocket, "muster resolved");
+    simulation.runtime.tickMuster(7_000);
+
     fogAdminSocket.socket.send(
       JSON.stringify({
         type: "ATTACK",
@@ -1180,7 +1046,7 @@ describe("rewrite stack integration", () => {
         toX: 10,
         toY: 11,
         commandId: "fog-resnapshot-cmd-1",
-        clientSeq: 1
+        clientSeq: 2
       })
     );
 
@@ -1633,7 +1499,8 @@ describe("rewrite stack integration", () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+      // §5: the WOOD tile backs the SUPPLY *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
+      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }],
       activeLocks: [],
       players: [
         {
@@ -1723,7 +1590,8 @@ describe("rewrite stack integration", () => {
           ownerId: "player-1",
           ownershipState: "SETTLED",
           town: { name: "Lookout", type: "MARKET", populationTier: "TOWN" }
-        }
+        },
+        { x: 13, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" } // §5: backs the Observatory's CRYSTAL slot
       ],
       activeLocks: [],
       players: [
@@ -1731,7 +1599,7 @@ describe("rewrite stack integration", () => {
           id: "player-1",
           points: 10_000,
           manpower: 10_000,
-          techIds: ["cartography"],
+          techIds: ["crystal-lattices"],
           strategicResources: { CRYSTAL: 100 }
         }
       ]
@@ -1821,7 +1689,13 @@ describe("rewrite stack integration", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED"
-        }
+        },
+        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MARKET draws 1 more.
+        { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 16, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
       ],
       activeLocks: [],
       players: [
@@ -2225,6 +2099,98 @@ describe("rewrite stack integration", () => {
       sock.socket.send(JSON.stringify({ type: "SET_TILE_COLOR", color: "#123456" }));
       const style = await nextTypedMessage(sock, "player style", "PLAYER_STYLE");
       expect(style.tileColor).toBe("#123456");
+    }, 15_000);
+  });
+
+  describe("display name change throttle", () => {
+    const cleanup: Array<() => Promise<void>> = [];
+    afterEach(async () => {
+      for (const fn of cleanup.reverse()) await fn();
+      cleanup.length = 0;
+    });
+
+    it("allows the player's initial name pick and their first rename, but rejects a second rename in the same season", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+
+      // Initial profile setup (profile not yet complete) doesn't consume the
+      // season's rename allowance.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
+
+      // First real rename of an already-complete profile: allowed, and starts
+      // the once-per-season clock.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      const renamed = await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
+      expect(renamed.name).toBe("P1 Renamed");
+
+      // Second rename attempt in the same season: rejected.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed Again", color: "#123456" }));
+      const error = await nextTypedMessage(sock, "throttled rename", "ERROR");
+      expect(error.code).toBe("DISPLAY_NAME_LIMIT");
+    }, 15_000);
+
+    it("does not throttle re-submitting the same (unchanged) name", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
+
+      // Re-sending the same name (e.g. only intending a colour change) is not
+      // a rename and should never hit the throttle.
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#654321" }));
+      const style = await nextTypedMessage(sock, "unchanged-name resend", "PLAYER_STYLE");
+      expect(style.name).toBe("P1 Renamed");
+      expect(style.tileColor).toBe("#654321");
     }, 15_000);
   });
 

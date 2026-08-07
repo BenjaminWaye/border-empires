@@ -34,30 +34,17 @@
  *     display; left on full-rebuild for simplicity.
  */
 
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import {
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
-  BANK_FOOD_UPKEEP,
-  CARAVANARY_FOOD_UPKEEP,
-  CAMP_GOLD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
-  CUSTOMS_HOUSE_GOLD_UPKEEP,
-  FARMSTEAD_GOLD_UPKEEP,
-  FOUNDRY_GOLD_UPKEEP,
-  FUR_SYNTHESIZER_GOLD_UPKEEP,
-  GARRISON_HALL_GOLD_UPKEEP,
-  GOVERNORS_OFFICE_GOLD_UPKEEP,
-  GRANARY_GOLD_UPKEEP,
-  IRONWORKS_GOLD_UPKEEP,
-  LIGHT_OUTPOST_GOLD_UPKEEP,
-  MARKET_FOOD_UPKEEP,
-  MINE_GOLD_UPKEEP,
-  RADAR_SYSTEM_GOLD_UPKEEP,
-  WOODEN_FORT_GOLD_UPKEEP
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
-import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-economy.js";
 
 /** The subset of upkeep fields consumed by `applyEconomyAccrual`. */
@@ -96,11 +83,7 @@ export const tileUpkeepContribution = (
     return emptyUpkeepAccrualSnapshot();
   }
 
-  const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
-  const fortIronUpkeepMult = multiplicativeEffectForPlayer(player, "fortIronUpkeepMult");
-  const outpostSupplyUpkeepMult = multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult");
-
-  let gold = 0.04; // settled land upkeep (1 settled tile)
+  let gold = 0;
   let food = 0;
   let iron = 0;
   let crystal = 0;
@@ -110,51 +93,31 @@ export const tileUpkeepContribution = (
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
   }
 
-  // Fort upkeep.
-  if (tile.fort?.ownerId === ownerId && tile.fort.status === "active") {
-    gold += 1 * fortGoldUpkeepMult;
-    iron += 0.025 * fortIronUpkeepMult;
-  }
+  // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
+  // Observatory (CRYSTAL slot) no longer carry a separate per-minute flow
+  // drain — the slot occupation itself is the upkeep. Settled-land gold
+  // upkeep (was a flat 0.04/min per tile) is retired too — §6 states
+  // gold's only remaining jobs post-rewrite are tech/rush-buys/synthesizer
+  // upkeep, and none of those are "own a settled tile."
 
-  // Siege outpost upkeep.
-  if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
-    gold += 1;
-    supply += 0.025 * outpostSupplyUpkeepMult;
-  }
-
-  // Observatory upkeep.
-  if (tile.observatory?.ownerId === ownerId && tile.observatory.status === "active") {
-    crystal += OBSERVATORY_UPKEEP_PER_MIN;
-  }
-
-  // Economic structure upkeep.
+  // Economic structure upkeep. Every structure except the synthesizer
+  // family (Fur/Iron/Crystal + Advanced tiers, §6.4) has zero ongoing
+  // upkeep: FOOD/IRON/CRYSTAL/SUPPLY are slot-based (structure-slots.ts),
+  // not a per-minute drain, and only the synthesizers still have a real
+  // GOLD cost for their conversion. Fort and Siege Outpost families (below)
+  // are the same — no per-minute drain, only their slot occupation.
   const structure = tile.economicStructure;
   if (structure?.ownerId === ownerId && structure.status === "active") {
     switch (structure.type) {
-      case "FARMSTEAD":         gold    += FARMSTEAD_GOLD_UPKEEP / 10; break;
-      case "CAMP":              gold    += CAMP_GOLD_UPKEEP / 10; break;
-      case "MINE":              gold    += MINE_GOLD_UPKEEP / 10; break;
-      case "MARKET":            food    += MARKET_FOOD_UPKEEP / 10; break;
-      case "GRANARY":           gold    += GRANARY_GOLD_UPKEEP / 10; break;
-      case "BANK":              food    += BANK_FOOD_UPKEEP / 10; break;
-      case "WOODEN_FORT":       gold    += WOODEN_FORT_GOLD_UPKEEP / 10; break;
-      case "LIGHT_OUTPOST":     gold    += LIGHT_OUTPOST_GOLD_UPKEEP / 10; break;
-      case "CARAVANARY":        food    += CARAVANARY_FOOD_UPKEEP / 10; break;
-      case "FUR_SYNTHESIZER":
+      case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_FUR_SYNTHESIZER":
-                                gold    += FUR_SYNTHESIZER_GOLD_UPKEEP / 10; break;
-      case "IRONWORKS":
+                                gold    += ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "IRONWORKS":         gold    += IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_IRONWORKS":
-                                gold    += IRONWORKS_GOLD_UPKEEP / 10; break;
-      case "CRYSTAL_SYNTHESIZER":
+                                gold    += ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "CRYSTAL_SYNTHESIZER": gold  += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
-                                gold    += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10; break;
-      case "FOUNDRY":           gold    += FOUNDRY_GOLD_UPKEEP / 10; break;
-      case "CUSTOMS_HOUSE":     gold    += CUSTOMS_HOUSE_GOLD_UPKEEP / 10; break;
-      case "GARRISON_HALL":     gold    += GARRISON_HALL_GOLD_UPKEEP / 10; break;
-      case "GOVERNORS_OFFICE":  gold    += GOVERNORS_OFFICE_GOLD_UPKEEP / 10; break;
-      case "RADAR_SYSTEM":      gold    += RADAR_SYSTEM_GOLD_UPKEEP / 10; break;
-      case "AIRPORT":           crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN; break;
+                                gold    += ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
     }
   }
 

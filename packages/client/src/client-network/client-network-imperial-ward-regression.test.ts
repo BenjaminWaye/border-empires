@@ -17,9 +17,12 @@ describe("client network Imperial Ward message regression", () => {
   });
 
   it("syncs imperialWardCharges from both INIT and PLAYER_UPDATE player payloads", () => {
+    // The INIT-side assignment was extracted out of client-network.ts (over
+    // the file-line cap, frozen) into client-network-init-message.ts.
+    const initSource = readFileSync(new URL("../client-network-init-message/client-network-init-message.ts", import.meta.url), "utf8");
     const networkSource = readFileSync(new URL("./client-network.ts", import.meta.url), "utf8");
 
-    expect(networkSource).toContain("state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;");
+    expect(initSource).toContain("state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;");
     expect(networkSource).toContain('(msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number"');
   });
 });

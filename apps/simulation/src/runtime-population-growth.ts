@@ -18,9 +18,13 @@ export function seedGranaryGrowthMultForTile(input: {
   tile: DomainTileState;
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
+  // dormant Granary/Seed Granary stops granting its growth bonus.
+  dormantEconomicStructureKeys?: ReadonlySet<string>;
 }): number {
-  const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles);
-  const hasSeedGranary = hasSupportedStructure(input.playerId, input.tile, "SEED_GRANARY", input.tiles);
+  const dormantEconomicStructureKeys = input.dormantEconomicStructureKeys ?? new Set<string>();
+  const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles, false, dormantEconomicStructureKeys);
+  const hasSeedGranary = hasSupportedStructure(input.playerId, input.tile, "SEED_GRANARY", input.tiles, false, dormantEconomicStructureKeys);
   if (!hasGranary && !hasSeedGranary) return 1;
   if (!hasSeedGranary) return 1.15;
   for (let dy = -1; dy <= 1; dy += 1) {
@@ -31,7 +35,8 @@ export function seedGranaryGrowthMultForTile(input: {
         neighbor?.ownerId === input.playerId &&
         neighbor.ownershipState === "SETTLED" &&
         neighbor.economicStructure?.type === "SEED_GRANARY" &&
-        neighbor.economicStructure.status === "active"
+        neighbor.economicStructure.status === "active" &&
+        !dormantEconomicStructureKeys.has(`${input.tile.x + dx},${input.tile.y + dy}`)
       ) {
         return SEED_GRANARY_GROWTH_MULT;
       }
@@ -52,6 +57,14 @@ export function tickPopulationGrowth(input: {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
   integrityGrowthMultForPlayer?: ((playerId: string) => number) | undefined;
+  // §5.4: which of this player's towns have a dormant FOOD slot right now
+  // (Runtime.foodDormantTownKeysForPlayer) — replaces the old stockpile-based
+  // fed check (there's only one food mechanic now: slots).
+  foodDormantTownKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  // §5.4: dormant economicStructure tile keys ("x,y") for this player
+  // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Granary/Seed
+  // Granary doesn't grant its growth bonus.
+  dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }): {
   growthStalledNoFood: number;
   townsGrown: number;
@@ -92,11 +105,12 @@ export function tickPopulationGrowth(input: {
     if (ownedTowns.size === 0) continue;
 
     const fedTownKeys = buildFedTownKeys(
-      player,
+      player.id,
       summary,
       input.tiles,
-      summary.strategicProductionPerMinute
+      input.foodDormantTownKeysForPlayer(player.id)
     );
+    const dormantEconomicStructureKeys = input.dormantEconomicStructureKeysForPlayer(player.id);
     if (fedTownKeys.size === 0) {
       playersSkippedNoFedTowns += 1;
       playerDiag.set(player.id, { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: ownedTowns.size, logisticCap: 0, totalTowns: ownedTowns.size });
@@ -175,7 +189,7 @@ export function tickPopulationGrowth(input: {
         continue;
       }
 
-      const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles });
+      const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;

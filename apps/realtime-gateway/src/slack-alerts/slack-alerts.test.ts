@@ -67,6 +67,8 @@ describe("createSlackAlerter", () => {
     alerter.alertAnalyzeIterTotalHigh(600);
     alerter.alertMachineRestart(30_000);
     alerter.alertSqliteRetryHigh(15);
+    alerter.alertPlayerRespawned("player-1", "auth_recovery");
+    alerter.alertSeasonStarted("season-1", false);
   });
 
   it("posts a Slack payload for queue_persist_failed", async () => {
@@ -305,6 +307,125 @@ describe("createSlackAlerter", () => {
       error: "network down",
       eventKey: "gateway_command_submit_latency_high"
     });
+  });
+
+  it("player respawned alert includes reason and emoji", async () => {
+    const { captured, fetch } = captureFetch();
+    const alerter = createSlackAlerter({
+      webhookUrl: "https://hooks.slack.example/hook",
+      dedupeWindowMs: 0,
+      fetchImpl: fetch,
+      metricsSnapshot: baseMetrics,
+      recentEvents: noEvents,
+      now: () => 1000
+    });
+
+    alerter.alertPlayerRespawned("player-42", "auth_recovery");
+    await vi.waitFor(() => captured() !== undefined, { timeout: 200 });
+
+    const c = captured()!;
+    const body = JSON.parse(c.init.body as string) as Record<string, unknown>;
+    const sectionText = ((body.blocks as Array<{ text: { text: string } }>)[1]).text.text;
+
+    expect(body.text).toContain(":baby:");
+    expect(sectionText).toContain("player-42");
+    expect(sectionText).toContain("auth_recovery");
+  });
+
+  it("player respawned alert dedupes per-player, not globally", async () => {
+    const { captured, fetch } = captureFetch();
+    const now = vi.fn<() => number>().mockReturnValue(1000);
+    const alerter = createSlackAlerter({
+      webhookUrl: "https://hooks.slack.example/hook",
+      dedupeWindowMs: 300_000,
+      fetchImpl: fetch,
+      metricsSnapshot: baseMetrics,
+      recentEvents: noEvents,
+      now: now as () => number
+    });
+
+    alerter.alertPlayerRespawned("player-a", "auth_recovery");
+    await vi.waitFor(() => captured() !== undefined, { timeout: 200 });
+    const firstCaptured = captured()!;
+
+    // Same player again within the dedupe window — should be suppressed.
+    now.mockReturnValue(1100);
+    alerter.alertPlayerRespawned("player-a", "auth_recovery");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(captured()).toBe(firstCaptured);
+
+    // Different player within the same window — must NOT be suppressed.
+    now.mockReturnValue(1200);
+    alerter.alertPlayerRespawned("player-b", "eliminated");
+    await vi.waitFor(() => {
+      const c = captured();
+      if (!c) return false;
+      const b = JSON.parse(c.init.body as string) as Record<string, unknown>;
+      return (b.text as string).includes("eliminated");
+    }, { timeout: 200 });
+
+    const c = captured()!;
+    expect(c).not.toBe(firstCaptured);
+    const body = JSON.parse(c.init.body as string) as Record<string, unknown>;
+    const sectionText = ((body.blocks as Array<{ text: { text: string } }>)[1]).text.text;
+    expect(sectionText).toContain("player-b");
+  });
+
+  it("season started alert includes seasonId and force flag", async () => {
+    const { captured, fetch } = captureFetch();
+    const alerter = createSlackAlerter({
+      webhookUrl: "https://hooks.slack.example/hook",
+      dedupeWindowMs: 0,
+      fetchImpl: fetch,
+      metricsSnapshot: baseMetrics,
+      recentEvents: noEvents,
+      now: () => 1000
+    });
+
+    alerter.alertSeasonStarted("season-7", true);
+    await vi.waitFor(() => captured() !== undefined, { timeout: 200 });
+
+    const c = captured()!;
+    const body = JSON.parse(c.init.body as string) as Record<string, unknown>;
+    const sectionText = ((body.blocks as Array<{ text: { text: string } }>)[1]).text.text;
+
+    expect(body.text).toContain(":tada:");
+    expect(sectionText).toContain("season-7");
+    expect(sectionText).toContain("force=true");
+  });
+
+  it("season started alert dedupes per seasonId, not globally", async () => {
+    const { captured, fetch } = captureFetch();
+    const now = vi.fn<() => number>().mockReturnValue(1000);
+    const alerter = createSlackAlerter({
+      webhookUrl: "https://hooks.slack.example/hook",
+      dedupeWindowMs: 300_000,
+      fetchImpl: fetch,
+      metricsSnapshot: baseMetrics,
+      recentEvents: noEvents,
+      now: now as () => number
+    });
+
+    alerter.alertSeasonStarted("season-1", false);
+    await vi.waitFor(() => captured() !== undefined, { timeout: 200 });
+    const firstCaptured = captured()!;
+
+    now.mockReturnValue(1100);
+    alerter.alertSeasonStarted("season-1", false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(captured()).toBe(firstCaptured);
+
+    now.mockReturnValue(1200);
+    alerter.alertSeasonStarted("season-2", false);
+    await vi.waitFor(() => {
+      const c = captured();
+      if (!c) return false;
+      const b = JSON.parse(c.init.body as string) as Record<string, unknown>;
+      return (b.text as string).includes("season-2");
+    }, { timeout: 200 });
+
+    const c = captured()!;
+    expect(c).not.toBe(firstCaptured);
   });
 
   it("dedupe map is independent per event type", async () => {

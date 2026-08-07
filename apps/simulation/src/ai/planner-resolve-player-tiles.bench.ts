@@ -44,7 +44,10 @@ const player: PlannerPlayerView = {
   hotFrontierTileKeys,
   strategicFrontierTileKeys,
   buildCandidateTileKeys,
-  pendingSettlementTileKeys: []
+  pendingSettlementTileKeys: [],
+  townTileKeys: [],
+  ownedTileCount: N_OWNED,
+  frontierTileCount: N_FRONTIER
 };
 
 describe("resolvePlayerTiles", () => {

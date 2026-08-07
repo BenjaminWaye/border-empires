@@ -7,9 +7,36 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
+import { domeFalloff } from "./client-map-3d-hills.js";
+import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
+
+// Hill tiles drape the overlay over the terrain dome's own curve (see
+// domeFalloff) instead of bridging it with one flat plane, which used to
+// leave the dome poking through the overlay's edge or, worse, sitting
+// entirely buried under the hill (only the flat quad's corners, outside the
+// dome's DOME_RADIUS, ever matched the visible surface). Matches the
+// terrain mesh's own SUBDIV exactly (client-map-3d-hills.ts) rather than
+// approximating it at a coarser resolution: same per-vertex domeFalloff
+// sample points, same triangle diagonal split, so this surface is a
+// constant-offset parallel of the real dome everywhere (not just at
+// shared vertices) — required now that the overlay renders with normal
+// depth testing and needs to never dip below the opaque terrain.
+const HILL_SUBDIV = 10;
+const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
+const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
+// Small clearance above the dome's own surface height so the two coincident
+// meshes don't z-fight.
+const HILL_DRAPE_CLEARANCE = 0.012;
+// Hills are a minority terrain type by world-gen design (see
+// client-map-3d-hills.ts) -- budgeting for every visible tile being a hill
+// would multiply this buffer ~12x for no realistic scenario. This cap is
+// generous relative to actual hill density and can be raised if it's ever
+// hit in practice (an assertion-free clamp, so overflow just stops drawing
+// extra hill tiles rather than crashing).
+const DEFAULT_MAX_HILL_TILES = 2000;
 
 // Settled keeps the strong claim color (0.85) so owned territory reads
 // unambiguously. Frontier was previously dropped to 0.32 to let biome detail
@@ -35,11 +62,21 @@ export type OwnershipOverlay = {
     color: Color,
     isFrontier: boolean
   ) => void;
+  // Same footprint as addTile (an axis-aligned tile spanning x0..x1,z0..z1),
+  // but corner*Y are *ground* height only (no hill bonus) -- the dome bump
+  // is added per-vertex internally so the overlay traces the same curve as
+  // the hill mesh itself, rather than one flat plane between the corners.
+  readonly addHillTile: (
+    x0: number, x1: number, z0: number, z1: number,
+    corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
+    color: Color,
+    isFrontier: boolean
+  ) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
-const createMesh = (maxTiles: number, opacity: number): {
+const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   geometry: BufferGeometry;
   positions: Float32Array;
   colors: Float32Array;
@@ -48,9 +85,9 @@ const createMesh = (maxTiles: number, opacity: number): {
   material: MeshBasicMaterial;
 } => {
   const geometry = new BufferGeometry();
-  const positions = new Float32Array(maxTiles * VERTS_PER_TILE * 3);
-  const colors = new Float32Array(maxTiles * VERTS_PER_TILE * 3);
-  const indices = new Uint32Array(maxTiles * INDICES_PER_TILE);
+  const positions = new Float32Array(vertCount * 3);
+  const colors = new Float32Array(vertCount * 3);
+  const indices = new Uint32Array(indexCount);
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
@@ -61,7 +98,16 @@ const createMesh = (maxTiles: number, opacity: number): {
     transparent: true,
     opacity,
     depthWrite: false,
-    depthTest: true,
+    // depthTest was previously disabled to keep the overlay visible on
+    // top of hill domes, back when hill tiles used one flat bridging
+    // plane that sank below the dome's peak. addHillTile now drapes the
+    // overlay as a constant-offset parallel of the dome's own mesh (same
+    // SUBDIV, same per-vertex formula, same triangulation — see
+    // HILL_SUBDIV above), so it always sits above the terrain and depth
+    // testing can stay on. With it off, the overlay ignored the depth
+    // buffer entirely and painted over every opaque object on screen —
+    // including towns/structures standing on the tile — tinting them
+    // instead of just the ground beneath them.
     side: DoubleSide
   });
   const mesh = new Mesh(geometry, material);
@@ -72,20 +118,29 @@ const createMesh = (maxTiles: number, opacity: number): {
 export const createOwnershipOverlay = (
   scene: Scene,
   maxTiles: number,
-  opacities?: { settled: number; frontier: number }
+  opacities?: { settled: number; frontier: number },
+  maxHillTiles: number = Math.min(maxTiles, DEFAULT_MAX_HILL_TILES)
 ): OwnershipOverlay => {
-  const settled = createMesh(maxTiles, opacities?.settled ?? SETTLED_OPACITY);
+  const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY);
   settled.mesh.renderOrder = 6;
-  const frontier = createMesh(maxTiles, opacities?.frontier ?? FRONTIER_OPACITY);
+  const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY);
   frontier.mesh.renderOrder = 7;
-  scene.add(settled.mesh, frontier.mesh);
+  const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY);
+  settledHill.mesh.renderOrder = 6;
+  const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY);
+  frontierHill.mesh.renderOrder = 7;
+  scene.add(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
 
   let settledCount = 0;
   let frontierCount = 0;
+  let settledHillCount = 0;
+  let frontierHillCount = 0;
 
   const clear = (): void => {
     settledCount = 0;
     frontierCount = 0;
+    settledHillCount = 0;
+    frontierHillCount = 0;
   };
 
   const addTile = (
@@ -135,28 +190,81 @@ export const createOwnershipOverlay = (
     else settledCount += 1;
   };
 
+  const addHillTile = (
+    x0: number, x1: number, z0: number, z1: number,
+    corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
+    color: Color,
+    isFrontier: boolean
+  ): void => {
+    const target = isFrontier ? frontierHill : settledHill;
+    const count = isFrontier ? frontierHillCount : settledHillCount;
+    if (count >= maxHillTiles) return;
+
+    const vertsPerRow = HILL_SUBDIV + 1;
+    const baseVertex = count * HILL_VERTS_PER_TILE;
+    let vi = baseVertex;
+    for (let b = 0; b <= HILL_SUBDIV; b += 1) {
+      for (let a = 0; a <= HILL_SUBDIV; a += 1) {
+        const fx = a / HILL_SUBDIV;
+        const fz = b / HILL_SUBDIV;
+        // domeFalloff is radial from the tile's own center, matching
+        // client-map-3d-hills.ts exactly.
+        const u = fx - 0.5;
+        const v = fz - 0.5;
+        const r = Math.hypot(u, v);
+        const top = corner00Y + (corner10Y - corner00Y) * fx;
+        const bottom = corner01Y + (corner11Y - corner01Y) * fx;
+        const groundY = top + (bottom - top) * fz;
+        const p = vi * 3;
+        target.positions[p + 0] = x0 + (x1 - x0) * fx;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 2] = z0 + (z1 - z0) * fz;
+        target.colors[p + 0] = color.r;
+        target.colors[p + 1] = color.g;
+        target.colors[p + 2] = color.b;
+        vi += 1;
+      }
+    }
+
+    const baseIndex = count * HILL_INDICES_PER_TILE;
+    let ii = baseIndex;
+    for (let b = 0; b < HILL_SUBDIV; b += 1) {
+      for (let a = 0; a < HILL_SUBDIV; a += 1) {
+        const i00 = baseVertex + b * vertsPerRow + a;
+        const i10 = i00 + 1;
+        const i01 = i00 + vertsPerRow;
+        const i11 = i01 + 1;
+        target.indices[ii + 0] = i00; target.indices[ii + 1] = i01; target.indices[ii + 2] = i10;
+        target.indices[ii + 3] = i10; target.indices[ii + 4] = i01; target.indices[ii + 5] = i11;
+        ii += 6;
+      }
+    }
+
+    if (isFrontier) frontierHillCount += 1;
+    else settledHillCount += 1;
+  };
+
   const commit = (): void => {
     settled.geometry.setDrawRange(0, settledCount * INDICES_PER_TILE);
     frontier.geometry.setDrawRange(0, frontierCount * INDICES_PER_TILE);
-    const settledPos = settled.geometry.getAttribute("position");
-    const settledColor = settled.geometry.getAttribute("color");
-    if (settledPos) (settledPos as BufferAttribute).needsUpdate = true;
-    if (settledColor) (settledColor as BufferAttribute).needsUpdate = true;
-    if (settled.geometry.index) settled.geometry.index.needsUpdate = true;
-    const frontierPos = frontier.geometry.getAttribute("position");
-    const frontierColor = frontier.geometry.getAttribute("color");
-    if (frontierPos) (frontierPos as BufferAttribute).needsUpdate = true;
-    if (frontierColor) (frontierColor as BufferAttribute).needsUpdate = true;
-    if (frontier.geometry.index) frontier.geometry.index.needsUpdate = true;
+    settledHill.geometry.setDrawRange(0, settledHillCount * HILL_INDICES_PER_TILE);
+    frontierHill.geometry.setDrawRange(0, frontierHillCount * HILL_INDICES_PER_TILE);
+    for (const target of [settled, frontier, settledHill, frontierHill]) {
+      const pos = target.geometry.getAttribute("position");
+      const color = target.geometry.getAttribute("color");
+      if (pos) (pos as BufferAttribute).needsUpdate = true;
+      if (color) (color as BufferAttribute).needsUpdate = true;
+      if (target.geometry.index) target.geometry.index.needsUpdate = true;
+    }
   };
 
   const dispose = (): void => {
-    scene.remove(settled.mesh, frontier.mesh);
-    settled.geometry.dispose();
-    settled.material.dispose();
-    frontier.geometry.dispose();
-    frontier.material.dispose();
+    scene.remove(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
+    for (const target of [settled, frontier, settledHill, frontierHill]) {
+      target.geometry.dispose();
+      target.material.dispose();
+    }
   };
 
-  return { settledMesh: settled.mesh, frontierMesh: frontier.mesh, clear, addTile, commit, dispose };
+  return { settledMesh: settled.mesh, frontierMesh: frontier.mesh, clear, addTile, addHillTile, commit, dispose };
 };

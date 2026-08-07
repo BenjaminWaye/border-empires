@@ -1,5 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { SETTLE_COST } from "@border-empires/shared";
+import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -68,8 +68,13 @@ export const applyAutoSettlementQueueFromServer = (
     state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
   );
   let settlementBudget = Math.max(0, state.gold - queuedSettlementTileKeys.size * SETTLE_COST);
+  // Manpower is also a real SETTLE cost (§4.2 of docs/manpower-economy-rewrite-plan.md)
+  // — bulk-filling this queue against gold alone over-queues settlements a
+  // manpower-poor player can't actually afford, each of which then gets
+  // rejected server-side one at a time.
+  let manpowerBudget = Math.max(0, state.manpower - queuedSettlementTileKeys.size * SETTLE_MANPOWER_COST);
   for (const entry of entries) {
-    if (settlementBudget < SETTLE_COST) break;
+    if (settlementBudget < SETTLE_COST || manpowerBudget < SETTLE_MANPOWER_COST) break;
     const tileKey = deps.keyFor(entry.x, entry.y);
     if (pendingSettlementTileKeys.has(tileKey) || queuedSettlementTileKeys.has(tileKey)) continue;
     if (state.skippedAutoSettlementTileKeys.has(tileKey)) continue;
@@ -85,6 +90,7 @@ export const applyAutoSettlementQueueFromServer = (
     state.autoSettlementQueueVisibleUntilByTile.set(tileKey, Date.now() + AUTO_SETTLEMENT_QUEUE_VISIBLE_MS);
     queuedSettlementTileKeys.add(tileKey);
     settlementBudget -= SETTLE_COST;
+    manpowerBudget -= SETTLE_MANPOWER_COST;
     added += 1;
   }
   if (added > 0) persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
@@ -263,6 +269,47 @@ export const clearSkippedAutoSettlementTileKeyForPlayer = (playerId: string, til
   nextSkipped.delete(tileKey);
   persistSkippedAutoSettlementTileKeysForPlayer(playerId, nextSkipped);
   return nextSkipped;
+};
+
+export const queuedDevelopmentActionExists = (
+  state: ClientState,
+  tileKey: string,
+  kind?: PersistedDevelopmentAction["kind"]
+): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
+
+/**
+ * Push a SETTLE/BUILD action onto the flat, FIFO-dispatched developmentQueue.
+ * Position within that array implicitly determines its dev-queue tier (see
+ * devQueueTierForIndex in packages/shared/src/dev-queue/dev-queue.ts): the
+ * first DEV_QUEUE_SERVER_CAP entries are "queued", the rest "planned" --
+ * capped in total at DEV_QUEUE_TOTAL_CAP so the wishlist can't grow forever.
+ */
+export const queueDevelopmentAction = (
+  state: ClientState,
+  entry: PersistedDevelopmentAction,
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+  }
+): boolean => {
+  if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
+    deps.pushFeed(`${entry.label} is already queued.`, "combat", "warn");
+    deps.renderHud();
+    return false;
+  }
+  if (state.developmentQueue.length >= DEV_QUEUE_TOTAL_CAP) {
+    deps.pushFeed(`Development queue is full (${DEV_QUEUE_TOTAL_CAP}/${DEV_QUEUE_TOTAL_CAP}). Cancel something before queuing more.`, "combat", "warn");
+    deps.renderHud();
+    return false;
+  }
+  if (entry.kind === "SETTLE") {
+    state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
+  }
+  state.developmentQueue.push(entry);
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
+  deps.renderHud();
+  return true;
 };
 
 type QueueRestoreTileLike = {

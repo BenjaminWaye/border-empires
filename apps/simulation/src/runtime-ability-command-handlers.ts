@@ -2,23 +2,18 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
-  AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_LANCE_COOLDOWN_MS,
-  AETHER_LANCE_CRYSTAL_COST,
   AETHER_LANCE_GOLD_COST,
   AETHER_WALL_COOLDOWN_MS,
-  AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
-  REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
-  REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   SURVEY_SWEEP_COOLDOWN_MS,
-  SURVEY_SWEEP_CRYSTAL_COST,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
+import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type {
   ActiveAetherBridgeView,
@@ -65,6 +60,10 @@ export type RuntimeAbilityCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   filterTileDeltasForPlayer: (tileDeltas: SimulationTileWireDelta[], playerId: string) => SimulationTileWireDelta[];
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  // §5.4: see pickReadyOwnedObservatoryForTarget/Any — Survey Sweep targets a
+  // specific observatory tile directly rather than going through a picker, so
+  // it needs its own dormancy gate.
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   isCoastalLand: (x: number, y: number) => boolean;
   closestAetherBridgeOrigin: (playerId: string, targetX: number, targetY: number) => { x: number; y: number } | undefined;
@@ -102,18 +101,33 @@ function buildSurveySweepPings(
   centerY: number
 ): SurveySweepPing[] {
   const pings: SurveySweepPing[] = [];
+  let scannedTiles = 0;
+  let missingTiles = 0;
+  let candidateKindTiles = 0;
+  let filteredAsVisible = 0;
   for (let dy = -SURVEY_SWEEP_HALF_EXTENT; dy <= SURVEY_SWEEP_HALF_EXTENT; dy += 1) {
     const y = ((centerY + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
     for (let dx = -SURVEY_SWEEP_HALF_EXTENT; dx <= SURVEY_SWEEP_HALF_EXTENT; dx += 1) {
       const x = ((centerX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      scannedTiles += 1;
       const tile = context.tiles.get(simulationTileKey(x, y));
-      if (!tile) continue;
+      if (!tile) {
+        missingTiles += 1;
+        continue;
+      }
       const kind = surveySweepPingKind(tile);
       if (!kind) continue;
-      if (context.filterTileDeltasForPlayer([context.tileDeltaFromState(tile)], playerId).length > 0) continue;
+      candidateKindTiles += 1;
+      if (context.filterTileDeltasForPlayer([context.tileDeltaFromState(tile)], playerId).length > 0) {
+        filteredAsVisible += 1;
+        continue;
+      }
       pings.push({ x, y, kind });
     }
   }
+  console.log(
+    `[survey-sweep-debug] server buildSurveySweepPings playerId=${playerId} center=(${centerX},${centerY}) scannedTiles=${scannedTiles} missingTiles=${missingTiles} candidateKindTiles=${candidateKindTiles} filteredAsVisible=${filteredAsVisible} finalPingCount=${pings.length}`
+  );
   return pings.sort((left, right) => left.kind.localeCompare(right.kind) || left.y - right.y || left.x - right.x);
 }
 
@@ -132,7 +146,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "cannot reveal yourself");
     return;
   }
-  if (!context.players.has(payload.targetPlayerId) || actor.allies.has(payload.targetPlayerId)) {
+  if (!context.players.has(payload.targetPlayerId) || isAlliedOrTruced(actor, payload.targetPlayerId)) {
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "target empire not found or not hostile");
     return;
   }
@@ -144,10 +158,6 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
       rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "only one revealed empire allowed");
       return;
     }
-    if (!context.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_ACTIVATION_COST)) {
-      rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "insufficient crystal to activate reveal");
-      return;
-    }
     reveals.clear();
     reveals.add(payload.targetPlayerId);
   }
@@ -156,6 +166,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     activeTargets: [...reveals].sort(),
     revealCapacity: context.revealCapacityForPlayer(actor)
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -170,7 +181,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "requires Surveying");
     return;
   }
-  if (!target || payload.targetPlayerId === actor.id || actor.allies.has(payload.targetPlayerId)) {
+  if (!target || payload.targetPlayerId === actor.id || isAlliedOrTruced(actor, payload.targetPlayerId)) {
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "target empire not found or not hostile");
     return;
   }
@@ -178,10 +189,6 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
   const revealObservatoryKey = context.pickReadyOwnedObservatoryAny(actor.id, revealNow);
   if (!revealObservatoryKey) {
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "no ready observatory available");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
-    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "insufficient CRYSTAL for empire stats reveal");
     return;
   }
   context.stampObservatoryCooldown(
@@ -195,6 +202,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     type: "REVEAL_EMPIRE_STATS_RESULT",
     stats: context.buildRevealEmpireStats(target)
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -227,12 +235,15 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is cooling down");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "insufficient CRYSTAL for survey sweep");
+  if (context.isStructureDormant(actor.id, observatoryKey, "observatory")) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory has no free resource slot");
     return;
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
   context.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
+  console.log(
+    `[survey-sweep-debug] server emitting SURVEY_SWEEP_RESULT commandId=${command.commandId} playerId=${command.playerId} pingCount=${pings.length}`
+  );
   context.emitPlayerMessage(command, {
     type: "SURVEY_SWEEP_RESULT",
     center: { x: observatoryTile.x, y: observatoryTile.y },
@@ -244,6 +255,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     points: actor.points,
     strategicResources: actor.strategicResources
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -265,7 +277,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     target.terrain !== "LAND" ||
     !target.ownerId ||
     target.ownerId === actor.id ||
-    actor.allies.has(target.ownerId) ||
+    isAlliedOrTruced(actor, target.ownerId) ||
     !targetIsPurgeableOwnership
   ) {
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "target hostile settled or frontier land");
@@ -283,10 +295,6 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   }
   if (actor.points < AETHER_LANCE_GOLD_COST) {
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "insufficient gold for aether purge");
-    return;
-  }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "insufficient CRYSTAL for aether purge");
     return;
   }
   actor.points -= AETHER_LANCE_GOLD_COST;
@@ -316,6 +324,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     points: actor.points,
     strategicResources: actor.strategicResources
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -345,10 +354,6 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no ready observatory in range");
     return;
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "insufficient CRYSTAL for aether bridge");
-    return;
-  }
   context.stampObservatoryCooldown(
     bridgeObservatoryKey,
     AETHER_BRIDGE_COOLDOWN_MS,
@@ -371,6 +376,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     type: "AETHER_BRIDGE_UPDATE",
     bridges: active
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
@@ -407,10 +413,6 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
       return;
     }
   }
-  if (!context.spendStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) {
-    rejectCommand(context, command, "AETHER_WALL_INVALID", "insufficient CRYSTAL for aether wall");
-    return;
-  }
   context.stampObservatoryCooldown(
     wallObservatoryKey,
     AETHER_WALL_COOLDOWN_MS,
@@ -434,6 +436,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     type: "AETHER_WALL_UPDATE",
     walls: active
   });
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handlePurgeSiphonCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {

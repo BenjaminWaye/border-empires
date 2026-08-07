@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 import { SimulationRuntime } from "./runtime.js";
 
@@ -41,8 +42,11 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          // Fort generates gold upkeep (drives hasOutstandingUpkeepNeed).
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          // FUR_SYNTHESIZER generates gold upkeep (drives hasOutstandingUpkeepNeed)
+          // — post-§12.1, Fort's IRON slot occupation is its upkeep and no
+          // longer drives this; synthesizers are the one family still gated
+          // on ongoing gold (§6.4).
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
           // Resource tile is yield-bearing so consumeUpkeepFromTileYield's
           // loop actually iterates and lazily builds the tile-yield context.
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
@@ -108,7 +112,7 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
         ],
         activeLocks: []
@@ -121,8 +125,190 @@ describe("simulation runtime — shared town network cache", () => {
     runtime.applyPassiveIncome(60_000, 999_999_999);
 
     const state = runtime.exportState();
-    // Upkeep drained gold below the starting 10_000 (fort upkeep, no income offset).
+    // Upkeep drained gold below the starting 10_000 (FUR_SYNTHESIZER's §6.4
+    // gold upkeep, no income offset — post-§12.1 this is the one structure
+    // family still gated on ongoing gold).
     const player = state.players.find((p) => p.id === "player-1");
     expect(player?.points).toBeLessThan(10_000);
+  });
+
+  // Regression for a gap the SETTLEMENT-exclusion change (economy-network.ts)
+  // exposed: UPGRADE_TOWN_TIER only ever invalidated tileYieldContextCacheByPlayer,
+  // never townNetworkCacheByPlayer. That was harmless while tier didn't affect
+  // graph membership, but now a SETTLEMENT->TOWN upgrade changes whether the tile
+  // counts as a connectivity node at all — a stale cached network would keep
+  // treating it as excluded until an unrelated tile-ownership event happened to
+  // invalidate the cache.
+  it("rebuilds the town network after UPGRADE_TOWN_TIER moves a town across the SETTLEMENT boundary", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 10_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 1_000_000, WOOD: 0, STONE: 0, IRON: 0, CRYSTAL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Directly 8-adjacent so they're connected the moment both are
+          // TOWN-tier-or-higher, with no corridor tiles needed.
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 10 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
+          // FOOD slot supply: Alpha + Beta already demand 2 FOOD each just by
+          // existing as towns (§5.3), so UPGRADE_TOWN_TIER's free-FOOD-slot
+          // gate (runtime-progression-command-handlers.ts) needs real supply
+          // here, well away from the connectivity graph under test.
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    // Warm tileYieldContextCacheByPlayer / townNetworkCacheByPlayer while
+    // Beta is still a SETTLEMENT — with only Alpha counting, this hits the
+    // ownedTownKeys.size<=1 short-circuit and caches a network with no Beta
+    // entry at all. Mirrors the seed-on-first-call / rate-limit pattern from
+    // the test above: applyPassiveIncome seeds, then a later tick past the
+    // rate limit actually drives consumeUpkeepFromTileYield's cache-miss build.
+    runtime.applyPassiveIncome(1_000, 999_999_999);
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    runtime.submitCommand({
+      commandId: "upgrade-beta-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "UPGRADE_TOWN_TIER",
+      payloadJson: JSON.stringify({ x: 1, y: 0 })
+    });
+    await Promise.resolve();
+
+    const resolved = seen.find((e) => e.eventType === "COMMAND_RESOLVED" && e.commandId === "upgrade-beta-1");
+    expect(resolved).toBeDefined();
+
+    // The command's own TILE_DELTA_BATCH for Beta must reflect the rebuilt
+    // network (connected to Alpha) — not a stale cached network from when
+    // Beta was still a SETTLEMENT and excluded from the graph entirely.
+    const batch = seen.find(
+      (e): e is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        e.eventType === "TILE_DELTA_BATCH" && e.commandId === "upgrade-beta-1"
+    );
+    const betaDelta = batch?.tileDeltas.find((d) => d.x === 1 && d.y === 0);
+    const betaTown = betaDelta?.townJson ? JSON.parse(betaDelta.townJson) : undefined;
+    expect(betaTown?.populationTier).toBe("TOWN");
+    expect(betaTown?.connectedTownCount).toBe(1);
+    expect(betaTown?.connectedTownNames).toEqual(["Alpha"]);
+  });
+
+  // Regression for the second tile-write path: the progression handlers use
+  // setTileState, which deliberately skips refreshEconomyCachesForTileChange.
+  // That bypassed corridor union-find maintenance, so upgrading a SETTLEMENT
+  // (a pass-through corridor tile) into a real TOWN (a connectivity BARRIER)
+  // left the two sides merged — reporting Alpha as connected to Beta straight
+  // through the new barrier, and inflating its connectedTownBonus.
+  it("treats a settlement upgraded to a real town as a connectivity barrier", async () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 10_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 1_000_000, WOOD: 0, STONE: 0, IRON: 0, CRYSTAL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Alpha — land — Mid(settlement) — land — Beta. While Mid is a
+          // settlement every tile between Alpha and Beta is corridor, so the
+          // two are connected through it.
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 100_000 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } },
+          // FOOD slot supply: Alpha/Beta demand 4 FOOD each by existing as
+          // TOWNs (§5.3), Mid (a SETTLEMENT) demands 0, and upgrading Alpha
+          // to CITY adds +1 more. Once Mid also upgrades to a TOWN the
+          // pre-upgrade demand is 12 (4+4+4) — UPGRADE_TOWN_TIER's
+          // free-FOOD-slot gate needs real supply here, well away from the
+          // connectivity graph under test (7 FISH tiles = 14 supply; the
+          // +1 CITY bump leaves a free slot).
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 15, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 16, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    // Warm the caches while Mid is still a corridor settlement.
+    runtime.applyPassiveIncome(1_000, 999_999_999);
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    runtime.submitCommand({
+      commandId: "upgrade-mid", sessionId: "session-1", playerId: "player-1", clientSeq: 1,
+      issuedAt: 60_000, type: "UPGRADE_TOWN_TIER", payloadJson: JSON.stringify({ x: 2, y: 0 })
+    });
+    await Promise.resolve();
+
+    // Upgrade Alpha too, purely to get a fresh tile delta carrying Alpha's
+    // recomputed connectivity (TOWN -> CITY keeps it a town node).
+    runtime.submitCommand({
+      commandId: "upgrade-alpha", sessionId: "session-1", playerId: "player-1", clientSeq: 2,
+      issuedAt: 60_000, type: "UPGRADE_TOWN_TIER", payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    await Promise.resolve();
+
+    const batch = seen.find(
+      (e): e is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        e.eventType === "TILE_DELTA_BATCH" && e.commandId === "upgrade-alpha"
+    );
+    const alphaDelta = batch?.tileDeltas.find((d) => d.x === 0 && d.y === 0);
+    const alphaTown = alphaDelta?.townJson ? JSON.parse(alphaDelta.townJson) : undefined;
+
+    expect(alphaTown?.populationTier).toBe("CITY");
+    // Mid is now a barrier: Alpha reaches Mid, but NOT Beta behind it.
+    expect(alphaTown?.connectedTownCount).toBe(1);
+    expect(alphaTown?.connectedTownNames).toEqual(["Mid"]);
   });
 });

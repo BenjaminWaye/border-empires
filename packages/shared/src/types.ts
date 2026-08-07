@@ -9,16 +9,15 @@ export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" |
 export type FrontierDecayKind = "NATURAL" | "ENCIRCLEMENT";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
-export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
+export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
 export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
 export type TownType = "MARKET" | "FARMING";
-export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
-export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
-export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+export type { EmpireVisualTint, EmpireBorderStyle, EmpireStructureAccent } from "./empire-cosmetics-types.js";
+export type { NaturalWonderType, NaturalWonderState } from "./natural-wonder-types.js";
 export type EconomicStructureType =
   | "FARMSTEAD"
   | "WATERWORKS"
@@ -48,22 +47,29 @@ export type EconomicStructureType =
   | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM"
+  | "QUARTERMASTERS_OFFICE"
+  | "LOGISTICS_GUILD"
+  | "ASSEMBLY_WORKS"
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
   | "ASTRAL_DOCK_PART"
+  | "POPULATION_BUREAU_PART"
+  | "IRON_LEVY_PART"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE"
   | "AEGIS_DOME"
-  | "ASTRAL_DOCK";
+  | "ASTRAL_DOCK"
+  | "POPULATION_BUREAU"
+  | "IRON_LEVY";
 // The late-game monument family: each is built in stages (a "*_PART"
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season
 // winner stats).
-export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"] as const;
+export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "IRON_LEVY"] as const;
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-export type TownGrowthUpgradeTier = "CITY" | "GREAT_CITY" | "METROPOLIS";
+export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
@@ -74,9 +80,9 @@ export type SeasonVictoryPathId =
 
 export interface EmpireVisualStyle {
   primaryOverlay: string;
-  secondaryTint: EmpireVisualTint;
-  borderStyle: EmpireBorderStyle;
-  structureAccent: EmpireStructureAccent;
+  secondaryTint: import("./empire-cosmetics-types.js").EmpireVisualTint;
+  borderStyle: import("./empire-cosmetics-types.js").EmpireBorderStyle;
+  structureAccent: import("./empire-cosmetics-types.js").EmpireStructureAccent;
 }
 
 export interface TileHistory {
@@ -225,17 +231,16 @@ export interface Tile {
     baseGoldPerMinute: number;
     goldPerMinute: number;
     connectedDockCount: number;
-    modifiers?: Array<{
-      label: string;
-      percent: number;
-      deltaGoldPerMinute: number;
-    }>;
+    modifiers?: Array<{ label: string; percent: number; deltaGoldPerMinute: number }>;
   };
   shardSite?: {
     kind: ShardSiteKind;
     amount: number;
     expiresAt?: number;
   } | null;
+  naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
+  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil).
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
   town?: {
     name?: string;
     type: TownType;
@@ -273,9 +278,15 @@ export interface Tile {
     nextPopulationTierUpgrade?: {
       targetTier: TownGrowthUpgradeTier;
       requiredPopulation: number;
-      foodCost: number;
+      goldCost: number;
       available: boolean;
     };
+    // Census Hall (tech-tree redesign): the population/cap bonus currently
+    // granted by this town's own Census Hall (+20,000 per connected city
+    // with an active Incubation Engine/Granary) -- tracked so a later drop
+    // in connected Granaries can claw the bonus back down rather than only
+    // ever growing it.
+    censusHallAppliedBonus?: number;
   };
   yield?: {
     gold?: number;
@@ -289,14 +300,19 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
+  // activatedAt (fort/siegeOutpost/observatory/economicStructure below): when
+  // this structure went active, set on build completion and refreshed on
+  // capture — ranks which structure loses power first on a resource-slot
+  // shortfall (§5.4: newest built-or-captured goes dormant first).
+  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
+  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
+    activatedAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
   };

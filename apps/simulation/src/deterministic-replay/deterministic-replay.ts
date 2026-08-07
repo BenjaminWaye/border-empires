@@ -1,6 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
 import { SimulationRuntime } from "../runtime/runtime.js";
+import type { SimulationRuntimeOptions } from "../runtime-types.js";
 
 type ScheduledTask = {
   dueAt: number;
@@ -42,7 +43,7 @@ class DeterministicSimulationClock {
 
 export const runDeterministicReplay = (
   commands: CommandEnvelope[],
-  options: { startTime?: number } = {}
+  options: { startTime?: number; initialState?: SimulationRuntimeOptions["initialState"] } = {}
 ): {
   events: SimulationEvent[];
   finalState: ReturnType<SimulationRuntime["exportState"]>;
@@ -51,7 +52,8 @@ export const runDeterministicReplay = (
   const runtime = new SimulationRuntime({
     now: () => clock.now(),
     scheduleSoon: clock.scheduleSoon,
-    scheduleAfter: clock.scheduleAfter
+    scheduleAfter: clock.scheduleAfter,
+    ...(options.initialState ? { initialState: options.initialState } : {})
   });
   const events: SimulationEvent[] = [];
   runtime.onEvent((event) => {

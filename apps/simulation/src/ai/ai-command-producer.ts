@@ -21,6 +21,12 @@ import {
   reservedDevelopmentSlotCount,
   type DevelopmentSlotReservation
 } from "./ai-development-slot-reservations.js";
+import {
+  activeCooldownsForPlayer,
+  createRejectionCooldownState,
+  recordRejectionCooldown,
+  type DecisionCooldownMap
+} from "./ai-rejection-cooldown.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
@@ -34,6 +40,7 @@ type AiCommandProducerOptions = {
       options?: {
         skipPreplan?: boolean;
         reservedDevelopmentSlots?: number;
+        decisionCooldowns?: DecisionCooldownMap;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
@@ -54,7 +61,7 @@ type AiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number; playerId: string | undefined }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
-  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"]; rejectionCode: string; rejectionMessage: string }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
@@ -87,6 +94,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
+  const rejectionCooldowns = createRejectionCooldownState();
   const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -156,7 +164,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         releaseAiLatchedIntent(intentLatchState, event.playerId);
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
-        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType });
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code, rejectionMessage: event.message });
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, pendingCommand.commandType, now());
       }
       resolvePendingPreplanOutcome(
         event.commandId,
@@ -231,6 +240,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           const issuedAt = now();
           const plannerStartedAt = now();
           const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
+          const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, issuedAt);
           const plan = options.runtime.explainNextAutomationCommand
             ? options.runtime.explainNextAutomationCommand(
                 playerId,
@@ -239,7 +249,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
                 "ai-runtime",
                 {
                   skipPreplan,
-                  ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {})
+                  ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {}),
+                  ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
                 }
               )
             : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };

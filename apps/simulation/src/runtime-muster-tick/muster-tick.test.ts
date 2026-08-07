@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, MUSTER_TILE_CAP, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -98,11 +98,16 @@ describe("muster accumulation tick", () => {
       }
     });
     await setMuster(runtime, 10, 10, 1);
-    // Advance a very long time so accumulation would vastly exceed the cap.
-    // A single SETTLEMENT gives a manpower cap of 150 (== MUSTER_TILE_CAP for reference).
+    // Advance a very long time so accumulation would vastly exceed any real cap.
+    // Production inflow is bounded by the player's actual manpower cap (see
+    // headroom in runtime-muster-tick.ts), not the MUSTER_TILE_CAP constant —
+    // that constant isn't enforced anywhere in the muster-tick code, so assert
+    // against the real cap directly rather than a coincidental constant value
+    // (docs/manpower-economy-rewrite-plan.md §4.3 changed what that coincidence was).
+    const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
-    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(MUSTER_TILE_CAP, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap, 5);
   });
 
   it("splits throughput across two flags so each fills at half rate", async () => {
@@ -149,7 +154,13 @@ describe("muster accumulation tick", () => {
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
           { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
-          { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "RAIL_DEPOT", status: "active", ownerId: "player-1" } }
+          { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "RAIL_DEPOT", status: "active", ownerId: "player-1" } },
+          // §5.4: 2 SIEGE_OUTPOSTs need 2 SUPPLY slots; RAIL_DEPOT needs
+          // 1 FOOD + 1 CRYSTAL slot — none of them dormant.
+          { x: 210, y: 210, terrain: "LAND", resource: "WOOD", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 211, y: 210, terrain: "LAND", resource: "WOOD", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 212, y: 210, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 213, y: 210, terrain: "LAND", resource: "GEMS", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }

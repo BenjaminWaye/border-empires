@@ -121,7 +121,7 @@ describe("tech detail crystal ability previews", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplyUpkeepMult: 0.8
+        outpostSupplySlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,
@@ -238,21 +238,21 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+50%");
+    expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+100%");
     expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("20 tiles");
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
-    expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("60 minutes");
+    expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("24 hours");
     expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("90 minutes");
+    expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     expect(structureInfoForKey("IRON_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
     expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");
     expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.6x to 1.8x");
     expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 1.8x to 2.0x");
-    expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "90 iron"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "180 iron"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "90 supply", "60 iron"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "140 supply", "120 iron"]);
+    expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower", "2 IRON slots"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "300 manpower", "4 IRON slots"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"]);
   });
 
   it("provides structure art for dedicated economic overlays", () => {

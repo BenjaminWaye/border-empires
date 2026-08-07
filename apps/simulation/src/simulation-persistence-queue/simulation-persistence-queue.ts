@@ -1,7 +1,8 @@
-import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import type { SimulationEventStore } from "../event-store/event-store.js";
+import { isPersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 
 type SimulationPersistenceQueueDependencies = {
   commandStore: SimulationCommandStore;
@@ -9,13 +10,13 @@ type SimulationPersistenceQueueDependencies = {
   onEventPersisted?: () => void;
   onEventStoreWrite?: (durationMs: number) => void;
   onDiagnostic?: (sample: {
-    phase: "command_status" | "event_store";
-    eventType: SimulationEvent["eventType"];
+    phase: "command_status" | "event_store" | "queued_command";
+    eventType: SimulationEvent["eventType"] | "COMMAND_QUEUED";
     commandId: string;
     durationMs: number;
     pendingCount: number;
     failed: boolean;
-    operation: "markAccepted" | "markRejected" | "markResolved" | "appendEvent" | "noop";
+    operation: "markAccepted" | "markRejected" | "markResolved" | "persistQueuedCommand" | "appendEvent" | "noop";
     retryCount: number;
   }) => void;
   onPersistenceFailure?: (error: Error) => void;
@@ -25,6 +26,15 @@ type SimulationPersistenceQueueDependencies = {
 
 type SimulationPersistenceQueue = {
   enqueueEvent(event: SimulationEvent, createdAt?: number): void;
+  /**
+   * Persists the initial QUEUED row for a command before it's applied.
+   * Must be called (and therefore chained onto the same drain ordering)
+   * before the corresponding COMMAND_ACCEPTED/COMMAND_REJECTED event is
+   * enqueued via enqueueEvent, otherwise markAccepted/markRejected silently
+   * no-op against a row that doesn't exist yet — see ai-debugging docs for
+   * why /admin/debug/ai's recentCommands depends on this ordering.
+   */
+  enqueueQueuedCommand(command: CommandEnvelope, queuedAt: number): void;
   whenIdle(): Promise<void>;
   pendingCount(): number;
   isDegraded(): boolean;
@@ -99,6 +109,7 @@ const persistCommandStatus = async (
       await commandStore.markRejected(event.commandId, createdAt, event.code, event.message);
       return "markRejected";
     case "COMBAT_RESOLVED":
+    case "COMMAND_RESOLVED":
       await commandStore.markResolved(event.commandId, createdAt);
       return "markResolved";
     case "COMBAT_CANCELLED":
@@ -132,6 +143,14 @@ export const createSimulationPersistenceQueue = (
     degradedUntil = Math.max(degradedUntil, now + 30_000);
   };
 
+  // Constraint violations are deterministic (e.g. a duplicate client_seq):
+  // retrying or waiting out a backpressure window recovers nothing, so they
+  // must not trip degraded mode the way transient durability failures do.
+  const markFailureUnlessConstraintViolation = (error: unknown): void => {
+    if (error instanceof Error && isPersistenceConstraintViolation(error)) return;
+    markFailure();
+  };
+
   const reportFailure = (error: unknown): void => {
     const failure = error instanceof Error ? error : new Error(String(error));
     dependencies.onPersistenceFailure?.(failure);
@@ -157,7 +176,7 @@ export const createSimulationPersistenceQueue = (
           commandStatusRetryCount = result.retryCount;
         } catch (error) {
           commandStatusFailed = true;
-          markFailure();
+          markFailureUnlessConstraintViolation(error);
           reportFailure(error);
           switch (event.eventType) {
             case "COMMAND_ACCEPTED":
@@ -200,7 +219,7 @@ export const createSimulationPersistenceQueue = (
             dependencies.onEventPersisted?.();
           } catch (error) {
             eventStoreWriteFailed = true;
-            markFailure();
+            markFailureUnlessConstraintViolation(error);
             reportFailure(error);
             log.error("failed to persist simulation event", error);
           } finally {
@@ -227,8 +246,44 @@ export const createSimulationPersistenceQueue = (
     drain = drain.then(persistTask, persistTask);
   };
 
+  const enqueueQueuedCommand = (command: CommandEnvelope, queuedAt: number): void => {
+    pendingCount += 1;
+    const persistTask = async () => {
+      const startedAt = Date.now();
+      let failed = false;
+      let retryCount = 0;
+      try {
+        const result = await withPersistenceRetry(async () => {
+          await dependencies.commandStore.persistQueuedCommand(command, queuedAt);
+        }, retryBackoffMs);
+        retryCount = result.retryCount;
+      } catch (error) {
+        failed = true;
+        markFailureUnlessConstraintViolation(error);
+        reportFailure(error);
+        log.error("failed to persist queued simulation command", error);
+      } finally {
+        dependencies.onDiagnostic?.({
+          phase: "queued_command",
+          eventType: "COMMAND_QUEUED",
+          commandId: command.commandId,
+          durationMs: Math.max(0, Date.now() - startedAt),
+          pendingCount,
+          failed,
+          operation: "persistQueuedCommand",
+          retryCount
+        });
+        pendingCount = Math.max(0, pendingCount - 1);
+        markSuccess();
+      }
+    };
+
+    drain = drain.then(persistTask, persistTask);
+  };
+
   return {
     enqueueEvent,
+    enqueueQueuedCommand,
     whenIdle: () => drain,
     pendingCount: () => pendingCount,
     isDegraded: () => Date.now() < degradedUntil,

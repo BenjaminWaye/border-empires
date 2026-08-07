@@ -15,11 +15,14 @@ const BASE: DecisionInputs = {
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
   expansionOpportunityCount: 0,
+  nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
   hasOnlyScoutExpand: false,
   hasWeakEnemyBorder: false,
   hasBarbTarget: false,
+  hasAnyExpandCandidate: false,
+  hasAnyAttackCandidate: false,
   devSlotAvailable: true,
   attackReady: false,
   musterReady: false,
@@ -127,11 +130,28 @@ describe("EXPAND decision", () => {
     });
     expect(s).toBe(0);
   });
+  it("vetoed when frontier is all waste (no concrete expand candidate)", () => {
+    // Regression: the AI would score EXPAND high from aggregate counts
+    // (expansionOpportunityCount, hasExpansionObjective) even though every
+    // neutral frontier tile was "waste" — the concrete command builder's
+    // preferFogEfficientExpansion filter refused all of them, so executeClass
+    // returned undefined and WAIT won every tick despite EXPAND scoring 1.0.
+    const s = scoreDecision("EXPAND", {
+      ...BASE,
+      canExpand: true,
+      hasActionableNonWasteExpand: false,
+      hasAnyExpandCandidate: false,
+      hasExpansionObjective: true,
+      expansionOpportunityCount: 7
+    });
+    expect(s).toBe(0);
+  });
   it("scores > 0 with gold and actionable frontier", () => {
     const s = scoreDecision("EXPAND", {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3
     });
     expect(s).toBeGreaterThan(0);
@@ -142,6 +162,7 @@ describe("EXPAND decision", () => {
       canExpand: true,
       pressureThreatensCore: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
       frontierOpportunityEconomic: 2
     });
@@ -154,6 +175,7 @@ describe("EXPAND decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       pressureThreatensCore: true,
       pressureAttackScore: 500
@@ -162,6 +184,7 @@ describe("EXPAND decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       pressureThreatensCore: false
     });
@@ -173,6 +196,22 @@ describe("EXPAND decision", () => {
 describe("ATTACK decision", () => {
   it("vetoed when not attackReady", () => {
     const s = scoreDecision("ATTACK", { ...BASE, canAttack: true, attackReady: false });
+    expect(s).toBe(0);
+  });
+  it("vetoed when no concrete attack candidate exists", () => {
+    // Regression: ATTACK could score high via frontPosture/pressureAttackScore
+    // even when every enemy tile on the frontier was stalemated or the
+    // candidate builder found no barbarian/player target — same
+    // score–execute mismatch as the EXPAND waste-frontier bug.
+    const s = scoreDecision("ATTACK", {
+      ...BASE,
+      canAttack: true,
+      attackReady: true,
+      hasAnyAttackCandidate: false,
+      frontierEnemyCount: 2,
+      frontPosture: "BREAK",
+      pressureAttackScore: 300
+    });
     expect(s).toBe(0);
   });
   it("vetoed when muster can engage (musterReady + weak enemy-player border)", () => {
@@ -196,6 +235,7 @@ describe("ATTACK decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       musterReady: true,
       hasWeakEnemyBorder: false,
       hasBarbTarget: true,
@@ -234,6 +274,7 @@ describe("ATTACK decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       frontierEnemyCount: 1,
       frontPosture: "BREAK",
       pressureAttackScore: 250
@@ -255,7 +296,11 @@ describe("BUILD_ECONOMY decision", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
+      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above,
+      // so the waste-excluded count matches the raw count here.
+      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     };
@@ -269,6 +314,7 @@ describe("BUILD_ECONOMY decision", () => {
       ...BASE,
       canAttack: true,
       attackReady: true,
+      hasAnyAttackCandidate: true,
       frontierEnemyCount: 2,
       frontPosture: "BREAK",
       pressureAttackScore: 300,
@@ -290,6 +336,53 @@ describe("BUILD_ECONOMY decision", () => {
     });
     expect(s).toBeGreaterThan(0);
   });
+
+  // Regression: production staging AI-4 sat permanently on WAIT with 22k
+  // gold and a ready, affordable FARMSTEAD candidate because its frontier
+  // was surrounded only by waste-classified neutral tiles. EXPAND correctly
+  // refused them (hasActionableNonWasteExpand=false), but the raw
+  // expansionOpportunityCount (which includes waste) was still fully
+  // suppressing BUILD_ECONOMY's score to 0 via the "expansion is available"
+  // consideration — even though that "expansion" wasn't actually available
+  // to EXPAND either. nonWasteExpansionOpportunityCount must exclude the
+  // waste tiles so BUILD_ECONOMY isn't deadlocked by opportunities EXPAND
+  // itself refuses.
+  it("is NOT suppressed by waste-only neutrals that EXPAND itself refuses", () => {
+    const wasteOnlyHemmedIn: DecisionInputs = {
+      ...BASE,
+      canExpand: true,
+      // EXPAND sees 7 raw neutral tiles but none are actionable (all waste) —
+      // mirrors "vetoed when frontier is all waste" above.
+      hasActionableNonWasteExpand: false,
+      hasAnyExpandCandidate: false,
+      expansionOpportunityCount: 7,
+      nonWasteExpansionOpportunityCount: 0,
+      hasEconomicBuild: true,
+      needsEconomy: false
+    };
+    const expand = scoreDecision("EXPAND", wasteOnlyHemmedIn);
+    const economy = scoreDecision("BUILD_ECONOMY", wasteOnlyHemmedIn);
+    expect(expand).toBe(0);
+    // Before the fix this was 0 (fully suppressed by the 7 waste tiles).
+    expect(economy).toBeGreaterThan(0.5);
+
+    const result = evaluateUtilityPolicy(wasteOnlyHemmedIn);
+    expect(result.winner).toBe("BUILD_ECONOMY");
+  });
+
+  it("stays suppressed by real (non-waste) frontier enemy presence", () => {
+    // Enemy pressure should still suppress economy building even when the
+    // AI has no waste-only expansion candidates — nonWasteExpansionOpportunityCount
+    // must not accidentally exempt frontierEnemyCount from the suppression term.
+    const s = scoreDecision("BUILD_ECONOMY", {
+      ...BASE,
+      hasEconomicBuild: true,
+      needsEconomy: false,
+      nonWasteExpansionOpportunityCount: 0,
+      frontierEnemyCount: 5
+    });
+    expect(s).toBe(0);
+  });
 });
 
 // ── Policy evaluation tests ──────────────────────────────────────────────────
@@ -305,6 +398,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 4
     });
     const max = Math.max(...Object.values(result.scores));
@@ -316,6 +410,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 4
     });
     expect(result.runnerUpScore).toBeLessThanOrEqual(result.winnerScore);
@@ -331,7 +426,10 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
+      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above.
+      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     });
@@ -359,6 +457,7 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       momentumTicks: { EXPAND: 5 }
     });
@@ -366,9 +465,14 @@ describe("evaluateUtilityPolicy", () => {
       ...BASE,
       canExpand: true,
       hasActionableNonWasteExpand: true,
+      hasAnyExpandCandidate: true,
       expansionOpportunityCount: 1,
       momentumTicks: {}
     });
     expect(boosted.scores["EXPAND"]).toBeGreaterThan(unboosted.scores["EXPAND"]);
   });
 });
+
+// Rejection cooldown tests (BUILD_DEFENSE scoring + recordRejectionCooldown
+// mapping) live in ../ai-rejection-cooldown.test.ts, co-located with the
+// module they cover.

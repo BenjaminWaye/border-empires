@@ -6,11 +6,12 @@ import { isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 
-import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
+import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
+import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
-import { createSlackAlerter, type SlackAlerter } from "../slack-alerts/slack-alerts.js";
-import { resolveGatewayAuthIdentity } from "../auth-identity/auth-identity.js";
+import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
+import { initialSocialNameForSeedPlayer, resolveGatewayAuthIdentity, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
@@ -20,12 +21,13 @@ import {
   createEmailAlertService,
   readAttackAlert,
   readIncomingAllianceRequestAlert,
-  readIncomingTruceRequestAlert,
   type EmailAlertConfig,
   type EmailAlertOutcome
 } from "../email-alerts/email-alerts.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
+import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
+import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
@@ -40,12 +42,17 @@ import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-sto
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
+import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
+import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
+import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
+import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
 import {
   createSimSubmitHealthState,
   recordSubmitSuccess,
@@ -77,8 +84,9 @@ import {
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
-import { createSeededAiTruceResponder, extractTruceRequestFromPayloads } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
+import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
+import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
@@ -88,7 +96,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
   canToggleFog: boolean;
-  fogDisabled: boolean;
+  fogDisabled: boolean; authInProgress: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -123,10 +131,10 @@ type RealtimeGatewayAppOptions = {
   fogAdminEmail?: string;
   emailAlerts?: EmailAlertConfig;
   playOrigin?: string;
-  // URL for the simulation's loopback metrics server in the combined
-  // deployment (e.g. "http://127.0.0.1:50052/metrics"). When present, the
-  // gateway proxies it at /admin/runtime/metrics so it's externally reachable.
   simMetricsUrl?: string;
+  // Getter for the sim worker's lag-diagnostics ring buffer; surfaced in the debug-bundle for triage.
+  simDiagnostics?: () => unknown[];
+  wsHeartbeatIntervalMs?: number;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -138,111 +146,26 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   sendJsonToSocket(socket, payload);
 };
 
+const loginPhase = createLoginPhaseNotifier(sendJson);
+
 const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string | undefined): boolean => {
   const normalized = (email ?? "").trim().toLowerCase();
   const target = (fogAdminEmail ?? "").trim().toLowerCase();
   return normalized.length > 0 && target.length > 0 && normalized === target;
 };
 
-const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
-  if (playerId === "barbarian-1") return "Barbarians";
-  if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
-  return seedName ?? playerId;
-};
-
 const seasonalDefaultAiPlayerIds = (aiPlayerCount?: number): string[] => Array.from({ length: aiPlayerCount ?? 20 }, (_, index) => `ai-${index + 1}`);
 
-const jsonSafeTileDeltaBatch = (
-  tileDeltas: Array<
-    | NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number]
-    | NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>
-  >
-): Array<Record<string, unknown>> =>
-  tileDeltas.map((tileDelta) => ({
-    ...tileDelta,
-    ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
-    ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
-    ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
-    ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
-    ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
-    ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
-    ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
-    ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
-    ...("economicStructureJson" in tileDelta && tileDelta.economicStructureJson === undefined
-      ? { economicStructureJson: "" }
-      : {}),
-    ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
-    ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
-    ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
-    ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
-  }));
-
-const optionalCommandMetadata = (message: unknown): { commandId?: string; clientSeq?: number } => {
-  if (!message || typeof message !== "object") return {};
-  const candidate = message as { commandId?: unknown; clientSeq?: unknown };
-  return {
-    ...(typeof candidate.commandId === "string" ? { commandId: candidate.commandId } : {}),
-    ...(typeof candidate.clientSeq === "number" ? { clientSeq: candidate.clientSeq } : {})
-  };
-};
-
-const readPayloadType = (payload: unknown): string | undefined => {
-  const source = unwrapPayloadSource(payload);
-  if (!source || typeof source !== "object") return undefined;
-  const candidate = source as { type?: unknown };
-  return typeof candidate.type === "string" ? candidate.type : undefined;
-};
-
-const readPayloadCommandId = (payload: unknown): string | undefined => {
-  const source = unwrapPayloadSource(payload);
-  if (!source || typeof source !== "object") return undefined;
-  const candidate = source as { commandId?: unknown };
-  return typeof candidate.commandId === "string" ? candidate.commandId : undefined;
-};
-
-const readPayloadTarget = (payload: unknown): { x: number; y: number } | undefined => {
-  const source = unwrapPayloadSource(payload);
-  if (!source || typeof source !== "object") return undefined;
-  const candidate = source as { target?: unknown };
-  if (!candidate.target || typeof candidate.target !== "object") return undefined;
-  const target = candidate.target as { x?: unknown; y?: unknown };
-  return typeof target.x === "number" && typeof target.y === "number" ? { x: target.x, y: target.y } : undefined;
-};
-
-const visibleBootstrapPlayerIds = (snapshot: PlayerSubscriptionSnapshot | undefined): string[] => {
-  const playerIds = new Set<string>();
-  const worldStatus = snapshot?.worldStatus;
-  const leaderboard = worldStatus?.leaderboard;
-  if (leaderboard) {
-    for (const entry of leaderboard.overall) playerIds.add(entry.id);
-    for (const entry of leaderboard.byTiles) playerIds.add(entry.id);
-    for (const entry of leaderboard.byIncome) playerIds.add(entry.id);
-    for (const entry of leaderboard.byTechs) playerIds.add(entry.id);
-    if (leaderboard.selfOverall) playerIds.add(leaderboard.selfOverall.id);
-    if (leaderboard.selfByTiles) playerIds.add(leaderboard.selfByTiles.id);
-    if (leaderboard.selfByIncome) playerIds.add(leaderboard.selfByIncome.id);
-    if (leaderboard.selfByTechs) playerIds.add(leaderboard.selfByTechs.id);
-  }
-  for (const objective of worldStatus?.seasonVictory ?? []) {
-    if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
-  }
-  return [...playerIds];
-};
-
-export const hydrateVisibleLeaderboardProfileOverrides = async (
-  snapshot: PlayerSubscriptionSnapshot | undefined,
-  profileStore: GatewayPlayerProfileStore,
-  profileOverrides: ReturnType<typeof createPlayerProfileOverrides>
-): Promise<void> => {
-  const visiblePlayerProfiles = await profileStore.getMany(visibleBootstrapPlayerIds(snapshot));
-  for (const profile of visiblePlayerProfiles) {
-    profileOverrides.upsert(profile.playerId, {
-      ...(profile.name ? { name: profile.name } : {}),
-      ...(profile.tileColor ? { tileColor: profile.tileColor } : {}),
-      ...(typeof profile.profileComplete === "boolean" ? { profileComplete: profile.profileComplete } : {})
-    });
-  }
-};
+import {
+  jsonSafeTileDeltaBatch,
+  optionalCommandMetadata,
+  readPayloadType,
+  readPayloadCommandId,
+  readPayloadTarget,
+  hydrateVisibleLeaderboardProfileOverrides
+} from "../gateway-bootstrap-helpers/gateway-bootstrap-helpers.js";
+// Re-exported for gateway-profile-recovery.integration.test.ts, which imports this from gateway-app.js.
+export { hydrateVisibleLeaderboardProfileOverrides };
 
 export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOptions = {}) => {
   const app = Fastify({ logger: options.logger ?? true });
@@ -350,8 +273,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const simulationHealth = {
     connected: false,
     lastReadyAt: undefined as number | undefined,
-    lastError: undefined as string | undefined
+    lastError: undefined as string | undefined,
+    backlogPendingCount: undefined as number | undefined,
+    backlogDegraded: false
   };
+  const simBacklogStatusPoller = options.simMetricsUrl
+    ? createSimBacklogStatusPoller({
+        getSimMetrics: async () => {
+          const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
+          if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
+          return res.text();
+        },
+        target: simulationHealth,
+        threshold: Math.max(1, Number(process.env.GATEWAY_BACKLOG_DEGRADED_THRESHOLD ?? 500))
+      })
+    : undefined;
+  simBacklogStatusPoller?.start();
   let simulationRpcConnected = false;
   let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
@@ -734,6 +671,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
   };
+  const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= nowMs) cache.delete(key);
+    }
+  };
   const resolveHttpBearerIdentity = async (authorizationHeader: string | undefined): Promise<ResolvedGatewayAuthBinding | undefined> => {
     const token = authorizationHeader?.startsWith("Bearer ") ? authorizationHeader.slice("Bearer ".length).trim() : "";
     if (!token) return undefined;
@@ -801,12 +743,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     });
   })();
+  const { seededPlayerIds, evictSeededPlayerId } = createSeededPlayerTracker((playerId) => playerSubscriptions.socketsForPlayer(playerId));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
-    subscribePlayer: (playerId, subscriptionKey) =>
-      simulationClient.subscribePlayer(
+    subscribePlayer: (playerId, subscriptionKey) => {
+      const hasSnapshot = seededPlayerIds.has(playerId);
+      return simulationClient.subscribePlayer(
         playerId,
-        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", ...(subscriptionKey ? { subscriptionKey } : {}) })
-      ),
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, ...(subscriptionKey ? { subscriptionKey } : {}) })
+      );
+    },
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
@@ -1007,6 +952,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const REVEAL_REQUEST_COOLDOWN_MS = 5_000;
   const activeRevealStreamSockets = new Set<import("ws").WebSocket>();
   const lastRevealRequestMsByPlayerId = new Map<string, number>();
+  // Bounds the flood a single connection can push at the simulation: idempotency/dedup
+  // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
+  // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
+  const commandRateLimiter = new CommandRateLimiter({ capacity: 20, refillPerSecond: 5 });
   // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
   // world changes, but doing that synchronously inside the per-batch event
   // handler blocks the gateway loop for hundreds of ms × N batches per second
@@ -1019,6 +968,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const fogLiveRefreshPendingByPlayerId = new Map<string, { commandId: string }>();
   const fogLiveRefreshLastStartedAtByPlayerId = new Map<string, number>();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
+  const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
   type GatewaySnapshotCacheSummary = {
     entryCount: number;
@@ -1120,10 +1070,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
+  const seasonStartVote = new SeasonStartVoteTracker();
 
   registerGatewayHttpRoutes(
     app,
-    buildGatewayHttpRoutesDeps({
+    buildGatewayHttpRoutesDeps(app, {
       startupStartedAt,
       ...(options.simulationAddress ? { simulationAddress: options.simulationAddress } : {}),
       simulationSeedProfile,
@@ -1135,6 +1086,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       buildAttackTraces,
       gatewayMetrics,
       ...(options.simMetricsUrl ? { simMetricsUrl: options.simMetricsUrl } : {}),
+      ...(options.simDiagnostics ? { simDiagnostics: options.simDiagnostics } : {}),
       simulationClient,
       profileStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
@@ -1143,7 +1095,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore,
       galaxyEndorsementStore,
       authBindingStore,
-      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
+      ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
+      ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
+      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
+      onSeasonStarted: () => { seasonStartVote.reset(); }
     })
   );
 
@@ -1194,6 +1149,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
+  const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
+    simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
+    withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
+  });
   const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
     seededAiPlayerIds,
     seedPlayers,
@@ -1203,7 +1162,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     rejectTruce: socialState.rejectTruce,
     syncPlayers: socialState.syncPlayers,
     fanoutPlayerPayloads,
-    recordGatewayEvent
+    recordGatewayEvent, syncTruceToSimulation
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1443,6 +1402,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           );
         }
       }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") {
+        const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown";
+        slackAlerter?.alertPlayerRespawned(event.playerId, reason);
+      }
       if (event.playerId === "__broadcast__" && event.eventType === "TILE_DELTA_BATCH") {
         const broadcastPayload = preSerializeBroadcast({
           type: "TILE_DELTA_BATCH",
@@ -1640,6 +1603,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           })();
           continue;
         }
+        if (event.eventType === "COMMAND_RESOLVED") {
+          void commandStore
+            .markResolved(event.commandId, Date.now())
+            .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved command"));
+          continue;
+        }
         if (event.eventType === "COMBAT_CANCELLED") {
           void commandStore
             .markResolved(event.commandId, Date.now())
@@ -1824,10 +1793,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
-  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000);
+  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   const imperialWardAutoStart = startImperialWardAutoStartTimer({
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
-    startNextSeason: (force, imperialWard) => simulationClient.startNextSeason(force, imperialWard),
+    startNextSeason: async (force, imperialWard) => {
+      const result = await simulationClient.startNextSeason(force, imperialWard);
+      seasonStartVote.reset();
+      slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
+      return result;
+    },
     endorsementStore: galaxyEndorsementStore,
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
@@ -1861,6 +1835,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     }
     sweepStalePendingInputToState(pendingInputToStateByCommandId, Date.now() - 120_000);
+    sweepExpiredCacheEntries(authBindingCache, Date.now());
+    sweepExpiredCacheEntries(profileCache, Date.now());
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
     if (gatewayMetricsLogIntervalMs > 0 && now - lastGatewayMetricsLogAt >= gatewayMetricsLogIntervalMs) {
@@ -1900,14 +1876,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop();
-    imperialWardAutoStart.stop();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
-    slackAlertLatencyPoll.stop();
+    simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
     databaseKeepAlive.stop();
-    gcObserver?.disconnect();
-    stopSimulationStream();
+    gcObserver?.disconnect(); wsHeartbeat.stop(); stopSimulationStream();
   });
 
   app.register(async (instance) => {
@@ -1921,9 +1895,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         pendingPayloads: [],
         channel,
         canToggleFog: false,
-        fogDisabled: false
+        fogDisabled: false, authInProgress: false
       };
-      sessionsBySocket.set(socket, session);
+      sessionsBySocket.set(socket, session); wsHeartbeat.registerSocket(socket);
 
       socket.on("message", async (buffer) => {
         let messageType: string | undefined;
@@ -1944,7 +1918,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const message = parsed.data;
           messageType = message.type;
           if (message.type === "AUTH") {
-            recordGatewayEvent("info", "gateway_auth", { channel });
+            if (!claimAuthSlot(session, channel, recordGatewayEvent)) return;
+            try { recordGatewayEvent("info", "gateway_auth", { channel });
             const loginCorrelationId = crypto.randomUUID();
             const authTrace = slowLoginAlerter.begin(channel, loginCorrelationId);
             const loginTracer = createRequestTracer({
@@ -1957,15 +1932,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await ensureSimulationReadyForAuth();
               authTrace.endStep("ensure_simulation_ready", simulationHealth.connected);
               if (!simulationHealth.connected) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "SERVER_STARTING",
-                  message: "Realtime simulation is temporarily unavailable. Retry shortly."
-                });
+                sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
                 authTrace.complete("rejected", "SERVER_STARTING");
                 return;
               }
             }
+            loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
             const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
               allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
@@ -1983,6 +1955,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "AUTH_FAIL");
               return;
             }
+            loginPhase.notify(socket, "Verifying identity...", "Your Google session is being verified.");
             let playerIdentity = { ...resolvedPlayerIdentity };
             authTrace.setPlayerId(playerIdentity.playerId);
             loginTracer.stage("auth_identity_resolved", { playerId: playerIdentity.playerId });
@@ -2019,17 +1992,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
+            slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
-            // Always start a new auth with fog ON. Fog admins must explicitly
-            // re-toggle SET_FOG_DISABLED each login; the client also clears its
-            // persisted reveal preference on Firebase sign-in so it does not
-            // auto-resend the toggle.
+            // Always start a new auth with fog ON — fog admins must explicitly re-toggle
+            // SET_FOG_DISABLED each login (the client also clears its persisted reveal
+            // preference on Firebase sign-in so it does not auto-resend the toggle).
             session.fogDisabled = false;
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
             loginTracer.stage("profile_get_end");
+            loginPhase.notify(socket, "Loading your profile...", "Your account binding and profile are loaded.");
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
                 ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
@@ -2041,7 +2015,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             socialState.registerPlayer(
               playerIdentity.playerId,
-              persistedProfile?.name ?? playerIdentity.playerName
+              socialRegistrationNameFor(playerIdentity.playerId, persistedProfile?.name ?? playerIdentity.playerName)
             );
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
@@ -2070,6 +2044,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: playerIdentity.playerId,
                 channel
               });
+              loginPhase.notify(socket, "Preparing your empire...", "Connecting to the simulation backend.");
               const prepareResult = await retrySimulationRpc(
                 "gateway prepare player",
                 () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
@@ -2081,6 +2056,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     attempt,
                     error: error instanceof Error ? error.message : String(error)
                   });
+                  loginPhase.notify(socket, "Preparing your empire...", `Retrying with the simulation backend (attempt ${attempt})...`);
                 }
               );
               if (acceptedRallyCode && !prepareResult.spawned) {
@@ -2101,6 +2077,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               markSimulationReady();
               authTrace.endStep("prepare_player");
               loginTracer.stage("prepare_player_end", { spawned: prepareResult.spawned });
+              loginPhase.notify(socket, "Preparing your empire...", "Empire prepared. Loading your world state...");
             } catch (error) {
               loginTracer.stage("prepare_player_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_prepare_failed", {
@@ -2109,11 +2086,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 prepareDurationMs: Date.now() - prepareStartedAt,
                 error: error instanceof Error ? error.message : String(error)
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               if (acceptedRallyCode) await rallyLinkStore.releaseUse(acceptedRallyCode);
               authTrace.endStep("prepare_player", false);
               authTrace.complete("rejected", "prepare_failed");
@@ -2131,12 +2104,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 bootstrapsInFlight,
                 maxConcurrentBootstraps
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_BUSY",
-                retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
-                message: "Server is busy. Retry shortly."
-              });
+              sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
               authTrace.complete("rejected", "bootstrap_admission");
               return;
             }
@@ -2151,12 +2119,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   maxConcurrentBootstraps,
                   queueDepth: loginQueue.size()
                 });
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "SERVER_BUSY",
-                  retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
-                  message: "Server is busy. Retry shortly."
-                });
+                sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
                 authTrace.complete("rejected", "bootstrap_admission");
                 return;
               }
@@ -2199,11 +2162,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     attempt,
                     error: error instanceof Error ? error.message : String(error)
                   });
+                  loginPhase.notify(socket, "Loading your world state...", `Retrying with the simulation backend (attempt ${attempt})...`);
                 }
               );
               markSimulationReady();
               authTrace.endStep("bootstrap_subscribe");
               loginTracer.stage("bootstrap_subscribe_end", { tileCount: bootstrapInitialState?.tiles.length ?? 0 });
+              loginPhase.notify(socket, "Syncing empire...", "Your world state loaded. Joining the simulation...");
               if (bootstrapInitialState) {
                 recordGatewayEvent("info", "gateway_auth_bootstrap_ready", {
                   playerId: playerIdentity.playerId,
@@ -2219,11 +2184,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel,
                 error: error instanceof Error ? error.message : String(error)
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("bootstrap_subscribe", false);
               authTrace.complete("rejected", "bootstrap_failed");
               return;
@@ -2231,45 +2192,41 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               bootstrapsInFlight -= 1;
               loginQueue.drain();
             }
+            // Client gave up during the multi-second bootstrap subscribe: socket is closed and its
+            // close handler already no-op'd (nothing attached yet). Attaching now leaks a dead socket
+            // into the subscriber set — every future broadcast fans out to one more zombie per abandoned
+            // login. (A close AFTER attach is self-healed by removeSocket + subscribeOnce's hasSockets guard.)
+            if (socket.readyState !== socket.OPEN) {
+              gatewayMetrics.incrementLoginAbandonedBeforeAttachTotal();
+              recordGatewayEvent("warn", "gateway_auth_abandoned_before_attach", { playerId: playerIdentity.playerId, channel });
+              authTrace.complete("rejected", "abandoned_before_attach");
+              return;
+            }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
+            // Bulk: identity + attachSocket suffices; skip heavy pipeline.
+            if (channel === "bulk") { loginTracer.done({ outcome: "init_sent", channel: "non_control" }); authTrace.complete("init_sent", "non_control_channel"); return; }
             if (bootstrapInitialState) {
-              const seedSnapshotStartedAt = Date.now();
-              playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
-              recordGatewayAuthStepTiming("seed_snapshot", Date.now() - seedSnapshotStartedAt, {
-                playerId: playerIdentity.playerId,
+              seedBootstrapSnapshotWithDiagnostics(
+                { playerSubscriptions, seededPlayerIds, recordAuthStepTiming: recordGatewayAuthStepTiming, recordSnapshotDiagnostics: recordGatewaySnapshotDiagnostics },
+                playerIdentity.playerId,
                 channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
-              const gatewaySnapshotDiagnosticsStartedAt = Date.now();
-              recordGatewaySnapshotDiagnostics(playerIdentity.playerId, bootstrapInitialState, {
-                trigger: "gateway_auth_bootstrap",
-                fullVisibility: false,
-                socketCount: 1,
-                payloadJsonBytes: 0
-              });
-              recordGatewayAuthStepTiming("gateway_snapshot_diagnostics", Date.now() - gatewaySnapshotDiagnosticsStartedAt, {
-                playerId: playerIdentity.playerId,
-                channel,
-                tileCount: bootstrapInitialState.tiles.length
-              });
+                bootstrapInitialState
+              );
             }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
-            const loginProgressStartedAt = Date.now();
-            const loginProgressInterval = setInterval(() => {
-              if (socket.readyState !== socket.OPEN) return;
-              const elapsedMs = Date.now() - loginProgressStartedAt;
-              const { title, detail } = elapsedMs < 3_000
+            const loginProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) =>
+              elapsedMs < 3_000
                 ? { title: "Syncing empire...", detail: "Connecting your empire to the simulation." }
                 : elapsedMs < 8_000
                   ? { title: "Syncing empire...", detail: "Exporting your territory — almost there." }
                   : elapsedMs < 20_000
                     ? { title: "Syncing empire...", detail: `Building snapshot for a large empire (${Math.round(elapsedMs / 1000)}s)…` }
-                    : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` };
-              sendJson(socket, { type: "LOGIN_PHASE", title, detail });
-            }, 1_000);
+                    : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` }
+            );
+            const liveSubscribeStartedAt = Date.now();
             try {
-              await retrySimulationRpc(
+              const subscribedSnapshot = await retrySimulationRpc(
                 "gateway live subscribe player",
                 () => playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
                 simulationSubscribeTimeoutMs,
@@ -2282,6 +2239,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   });
                 }
               );
+              if (subscribedSnapshot && subscribedSnapshot.tiles.length === 0 && bootstrapInitialState && bootstrapInitialState.tiles.length > 0) {
+                subscribedSnapshot.tiles = bootstrapInitialState.tiles;
+              }
+              // Every OTHER auth step here gets a recordGatewayAuthStepTiming slow-step
+              // warning, but this one -- the SubscribePlayer RPC driving the sim's
+              // per-player visible-state export, which yields dozens of times for a
+              // large empire (runtime-visible-state.ts) and previously caused a "26s
+              // login regression" (event-loop-yield.ts) with no server-side log trail
+              // once the ~9min Fly log buffer rolled past it -- didn't. Log it too.
+              recordGatewayAuthStepTiming("live_subscribe", Date.now() - liveSubscribeStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: subscribedSnapshot?.tiles?.length ?? 0
+              });
               markSimulationReady();
               authTrace.endStep("live_subscribe");
               loginTracer.stage("live_subscribe_end");
@@ -2295,35 +2266,50 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
                 app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "SERVER_STARTING",
-                message: "Realtime simulation is temporarily unavailable. Retry shortly."
-              });
+              evictSeededPlayerId(playerIdentity.playerId); sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
               authTrace.endStep("live_subscribe", false);
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
             } finally {
               clearInterval(loginProgressInterval);
             }
-            const resolveInitialStateStartedAt = Date.now();
-            const initialState = resolveInitialState({
-              playerId: playerIdentity.playerId,
-              authoritativeSnapshot: bootstrapInitialState,
-              cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
-              simulationSeedProfile,
-              allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
-              allowSeedFallback: allowNonAuthoritativeInitialState
-            });
-            recordGatewayAuthStepTiming("resolve_initial_state", Date.now() - resolveInitialStateStartedAt, {
-              playerId: playerIdentity.playerId,
-              channel,
-              tileCount: initialState?.tiles.length ?? 0
-            });
-            authTrace.startStep("hydrate_leaderboard_profiles");
-            await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
-            authTrace.endStep("hydrate_leaderboard_profiles");
-            if (session.channel === "control") {
+            // This stretch (resolve_initial_state -> hydrate -> build_init -> stringify_init)
+            // used to be completely silent; cover it like live_subscribe above.
+            const finalizeProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) => ({
+              title: "Finishing up...",
+              detail:
+                elapsedMs < 3_000
+                  ? "Building your world state."
+                  : `Building session data for a large empire (${Math.round(elapsedMs / 1000)}s)…`
+            }));
+            // finalizeProgressInterval must always be cleared, including if any await
+            // below throws (resolveInitialState/hydrate/buildInitMessage/buildTakenColorSet
+            // are not guarded individually) — an uncaught rejection here is caught by the
+            // outer socket.on("message") try/catch, which has no reference to this timer,
+            // Without this try/finally, the interval fires LOGIN_PHASE every second forever.
+            try {
+              const resolveInitialStateStartedAt = Date.now();
+              let initialState = resolveInitialState({
+                playerId: playerIdentity.playerId,
+                authoritativeSnapshot: bootstrapInitialState,
+                cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
+                simulationSeedProfile,
+                allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
+                allowSeedFallback: allowNonAuthoritativeInitialState
+              });
+              recordGatewayAuthStepTiming("resolve_initial_state", Date.now() - resolveInitialStateStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: initialState?.tiles.length ?? 0
+              });
+              authTrace.startStep("hydrate_leaderboard_profiles");
+              await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
+              authTrace.endStep("hydrate_leaderboard_profiles");
+              // Refresh only tiles (the field that goes stale during a slow bootstrap_subscribe,
+              // causing EXPAND_TARGET_OWNED) from the live subscribe cache -- it never sets
+              // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
+              const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
+              if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
               authTrace.startStep("build_init");
               const buildInitMessageStartedAt = Date.now();
               const initMessage = await buildInitMessage(
@@ -2350,6 +2336,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
+              (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
@@ -2417,11 +2405,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               session.pendingPayloads = [];
               loginTracer.done({ outcome: "init_sent" });
               authTrace.complete("init_sent");
-            } else {
-              loginTracer.done({ outcome: "init_sent", channel: "non_control" });
-              authTrace.complete("init_sent", "non_control_channel");
+            } finally {
+              clearInterval(finalizeProgressInterval);
             }
             return;
+            } finally { releaseAuthSlot(session, "AUTH"); }
           }
 
           if (!session.playerId) {
@@ -2543,33 +2531,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "START_NEW_SEASON") {
-            if (!session.playerId) {
-              sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" });
-              return;
-            }
-            recordGatewayEvent("info", "gateway_start_new_season_requested", {
-              playerId: session.playerId,
-              channel: session.channel
-            });
+            if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; }
+            if (seasonStartVote.hasVoted(session.playerId)) { sendJson(socket, { type: "ERROR", code: "ALREADY_VOTED", message: "already voted" }); return; }
+            const { count, thresholdMet } = seasonStartVote.vote(session.playerId);
+            recordGatewayEvent("info", "gateway_start_new_season_vote", { playerId: session.playerId, count });
+            const votePayload = preSerializeBroadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: count, threshold: SEASON_START_VOTE_THRESHOLD, votedBy: [...seasonStartVote.getVoters()] });
+            for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload);
+            if (!thresholdMet) return;
             try {
-              // force=false: the sim only rolls over when the current season has
-              // already ended, so a player pressing this on the season-end screen
-              // cannot reset an active season. The resulting SEASON_ROLLOVER is
-              // broadcast to every connected client.
               const result = await simulationClient.startNextSeason(false);
-              recordGatewayEvent("info", "gateway_start_new_season_ok", {
-                playerId: session.playerId,
-                seasonId: result.seasonId
-              });
+              seasonStartVote.reset();
+              slackAlerter?.alertSeasonStarted(result.seasonId, false);
             } catch (error) {
-              // Rejects if the season has not ended yet or a rollover is already
-              // in flight — both are benign races from clicking the button. The
-              // in-flight rollover still broadcasts SEASON_ROLLOVER to everyone.
-              recordGatewayEvent("warn", "gateway_start_new_season_rejected", {
-                playerId: session.playerId,
-                channel: session.channel,
-                error: error instanceof Error ? error.message : String(error)
-              });
+              recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
               sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
             }
             return;
@@ -2628,8 +2602,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
               return;
             }
+            // The client always resends the player's current color alongside a
+            // name-only change (SET_PROFILE has no name-only variant). Re-running
+            // the collision check against that unchanged color falsely blocks the
+            // name update whenever the player's own stored color happens to match
+            // another player's (e.g. a pre-existing duplicate from before the
+            // uniqueness check existed) — skip the check when the color isn't
+            // actually changing.
+            const existingProfile = await profileStore.get(session.playerId);
+            const existingColor = normalizeHex(existingProfile?.tileColor ?? "");
+            const colorUnchanged = existingColor !== null && existingColor === normalized;
             const taken = await buildTakenColorSet(session.playerId);
-            if (isTaken(normalized, taken)) {
+            if (!colorUnchanged && isTaken(normalized, taken)) {
               const suggestion = suggestAlternative(normalized, taken);
               gatewayMetrics.incrementColorCollisionRejectedTotal();
               sendJson(socket, {
@@ -2640,7 +2624,41 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               return;
             }
-            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized);
+            // Renames are throttled to once per season, but the player's initial
+            // profile setup (picking their first real name, gated on
+            // profileComplete not yet being true) doesn't consume that allowance —
+            // only a rename of an already-complete profile does. Color changes are
+            // throttled the same way. Both checks share one season lookup since a
+            // single SET_PROFILE call can trigger both at once.
+            const isRename = existingProfile?.profileComplete === true && existingProfile.name !== message.displayName;
+            const isColorChange = existingProfile?.profileComplete === true && !colorUnchanged;
+            let currentSeasonId: string | undefined;
+            if (isRename || isColorChange) {
+              try {
+                currentSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
+              } catch {
+                currentSeasonId = undefined;
+              }
+            }
+            if (isRename && currentSeasonId && existingProfile?.nameChangedSeasonId === currentSeasonId) {
+              sendJson(socket, {
+                type: "ERROR",
+                code: "DISPLAY_NAME_LIMIT",
+                message: "You can only change your display name once per season. Try again next season."
+              });
+              return;
+            }
+            if (isColorChange && currentSeasonId && existingProfile?.colorChangedSeasonId === currentSeasonId) {
+              sendJson(socket, {
+                type: "ERROR",
+                code: "COLOR_LIMIT",
+                message: "You can only change your empire colour once per season. Try again next season."
+              });
+              return;
+            }
+            const nameChangedSeasonId = isRename ? currentSeasonId : undefined;
+            const colorChangedSeasonId = isColorChange ? currentSeasonId : undefined;
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
@@ -2652,18 +2670,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
             taken.add(normalized);
             const suggestedColors = pickSuggestedPalette(6, taken);
-            const stylePayload = {
+            const stylePayload = preSerializeBroadcast({
               type: "PLAYER_STYLE",
               playerId: session.playerId,
               name: override.name ?? message.displayName,
               tileColor: override.tileColor ?? normalized
-            };
+            });
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
               queueOrSendSessionPayload(targetSocket, {
                 type: "PLAYER_UPDATE",
-                name: override.name,
-                tileColor: override.tileColor,
+                name: override.name ?? message.displayName,
+                tileColor: override.tileColor ?? normalized,
                 profileNeedsSetup: false,
                 canToggleFog: session.canToggleFog,
                 suggestedColors
@@ -2733,64 +2751,26 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "TRUCE_REQUEST") {
-            const result = socialState.requestTruce(session.playerId, message.targetPlayerName, message.durationHours);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);
-            if (alert) {
-              sendGameplayEmailAlert("truce_request", alert.recipientPlayerId, () =>
-                emailAlerts.sendTruceRequestAlert({
-                  recipientPlayerId: alert.recipientPlayerId,
-                  senderName: alert.senderName,
-                  durationHours: alert.durationHours
-                })
-              );
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            await maybeAutoRespondToSeededAiTruce(extractTruceRequestFromPayloads(result.payloadsByPlayerId, session.playerId));
-            return;
-          }
-
-          if (message.type === "TRUCE_ACCEPT") {
-            const result = socialState.acceptTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_REJECT") {
-            const result = socialState.rejectTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_CANCEL") {
-            const result = socialState.cancelTruce(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "TRUCE_BREAK") {
-            const result = socialState.breakTruce(session.playerId, message.targetPlayerId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
+          if (
+            await handleTruceSocketMessage(
+              {
+                requestTruce: socialState.requestTruce,
+                acceptTruce: socialState.acceptTruce,
+                rejectTruce: socialState.rejectTruce,
+                cancelTruce: socialState.cancelTruce,
+                breakTruce: socialState.breakTruce,
+                sendJson,
+                fanoutPlayerPayloads,
+                syncTruceToSimulation,
+                maybeAutoRespondToSeededAiTruce,
+                sendGameplayEmailAlert,
+                sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert
+              },
+              message,
+              session.playerId,
+              socket
+            )
+          ) {
             return;
           }
 
@@ -2815,11 +2795,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               messageType: message.type,
               simulationLastError: simulationHealth.lastError ?? ""
             });
-            sendJson(socket, {
-              type: "ERROR",
-              code: "SERVER_STARTING",
-              message: "Realtime simulation is temporarily unavailable. Retry shortly."
-            });
+            sendJson(socket, buildServerStartingErrorPayload(simulationHealth));
             return;
           }
 
@@ -2934,18 +2910,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
           };
-          const dispatchDurableCommand = (
-            type: DurableCommandType,
-            payload: Record<string, unknown>,
-            withMetadata = false
-          ): Promise<void> =>
-            trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) },
-                submitDeps
-              )
-            );
+          const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
+          };
           if (message.type === "SETTLE") {
             await dispatchDurableCommand("SETTLE", { x: message.x, y: message.y }, true);
           } else if (message.type === "BUILD_FORT") {
@@ -2969,6 +2937,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // A timeout or gRPC error here just means the muster panel won't refresh
             // live for this session; the client can re-open the menu to retry.
             try {
+              // clientSeq stays 0 by design: the simulation exempts
+              // WATCH_MUSTER/UNWATCH_MUSTER from durable persistence (they are
+              // ephemeral view toggles), so the commands-table UNIQUE
+              // (player_id, client_seq) index never sees them.
               await withTimeout(
                 simulationClient.submitCommand({
                   commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
@@ -2988,6 +2960,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "UNWATCH_MUSTER") {
             // Best-effort unsubscribe — failure must not produce GATEWAY_INTERNAL_ERROR.
             try {
+              // clientSeq 0 is fine here — see WATCH_MUSTER above.
               await withTimeout(
                 simulationClient.submitCommand({
                   commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
@@ -3014,6 +2987,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {
             await dispatchDurableCommand("CANCEL_STRUCTURE_BUILD", { x: message.x, y: message.y });
+          } else if (message.type === "RUSH_BUY") {
+            await dispatchDurableCommand("RUSH_BUY", { x: message.x, y: message.y }, true);
+          } else if (message.type === "CANCEL_SETTLE") {
+            await dispatchDurableCommand("CANCEL_SETTLE", { x: message.x, y: message.y });
           } else if (message.type === "REMOVE_STRUCTURE") {
             await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
@@ -3035,8 +3012,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             });
           } else if (message.type === "CANCEL_CAPTURE") {
             await dispatchDurableCommand("CANCEL_CAPTURE", {});
-          } else if (message.type === "OVERLOAD_SYNTHESIZER") {
-            await dispatchDurableCommand("OVERLOAD_SYNTHESIZER", { x: message.x, y: message.y }, true);
           } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
             await dispatchDurableCommand(
               "SET_CONVERTER_STRUCTURE_ENABLED",
@@ -3074,7 +3049,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "IMPERIAL_EXCHANGE_LEVY") {
             await dispatchDurableCommand(
               "IMPERIAL_EXCHANGE_LEVY",
-              { fromX: message.fromX, fromY: message.fromY, resource: message.resource },
+              { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );
           } else if (message.type === "WORLD_ENGINE_STRIKE") {
@@ -3127,34 +3102,33 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       });
 
-      socket.on("close", () => {
+      // Close codes (developer.mozilla.org/docs/Web/API/CloseEvent/code): 1000/1001 are
+      // normal; anything else (1006 no-close-frame, 1011, etc.) is "abnormal".
+      socket.on("close", (code: number, reason: Buffer) => {
+        gatewayMetrics.incrementWebsocketDisconnectTotal();
+        const isNormalClose = code === 1000 || code === 1001;
+        if (!isNormalClose) gatewayMetrics.incrementWebsocketAbnormalDisconnectTotal();
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
+        const closeReason = reason?.toString("utf8").slice(0, 200) ?? "";
+        recordGatewayEvent(isNormalClose ? "info" : "warn", "gateway_websocket_closed", { playerId: closingPlayerId, code, reason: closeReason, sessionId: session.sessionId });
+        slackAlerter?.alertPlayerDisconnected(closingPlayerId, { code, reason: closeReason, isNormalClose });
+        // clientSeq 0 by design: the simulation exempts UNWATCH_MUSTER from
+        // durable persistence (ephemeral view toggle), so no UNIQUE
+        // (player_id, client_seq) row is ever written for it — no need to
+        // burn a store round-trip allocating a real sequence here.
         void simulationClient.submitCommand({
           commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
-          sessionId: session.sessionId,
-          playerId: closingPlayerId,
-          clientSeq: 0,
-          issuedAt: Date.now(),
-          type: "UNWATCH_MUSTER",
-          payloadJson: "{}"
+          sessionId: session.sessionId, playerId: closingPlayerId, clientSeq: 0, issuedAt: Date.now(),
+          type: "UNWATCH_MUSTER", payloadJson: "{}"
         }).catch(() => { /* best-effort on disconnect */ });
-        void playerSubscriptions.removeSocket(closingPlayerId, socket)
-          .then(() => {
-            syncGatewaySnapshotMetricsFromCache(closingPlayerId);
-            // Prune fog-refresh bookkeeping when no fog-disabled session remains
-            // for this player — avoids unbounded growth of lastStartedAt across
-            // the gateway's lifetime.
-            const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
-              (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-            );
-            if (!stillFogDisabled) {
-              fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
-            }
-          })
-          .catch((error) => {
-            app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
-          });
+        void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
+          syncGatewaySnapshotMetricsFromCache(closingPlayerId);
+          const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
+          if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+          evictSeededPlayerId(closingPlayerId);
+          if (remainingSockets.length === 0) commandRateLimiter.releasePlayer(closingPlayerId);
+        }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
       });
     });
   });

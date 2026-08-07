@@ -807,7 +807,8 @@ body {
 #hud #intel-overlay,
 #hud #season-end-overlay,
 #hud #structure-info-overlay,
-#hud #tech-detail-overlay {
+#hud #tech-detail-overlay,
+#hud #bug-report-overlay {
   pointer-events: auto;
 }
 
@@ -1053,6 +1054,77 @@ body {
 .stat-chip.warning {
   border-color: rgba(255, 185, 120, 0.45);
   background: rgba(120, 44, 7, 0.45);
+}
+
+.stat-chip-def-wrap {
+  position: relative;
+}
+
+.integrity-warning-tip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: 240px;
+  padding: 10px 26px 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 185, 120, 0.45);
+  background: linear-gradient(180deg, rgba(120, 44, 7, 0.96), rgba(70, 26, 5, 0.98));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.integrity-warning-tip::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 18px;
+  width: 12px;
+  height: 12px;
+  background: rgba(120, 44, 7, 0.96);
+  border-left: 1px solid rgba(255, 185, 120, 0.45);
+  border-top: 1px solid rgba(255, 185, 120, 0.45);
+  transform: rotate(45deg);
+}
+
+.integrity-warning-tip p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #ffe9d6;
+}
+
+.integrity-warning-tip-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: rgba(255, 233, 214, 0.75);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.integrity-warning-tip-close:hover {
+  color: #ffe9d6;
+}
+
+.integrity-warning-tip-ack {
+  appearance: none;
+  border: 1px solid rgba(255, 185, 120, 0.55);
+  border-radius: 7px;
+  background: rgba(255, 185, 120, 0.16);
+  color: #ffe9d6;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.integrity-warning-tip-ack:hover {
+  background: rgba(255, 185, 120, 0.28);
 }
 
 #panel-actions {
@@ -2661,6 +2733,15 @@ body {
 .tile-overview-effect-mod.is-neutral {
   color: rgba(182, 204, 230, 0.74);
 }
+/* §14.2: dormant/unpowered structure indicator — distinct greyed-out tone,
+   separate from both the default overview-line color and the amber
+   is-warning tone used elsewhere, so a dormant structure reads at a glance
+   as "off" rather than merely "notable." */
+.tile-overview-dormant {
+  display: inline-block;
+  color: rgba(154, 166, 184, 0.85);
+  font-weight: 700;
+}
 .tile-overview-card,
 .tile-progress-card {
   display: grid;
@@ -2775,6 +2856,20 @@ body {
 }
 .tile-progress-cancel:hover {
   background: rgba(120, 20, 20, 0.26);
+}
+.tile-progress-secondary {
+  justify-self: start;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 180, 255, 0.34);
+  background: rgba(20, 60, 120, 0.18);
+  color: #d6e8ff;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tile-progress-secondary:hover {
+  background: rgba(20, 60, 120, 0.26);
 }
 .tile-action-list {
   display: grid;
@@ -3082,6 +3177,10 @@ body {
   color: rgba(162, 212, 255, 0.78);
 }
 
+.bridge-debug-zoom-range {
+  color: rgba(162, 212, 255, 0.78);
+}
+
 .card p {
   margin: 4px 0 0;
   color: rgba(233, 242, 255, 0.7);
@@ -3208,11 +3307,8 @@ body {
   color: #ff9b9b;
 }
 
-.economy-line.muted {
-  justify-content: flex-start;
-  color: rgba(181, 196, 218, 0.62);
-}
-
+.economy-line.muted { justify-content: flex-start; color: rgba(181, 196, 218, 0.62); }
+.economy-line.is-dormant { opacity: 0.7; } .economy-dormant-flag { color: rgba(154, 166, 184, 0.85); font-weight: 700; }
 .economy-line.muster-flag-row.panel-btn {
   width: 100%;
   border: 0;
@@ -3961,6 +4057,9 @@ body {
   color: rgba(240, 228, 207, 0.78);
 }
 
+.event-log-card { display: grid; gap: 10px; min-width: 0; } .event-log-head { display: flex; align-items: center; justify-content: space-between; } .event-log-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 260px; overflow-y: auto; }
+.event-log-row { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.03); } .event-log-icon { font-size: 14px; } .event-log-text { min-width: 0; color: rgba(240, 228, 207, 0.9); }
+.event-log-time { font-size: 11px; white-space: nowrap; color: rgba(229, 217, 197, 0.6); } .event-log-empty { margin: 0; color: rgba(240, 228, 207, 0.6); }
 .domain-summary-kicker {
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -4066,11 +4165,8 @@ body {
   pointer-events: auto;
 }
 
-.tech-card.blocked,
-.tech-card.owned,
-.tech-card.pending {
-  cursor: default;
-}
+.tech-card.blocked, .tech-card.owned, .tech-card.pending { cursor: default; }
+.tech-card-affordable-pulse { animation: valuePulseUp 0.55s ease-out 2; } /* "reward is ready", §7.3 */
 
 .tech-card-top {
   display: flex;
@@ -4299,6 +4395,92 @@ body {
 
 .tech-req-list .bad {
   color: #ff9f9f;
+}
+
+/* Tech-tree redesign: branch tag (War/Economy/Manpower/Aether). Plain
+   colored label, not a redesign of the tech card. */
+.tech-branch-tag {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  border: 1px solid currentColor;
+}
+
+.tech-branch-tag-war {
+  color: #ff9f9f;
+}
+
+.tech-branch-tag-economy {
+  color: #ffd166;
+}
+
+.tech-branch-tag-manpower {
+  color: #84f2b8;
+}
+
+.tech-branch-tag-aether {
+  color: #9fb8ff;
+}
+
+/* Tech-tree redesign: payoff chips summarize what a tech actually unlocks
+   (a building, an ability, or an upgrade to an existing building) so a
+   player can tell those apart at a glance instead of an unlabeled wall of
+   names. Each chip is its own visual block (background + border + gap)
+   so multiple chips never visually run together. */
+.tech-payoff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tech-payoff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72em;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.tech-payoff-chip::before {
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.tech-payoff-chip-structure {
+  color: #9fb8ff;
+  background: rgba(159, 184, 255, 0.1);
+}
+
+.tech-payoff-chip-structure::before {
+  content: "\1F3DB"; /* classical building glyph — structure */
+}
+
+.tech-payoff-chip-action {
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.tech-payoff-chip-action::before {
+  content: "\26A1"; /* lightning bolt — ability */
+}
+
+.tech-payoff-chip-upgrade {
+  color: #84f2b8;
+  background: rgba(132, 242, 184, 0.1);
+}
+
+.tech-payoff-chip-upgrade::before {
+  content: "\2191"; /* up arrow — upgrade */
 }
 
 .muted {
@@ -5019,7 +5201,7 @@ button:disabled,
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     grid-template-areas:
-      "gold def manpower dev"
+      "gold manpower def dev"
       "resources resources resources resources";
     gap: 5px;
   }
@@ -6087,6 +6269,11 @@ button:disabled,
 .se-btn-secondary:hover { filter: brightness(1.12); border-color: rgba(201, 162, 75, 0.7); }
 .se-fineprint { text-align: center; margin: 12px 0 2px; font-size: 11px; color: rgba(236, 220, 180, 0.5); }
 .se-fineprint strong { color: var(--se-copper); }
+.se-misc-items { display: flex; flex-direction: column; gap: 10px; }
+.se-misc-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(201, 162, 75, 0.15); }
+.se-misc-label { font-size: 13px; color: var(--se-brass-hi); font-weight: 700; white-space: nowrap; }
+.se-misc-value { font-size: 14px; color: var(--se-parch); text-align: right; }
+.se-misc-value strong { color: var(--se-copper); }
 
 @media (max-width: 560px) {
   #season-end-overlay { padding: 8px; }

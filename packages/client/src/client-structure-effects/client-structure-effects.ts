@@ -1,4 +1,11 @@
-import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance, TECH_REQUIREMENTS_BY_STRUCTURE, structureCostDefinition } from "@border-empires/shared";
+import {
+  SETTLED_DEFENSE_NEAR_FORT_RADIUS,
+  wrappedChebyshevDistance,
+  TECH_REQUIREMENTS_BY_STRUCTURE,
+  structureCostDefinition,
+  structureSlotRequirements,
+  type SlotResource
+} from "@border-empires/shared";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
@@ -236,15 +243,20 @@ export const placementRadius = (structureType: PlacementStructureType): number =
 
 export type PlacementAvailability = { available: true } | { available: false; reason: string };
 
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/IRON/
+// CRYSTAL/SUPPLY build-time stockpile spend was retired server-side (Step 5
+// item 4 Slice A) -- structureCostDefinition's resourceCost field for these
+// four keys is stale. structureSlotRequirements is the real gate now,
+// matching hasFreeResourceSlots (runtime-structure-command-handlers.ts).
 export const canBuildPlacementStructure = (
   structureType: PlacementStructureType,
   tile: Tile,
   me: string,
   gold: number,
   techIds: string[],
-  strategicResources?: Partial<Record<string, number>>
+  resourceSlots?: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> }
 ): PlacementAvailability => {
-  if (tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure)
+  if (tile.siegeOutpost || tile.observatory || tile.economicStructure)
     return { available: false, reason: "Tile already has structure" };
   if (tile.ownerId !== me) return { available: false, reason: "Not your tile" };
 
@@ -256,10 +268,10 @@ export const canBuildPlacementStructure = (
   if (gold < costDef.baseGoldCost)
     return { available: false, reason: `Need ${costDef.baseGoldCost} gold` };
 
-  if (costDef.resourceCost) {
-    const have = strategicResources?.[costDef.resourceCost.resource] ?? 0;
-    if (have < costDef.resourceCost.amount)
-      return { available: false, reason: `Need ${costDef.resourceCost.amount} ${costDef.resourceCost.resource}` };
+  for (const requirement of structureSlotRequirements(structureType)) {
+    const free = (resourceSlots?.supply[requirement.resource] ?? 0) - (resourceSlots?.demand[requirement.resource] ?? 0);
+    if (free < requirement.count)
+      return { available: false, reason: `Need a free ${requirement.resource} slot` };
   }
 
   return { available: true };
@@ -314,7 +326,7 @@ export const tileAreaEffectModifiersForTile = (
     isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
   ) {
     modifiers.push({
-      reason: "Garrison Hall",
+      reason: "Ancillary Factory",
       effect: "+20% defense",
       tone: "positive"
     });

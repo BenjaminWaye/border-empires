@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
@@ -113,11 +113,9 @@ const sendDomainCommand = (
 };
 
 const offeredTrickleOptions = (effects: Record<string, unknown> | undefined): TrickleOption[] => {
-  const raw = (effects?.chosenResourceTrickleOptions ?? null) as Record<string, unknown> | null;
-  if (!raw || typeof raw !== "object") return [];
-  return Object.entries(raw)
-    .filter(([, rate]) => typeof rate === "number" && (rate as number) > 0)
-    .map(([resource, rate]) => ({ resource: resource.toUpperCase(), ratePerMinute: rate as number }));
+  const grant = effects?.chosenResourceSlotGrant;
+  if (typeof grant !== "number" || !Number.isFinite(grant) || grant <= 0) return [];
+  return TRICKLE_RESOURCE_KEYS.map((resource) => ({ resource, slotCount: grant }));
 };
 
 export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: PlayerActionDeps): void => {
@@ -158,10 +156,10 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     return;
   }
   // Some domains (e.g. Clockwork Stipend) require a sub-choice — the player
-  // picks one resource that will trickle forever. The catalog effect carries
-  // the offered { RESOURCE: ratePerMinute } map; if the option list is
-  // present the server will reject the command unless `chosenTrickleResource`
-  // is included in the payload, so we have to collect it here before sending.
+  // picks one resource that will grant a free logistics slot. The catalog
+  // effect carries the slot grant; if present the server will reject the
+  // command unless `chosenTrickleResource` is included in the payload, so
+  // we have to collect it here before sending.
   const offered = offeredTrickleOptions(domain.effects);
   if (offered.length === 0) {
     sendDomainCommand(deps, domain, undefined);

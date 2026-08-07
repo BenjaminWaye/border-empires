@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_MS } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { planWaypoint } from "./client-waypoint-planner.js";
@@ -63,11 +63,43 @@ describe("planWaypoint", () => {
     expect(plan.blockReason).toBe("TARGET_OWN");
   });
 
-  it("blocks when the target tile is unexplored", () => {
-    const state = stateWith([tile(3, 3, { ownerId: "me" })]);
+  it("never pre-emptively blocks an unexplored target by guessing its terrain — reaches it if a path exists", () => {
+    // The planner has no way to know (and must not guess) that (101, 101) will
+    // turn out to be a mountain or sea in reality; it only has coordinates and
+    // must attempt the path exactly as it would for confirmed land.
+    const state = stateWith([
+      tile(100, 100, { ownerId: "me" }),
+      tile(100, 101)
+    ]);
+    const plan = planWaypoint({ x: 101, y: 101 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.blockReason).toBeUndefined();
+    expect(plan.steps.length).toBeGreaterThan(0);
+  });
+
+  it("reaches a distant unexplored target even when the tiles between it and owned territory are also unexplored", () => {
+    // Only the owned source tile is known — (5,6), (5,7), (5,8), and the
+    // (5,9) target are all absent from state.tiles, exactly like a genuinely
+    // unexplored area the player has never scouted. Previously only the
+    // final goal tile got optimistic NEUTRAL treatment, so the search hit
+    // IMPASSABLE the moment it stepped past (5,5) into any other unexplored
+    // tile and reported NO_PATH — waypoints only worked when the target was
+    // directly adjacent to known territory.
+    const state = stateWith([tile(5, 5, { ownerId: "me" })]);
+    const plan = planWaypoint({ x: 5, y: 9 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.blockReason).toBeUndefined();
+    expect(plan.steps.length).toBe(4);
+  });
+
+  it("only blocks with TARGET_BARRIER once the target tile is actually discovered to be non-LAND", () => {
+    const state = stateWith([
+      tile(3, 3, { ownerId: "me" }),
+      tile(5, 5, { terrain: "MOUNTAIN" })
+    ]);
     const plan = planWaypoint({ x: 5, y: 5 }, baseDeps(state));
     expect(plan.reachable).toBe(false);
-    expect(plan.blockReason).toBe("TARGET_UNEXPLORED");
+    expect(plan.blockReason).toBe("TARGET_BARRIER");
   });
 
   it("blocks when the target is a barrier (mountain)", () => {
@@ -119,11 +151,23 @@ describe("planWaypoint", () => {
   });
 
   it("emits a straight-line expand chain through neutral land", () => {
+    // Walled on both sides so unexplored terrain surrounding the corridor
+    // (now optimistically passable — see the "reaches a distant unexplored
+    // target" test) can't offer an equal-cost alternate route; this test is
+    // about EXPAND chain semantics/costs, not path-tie-breaking.
     const tiles = [
       tile(3, 3, { ownerId: "me" }),
       tile(4, 3),
       tile(5, 3),
-      tile(6, 3)
+      tile(6, 3),
+      tile(3, 2, { terrain: "MOUNTAIN" }),
+      tile(4, 2, { terrain: "MOUNTAIN" }),
+      tile(5, 2, { terrain: "MOUNTAIN" }),
+      tile(6, 2, { terrain: "MOUNTAIN" }),
+      tile(3, 4, { terrain: "MOUNTAIN" }),
+      tile(4, 4, { terrain: "MOUNTAIN" }),
+      tile(5, 4, { terrain: "MOUNTAIN" }),
+      tile(6, 4, { terrain: "MOUNTAIN" })
     ];
     const state = stateWith(tiles);
     const plan = planWaypoint({ x: 6, y: 3 }, baseDeps(state));
@@ -133,8 +177,12 @@ describe("planWaypoint", () => {
     expect(plan.steps[0]!.origin).toEqual({ x: 3, y: 3 });
     expect(plan.steps[0]!.target).toEqual({ x: 4, y: 3 });
     expect(plan.steps[2]!.target).toEqual({ x: 6, y: 3 });
-    expect(plan.totalGold).toBe(3);
-    expect(plan.totalManpower).toBe(0);
+    expect(plan.totalGold).toBe(0); // FRONTIER_CLAIM_COST is 0 post-manpower-rewrite
+    // Each EXPAND step costs EXPAND_MANPOWER_COST manpower (§4.2 of
+    // docs/manpower-economy-rewrite-plan.md) — a multi-hop EXPAND-only chain
+    // must show its real total manpower cost, not silently omit it.
+    expect(plan.totalManpower).toBe(3 * EXPAND_MANPOWER_COST);
+    expect(plan.steps.every((s) => s.manpowerCost === EXPAND_MANPOWER_COST)).toBe(true);
     expect(plan.totalDurationMs).toBe(3000);
     expect(plan.expandCount).toBe(3);
     expect(plan.attackCount).toBe(0);
@@ -142,16 +190,25 @@ describe("planWaypoint", () => {
   });
 
   it("emits an ATTACK step when the path crosses an enemy tile", () => {
+    // Walled so a cheaper EXPAND-only detour through unexplored terrain
+    // can't route around the enemy tile — the only way through is to attack it.
     const tiles = [
       tile(3, 3, { ownerId: "me" }),
       tile(4, 3, { ownerId: "enemy" }),
-      tile(5, 3)
+      tile(5, 3),
+      tile(3, 2, { terrain: "MOUNTAIN" }),
+      tile(4, 2, { terrain: "MOUNTAIN" }),
+      tile(5, 2, { terrain: "MOUNTAIN" }),
+      tile(3, 4, { terrain: "MOUNTAIN" }),
+      tile(4, 4, { terrain: "MOUNTAIN" }),
+      tile(5, 4, { terrain: "MOUNTAIN" })
     ];
     const state = stateWith(tiles);
     const plan = planWaypoint({ x: 5, y: 3 }, baseDeps(state));
     expect(plan.reachable).toBe(true);
     expect(plan.steps.map((s) => s.action)).toEqual(["ATTACK", "EXPAND"]);
-    expect(plan.totalManpower).toBe(60);
+    // ATTACK (60) + the trailing EXPAND's own EXPAND_MANPOWER_COST, not just the attack.
+    expect(plan.totalManpower).toBe(60 + EXPAND_MANPOWER_COST);
     expect(plan.attackCount).toBe(1);
     expect(plan.expandCount).toBe(1);
     expect(plan.firstAttackFromExistingFrontier).toBe(true);
@@ -192,12 +249,20 @@ describe("planWaypoint", () => {
   });
 
   it("returns no path when the target is completely walled off", () => {
-    // (5,5)me, target at (5,7), but all tiles between are mountain.
+    // (5,5)me, target at (5,7). Since unexplored terrain is now optimistically
+    // passable, the target's own 8 neighbors must ALL be mountain to prove
+    // truly no path exists — a partial barrier no longer isolates it, as
+    // there's always a way around through the surrounding unexplored land.
     const tiles = [
       tile(5, 5, { ownerId: "me" }),
       tile(4, 6, { terrain: "MOUNTAIN" }),
       tile(5, 6, { terrain: "MOUNTAIN" }),
       tile(6, 6, { terrain: "MOUNTAIN" }),
+      tile(4, 7, { terrain: "MOUNTAIN" }),
+      tile(6, 7, { terrain: "MOUNTAIN" }),
+      tile(4, 8, { terrain: "MOUNTAIN" }),
+      tile(5, 8, { terrain: "MOUNTAIN" }),
+      tile(6, 8, { terrain: "MOUNTAIN" }),
       tile(5, 7)
     ];
     const state = stateWith(tiles);
@@ -223,6 +288,22 @@ describe("planWaypoint", () => {
     expect(plan.steps[0]!.viaDock).toBe(true);
     expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
     expect(plan.steps[1]!.target).toEqual({ x: 41, y: 40 });
+  });
+
+  it("reaches an unexplored target whose only path is a dock jump (not just the 8-way and reconstruction passes)", () => {
+    // (5,5)me dock A linked to (40,40) dock B, which is itself the unexplored
+    // target — not in state.tiles at all. All three A* traversal points
+    // (8-way neighbors, dock jumps, path reconstruction) must agree that an
+    // unexplored goal is optimistically NEUTRAL, or this path is missed.
+    const tiles = [tile(5, 5, { ownerId: "me", dockId: "dockA" })];
+    const state = stateWith(tiles, "me", {
+      dockPairs: [{ ax: 5, ay: 5, bx: 40, by: 40 }]
+    });
+    const plan = planWaypoint({ x: 40, y: 40 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps.length).toBe(1);
+    expect(plan.steps[0]!.viaDock).toBe(true);
+    expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
   });
 
   it("walks a pure diagonal target as a pure diagonal (no zigzag)", () => {
@@ -290,13 +371,23 @@ describe("planWaypoint", () => {
   });
 
   it("blocks when the only route to the target is through a cut-off frontier tile", () => {
-    // (3,3) is a cut-off encircled frontier. Target is beyond it.
-    // No healthy owned tile touches the enemy — the cut-off is the only bridge.
+    // (3,3) is a cut-off encircled frontier — the only conceivable bridge to
+    // the target, but impassable since it's cut off. The target's other 7
+    // neighbors are walled with mountain so unexplored terrain elsewhere on
+    // the (toroidal, otherwise-passable) map can't offer a detour around —
+    // only a complete ring around the target proves no path truly exists.
     const now = 1_000_000;
     const tiles = [
       tile(2, 3, { ownerId: "me", ownershipState: "SETTLED" }),
       tile(3, 3, { ownerId: "me", ownershipState: "FRONTIER", frontierDecayAt: now + 30_000, frontierDecayKind: "ENCIRCLEMENT" }),
-      tile(4, 3, { ownerId: "enemy" })
+      tile(4, 3, { ownerId: "enemy" }),
+      tile(3, 2, { terrain: "MOUNTAIN" }),
+      tile(4, 2, { terrain: "MOUNTAIN" }),
+      tile(5, 2, { terrain: "MOUNTAIN" }),
+      tile(5, 3, { terrain: "MOUNTAIN" }),
+      tile(3, 4, { terrain: "MOUNTAIN" }),
+      tile(4, 4, { terrain: "MOUNTAIN" }),
+      tile(5, 4, { terrain: "MOUNTAIN" })
     ];
     const state = stateWith(tiles);
     const plan = planWaypoint({ x: 4, y: 3 }, { ...baseDeps(state), now });

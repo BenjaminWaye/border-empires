@@ -20,6 +20,11 @@ describe("renderEconomyPanelHtml", () => {
       incomePerMinute: 32.6,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 1.4 },
       upkeepLastTick: { foodCoverage: 1, gold: { contributors: economyBreakdown.GOLD.sinks } },
@@ -35,13 +40,13 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Towns · 10");
-    expect(html).toContain("+10.00/m");
+    expect(html).toContain("+14400.0/day");
     expect(html).toContain("Fur Synthesizer upkeep · 2");
-    expect(html).toContain("-1.40/m");
+    expect(html).toContain("-2016.0/day");
     expect(html).not.toContain("No upkeep on this resource");
   });
 
-  it("shows synthesizer gold upkeep on the output resource tab", () => {
+  it("does not show synthesizer gold upkeep on the output resource slot tab", () => {
     const economyBreakdown = emptyEconomyBreakdown();
     economyBreakdown.SUPPLY.sources = [{ label: "Fur Synthesizer", amountPerMinute: 0.9, count: 1 }];
     economyBreakdown.SUPPLY.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
@@ -53,6 +58,11 @@ describe("renderEconomyPanelHtml", () => {
       incomePerMinute: 0,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 50, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0.9, SHARD: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 12 },
       upkeepLastTick: { foodCoverage: 1 },
@@ -67,9 +77,8 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("Fur Synthesizer upkeep");
-    expect(html).toContain("-12.00 GOLD/m");
-    expect(html).not.toContain("No upkeep on this resource");
+    expect(html).not.toContain("Fur Synthesizer upkeep");
+    expect(html).not.toContain("-17280.0 GOLD/day");
   });
 
   it("renders paused town income buckets even when manpower gating zeros their income", () => {
@@ -85,6 +94,11 @@ describe("renderEconomyPanelHtml", () => {
       incomePerMinute: 0,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
@@ -101,7 +115,7 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("Towns · 7");
     expect(html).toContain("Paused until manpower is full (3135/3300)");
-    expect(html).toContain("+0.00/m");
+    expect(html).toContain("+0.0/day");
   });
 
   it("falls back to a live income row when the session has rates but no detailed source buckets yet", () => {
@@ -112,6 +126,11 @@ describe("renderEconomyPanelHtml", () => {
       incomePerMinute: 10.8,
       strategicResources: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 2 },
       storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
       strategicProductionPerMinute: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
@@ -128,7 +147,273 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("Live empire income");
     expect(html).toContain("Detailed source rows are still catching up on this session.");
-    expect(html).toContain("+10.80/m");
+    expect(html).toContain("+15552.0/day");
     expect(html).not.toContain("No current income");
+  });
+
+  it("renders IRON as slots-used, not a stock/cap flow, and lists the Fort occupying one", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "IRON",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 2, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [
+        {
+          x: 0,
+          y: 0,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          fort: { ownerId: "me", status: "active", variant: "FORT" }
+        }
+      ],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("1 / 2 slots used");
+    expect(html).toContain("1 free");
+    expect(html).toContain("Fort");
+    expect(html).not.toContain("Income Sources");
+    expect(html).not.toContain("in reserve");
+  });
+
+  it("distinguishes zero slot access from a fully-committed resource", () => {
+    const zeroAccessHtml = renderEconomyPanelHtml({
+      focus: "CRYSTAL",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(zeroAccessHtml).toContain("No access to this resource yet");
+
+    const fullyCommittedHtml = renderEconomyPanelHtml({
+      focus: "CRYSTAL",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(fullyCommittedHtml).toContain("Fully committed");
+  });
+
+  it("flags a dormant occupant in the 'Occupied by' column, matching the tile detail view's indicator", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "IRON",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [{ key: "0,0:fort", resources: ["IRON"] }],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [
+        {
+          x: 0,
+          y: 0,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          fort: { ownerId: "me", status: "active", variant: "FORT" }
+        }
+      ],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("is-dormant");
+    expect(html).toContain("economy-dormant-flag");
+    expect(html).toContain("⚠ dormant");
+  });
+
+  it("does not double-report light outpost food upkeep as a daily flow on the FOOD slot tab", () => {
+    const economyBreakdown = emptyEconomyBreakdown();
+    economyBreakdown.FOOD.sinks = [{ label: "LIGHT_OUTPOST", amountPerMinute: 0.4, count: 4 }];
+
+    const html = renderEconomyPanelHtml({
+      focus: "FOOD",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        // Only 1 of the 6 owned outposts bills a FOOD slot — the first
+        // LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT (5) are waived (§23.2).
+        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 1, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0.4, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 4, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 5, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+      ],
+      economyBreakdown,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("LIGHT_OUTPOST");
+    expect(html).toContain("1 slot<");
+    expect(html).not.toContain("6 slots");
+    expect(html).not.toContain("No upkeep beyond the slots above");
+    expect(html).not.toContain("LIGHT_OUTPOST · 4");
+    expect(html).not.toContain("-576.0/day");
+    expect(html).not.toContain("576.0/day");
+  });
+
+  it("waives the FOOD slot entirely for light outposts under the free-slot count", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "FOOD",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [
+        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+      ],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).not.toContain("LIGHT_OUTPOST");
+    expect(html).toContain("No structures using a FOOD slot yet");
+  });
+
+  it("keeps cross-resource flow upkeep (gold) on the GOLD card, not the slot tab", () => {
+    const economyBreakdown = emptyEconomyBreakdown();
+    economyBreakdown.FOOD.sinks = [
+      { label: "LIGHT_OUTPOST", amountPerMinute: 0.4, count: 4 },
+      { label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }
+    ];
+    economyBreakdown.GOLD.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
+
+    const html = renderEconomyPanelHtml({
+      focus: "ALL",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        demand: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0.4, iron: 0, supply: 0, crystal: 0, gold: 12 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown,
+      isMobile: false,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("Fur Synthesizer upkeep");
+    expect(html).toContain("-17280.0/day");
+    expect(html).not.toContain("LIGHT_OUTPOST · 4");
+    expect(html).not.toContain("-576.0/day");
   });
 });

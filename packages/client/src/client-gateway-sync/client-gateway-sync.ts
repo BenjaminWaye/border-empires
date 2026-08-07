@@ -2,12 +2,11 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
+import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js";
 
-// Logs every real ownerId/ownershipState change, for any tile, the moment it
-// happens — no coordinates to pin or guess in advance. Gated only by the
-// account-level debugTileLoggingEnabled flag (not a specific watched tile),
-// so it's low-volume (ownership changes are rare) but never misses one.
+// Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
 const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
   if (!debugTileLoggingEnabled()) return;
   if (before?.ownerId === after?.ownerId && before?.ownershipState === after?.ownershipState) return;
@@ -36,7 +35,8 @@ type NormalizedGatewayTileUpdate = {
   siegeOutpost?: Tile["siegeOutpost"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
-  shardSite?: Tile["shardSite"] | undefined;
+  shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
+  watchtower?: Tile["watchtower"] | undefined;
   muster?: Tile["muster"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
@@ -71,7 +71,8 @@ export type GatewayTileUpdate = {
   siegeOutpostJson?: string;
   economicStructureJson?: string;
   sabotageJson?: string;
-  shardSiteJson?: string;
+  shardSiteJson?: string; naturalWonderJson?: string;
+  watchtowerJson?: string;
   musterJson?: string;
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
@@ -89,6 +90,8 @@ type GatewayTileSyncDeps = {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
+    discoveryTipQueue?: ClientState["discoveryTipQueue"];
+    authEmail?: ClientState["authEmail"];
   };
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
@@ -114,11 +117,11 @@ const isGrowthModifierArray = (value: unknown): value is NonNullable<TownSummary
 
 const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownSummary["nextPopulationTierUpgrade"]> => {
   if (!value || typeof value !== "object") return false;
-  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; foodCost?: unknown; available?: unknown };
+  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; goldCost?: unknown; available?: unknown };
   return (
     (upgrade.targetTier === "CITY" || upgrade.targetTier === "GREAT_CITY" || upgrade.targetTier === "METROPOLIS") &&
     isFiniteNumber(upgrade.requiredPopulation) &&
-    isFiniteNumber(upgrade.foodCost) &&
+    isFiniteNumber(upgrade.goldCost) &&
     typeof upgrade.available === "boolean"
   );
 };
@@ -283,6 +286,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
+  if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("ownershipState" in update) {
@@ -327,14 +331,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
 
   const existing = deps.state.tiles.get(tileKey);
 
-  // Broadcast-only ghost-ownership cleanup: the sim sends this to every player
-  // regardless of visibility (see tile-delta-visibility-filter.ts). It must
-  // update stale ownership on a tile we already know about, but must NEVER
-  // discover or unfog a tile — that would lift fog-of-war on tiles we can't see.
+  // Broadcast-only ghost-ownership cleanup: sent to every player regardless of visibility (see tile-delta-visibility-filter.ts). Must update stale ownership on a tile we already know about, but must NEVER discover or unfog a tile.
   if (update.ownershipClearOnly === true) {
-    // Nothing to correct if we've never seen the tile, or it's already
-    // unowned — return without a revision bump so a flood of distant
-    // barbarian clears can't churn re-renders.
+    // Nothing to correct if never seen or already unowned — skip the revision bump so a flood of distant barbarian clears can't churn re-renders.
     if (!existing || (existing.ownerId === undefined && existing.ownershipState === undefined)) {
       if (tileMatchesDebugKey(update.x, update.y, 1)) {
         debugTileLog("ownership-clear-only-skip", {
@@ -395,6 +394,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (!("landBiome" in normalizedGateway)) delete merged.landBiome;
     if (!("regionType" in normalizedGateway)) delete merged.regionType;
   }
+  // resource/dockId stay inline: this path deletes on an explicit falsy
+  // value, unlike the TILE_DELTA handler which only ever sets them -- see
+  // client-tile-merge.ts for the full explanation of why these aren't shared.
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
@@ -403,10 +405,14 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (normalizedGateway.dockId) merged.dockId = normalizedGateway.dockId;
     else delete merged.dockId;
   }
-  if ("town" in normalizedGateway) {
-    if (normalizedGateway.town) merged.town = normalizedGateway.town;
-    else delete merged.town;
-  }
+  // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
+  // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
+  // siegeOutpost/sabotage/muster/yield/yieldRate/yieldCap/upkeepEntries/
+  // history) merged via the shared helper -- see client-tile-merge.ts.
+  applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });
+
+  // townType/townName/townPopulationTier derivation is gateway-only and
+  // depends on merged.town, which the call above just populated.
   if ("townType" in normalizedGateway) {
     if (normalizedGateway.townType) merged.townType = normalizedGateway.townType;
     else delete merged.townType;
@@ -428,74 +434,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (normalizedGateway.townDataPartial) merged.townDataPartial = true;
     else delete merged.townDataPartial;
   }
-  if ("fort" in normalizedGateway) {
-    if (normalizedGateway.fort) merged.fort = normalizedGateway.fort;
-    else delete merged.fort;
-  }
-  if ("observatory" in normalizedGateway) {
-    if (normalizedGateway.observatory) merged.observatory = normalizedGateway.observatory;
-    else delete merged.observatory;
-  }
-  if ("siegeOutpost" in normalizedGateway) {
-    if (normalizedGateway.siegeOutpost) merged.siegeOutpost = normalizedGateway.siegeOutpost;
-    else delete merged.siegeOutpost;
-  }
-  if ("economicStructure" in normalizedGateway) {
-    if (normalizedGateway.economicStructure) merged.economicStructure = normalizedGateway.economicStructure;
-    else delete merged.economicStructure;
-  }
-  if ("sabotage" in normalizedGateway) {
-    if (normalizedGateway.sabotage) merged.sabotage = normalizedGateway.sabotage;
-    else delete merged.sabotage;
-  }
-  const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
-  if ("shardSite" in normalizedGateway) {
-    if (normalizedGateway.shardSite) merged.shardSite = normalizedGateway.shardSite;
-    else if (claimedShardSite && normalizedGateway.ownerId === deps.state.me && normalizedGateway.ownershipState === "FRONTIER") {
-      merged.shardSite = claimedShardSite;
-    } else delete merged.shardSite;
-  }
-  if ("muster" in normalizedGateway) {
-    if (normalizedGateway.muster) merged.muster = normalizedGateway.muster;
-    else delete merged.muster;
-  }
-
-  if ("ownerId" in normalizedGateway) {
-    if (normalizedGateway.ownerId) merged.ownerId = normalizedGateway.ownerId;
-    else delete merged.ownerId;
-  }
-  if ("ownershipState" in normalizedGateway) {
-    if (normalizedGateway.ownershipState) merged.ownershipState = normalizedGateway.ownershipState;
-    else delete merged.ownershipState;
-  }
-  if ("frontierDecayAt" in normalizedGateway) {
-    if (typeof normalizedGateway.frontierDecayAt === "number") merged.frontierDecayAt = normalizedGateway.frontierDecayAt;
-    else delete merged.frontierDecayAt;
-  }
-  if ("frontierDecayKind" in normalizedGateway) {
-    if (normalizedGateway.frontierDecayKind) merged.frontierDecayKind = normalizedGateway.frontierDecayKind;
-    else delete merged.frontierDecayKind;
-  }
-  if ("yield" in normalizedGateway) {
-    if (normalizedGateway.yield) merged.yield = normalizedGateway.yield;
-    else delete merged.yield;
-  }
-  if ("yieldRate" in normalizedGateway) {
-    if (normalizedGateway.yieldRate) merged.yieldRate = normalizedGateway.yieldRate;
-    else delete merged.yieldRate;
-  }
-  if ("yieldCap" in normalizedGateway) {
-    if (normalizedGateway.yieldCap) merged.yieldCap = normalizedGateway.yieldCap;
-    else delete merged.yieldCap;
-  }
-  if ("upkeepEntries" in normalizedGateway) {
-    if (normalizedGateway.upkeepEntries) merged.upkeepEntries = normalizedGateway.upkeepEntries;
-    else delete merged.upkeepEntries;
-  }
-  if ("history" in normalizedGateway) {
-    if (normalizedGateway.history) merged.history = normalizedGateway.history;
-    else delete merged.history;
-  }
   if ("landBiome" in normalizedGateway) {
     if (normalizedGateway.landBiome) merged.landBiome = normalizedGateway.landBiome;
     else delete merged.landBiome;
@@ -504,7 +442,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (normalizedGateway.regionType) merged.regionType = normalizedGateway.regionType;
     else delete merged.regionType;
   }
-  if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
   const detailMerged = deps.mergeIncomingTileDetail(existing, merged);
   const resolved = deps.mergeServerTileWithOptimisticState(detailMerged);
@@ -545,11 +482,7 @@ export const applyGatewayInitialState = (
   options?: { preserveExistingDiscoveredTiles?: boolean }
 ): number => {
   const tiles = initialState?.tiles;
-  // Missing tiles field is a no-op (caller passed nothing). An EMPTY tiles
-  // array is a valid replacement intent — TILE_SNAPSHOT_REPLACE after a
-  // full-map reveal can hand back a fog-on snapshot whose visible-tile slice
-  // is small or even empty, and we still have to drop the previously-revealed
-  // tiles from state.tiles or the map keeps rendering the reveal.
+  // Missing tiles field is a no-op. An EMPTY tiles array is a valid replacement intent (TILE_SNAPSHOT_REPLACE can hand back a small/empty fog-on snapshot) and must still clear state.tiles.
   if (!Array.isArray(tiles)) return 0;
   const preserveExistingDiscoveredTiles = options?.preserveExistingDiscoveredTiles === true;
   if (preserveExistingDiscoveredTiles) {
@@ -586,7 +519,11 @@ export const applyGatewayTileDeltaBatch = (
   if (!Array.isArray(updates) || updates.length === 0) return;
   let invalidatedTerrainCache = false;
   for (const update of updates) {
+    // Live deltas only (never the initial bootstrap) — "newly seen" gates first-discovery tips (first town/resource of a kind).
+    const tileKey = deps.keyFor(update.x, update.y);
+    const wasKnown = deps.state.tiles.has(tileKey);
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache;
+    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, deps.state.tiles.get(tileKey), deps.state.authEmail);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();

@@ -1,10 +1,10 @@
 import type { ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainPlayer, DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState, FrontierCommandType, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
-import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
+import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -12,7 +12,7 @@ import type { Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
-import { selectExpansionObjective, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
+import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
@@ -35,6 +35,7 @@ export type RuntimeExportState = {
     resource?: string;
     dockId?: string;
     shardSiteJson?: string;
+    naturalWonderJson?: string;
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
@@ -64,6 +65,7 @@ export type RuntimeExportState = {
     domainIds: string[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
+    truces: string[];
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;
@@ -74,6 +76,7 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    eventLog?: PlayerEventLogEntry[];
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
   activeLocks: Array<{
@@ -98,29 +101,15 @@ export type RuntimeExportState = {
   growthStalledNoFoodCounter?: number;
 };
 
-export type RuntimePlayerDebugSnapshot = Array<{
-  id: string;
-  name?: string;
-  isAi: boolean;
-  points: number;
-  manpower: number;
-  manpowerCap: number;
-  manpowerRegenPerMinute: number;
-  techIds: string[];
-  domainIds: string[];
-  strategicResources: Partial<Record<StrategicResourceKey, number>>;
-  settledTileCount: number;
-  ownedTileCount: number;
-  townCount: number;
-  incomePerMinute: number;
-  strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  activeDevelopmentProcessCount: number;
-  /** True iff a *player-issued* frontier lock would block the AI planner. */
-  plannerBlocked: boolean;
-  /** True iff any lock exists for this player (player-issued OR territory-automation). */
-  hasAnyLock: boolean;
-  allies: string[];
-}>;
+// Lean row shape for the per-second metrics ticker (metrics-ai-player-state.ts).
+// Deliberately not RuntimePlayerDebugSnapshot: that type's builder sorts
+// techIds/domainIds/allies, clones strategicResources, and walks locksByTile
+// for every player on every call — wasted work when only 4 numeric fields
+// for AI players are needed once per second.
+export type RuntimeAiPlayerMetricsRow = { id: string; isAi: boolean; points: number; incomePerMinute: number; settledTileCount: number; ownedTileCount: number };
+
+export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
+export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
 type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
@@ -147,6 +136,7 @@ const toRuntimeExportTile = (
   if (tile.resource) entry.resource = tile.resource;
   if (tile.dockId) entry.dockId = tile.dockId;
   if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+  if (cached.naturalWonderJson) entry.naturalWonderJson = cached.naturalWonderJson;
   if (tile.ownerId) entry.ownerId = tile.ownerId;
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
@@ -167,6 +157,18 @@ const toRuntimeExportTile = (
 export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExportState["players"] =>
   [...input.players.values()]
     .map((player) => {
+      // NOT swapped to refreshManpowerOnly, unlike the sibling planner-view
+      // exports: verified (the hard way, via 3 failing tests) that this
+      // function's full applyManpowerRegen call is relied on as one of the
+      // "real" accrual catch-up paths — e.g. chosenTrickleResource /
+      // gold-upkeep tests advance fake timers with NO other tick or command
+      // in between and then call exportState() (which routes through this
+      // function) expecting deferred accrual to have landed. Skipping accrual
+      // here would silently break that guarantee for every caller, not just
+      // tests. See visiblePlayersProjection in runtime-visible-state.ts for
+      // where the equivalent skip *was* safe to apply (self keeps full
+      // accrual there; only OTHER viewed players — who have their own command/
+      // tick path — get the cheaper refresh).
       input.applyManpowerRegen(player);
       const summary = input.summaryForPlayer(player.id);
       return {
@@ -183,6 +185,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
+        truces: [...(player.truces ?? [])].sort(),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,
@@ -192,7 +195,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {})
+        ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(player.eventLog?.length ? { eventLog: player.eventLog } : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));
@@ -266,52 +270,6 @@ export async function buildRuntimeExportStateAsync(
   };
 }
 
-type PlayerDebugInput = {
-  locksByTile: ReadonlyMap<string, LockRecord>;
-  players: ReadonlyMap<string, DomainPlayer>;
-  refreshManpowerOnly: (player: DomainPlayer) => void;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  playerManpowerCap: (player: DomainPlayer) => number;
-  playerManpowerRegenPerMinute: (player: DomainPlayer) => number;
-  estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
-};
-
-export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): RuntimePlayerDebugSnapshot {
-  const plannerBlockedIds = new Set<string>();
-  const anyLockIds = new Set<string>();
-  for (const lock of input.locksByTile.values()) {
-    anyLockIds.add(lock.playerId);
-    if (lock.source !== "automation") plannerBlockedIds.add(lock.playerId);
-  }
-  return [...input.players.values()]
-    .map((player) => {
-      input.refreshManpowerOnly(player);
-      const summary = input.summaryForPlayer(player.id);
-      return {
-        id: player.id,
-        ...(player.name ? { name: player.name } : {}),
-        isAi: player.isAi === true,
-        points: player.points,
-        manpower: player.manpower,
-        manpowerCap: input.playerManpowerCap(player),
-        manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
-        techIds: [...player.techIds].sort(),
-        domainIds: [...(player.domainIds ?? [])].sort(),
-        strategicResources: { ...(player.strategicResources ?? {}) },
-        settledTileCount: summary.settledTileCount,
-        ownedTileCount: summary.territoryTileKeys.size,
-        townCount: summary.townCount,
-        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(player.id),
-        strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        plannerBlocked: plannerBlockedIds.has(player.id),
-        hasAnyLock: anyLockIds.has(player.id),
-        allies: [...player.allies].sort()
-      };
-    })
-    .sort((left, right) => left.id.localeCompare(right.id));
-}
-
 type PlannerTileKeys = {
   tileCollectionVersion: number;
   topologyVersion: number;
@@ -342,6 +300,14 @@ type PlannerExportInput = {
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   expansionObjectiveCacheByPlayer: ExpansionObjectiveCache;
   musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  // Instrumentation only (2026-07-29 login-stall investigation): a single-player
+  // exportPlannerPlayerViews call was clocked at 6.6s in staging with no GC
+  // pause to explain it, but every piece here reads as O(1)/bounded on
+  // inspection. Wrapping the two candidates that have a "first access / cache
+  // miss" full-rebuild branch (tile-key cache init, expansion objective) lets
+  // the next event_loop_blocked capture attribute the real cost precisely
+  // instead of guessing further from source alone.
+  trackSync?: <T>(phase: string, details: Record<string, string | number> | undefined, task: () => T) => T;
 };
 
 export function buildRuntimePlannerWorldView(input: PlannerExportInput): PlannerWorldView {
@@ -358,83 +324,88 @@ export function buildRuntimePlannerWorldView(input: PlannerExportInput): Planner
 }
 
 export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): PlannerPlayerView[] {
+  const track = <T>(phase: string, playerId: string, task: () => T): T =>
+    input.trackSync ? input.trackSync(phase, { playerId }, task) : task();
   const lockPlayerIds = input.plannerGatingLockPlayerIds();
   const players: PlannerPlayerView[] = [];
-  const diagTotalStart = Date.now();
-  // Per-player breakdown collected for slow-export diagnostic (threshold 200ms).
-  const diagBreakdowns: string[] = [];
+  // 2026-07-29 login-stall investigation: sampleEnemyYieldKeysAcrossPlayers is
+  // O(total yield-bearing tiles across every player) before it samples down —
+  // this used to run once PER PLAYER inside selectExpansionObjective even
+  // though every player in this same batch reads the exact same source map.
+  // Computed at most once per call, and only if some player actually needs it
+  // (a cache-miss), not for a batch where every player's cache is warm.
+  let sampledEnemyYieldKeys: ReturnType<typeof sampleEnemyYieldKeysAcrossPlayers> | undefined;
+  const getSampledEnemyYieldKeys = (): ReturnType<typeof sampleEnemyYieldKeysAcrossPlayers> =>
+    sampledEnemyYieldKeys ??= sampleEnemyYieldKeysAcrossPlayers(input.yieldBearingTilesByOwner);
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
-    const dt0 = Date.now();
     input.refreshManpowerOnly(player);
-    const dt1 = Date.now();
     const summary = input.summaryForPlayer(playerId);
-    const dt2 = Date.now();
-    const tileKeys = input.plannerPlayerTileKeys(playerId, summary);
-    const dt3 = Date.now();
+    const tileKeys = track("planner_view_tile_keys", playerId, () => input.plannerPlayerTileKeys(playerId, summary));
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
     // At steady state this is a pure integer compare — 0 work.
     const cached = input.expansionObjectiveCacheByPlayer.get(playerId);
     let expansionObjective: ExpansionObjective | undefined;
-    let objectiveCacheHit = false;
     if (
       cached &&
       cached.topologyVersion === tileKeys.topologyVersion &&
       cached.beaconGeneration === input.beaconGeneration
     ) {
       expansionObjective = cached.objective;
-      objectiveCacheHit = true;
     } else {
-      expansionObjective = selectExpansionObjective({
-        territoryTileKeys: summary.territoryTileKeys,
-        neutralBeaconTileKeys: input.neutralBeaconTileKeys,
-        enemyYieldKeysByPlayerId: input.yieldBearingTilesByOwner,
-        playerId
-      });
+      expansionObjective = track("planner_view_expansion_objective", playerId, () =>
+        selectExpansionObjective({
+          territoryTileKeys: tileKeys.territoryTileKeys,
+          neutralBeaconTileKeys: input.neutralBeaconTileKeys,
+          sampledEnemyYieldKeys: getSampledEnemyYieldKeys(),
+          playerId
+        }));
       input.expansionObjectiveCacheByPlayer.set(playerId, {
         topologyVersion: tileKeys.topologyVersion,
         beaconGeneration: input.beaconGeneration,
         objective: expansionObjective
       });
     }
-    const dt4 = Date.now();
-    diagBreakdowns.push(
-      `${playerId}:refresh=${dt1 - dt0},summary=${dt2 - dt1},tileKeys=${dt3 - dt2},obj=${dt4 - dt3}(${objectiveCacheHit ? "hit" : "miss"}),tot=${dt4 - dt0}`
-    );
 
-    players.push({
-      id: player.id,
-      points: player.points,
-      manpower: player.manpower,
-      techIds: [...player.techIds].sort(),
-      domainIds: [...(player.domainIds ?? [])].sort(),
-      strategicResources: { ...(player.strategicResources ?? {}) },
-      settledTileCount: summary.settledTileCount,
-      townCount: summary.townCount,
-      incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
-      tileCollectionVersion: tileKeys.tileCollectionVersion,
-      topologyVersion: tileKeys.topologyVersion,
-      topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
-      hasActiveLock: lockPlayerIds.has(player.id),
-      territoryTileKeys: tileKeys.territoryTileKeys,
-      frontierTileKeys: tileKeys.frontierTileKeys,
-      hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
-      strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
-      buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
-      pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
-      ...(expansionObjective ? { expansionObjective } : {}),
-      activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0
+    const ownedTileCount = tileKeys.territoryTileKeys.length;
+    const frontierTileCount = tileKeys.frontierTileKeys.length;
+
+    track("planner_view_push", playerId, () => {
+      players.push({
+        id: player.id,
+        points: player.points,
+        manpower: player.manpower,
+        techIds: [...player.techIds].sort(),
+        domainIds: [...(player.domainIds ?? [])].sort(),
+        strategicResources: { ...(player.strategicResources ?? {}) },
+        settledTileCount: summary.settledTileCount,
+        townCount: summary.townCount,
+        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
+        tileCollectionVersion: tileKeys.tileCollectionVersion,
+        topologyVersion: tileKeys.topologyVersion,
+        topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
+        hasActiveLock: lockPlayerIds.has(player.id),
+        territoryTileKeys: tileKeys.territoryTileKeys,
+        frontierTileKeys: tileKeys.frontierTileKeys,
+        hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
+        strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
+        buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
+        pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
+        // Small (tens of tiles), safe to spread fresh every sync unlike the
+        // territory-sized key sets above, which is why this bypasses the
+        // incremental planner-tile-keys-cache machinery entirely.
+        townTileKeys: [...summary.ownedTownTierByTile.keys()],
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+        ...(expansionObjective ? { expansionObjective } : {}),
+        activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
+        musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        ownedTileCount,
+        frontierTileCount
+      });
     });
-  }
-  const diagTotalMs = Date.now() - diagTotalStart;
-  if (diagTotalMs >= 200) {
-    console.info(
-      `[diag:sync_players_export] totalMs=${diagTotalMs} players=[ ${diagBreakdowns.join(" | ")} ]`
-    );
   }
   return players;
 }

@@ -147,6 +147,71 @@ export function initCacheEntryFromSummary(
   return entry;
 }
 
+/** Six per-player tile key arrays plus cache versioning, exported to the planner. */
+export type PlannerPlayerTileKeysResult = {
+  tileCollectionVersion: number;
+  topologyVersion: number;
+  topologyDirtyTileKeys: string[];
+  territoryTileKeys: string[];
+  frontierTileKeys: string[];
+  hotFrontierTileKeys: string[];
+  strategicFrontierTileKeys: string[];
+  buildCandidateTileKeys: string[];
+  pendingSettlementTileKeys: string[];
+};
+
+/** Per-player cache/version state read by {@link plannerPlayerTileKeys}. */
+export type PlannerPlayerTileKeysContext = {
+  tileKeyCacheByPlayer: Map<string, PlannerTileKeysCacheEntry>;
+  tileCollectionVersionByPlayer: Map<string, number>;
+  topologyVersionByPlayer: Map<string, number>;
+  topologyDirtyTilesByPlayer: Map<string, Set<string>>;
+};
+
+/**
+ * Build the planner-facing tile key export for one player, draining the
+ * transient per-sync dirty set and lazily initializing the incremental cache
+ * entry from `summary` on first access.
+ *
+ * CONTRACT — the returned arrays are LIVE references into the incremental
+ * cache (mutated in place on the next territory mutation), not copies.
+ * Read/iterate/copy sync only; never retain across a mutation cycle.
+ */
+export function plannerPlayerTileKeys(
+  playerId: string,
+  summary: PlannerTileKeysSummarySnapshot,
+  context: PlannerPlayerTileKeysContext
+): PlannerPlayerTileKeysResult {
+  // Drain dirty tiles on every call — they are transient (consumed per sync)
+  // and must NOT be cached, so they are read and cleared here before the
+  // cache check, ensuring each syncPlayers call gets the correct delta.
+  const dirtySet = context.topologyDirtyTilesByPlayer.get(playerId);
+  const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
+  dirtySet?.clear();
+
+  const tileCollectionVersion = context.tileCollectionVersionByPlayer.get(playerId) ?? 0;
+  const topologyVersion = context.topologyVersionByPlayer.get(playerId) ?? 0;
+
+  // Kept in sync by mutation hooks; if no entry exists (first access or after
+  // a full rebuild), init once from summary Sets — O(territory) one-time cost.
+  let entry = context.tileKeyCacheByPlayer.get(playerId);
+  if (!entry) {
+    entry = initCacheEntryFromSummary(context.tileKeyCacheByPlayer, playerId, summary);
+  }
+
+  return {
+    tileCollectionVersion,
+    topologyVersion,
+    topologyDirtyTileKeys,
+    territoryTileKeys: entry.territory.keys,
+    frontierTileKeys: entry.frontier.keys,
+    hotFrontierTileKeys: entry.hotFrontier.keys,
+    strategicFrontierTileKeys: entry.strategicFrontier.keys,
+    buildCandidateTileKeys: entry.buildCandidate.keys,
+    pendingSettlementTileKeys: entry.pendingSettlement.keys
+  };
+}
+
 /**
  * Verify that a cache entry matches its corresponding summary.
  * Used in tests to assert the invariant after every mutation sequence.

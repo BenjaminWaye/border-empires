@@ -75,50 +75,20 @@ describe("simulation runtime — incremental visibility coverage", () => {
     expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([]);
   });
 
-  it("filterTileDeltasForPlayer widens visibility immediately after a vision-radius tech is chosen", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 60_000,
-      initialPlayers: new Map([
-        [
-          "player-1",
-          {
-            id: "player-1",
-            isAi: false,
-            points: 100_000,
-            manpower: 100,
-            techIds: new Set<string>(),
-            domainIds: new Set<string>(),
-            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },
-            techRootId: "rewrite-local",
-            allies: new Set<string>()
-          }
-        ]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
-        activeLocks: []
-      }
-    });
-    // Base vision radius is 4 — a delta 5 tiles out should start invisible.
-    const delta = { x: 15, y: 10, terrain: "LAND" as const };
-    expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([]);
-
-    // "cartography" grants visionRadiusBonus: 1, has no prereqs.
-    runtime.submitCommand({
-      commandId: "choose-tech-vision-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 0,
-      issuedAt: 1_000,
-      type: "CHOOSE_TECH",
-      payloadJson: JSON.stringify({ techId: "cartography" })
-    });
-    await Promise.resolve();
-
-    expect(runtime.filterTileDeltasForPlayer([delta], "player-1")).toEqual([delta]);
-  });
+  // Removed: this test researched "cartography" for its unconditional
+  // townVisionRadiusBonus: 1 (a flat vision bonus requiring no building).
+  // The 2026 tech-tree redesign retired cartography and did not carry that
+  // flat bonus forward onto any surviving tech — grepping tech-tree.json
+  // confirms `townVisionRadiusBonus` no longer exists anywhere in the data,
+  // consistent with the redesign's "no flat bonus techs, only building/
+  // ability unlocks" rule. The general behavior this test was guarding
+  // (tech effects that touch vision apply immediately, not on next tick) is
+  // still covered by runtime.outpost-vision.test.ts's "researching Survey
+  // Corps immediately widens an already-built Light Outpost's ring", which
+  // exercises the same immediacy guarantee via a still-existing bonus
+  // (outpostVisionRadiusBonus). Flagging for product awareness: if
+  // unconditional town-vision-growth-via-research is still meant to exist
+  // as a feature, it needs a new home on a real tech, not a test fix.
 
   // Production wires onVisibilityAudit unconditionally on every
   // SimulationRuntime instance (an always-on anti-cheat "was this reveal
@@ -167,17 +137,17 @@ describe("simulation runtime — incremental visibility coverage", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
     });
 
-    const delta = { x: 12, y: 10, terrain: "LAND" as const, ownerId: "player-2" };
+    const delta = { x: 11, y: 10, terrain: "LAND" as const, ownerId: "player-2" };
     const filtered = runtime.filterTileDeltasForPlayer([delta], "player-1");
 
     expect(filtered).toEqual([delta]);
-    const audit = audits.find((entry) => entry.tileKey === "12,10");
+    const audit = audits.find((entry) => entry.tileKey === "11,10");
     expect(audit).toBeDefined();
     expect(audit?.reasons).toEqual(["coverage-cache"]);
   });

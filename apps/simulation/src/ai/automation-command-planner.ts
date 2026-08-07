@@ -1,13 +1,9 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import {
-  ATTACK_MANPOWER_MIN,
-  DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST,
-  SETTLE_COST
-} from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
-import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
+import { explainFrontierOriginTile } from "./planner-candidate-index.js";
+import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, createOwnedFrontierTileScans, strideSample } from "./broad-fallback-sample.js";
 import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
@@ -17,11 +13,9 @@ import {
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot, type AutomationStrategicSnapshot, type AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
-import {
-  evaluateSettleCandidateDecision,
-  type AutomationPlannerDecisionContext
-} from "./automation-command-planner-helpers.js";
+import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
+import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 
 import {
   createAutomationNoopDiagnostic,
@@ -56,8 +50,6 @@ export type {
 };
 export type { AutomationPreplanReason } from "./automation-command-planner-types.js";
 
-const SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD = 500;
-
 type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
   points: number;
@@ -79,7 +71,6 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   ownedStructureCounts?: PlannerOwnedStructureCounts;
   tilesByKey: ReadonlyMap<string, TTile>;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
-  isPendingSettlement?: (tile: TTile) => boolean;
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
@@ -101,12 +92,20 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** Number of muster flags this player currently has active. */
   activeMusterCount?: number;
+  /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
+  /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
+  decisionCooldowns?: DecisionCooldownMap;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See
   // ai-spatial-focus.ts for selection. Optional so test inputs and the no-AI
   // system planner keep working unchanged.
   spatialFocusFront?: ReadonlySet<string>;
+  // Set by runtime.ts once AI_HOT_FRONTIER_MAX_STREAK_TICKS consecutive
+  // hot-only-actionable ticks pass (ai-hot-frontier-streak.ts). Forces the
+  // broad-fallback sweep below to run even though the narrow scan alone is
+  // actionable, so a persistent skirmish can't hide the rest of the frontier.
+  forceBroadFrontierScan?: boolean;
 };
 
 const emptyFrontierAnalysis = (): FrontierAnalysis => ({
@@ -119,12 +118,14 @@ const emptyFrontierAnalysis = (): FrontierAnalysis => ({
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
   frontierOpportunityWaste: 0,
-  narrowAnalyzeCapped: false
+  narrowAnalyzeCapped: false,
+  neighborCandidateTotal: 0,
+  missingNeighborTileCount: 0
 });
 
 const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
   analysis.frontierEnemyTargetCount > 0 ||
-  analysis.frontierNeutralTargetCount > 0 ||
+  analysis.frontierNeutralTargetCount > analysis.frontierOpportunityWaste ||
   Boolean(
     analysis.attack ||
       analysis.expand ||
@@ -162,86 +163,60 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
   }
 
-  const settlementEligible =
-    input.sessionPrefix === "ai-runtime" &&
-    input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
-    input.points >= SETTLE_COST;
-  const settlementStartedAt = Date.now();
   // Restrict per-AI candidate sets to the spatial focus front when present.
-  // Without this, large empires made per-tick selectors (settle priority,
-  // structure build) iterate the full owned/frontier set every tick — the
-  // settle priority evaluator alone is O(neighborhood) per candidate, so
-  // unbounded inputs produced multi-second AI ticks even after the frontier
-  // candidate enumeration was bounded. Fall back to the unfiltered list when
-  // the focus excludes everything, so the AI never starves on a bad focus.
+  // Without this, large empires made per-tick selectors (structure build)
+  // iterate the full owned/frontier set every tick. Fall back to the
+  // unfiltered list when the focus excludes everything, so the AI never
+  // starves on a bad focus.
   const focusFront = input.spatialFocusFront;
+  // Tracks whether restrictToFocus had to widen to the unfiltered list this
+  // call (defined focus front, zero overlap with the candidate set). Feeding
+  // a fallback-found result into scanFoundActionableCandidate would defeat
+  // ai-spatial-focus.ts's unproductive-streak rotation (production incident:
+  // AI-4/ai-1 pinned on the same dead front for 10+ minutes). See tests below.
+  let frontierScanUsedFocusFallback = false;
+  let buildScanUsedFocusFallback = false;
   const restrictToFocus = <T extends AutomationPlannerTile>(
-    tiles: readonly T[]
+    tiles: readonly T[],
+    onFallback?: () => void
   ): readonly T[] => {
     if (!focusFront || tiles.length === 0) return tiles;
     const filtered = tiles.filter((tile) => focusFront.has(`${tile.x},${tile.y}`));
-    return filtered.length > 0 ? (filtered as readonly T[]) : tiles;
+    if (filtered.length > 0) return filtered as readonly T[];
+    onFallback?.();
+    return tiles;
   };
-  // Last-resort fallback for when frontierTiles/hotFrontierTiles/
-  // strategicFrontierTiles are ALL empty. At steady state for any real
-  // empire this is never reached, so it must be lazy — this used to scan
-  // every owned tile unconditionally on every single plan regardless of
-  // empire size (a 20k-tile empire re-scanned 20k tiles for a value
-  // discarded on nearly every call).
-  let ownedFrontierTilesCache: readonly TTile[] | undefined;
-  const ownedFrontierTiles = (): readonly TTile[] => {
-    if (!ownedFrontierTilesCache) {
-      ownedFrontierTilesCache = restrictToFocus(input.ownedTiles).filter(
-        (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
-      ) as readonly TTile[];
-    }
-    return ownedFrontierTilesCache;
-  };
-  const settlementSources = (restrictToFocus(
-    input.strategicFrontierTiles?.length
-      ? input.strategicFrontierTiles
-      : input.hotFrontierTiles?.length
-        ? input.hotFrontierTiles
-        : input.frontierTiles.length > 0
-          ? input.frontierTiles
-          : ownedFrontierTiles()
-  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
-  const fallbackSettlementSources = (restrictToFocus(
-    input.hotFrontierTiles?.length
-      ? input.hotFrontierTiles
-      : input.frontierTiles.length > 0
-        ? input.frontierTiles
-        : ownedFrontierTiles()
-  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
-  const settlementCandidate = settlementEligible
-    ? chooseBestStrategicSettlementTile(
-        input.playerId,
-        settlementSources,
-        input.tilesByKey as ReadonlyMap<string, DomainTileState>,
-        input.isPendingSettlement
-          ? (tile) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false
-          : undefined
-      )
-    : undefined;
-  const fallbackSettlementCandidate = settlementEligible
-    ? chooseBestSettlementTile(input.playerId, fallbackSettlementSources, input.tilesByKey as ReadonlyMap<string, DomainTileState>, {
-        ...(input.isPendingSettlement
-          ? { isPending: (tile: DomainTileState) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false }
-          : {})
-      })
-    : undefined;
-  recordPhaseTiming("choose_settlement", settlementStartedAt);
-
+  // See broad-fallback-sample.ts for behavior/rationale (factored out to
+  // keep this file under the repo's 500-line cap).
+  const { ownedFrontierTiles, ownedFrontierTilesSample, ownedFrontierTilesComputedCount } = createOwnedFrontierTileScans({
+    ownedTiles: input.ownedTiles,
+    frontierTilesLength: input.frontierTiles.length,
+    playerId: input.playerId,
+    restrictToFocus
+  });
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = input.points >= FRONTIER_CLAIM_COST;
+  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
+  const canExpand = input.points >= SETTLE_COST && input.manpower >= EXPAND_MANPOWER_COST;
+  // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
+  // e.g. interior gaps that improve territory shape) used to sit ahead of
+  // frontierTiles here, but there is no SETTLE decision class in the AI's
+  // utility policy — the AI never acts on "good to settle" directly. Worse,
+  // when hotFrontierTiles is empty this tier fired first and starved the
+  // EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for
+  // targets among an origin's immediate neighbors, and "good to settle"
+  // (defensive shape/economic value of the tile itself) says nothing about
+  // whether an origin has an unclaimed/hostile neighbor to expand into.
+  // Production case: ai-1 had 266 strategicFrontierTiles (mostly interior
+  // gaps with no expand-worthy neighbors) and 0 hotFrontierTiles, so the scan
+  // was pinned on the strategic set every tick — permanently starving
+  // whatever genuinely expandable tile existed elsewhere in its 421-tile
+  // frontier — while never being able to act on the strategic tiles anyway.
   const baseFrontierOrigins =
     (input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
-      : input.strategicFrontierTiles?.length
-        ? input.strategicFrontierTiles
-        : input.frontierTiles.length > 0
-          ? input.frontierTiles
-          : input.ownedTiles) as readonly TTile[];
+      : input.frontierTiles.length > 0
+        ? input.frontierTiles
+        : input.ownedTiles) as readonly TTile[];
   const baseFrontierOriginKeys = new Set(baseFrontierOrigins.map((tile) => `${tile.x},${tile.y}`));
   // Source dock/town-support origins from the incrementally-maintained
   // buildCandidateTiles set instead of scanning every owned tile.
@@ -269,7 +244,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
-  const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins);
+  const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins, () => {
+    frontierScanUsedFocusFallback = true;
+  });
   // settledTileCount/townCount are already incrementally maintained per
   // player (player-runtime-summary.ts) and supplied on every real call
   // path. controlledTileCount is just settled + frontier tile counts
@@ -300,7 +277,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
-  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+  const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
@@ -317,21 +294,28 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           }
         })
       : emptyFrontierAnalysis();
+  let frontierAnalysisActionable = hasActionableFrontierAnalysis(frontierAnalysis);
+  // True when the narrow/hot scan alone was already actionable, so the
+  // broad sweep below never ran ("tunnel vision" — see
+  // docs/agents/topics/ai-planner.md). Feeds sim_ai_broad_fallback_skipped_total
+  // and, via forceBroadFrontierScan above, ai-hot-frontier-streak.ts.
   let broadFallbackSkipped = false;
-  if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
-    if (input.ownedTiles.length > SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD) {
-      // Broad fallback's second analyzeOwnedFrontierTargetsFromLookup
-      // dominates the 587ms tail at this scale. The narrow result stands.
+  if ((canAttack || canExpand) && input.frontierTiles.length > 0) {
+    if (frontierAnalysisActionable && !input.forceBroadFrontierScan) {
       broadFallbackSkipped = true;
     } else {
+      // Uses ownedFrontierTilesSample() (bounded), not ownedFrontierTiles()
+      // (unbounded O(owned) scan) — see that function's doc comment.
       const broadFrontierOriginsAll = dedupeTiles([
         ...narrowFrontierOrigins,
-        ...input.frontierTiles,
-        ...ownedFrontierTiles()
+        ...strideSample(input.frontierTiles, BROAD_FALLBACK_FRONTIER_SAMPLE_CAP),
+        ...ownedFrontierTilesSample()
       ]);
       // The broad fallback also respects the spatial focus front so a large
       // empire cannot blow up planner CPU through the fallback path.
-      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
+      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll, () => {
+        frontierScanUsedFocusFallback = true;
+      });
       if (broadFrontierOrigins.length > frontierOrigins.length) {
         const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
           canAttack,
@@ -347,17 +331,50 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
           frontierOrigins = broadFrontierOrigins;
           frontierAnalysis = broadFrontierAnalysis;
+          frontierAnalysisActionable = true;
         }
       }
     }
   }
   recordPhaseTiming("choose_frontier", frontierStartedAt);
 
+  const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
+  let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
+  let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
+  let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
+    const structurePlayer = {
+      id: input.playerId,
+      points: input.points,
+      manpower: input.manpower,
+      ...(input.techIds ? { techIds: input.techIds } : {}),
+      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
+      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
+      settledTileCount,
+      townCount,
+      incomePerMinute
+    };
+    const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
+    const buildCandidates = restrictToFocus(structureCandidates, () => {
+      buildScanUsedFocusFallback = true;
+    });
+    // Competition is resolved by scoring, not a boolean gate — always compute
+    // so BUILD_ECONOMY can be scored even when frontier action is available.
+    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+  }
+
+  // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
+  // concrete DomainTileState signature (same cast pattern as
+  // frontier-command-planner.ts's domainTilesByKey) — TTile's structural
+  // shape (AutomationPlannerTile) already matches at runtime, but the
+  // generic type parameter isn't verifiable against DomainTileState at
+  // compile time without this assertion.
+  const domainTilesByKey = input.tilesByKey as unknown as ReadonlyMap<string, DomainTileState>;
   const diagnosticBase: AutomationPlannerDiagnostic = {
     playerId: input.playerId,
     sessionPrefix: input.sessionPrefix,
-    settlementEligible,
-    settlementCandidateFound: Boolean(settlementCandidate),
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
     frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
     frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
@@ -367,13 +384,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierOpportunityScout: frontierAnalysis.frontierOpportunityScout,
     frontierOpportunityScaffold: frontierAnalysis.frontierOpportunityScaffold,
     frontierOpportunityWaste: frontierAnalysis.frontierOpportunityWaste,
+    neighborCandidateTotal: frontierAnalysis.neighborCandidateTotal,
+    missingNeighborTileCount: frontierAnalysis.missingNeighborTileCount,
     canAttack,
     canExpand,
     ownedTileCount: input.ownedTiles.length,
     // Diagnostic-only: report the cached count without forcing computation
     // (0 means the lazy fallback was never needed this tick, which is the
     // common/healthy case for any empire with populated frontier sets).
-    ownedFrontierTileCount: ownedFrontierTilesCache?.length ?? 0,
+    ownedFrontierTileCount: ownedFrontierTilesComputedCount(),
     broadFallbackSkipped: broadFallbackSkipped || undefined,
     narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
@@ -381,6 +400,33 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
     frontierOriginCount: frontierOrigins.length,
     dockOriginCount: dockOrigins.length,
+    frontierOriginKeysSample: frontierOrigins.slice(0, 8).map((tile) => `${tile.x},${tile.y}`),
+    // Debug-only: explains *why* each sampled origin was classified hot —
+    // recomputed live from tilesByKey, so a mismatch against the cached
+    // hotFrontierTileKeys entry that produced this origin set (reason:
+    // "not_owned_frontier" or "none") is a stale-index signal, not a
+    // legitimately hot tile. See planner-candidate-index.ts's
+    // explainFrontierOriginTile, which mirrors isHotFrontierTile exactly.
+    frontierOriginExplanations: frontierOrigins
+      .slice(0, 8)
+      .map((tile) => explainFrontierOriginTile(input.playerId, tile as unknown as DomainTileState, domainTilesByKey)),
+    // Feeds ai-spatial-focus.ts's unproductive-streak rotation (via
+    // runtime.ts): whether *any* category (frontier/settle/build) found
+    // something actionable this tick, restricted to the same spatial-focus
+    // front. Results found only via restrictToFocus's unfiltered-fallback
+    // widening (frontierScanUsedFocusFallback / buildScanUsedFocusFallback)
+    // do NOT count — see the fallback tracking above and its regression test.
+    scanFoundActionableCandidate:
+      (frontierAnalysisActionable && !frontierScanUsedFocusFallback) ||
+      (Boolean(economicBuild) && !buildScanUsedFocusFallback) ||
+      (Boolean(fortBuild) && !buildScanUsedFocusFallback) ||
+      (Boolean(siegeOutpostBuild) && !buildScanUsedFocusFallback),
+    // Debug-only: what chooseBestEconomicBuild actually picked, so a
+    // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
+    // specific tile/type via /admin/debug/ai/decisions instead of guessing.
+    ...(economicBuild
+      ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
+      : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
@@ -391,8 +437,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     issuedAt: input.issuedAt,
     sessionPrefix: input.sessionPrefix,
     diagnostic: diagnosticBase,
-    settlementCandidate: settlementCandidate as TTile | undefined,
-    fallbackSettlementCandidate: fallbackSettlementCandidate as TTile | undefined,
     frontierAnalysis,
     tilesByKey: input.tilesByKey,
     needsFood,
@@ -402,29 +446,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const summarizeStartedAt = Date.now();
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
-  const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
-  let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
-  let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
-  let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
-  if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
-    const structurePlayer = {
-      id: input.playerId,
-      points: input.points,
-      ...(input.techIds ? { techIds: input.techIds } : {}),
-      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
-      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
-      settledTileCount,
-      townCount,
-      incomePerMinute
-    };
-    const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
-    const buildCandidates = restrictToFocus(structureCandidates);
-    // Competition is resolved by scoring, not a boolean gate — always compute
-    // so BUILD_ECONOMY can be scored even when frontier action is available.
-    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-  }
   // buildAutomationStrategicSnapshot only ever needs settled tiles carrying
   // a resource/dockId/town (for victory-path scoring) — every such tile is
   // already guaranteed to be in buildCandidateTiles (isBuildCandidateTile in
@@ -443,8 +464,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ownedTiles: strategicOwnedTiles,
     tilesByKey: input.tilesByKey,
     frontierAnalysis,
-    ...(settlementCandidate ? { settlementCandidate: settlementCandidate as TTile } : {}),
-    ...(fallbackSettlementCandidate ? { fallbackSettlementCandidate: fallbackSettlementCandidate as TTile } : {}),
     needsFood,
     needsEconomy,
     canAttack,
@@ -454,7 +473,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     siegeOutpostBuildAvailable: Boolean(siegeOutpostBuild),
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
     ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
-    ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {})
+    ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {}),
+    ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
   });
   input.onStrategicSnapshot?.(strategic);
 
@@ -472,6 +492,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,
-    manpower: input.manpower
+    manpower: input.manpower,
+    decisionCooldowns: input.decisionCooldowns
   });
 };

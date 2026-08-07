@@ -1,5 +1,19 @@
-import { DREAD_TOWER_ATTACK_MULT, FORT_DEFENSE_MULT, LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+
+type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
+
+// Boon is live once this tile is SETTLED under the viewer (mirrors
+// settledTilesForPlayer/refreshPlayerWonders server-side) — ownership alone
+// (FRONTIER) doesn't activate it yet, and claimedAt is unrelated (a one-time
+// Conscription Engine latch, not a general activation flag).
+export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind): string | undefined => {
+  if (!tile.naturalWonder) return undefined;
+  const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];
+  if (ownerKind === "mine-settled") return `Natural wonder: ${name} — active. Boon: ${boon}.`;
+  if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Settle this tile to activate: ${boon}.`;
+  return `Natural wonder: ${name}. Boon: ${boon}.`;
+};
 
 export type TileOverviewModifier = {
   reason: string;
@@ -22,7 +36,7 @@ const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
 const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
   if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
   if (tile.variant === "IRON_BASTION") return { reason: "Iron Bastion", effect: "4x defense", tone: "positive" };
-  return { reason: "Fort", effect: `${FORT_DEFENSE_MULT}x defense`, tone: "positive" };
+  return { reason: "Fort", effect: "2.5x defense", tone: "positive" };
 };
 
 const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
@@ -56,7 +70,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
   if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
     return [{
       reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+50% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
+      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
       tone: "positive"
     }];
   }

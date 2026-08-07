@@ -35,30 +35,60 @@ const nearestBeaconToTerritory = (
   return best;
 };
 
-export type SelectExpansionObjectiveInput = {
-  territoryTileKeys: Iterable<string>;
-  neutralBeaconTileKeys: ReadonlySet<string>;
-  /** Yield-bearing tile keys per enemy player id (from yieldBearingTilesByOwner). */
-  enemyYieldKeysByPlayerId: ReadonlyMap<string, ReadonlySet<string>>;
-  playerId: string;
-};
-
 // Max samples for territory tiles and beacon keys. Bounds the O(B×T) loop to
 // O(MAX×MAX) regardless of empire or world size. At 300×300 = 90k ops the
 // function runs <5ms on shared-cpu; accuracy loss is negligible (evenly-strided).
 const MAX_TERRITORY_SAMPLE = 300;
 const MAX_BEACON_SAMPLE = 300;
 
+/** One sampled enemy yield-bearing tile, tagged with its owner for the cheap self-exclusion below. */
+export type SampledEnemyYieldKey = { key: string; ownerId: string };
+
+/**
+ * Samples yield-bearing tiles across every non-barbarian player into a single
+ * bounded pool, ONCE. 2026-07-29 login-stall investigation: this used to be
+ * rebuilt from scratch by selectExpansionObjective for EVERY player in a sync
+ * batch, even though exportPlannerPlayerViews/buildRuntimePlannerPlayerViews
+ * always calls it once per player against the exact same source map —  a
+ * 9-AI-player batch paid this full collect-and-sample 9 times over for
+ * identical underlying data. Self-exclusion is deliberately NOT done here —
+ * it happens per-player against this already-bounded (<=300) pool in
+ * selectExpansionObjective, which is far cheaper than excluding-then-sampling
+ * per player against the full unsampled data.
+ */
+export const sampleEnemyYieldKeysAcrossPlayers = (
+  enemyYieldKeysByPlayerId: ReadonlyMap<string, ReadonlySet<string>>
+): SampledEnemyYieldKey[] => {
+  const all: SampledEnemyYieldKey[] = [];
+  for (const [ownerId, keys] of enemyYieldKeysByPlayerId) {
+    if (ownerId.startsWith("barbarian-")) continue;
+    for (const key of keys) all.push({ key, ownerId });
+  }
+  const step = Math.max(1, Math.ceil(all.length / MAX_BEACON_SAMPLE));
+  const sampled: SampledEnemyYieldKey[] = [];
+  for (let i = 0; i < all.length; i += step) sampled.push(all[i]!);
+  return sampled;
+};
+
+export type SelectExpansionObjectiveInput = {
+  // Array, not Iterable/Set: callers already maintain this incrementally as
+  // an array (see plannerPlayerTileKeys) — accepting it directly here avoids
+  // a full O(owned tiles) copy purely to learn its length for stride-sampling.
+  territoryTileKeys: readonly string[];
+  neutralBeaconTileKeys: ReadonlySet<string>;
+  /** Pre-sampled, shared across every player in the same sync batch — see sampleEnemyYieldKeysAcrossPlayers. */
+  sampledEnemyYieldKeys: readonly SampledEnemyYieldKey[];
+  playerId: string;
+};
+
 export const selectExpansionObjective = (
   input: SelectExpansionObjectiveInput
 ): ExpansionObjective | undefined => {
-  if (input.neutralBeaconTileKeys.size === 0 && input.enemyYieldKeysByPlayerId.size === 0) {
+  if (input.neutralBeaconTileKeys.size === 0 && input.sampledEnemyYieldKeys.length === 0) {
     return undefined;
   }
 
-  // Collect keys first (cheap string copies), then stride-sample before parsing.
-  const allKeys: string[] = [];
-  for (const key of input.territoryTileKeys) allKeys.push(key);
+  const allKeys = input.territoryTileKeys;
   if (allKeys.length === 0) return undefined;
 
   const step = Math.max(1, Math.ceil(allKeys.length / MAX_TERRITORY_SAMPLE));
@@ -78,16 +108,12 @@ export const selectExpansionObjective = (
     ? nearestBeaconToTerritory(sampledNeutralKeys, ownedCoords, "neutral_value")
     : undefined;
 
-  // Enemy beacons: collect all enemy yield-bearing keys (excluding self and barbarians),
-  // then stride-sample to MAX_BEACON_SAMPLE so large empires don't blow up the B×T loop.
-  const allEnemyKeys: string[] = [];
-  for (const [pid, keys] of input.enemyYieldKeysByPlayerId) {
-    if (pid === input.playerId || pid.startsWith("barbarian-")) continue;
-    for (const k of keys) allEnemyKeys.push(k);
-  }
-  const enemyStep = Math.max(1, Math.ceil(allEnemyKeys.length / MAX_BEACON_SAMPLE));
-  const enemyKeys: string[] = [];
-  for (let i = 0; i < allEnemyKeys.length; i += enemyStep) enemyKeys.push(allEnemyKeys[i]!);
+  // Enemy beacons: the pool is already bounded (<=MAX_BEACON_SAMPLE) and
+  // shared across players — only self-exclusion happens per player, and it's
+  // cheap because the pool is already small.
+  const enemyKeys = input.sampledEnemyYieldKeys
+    .filter((entry) => entry.ownerId !== input.playerId)
+    .map((entry) => entry.key);
   const enemyBest = enemyKeys.length > 0 ? nearestBeaconToTerritory(enemyKeys, ownedCoords, "enemy") : undefined;
 
   // Prefer neutral beacons — enemy beacons are a fallback when no neutral targets remain.

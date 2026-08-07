@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
 import { planAutomationCommand } from "./automation-command-planner.js";
@@ -51,6 +51,7 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.noCommandReason).toBe("active_lock");
+    expect(result.diagnostic.scanFoundActionableCandidate).toBeUndefined();
   });
 
   it("idles with wait_and_recover when only enemy land is adjacent and manpower is low", () => {
@@ -63,7 +64,7 @@ describe("automation command planner", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       hasActiveLock: false,
       activeDevelopmentProcessCount: 2,
       frontierTiles: [],
@@ -77,6 +78,9 @@ describe("automation command planner", () => {
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.frontierEnemyTargetCount).toBe(1);
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    // A target was found even though manpower gates the actual attack -
+    // "found" tracks scan results, not whether a command was issued.
+    expect(result.diagnostic.scanFoundActionableCandidate).toBe(true);
   });
 
   it("idles with wait_and_recover when no frontier exists and points are zero", () => {
@@ -101,6 +105,7 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.scanFoundActionableCandidate).toBe(false);
   });
 
   it("reports wait_and_recover when no legal land expansion or attack exists", () => {
@@ -153,8 +158,6 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.settlementEligible).toBe(true);
-    expect(result.diagnostic.settlementCandidateFound).toBe(false);
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
     expect(result.diagnostic.ownedTileCount).toBe(1);
     expect(result.diagnostic.ownedFrontierTileCount).toBe(0);
@@ -199,34 +202,60 @@ describe("automation command planner", () => {
     });
   });
 
-  it("builds an economic structure when income is weak and a good settled resource tile exists", () => {
-    const ownedTown = makeTile(5, 5, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
-    });
+  it("falls through directly to frontierTiles when hotFrontierTiles is empty, instead of starving on strategicFrontierTiles-only origins with no expand target", () => {
+    // strategicInterior is a legitimate isStrategicFrontierTile candidate
+    // (good to SETTLE — e.g. an interior gap that improves territory shape)
+    // but has zero expandable/attackable neighbors in this sparse tilesByKey.
+    // There is no SETTLE decision class in the AI's utility policy, so being
+    // "good to settle" is never actionable on its own. Before the fix, this
+    // being the sole strategicFrontierTiles entry (with hotFrontierTiles
+    // empty) meant baseFrontierOrigins picked ONLY this tile, so the real
+    // expand target below (plainFrontier -> farmTarget) was never scanned.
+    //
+    // ownedTiles must exceed SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD (500):
+    // below that, the broad-fallback rescan (triggered when the narrow scan
+    // finds nothing) papers over exactly this bug by re-scanning the full
+    // frontierTiles list anyway. That fallback is unconditionally disabled
+    // above the threshold (PR #980's finding) — which is why this starved
+    // permanently for ai-1's real (>500-tile) empire (266 strategic-only
+    // origins, 0 hot, #983 investigation) despite passing in a small-empire
+    // test that doesn't cross this threshold.
+    const core = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const strategicInterior = makeTile(0, 1, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const plainFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const farmTarget = makeTile(11, 10, { resource: "FARM" });
+    const fillerSettled = Array.from({ length: 600 }, (_, i) =>
+      makeTile(1000 + i, 1000, { ownerId: "ai-1", ownershipState: "SETTLED" })
+    );
+    const tilesByKey = new Map([
+      ["0,0", core],
+      ["0,1", strategicInterior],
+      ["10,10", plainFrontier],
+      ["11,10", farmTarget],
+      ...fillerSettled.map((t): [string, typeof t] => [`${t.x},${t.y}`, t])
+    ]);
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 5_000,
+      points: 500,
       manpower: 10,
-      techIds: ["trade"],
-      strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
-      townCount: 1,
-      incomePerMinute: 0,
+      settledTileCount: 1 + fillerSettled.length,
+      townCount: 0,
+      incomePerMinute: 5,
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
-      frontierTiles: [],
-      ownedTiles: [ownedTown],
-      tilesByKey: new Map([["5,5", ownedTown]]),
-      clientSeq: 3,
+      frontierTiles: [strategicInterior, plainFrontier],
+      hotFrontierTiles: [],
+      strategicFrontierTiles: [strategicInterior],
+      ownedTiles: [core, strategicInterior, plainFrontier, ...fillerSettled],
+      tilesByKey,
+      clientSeq: 200,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
     });
 
     expect(result.command).toMatchObject({
-      type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MARKET" })
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
     });
   });
 
@@ -528,7 +557,7 @@ describe("automation command planner", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 100,
-      manpower: 0,
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       settledTileCount: 2,
       townCount: 0,
       incomePerMinute: 4,
@@ -553,21 +582,39 @@ describe("automation command planner", () => {
     expect(result.command?.type).toBe("EXPAND");
   });
 
-  it("skips broad-fallback when owned tiles exceed threshold", () => {
-    const tileCount = 501;
-    const ownedTiles = Array.from({ length: tileCount }, (_, i) =>
-      makeTile(0, i, { ownerId: "ai-1", ownershipState: "FRONTIER" })
+  it("runs the broad fallback (and finds a real target) when the narrow scan sees only a waste-classified neutral", () => {
+    // Regression test for the gate bug where hasActionableFrontierAnalysis()
+    // counted ANY neutral (even a fully-boxed-in "waste" one with nothing to
+    // scout) as actionable, which suppressed the broad fallback entirely and
+    // left the AI stuck ignoring a real economic opportunity elsewhere on
+    // its own frontier.
+    const f1 = makeTile(4, 5, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    // Waste neutral: its only owned neighbor is f1, and its other neighbors
+    // are unmodeled (fog) rather than owned/resource tiles, so it has no
+    // resource/dock/town, doesn't qualify as a settlement scaffold, and has
+    // no fog left nearby to justify a scout move (scoutScore <= 0).
+    const waste = makeTile(5, 5, {});
+    // A second, unrelated frontier elsewhere in the empire with a genuine
+    // economic neutral next to it - only reachable via the broad fallback's
+    // ownedFrontierTiles() sweep, since it's not in the narrow frontierTiles.
+    const f2 = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+
+    const ownedTiles = [f1, f2];
+    const tilesByKey = new Map(
+      [...ownedTiles, waste, economicNeutral].map((t) => [`${t.x},${t.y}`, t])
     );
-    const tilesByKey = new Map(ownedTiles.map((t) => [`${t.x},${t.y}`, t]));
-    const frontierTiles = ownedTiles.slice(0, 3);
 
     const result = planAutomationCommand({
       playerId: "ai-1",
-      points: 1000,
-      manpower: 100,
+      points: 4, // SETTLE_COST — canExpand now also reserves gold for the eventual SETTLE step
+      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
+      settledTileCount: 0,
+      townCount: 0,
+      incomePerMinute: 4,
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
-      frontierTiles,
+      frontierTiles: [f1],
       ownedTiles,
       tilesByKey,
       clientSeq: 1,
@@ -575,8 +622,13 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.diagnostic.broadFallbackSkipped).toBe(true);
+    expect(result.diagnostic.broadFallbackSkipped).toBeFalsy();
+    expect(result.diagnostic.frontierOpportunityWaste).toBe(1);
+    expect(result.diagnostic.frontierOpportunityEconomic).toBe(1);
+    expect(result.diagnostic.scanFoundActionableCandidate).toBe(true);
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
+    });
   });
-
 });
-

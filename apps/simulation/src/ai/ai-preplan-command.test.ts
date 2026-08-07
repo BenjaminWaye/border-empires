@@ -21,6 +21,7 @@ const makeTile = (
       name?: string;
       type?: "MARKET" | "FARMING";
       populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+      population?: number;
     } | null;
   }> = {}
 ) => ({
@@ -40,7 +41,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 500,
+      // 0, not the old 500: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13), so 500 would now
+      // legitimately afford a tech instead of proving "no affordable
+      // progression" defers to the main planner.
+      points: 0,
       techIds: [],
       domainIds: [],
       strategicResources: {},
@@ -96,7 +101,11 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 100,
+      // 5, not the old 100: tier-1 tech is 10 gold under the gold rescope
+      // (docs/manpower-economy-rewrite-plan.md §6.2/§13) — 100 would now
+      // afford it. 5 still covers a cheap expand while keeping tech
+      // genuinely unaffordable, preserving this test's premise.
+      points: 5,
       techIds: [],
       domainIds: [],
       strategicResources: { FOOD: 80, CRYSTAL: 40 },
@@ -139,7 +148,7 @@ describe("automation preplan command", () => {
 
     expect(result.command).toMatchObject({
       type: "CHOOSE_TECH",
-      payloadJson: JSON.stringify({ techId: "toolmaking" })
+      payloadJson: JSON.stringify({ techId: "agriculture" })
     });
     expect(result.diagnostic.preplanReason).toBe("choose_tech");
   });
@@ -242,6 +251,152 @@ describe("automation preplan command", () => {
     // techs/domains should defer to the main planner.
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.preplanReason).toBe("defer_no_reachable_progression");
+  });
+
+  it("upgrades a TOWN to CITY when population and food are sufficient, ahead of tech/domain choices", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "UPGRADE_TOWN_TIER",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    expect(result.diagnostic.preplanReason).toBe("upgrade_town_tier");
+  });
+
+  it("prefers townTiles over ownedTiles for the town-tier-upgrade scan (perf: avoids scanning full territory)", () => {
+    // Regression for staging CPU contention: chooseAiTownTierUpgrade must
+    // scan the small pre-filtered townTiles list when provided, not the full
+    // (potentially thousands-of-tiles) ownedTiles list. Prove it by making
+    // ownedTiles contain a decoy non-town tile only, with the real upgradeable
+    // town tile present solely in townTiles — the upgrade only fires if the
+    // implementation actually consults townTiles.
+    const decoy = makeTile(9, 9, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [decoy],
+      townTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "UPGRADE_TOWN_TIER",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    expect(result.diagnostic.preplanReason).toBe("upgrade_town_tier");
+  });
+
+  it("falls back to scanning ownedTiles when townTiles is not provided", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "UPGRADE_TOWN_TIER" });
+  });
+
+  it("does not upgrade a town below the population threshold, falling through to tech choice", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 50_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
+  });
+
+  it("does not upgrade a town when gold can't cover the upgrade cost", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 30, // TOWN->CITY costs 40 gold (TOWN_TIER_UPGRADE_GOLD_COST.CITY)
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 }, // keeps foodCoverageLow's needsFood false so the upgrade attempt is actually reached
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
   });
 
   it("reports missing progression reachability when there is nothing legal to pick", () => {

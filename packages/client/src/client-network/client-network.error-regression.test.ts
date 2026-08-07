@@ -46,7 +46,7 @@ const createState = () =>
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
-    autoSettleTargets: new Set<string>(["60,302"]),
+    autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "FARMSTEAD"]]),
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
     attackPreviewCacheByKey: new Map<string, unknown>(),
@@ -102,8 +102,6 @@ const createState = () =>
     manpowerCap: 0,
     manpowerRegenPerMinute: 0,
     manpowerBreakdown: {},
-    territoryT: 0,
-    exposureE: 0,
     settledT: 0,
     settledE: 0,
     defensibilityPct: 0,
@@ -333,6 +331,44 @@ describe("client network regression guards", () => {
     }
   });
 
+  it("routes INSUFFICIENT_SLOT build rejections to the capture alert and rolls back the optimistic build (docs/manpower-economy-rewrite-plan.md §5)", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = {
+      kind: "BUILD",
+      x: 14,
+      y: 299,
+      tileKey: "14,299",
+      label: "Build Fort",
+      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "FORT" },
+      optimisticKind: "FORT"
+    };
+    state.queuedDevelopmentDispatchPending = true;
+    const showCaptureAlert = vi.fn();
+    const ws = new FakeWebSocket();
+    const { clearOptimisticTileState } = bindWithDeps(state, ws, { showCaptureAlert });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_SLOT", message: "no free IRON slot for fort" })
+      });
+      expect(showCaptureAlert).toHaveBeenCalledTimes(1);
+      const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
+      expect(captureArgs[0]).toBe("Construction failed");
+      expect(captureArgs[1]).toBe("no free IRON slot for fort");
+      expect(captureArgs[2]).toBe("warn");
+      // Without this rollback the optimistic under-construction ghost drawn by
+      // this build's own optimistic() call would stick around forever, since
+      // BUILD_STRUCTURE's COMMAND_REJECTED carries no x/y for
+      // isStructureActionError's errorTileKey lookup to find it by.
+      expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);
+      expect(state.lastDevelopmentAttempt).toBeUndefined();
+      expect(state.queuedDevelopmentDispatchPending).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("still uses the frontier notifier for INSUFFICIENT_GOLD on frontier claim and attack", () => {
     const state = createState();
     state.gold = 25;
@@ -452,7 +488,7 @@ describe("client network regression guards", () => {
     expect(state.capture).toBeUndefined();
     expect(state.combatStartAck).toBe(false);
     expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
-    expect(state.lastSubAt).toBe(0);
+    expect(state.lastSubAt).toBe(0); expect(state.autoSettleTargets.has("60,302")).toBe(false); expect(state.autoBuildTargets.has("60,302")).toBe(false);
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
@@ -1426,64 +1462,13 @@ describe("client network regression guards", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
 
-    bindClientNetwork({
-      state,
-      ws: ws as unknown as WebSocket,
-      wsUrl: "ws://localhost:3001/ws",
+    bindWithDeps(state, ws, {
       firebaseAuth: { currentUser: { uid: "player-1" } },
-      keyFor: (x: number, y: number) => `${x},${y}`,
       renderHud,
       setAuthStatus,
       syncAuthOverlay,
-      authenticateSocket,
-      pushFeed: vi.fn(),
-      pushFeedEntry: vi.fn(),
-      clearOptimisticTileState: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      requestViewRefresh: vi.fn(),
-      applyPendingSettlementsFromServer: vi.fn(),
-      mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
-      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-      maybeAnnounceShardSite: vi.fn(),
-      markDockDiscovered: vi.fn(),
-      centerOnOwnedTile: vi.fn(),
-      authProfileNameEl: { value: "" },
-      authProfileColorEl: { value: "" },
-      defensibilityPctFromTE: vi.fn(() => 0),
-      clearPendingCollectVisibleDelta: vi.fn(),
-      seedProfileSetupFields: vi.fn(),
-      resetStrategicReplayState: vi.fn(),
-      setWorldSeed: vi.fn(),
-      clearRenderCaches: vi.fn(),
-      buildMiniMapBase: vi.fn(),
-      shardAlertKeyForPayload: vi.fn(),
-      showShardAlert: vi.fn(),
-      combatResolutionAlert: vi.fn(),
-      wasPredictedCombatAlreadyShown: vi.fn(() => false),
-      showCaptureAlert: vi.fn(),
-      requestSettlement: vi.fn(() => false),
-      dropQueuedTargetKeyIfAbsent: vi.fn(),
-      processActionQueue: vi.fn(() => false),
-      clearSettlementProgressForTile: vi.fn(),
-      terrainAt: vi.fn(() => "LAND"),
-      requestTileDetailIfNeeded: vi.fn(),
-      requestAttackPreviewForTarget: vi.fn(),
-      openSingleTileActionMenu: vi.fn(),
-      isTileOwnedByAlly: vi.fn(() => false),
-      hideShardAlert: vi.fn(),
-      explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      clearSettlementProgressByKey: vi.fn(),
-      showCollectVisibleCooldownAlert: vi.fn(),
-      formatCooldownShort: vi.fn(() => "1s"),
-      reconcileActionQueue: vi.fn(),
-      revertOptimisticVisibleCollectDelta: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
-      playerNameForOwner: vi.fn(),
-      settlementProgressForTile: vi.fn(() => undefined),
-      COLLECT_VISIBLE_COOLDOWN_MS: 1_000
-    } as any);
+      authenticateSocket
+    });
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -1501,6 +1486,39 @@ describe("client network regression guards", () => {
 
     vi.runOnlyPendingTimers();
     expect(authenticateSocket).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  // Regression for the 2026-07-14 staging login stall: SERVER_STARTING alone
+  // ("still starting") is misleading once the sim is up but draining a large
+  // command backlog after a restart — the gateway now flags this case with
+  // backlogDegraded: true so the client can show an accurate message instead.
+  it("shows the backlog-replay message instead of the generic 'still starting' text when the server flags backlogDegraded", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const setAuthStatus = vi.fn();
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+
+    bindWithDeps(state, ws, {
+      firebaseAuth: { currentUser: { uid: "player-1" } },
+      setAuthStatus
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "SERVER_STARTING",
+        message: "The game server is replaying a backlog of prior activity after a restart. This can take a few minutes; no progress is lost. Retrying automatically...",
+        backlogDegraded: true
+      })
+    });
+
+    expect(state.authBusyDetail).toContain("replaying a backlog");
+    expect(setAuthStatus).toHaveBeenCalledWith("Server is replaying a backlog after a restart. Retrying sign-in...");
+
+    vi.runOnlyPendingTimers();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -1574,5 +1592,45 @@ describe("client network regression guards", () => {
     });
     expect(state.incomingAttacksByTile.get("42,77")).toBeDefined();
     expect(state.unreadAttackAlerts).toBe(1);
+  });
+
+  it("clears the pending display-name change and surfaces the season-limit message on DISPLAY_NAME_LIMIT", () => {
+    const state = createState();
+    state.pendingDisplayNameChange = "New Name";
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "DISPLAY_NAME_LIMIT",
+        message: "You can only change your display name once per season. Try again next season."
+      })
+    });
+
+    expect(state.pendingDisplayNameChange).toBe("");
+    expect(deps.pushFeed).toHaveBeenCalledWith(
+      "You can only change your display name once per season. Try again next season.",
+      "error",
+      "warn"
+    );
+  });
+
+  it("pops a confirmation alert when a pending display-name change is confirmed via PLAYER_UPDATE", () => {
+    const state = createState();
+    state.pendingDisplayNameChange = "New Name";
+    const ws = new FakeWebSocket();
+    const originalWindow = (globalThis as any).window;
+    const alertSpy = vi.fn();
+    (globalThis as any).window = { ...(originalWindow ?? {}), alert: alertSpy };
+    try {
+      bindWithDeps(state, ws);
+      ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", name: "New Name" }) });
+    } finally {
+      (globalThis as any).window = originalWindow;
+    }
+
+    expect(state.pendingDisplayNameChange).toBe("");
+    expect(alertSpy).toHaveBeenCalledWith('Your display name is now "New Name".');
   });
 });

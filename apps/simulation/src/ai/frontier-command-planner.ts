@@ -3,6 +3,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
 import {
   candidateKeysForOrigin,
   chebyshevWrap,
@@ -74,6 +75,17 @@ export type FrontierAnalysis = {
   frontierOpportunityWaste: number;
   /** True when the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES) was hit. */
   narrowAnalyzeCapped: boolean;
+  /**
+   * Diagnostic-only (see docs/agents/topic-runbooks.md ai debugging notes):
+   * how many neighbor candidate tiles this scan visited vs how many were
+   * entirely absent from the planner's tilesByKey (worker never received a
+   * tile_delta for them, vs. genuinely known-and-classified-as-waste).
+   * A high missing/total ratio for a large empire points at a sync-scope gap
+   * (planner-sync-scope.ts's relevance radius or an incremental-rebuild bug),
+   * not a legitimately empty frontier.
+   */
+  neighborCandidateTotal: number;
+  missingNeighborTileCount: number;
 };
 
 export const analyzeOwnedFrontierTargetsFromLookup = (
@@ -157,10 +169,14 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 
   let capped = false;
   let candidatesEvaluated = 0;
+  let neighborCandidateTotal = 0;
+  let missingNeighborTileCount = 0;
   for (const from of ownedTileList) {
     for (const targetKey of cachedCandidateKeysForOrigin(from)) {
       const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
+      neighborCandidateTotal += 1;
+      if (!target) missingNeighborTileCount += 1;
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
@@ -205,6 +221,19 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           capped = true;
           break;
         }
+        continue;
+      }
+
+      // A dock crossing only lands you on the linked dock tile itself when
+      // settling — you must capture that dock before claiming land beyond
+      // it. dockCrossingCandidateTileKeys() also includes the linked dock's
+      // frontier neighbors (needed so ATTACK can reach enemy land past an
+      // owned-but-hostile dock), so exclude those from EXPAND candidates
+      // unless they're also plain frontier-adjacent to `from`.
+      if (
+        !isFrontierAdjacent(from.x, from.y, target.x, target.y) &&
+        !(from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey))
+      ) {
         continue;
       }
 
@@ -317,7 +346,9 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     frontierOpportunityScout,
     frontierOpportunityScaffold,
     frontierOpportunityWaste,
-    narrowAnalyzeCapped: capped
+    narrowAnalyzeCapped: capped,
+    neighborCandidateTotal,
+    missingNeighborTileCount
   };
 };
 

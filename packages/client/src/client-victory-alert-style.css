@@ -1,0 +1,122 @@
+/* Season-victory hold-timer alert. Two states toggled by .is-collapsed:
+   expanded card (first time this key is seen) and a slim persistent banner
+   (after acknowledgement) — see renderVictoryHoldAlert in
+   client-capture-effects.ts. Never fully hidden while a hold is active, so
+   it stays acutely visible without requiring the leaderboard tab to be open.
+   Split into its own file (style.css is already at the repo's 500-line cap
+   for growth — see client-placement-overlay-style.css for the same pattern). */
+#victory-alert-overlay {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  width: min(560px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  z-index: 31;
+  display: none;
+}
+
+#victory-alert-card {
+  display: grid;
+  gap: 10px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 191, 76, 0.46);
+  background: linear-gradient(145deg, rgba(112, 78, 24, 0.82), rgba(48, 28, 7, 0.88));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 42px rgba(34, 18, 4, 0.42);
+  padding: 14px 18px;
+}
+
+#victory-alert-overlay[data-state="warn"] #victory-alert-card {
+  border-color: rgba(255, 122, 92, 0.5);
+  background: linear-gradient(145deg, rgba(112, 40, 24, 0.82), rgba(48, 12, 7, 0.88));
+}
+
+#victory-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#victory-alert-title {
+  color: #fff6e0;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+#victory-alert-detail {
+  color: rgba(255, 244, 222, 0.92);
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.victory-alert-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 224, 171, 0.36);
+  background: rgba(47, 28, 10, 0.56);
+  color: #fff6e0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.victory-alert-collapse-btn:hover {
+  background: rgba(63, 38, 14, 0.76);
+}
+
+.victory-alert-banner-btn {
+  display: none;
+  width: 100%;
+  appearance: none;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 191, 76, 0.4);
+  background: linear-gradient(145deg, rgba(112, 78, 24, 0.78), rgba(48, 28, 7, 0.84));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px rgba(34, 18, 4, 0.36);
+  color: #fff6e0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#victory-alert-overlay[data-state="warn"] .victory-alert-banner-btn {
+  border-color: rgba(255, 122, 92, 0.46);
+  background: linear-gradient(145deg, rgba(112, 40, 24, 0.78), rgba(48, 12, 7, 0.84));
+}
+
+#victory-alert-overlay.is-collapsed #victory-alert-card {
+  display: none;
+}
+
+#victory-alert-overlay.is-collapsed .victory-alert-banner-btn {
+  display: block;
+}
+
+.pressure-meta-countdown {
+  color: rgba(255, 210, 112, 0.96);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  #victory-alert-overlay {
+    top: 146px;
+    width: calc(100vw - 24px);
+  }
+
+  .victory-alert-banner-btn {
+    font-size: 12px;
+    padding: 9px 14px;
+  }
+}

@@ -67,9 +67,12 @@ export type GatewayMetricsSnapshot = {
   colorCollisionRejectedTotal: number;
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
+  loginAbandonedBeforeAttachTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
+  websocketDisconnectTotal: number;
+  websocketAbnormalDisconnectTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -102,9 +105,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let colorCollisionRejectedTotal = 0;
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
+  let loginAbandonedBeforeAttachTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
+  let websocketDisconnectTotal = 0;
+  let websocketAbnormalDisconnectTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -140,9 +146,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     colorCollisionRejectedTotal,
     loginQueuedTotal,
     loginQueueRejectedTotal,
+    loginAbandonedBeforeAttachTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
-    tileDetailSelfHealTotal
+    tileDetailSelfHealTotal,
+    websocketDisconnectTotal,
+    websocketAbnormalDisconnectTotal
   });
 
   return {
@@ -215,6 +224,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     incrementLoginQueueRejectedTotal(count = 1): void {
       loginQueueRejectedTotal += Math.max(0, Math.floor(count));
     },
+    incrementLoginAbandonedBeforeAttachTotal(count = 1): void {
+      loginAbandonedBeforeAttachTotal += Math.max(0, Math.floor(count));
+    },
     incrementSimulationSubmitTimeoutTolerated(count = 1): void {
       simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
     },
@@ -223,6 +235,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementTileDetailSelfHealTotal(count = 1): void {
       tileDetailSelfHealTotal += Math.max(0, Math.floor(count));
+    },
+    incrementWebsocketDisconnectTotal(count = 1): void {
+      websocketDisconnectTotal += Math.max(0, Math.floor(count));
+    },
+    incrementWebsocketAbnormalDisconnectTotal(count = 1): void {
+      websocketAbnormalDisconnectTotal += Math.max(0, Math.floor(count));
     },
     snapshot,
     renderPrometheus(): string {
@@ -300,12 +318,18 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
         "# TYPE gateway_login_queue_rejected_total counter",
         `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`,
+        "# TYPE gateway_login_abandoned_before_attach_total counter",
+        `gateway_login_abandoned_before_attach_total ${formatMetricValue(sample.loginAbandonedBeforeAttachTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",
         `gateway_simulation_submit_timeout_flipped_total ${formatMetricValue(sample.simulationSubmitTimeoutFlippedTotal)}`,
         "# TYPE gateway_tile_detail_self_heal_total counter",
-        `gateway_tile_detail_self_heal_total ${formatMetricValue(sample.tileDetailSelfHealTotal)}`
+        `gateway_tile_detail_self_heal_total ${formatMetricValue(sample.tileDetailSelfHealTotal)}`,
+        "# TYPE gateway_websocket_disconnect_total counter",
+        `gateway_websocket_disconnect_total ${formatMetricValue(sample.websocketDisconnectTotal)}`,
+        "# TYPE gateway_websocket_abnormal_disconnect_total counter",
+        `gateway_websocket_abnormal_disconnect_total ${formatMetricValue(sample.websocketAbnormalDisconnectTotal)}`
       ].join("\n");
     }
   };

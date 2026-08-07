@@ -1,5 +1,7 @@
-import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { canAffordCost } from "./client-constants.js";
+import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -9,6 +11,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
+import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -21,6 +24,7 @@ import {
   buildFrontierQueue as buildFrontierQueueFromModule,
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
   cancelQueuedBuild as cancelQueuedBuildFromModule,
+  moveQueuedEntryToFront as moveQueuedEntryToFrontFromModule,
   cleanupExpiredSettlementProgress as cleanupExpiredSettlementProgressFromModule,
   clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
   clearSettlementProgressForTile as clearSettlementProgressForTileFromModule,
@@ -37,6 +41,7 @@ import {
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
   queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
+  queuedEntryIndexForTile as queuedEntryIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
   requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
@@ -47,6 +52,7 @@ import {
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
+import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -88,9 +94,11 @@ import {
   requiredTechForTileAction as requiredTechForTileActionFromModule,
   shouldOptimisticallyBuildOnSelectedTile as shouldOptimisticallyBuildOnSelectedTileFromModule,
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
+  structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
+import { economicStructureName } from "./client-map-display.js";
 import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
@@ -102,14 +110,15 @@ import {
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
   ownTownEconomyFieldsPartial,
-  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
-  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
+import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -126,6 +135,7 @@ import type {
   TileVisibilityState
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -230,7 +240,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
-    "OVERLOAD_SYNTHESIZER",
     "SET_CONVERTER_STRUCTURE_ENABLED",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
@@ -466,6 +475,116 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureBuild(tile.x, tile.y, kind);
   };
 
+  // Human-readable label for a buildable structure type. Reuses the shared
+  // economic-structure name table, with explicit branches for the defensive /
+  // observatory / display names that table doesn't cover (or labels differently).
+  const structureDisplayLabel = (structureType: BuildableStructureType): string => {
+    if (structureType === "FORT") {
+      return state.techIds.includes("steelworking")
+        ? "Thunder Bastion"
+        : state.techIds.includes("fortified-walls")
+          ? "Iron Bastion"
+          : "Fort";
+    }
+    if (structureType === "SIEGE_OUTPOST") {
+      return state.techIds.includes("standing-army")
+        ? "Dread Tower"
+        : state.techIds.includes("siegecraft")
+          ? "Siege Tower"
+          : "Siege Outpost";
+    }
+    if (structureType === "OBSERVATORY") return "Observatory";
+    if (structureType === "AIRPORT") return "Airport";
+    if (structureType === "RADAR_SYSTEM") return "Radar System";
+    return economicStructureName(structureType);
+  };
+
+  // Builds a structure directly, applying the optimistic tile update only for
+  // types that don't require town-support placement (matching the per-action
+  // optimistic behavior that previously lived in each build_* handler).
+  const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile): void => {
+    sendDevelopmentBuild(
+      { type: "BUILD_STRUCTURE", x: tile.x, y: tile.y, structureType },
+      () => {
+        if (!(tile.town && isTownSupportPlacementStructure(structureType))) {
+          applyOptimisticStructureBuild(tile.x, tile.y, structureType as OptimisticStructureKind);
+        }
+      },
+      {
+        x: tile.x,
+        y: tile.y,
+        label: `${structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
+        optimisticKind: structureType as OptimisticStructureKind
+      }
+    );
+  };
+
+  // Fires a build for a structure type, opening the placement overlay for
+  // FOUNDRY/WATERWORKS (user confirms the exact tile) and dispatching the build
+  // directly for every other type.
+  const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void => {
+    if (structureType === "FOUNDRY" || structureType === "WATERWORKS") {
+      state.buildingPlacement = { active: true, structureType, x: tile.x, y: tile.y };
+      renderPlacementOverlay();
+      renderHud();
+      return;
+    }
+    dispatchGenericBuild(structureType, tile);
+  };
+
+  // Owned-tile build entry point: settles-then-builds automatically on a
+  // FRONTIER tile (mirroring the Light Outpost frontier chain) or builds
+  // immediately on a SETTLED tile. A second build click on a tile with a
+  // settle-then-build already queued is blocked rather than overwritten.
+  const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
+    const targetKey = keyFor(selected.x, selected.y);
+    if (selected.ownerId !== state.me) { hideTileActionMenu(); return; }
+    if (selected.ownershipState === "SETTLED") {
+      hideTileActionMenu();
+      triggerBuildForStructureType(structureType, selected);
+      return;
+    }
+    if (state.autoBuildTargets.has(targetKey)) {
+      showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Build already queued", "A build is already queued for this tile.");
+      hideTileActionMenu();
+      return;
+    }
+    state.autoSettleTargets.add(targetKey);
+    state.autoBuildTargets.set(targetKey, structureType);
+    pushFeed(`Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`, "info", "info");
+    requestSettlement(selected.x, selected.y);
+    hideTileActionMenu();
+  };
+
+  // Checked on the runtime loop's periodic tick: once a tile queued via
+  // handleBuildAction finishes settling, fire its build automatically so the
+  // user doesn't have to reopen the tile menu.
+  const processAutoBuildTargets = (): void => {
+    if (state.autoBuildTargets.size === 0) return;
+    for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
+        state.autoBuildTargets.delete(targetKey);
+        triggerBuildForStructureType(structureType, tile);
+      }
+    }
+  };
+
+  // Checked on the runtime loop's periodic tick: when waypoint reaches a target
+  // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
+  const processAutoSettleTargets = (): void => {
+    if (state.autoSettleTargets.size === 0) return;
+    for (const targetKey of [...state.autoSettleTargets]) {
+      const tile = state.tiles.get(targetKey);
+      if (!tile) continue;
+      if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
+        state.autoSettleTargets.delete(targetKey);
+        requestSettlement(tile.x, tile.y);
+      }
+    }
+  };
+
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
       ws,
@@ -581,10 +700,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       state.autoSettleTargets.delete(targetKey);
     }
+    if (!handedOffToSettle) state.autoBuildTargets.delete(targetKey);
     state.capture = undefined;
-    state.musterTransit = undefined;
-    state.activeMusterSource = undefined;
-    state.deferredAttack = undefined;
+    // Only this attack's flag entry — other flags may still be marching.
+    if (target) clearMusterTransitForTarget(state, target.x, target.y);
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
@@ -660,8 +779,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
+  const musterWatchGuard = createMusterWatchGuard();
+  const sendUnwatchMusterIfWatching = (): void => {
+    if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
+  };
+
   const hideTileActionMenu = (): void => {
-    sendGameMessage({ type: "UNWATCH_MUSTER" });
+    sendUnwatchMusterIfWatching();
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
       return;
@@ -741,13 +865,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const queuedDevelopmentEntryForTile = (tileKey: string): QueuedDevelopmentAction | undefined =>
     queuedDevelopmentEntryForTileFromModule(state, tileKey);
 
-  const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
+  const queuedSettlementIndexForTile = (tileKey: string): number =>
+    devQueueTierRelativeIndex(queuedSettlementIndexForTileFromModule(state, tileKey));
+
+  const queuedEntryIndexForTile = (tileKey: string): number => queuedEntryIndexForTileFromModule(state, tileKey);
+
+  const devQueueStateForTile = (tileKey: string): "planned" | "queued" =>
+    devQueueTierForIndex(queuedEntryIndexForTileFromModule(state, tileKey));
 
   const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
 
   const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud });
+
+  const moveQueuedEntryToFront = (tileKey: string): boolean => moveQueuedEntryToFrontFromModule(state, tileKey, { pushFeed, renderHud });
 
   const cleanupExpiredSettlementProgress = (): boolean =>
     cleanupExpiredSettlementProgressFromModule(state, { syncOptimisticSettlementTile, clearSettlementProgressByKey, requestViewRefresh });
@@ -758,33 +890,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const primarySettlementProgress = (): TileTimedProgress | undefined =>
     primarySettlementProgressFromModule(state, { settlementProgressForTile, activeSettlementProgressEntries });
 
-  const constructionCountdownLineForTile = (tile: Tile): string => {
-    if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
-      return `Fortifying... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
-    }
-    if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
-      return `Removing Fort... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
-    }
-    if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-      return `Building Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
-    }
-    if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
-      return `Removing Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
-    }
-    if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-      return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
-    }
-    if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-      return `Removing Siege Outpost... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
-    }
-    if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
-      return `Building ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
-    }
-    if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
-      return `Removing ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
-    }
-    return "";
-  };
+  const constructionCountdownLineForTile = (tile: Tile): string =>
+    constructionCountdownLineForTileFromModule(tile, formatCountdownClock, deps.economicStructureName);
 
   const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
     const completesAt =
@@ -812,19 +919,35 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queuedSettlementProgressForTileFromModule(tile, {
       keyFor,
       queuedDevelopmentEntryForTile,
-      queuedSettlementIndexForTile
+      queuedSettlementIndexForTile,
+      queuedEntryIndexForTile,
+      devQueueStateForTile
     });
 
   const queuedBuildProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedBuildProgressForTileFromModule(tile, {
       keyFor,
-      queuedDevelopmentEntryForTile
+      queuedDevelopmentEntryForTile,
+      queuedEntryIndexForTile,
+      devQueueStateForTile
     });
 
   // Pure getter used during render; the seed/clear lifecycle below decides
   // when an entry exists, so the menu view itself never mutates state.
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
+
+  // §14.2: state.dormantStructures only ever describes the logged-in
+  // player's own structures (PLAYER_UPDATE is a private per-player message),
+  // so a foreign tile never gets a dormancy lookup.
+  const dormantResourcesForTile = (
+    tile: Tile,
+    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+  ): SlotResource[] | undefined => {
+    if (tile.ownerId !== state.me) return undefined;
+    const key = `${tile.x},${tile.y}:${field}`;
+    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
+  };
 
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
@@ -858,6 +981,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       tileHistoryLines,
       isTileOwnedByAlly,
       townPartialLoadingStartedAt,
+      dormantResourcesForTile,
       areaEffectModifiersForTile: (targetTile: Tile) => {
         const settledDefenseModifiers =
           targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
@@ -897,18 +1021,30 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       settlementProgressForTile: (x, y) => {
         const progress = settlementProgressForTile(x, y);
         if (!progress) return undefined;
+        const remainingMs = Math.max(0, progress.resolvesAt - Date.now());
+        const totalMs = Math.max(1, progress.resolvesAt - progress.startAt);
         return {
           title: "Settlement in progress",
           detail: progress.awaitingServerConfirm
             ? "Settlement timer finished locally. Waiting for server confirmation."
             : "Settling unlocks defense and activates town and resource production.",
-          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, progress.resolvesAt - Date.now())),
+          remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(remainingMs),
           progress: progress.awaitingServerConfirm
             ? 1
-            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / Math.max(1, progress.resolvesAt - progress.startAt))),
+            : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / totalMs)),
           note: progress.awaitingServerConfirm
             ? "Keeping the tile settled client-side until the server responds."
-            : "This tile is actively settling."
+            : "This tile is actively settling.",
+          // §6.3 rush-buy: hidden once the timer's already elapsed locally
+          // (awaitingServerConfirm) — nothing left to pay to speed up.
+          ...(progress.awaitingServerConfirm
+            ? {}
+            : {
+                cancelLabel: "Cancel settlement",
+                cancelActionId: "cancel_settle" as const,
+                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyActionId: "rush_buy" as const
+              })
         };
       },
       queuedSettlementProgressForTile,
@@ -916,7 +1052,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
-      playerNameForOwner,
+      playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
       state
@@ -1058,8 +1194,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     handleTileAction,
     cancelQueuedSettlement,
     cancelQueuedBuild,
+    moveQueuedEntryToFront,
     sendGameMessage,
     applyOptimisticStructureCancel,
+    clearSettlementProgressByKey,
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
@@ -1072,9 +1210,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
     if (tile.muster?.ownerId === state.me) {
+      musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
     } else {
-      sendGameMessage({ type: "UNWATCH_MUSTER" });
+      sendUnwatchMusterIfWatching();
     }
     openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
   };
@@ -1084,20 +1223,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
-    const selected = singleTargetKey
-      ? state.tiles.get(singleTargetKey)
-      : state.selected
-        ? state.tiles.get(keyFor(state.selected.x, state.selected.y))
-        : undefined;
+    const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
+    const selected = state.tiles.get(selectedKey);
+    // Waypoint actions need only coordinates, so unexplored targets (absent from state.tiles) still work.
+    const selectedCoords = selected ?? (singleTargetKey ? parseKey(singleTargetKey) : state.selected);
     const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
     const fromBulk = bulkKeys.length > 0;
-    const targets = fromBulk ? bulkKeys : selected ? [keyFor(selected.x, selected.y)] : [];
+    const targets = fromBulk ? bulkKeys : selectedCoords ? [keyFor(selectedCoords.x, selectedCoords.y)] : [];
     if (targets.length === 0) {
       hideTileActionMenu();
       return;
     }
 
-    if (handleWaypointAction({ state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
 
     if (actionId === "settle_connected_frontier" && selected) {
       const origSelected = { x: selected.x, y: selected.y };
@@ -1205,14 +1343,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "collect_yield" && fromBulk) {
-      let n = 0;
-      for (const k of targets) {
-        const t = state.tiles.get(k);
-        if (!t || t.ownerId !== state.me) continue;
-        sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y });
-        n += 1;
-      }
-      pushFeed(`Collecting from ${n} selected tiles.`, "info", "info");
+      // Bulk box-selection can cover up to 2500 tiles (client-drag-selection.ts) -- fire
+      // these as one synchronous burst of COLLECT_TILE messages and the gateway's
+      // per-player rate limiter will just reject most of them. Pace it client-side instead.
+      const ownedTiles = targets.map((k) => state.tiles.get(k)).filter((t): t is Tile => t !== undefined && t.ownerId === state.me);
+      dispatchPaced(ownedTiles, (t) => sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y }));
+      pushFeed(`Collecting from ${ownedTiles.length} selected tiles.`, "info", "info");
       hideTileActionMenu();
       return;
     }
@@ -1220,175 +1356,25 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    const fortVariantLabel =
-      selected.fort?.variant === "FORT"
-        ? state.techIds.includes("fortified-walls")
-          ? "Iron Bastion"
-          : "Fort"
-        : selected.fort?.variant === "IRON_BASTION"
-        ? state.techIds.includes("steelworking")
-          ? "Thunder Bastion"
-          : "Iron Bastion"
-        : selected.fort?.variant === "THUNDER_BASTION"
-          ? "Thunder Bastion"
-          : state.techIds.includes("steelworking")
-            ? "Thunder Bastion"
-            : state.techIds.includes("fortified-walls")
-              ? "Iron Bastion"
-              : "Fort";
-    const siegeVariantLabel =
-      selected.siegeOutpost?.variant === "SIEGE_OUTPOST"
-        ? state.techIds.includes("siegecraft")
-          ? "Siege Tower"
-          : "Siege Outpost"
-        : selected.siegeOutpost?.variant === "SIEGE_TOWER"
-        ? state.techIds.includes("standing-army")
-          ? "Dread Tower"
-          : "Siege Tower"
-        : selected.siegeOutpost?.variant === "DREAD_TOWER"
-          ? "Dread Tower"
-          : state.techIds.includes("standing-army")
-            ? "Dread Tower"
-            : state.techIds.includes("siegecraft")
-              ? "Siege Tower"
-              : "Siege Outpost";
     if (actionId === "collect_yield") collectSelectedYield();
     if (actionId === "collect_shard") collectSelectedShard();
-    if (actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
-    if (actionId === "build_fortification")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
-        x: selected.x,
-        y: selected.y,
-        label: `${fortVariantLabel} at (${selected.x}, ${selected.y})`,
-        optimisticKind: "FORT"
-      });
-    if (actionId === "build_wooden_fort")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WOODEN_FORT" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "WOODEN_FORT"),
-        { x: selected.x, y: selected.y, label: `Wooden Fort at (${selected.x}, ${selected.y})`, optimisticKind: "WOODEN_FORT" }
-      );
-    if (actionId === "build_observatory")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "OBSERVATORY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Observatory at (${selected.x}, ${selected.y})`,
-        optimisticKind: "OBSERVATORY"
-      });
-    if (actionId === "build_farmstead")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"),
-        { x: selected.x, y: selected.y, label: `Farmstead at (${selected.x}, ${selected.y})`, optimisticKind: "FARMSTEAD" }
-      );
-    if (actionId === "build_waterworks") {
-      state.buildingPlacement = { active: true, structureType: "WATERWORKS", x: selected.x, y: selected.y };
-      hideTileActionMenu();
-      renderPlacementOverlay();
-      renderHud();
+    if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
+    const genericStructureType = structureTypeForTileActionFromModule(actionId as TileActionDef["id"]);
+    if (genericStructureType) {
+      handleBuildAction(actionId, genericStructureType, selected);
       return;
     }
-    if (actionId === "build_camp")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Camp at (${selected.x}, ${selected.y})`,
-        optimisticKind: "CAMP"
-      });
-    if (actionId === "build_mine")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Mine at (${selected.x}, ${selected.y})`,
-        optimisticKind: "MINE"
-      });
-    if (actionId === "build_market")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, optimisticStructureBuildForAction(actionId, selected, "MARKET"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Market at (${selected.x}, ${selected.y})`,
-        optimisticKind: "MARKET"
-      });
-    if (actionId === "build_granary")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, optimisticStructureBuildForAction(actionId, selected, "GRANARY"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Granary at (${selected.x}, ${selected.y})`,
-        optimisticKind: "GRANARY"
-      });
-    if (actionId === "build_census_hall")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CENSUS_HALL" }, optimisticStructureBuildForAction(actionId, selected, "CENSUS_HALL"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Census Hall at (${selected.x}, ${selected.y})`,
-        optimisticKind: "CENSUS_HALL"
-      });
-    if (actionId === "build_bank")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, optimisticStructureBuildForAction(actionId, selected, "BANK"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Bank at (${selected.x}, ${selected.y})`,
-        optimisticKind: "BANK"
-      });
-    if (actionId === "build_clearing_house")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CLEARING_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "CLEARING_HOUSE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Clearing House at (${selected.x}, ${selected.y})`,
-        optimisticKind: "CLEARING_HOUSE"
-      });
-    if (actionId === "build_airport")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Airport at (${selected.x}, ${selected.y})`,
-        optimisticKind: "AIRPORT"
-      });
-    if (actionId === "build_aether_tower")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AETHER_TOWER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AETHER_TOWER"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Aether Tower at (${selected.x}, ${selected.y})`,
-        optimisticKind: "AETHER_TOWER"
-      });
-    if (actionId === "build_caravanary")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, optimisticStructureBuildForAction(actionId, selected, "CARAVANARY"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Caravanary at (${selected.x}, ${selected.y})`,
-        optimisticKind: "CARAVANARY"
-      });
-    if (actionId === "build_fur_synthesizer")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, optimisticStructureBuildForAction(actionId, selected, "FUR_SYNTHESIZER"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Fur Synthesizer at (${selected.x}, ${selected.y})`,
-        optimisticKind: "FUR_SYNTHESIZER"
-      });
     if (actionId === "upgrade_fur_synthesizer")
       sendDevelopmentBuild(
         { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_FUR_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_FUR_SYNTHESIZER" }
       );
-    if (actionId === "build_ironworks")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, optimisticStructureBuildForAction(actionId, selected, "IRONWORKS"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Ironworks at (${selected.x}, ${selected.y})`,
-        optimisticKind: "IRONWORKS"
-      });
     if (actionId === "upgrade_ironworks")
       sendDevelopmentBuild(
         { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_IRONWORKS" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_IRONWORKS"),
         { x: selected.x, y: selected.y, label: `Advanced Ironworks at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_IRONWORKS" }
-      );
-    if (actionId === "build_crystal_synthesizer")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" },
-        optimisticStructureBuildForAction(actionId, selected, "CRYSTAL_SYNTHESIZER"),
-        { x: selected.x, y: selected.y, label: `Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "upgrade_crystal_synthesizer")
       sendDevelopmentBuild(
@@ -1396,123 +1382,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
-    if (actionId === "build_foundry") {
-      state.buildingPlacement = { active: true, structureType: "FOUNDRY", x: selected.x, y: selected.y };
+    if (actionId === "build_light_outpost_frontier") {
+      if (selected && !selected.ownerId) {
+        const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+        if (!plan.reachable) {
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No expansion path to that tile.");
+        } else {
+          const targetKey = keyFor(selected.x, selected.y);
+          // Drive the frontier over via the same waypoint mechanism as
+          // "Expand Here" — it advances one owned-adjacent hop at a time so
+          // the claimed chain always stays connected. Once ownership is
+          // reached, auto-settle then auto-build pick up the baton.
+          state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+          state.autoSettleTargets.add(targetKey);
+          state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
+          const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";
+          pushFeed(`Expanding to Light Outpost site at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
+          processActionQueue();
+        }
+      }
       hideTileActionMenu();
-      renderPlacementOverlay();
-      renderHud();
       return;
     }
-    if (actionId === "build_garrison_hall")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Garrison Hall at (${selected.x}, ${selected.y})`,
-        optimisticKind: "GARRISON_HALL"
-      });
-    if (actionId === "build_customs_house")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Harbor Exchange at (${selected.x}, ${selected.y})`,
-        optimisticKind: "CUSTOMS_HOUSE"
-      });
-    if (actionId === "build_rail_depot")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "RAIL_DEPOT" }, optimisticStructureBuildForAction(actionId, selected, "RAIL_DEPOT"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Rail Depot at (${selected.x}, ${selected.y})`,
-        optimisticKind: "RAIL_DEPOT"
-      });
-    if (actionId === "build_exchange_house")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "EXCHANGE_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "EXCHANGE_HOUSE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Exchange House at (${selected.x}, ${selected.y})`,
-        optimisticKind: "EXCHANGE_HOUSE"
-      });
-    if (actionId === "build_imperial_exchange_part")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE_PART" }, optimisticStructureBuildForAction(actionId, selected, "IMPERIAL_EXCHANGE_PART"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Imperial Exchange Part at (${selected.x}, ${selected.y})`,
-        optimisticKind: "IMPERIAL_EXCHANGE_PART"
-      });
-    if (actionId === "build_world_engine_part")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE_PART" }, optimisticStructureBuildForAction(actionId, selected, "WORLD_ENGINE_PART"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Worldbreaker Cannon Part at (${selected.x}, ${selected.y})`,
-        optimisticKind: "WORLD_ENGINE_PART"
-      });
-    if (actionId === "build_aegis_dome_part")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME_PART" }, optimisticStructureBuildForAction(actionId, selected, "AEGIS_DOME_PART"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Aegis Dome Part at (${selected.x}, ${selected.y})`,
-        optimisticKind: "AEGIS_DOME_PART"
-      });
-    if (actionId === "build_astral_dock_part")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK_PART" }, optimisticStructureBuildForAction(actionId, selected, "ASTRAL_DOCK_PART"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Astral Dock Part at (${selected.x}, ${selected.y})`,
-        optimisticKind: "ASTRAL_DOCK_PART"
-      });
-    if (actionId === "build_imperial_exchange")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IMPERIAL_EXCHANGE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Imperial Exchange at (${selected.x}, ${selected.y})`,
-        optimisticKind: "IMPERIAL_EXCHANGE"
-      });
-    if (actionId === "build_world_engine")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "WORLD_ENGINE"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Worldbreaker Cannon at (${selected.x}, ${selected.y})`,
-        optimisticKind: "WORLD_ENGINE"
-      });
-    if (actionId === "build_aegis_dome")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AEGIS_DOME"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Aegis Dome at (${selected.x}, ${selected.y})`,
-        optimisticKind: "AEGIS_DOME"
-      });
-    if (actionId === "build_astral_dock")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "ASTRAL_DOCK"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Astral Dock at (${selected.x}, ${selected.y})`,
-        optimisticKind: "ASTRAL_DOCK"
-      });
-    if (actionId === "build_governors_office")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"),
-        { x: selected.x, y: selected.y, label: `Ministry Hall at (${selected.x}, ${selected.y})`, optimisticKind: "GOVERNORS_OFFICE" }
-      );
-    if (actionId === "build_radar_system")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Radar System at (${selected.x}, ${selected.y})`,
-        optimisticKind: "RADAR_SYSTEM"
-      });
-    if (actionId === "build_siege_camp")
-      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "SIEGE_OUTPOST" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"), {
-        x: selected.x,
-        y: selected.y,
-        label: `${siegeVariantLabel} at (${selected.x}, ${selected.y})`,
-        optimisticKind: "SIEGE_OUTPOST"
-      });
-    if (actionId === "build_light_outpost")
-      sendDevelopmentBuild(
-        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "LIGHT_OUTPOST" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "LIGHT_OUTPOST"),
-        { x: selected.x, y: selected.y, label: `Light Outpost at (${selected.x}, ${selected.y})`, optimisticKind: "LIGHT_OUTPOST" }
-      );
     if (actionId === "remove_structure") {
       const optimisticKind =
         selected.fort
@@ -1541,9 +1432,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
-    if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
@@ -1635,26 +1523,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
-    if (actionId === "imperial_exchange_levy_food") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_iron") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_crystal") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
-    if (actionId === "imperial_exchange_levy_supply") {
-      if (sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" })) {
-        state.imperialExchangeLevyFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
-      }
-    }
+    if (actionId === "imperial_exchange_levy") beginCrystalTargeting("imperial_exchange_levy");
     if (actionId === "aegis_lock") {
       if (sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y })) {
         state.aegisLockFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
@@ -1772,13 +1641,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (vis === "unexplored") {
-      state.selected = undefined;
+      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
     }
     if (vis === "fogged") {
       state.selected = { x: wx, y: wy };
       resetAttackPreviewState(state);
+      if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);
       renderHud();
       return;
     }
@@ -1849,9 +1719,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queueSpecificTargets,
     attackQueueFailureReason,
     dropQueuedTargetKeyIfAbsent,
-    reconcileActionQueue,
+    reconcileActionQueue, processPendingMusterAttacks,
     requestSettlement,
     sendDevelopmentBuild,
+    processAutoSettleTargets,
+    processAutoBuildTargets,
     processDevelopmentQueue,
     processActionQueue,
     applyCombatOutcomeMessage,

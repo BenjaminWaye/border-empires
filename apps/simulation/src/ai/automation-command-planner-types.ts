@@ -10,6 +10,16 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import { type EconomicStructureType, type Terrain } from "@border-empires/shared";
 import type { DecisionClass } from "./utility/decisions.js";
+import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
+
+// Consecutive planner ticks an AI may spend with its narrow/hot-frontier
+// scan alone actionable (broadFallbackSkipped: true — see
+// automation-command-planner.ts) before the broad-fallback sweep of the
+// rest of its frontier is forced regardless. Mirrors ai-spatial-focus.ts's
+// AI_SPATIAL_FOCUS_MAX_UNPRODUCTIVE_STREAK idiom: bounds how long a
+// persistent border skirmish can make the rest of the empire's frontier
+// (economic opportunities, neutral towns) invisible to the planner.
+export const AI_HOT_FRONTIER_MAX_STREAK_TICKS = 5;
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
@@ -25,6 +35,7 @@ export const AUTOMATION_NOOP_REASONS = [
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
+  "upgrade_town_tier",
   "choose_tech",
   "choose_domain",
   "defer_no_reachable_progression",
@@ -71,8 +82,6 @@ export type AutomationPlannerTile = {
 export type AutomationPlannerDiagnostic = {
   playerId: string;
   sessionPrefix: AutomationSessionPrefix;
-  settlementEligible: boolean;
-  settlementCandidateFound: boolean;
   frontierEnemyTargetCount: number;
   frontierEnemyPlayerTargetCount?: number;
   frontierBarbarianTargetCount?: number;
@@ -82,6 +91,9 @@ export type AutomationPlannerDiagnostic = {
   frontierOpportunityScout?: number;
   frontierOpportunityScaffold?: number;
   frontierOpportunityWaste?: number;
+  /** Diagnostic: neighbor candidate tiles the frontier scan visited vs how many were absent from the worker's tile map (sync-scope gap indicator). */
+  neighborCandidateTotal?: number;
+  missingNeighborTileCount?: number;
   canAttack: boolean;
   canExpand: boolean;
   ownedTileCount?: number;
@@ -91,6 +103,20 @@ export type AutomationPlannerDiagnostic = {
   strategicFrontierTileCountInput?: number;
   frontierOriginCount?: number;
   dockOriginCount?: number;
+  /** Debug-only: "x,y" of the first few frontier-scan origin tiles this tick
+   *  (see baseFrontierOrigins in automation-command-planner.ts). Answers "what
+   *  tile is the AI stuck scanning" without a live gRPC/SQLite lookup. */
+  frontierOriginKeysSample?: string[];
+  /** Debug-only: why each frontierOriginKeysSample tile was classified hot —
+   *  recomputed live, so it also surfaces a stale hotFrontierTileKeys entry
+   *  (reason "not_owned_frontier"/"none" despite being in the sample). */
+  frontierOriginExplanations?: FrontierOriginExplanation[];
+  /** Whether this tick's focus-restricted scan found any actionable frontier
+   *  target, settlement candidate, or build candidate. Feeds
+   *  ai-spatial-focus.ts's unproductive-streak rotation via runtime.ts.
+   *  Undefined means "not evaluated this tick" (preplan short-circuit /
+   *  no-command noop) — callers must treat that as productive. */
+  scanFoundActionableCandidate?: boolean;
   playerScopeKeyCount?: number;
   playerScopeTileCount?: number;
   preplanReason?: AutomationPreplanReason;
@@ -100,14 +126,13 @@ export type AutomationPlannerDiagnostic = {
   preplanDomainChoiceAffordable?: boolean;
   preplanProgressState?: AutomationPreplanProgressState;
   noCommandReason?: AutomationNoopReason;
-  // Inline import to avoid a circular types dependency (helpers ↔ types).
-  settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
-  settleDecisionTopScore?: number;
   broadFallbackSkipped?: boolean | undefined;
   /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
   narrowAnalyzeCapped?: boolean | undefined;
   /** Set when the planner acts on an expansion objective (directed expand). */
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
+  /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
+  economicBuildCandidate?: string;
   // Utility AI fields — populated on every result from the main planner.
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;
@@ -131,7 +156,6 @@ export type AutomationPlannerDiagnostic = {
 };
 
 export type AutomationPlannerPhase =
-  | "choose_settlement"
   | "choose_frontier"
   | "summarize_frontier"
   | "analyze_iter_total"
@@ -151,8 +175,6 @@ export const createAutomationNoopDiagnostic = (
 ): AutomationPlannerDiagnostic => ({
   playerId,
   sessionPrefix,
-  settlementEligible: false,
-  settlementCandidateFound: false,
   frontierEnemyTargetCount: 0,
   frontierNeutralTargetCount: 0,
   canAttack: false,

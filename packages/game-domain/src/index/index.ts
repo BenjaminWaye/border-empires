@@ -5,9 +5,11 @@ export * from "../server-shared-types.js";
 export * from "../server-worldgen-clusters.js";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-island-connectivity.js";
+export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
+export * from "../server-worldgen-watchtowers.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
 
@@ -16,6 +18,7 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
@@ -43,6 +46,14 @@ export type DomainPlayer = {
   manpower: number;
   manpowerUpdatedAt?: number;
   manpowerCapSnapshot?: number;
+  wonderVisionRadiusBonus?: number;
+  wonderDockGoldMultiplier?: number;
+  wonderDockAttackMultiplier?: number;
+  wonderMusterRateMultiplier?: number;
+  wonderMusterExtraFlag?: number;
+  wonderFortDefenseBonus?: number;
+  wonderTechGoldDiscount?: number;
+  wonderLastFreeRushBuyAt?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
   mods?: {
@@ -54,6 +65,11 @@ export type DomainPlayer = {
   techRootId?: string;
   tileColor?: string;
   allies: Set<string>;
+  // Active truce partners, synced from the gateway (see SYNC_TRUCE in
+  // sim-protocol). Blocks combat/observatory actions like allies do, but
+  // grants no shared vision. Optional so existing DomainPlayer/RuntimePlayer
+  // fixtures across tests don't all need updating.
+  truces?: Set<string>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
@@ -68,6 +84,52 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
+  // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
+  // an ephemeral live toast a player only sees if they're online at the
+  // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
+  // drop off), most-recent-last here; client renders most-recent-first.
+  eventLog?: PlayerEventLogEntry[];
+};
+
+// §20: generic event type + text + timestamp, explicitly not hardcoded to
+// just the two launch event types (town-lost, Imperial Exchange Levy) — the
+// plan's own framing is "we will fill it with more things" (monument
+// first-part broadcasts, Ancient Ruins discoveries, tech completions, etc.).
+export type PlayerEventLogEntryType =
+  | "TOWN_LOST"
+  | "IMPERIAL_EXCHANGE_LEVY_HIT"
+  | "IMPERIAL_EXCHANGE_LEVY_CAST"
+  | "MONUMENT_CLAIMED"
+  | "MONUMENT_LOST_TO_RIVAL"
+  | "NATURAL_WONDER_CLAIMED";
+
+export type PlayerEventLogEntry = {
+  id: string;
+  type: PlayerEventLogEntryType;
+  text: string;
+  occurredAt: number;
+};
+
+export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
+
+// Mutates player.eventLog in place (push + cap), matching the codebase's
+// existing "grow a bounded array on the player object" convention. Kept
+// dependency-free (game-domain has no simulation-runtime imports) so both
+// the simulation and, if ever needed, tooling can share one implementation
+// instead of drifting into two copies of "append and trim."
+export const appendPlayerEventLogEntry = (
+  player: { eventLog?: PlayerEventLogEntry[] },
+  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number }
+): void => {
+  const log = player.eventLog ? [...player.eventLog] : [];
+  log.push({
+    id: `${input.type}:${input.occurredAt}:${Math.random().toString(36).slice(2, 8)}`,
+    type: input.type,
+    text: input.text,
+    occurredAt: input.occurredAt
+  });
+  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
@@ -79,6 +141,7 @@ export type DomainTileState = {
   resource?: Tile["resource"] | undefined;
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
+  watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
   ownerId?: string | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
@@ -117,6 +180,7 @@ export type DomainTileState = {
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
+            | "censusHallAppliedBonus"
           >
         >)
     | undefined;
@@ -126,6 +190,7 @@ export type DomainTileState = {
         status: NonNullable<Tile["fort"]>["status"];
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
         garrison?: number | undefined;
@@ -138,6 +203,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["observatory"]>["status"];
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         cooldownUntil?: number | undefined;
         previousStatus?: "active" | "inactive" | undefined;
       }
@@ -148,6 +214,7 @@ export type DomainTileState = {
         status: NonNullable<Tile["siegeOutpost"]>["status"];
         variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
       }
     | undefined;
@@ -157,6 +224,7 @@ export type DomainTileState = {
         type: NonNullable<Tile["economicStructure"]>["type"];
         status: NonNullable<Tile["economicStructure"]>["status"];
         completesAt?: number | undefined;
+        activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         nextUpkeepAt?: number | undefined;
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
@@ -182,6 +250,13 @@ export type DomainTileState = {
         updatedAt: number;
       }
     | undefined;
+  naturalWonder?:
+    | {
+        type: import("@border-empires/shared").NaturalWonderType;
+        claimedAt?: number;
+        lastFreeRushBuyAt?: number;
+      }
+    | undefined;
 };
 
 export type ValidateFrontierCommandInput = {
@@ -201,9 +276,7 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   expandClaimDurationMs?: number | undefined;
-  /** Mustering system: when true, attacks consume the origin tile's muster. */
-  musterSystemEnabled?: boolean | undefined;
-  /** Manpower currently mustered on the origin tile (used when the flag is on). */
+  /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
@@ -230,6 +303,12 @@ const manpowerRequirements = (
   target: DomainTileState
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
+  if (actionType === "EXPAND") {
+    // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2):
+    // claiming a frontier tile is the cheapest manpower-gated action, deliberately
+    // matching BARBARIAN_RAID_COST.
+    return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
+  }
   return {
     manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN * attackMultiplier : 0,
     manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST * attackMultiplier : 0
@@ -240,7 +319,7 @@ export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
   const legacy = manpowerRequirements(input.actionType, input.to);
-  const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
+  const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";
@@ -324,7 +403,10 @@ export const validateFrontierCommand = (
     return {
       ok: false,
       code: "INSUFFICIENT_MANPOWER",
-      message: `need ${manpowerMin.toFixed(0)} manpower to launch attack`
+      message:
+        input.actionType === "EXPAND"
+          ? `need ${manpowerMin.toFixed(0)} manpower to claim frontier`
+          : `need ${manpowerMin.toFixed(0)} manpower to launch attack`
     };
   }
   if (input.defenderIsAlliedOrTruced) {

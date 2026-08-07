@@ -24,6 +24,7 @@ type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 type BuildOptions = {
   includeWorldStatus?: boolean;
   fullVisibility?: boolean;
+  tilesAlreadyVisible?: boolean;
   sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
   worldStatusRuntimeState?: RuntimeState;
   seasonState?: PlayerSubscriptionSnapshot["season"];
@@ -60,6 +61,7 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
             ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
             ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+            ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
             ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {})
           }))
         : [];
@@ -112,7 +114,7 @@ export const buildPlayerSubscriptionSnapshot = (
   };
 
   const tiles =
-    options?.fullVisibility === true
+    options?.fullVisibility === true || options?.tilesAlreadyVisible === true
       ? sourceTiles
       : (() => {
           const visibleKeys = new Set<string>();
@@ -261,6 +263,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               IRON: livePlayer.strategicResources.IRON ?? 0,
@@ -269,6 +272,8 @@ export const buildPlayerSubscriptionSnapshot = (
               SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
             strategicProductionPerMinute,
+            resourceSlots: liveEconomy.resourceSlots,
+            dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,

@@ -1,9 +1,12 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { cameraLocationInitialState } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
+import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -23,6 +26,7 @@ import type {
   PendingResearch,
   PlayerRespawnNotice,
   RevealEmpireStatsView,
+  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   SurveySweepPing,
@@ -47,12 +51,14 @@ export type ClientWaypoint = {
   // Consecutive top-ups where the planner re-emitted the same step we
   // just enqueued. Resets to 0 the moment the plan advances.
   consecutiveRetries?: number;
+  // When true, the waypoint dynamically retargets if the barbarian moves
+  // off the original coordinate. Set when the destination tile is owned
+  // by barbarian-1.
+  trackBarbarian?: boolean;
 };
 
 type QueuedOptimisticKind = OptimisticStructureKind;
-type QueuedBuildPayload =
-  | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
-  | { type: "REMOVE_STRUCTURE"; x: number; y: number };
+type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export const storageGet = (keyName: string): string | null => {
   try {
@@ -104,6 +110,19 @@ export const createInitialState = () => ({
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
+  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+  // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
+  // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
+  // signal for FOOD/IRON/CRYSTAL/SUPPLY now that stockpiles are retired at
+  // build time (Step 5 item 4 Slice A).
+  resourceSlots: {
+    supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>
+  },
+  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
+  // structures are dormant right now, and which resource(s) they're short
+  // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
+  dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
+  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number }>, // §20: durable event log, most-recent-last
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
   upkeepLastTick: {
@@ -115,8 +134,7 @@ export const createInitialState = () => ({
     foodCoverage: 1
   },
   foodCoverageWarned: false,
-  goldAnimUntil: 0,
-  goldAnimDir: 0 as -1 | 0 | 1,
+  goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: {
@@ -139,8 +157,7 @@ export const createInitialState = () => ({
   developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
   activeDevelopmentProcessCount: 0,
   defensibilityPct: 100,
-  territoryT: 1,
-  exposureE: 4,
+  integrityWarningDismissed: false,
   settledT: 1,
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
@@ -159,9 +176,7 @@ export const createInitialState = () => ({
   localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
   tilesRevision: 0,
-  camX: 0,
-  camY: 0,
-  zoom: 22,
+  ...cameraLocationInitialState(),
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],
@@ -172,6 +187,7 @@ export const createInitialState = () => ({
   imperialWardActiveUntil: undefined as number | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
+  techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
   currentResearch: undefined as PendingResearch | undefined,
   domainChoices: [] as string[],
   domainCatalog: [] as DomainInfo[],
@@ -261,20 +277,10 @@ export const createInitialState = () => ({
     radius: number;
   }>,
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean; fromMusterAdvance?: boolean } | undefined,
-  musterTransit: undefined as {
-    musterX: number;
-    musterY: number;
-    targetX: number;
-    targetY: number;
-    transitStartAt: number;
-    transitEndsAt: number;
-  } | undefined,
-  activeMusterSource: undefined as { x: number; y: number } | undefined,
-  deferredAttack: undefined as {
-    fromX: number; fromY: number;
-    toX: number; toY: number;
-    commandId: string; clientSeq: number;
-  } | undefined,
+  // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
+  // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
+  musterTransitByTile: new Map<string, MusterTransitEntry>(),
+  deferredAttackByTile: new Map<string, DeferredMusterAttack>(),
   pendingCombatReveal: undefined as
     | {
         targetKey: string;
@@ -294,10 +300,7 @@ export const createInitialState = () => ({
   settlementRepairDiagnosticKey: "" as string,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
-  pendingCollectVisibleDelta: {
-    gold: 0,
-    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
-  },
+  pendingCollectVisibleDelta: { gold: 0, strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number> },
   pendingCollectTileDelta: new Map<
     string,
     {
@@ -320,10 +323,11 @@ export const createInitialState = () => ({
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
   // Season-end screen: shown once a winner is crowned (season ended). The player
-  // can dismiss it with "Look Around"; reset to false on SEASON_ROLLOVER so the
-  // screen shows again the next time a season ends.
+  // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStats: undefined as SeasonStatsView | undefined,
+  seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
@@ -331,6 +335,7 @@ export const createInitialState = () => ({
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
+  victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   lastSeenRespawnNoticeId: "",
@@ -346,6 +351,8 @@ export const createInitialState = () => ({
   domainDetailOpen: false,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
+  pendingDisplayNameChange: "" as string,
+  pendingColorChange: "" as string,
   techChoicesSig: "" as string,
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
@@ -462,7 +469,9 @@ export const createInitialState = () => ({
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
   discoveredTiles: new Set<string>(),
+  discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
+  autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {
@@ -507,7 +516,7 @@ export const createInitialState = () => ({
   },
   changelog: {
     open: false,
-    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
+    seenAt: Number(storageGet(CLIENT_CHANGELOG_STORAGE_KEY)) || 0,
     scrollTop: 0
   },
   rendererPrompt: {

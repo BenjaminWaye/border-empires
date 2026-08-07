@@ -138,7 +138,12 @@ describe("simulation seed state", () => {
     expect(terrainCounts.MOUNTAIN).toBeGreaterThan(0);
     expect(neutralTownCount).toBeGreaterThan(70);
     expect(dockCount).toBeGreaterThan(0);
-    expect(shardSiteCount).toBeGreaterThan(0);
+    // PR #859 removed initial shard-cache scattering from world creation —
+    // shard sites now only appear later via the periodic shard-rain tick
+    // (runtime-shard-rain-tick.ts), never at genesis. Asserting 0 here (was
+    // previously toBeGreaterThan(0) and silently broken since #859) so a
+    // regression that reintroduces initial scattering is caught.
+    expect(shardSiteCount).toBe(0);
     expect(ownedHomeTiles).toHaveLength(21);
     for (let index = 0; index < ownedHomeTiles.length; index += 1) {
       for (let otherIndex = index + 1; otherIndex < ownedHomeTiles.length; otherIndex += 1) {
@@ -151,6 +156,43 @@ describe("simulation seed state", () => {
         expect(Math.max(wrappedDx, wrappedDy)).toBeGreaterThanOrEqual(35);
       }
     }
+  });
+
+  it("caches the season-20ai worldgen but deep-clones each returned world", () => {
+    const first = createSeedWorld("season-20ai");
+    const second = createSeedWorld("season-20ai");
+
+    expect(second.tiles).not.toBe(first.tiles);
+    expect(second.players).not.toBe(first.players);
+    expect(second.tiles.size).toBe(first.tiles.size);
+
+    const [sampleKey, firstTile] = [...first.tiles.entries()][0]!;
+    expect(second.tiles.get(sampleKey)).toEqual(firstTile);
+    // The nested tile object must be a distinct instance, not a shared ref.
+    expect(second.tiles.get(sampleKey)).not.toBe(firstTile);
+
+    const firstPlayer = first.players.get("player-1")!;
+    const secondPlayer = second.players.get("player-1")!;
+    expect(secondPlayer).not.toBe(firstPlayer);
+    // Set-typed fields must survive structuredClone as real Sets.
+    expect(secondPlayer.techIds).toBeInstanceOf(Set);
+
+    // Mutating one caller's copy — including nested object/Set fields the sim
+    // runtime constructor writes in place (manpower regen, tile ownership
+    // merge) — must never leak into the cached template or another caller's
+    // copy. A shared reference here would let one login/runtime corrupt the
+    // world view of every subsequent one.
+    secondPlayer.manpower = -999;
+    secondPlayer.techIds.add("LEAKED_TECH");
+    second.tiles.get(sampleKey)!.ownerId = "leaked-owner";
+    second.tiles.delete(sampleKey);
+
+    expect(first.players.get("player-1")!.manpower).not.toBe(-999);
+    expect(first.players.get("player-1")!.techIds.has("LEAKED_TECH")).toBe(false);
+    expect(first.tiles.has(sampleKey)).toBe(true);
+    expect(first.tiles.get(sampleKey)!.ownerId).not.toBe("leaked-owner");
+    // A third fresh call is likewise unaffected by the second's mutations.
+    expect(createSeedWorld("season-20ai").tiles.has(sampleKey)).toBe(true);
   });
 
   it("builds the season-20ai player set without requiring world generation", () => {
