@@ -903,7 +903,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       resourceIconForKey,
       rateToneClass,
       resourceLabel,
-      economicStructureName
+      economicStructureName,
+      isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
     })
   );
   dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;

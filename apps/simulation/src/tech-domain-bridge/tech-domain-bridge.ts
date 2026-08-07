@@ -314,6 +314,18 @@ export const hasRevealedResourceForPlayer = (
   return false;
 };
 
+// Single source of truth for "what resource value (if any) should this tile
+// projection show this viewer" — every tile-wire-delta builder (streaming,
+// login/full-export, fog-of-war first-exposure) must call this instead of
+// re-deriving the same `resource && viewer && hasRevealedResourceForPlayer`
+// check inline. Three separate builders each did that inline and each one
+// individually forgot it at some point, which is what let unrevealed
+// resources leak out on one path while another had already been fixed.
+export const revealedResourceValueForPlayer = (
+  resource: string | undefined,
+  viewer: Pick<DomainPlayer, "techIds"> | undefined
+): string | undefined => (resource && viewer && hasRevealedResourceForPlayer(viewer, resource) ? resource : undefined);
+
 export const multiplicativeEffectForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   effectKey: string

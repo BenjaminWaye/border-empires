@@ -10,7 +10,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
-import { hasRevealedResourceForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { revealedResourceValueForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
   LockRecord,
   RuntimePlayer,
@@ -310,19 +310,20 @@ function visibleTileProjection(
     return { x: tile.x, y: tile.y, terrain: tile.terrain };
   }
   if (ownedByOther) input.emitVisibilityAudit(playerId, tile, tileKey, false, classification);
-  // Resource-reveal gating: this is the login/full-export path (distinct
-  // from the streaming tile-delta path in tile-delta-visibility-filter.ts,
-  // which has its own copy of this same check) — a tile's Iron/Supply/
-  // Crystal resource type must stay hidden here too until the viewing
-  // player has researched the tech that reveals it.
+  // Resource-reveal gating: a tile's Iron/Supply/Crystal resource type must
+  // stay hidden until the viewing player has researched the tech that
+  // reveals it. This is the login/full-export path; the streaming
+  // (tile-delta-visibility-filter.ts) and fog-of-war first-exposure
+  // (tile-delta-reveal-only.ts) paths apply the exact same gate via the
+  // shared revealedResourceValueForPlayer helper, so this can't drift out
+  // of sync with either of them again.
   const viewer = input.players.get(playerId);
-  const resourceValue = tile.resource;
-  const revealResource = Boolean(resourceValue && viewer && hasRevealedResourceForPlayer(viewer, resourceValue));
+  const resourceValue = revealedResourceValueForPlayer(tile.resource, viewer);
   return {
     x: tile.x,
     y: tile.y,
     terrain: tile.terrain,
-    ...(revealResource && resourceValue ? { resource: resourceValue } : {}),
+    ...(resourceValue ? { resource: resourceValue } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
     ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
