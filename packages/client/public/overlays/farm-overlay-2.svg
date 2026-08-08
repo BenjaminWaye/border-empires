@@ -1,64 +1,339 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
 
-
-  <rect x="34.2" y="75.2" width="3.3000000000000003" height="23.369999999999997" rx="1.08" fill="#8B1E1E"/>
-  <path d="M32.85 38L36.3 43.22L32.85 47L29.4 43.22Z" fill="#F2AC18"/>
-<path d="M26.55 44.3L30.18 49.346L26.55 53L22.08 49.346Z" fill="#F2AC18"/>
-<path d="M33.75 44L37.5 49.046L33.75 52.7L30 49.046Z" fill="#FFDD73"/>
-<path d="M40.95 44.3L45.42000000000001 49.346L40.95 53L37.32000000000001 49.346Z" fill="#F2AC18"/>
-<path d="M20.25 50.9L24 55.772L20.25 59.3L15.3 55.772Z" fill="#F2AC18"/>
-<path d="M27.45 50.3L31.26 55.346L27.45 59L23.16 55.346Z" fill="#FFDD73"/>
-<path d="M34.349999999999994 49.7L38.4 54.92L34.349999999999994 58.7L30.299999999999997 54.92Z" fill="#F2AC18"/>
-<path d="M41.25 50.3L45.540000000000006 55.346L41.25 59L37.440000000000005 55.346Z" fill="#FFDD73"/>
-<path d="M49.050000000000004 50.9L54.00000000000001 55.772L49.050000000000004 59.3L45.300000000000004 55.772Z" fill="#F2AC18"/>
-<path d="M22.650000000000002 58.4L26.28 63.098L22.650000000000002 66.5L18.18 63.098Z" fill="#EA8610"/>
-<path d="M29.250000000000004 57.2L33.120000000000005 62.246L29.250000000000004 65.9L25.020000000000003 62.246Z" fill="#F2AC18"/>
-<path d="M35.1 56.480000000000004L39 61.526L35.1 65.18L31.200000000000003 61.526Z" fill="#FFDD73"/>
-<path d="M41.55 57.2L45.78 62.246L41.55 65.9L37.68 62.246Z" fill="#F2AC18"/>
-<path d="M48.14999999999999 58.4L52.62 63.098L48.14999999999999 66.5L44.519999999999996 63.098Z" fill="#EA8610"/>
-<path d="M29.25 64.7L32.88 69.224L29.25 72.5L25.38 69.224Z" fill="#F2AC18"/>
-<path d="M34.800000000000004 63.92L38.400000000000006 68.618L34.800000000000004 72.02000000000001L31.200000000000003 68.618Z" fill="#FFDD73"/>
-<path d="M40.650000000000006 64.7L44.52 69.224L40.650000000000006 72.5L37.02 69.224Z" fill="#F2AC18"/>
-
-
-  <rect x="69.9" y="63.4" width="3.8500000000000005" height="35.87499999999999" rx="1.26" fill="#8B1E1E"/>
-  <path d="M68.325 20L72.35 26.09L68.325 30.5L64.3 26.09Z" fill="#F9BE22"/>
-<path d="M60.975 27.35L65.21000000000001 33.237L60.975 37.5L55.76 33.237Z" fill="#F9BE22"/>
-<path d="M69.375 27L73.75 32.887L69.375 37.15L65 32.887Z" fill="#FFE792"/>
-<path d="M77.775 27.35L82.99000000000001 33.237L77.775 37.5L73.54 33.237Z" fill="#F9BE22"/>
-<path d="M53.625 35.05L57.99999999999999 40.733999999999995L53.625 44.849999999999994L47.849999999999994 40.733999999999995Z" fill="#F9BE22"/>
-<path d="M62.025 34.349999999999994L66.47 40.236999999999995L62.025 44.49999999999999L57.019999999999996 40.236999999999995Z" fill="#FFE792"/>
-<path d="M70.07499999999999 33.65L74.8 39.739999999999995L70.07499999999999 44.15L65.35 39.739999999999995Z" fill="#F9BE22"/>
-<path d="M78.125 34.349999999999994L83.13000000000001 40.236999999999995L78.125 44.49999999999999L73.68 40.236999999999995Z" fill="#FFE792"/>
-<path d="M87.22500000000001 35.05L93.00000000000001 40.733999999999995L87.22500000000001 44.849999999999994L82.85000000000001 40.733999999999995Z" fill="#F9BE22"/>
-<path d="M56.425000000000004 43.8L60.660000000000004 49.281L56.425000000000004 53.25L51.21 49.281Z" fill="#F59716"/>
-<path d="M64.125 42.400000000000006L68.64000000000001 48.287000000000006L64.125 52.550000000000004L59.190000000000005 48.287000000000006Z" fill="#F9BE22"/>
-<path d="M70.95 41.56L75.5 47.447L70.95 51.71L66.4 47.447Z" fill="#FFE792"/>
-<path d="M78.475 42.400000000000006L83.41 48.287000000000006L78.475 52.550000000000004L73.96 48.287000000000006Z" fill="#F9BE22"/>
-<path d="M86.17499999999998 43.8L91.38999999999999 49.281L86.17499999999998 53.25L81.93999999999998 49.281Z" fill="#F59716"/>
-<path d="M64.125 51.150000000000006L68.36 56.428000000000004L64.125 60.25000000000001L59.61 56.428000000000004Z" fill="#F9BE22"/>
-<path d="M70.60000000000001 50.24L74.80000000000001 55.721000000000004L70.60000000000001 59.690000000000005L66.4 55.721000000000004Z" fill="#FFE792"/>
-<path d="M77.42500000000001 51.150000000000006L81.94000000000001 56.428000000000004L77.42500000000001 60.25000000000001L73.19000000000001 56.428000000000004Z" fill="#F9BE22"/>
-
-
-  <rect x="107.2" y="67.2" width="3.3000000000000003" height="26.567999999999998" rx="1.08" fill="#8B1E1E"/>
-  <path d="M105.85000000000001 30L109.30000000000001 35.22L105.85000000000001 39L102.4 35.22Z" fill="#F4B31A"/>
-<path d="M99.55 36.3L103.17999999999999 41.346L99.55 45L95.08 41.346Z" fill="#F4B31A"/>
-<path d="M106.75 36L110.5 41.046L106.75 44.7L103 41.046Z" fill="#FFE07D"/>
-<path d="M113.95 36.3L118.42 41.346L113.95 45L110.32000000000001 41.346Z" fill="#F4B31A"/>
-<path d="M93.25 42.9L97.00000000000001 47.772L93.25 51.3L88.30000000000001 47.772Z" fill="#F4B31A"/>
-<path d="M100.45 42.3L104.26 47.346L100.45 51L96.16000000000001 47.346Z" fill="#FFE07D"/>
-<path d="M107.35 41.7L111.4 46.92L107.35 50.7L103.3 46.92Z" fill="#F4B31A"/>
-<path d="M114.25 42.3L118.54 47.346L114.25 51L110.44 47.346Z" fill="#FFE07D"/>
-<path d="M122.05 42.9L127 47.772L122.05 51.3L118.3 47.772Z" fill="#F4B31A"/>
-<path d="M95.64999999999999 50.4L99.27999999999999 55.098L95.64999999999999 58.5L91.17999999999999 55.098Z" fill="#EF8E12"/>
-<path d="M102.25 49.2L106.12 54.246L102.25 57.900000000000006L98.02 54.246Z" fill="#F4B31A"/>
-<path d="M108.10000000000001 48.480000000000004L112 53.526L108.10000000000001 57.18000000000001L104.2 53.526Z" fill="#FFE07D"/>
-<path d="M114.55 49.2L118.78 54.246L114.55 57.900000000000006L110.68 54.246Z" fill="#F4B31A"/>
-<path d="M121.14999999999999 50.4L125.61999999999999 55.098L121.14999999999999 58.5L117.52 55.098Z" fill="#EF8E12"/>
-<path d="M102.25 56.7L105.88 61.224000000000004L102.25 64.5L98.38 61.224000000000004Z" fill="#F4B31A"/>
-<path d="M107.8 55.92L111.4 60.618L107.8 64.02000000000001L104.2 60.618Z" fill="#FFE07D"/>
-<path d="M113.65 56.7L117.52000000000001 61.224000000000004L113.65 64.5L110.02000000000001 61.224000000000004Z" fill="#F4B31A"/>
-
-
+  <defs>
+    
+  <g id="tuftGold">
+    <line x1="0" y1="0" x2="0" y2="-15" stroke="#6f6b3c" stroke-width="1.3"/>
+    <ellipse cx="0" cy="-18.41" rx="2.4" ry="6.2" fill="#f2b01a"/>
+    <line x1="0" y1="-20.58" x2="0" y2="-28.7" stroke="#f0d98c" stroke-width="0.9" stroke-linecap="round"/>
+    <line x1="1.6" y1="-19.34" x2="3" y2="-27.2" stroke="#f0d98c" stroke-width="0.7" stroke-linecap="round"/>
+  </g>
+    
+  <g id="tuftLight">
+    <line x1="0" y1="0" x2="0" y2="-16" stroke="#6f6b3c" stroke-width="1.3"/>
+    <ellipse cx="0" cy="-19.41" rx="2.4" ry="6.2" fill="#ffdd72"/>
+    <line x1="0" y1="-21.58" x2="0" y2="-29.7" stroke="#f0d98c" stroke-width="0.9" stroke-linecap="round"/>
+    <line x1="1.6" y1="-20.34" x2="3" y2="-28.2" stroke="#f0d98c" stroke-width="0.7" stroke-linecap="round"/>
+  </g>
+    
+  <g id="tuftDeep">
+    <line x1="0" y1="0" x2="0" y2="-14" stroke="#5e5a32" stroke-width="1.3"/>
+    <ellipse cx="0" cy="-17.41" rx="2.4" ry="6.2" fill="#e89a12"/>
+    <line x1="0" y1="-19.58" x2="0" y2="-27.7" stroke="#f0d98c" stroke-width="0.9" stroke-linecap="round"/>
+    
+  </g>
+    
+  <g id="tuftPale">
+    <line x1="0" y1="0" x2="0" y2="-15" stroke="#6f6b3c" stroke-width="1.3"/>
+    <ellipse cx="0" cy="-18.41" rx="2.4" ry="6.2" fill="#f6ce5e"/>
+    <line x1="0" y1="-20.58" x2="0" y2="-28.7" stroke="#f0d98c" stroke-width="0.9" stroke-linecap="round"/>
+    <line x1="1.6" y1="-19.34" x2="3" y2="-27.2" stroke="#f0d98c" stroke-width="0.7" stroke-linecap="round"/>
+  </g>
+    <ellipse id="dropShadow" cx="0" cy="0" rx="5.5" ry="2.2" fill="#3e2c1c" opacity="0.55"/>
+  </defs>
+<path d="M22.9,131.1 L11.9,132.0 L5.8,123.7 L8.9,114.8 L18.2,112.1 L26.9,115.4 L32.3,124.6 Z" fill="#50391f"/>
+<path d="M95.2,93.0 L82.5,98.1 L72.0,95.9 L62.2,88.7 L71.0,80.8 L80.6,75.8 L90.6,81.7 Z" fill="#5f4426"/>
+<path d="M78.4,31.6 L72.1,17.2 L71.7,4.1 L91.2,0.4 L115.0,1.9 L109.6,17.1 L100.5,27.0 Z" fill="#3e2c1c"/>
+<path d="M29.3,129.1 L28.3,118.0 L40.1,111.4 L58.6,107.3 L70.4,117.8 L69.6,131.4 L47.1,137.3 Z" fill="#50391f"/>
+<path d="M17.7,119.9 L10.5,111.0 L9.3,93.7 L18.7,82.7 L29.0,89.8 L31.7,105.8 L26.0,117.3 Z" fill="#5f4426"/>
+<path d="M56.5,121.7 L40.4,116.7 L31.2,103.3 L38.5,88.4 L54.7,85.1 L69.5,93.5 L68.9,110.1 Z" fill="#3e2c1c"/>
+<path d="M68.0,18.5 L65.9,5.0 L83.8,2.9 L100.0,4.3 L107.5,17.1 L95.4,27.7 L79.3,25.4 Z" fill="#50391f"/>
+<path d="M100.4,11.7 L91.5,17.0 L77.7,15.7 L77.7,7.3 L80.5,0.2 L92.5,0.2 L101.3,4.6 Z" fill="#5f4426"/>
+<path d="M14.4,41.6 L-2.6,38.7 L-13.5,29.9 L-7.4,19.2 L5.9,12.5 L19.2,19.5 L23.9,30.5 Z" fill="#3e2c1c"/>
+<use href="#dropShadow" x="17.0" y="18.6"/>
+<use href="#tuftDeep" transform="translate(17.0 18.6) rotate(-0.16) scale(0.92)"/>
+<use href="#dropShadow" x="32.4" y="18.6"/>
+<use href="#tuftLight" transform="translate(32.4 18.6) rotate(0.05) scale(1.02)"/>
+<use href="#dropShadow" x="42.9" y="18.6"/>
+<use href="#tuftPale" transform="translate(42.9 18.6) rotate(0.02) scale(1.16)"/>
+<use href="#dropShadow" x="53.0" y="18.6"/>
+<use href="#tuftDeep" transform="translate(53.0 18.6) rotate(0.02) scale(1.09)"/>
+<use href="#dropShadow" x="67.6" y="18.6"/>
+<use href="#tuftPale" transform="translate(67.6 18.6) rotate(0.06) scale(1.02)"/>
+<use href="#dropShadow" x="74.0" y="18.6"/>
+<use href="#tuftDeep" transform="translate(74.0 18.6) rotate(0.14) scale(1.21)"/>
+<use href="#dropShadow" x="88.4" y="18.6"/>
+<use href="#tuftDeep" transform="translate(88.4 18.6) rotate(0.09) scale(0.90)"/>
+<use href="#dropShadow" x="95.6" y="18.6"/>
+<use href="#tuftDeep" transform="translate(95.6 18.6) rotate(-0.10) scale(1.12)"/>
+<use href="#dropShadow" x="105.2" y="18.6"/>
+<use href="#tuftPale" transform="translate(105.2 18.6) rotate(-0.16) scale(1.21)"/>
+<use href="#dropShadow" x="114.8" y="18.6"/>
+<use href="#tuftPale" transform="translate(114.8 18.6) rotate(0.01) scale(1.00)"/>
+<use href="#dropShadow" x="125.2" y="18.6"/>
+<use href="#tuftPale" transform="translate(125.2 18.6) rotate(-0.02) scale(0.93)"/>
+<use href="#dropShadow" x="2.7" y="28.0"/>
+<use href="#tuftLight" transform="translate(2.7 28.0) rotate(0.17) scale(1.15)"/>
+<use href="#dropShadow" x="16.7" y="28.0"/>
+<use href="#tuftLight" transform="translate(16.7 28.0) rotate(-0.14) scale(1.07)"/>
+<use href="#dropShadow" x="25.9" y="28.0"/>
+<use href="#tuftGold" transform="translate(25.9 28.0) rotate(0.11) scale(1.19)"/>
+<use href="#dropShadow" x="36.0" y="28.0"/>
+<use href="#tuftDeep" transform="translate(36.0 28.0) rotate(0.16) scale(1.01)"/>
+<use href="#dropShadow" x="43.0" y="28.0"/>
+<use href="#tuftGold" transform="translate(43.0 28.0) rotate(0.00) scale(0.97)"/>
+<use href="#dropShadow" x="49.1" y="28.0"/>
+<use href="#tuftLight" transform="translate(49.1 28.0) rotate(0.17) scale(1.11)"/>
+<use href="#dropShadow" x="57.1" y="28.0"/>
+<use href="#tuftLight" transform="translate(57.1 28.0) rotate(0.09) scale(1.20)"/>
+<use href="#dropShadow" x="69.7" y="28.0"/>
+<use href="#tuftDeep" transform="translate(69.7 28.0) rotate(-0.11) scale(0.95)"/>
+<use href="#dropShadow" x="73.8" y="28.0"/>
+<use href="#tuftPale" transform="translate(73.8 28.0) rotate(-0.13) scale(1.15)"/>
+<use href="#dropShadow" x="85.4" y="28.0"/>
+<use href="#tuftPale" transform="translate(85.4 28.0) rotate(-0.02) scale(0.94)"/>
+<use href="#dropShadow" x="98.1" y="28.0"/>
+<use href="#tuftLight" transform="translate(98.1 28.0) rotate(-0.01) scale(1.04)"/>
+<use href="#dropShadow" x="107.5" y="28.0"/>
+<use href="#tuftLight" transform="translate(107.5 28.0) rotate(0.10) scale(0.94)"/>
+<use href="#dropShadow" x="114.6" y="28.0"/>
+<use href="#tuftDeep" transform="translate(114.6 28.0) rotate(-0.13) scale(0.97)"/>
+<use href="#dropShadow" x="123.4" y="28.0"/>
+<use href="#tuftLight" transform="translate(123.4 28.0) rotate(0.17) scale(0.94)"/>
+<use href="#dropShadow" x="4.4" y="36.8"/>
+<use href="#tuftDeep" transform="translate(4.4 36.8) rotate(0.06) scale(1.05)"/>
+<use href="#dropShadow" x="13.1" y="36.8"/>
+<use href="#tuftLight" transform="translate(13.1 36.8) rotate(0.10) scale(1.20)"/>
+<use href="#dropShadow" x="25.0" y="36.8"/>
+<use href="#tuftDeep" transform="translate(25.0 36.8) rotate(-0.06) scale(1.02)"/>
+<use href="#dropShadow" x="33.8" y="36.8"/>
+<use href="#tuftDeep" transform="translate(33.8 36.8) rotate(0.08) scale(1.09)"/>
+<use href="#dropShadow" x="40.2" y="36.8"/>
+<use href="#tuftPale" transform="translate(40.2 36.8) rotate(-0.02) scale(0.93)"/>
+<use href="#dropShadow" x="47.9" y="36.8"/>
+<use href="#tuftDeep" transform="translate(47.9 36.8) rotate(-0.14) scale(1.14)"/>
+<use href="#dropShadow" x="59.7" y="36.8"/>
+<use href="#tuftLight" transform="translate(59.7 36.8) rotate(-0.09) scale(0.93)"/>
+<use href="#dropShadow" x="66.9" y="36.8"/>
+<use href="#tuftDeep" transform="translate(66.9 36.8) rotate(-0.11) scale(0.93)"/>
+<use href="#dropShadow" x="75.6" y="36.8"/>
+<use href="#tuftLight" transform="translate(75.6 36.8) rotate(-0.17) scale(1.16)"/>
+<use href="#dropShadow" x="84.4" y="36.8"/>
+<use href="#tuftPale" transform="translate(84.4 36.8) rotate(-0.11) scale(1.08)"/>
+<use href="#dropShadow" x="97.8" y="36.8"/>
+<use href="#tuftLight" transform="translate(97.8 36.8) rotate(-0.11) scale(1.09)"/>
+<use href="#dropShadow" x="107.8" y="36.8"/>
+<use href="#tuftPale" transform="translate(107.8 36.8) rotate(-0.14) scale(0.94)"/>
+<use href="#dropShadow" x="117.2" y="36.8"/>
+<use href="#tuftDeep" transform="translate(117.2 36.8) rotate(-0.04) scale(1.15)"/>
+<use href="#dropShadow" x="125.4" y="36.8"/>
+<use href="#tuftLight" transform="translate(125.4 36.8) rotate(0.11) scale(1.16)"/>
+<use href="#dropShadow" x="9.1" y="46.8"/>
+<use href="#tuftLight" transform="translate(9.1 46.8) rotate(0.09) scale(1.18)"/>
+<use href="#dropShadow" x="24.8" y="46.8"/>
+<use href="#tuftLight" transform="translate(24.8 46.8) rotate(-0.17) scale(1.00)"/>
+<use href="#dropShadow" x="34.6" y="46.8"/>
+<use href="#tuftLight" transform="translate(34.6 46.8) rotate(-0.05) scale(1.16)"/>
+<use href="#dropShadow" x="39.7" y="46.8"/>
+<use href="#tuftPale" transform="translate(39.7 46.8) rotate(-0.08) scale(1.12)"/>
+<use href="#dropShadow" x="46.6" y="46.8"/>
+<use href="#tuftLight" transform="translate(46.6 46.8) rotate(0.01) scale(0.90)"/>
+<use href="#dropShadow" x="59.9" y="46.8"/>
+<use href="#tuftLight" transform="translate(59.9 46.8) rotate(-0.18) scale(1.17)"/>
+<use href="#dropShadow" x="67.9" y="46.8"/>
+<use href="#tuftPale" transform="translate(67.9 46.8) rotate(-0.12) scale(1.12)"/>
+<use href="#dropShadow" x="76.5" y="46.8"/>
+<use href="#tuftLight" transform="translate(76.5 46.8) rotate(-0.04) scale(1.20)"/>
+<use href="#dropShadow" x="86.4" y="46.8"/>
+<use href="#tuftLight" transform="translate(86.4 46.8) rotate(0.11) scale(1.11)"/>
+<use href="#dropShadow" x="100.0" y="46.8"/>
+<use href="#tuftDeep" transform="translate(100.0 46.8) rotate(0.04) scale(1.05)"/>
+<use href="#dropShadow" x="108.3" y="46.8"/>
+<use href="#tuftDeep" transform="translate(108.3 46.8) rotate(-0.07) scale(1.18)"/>
+<use href="#dropShadow" x="13.6" y="55.7"/>
+<use href="#tuftGold" transform="translate(13.6 55.7) rotate(-0.11) scale(0.93)"/>
+<use href="#dropShadow" x="25.1" y="55.7"/>
+<use href="#tuftLight" transform="translate(25.1 55.7) rotate(0.15) scale(0.90)"/>
+<use href="#dropShadow" x="32.9" y="55.7"/>
+<use href="#tuftLight" transform="translate(32.9 55.7) rotate(-0.16) scale(0.98)"/>
+<use href="#dropShadow" x="41.1" y="55.7"/>
+<use href="#tuftPale" transform="translate(41.1 55.7) rotate(-0.13) scale(1.02)"/>
+<use href="#dropShadow" x="49.0" y="55.7"/>
+<use href="#tuftLight" transform="translate(49.0 55.7) rotate(0.04) scale(1.17)"/>
+<use href="#dropShadow" x="58.6" y="55.7"/>
+<use href="#tuftDeep" transform="translate(58.6 55.7) rotate(-0.17) scale(1.07)"/>
+<use href="#dropShadow" x="67.9" y="55.7"/>
+<use href="#tuftPale" transform="translate(67.9 55.7) rotate(-0.06) scale(1.02)"/>
+<use href="#dropShadow" x="76.2" y="55.7"/>
+<use href="#tuftDeep" transform="translate(76.2 55.7) rotate(-0.09) scale(1.16)"/>
+<use href="#dropShadow" x="90.5" y="55.7"/>
+<use href="#tuftDeep" transform="translate(90.5 55.7) rotate(-0.08) scale(1.09)"/>
+<use href="#dropShadow" x="98.3" y="55.7"/>
+<use href="#tuftDeep" transform="translate(98.3 55.7) rotate(-0.04) scale(1.05)"/>
+<use href="#dropShadow" x="108.7" y="55.7"/>
+<use href="#tuftPale" transform="translate(108.7 55.7) rotate(0.11) scale(1.00)"/>
+<use href="#dropShadow" x="113.8" y="55.7"/>
+<use href="#tuftDeep" transform="translate(113.8 55.7) rotate(-0.09) scale(1.19)"/>
+<use href="#dropShadow" x="125.7" y="55.7"/>
+<use href="#tuftDeep" transform="translate(125.7 55.7) rotate(0.00) scale(0.98)"/>
+<use href="#dropShadow" x="5.2" y="61.1"/>
+<use href="#tuftDeep" transform="translate(5.2 61.1) rotate(0.11) scale(1.10)"/>
+<use href="#dropShadow" x="15.4" y="61.1"/>
+<use href="#tuftPale" transform="translate(15.4 61.1) rotate(0.09) scale(0.91)"/>
+<use href="#dropShadow" x="20.6" y="61.1"/>
+<use href="#tuftGold" transform="translate(20.6 61.1) rotate(-0.01) scale(1.11)"/>
+<use href="#dropShadow" x="33.1" y="61.1"/>
+<use href="#tuftLight" transform="translate(33.1 61.1) rotate(-0.07) scale(0.89)"/>
+<use href="#dropShadow" x="41.3" y="61.1"/>
+<use href="#tuftDeep" transform="translate(41.3 61.1) rotate(0.00) scale(1.20)"/>
+<use href="#dropShadow" x="59.6" y="61.1"/>
+<use href="#tuftDeep" transform="translate(59.6 61.1) rotate(0.17) scale(1.18)"/>
+<use href="#dropShadow" x="69.9" y="61.1"/>
+<use href="#tuftLight" transform="translate(69.9 61.1) rotate(0.13) scale(1.02)"/>
+<use href="#dropShadow" x="78.1" y="61.1"/>
+<use href="#tuftDeep" transform="translate(78.1 61.1) rotate(0.17) scale(1.08)"/>
+<use href="#dropShadow" x="91.2" y="61.1"/>
+<use href="#tuftDeep" transform="translate(91.2 61.1) rotate(-0.17) scale(0.98)"/>
+<use href="#dropShadow" x="99.1" y="61.1"/>
+<use href="#tuftDeep" transform="translate(99.1 61.1) rotate(-0.07) scale(1.14)"/>
+<use href="#dropShadow" x="107.8" y="61.1"/>
+<use href="#tuftLight" transform="translate(107.8 61.1) rotate(0.02) scale(1.08)"/>
+<use href="#dropShadow" x="114.6" y="61.1"/>
+<use href="#tuftLight" transform="translate(114.6 61.1) rotate(-0.18) scale(0.97)"/>
+<use href="#dropShadow" x="124.8" y="61.1"/>
+<use href="#tuftLight" transform="translate(124.8 61.1) rotate(0.08) scale(1.16)"/>
+<use href="#dropShadow" x="7.7" y="73.2"/>
+<use href="#tuftDeep" transform="translate(7.7 73.2) rotate(-0.17) scale(1.13)"/>
+<use href="#dropShadow" x="14.0" y="73.2"/>
+<use href="#tuftDeep" transform="translate(14.0 73.2) rotate(0.12) scale(0.90)"/>
+<use href="#dropShadow" x="22.9" y="73.2"/>
+<use href="#tuftLight" transform="translate(22.9 73.2) rotate(-0.01) scale(1.01)"/>
+<use href="#dropShadow" x="29.6" y="73.2"/>
+<use href="#tuftDeep" transform="translate(29.6 73.2) rotate(0.04) scale(1.08)"/>
+<use href="#dropShadow" x="48.3" y="73.2"/>
+<use href="#tuftDeep" transform="translate(48.3 73.2) rotate(-0.09) scale(1.00)"/>
+<use href="#dropShadow" x="57.9" y="73.2"/>
+<use href="#tuftDeep" transform="translate(57.9 73.2) rotate(-0.01) scale(1.02)"/>
+<use href="#dropShadow" x="70.3" y="73.2"/>
+<use href="#tuftLight" transform="translate(70.3 73.2) rotate(0.07) scale(1.07)"/>
+<use href="#dropShadow" x="89.7" y="73.2"/>
+<use href="#tuftLight" transform="translate(89.7 73.2) rotate(0.00) scale(0.94)"/>
+<use href="#dropShadow" x="106.4" y="73.2"/>
+<use href="#tuftDeep" transform="translate(106.4 73.2) rotate(0.18) scale(1.20)"/>
+<use href="#dropShadow" x="123.9" y="73.2"/>
+<use href="#tuftLight" transform="translate(123.9 73.2) rotate(-0.15) scale(1.05)"/>
+<use href="#dropShadow" x="6.6" y="82.5"/>
+<use href="#tuftLight" transform="translate(6.6 82.5) rotate(-0.00) scale(0.96)"/>
+<use href="#dropShadow" x="11.3" y="82.5"/>
+<use href="#tuftDeep" transform="translate(11.3 82.5) rotate(-0.08) scale(1.09)"/>
+<use href="#dropShadow" x="24.0" y="82.5"/>
+<use href="#tuftDeep" transform="translate(24.0 82.5) rotate(-0.15) scale(1.13)"/>
+<use href="#dropShadow" x="40.2" y="82.5"/>
+<use href="#tuftLight" transform="translate(40.2 82.5) rotate(0.02) scale(1.07)"/>
+<use href="#dropShadow" x="50.9" y="82.5"/>
+<use href="#tuftLight" transform="translate(50.9 82.5) rotate(0.15) scale(1.12)"/>
+<use href="#dropShadow" x="60.6" y="82.5"/>
+<use href="#tuftDeep" transform="translate(60.6 82.5) rotate(0.09) scale(1.07)"/>
+<use href="#dropShadow" x="71.1" y="82.5"/>
+<use href="#tuftLight" transform="translate(71.1 82.5) rotate(-0.12) scale(0.94)"/>
+<use href="#dropShadow" x="78.1" y="82.5"/>
+<use href="#tuftDeep" transform="translate(78.1 82.5) rotate(-0.07) scale(1.03)"/>
+<use href="#dropShadow" x="97.1" y="82.5"/>
+<use href="#tuftDeep" transform="translate(97.1 82.5) rotate(-0.15) scale(1.00)"/>
+<use href="#dropShadow" x="116.1" y="82.5"/>
+<use href="#tuftDeep" transform="translate(116.1 82.5) rotate(-0.14) scale(0.98)"/>
+<use href="#dropShadow" x="122.5" y="82.5"/>
+<use href="#tuftLight" transform="translate(122.5 82.5) rotate(-0.09) scale(1.18)"/>
+<use href="#dropShadow" x="6.9" y="90.4"/>
+<use href="#tuftDeep" transform="translate(6.9 90.4) rotate(0.01) scale(1.05)"/>
+<use href="#dropShadow" x="11.9" y="90.4"/>
+<use href="#tuftLight" transform="translate(11.9 90.4) rotate(0.11) scale(1.15)"/>
+<use href="#dropShadow" x="24.0" y="90.4"/>
+<use href="#tuftPale" transform="translate(24.0 90.4) rotate(-0.10) scale(1.00)"/>
+<use href="#dropShadow" x="31.2" y="90.4"/>
+<use href="#tuftLight" transform="translate(31.2 90.4) rotate(0.11) scale(0.96)"/>
+<use href="#dropShadow" x="40.4" y="90.4"/>
+<use href="#tuftLight" transform="translate(40.4 90.4) rotate(0.09) scale(1.20)"/>
+<use href="#dropShadow" x="52.4" y="90.4"/>
+<use href="#tuftDeep" transform="translate(52.4 90.4) rotate(-0.10) scale(0.98)"/>
+<use href="#dropShadow" x="62.1" y="90.4"/>
+<use href="#tuftLight" transform="translate(62.1 90.4) rotate(0.12) scale(0.94)"/>
+<use href="#dropShadow" x="71.2" y="90.4"/>
+<use href="#tuftLight" transform="translate(71.2 90.4) rotate(0.16) scale(0.91)"/>
+<use href="#dropShadow" x="80.5" y="90.4"/>
+<use href="#tuftDeep" transform="translate(80.5 90.4) rotate(-0.04) scale(0.95)"/>
+<use href="#dropShadow" x="98.3" y="90.4"/>
+<use href="#tuftDeep" transform="translate(98.3 90.4) rotate(0.06) scale(1.06)"/>
+<use href="#dropShadow" x="104.9" y="90.4"/>
+<use href="#tuftLight" transform="translate(104.9 90.4) rotate(0.15) scale(1.19)"/>
+<use href="#dropShadow" x="123.6" y="90.4"/>
+<use href="#tuftPale" transform="translate(123.6 90.4) rotate(-0.12) scale(1.01)"/>
+<use href="#dropShadow" x="14.3" y="98.4"/>
+<use href="#tuftLight" transform="translate(14.3 98.4) rotate(-0.16) scale(0.98)"/>
+<use href="#dropShadow" x="20.8" y="98.4"/>
+<use href="#tuftDeep" transform="translate(20.8 98.4) rotate(0.04) scale(1.11)"/>
+<use href="#dropShadow" x="28.2" y="98.4"/>
+<use href="#tuftLight" transform="translate(28.2 98.4) rotate(-0.00) scale(1.01)"/>
+<use href="#dropShadow" x="38.9" y="98.4"/>
+<use href="#tuftDeep" transform="translate(38.9 98.4) rotate(-0.07) scale(0.92)"/>
+<use href="#dropShadow" x="53.1" y="98.4"/>
+<use href="#tuftPale" transform="translate(53.1 98.4) rotate(-0.17) scale(1.02)"/>
+<use href="#dropShadow" x="59.5" y="98.4"/>
+<use href="#tuftDeep" transform="translate(59.5 98.4) rotate(0.18) scale(1.15)"/>
+<use href="#dropShadow" x="78.9" y="98.4"/>
+<use href="#tuftDeep" transform="translate(78.9 98.4) rotate(-0.15) scale(0.90)"/>
+<use href="#dropShadow" x="86.7" y="98.4"/>
+<use href="#tuftPale" transform="translate(86.7 98.4) rotate(0.12) scale(1.05)"/>
+<use href="#dropShadow" x="95.2" y="98.4"/>
+<use href="#tuftGold" transform="translate(95.2 98.4) rotate(0.05) scale(0.91)"/>
+<use href="#dropShadow" x="103.3" y="98.4"/>
+<use href="#tuftDeep" transform="translate(103.3 98.4) rotate(0.17) scale(1.14)"/>
+<use href="#dropShadow" x="113.0" y="98.4"/>
+<use href="#tuftDeep" transform="translate(113.0 98.4) rotate(0.08) scale(1.05)"/>
+<use href="#dropShadow" x="124.5" y="98.4"/>
+<use href="#tuftPale" transform="translate(124.5 98.4) rotate(-0.06) scale(0.90)"/>
+<use href="#dropShadow" x="6.4" y="106.4"/>
+<use href="#tuftLight" transform="translate(6.4 106.4) rotate(-0.01) scale(1.07)"/>
+<use href="#dropShadow" x="9.7" y="106.4"/>
+<use href="#tuftDeep" transform="translate(9.7 106.4) rotate(0.02) scale(1.12)"/>
+<use href="#dropShadow" x="18.8" y="106.4"/>
+<use href="#tuftLight" transform="translate(18.8 106.4) rotate(0.01) scale(0.94)"/>
+<use href="#dropShadow" x="32.9" y="106.4"/>
+<use href="#tuftGold" transform="translate(32.9 106.4) rotate(0.07) scale(1.02)"/>
+<use href="#dropShadow" x="40.3" y="106.4"/>
+<use href="#tuftGold" transform="translate(40.3 106.4) rotate(0.18) scale(0.95)"/>
+<use href="#dropShadow" x="51.9" y="106.4"/>
+<use href="#tuftDeep" transform="translate(51.9 106.4) rotate(-0.11) scale(1.10)"/>
+<use href="#dropShadow" x="59.1" y="106.4"/>
+<use href="#tuftLight" transform="translate(59.1 106.4) rotate(0.02) scale(1.17)"/>
+<use href="#dropShadow" x="72.6" y="106.4"/>
+<use href="#tuftDeep" transform="translate(72.6 106.4) rotate(-0.15) scale(0.91)"/>
+<use href="#dropShadow" x="80.9" y="106.4"/>
+<use href="#tuftPale" transform="translate(80.9 106.4) rotate(-0.06) scale(0.98)"/>
+<use href="#dropShadow" x="96.0" y="106.4"/>
+<use href="#tuftLight" transform="translate(96.0 106.4) rotate(-0.01) scale(1.11)"/>
+<use href="#dropShadow" x="102.1" y="106.4"/>
+<use href="#tuftLight" transform="translate(102.1 106.4) rotate(0.09) scale(0.90)"/>
+<use href="#dropShadow" x="114.3" y="106.4"/>
+<use href="#tuftDeep" transform="translate(114.3 106.4) rotate(-0.08) scale(1.03)"/>
+<use href="#dropShadow" x="123.9" y="106.4"/>
+<use href="#tuftLight" transform="translate(123.9 106.4) rotate(-0.01) scale(1.05)"/>
+<use href="#dropShadow" x="2.1" y="115.0"/>
+<use href="#tuftLight" transform="translate(2.1 115.0) rotate(-0.14) scale(1.10)"/>
+<use href="#dropShadow" x="9.6" y="115.0"/>
+<use href="#tuftPale" transform="translate(9.6 115.0) rotate(0.10) scale(1.15)"/>
+<use href="#dropShadow" x="20.4" y="115.0"/>
+<use href="#tuftPale" transform="translate(20.4 115.0) rotate(0.02) scale(1.15)"/>
+<use href="#dropShadow" x="28.8" y="115.0"/>
+<use href="#tuftDeep" transform="translate(28.8 115.0) rotate(-0.06) scale(0.98)"/>
+<use href="#dropShadow" x="42.6" y="115.0"/>
+<use href="#tuftPale" transform="translate(42.6 115.0) rotate(-0.13) scale(1.07)"/>
+<use href="#dropShadow" x="54.4" y="115.0"/>
+<use href="#tuftPale" transform="translate(54.4 115.0) rotate(-0.05) scale(1.03)"/>
+<use href="#dropShadow" x="61.2" y="115.0"/>
+<use href="#tuftLight" transform="translate(61.2 115.0) rotate(0.03) scale(1.04)"/>
+<use href="#dropShadow" x="70.9" y="115.0"/>
+<use href="#tuftPale" transform="translate(70.9 115.0) rotate(0.11) scale(1.03)"/>
+<use href="#dropShadow" x="78.9" y="115.0"/>
+<use href="#tuftLight" transform="translate(78.9 115.0) rotate(-0.01) scale(1.12)"/>
+<use href="#dropShadow" x="89.8" y="115.0"/>
+<use href="#tuftPale" transform="translate(89.8 115.0) rotate(-0.09) scale(0.93)"/>
+<use href="#dropShadow" x="97.3" y="115.0"/>
+<use href="#tuftDeep" transform="translate(97.3 115.0) rotate(0.09) scale(1.12)"/>
+<use href="#dropShadow" x="102.8" y="115.0"/>
+<use href="#tuftPale" transform="translate(102.8 115.0) rotate(-0.12) scale(1.02)"/>
+<use href="#dropShadow" x="113.4" y="115.0"/>
+<use href="#tuftDeep" transform="translate(113.4 115.0) rotate(-0.11) scale(1.05)"/>
+<use href="#dropShadow" x="123.9" y="115.0"/>
+<use href="#tuftDeep" transform="translate(123.9 115.0) rotate(0.07) scale(0.95)"/>
 </svg>
