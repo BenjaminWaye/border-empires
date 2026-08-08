@@ -545,7 +545,7 @@ export const renderTechDetailCardHtml = (args: {
   buttonDisabled: boolean;
   prereqs: string[];
   prereqText: string;
-  unlocks: Array<{ name: string; tier: number }>;
+  unlocks: Array<{ id: string; name: string; tier: number }>;
   payoffHtml?: string;
   blockedSummary?: { label: string; tone: "missing" | "blocked" } | null;
   relatedStructuresHtml: string;
@@ -576,7 +576,7 @@ export const renderTechDetailCardHtml = (args: {
     </div>
     ${relatedStructuresHtml}
     ${relatedCrystalAbilitiesHtml}
-    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
+    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `<button class="inline-info-link" type="button" data-tech-card="${next.id}">${next.name} (T${next.tier})</button>`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     ${checklistHtml(checklist)}
     <div class="tech-detail-actions">
