@@ -135,6 +135,12 @@ message TileDelta {
   uint64 breach_shock_until = 26;
   optional string watchtower_json = 27;
   optional string natural_wonder_json = 28;
+  // One-shot combat-broadcast payload (JSON: attackerOwnerId, defenderOwnerId,
+  // attackerWon, originX, originY, at). Set only on the target tile's delta at
+  // the moment an ATTACK resolves against a defended tile — never persisted
+  // as tile state, purely a visual event signal for the client's battle
+  // overlay FX. See runtime-lock-resolution.ts.
+  optional string combat_json = 29;
 }
 
 message DockRoute {

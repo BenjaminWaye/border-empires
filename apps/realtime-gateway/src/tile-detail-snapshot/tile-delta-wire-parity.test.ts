@@ -97,7 +97,8 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "frontier_decay_kind", wireValue: "NATURAL", camelField: "frontierDecayKind", normalized: "NATURAL" },
   { protoField: "breach_shock_until", wireValue: 1_893_456_060_000, camelField: "breachShockUntil", normalized: 1_893_456_060_000 },
   { protoField: "visibility_state", wireValue: "FOG", camelField: "visibilityState", normalized: "FOG" },
-  { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true }
+  { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true },
+  { protoField: "combat_json", wireValue: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", camelField: "combatJson", normalized: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", presenceSensitive: true }
 ];
 
 const fullyPopulatedTile = (): Record<string, unknown> =>
