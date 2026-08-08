@@ -1096,7 +1096,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     ) {
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
-        label: "Build Wooden Fort",
+        label: "Build Palisade",
         detail: deps.buildDetailTextForAction("build_wooden_fort", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(

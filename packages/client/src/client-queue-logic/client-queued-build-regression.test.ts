@@ -32,6 +32,7 @@ describe("queued build regression", () => {
         crystal: []
       }),
       settlementProgressForTile: () => undefined,
+      captureProgressForTile: () => undefined,
       queuedSettlementProgressForTile: () => undefined,
       queuedBuildProgressForTile: () => progress,
       constructionProgressForTile: () => undefined,

@@ -43,7 +43,7 @@ export interface ServerWorldgenClustersDeps {
   WORLD_HEIGHT: number;
   clusterRuleMatch: (x: number, y: number, resource: ResourceType) => boolean;
   clusterRuleMatchRelaxed: (x: number, y: number, resource: ResourceType) => boolean;
-  clusterTileCountForResource: (resource: ResourceType, x: number, y: number) => number;
+  clusterTileCountForResource: (resource: ResourceType, x: number, y: number, seed: number) => number;
   collectClusterTiles: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
   collectClusterTilesRelaxed: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
   clusterRadiusForResource: (resource: ResourceType, x: number, y: number) => number;
@@ -271,7 +271,7 @@ export interface ServerWorldgenTerrainRuntime {
   nearestLandTiles: (originX: number, originY: number, candidates: Array<{ x: number; y: number }>, limit: number, predicate?: (tile: { x: number; y: number }) => boolean) => TileKey[];
   collectClusterTiles: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
   collectClusterTilesRelaxed: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
-  clusterTileCountForResource: (resource: ResourceType, x: number, y: number) => number;
+  clusterTileCountForResource: (resource: ResourceType, x: number, y: number, seed: number) => number;
   clusterRadiusForResource: (resource: ResourceType, x: number, y: number) => number;
 }
 

@@ -86,7 +86,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
     }
     return tile.economicStructure?.type === "WOODEN_FORT"
-      ? `Upgrade this Wooden Fort into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
+      ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
@@ -615,6 +615,7 @@ export const tileMenuViewForTile = (
     menuActionsForSingleTile: (tile: Tile) => TileActionDef[];
     splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
+    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
@@ -629,10 +630,11 @@ export const tileMenuViewForTile = (
   const actions = deps.menuActionsForSingleTile(tile);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
+  const capture = deps.captureProgressForTile(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const progress = settlement ?? queuedSettlement ?? queuedBuild ?? construction;
+  const progress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? construction;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
   const tabs: TileMenuTab[] = [];
