@@ -283,6 +283,10 @@ export const createWaypointFlag = (): WaypointFlag => {
     badgeSprite = new Sprite(material);
     badgeSprite.scale.set(QUEUE_BADGE_SIZE, QUEUE_BADGE_SIZE, 1);
     badgeSprite.position.set(0.3, 1.55, 0);
+    // Added lazily (only once a queue number is ever set), after the live
+    // renderer's one-time "set every child frustumCulled=false" pass — set
+    // it here directly so a late-added badge isn't culled at screen edges.
+    badgeSprite.frustumCulled = false;
     group.add(badgeSprite);
   };
 

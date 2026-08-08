@@ -442,5 +442,18 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Double-Entry Ledgers, Steel Foundries, Survey Sweep, Covert Logistics, Harbor Engineering, Beacon Network, and Provincial Concessions no longer grant a passive stat bonus — each still unlocks the same structure/ability as before.",
       "Muster Discipline and Muster Command still each add +1 mustering flag capacity — unchanged."
     ]
+  },
+  {
+    createdAt: 1786180758000, // 2026-08-08
+    introducedIn: "expand-tile-detail-and-queue",
+    title: "Frontier expansion now shows its own progress, and waypoint queues survive a refresh",
+    why: "Clicking a tile to expand into it gave no feedback that anything had started, and clicking it again while it was mid-claim did nothing at all. Queuing a second (or third) waypoint also produced no visible marker on the map for it. Separately, a queued expand plan only ever lived in memory, so refreshing or reconnecting silently dropped it.",
+    changes: [
+      "Clicking an adjacent neutral tile to expand into it now opens its tile detail, showing claim progress with Cancel and Rush-buy buttons.",
+      "Clicking a tile that's already mid-expansion reopens the same progress view instead of doing nothing.",
+      "Rush-buying an in-progress frontier claim is now available, priced the same way as settlement/build rush-buys.",
+      "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
+      "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
+    ]
   }
 ];
