@@ -58,27 +58,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // authored time, it's outside the 6-day window like the others above.
   // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
   // and town vision-bonus entries pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785649123000, // 2026.08.02.1
-    introducedIn: "2026.08.02.1",
-    title: "First 5 Light Outposts no longer cost a FOOD slot",
-    why: "A FOOD slot requirement made early exploration compete with a player's actual economy for the same scarce resource, discouraging the frontier-pushing Light Outposts already exist to encourage.",
-    changes: [
-      "Your first 5 Light Outposts (earliest-built first) now cost 0 FOOD slots; only the 6th onward draws from your FOOD slot pool like other structures.",
-      "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
-    ]
-  },
-  // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled; stale
-  // crystal costs removed") pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785670919000, // 2026.08.02.2
-    introducedIn: "2026.08.02.2",
-    title: "Build Light Outpost menu no longer shows a FOOD slot cost for your free first 5",
-    why: "The button correctly let you build your first 5 Light Outposts for free, but the cost line next to it still said \"1 FOOD slot\" regardless — misleading copy that looked like a hard requirement even when nothing would actually be charged.",
-    changes: [
-      "The \"Build Light Outpost\" cost line now omits the FOOD slot entirely while you're within your free first 5; it only appears once it actually applies, starting with your 6th outpost."
-    ]
-  },
+  // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled..."),
+  // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"), and
+  // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
+  // cost...") pruned: aged out of the 6-day window.
   {
     createdAt: 1785697200000, // 2026.08.03.1
     introducedIn: "2026.08.03.1",
@@ -401,6 +384,19 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Flipping a converter's mode has a 60-minute cooldown, and a freshly built or freshly captured converter starts locked for the same 60 minutes.",
       "Sell off mode: no gold upkeep; pays 8 gold/day for Iron Works and Fur Works, 10 gold/day for Aether Condenser (Advanced tiers: 12 / 15 gold/day).",
       "The 1-per-empire cap on these buildings is removed — build and run as many as you want, in either mode."
+    ]
+  },
+  {
+    createdAt: Date.now() + 4,
+    introducedIn: "expand-ui-multi-waypoint",
+    title: "Expand manpower now shows as reserved, queue numbering fixed, and waypoints can be queued",
+    why: "Manpower for a queued or in-progress Expand wasn't shown as spent until the server resolved it, so the displayed manpower total looked available when it was already committed. The queue badge on a currently-executing action also showed \"1\", which read as \"next in line\" rather than \"in progress\". And only one waypoint could be set at a time, so a multi-hop trip required babysitting each leg to fire the next one manually.",
+    changes: [
+      "Manpower reserved by an active or queued Expand now shows as already spent, and reappears if the action is cancelled before the server resolves it.",
+      "The currently-executing queued action no longer shows a \"1\" badge — only actual waiting-in-line entries are numbered, starting at 1.",
+      "The big \"Capturing Territory...\" overlay no longer appears for Expand — the tile-paint fill is the only feedback, matching waypoint-driven expands.",
+      "Clicking a tile that's actively expanding now opens its tile detail with a Cancel expansion option, instead of only the top-level Cancel button.",
+      "You can now queue multiple waypoints — clicking \"Add Waypoint\" on a new distant tile appends it instead of replacing the current one, so a multi-leg trip runs unattended leg by leg."
     ]
   }
 ];
