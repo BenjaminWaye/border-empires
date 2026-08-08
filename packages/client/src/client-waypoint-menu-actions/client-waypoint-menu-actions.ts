@@ -58,16 +58,12 @@ export const injectWaypointActions = (
   // must not stack duplicate waypoint actions on the view each time.
   const firstActionId = view.actions[0]?.id;
   if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint" || firstActionId === "clear_waypoint_and_expand_here") return;
-  const waypoint = state.waypoint;
-  if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
-    prependWaypointAction(view, { id: "cancel_waypoint", label: "Cancel Waypoint", detail: formatWaypointSummary(waypoint.plan) });
+  const activeWaypoint = state.waypoint.length > 0 ? state.waypoint[0] : undefined;
+  if (activeWaypoint && activeWaypoint.target.x === tile.x && activeWaypoint.target.y === tile.y) {
+    prependWaypointAction(view, { id: "cancel_waypoint", label: `Cancel Waypoint${state.waypoint.length > 1 ? "s" : ""}`, detail: formatWaypointSummary(activeWaypoint.plan) });
     return;
   }
   const plan = waypointPlanForTile(tile, state, deps);
   if (!plan) return;
-  if (waypoint) {
-    prependWaypointAction(view, { id: "clear_waypoint_and_expand_here", label: "Clear Waypoint and Expand Here", detail: formatWaypointSummary(plan) });
-  } else {
-    prependWaypointAction(view, { id: "expand_here", label: "Expand Here", detail: formatWaypointSummary(plan) });
-  }
+  prependWaypointAction(view, { id: "expand_here", label: "Add Waypoint", detail: formatWaypointSummary(plan) });
 };

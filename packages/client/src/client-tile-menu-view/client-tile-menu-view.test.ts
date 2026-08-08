@@ -1059,6 +1059,7 @@ describe("menuOverviewForTile", () => {
         menuActionsForSingleTile: () => [],
         splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
         settlementProgressForTile: () => undefined,
+        captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
@@ -1110,6 +1111,7 @@ describe("menuOverviewForTile", () => {
         menuActionsForSingleTile: () => [],
         splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
         settlementProgressForTile: () => undefined,
+        captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
@@ -1156,6 +1158,7 @@ describe("menuOverviewForTile", () => {
         menuActionsForSingleTile: () => [],
         splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
         settlementProgressForTile: () => undefined,
+        captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
@@ -1183,6 +1186,7 @@ describe("menuOverviewForTile", () => {
         menuActionsForSingleTile: () => [],
         splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
         settlementProgressForTile: () => undefined,
+        captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
@@ -1284,6 +1288,7 @@ describe("menuOverviewForTile", () => {
         menuActionsForSingleTile: () => [],
         splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
         settlementProgressForTile: () => undefined,
+        captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
@@ -1309,9 +1314,9 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).not.toContain("Upgrade");
   });
 
-  it("shows 'Upgrade this Wooden Fort' for a wooden-fort tile", () => {
+  it("shows 'Upgrade this Palisade' for a wooden-fort tile", () => {
     const detail = buildDetailTextForAction("build_fortification", woodenFortTile);
-    expect(detail).toContain("Upgrade this Wooden Fort");
+    expect(detail).toContain("Upgrade this Palisade");
   });
 
   it("shows Iron Bastion upgrade text for an active fort with undefined variant", () => {

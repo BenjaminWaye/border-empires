@@ -163,7 +163,9 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockCaravanary": true
+        "unlockCaravanary": true,
+        "townGoldCapMult": 1.05,
+        "connectedTownStepBonusAdd": 0.05
       }
     },
     {
@@ -298,7 +300,8 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockThunderBastion": true
+        "unlockThunderBastion": true,
+        "attackVsFortsMult": 1.1
       }
     },
     {
@@ -451,7 +454,8 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockSurveySweep": true
+        "unlockSurveySweep": true,
+        "outpostVisionRadiusBonus": 1
       }
     },
     {
@@ -481,7 +485,8 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockSabotage": true
+        "unlockSabotage": true,
+        "settlementSpeedMult": 1.05
       }
     },
     {
@@ -497,7 +502,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockCustomsHouse": true,
-        "unlockAetherWall": true
+        "unlockAetherWall": true,
+        "dockGoldOutputMult": 1.1
       }
     },
     {
@@ -527,7 +533,8 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockRevealEmpire": true
+        "unlockRevealEmpire": true,
+        "observatoryRangeBonus": 5
       }
     },
     {
@@ -612,7 +619,8 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockExchangeHouse": true
+        "unlockExchangeHouse": true,
+        "settlementSpeedMult": 1.1
       }
     },
     {
