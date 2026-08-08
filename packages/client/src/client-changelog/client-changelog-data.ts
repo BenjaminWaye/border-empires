@@ -71,16 +71,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"), and
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
   // cost...") pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785697200000, // 2026.08.03.1
-    introducedIn: "2026.08.03.1",
-    title: "Fixed: removing a structure crashed the game",
-    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
-    changes: [
-      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
-      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
-    ]
-  },
+  // 2026.08.03.1 ("Fixed: removing a structure crashed the game") pruned:
+  // aged out of the 6-day window.
   {
     createdAt: 1785735055000, // 2026-08-03
     introducedIn: "buildings-tab-always-show",
@@ -441,6 +433,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Double-Entry Ledgers, Steel Foundries, Survey Sweep, Covert Logistics, Harbor Engineering, Beacon Network, and Provincial Concessions no longer grant a passive stat bonus — each still unlocks the same structure/ability as before.",
       "Muster Discipline and Muster Command still each add +1 mustering flag capacity — unchanged."
+    ]
+  },
+  {
+    createdAt: 1786224715236,
+    introducedIn: "imperial-exchange-part-models",
+    title: "Imperial Exchange parts now render as monument components in 3D",
+    why: "Imperial Exchange part tiles had no dedicated 3D model, so on the 3D map they fell back to a flat 2D overlay and read as a placeholder rather than a monument under construction. Each of the three parts you build now renders its own distinct low-poly monument component.",
+    changes: [
+      "3D map: each Imperial Exchange part tile now shows one of three monument components — the Golden Ledger (an upright iron ledger with brass binding and a dull-gold seal), the Counting Engine (a brass calculating drum with tally wheels, one with a glowing cyan ring), or the Sovereign Seal (a ceremonial iron-and-brass seal stamp with a gold crest center).",
+      "Which component appears is chosen deterministically from the tile's coordinates, so the three parts of one monument always settle on distinct assets.",
+      "The 2D fallback overlay for part tiles is no longer drawn in 3D mode, matching other structures."
     ]
   }
 ];
