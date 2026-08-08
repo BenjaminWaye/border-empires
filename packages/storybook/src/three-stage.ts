@@ -4,6 +4,7 @@ import {
   Group,
   Mesh,
   MeshStandardMaterial,
+  OrthographicCamera,
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
@@ -13,7 +14,7 @@ import {
 export type Stage = {
   readonly canvas: HTMLCanvasElement;
   readonly scene: Scene;
-  readonly camera: PerspectiveCamera;
+  readonly camera: PerspectiveCamera | OrthographicCamera;
   readonly renderer: WebGLRenderer;
   readonly dispose: () => void;
 };
@@ -24,6 +25,8 @@ export type StageOptions = {
   readonly cameraDistance?: number;
   readonly cameraTilt?: number;
   readonly background?: string;
+  readonly camera?: "perspective" | "orthographic";
+  readonly orthoHalfHeight?: number;
 };
 
 export const createStage = (opts: StageOptions = {}): Stage => {
@@ -46,7 +49,20 @@ export const createStage = (opts: StageOptions = {}): Stage => {
 
   const scene = new Scene();
 
-  const camera = new PerspectiveCamera(45, width / height, 0.1, 4000);
+  // Perspective for gameplay-context stories; orthographic (with a fixed
+  // frustum height) for asset-presentation stories that want an isometric
+  // three-quarter view without perspective foreshortening.
+  const camera =
+    opts.camera === "orthographic"
+      ? new OrthographicCamera(
+          -((opts.orthoHalfHeight ?? 2) * (width / height)),
+          (opts.orthoHalfHeight ?? 2) * (width / height),
+          opts.orthoHalfHeight ?? 2,
+          -(opts.orthoHalfHeight ?? 2),
+          0.1,
+          4000
+        )
+      : new PerspectiveCamera(45, width / height, 0.1, 4000);
   const horizontal = Math.sin(cameraTilt) * cameraDistance;
   const vertical = Math.cos(cameraTilt) * cameraDistance;
   camera.position.set(0, vertical, horizontal);
