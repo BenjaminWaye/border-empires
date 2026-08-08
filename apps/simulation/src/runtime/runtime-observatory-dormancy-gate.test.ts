@@ -151,7 +151,7 @@ describe("§5.4 observatory dormancy gate", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", player1({ techIds: new Set(["signal-fires"]) })],
+        ["player-1", player1({ techIds: new Set(["crystal-lattices"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: {

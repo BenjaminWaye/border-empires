@@ -138,7 +138,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!actor.techIds.has("cryptography") && context.revealTargetsForPlayer(actor.id).size === 0) {
+  if (!actor.techIds.has("beacon-towers") && context.revealTargetsForPlayer(actor.id).size === 0) {
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "unlock reveal capability via tech/domain first");
     return;
   }
@@ -267,8 +267,8 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("signal-fires")) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "requires Signal Fires");
+  if (!actor.techIds.has("crystal-lattices")) {
+    rejectCommand(context, command, "AETHER_LANCE_INVALID", "requires Aetheric Resonance");
     return;
   }
   const targetIsPurgeableOwnership = target?.ownershipState === "SETTLED" || target?.ownershipState === "FRONTIER";
