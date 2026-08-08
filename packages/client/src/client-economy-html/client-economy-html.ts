@@ -51,7 +51,7 @@ type EconomyPanelArgs = {
 const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
 
 const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, string> = {
-  WOODEN_FORT: "Wooden Fort",
+  WOODEN_FORT: "Palisade",
   FORT: "Fort",
   IRON_BASTION: "Iron Bastion",
   THUNDER_BASTION: "Thunder Bastion"
