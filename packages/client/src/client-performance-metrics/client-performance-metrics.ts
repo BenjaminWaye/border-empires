@@ -49,6 +49,28 @@ export type FramePhaseSample = Record<(typeof FRAME_PHASE_FIELDS)[number], numbe
 const framePhaseSamples: FramePhaseSample[] = [];
 const drawFpsSamples: number[] = [];
 
+// The 3D terrain renderer (client-map-3d.ts) runs its own independent rAF loop, separate from
+// the 2D overlay loop that records framePhaseSamples above, so it gets its own sample stream
+// rather than forcing every 2D frame to carry meaningless zeros for fields it doesn't own.
+// rebuildVisibleTerrain() rebuilds every tile-derived overlay in the visible window PLUS the
+// road network (which is not bounded to the visible window — see roadNetworkMs), and — unlike
+// the 2D minimap — currently runs unthrottled on every camera/zoom/tile-revision change, so
+// this instrumentation exists to find out which part actually dominates before touching it.
+export type TerrainRebuildSample = {
+  totalMs: number;
+  roadNetworkMs: number;
+  knownTileCount: number;
+  visibleTileCount: number;
+};
+
+const MAX_TERRAIN_REBUILD_SAMPLES = 1_800;
+const terrainRebuildSamples: TerrainRebuildSample[] = [];
+
+export const recordTerrainRebuildSample = (sample: TerrainRebuildSample): void => {
+  terrainRebuildSamples.push(sample);
+  if (terrainRebuildSamples.length > MAX_TERRAIN_REBUILD_SAMPLES) terrainRebuildSamples.shift();
+};
+
 let navTiming: Record<string, number | string | undefined> | undefined;
 let connectionInfo: Record<string, unknown> | undefined;
 let windowInfo: Record<string, number | string | undefined> | undefined;
@@ -217,6 +239,17 @@ export const snapshotFramePhases = (): Record<string, ReturnType<typeof numericS
   return result;
 };
 
+export const snapshotTerrainRebuild = (): Record<string, unknown> | undefined => {
+  if (terrainRebuildSamples.length === 0) return undefined;
+  const latest = terrainRebuildSamples[terrainRebuildSamples.length - 1]!;
+  return {
+    totalMs: numericStats(terrainRebuildSamples.map((s) => s.totalMs)),
+    roadNetworkMs: numericStats(terrainRebuildSamples.map((s) => s.roadNetworkMs)),
+    knownTileCount: latest.knownTileCount,
+    visibleTileCount: latest.visibleTileCount
+  };
+};
+
 export const initPerformanceMetrics = (): void => {
   if (navTiming) return;
   navTiming = captureNavTiming();
@@ -243,6 +276,9 @@ export const snapshotPerformanceMetrics = (): Record<string, unknown> => {
     drawFpsNote:
       "Sampled once per frame that actually rendered (post-throttle). A reading pinned near the mobile cap (25fps) means the renderer is hitting its intentional cap, not struggling.",
     framePhases: snapshotFramePhases(),
+    terrainRebuild: snapshotTerrainRebuild(),
+    terrainRebuildNote:
+      "3D terrain renderer's rebuildVisibleTerrain(), a separate rAF loop from framePhases above. Runs unthrottled on every camera/zoom/tile-revision change. roadNetworkMs is the buildRoadNetwork() sub-cost, which scans knownTileCount (every tile ever seen) rather than visibleTileCount (the camera's current window) — compare the two to see which one actually dominates totalMs.",
     navigationTiming: navTiming,
     connection: connectionInfo,
     window: windowInfo,
@@ -261,6 +297,7 @@ export const resetPerformanceMetricsForTests = (): void => {
   fpsSamples.length = 0;
   framePhaseSamples.length = 0;
   drawFpsSamples.length = 0;
+  terrainRebuildSamples.length = 0;
   navTiming = undefined;
   connectionInfo = undefined;
   windowInfo = undefined;
