@@ -425,6 +425,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786214940000, // 2026-08-08
+    introducedIn: "monument-parts-population-bureau-iron-levy",
+    title: "Fixed: Population Bureau and Iron Levy monument parts couldn't be built at all",
+    why: "Every other monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) has a working \"build 3 parts in different Great/Monumental Cities, then place the monument for free\" flow. Population Bureau and Iron Levy's part-building buttons existed in the menu but were wired to nothing — clicking them sent no command — and the final monument itself had no build action at all, so the 3 parts you could never even place had nowhere to go.",
+    changes: [
+      "\"Build Population Bureau Part\" and \"Build The Iron Levy Part\" now actually build, with the same Great City/Monumental City and one-monument-part-per-city rules as the other four monuments.",
+      "Added the missing \"Build Population Bureau\" and \"Build The Iron Levy\" actions — each unlocks once you own 3 of that monument's parts and have researched its tech."
+    ]
+  },
+  {
     createdAt: 1786217054000, // 2026-08-08
     introducedIn: "consume-monument-parts-on-build",
     title: "Building a monument now consumes its 3 Parts, and the monument's own CRYSTAL cost went up to cover it",
