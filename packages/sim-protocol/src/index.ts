@@ -271,7 +271,7 @@ export type SeasonArchiveRow = {
 };
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).
-export type { SimulationEvent } from "./simulation-event.js";
+export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
