@@ -489,7 +489,7 @@ type WaypointPushFeed = (message: string, type?: "combat" | "mission" | "error" 
 export const cancelWaypointOnBarrierBlock = (state: Pick<ClientState, "waypoint">, plan: WaypointPlan, target: { x: number; y: number }, pushFeed: WaypointPushFeed): false => {
   if (plan.blockReason === "TARGET_BARRIER") {
     pushFeed(`Waypoint cancelled at (${target.x}, ${target.y}) — turned out to be impassable. Got as close as possible.`, "info", "warn");
-    state.waypoint = undefined;
+    state.waypoint.shift();
   }
   return false;
 };

@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -951,6 +951,20 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return state.dormantStructures.find((entry) => entry.key === key)?.resources;
   };
 
+  const computeDisplayManpower = (): number => {
+    let reserved = 0;
+    if (state.actionCurrent && !state.actionCurrent.ownerId) {
+      reserved += EXPAND_MANPOWER_COST;
+    }
+    for (const action of state.actionQueue) {
+      const tile = state.tiles.get(keyFor(action.x, action.y));
+      if (tile && !tile.ownerId) {
+        reserved += EXPAND_MANPOWER_COST;
+      }
+    }
+    return Math.max(0, state.manpower - reserved);
+  };
+
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -976,7 +990,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
-      currentManpower: state.manpower,
+      currentManpower: computeDisplayManpower(),
       currentManpowerCap: state.manpowerCap,
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
@@ -1011,6 +1025,24 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         return tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values(), settledDefenseModifiers);
       }
     });
+  };
+
+  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
+    if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) {
+      return undefined;
+    }
+    const nowMs = Date.now();
+    const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
+    const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
+    return {
+      title: "Frontier expansion in progress",
+      detail: "This tile is being claimed and will become your frontier when the expansion completes.",
+      remainingLabel: formatCountdownClock(remainingMs),
+      progress: Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs)),
+      note: "This tile will become frontier territory.",
+      cancelLabel: "Cancel expansion",
+      cancelActionId: "cancel_capture" as const
+    };
   };
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
@@ -1049,6 +1081,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
               })
         };
       },
+      captureProgressForTile,
       queuedSettlementProgressForTile,
       queuedBuildProgressForTile,
       constructionProgressForTile,
@@ -1380,7 +1413,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           // "Expand Here" — it advances one owned-adjacent hop at a time so
           // the claimed chain always stays connected. Once ownership is
           // reached, auto-settle then auto-build pick up the baton.
-          state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+          state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           state.autoSettleTargets.add(targetKey);
           state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
           const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";

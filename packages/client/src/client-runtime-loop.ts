@@ -276,14 +276,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         Boolean(state.capture),
         state.actionTargetKey === actionCaptureTargetKey
       );
-    if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {
-      queueIndex.set(state.actionTargetKey, 1);
-      queueOffset = 1;
-    }
     for (let i = 0; i < state.actionQueue.length; i += 1) {
       const q = state.actionQueue[i];
       if (!q) continue;
-      queueIndex.set(deps.keyFor(q.x, q.y), i + 1 + queueOffset);
+      queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
@@ -1846,7 +1842,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   // otherwise leave the chain stalled with an idle queue.
   setInterval(() => {
     if (state.connection !== "initialized") return;
-    if (!state.waypoint) return;
+    if (state.waypoint.length === 0) return;
     if (state.actionInFlight || state.actionQueue.length > 0) return;
     deps.processActionQueue();
   }, 500);

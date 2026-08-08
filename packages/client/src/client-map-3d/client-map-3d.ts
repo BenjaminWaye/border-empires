@@ -956,8 +956,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const syncWaypointMarkers = (): void => {
     hideLineMarkerPool(waypointPathMarkers);
     waypointFlagGroup.visible = false;
-    const waypoint = deps.state.waypoint;
-    if (!waypoint) return;
+    if (deps.state.waypoint.length === 0) return;
+    const waypoint = deps.state.waypoint[0];
     const blocked = !waypoint.plan.reachable;
     const HALT_COLOR = "#f59e0b";
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
