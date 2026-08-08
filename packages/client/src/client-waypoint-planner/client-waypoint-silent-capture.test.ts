@@ -9,7 +9,8 @@ const clientSource = (relative: string): string => {
 
 // Regression guards for the "silent capture" UX: when topUpFromWaypoint
 // enqueues a tile, that queue item is tagged `fromWaypoint`. At dispatch
-// time, a fromWaypoint EXPAND on a NEUTRAL tile sets state.capture.silent.
+// time, any EXPAND on a NEUTRAL tile sets state.capture.silent — the
+// tile-paint fill is enough feedback for a claim, waypoint-driven or not.
 // All downstream surfaces (the big capture overlay, the success popup,
 // the success feed entry) must check that flag and stay quiet so a
 // multi-step chain doesn't spam four pop-ups in a row.
@@ -21,11 +22,11 @@ describe("silent waypoint capture flow", () => {
     expect(source).toMatch(/enqueueTarget\([^)]*\{\s*fromWaypoint:\s*true\s*\}\)/);
   });
 
-  it("dispatch only marks the capture silent for waypoint-driven neutral targets", () => {
+  it("dispatch marks the capture silent for any neutral (EXPAND) target", () => {
     const source = clientSource("../client-queue-logic/client-queue-logic.ts");
-    // The `silent` derivation must require BOTH fromWaypoint AND a
-    // neutral (un-owned) target. ATTACKs on enemy tiles never go silent.
-    expect(source).toMatch(/const silent = Boolean\(next\.fromWaypoint\)\s*&&\s*!to\.ownerId;/);
+    // The `silent` derivation is scoped to a neutral (un-owned) target —
+    // ATTACKs on enemy tiles never go silent, regardless of origin.
+    expect(source).toMatch(/const silent = !to\.ownerId;/);
     expect(source).toContain("state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;");
   });
 
