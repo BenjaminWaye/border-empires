@@ -119,6 +119,7 @@ import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { persistWaypointQueueForPlayer } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -1041,7 +1042,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       progress: Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs)),
       note: "This tile will become frontier territory.",
       cancelLabel: "Cancel expansion",
-      cancelActionId: "cancel_capture" as const
+      cancelActionId: "cancel_capture" as const,
+      rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
+      rushBuyActionId: "rush_buy" as const
     };
   };
 
@@ -1415,6 +1418,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           // the claimed chain always stays connected. Once ownership is
           // reached, auto-settle then auto-build pick up the baton.
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
+          persistWaypointQueueForPlayer(state.me, state.waypoint);
           state.autoSettleTargets.add(targetKey);
           state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
           const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";
@@ -1693,6 +1697,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isNeutral: !to.ownerId
     });
     if (clickOutcome === "queue-adjacent-neutral") {
+      // Re-clicking a tile that's ALREADY the active capture must open its
+      // progress/cancel/rush-buy detail, not re-run the afford/enqueue gate
+      // below — gold for this claim was already spent when it started, so
+      // a since-drained wallet must never block re-viewing it.
+      if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
+        openSingleTileActionMenu(to, clientX, clientY);
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         notifyInsufficientGoldForFrontierAction("claim");
         requestAttackPreviewForHover();
@@ -1701,7 +1715,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (enqueueTarget(to.x, to.y)) {
         processActionQueue();
-        pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
+        // Open the tile's detail panel only when THIS click's target became
+        // the active capture (queue was idle) — not when it just landed
+        // behind an already-in-progress expansion. Otherwise a manual tap
+        // gave no feedback at all that a frontier claim had started.
+        if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
+          openSingleTileActionMenu(to, clientX, clientY);
+        } else {
+          pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
+        }
       }
       requestAttackPreviewForHover();
       renderHud();
