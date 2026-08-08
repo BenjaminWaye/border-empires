@@ -423,5 +423,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "2D map: farm overlays were redrawn as dense barley crops with dark soil showing between clumps.",
       "Each tile's crop arrangement is deterministic, so it stays stable while panning and doesn't reshuffle on refresh."
     ]
+  },
+  {
+    createdAt: 1786180757000, // 2026-08-08
+    introducedIn: "cut-tech-bonuses-keep-muster",
+    title: "Techs no longer grant passive stat bonuses — only Muster Discipline/Command's flag capacity remains",
+    why: "Techs unlocking a structure or ability alongside a hidden passive stat bump (extra town gold cap, attack-vs-forts, settlement speed, outpost vision, dock gold, observatory range) made a tech's real payoff harder to read from its description. Muster Discipline and Muster Command's flag-capacity bonus is the one exception kept, by design.",
+    changes: [
+      "Double-Entry Ledgers, Steel Foundries, Survey Sweep, Covert Logistics, Harbor Engineering, Beacon Network, and Provincial Concessions no longer grant a passive stat bonus — each still unlocks the same structure/ability as before.",
+      "Muster Discipline and Muster Command still each add +1 mustering flag capacity — unchanged."
+    ]
   }
 ];

@@ -112,51 +112,6 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
   });
 
-  it("researching Survey Corps immediately widens an already-built Light Outpost's ring", async () => {
-    const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
-    for (let x = 0; x <= 20; x += 1) {
-      for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
-    }
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      // Survey Sweep's only prereq is now crystal-lattices (Aetheric
-      // Resonance) — toolmaking and cartography were both retired.
-      initialPlayers: new Map([["player-1", makePlayer("player-1", ["crystal-lattices"], [])]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          ...tiles,
-          {
-            x: 10,
-            y: 10,
-            terrain: "LAND" as const,
-            ownerId: "player-1",
-            ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    // Base bonus is 5 — dx=6 starts invisible.
-    expect(visibleTileKeys(runtime, "player-1").has("16,10")).toBe(false);
-
-    runtime.submitCommand({
-      commandId: "choose-surveying",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 0,
-      issuedAt: 1_000,
-      type: "CHOOSE_TECH",
-      payloadJson: JSON.stringify({ techId: "surveying" })
-    });
-    await Promise.resolve();
-
-    // Survey Corps's outpostVisionRadiusBonus (+1) widens the ring immediately.
-    expect(visibleTileKeys(runtime, "player-1").has("16,10")).toBe(true);
-  });
-
   it("an ally's Light Outpost ring is visible to the player, and withdraws when the alliance breaks", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 20; x <= 40; x += 1) {

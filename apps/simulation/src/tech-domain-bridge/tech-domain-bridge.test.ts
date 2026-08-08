@@ -19,11 +19,8 @@ import {
   domainGrantedResourceSlots,
   domainHasResourceSubChoice,
   multiplicativeEffectForPlayer,
-  outpostVisionRadiusBonusForPlayer,
   recomputeMods,
-  resolveDataPath,
-  townVisionRadiusBonusForPlayer,
-  visionRadiusBonusForPlayer
+  resolveDataPath
 } from "./tech-domain-bridge.js";
 import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
@@ -82,13 +79,6 @@ describe("tech-domain bridge progression sources", () => {
       { label: "Base", mult: 1 },
       { label: "War Foundries", mult: 1.1 }
     ]);
-  });
-
-  it("Survey Corps grants outpostVisionRadiusBonus, not a generic visionRadiusBonus (Cartography's townVisionRadiusBonus was retired with the tech-tree redesign)", () => {
-    const player = { techIds: new Set<string>(["surveying"]), domainIds: new Set<string>() };
-    expect(outpostVisionRadiusBonusForPlayer(player)).toBe(1);
-    expect(visionRadiusBonusForPlayer(player)).toBe(0);
-    expect(townVisionRadiusBonusForPlayer(player)).toBe(0);
   });
 
   it("no catalog tech grants a generic visionRadiusBonus any more (retired in favor of town/outpost-specific bonuses)", () => {
