@@ -299,7 +299,7 @@ export const renderTechDetailCard = (deps: {
     buttonDisabled: !(canUnlock || pendingUnlock),
     prereqs,
     prereqText,
-    unlocks: unlocks.map((next) => ({ name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
+    unlocks: unlocks.map((next) => ({ id: next.id, name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
     relatedStructuresHtml,
     relatedCrystalAbilitiesHtml,
     payoffHtml,
@@ -457,7 +457,7 @@ export const renderTechDetailModal = (deps: {
           unlocks.length > 0
             ? `<section class="structure-info-section">
                 <span class="structure-info-section-label">Unlocks next</span>
-                <strong>${unlocks.map((next) => `${next.name} (T${deps.techTier(next.id, byId, tierMemo)})`).join(", ")}</strong>
+                <strong>${unlocks.map((next) => `<button class="inline-info-link" type="button" data-tech-card="${next.id}">${next.name} (T${deps.techTier(next.id, byId, tierMemo)})</button>`).join(", ")}</strong>
               </section>`
             : ""
         }
