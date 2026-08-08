@@ -220,6 +220,73 @@ describe("drawMiniMap live ownership tint", () => {
   });
 });
 
+describe("drawMiniMap redraw throttle", () => {
+  const baseCall = (overrides: {
+    tileCount: number;
+    drawAt: number;
+    nowMs: number;
+    camX?: number;
+    camY?: number;
+    zoom?: number;
+  }): boolean => {
+    const w = 8;
+    const h = 8;
+    const ctx = makeFakeCtx();
+    const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
+    const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
+
+    return drawMiniMap({
+      nowMs: overrides.nowMs,
+      state: {
+        camX: overrides.camX ?? 5,
+        camY: overrides.camY ?? 5,
+        zoom: 1,
+        replayActive: false,
+        replayIndex: 0,
+        replayOwnershipByTile: new Map(),
+        fogDisabled: true,
+        tiles: new Map(),
+        dockPairs: [],
+        shardRainPingsByTile: new Map()
+      },
+      canvas,
+      miniMapEl,
+      miniMapCtx: ctx,
+      miniMapBase,
+      miniMapBaseReady: true,
+      miniMapLast: { camX: 5, camY: 5, zoom: 1, replayIndex: 0, tileCount: overrides.tileCount, drawAt: overrides.drawAt },
+      parseKey: (key) => {
+        const parts = key.split(",").map(Number);
+        return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
+      },
+      keyFor: (x, y) => `${x},${y}`,
+      tileVisibilityStateAt: () => "visible",
+      effectiveOverlayColor: () => "#ffffff",
+      isDockRouteVisibleForPlayer: () => false,
+      hasCollectableYield: () => false,
+      replayCurrentEvent: () => undefined
+    });
+  };
+
+  it("does not bypass the 140ms floor when only tile count changed (no camera move)", () => {
+    // tileCount differs from state.tiles.size (0) but camera is unchanged and only 10ms elapsed:
+    // a tile-discovery-only change must wait for the throttle, not redraw immediately.
+    const changed = baseCall({ tileCount: 3, drawAt: 10_000, nowMs: 10_010 });
+    expect(changed).toBe(false);
+  });
+
+  it("redraws once the 140ms floor has passed for a tile-count-only change", () => {
+    const changed = baseCall({ tileCount: 3, drawAt: 10_000, nowMs: 10_141 });
+    expect(changed).toBe(true);
+  });
+
+  it("still redraws immediately on a camera move regardless of elapsed time", () => {
+    const changed = baseCall({ tileCount: 0, drawAt: 10_000, nowMs: 10_010, camX: 6 });
+    expect(changed).toBe(true);
+  });
+});
+
 describe("miniMapTownMarkerPalette", () => {
   it("does not use a red warning outer marker for unfed towns", () => {
     const fed = miniMapTownMarkerPalette(townTile(true), false);

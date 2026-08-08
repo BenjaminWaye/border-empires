@@ -51,13 +51,19 @@ export const drawMiniMap = (options: {
   hasCollectableYield: (tile: Tile | undefined) => boolean;
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
 }): boolean => {
-  const miniMapChanged =
+  // Camera/zoom moves need an immediate redraw for input responsiveness, but tile-count
+  // churn (fog reveals, discovery) fires on nearly every frame during active play and must
+  // not bypass the 140ms floor below, or this scan (full tile-map bounds + marker + fog
+  // passes) runs every frame instead of every ~140ms.
+  const cameraMoved =
     options.state.camX !== options.miniMapLast.camX ||
     options.state.camY !== options.miniMapLast.camY ||
-    options.state.zoom !== options.miniMapLast.zoom ||
+    options.state.zoom !== options.miniMapLast.zoom;
+  const contentDirty =
     options.state.tiles.size !== options.miniMapLast.tileCount ||
     (options.state.replayActive && options.state.replayIndex !== options.miniMapLast.replayIndex);
-  if (!miniMapChanged && options.nowMs - options.miniMapLast.drawAt < 140) return false;
+  if (!cameraMoved && !contentDirty) return false;
+  if (!cameraMoved && options.nowMs - options.miniMapLast.drawAt < 140) return false;
 
   const w = options.miniMapEl.width;
   const h = options.miniMapEl.height;
