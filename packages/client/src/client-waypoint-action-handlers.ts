@@ -37,15 +37,16 @@ const setWaypointForSelected = (
     return true;
   }
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
-  state.waypoint = {
+  state.waypoint.push({
     target: { x: selected.x, y: selected.y },
     plan,
     trackBarbarian: selectedTile?.ownerId === "barbarian-1"
-  };
+  });
   const summary = plan.attackCount > 0
     ? `${plan.expandCount} expand + ${plan.attackCount} attack`
     : `${plan.expandCount} expand`;
-  pushFeed(`${feedPrefix ?? ""}Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
+  const queueLabel = state.waypoint.length > 1 ? ` (${state.waypoint.length} waypoints queued)` : "";
+  pushFeed(`${feedPrefix ?? ""}Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.${queueLabel}`, "info", "info");
   hideTileActionMenu();
   processActionQueue();
   renderHud();
@@ -56,10 +57,11 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue } = deps;
 
   if (actionId === "cancel_waypoint") {
-    if (state.waypoint) {
-      const target = state.waypoint.target;
-      state.waypoint = undefined;
-      pushFeed(`Waypoint at (${target.x}, ${target.y}) cancelled.`, "info", "info");
+    if (state.waypoint.length > 0) {
+      const count = state.waypoint.length;
+      const targets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
+      state.waypoint = [];
+      pushFeed(`${count} waypoint${count > 1 ? "s" : ""} cancelled: ${targets}.`, "info", "info");
     }
     hideTileActionMenu();
     renderHud();
@@ -67,9 +69,10 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "clear_waypoint_and_expand_here" && selected) {
-    const oldTarget = state.waypoint?.target;
-    state.waypoint = undefined;
-    const feedPrefix = oldTarget ? `(cleared waypoint at (${oldTarget.x}, ${oldTarget.y})) ` : "";
+    const oldCount = state.waypoint.length;
+    const oldTargets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
+    state.waypoint = [];
+    const feedPrefix = oldCount > 0 ? `(cleared ${oldCount} waypoint${oldCount > 1 ? "s" : ""}: ${oldTargets}) ` : "";
     return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud }, feedPrefix);
   }
 

@@ -688,17 +688,17 @@ export const topUpFromWaypoint = (
   keyFor: (x: number, y: number) => string,
   pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
 ): boolean => {
-  const waypoint = state.waypoint;
-  if (!waypoint) return false;
+  if (state.waypoint.length === 0) return false;
   if (state.actionQueue.length > 0) return false;
   if (state.actionInFlight) return false;
 
+  const waypoint = state.waypoint[0];
   let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   if (targetTile && targetTile.ownerId === state.me) {
     pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
-    state.waypoint = undefined;
-    return false;
+    state.waypoint.shift();
+    return state.waypoint.length > 0;
   }
 
   // Barbarian tracking: if the original tile is no longer barbarian-owned,
@@ -1257,11 +1257,11 @@ export const processActionQueue = (
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     const existingCapture =
       state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
-    // Suppress the big "Capturing Territory..." overlay only for
-    // waypoint-driven EXPANDs on a neutral tile. Attacks and any error
-    // path still surface their popups; manual one-tap expands still get
-    // the overlay as their only feedback signal.
-    const silent = Boolean(next.fromWaypoint) && !to.ownerId;
+    // Suppress the big "Capturing Territory..." overlay for
+    // all EXPANDs on a neutral tile. Attacks and any error
+    // path still surface their popups; expands only paint
+    // the tile since the visual feedback is clear enough.
+    const silent = !to.ownerId;
     const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
