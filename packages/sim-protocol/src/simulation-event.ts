@@ -1,6 +1,22 @@
 import type { VisibilityState } from "@border-empires/shared";
 import type { FrontierCombatActionType, LockedFrontierCombatResult, StrategicResourceKey } from "./index.js";
 
+// Shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (see
+// simulation.proto's combat_json doc comment). Emitted once, on the target
+// tile's delta, the instant an ATTACK resolves against a defended tile — a
+// pure visual-event signal for the client's battle overlay FX, never
+// persisted as tile state. Deliberately minimal: the client only needs to
+// know who fought, which direction the attacker came from, and who won —
+// not casualty counts or survivor tallies, which stay server-only.
+export type CombatBroadcastPayload = {
+  attackerOwnerId: string;
+  defenderOwnerId: string;
+  attackerWon: boolean;
+  originX: number;
+  originY: number;
+  at: number;
+};
+
 // Extracted from index.ts (which is already over the file-line cap and may
 // not grow) so new event variants have somewhere to land without needing an
 // unrelated trim elsewhere in that file every time.
@@ -99,6 +115,8 @@ export type SimulationEvent =
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
         ownershipClearOnly?: boolean | undefined;
+        /** One-shot combat-broadcast payload — see simulation.proto's combat_json doc comment. */
+        combatJson?: string | undefined;
       }>;
     }
   | {

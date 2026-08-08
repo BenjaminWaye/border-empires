@@ -265,4 +265,6 @@ export type SimulationTileWireDelta = {
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean;
+  /** One-shot combat-broadcast payload (JSON-stringified CombatBroadcastPayload) — see simulation.proto's combat_json doc comment. */
+  combatJson?: string | undefined;
 };

@@ -54,6 +54,7 @@ export type ProtoSimulationEvent = {
     breach_shock_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
+    combat_json?: string | undefined;
   }>;
   tileDeltas?: Array<{
     x: number;
@@ -90,6 +91,7 @@ export type ProtoSimulationEvent = {
     yieldCap?: { gold: number; strategicEach: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
+    combatJson?: string | undefined;
   }>;
   count?: number;
   cancelled_command_ids?: string[];
@@ -194,7 +196,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
+          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {}),
+          ...("combatJson" in tile && tile.combatJson ? { combat_json: tile.combatJson } : {})
         }))
       : [],
   ...(value.eventType === "TILE_DELTA_BATCH"
@@ -220,7 +223,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
+          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {}),
+          ...("combatJson" in tile && tile.combatJson ? { combatJson: tile.combatJson } : {})
         }))
       }
     : {})
