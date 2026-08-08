@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786165552001, // 2026.08.08.2
+    introducedIn: "2026.08.08.2",
+    title: "Clearer Discovery tips",
+    why: "The first-seen tooltips for towns, docks, barbarians, and strategic resources were vague about what each tile actually does or how to use it.",
+    changes: [
+      "Reworded the Town, Dock, Barbarian, Food, Iron, Crystal, and Supply discovery tips to explain what the tile produces and why capturing/settling it matters."
+    ]
+  },
+  {
     createdAt: 1786165552000, // 2026.08.08.1
     introducedIn: "2026.08.08.1",
     title: "Wooden Fort renamed to Palisade",
