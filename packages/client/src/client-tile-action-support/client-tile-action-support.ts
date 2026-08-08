@@ -85,6 +85,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "AEGIS_DOME_PART";
     case "build_astral_dock_part":
       return "ASTRAL_DOCK_PART";
+    case "build_population_bureau_part":
+      return "POPULATION_BUREAU_PART";
+    case "build_iron_levy_part":
+      return "IRON_LEVY_PART";
     case "build_imperial_exchange":
       return "IMPERIAL_EXCHANGE";
     case "build_world_engine":
@@ -93,6 +97,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "AEGIS_DOME";
     case "build_astral_dock":
       return "ASTRAL_DOCK";
+    case "build_population_bureau":
+      return "POPULATION_BUREAU";
+    case "build_iron_levy":
+      return "IRON_LEVY";
     case "build_governors_office":
       return "GOVERNORS_OFFICE";
     case "build_radar_system":
@@ -171,6 +179,12 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_astral_dock":
     case "astral_dock_launch":
       return "astral-dock";
+    case "build_population_bureau_part":
+    case "build_population_bureau":
+      return "demographic-registry";
+    case "build_iron_levy_part":
+    case "build_iron_levy":
+      return "grand-levy-doctrine";
     case "reveal_empire":
       return "beacon-towers";
     case "reveal_empire_stats":

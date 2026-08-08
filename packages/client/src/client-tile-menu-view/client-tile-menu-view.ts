@@ -137,10 +137,14 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Monumental City.";
+  if (actionId === "build_population_bureau_part") return "Build one of three Population Bureau monument parts in a Great City or Monumental City.";
+  if (actionId === "build_iron_levy_part") return "Build one of three Iron Levy monument parts in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange after finishing three parts.";
   if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon after finishing three parts.";
   if (actionId === "build_aegis_dome") return "Place the final Aegis Dome after finishing three parts.";
   if (actionId === "build_astral_dock") return "Place the final Astral Dock after finishing three parts.";
+  if (actionId === "build_population_bureau") return "Place the final Population Bureau after finishing three parts.";
+  if (actionId === "build_iron_levy") return "Place the final Iron Levy after finishing three parts.";
   if (actionId === "imperial_exchange_levy") return "Choose one rival and seize 100% of their gold. Free, 24h cooldown.";
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
   if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
