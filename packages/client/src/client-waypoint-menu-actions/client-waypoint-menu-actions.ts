@@ -65,9 +65,5 @@ export const injectWaypointActions = (
   }
   const plan = waypointPlanForTile(tile, state, deps);
   if (!plan) return;
-  if (state.waypoint.length > 0) {
-    prependWaypointAction(view, { id: "clear_waypoint_and_expand_here", label: "Clear Waypoint and Expand Here", detail: formatWaypointSummary(plan) });
-  } else {
-    prependWaypointAction(view, { id: "expand_here", label: "Expand Here", detail: formatWaypointSummary(plan) });
-  }
+  prependWaypointAction(view, { id: "expand_here", label: "Add Waypoint", detail: formatWaypointSummary(plan) });
 };
