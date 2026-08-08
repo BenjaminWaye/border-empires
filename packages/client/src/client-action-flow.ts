@@ -953,7 +953,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const computeDisplayManpower = (): number => {
     let reserved = 0;
-    if (state.actionCurrent && !state.actionCurrent.ownerId) {
+    if (state.actionCurrent?.actionType === "EXPAND") {
       reserved += EXPAND_MANPOWER_COST;
     }
     for (const action of state.actionQueue) {
@@ -1230,6 +1230,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     cancelQueuedSettlement,
     cancelQueuedBuild,
     moveQueuedEntryToFront,
+    cancelOngoingCapture,
     sendGameMessage,
     applyOptimisticStructureCancel,
     clearSettlementProgressByKey,
