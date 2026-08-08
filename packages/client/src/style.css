@@ -2087,6 +2087,14 @@ body {
   align-items: center;
   justify-content: stretch;
   gap: 12px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: rgba(8, 18, 32, 0.94);
+  backdrop-filter: blur(6px);
+  padding: 10px;
+  margin: 8px -10px -10px;
+  border-radius: 0 0 12px 12px;
 }
 
 .tech-unlock-btn-modal {
