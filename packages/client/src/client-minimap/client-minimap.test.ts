@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
+import type { MiniMapContentCache } from "./client-minimap.js";
 
 let miniMapTownMarkerPalette: typeof import("./client-minimap.js").miniMapTownMarkerPalette;
 let drawMiniMap: typeof import("./client-minimap.js").drawMiniMap;
@@ -82,8 +83,10 @@ describe("drawMiniMap fog rendering", () => {
     const w = 8;
     const h = 4;
     const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
     const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
     const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
 
     drawMiniMap({
@@ -103,9 +106,12 @@ describe("drawMiniMap fog rendering", () => {
       canvas,
       miniMapEl,
       miniMapCtx: ctx,
+      miniMapContentEl,
+      miniMapContentCtx: contentCtx,
       miniMapBase,
       miniMapBaseReady: true,
-      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, drawAt: 0 },
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+      contentCache: { computedAt: 0 },
       parseKey: (key) => {
         const parts = key.split(",").map(Number);
         return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
@@ -120,7 +126,8 @@ describe("drawMiniMap fog rendering", () => {
       replayCurrentEvent: () => undefined
     });
 
-    const fogCalls = ctx.fillRectCalls.filter((c) => c.style === "#000000");
+    // Fog is part of the cached content layer, not the visible composite ctx.
+    const fogCalls = contentCtx.fillRectCalls.filter((c) => c.style === "#000000");
     expect(fogCalls).toHaveLength(h);
     for (const call of fogCalls) {
       expect(call.w).toBe(w / 2);
@@ -136,11 +143,13 @@ const ownershipTile = (overrides: Partial<Tile>): Tile => ({
   ...overrides
 });
 
-const drawMiniMapWithTiles = (ctx: ReturnType<typeof makeFakeCtx>, tiles: Map<string, Tile>): void => {
+const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles: Map<string, Tile>): void => {
   const w = 64;
   const h = 64;
+  const ctx = makeFakeCtx();
   const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
   const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+  const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
   const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
 
   drawMiniMap({
@@ -160,9 +169,12 @@ const drawMiniMapWithTiles = (ctx: ReturnType<typeof makeFakeCtx>, tiles: Map<st
     canvas,
     miniMapEl,
     miniMapCtx: ctx,
+    miniMapContentEl,
+    miniMapContentCtx: contentCtx,
     miniMapBase,
     miniMapBaseReady: true,
-    miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, drawAt: 0 },
+    miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+    contentCache: { computedAt: 0 },
     parseKey: (key) => {
       const parts = key.split(",").map(Number);
       return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
@@ -178,53 +190,53 @@ const drawMiniMapWithTiles = (ctx: ReturnType<typeof makeFakeCtx>, tiles: Map<st
 
 describe("drawMiniMap live ownership tint", () => {
   it("tints a settled owned tile with the owner color at high alpha", () => {
-    const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const tile = ownershipTile({ ownerId: "p1", ownershipState: "SETTLED" });
-    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+    drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const expectedStyle = hexWithAlpha("#3366cc", 0.9);
-    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
     expect(ownerCalls.length).toBeGreaterThan(0);
   });
 
   it("tints a frontier owned tile with the owner color at lower alpha", () => {
-    const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const tile = ownershipTile({ ownerId: "p1", ownershipState: "FRONTIER" });
-    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+    drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const expectedStyle = hexWithAlpha("#3366cc", 0.6);
-    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
     expect(ownerCalls.length).toBeGreaterThan(0);
   });
 
   it("does not tint a fogged owned tile", () => {
-    const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const tile = ownershipTile({ ownerId: "p1", ownershipState: "SETTLED", fogged: true });
-    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+    drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const settledStyle = hexWithAlpha("#3366cc", 0.9);
     const frontierStyle = hexWithAlpha("#3366cc", 0.6);
-    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
     expect(ownerCalls).toHaveLength(0);
   });
 
   it("does not tint an unowned tile", () => {
-    const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const tile = ownershipTile({});
-    drawMiniMapWithTiles(ctx, new Map([["10,10", tile]]));
+    drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const settledStyle = hexWithAlpha("#3366cc", 0.9);
     const frontierStyle = hexWithAlpha("#3366cc", 0.6);
-    const ownerCalls = ctx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
     expect(ownerCalls).toHaveLength(0);
   });
 });
 
-describe("drawMiniMap redraw throttle", () => {
+describe("drawMiniMap content-layer recompute throttle", () => {
   const baseCall = (overrides: {
     tileCount: number;
-    drawAt: number;
     nowMs: number;
+    contentCache: MiniMapContentCache;
     camX?: number;
     camY?: number;
     zoom?: number;
@@ -232,8 +244,10 @@ describe("drawMiniMap redraw throttle", () => {
     const w = 8;
     const h = 8;
     const ctx = makeFakeCtx();
+    const contentCtx = makeFakeCtx();
     const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
     const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
     const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
 
     return drawMiniMap({
@@ -241,7 +255,7 @@ describe("drawMiniMap redraw throttle", () => {
       state: {
         camX: overrides.camX ?? 5,
         camY: overrides.camY ?? 5,
-        zoom: 1,
+        zoom: overrides.zoom ?? 1,
         replayActive: false,
         replayIndex: 0,
         replayOwnershipByTile: new Map(),
@@ -253,9 +267,12 @@ describe("drawMiniMap redraw throttle", () => {
       canvas,
       miniMapEl,
       miniMapCtx: ctx,
+      miniMapContentEl,
+      miniMapContentCtx: contentCtx,
       miniMapBase,
       miniMapBaseReady: true,
-      miniMapLast: { camX: 5, camY: 5, zoom: 1, replayIndex: 0, tileCount: overrides.tileCount, drawAt: overrides.drawAt },
+      miniMapLast: { camX: 5, camY: 5, zoom: 1, replayIndex: 0, tileCount: overrides.tileCount },
+      contentCache: overrides.contentCache,
       parseKey: (key) => {
         const parts = key.split(",").map(Number);
         return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
@@ -269,21 +286,34 @@ describe("drawMiniMap redraw throttle", () => {
     });
   };
 
-  it("does not bypass the 140ms floor when only tile count changed (no camera move)", () => {
-    // tileCount differs from state.tiles.size (0) but camera is unchanged and only 10ms elapsed:
-    // a tile-discovery-only change must wait for the throttle, not redraw immediately.
-    const changed = baseCall({ tileCount: 3, drawAt: 10_000, nowMs: 10_010 });
-    expect(changed).toBe(false);
+  it("does not recompute the content layer for a tile-count-only change before the 140ms floor", () => {
+    // state.tiles is empty (size 0); miniMapLast.tileCount = 3 makes this a content-dirty call.
+    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
+    const changed = baseCall({ tileCount: 3, nowMs: 10_010, contentCache });
+    expect(changed).toBe(true); // still blits the cached content + redraws the viewport indicator
+    expect(contentCache.computedAt).toBe(10_000); // but does not recompute the expensive layer
   });
 
-  it("redraws once the 140ms floor has passed for a tile-count-only change", () => {
-    const changed = baseCall({ tileCount: 3, drawAt: 10_000, nowMs: 10_141 });
+  it("recomputes the content layer once the 140ms floor has passed for a tile-count-only change", () => {
+    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
+    const changed = baseCall({ tileCount: 3, nowMs: 10_141, contentCache });
     expect(changed).toBe(true);
+    expect(contentCache.computedAt).toBe(10_141);
   });
 
-  it("still redraws immediately on a camera move regardless of elapsed time", () => {
-    const changed = baseCall({ tileCount: 0, drawAt: 10_000, nowMs: 10_010, camX: 6 });
+  it("never triggers a content recompute on a camera/zoom-only change, however often it fires", () => {
+    // tileCount matches state.tiles.size (0): this is a pure camera move, not content-dirty.
+    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
+    const changed = baseCall({ tileCount: 0, nowMs: 10_010, camX: 6, contentCache });
+    expect(changed).toBe(true); // viewport indicator still redraws immediately
+    expect(contentCache.computedAt).toBe(10_000); // the expensive tile scans never re-run
+  });
+
+  it("always recomputes on the first draw regardless of camera/content state", () => {
+    const contentCache: MiniMapContentCache = { computedAt: 0 };
+    const changed = baseCall({ tileCount: 0, nowMs: 10_000, contentCache });
     expect(changed).toBe(true);
+    expect(contentCache.computedAt).toBe(10_000);
   });
 });
 
