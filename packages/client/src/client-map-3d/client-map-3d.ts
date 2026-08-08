@@ -63,6 +63,7 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { imperialExchangePartVariantForTile } from "../client-map-3d-structure-imperial-exchange-part.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
@@ -246,9 +247,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
   // Visual-only demo: ?structuredemo=1 fakes a row of structures two
   // tiles north of the camera so you can eyeball each mesh side-by-side
-  // without building them in-game. The MINE appears twice — once with
-  // an IRON load and once with a GEMS load — so the resource-aware
-  // mine variant is visible. Spaced one tile apart.
+  // without building them in-game. The MINE appears twice (IRON + GEMS)
+  // and the three Imperial Exchange part meshes are shown too.
   const structureDemoEnabled =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("structuredemo") === "1";
@@ -264,7 +264,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
     { kind: "SEED_GRANARY" },
-    { kind: "CENSUS_HALL" }
+    { kind: "CENSUS_HALL" },
+    { kind: "IMPERIAL_EXCHANGE_PART_LEDGER" },
+    { kind: "IMPERIAL_EXCHANGE_PART_ENGINE" },
+    { kind: "IMPERIAL_EXCHANGE_PART_SEAL" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
@@ -1527,13 +1530,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           attackOverlay.addInstance(x, z, surfaceY, incomingAttack.resolvesAt);
         }
         if (tile?.economicStructure && terrain === "LAND") {
-          const structureType = tile.economicStructure.type as string;
-          if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            const mineResourceHint =
-              structureType === "MINE" && (tileResource === "IRON" || tileResource === "GEMS")
-                ? tileResource
-                : undefined;
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHint);
+          const resolvedKind = tile.economicStructure.type === "IMPERIAL_EXCHANGE_PART" ? imperialExchangePartVariantForTile(wx, wy) : (tile.economicStructure.type as StructureKind);
+          const mineResourceHint = tile.economicStructure.type === "MINE" && (tileResource === "IRON" || tileResource === "GEMS") ? tileResource : undefined;
+          if (STRUCTURE_KINDS_HANDLED_BY_3D.has(resolvedKind as StructureKind)) {
+            structureOverlay.addInstance(x, z, surfaceY, resolvedKind as StructureKind, mineResourceHint);
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`.
